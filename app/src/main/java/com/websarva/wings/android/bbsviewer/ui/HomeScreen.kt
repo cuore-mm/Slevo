@@ -43,10 +43,11 @@ import com.websarva.wings.android.bbsviewer.ui.theme.BBSViewerTheme
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    viewModel: ThreadViewModel
 ) {
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         bottomBar = {
             HomeBottomNavigationBar(
                 navController = navController,
@@ -69,7 +70,7 @@ fun HomeScreen(
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(route = HomeList.Bookmark.name) {
-                ThreadFetcherScreen()
+                ThreadFetcherScreen(viewModel = viewModel)
             }
             composable(route = HomeList.BoardList.name) {
                 BoardListScreen()
@@ -81,16 +82,16 @@ fun HomeScreen(
 
 @Composable
 fun ThreadFetcherScreen(
-    threadViewModel: ThreadViewModel = viewModel(),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: ThreadViewModel
 ) {
-    val threadUiState by threadViewModel.uiState.collectAsState()
+    val threadUiState by viewModel.uiState.collectAsState()
 
-    Column(modifier = Modifier.padding(16.dp)) {
+    Column(modifier = modifier.padding(16.dp)) {
         ThreadUrlInput(
-            url = threadViewModel.enteredUrl,
-            onValueChange = { threadViewModel.updateTextField(it) },
-            onUrlEntered = { threadViewModel.parseUrl() }
+            url = viewModel.enteredUrl,
+            onValueChange = { viewModel.updateTextField(it) },
+            onUrlEntered = { viewModel.parseUrl() }
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -170,12 +171,13 @@ private fun HomeBottomNavigationBar(
             icon = Icons.AutoMirrored.Filled.List
         )
     )
-    NavigationBar {
+    NavigationBar(modifier = modifier) {
         topLevelRoutes.forEach { topLevelRoute ->
             NavigationBarItem(
                 icon = { Icon(topLevelRoute.icon, contentDescription = topLevelRoute.name) },
                 label = { Text(topLevelRoute.name) },
-                selected = currentDestination?.hierarchy?.any { it.route == topLevelRoute.route } == true,
+                selected =
+                    currentDestination?.hierarchy?.any { it.route == topLevelRoute.route } == true,
                 onClick = { onClick(topLevelRoute.route) }
             )
         }
@@ -198,6 +200,7 @@ private data class TopLevelRoute(
     val icon: ImageVector
 )
 
+/*
 @Preview(showBackground = true, backgroundColor = 0xFFF5F0EE)
 @Composable
 fun SearchBarPreview() {
@@ -209,3 +212,4 @@ fun SearchBarPreview() {
 fun ThreadFetcherScreenPreview() {
     ThreadFetcherScreen()
 }
+*/

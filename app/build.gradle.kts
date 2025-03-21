@@ -2,6 +2,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+
+    id("kotlin-kapt")
+    id("com.google.dagger.hilt.android")
 }
 
 android {
@@ -57,12 +60,20 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    // define a BOM and its version
-    implementation(platform(libs.okhttp.bom))
 
-    // define any required OkHttp artifacts without version
-    implementation(libs.okhttp)
-    implementation(libs.logging.interceptor)
+    //Retrofit
+    implementation (libs.com.squareup.retrofit2.retrofit)
+    implementation (libs.converter.scalars)
+    implementation (libs.okhttp3.okhttp) // Retrofit の内部で OkHttp を使用
 
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+
+    //hilt
+    implementation(libs.hilt.android)
+    kapt(libs.hilt.android.compiler)
+}
+
+// Allow references to generated code
+kapt {
+    correctErrorTypes = true
 }

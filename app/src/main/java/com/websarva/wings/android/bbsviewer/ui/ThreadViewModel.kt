@@ -5,18 +5,29 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.websarva.wings.android.bbsviewer.data.DatRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
 import java.nio.charset.Charset
+import javax.inject.Inject
 
-class ThreadViewModel : ViewModel() {
+@HiltViewModel
+class ThreadViewModel @Inject constructor(
+    private val repository: DatRepository
+) : ViewModel() {
+    private val _datContent = MutableStateFlow<String?>(null)
+    val datContent: StateFlow<String?> get() = _datContent.asStateFlow()
+
     private val _uiState = MutableStateFlow(ThreadUiState())
     val uiState: StateFlow<ThreadUiState> = _uiState.asStateFlow()
 
@@ -27,6 +38,13 @@ class ThreadViewModel : ViewModel() {
         enteredUrl = input
     }
 
+    private fun loadDat(url: String) {
+        viewModelScope.launch {
+            _datContent.value = repository.fetchDatData(url)
+            Log.i("BBSViewer", "_datContent success")
+        }
+    }
+
     fun parseUrl() {
         // URLを解析
         val parsed = parseThreadUrl(enteredUrl)
@@ -35,18 +53,16 @@ class ThreadViewModel : ViewModel() {
             val datUrl = createDatUrl(board, thread)
             Log.i("BBSViewer", datUrl)
 
-            // DATデータを取得
-            fetchDatData(datUrl) { data ->
-                if (data != null) {
-                    _uiState.update { currentState ->
-                        currentState.copy(posts = parseDat(data))
-                    }
-                } else {
-                    _uiState.update { currentState ->
-                        currentState.copy(posts = emptyList())
-                    } // エラー時は空リスト
-                    Log.i("BBSViewer", "fetchDatData failure")
+            loadDat(datUrl)
+            if (_datContent.value != null) {
+                _uiState.update { currentState ->
+                    currentState.copy(posts = parseDat(_datContent.value!!))
                 }
+            } else {
+                _uiState.update { currentState ->
+                    currentState.copy(posts = emptyList())
+                } // エラー時は空リスト
+                Log.i("BBSViewer", "fetchDatData failure")
             }
         }
     }

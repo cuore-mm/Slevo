@@ -2,6 +2,7 @@ package com.websarva.wings.android.bbsviewer.ui
 
 data class ThreadUiState(
     val threadUrl: String = "",
+    val datUrl: String = "",
     val posts: List<ThreadPost>? = null
 )
 
