@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui
+package com.websarva.wings.android.bbsviewer.ui.bookmark
 
 data class ThreadUiState(
     val threadUrl: String = "",

@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui
+package com.websarva.wings.android.bbsviewer.ui.bookmark
 
 import android.util.Log
 import androidx.compose.runtime.getValue

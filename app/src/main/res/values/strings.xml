@@ -3,4 +3,5 @@
     <string name="url">URL</string>
     <string name="bookmark">お気に入り</string>
     <string name="boardList">板一覧</string>
+    <string name="BBSList">掲示板一覧</string>
 </resources>
