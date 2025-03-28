@@ -1,21 +1,24 @@
 package com.websarva.wings.android.bbsviewer.ui
 
-import android.util.Log
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavHostController
@@ -36,6 +39,7 @@ import com.websarva.wings.android.bbsviewer.ui.bookmark.ThreadFetcherScreen
 import com.websarva.wings.android.bbsviewer.ui.bookmark.ThreadViewModel
 import kotlinx.serialization.Serializable
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
@@ -44,10 +48,25 @@ fun HomeScreen(
     bbsListViewModel: BBSListViewModel,
     topAppBarViewModel: TopAppBarViewModel
 ) {
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    // 画面遷移が発生するたびに呼ばれ、スクロール位置をリセットする
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    LaunchedEffect(navBackStackEntry) {
+        // 表示をリセット
+        scrollBehavior.state.heightOffset = 0f
+        scrollBehavior.state.contentOffset = 0f
+    }
+
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBarScreen(viewModel = topAppBarViewModel, navController = navController)
+            TopAppBarScreen(
+                viewModel = topAppBarViewModel,
+                navController = navController,
+                scrollBehavior = scrollBehavior
+            )
         },
         bottomBar = {
             HomeBottomNavigationBar(
@@ -141,7 +160,6 @@ fun NavigationSetUp(
                     isCenter = false,
                     title = categorisedBoardList.appBarTitle,
                 )
-                Log.d("NavigationSetUp", "topbarset")
                 val bbsListUiState by bbsListViewModel.uiState.collectAsState()
                 CategorisedBoardListScreen(
                     boards = bbsListUiState.boards ?: emptyList(),

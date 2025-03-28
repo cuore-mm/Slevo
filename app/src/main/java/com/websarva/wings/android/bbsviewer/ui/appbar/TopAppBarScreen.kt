@@ -6,20 +6,25 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavHostController
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopAppBarScreen(
     viewModel: TopAppBarViewModel,
     navController: NavHostController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    scrollBehavior: TopAppBarScrollBehavior? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isCenter = uiState.isCenter
@@ -34,7 +39,8 @@ fun TopAppBarScreen(
         SmallTopAppBarScreen(
             title = title1,
             onNavigateUp = { navController.navigateUp() },
-            modifier = modifier
+            modifier = modifier,
+            scrollBehavior = scrollBehavior
         )
     }
 }
@@ -57,9 +63,16 @@ fun SmallTopAppBarScreen(
     modifier: Modifier = Modifier,
     title: String,
     onNavigateUp: () -> Unit, // 戻る処理のためのコールバック
+    scrollBehavior: TopAppBarScrollBehavior? = null
 ) {
     TopAppBar(
-        title = { Text(title) },
+        title = {
+            Text(
+                text = title,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
         navigationIcon = { // 左端にボタンを追加
             IconButton(onClick = onNavigateUp) {
                 Icon(
@@ -68,7 +81,8 @@ fun SmallTopAppBarScreen(
                 )
             }
         },
-        modifier = modifier
+        modifier = modifier,
+        scrollBehavior = scrollBehavior,
     )
 }
 
@@ -80,6 +94,7 @@ fun CenterAlignedTopAppBarScreenPreview() {
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
 fun SmallTopAppBarScreenPreview() {

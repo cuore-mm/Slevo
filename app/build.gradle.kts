@@ -7,7 +7,7 @@ plugins {
     id("com.google.dagger.hilt.android")
 
     // Kotlin serialization plugin for type safe routes and navigation arguments
-    kotlin("plugin.serialization") version "2.0.21"
+    kotlin("plugin.serialization") version "2.1.0"
 }
 
 android {
@@ -65,9 +65,9 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     //Retrofit
-    implementation (libs.com.squareup.retrofit2.retrofit)
-    implementation (libs.converter.scalars)
-    implementation (libs.okhttp3.okhttp) // Retrofit の内部で OkHttp を使用
+    implementation(libs.com.squareup.retrofit2.retrofit)
+    implementation(libs.converter.scalars)
+    implementation(libs.okhttp3.okhttp) // Retrofit の内部で OkHttp を使用
 
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 
@@ -83,6 +83,10 @@ dependencies {
 
     // JSON serialization library, works with the Kotlin serialization plugin
     implementation(libs.kotlinx.serialization.json)
+
+    //Icons
+    implementation(libs.androidx.material.icons.extended)
+
 }
 
 // Allow references to generated code
