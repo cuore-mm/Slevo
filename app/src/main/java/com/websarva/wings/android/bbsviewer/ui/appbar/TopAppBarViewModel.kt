@@ -13,10 +13,8 @@ class TopAppBarViewModel @Inject constructor() : ViewModel() {
     val uiState: StateFlow<TopAppBarUiState> = _uiState.asStateFlow()
 
     fun setTopAppBar(
-        isCenter: Boolean = true,
         title: String,
     ) {
-        _uiState.value = _uiState.value.copy(isCenter = isCenter)
         _uiState.value = _uiState.value.copy(title = title)
     }
 

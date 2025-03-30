@@ -30,7 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
-import com.websarva.wings.android.bbsviewer.ui.HomeBottomNavigationBar
+import com.websarva.wings.android.bbsviewer.ui.bottombar.HomeBottomNavigationBar
 
 @Composable
 fun BBSListScreen(
@@ -114,7 +114,7 @@ fun BoardCategoryList(
 fun CategorisedBoardListScreen(
     modifier: Modifier = Modifier,
     boards: List<Board>,
-    onBoardClick: (String) -> Unit
+    onBoardClick: (Board) -> Unit
 ) {
     LazyVerticalGrid(
         modifier = modifier,
@@ -127,7 +127,7 @@ fun CategorisedBoardListScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onBoardClick(board.url) },
+                    .clickable { onBoardClick(board) },
                 shape = RoundedCornerShape(8.dp),
             ) {
                 Text(

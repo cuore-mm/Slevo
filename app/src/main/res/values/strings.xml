@@ -4,4 +4,9 @@
     <string name="bookmark">お気に入り</string>
     <string name="boardList">板一覧</string>
     <string name="BBSList">掲示板一覧</string>
+    <string name="search">検索</string>
+    <string name="refresh">更新</string>
+    <string name="create_thread">スレッド作成</string>
+    <string name="sort">並び替え</string>
+    <string name="more">その他</string>
 </resources>

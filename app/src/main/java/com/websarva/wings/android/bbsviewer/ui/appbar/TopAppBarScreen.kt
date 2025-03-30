@@ -11,49 +11,21 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.navigation.NavHostController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TopAppBarScreen(
-    viewModel: TopAppBarViewModel,
-    navController: NavHostController,
+fun HomeTopAppBarScreen(
+    title: String,
     modifier: Modifier = Modifier,
     scrollBehavior: TopAppBarScrollBehavior? = null
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val isCenter = uiState.isCenter
-    val title1 = uiState.title
-
-    if (isCenter) {
-        CenterAlignedTopAppBarScreen(
-            title = title1,
-            modifier = modifier
-        )
-    } else {
-        SmallTopAppBarScreen(
-            title = title1,
-            onNavigateUp = { navController.navigateUp() },
-            modifier = modifier,
-            scrollBehavior = scrollBehavior
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CenterAlignedTopAppBarScreen(
-    title: String,
-    modifier: Modifier = Modifier
-) {
     CenterAlignedTopAppBar(
         title = { Text(title) },
-        modifier = modifier
+        modifier = modifier,
+        scrollBehavior = scrollBehavior
     )
 }
 
@@ -86,10 +58,11 @@ fun SmallTopAppBarScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
 fun CenterAlignedTopAppBarScreenPreview() {
-    CenterAlignedTopAppBarScreen(
+    HomeTopAppBarScreen(
         title = "お気に入り"
     )
 }
