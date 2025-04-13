@@ -64,10 +64,8 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    //Retrofit
-    implementation(libs.com.squareup.retrofit2.retrofit)
-    implementation(libs.converter.scalars)
-    implementation(libs.okhttp3.okhttp) // Retrofit の内部で OkHttp を使用
+    //okhttp
+    implementation(libs.okhttp3.okhttp)
 
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 

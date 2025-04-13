@@ -1,7 +1,8 @@
-package com.websarva.wings.android.bbsviewer.ui.appbar
+package com.websarva.wings.android.bbsviewer.ui.topbar
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -59,6 +60,34 @@ fun SmallTopAppBarScreen(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ThreadTopBar(
+    modifier: Modifier = Modifier,
+    title: String,
+    scrollBehavior: TopAppBarScrollBehavior? = null
+) {
+    TopAppBar(
+        title = {
+            Text(
+                text = title,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        modifier = modifier,
+        actions = {
+            IconButton(onClick = { /* 戻る処理 */ }) {
+                Icon(
+                    imageVector = Icons.Default.Favorite,
+                    contentDescription = "お気に入り"
+                )
+            }
+        },
+        scrollBehavior = scrollBehavior,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
 fun CenterAlignedTopAppBarScreenPreview() {
@@ -74,5 +103,14 @@ fun SmallTopAppBarScreenPreview() {
     SmallTopAppBarScreen(
         title = "お気に入り",
         onNavigateUp = { /* 戻る処理 */ }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(showBackground = true)
+@Composable
+fun ThreadTopBarPreview() {
+    ThreadTopBar(
+        title = "テストスレ"
     )
 }

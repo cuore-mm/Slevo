@@ -1,34 +1,14 @@
-package com.websarva.wings.android.bbsviewer.data
+package com.websarva.wings.android.bbsviewer.data.util
 
 import android.os.Build
 import androidx.annotation.RequiresApi
 import com.websarva.wings.android.bbsviewer.ui.threadlist.ThreadDate
 import com.websarva.wings.android.bbsviewer.ui.threadlist.ThreadInfo
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.io.IOException
-import java.nio.charset.Charset
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
-import javax.inject.Inject
 
-class ThreadRepository @Inject constructor(
-    private val client: OkHttpClient
-) {
-    @Throws(IOException::class)
-    fun fetchSubjectTxt(url: String): String {
-        val request = Request.Builder().url(url).build()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw IOException("Unexpected code $response")
-            }
-            // Shift_JISでデコード
-            val bytes = response.body?.bytes() ?: throw IOException("Empty body")
-            return bytes.toString(Charset.forName("Shift_JIS"))
-        }
-    }
-
+object ThreadListParser {
     @RequiresApi(Build.VERSION_CODES.O)
     fun parseSubjectTxt(text: String): List<ThreadInfo> {
         val threads = mutableListOf<ThreadInfo>()
@@ -54,6 +34,7 @@ class ThreadRepository @Inject constructor(
         return threads
     }
 
+    //スレッドキーからスレ作成日を計算
     @RequiresApi(Build.VERSION_CODES.O)
     fun calculateThreadDate(threadKey: String): ThreadDate {
         // 数値に変換（スレッドキーはepochからの秒差）
@@ -70,12 +51,4 @@ class ThreadRepository @Inject constructor(
             minute = localDateTime.minute
         )
     }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun getThreadList(url: String): List<ThreadInfo> {
-        val subjectText = fetchSubjectTxt(url)
-        val threads = parseSubjectTxt(subjectText)
-        return threads
-    }
 }
-

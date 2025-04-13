@@ -1,7 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.threadlist
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -43,7 +42,7 @@ fun ThreadListScreen(
         ) {
             items(threads) { thread ->
                 ThreadCard(
-                    thread = thread,
+                    threadInfo = thread,
                     onClick = onClick
                 )
             }
@@ -53,13 +52,13 @@ fun ThreadListScreen(
 
 @Composable
 fun ThreadCard(
-    thread: ThreadInfo,
+    threadInfo: ThreadInfo,
     onClick: (ThreadInfo) -> Unit
 ) {
     OutlinedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = { onClick(thread) }),
+            .clickable(onClick = { onClick(threadInfo) }),
         shape = RectangleShape
     ) {
         Column(
@@ -68,16 +67,16 @@ fun ThreadCard(
                 .padding(8.dp),
         ) {
             Text(
-                text = thread.title,
+                text = threadInfo.title,
             )
             Row {
                 Text(
-                    text = thread.date.run { "$year/$month/$day $hour:%02d".format(minute) },
+                    text = threadInfo.date.run { "$year/$month/$day $hour:%02d".format(minute) },
                     style = MaterialTheme.typography.labelMedium
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
-                    text = thread.resCount.toString(),
+                    text = threadInfo.resCount.toString(),
                     style = MaterialTheme.typography.labelMedium
                 )
             }
@@ -90,7 +89,7 @@ fun ThreadCard(
 @Composable
 fun ThreadCardPreview() {
     ThreadCard(
-        thread = ThreadInfo(
+        threadInfo = ThreadInfo(
             title = "タイトル",
             key = "key",
             resCount = 10,

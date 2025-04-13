@@ -7,11 +7,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
-import com.websarva.wings.android.bbsviewer.ui.HomeScreen
+import com.websarva.wings.android.bbsviewer.ui.AppScaffold
 import com.websarva.wings.android.bbsviewer.ui.bbslist.BBSListViewModel
 import com.websarva.wings.android.bbsviewer.ui.theme.BBSViewerTheme
-import com.websarva.wings.android.bbsviewer.ui.bookmark.ThreadViewModel
-import com.websarva.wings.android.bbsviewer.ui.appbar.TopAppBarViewModel
+import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
+import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             BBSViewerTheme {
-                HomeScreen(
+                AppScaffold(
                     threadViewModel = threadViewModel,
                     bbsListViewModel = bbsListViewModel,
                     topAppBarViewModel = topAppBarViewModel,

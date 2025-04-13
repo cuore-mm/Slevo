@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.appbar
+package com.websarva.wings.android.bbsviewer.ui.topbar
 
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,10 +12,8 @@ class TopAppBarViewModel @Inject constructor() : ViewModel() {
     private val _uiState = MutableStateFlow(TopAppBarUiState())
     val uiState: StateFlow<TopAppBarUiState> = _uiState.asStateFlow()
 
-    fun setTopAppBar(
-        title: String,
-    ) {
-        _uiState.value = _uiState.value.copy(title = title)
+    fun setTopAppBar(title: String, type: AppBarType) {
+        _uiState.value = TopAppBarUiState(title, type)
     }
 
     fun addTitle(title: String):String {

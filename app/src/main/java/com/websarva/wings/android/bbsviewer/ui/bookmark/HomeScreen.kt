@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.websarva.wings.android.bbsviewer.ui.thread.ReplyInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 
 @Composable
 fun ThreadFetcherScreen(
@@ -41,7 +43,7 @@ fun ThreadFetcherScreen(
             if (it.isEmpty()) {
                 Text("スレッドが見つかりません")
             } else {
-                ThreadScreen(posts = it)
+                TmpThreadScreen(posts = it)
             }
         }
     }
@@ -73,7 +75,7 @@ fun ThreadUrlInput(
 }
 
 @Composable
-fun ThreadScreen(posts: List<ThreadPost>) {
+fun TmpThreadScreen(posts: List<ReplyInfo>) {
     LazyColumn {
         items(posts) { post ->
             Card(

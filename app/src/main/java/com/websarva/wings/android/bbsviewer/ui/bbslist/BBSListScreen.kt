@@ -20,7 +20,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,8 +28,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.compose.rememberNavController
-import com.websarva.wings.android.bbsviewer.ui.bottombar.HomeBottomNavigationBar
 
 @Composable
 fun BBSListScreen(
@@ -141,26 +138,6 @@ fun CategorisedBoardListScreen(
                 )
             }
         }
-    }
-}
-
-@Preview(showSystemUi = true)
-@Composable
-fun BBSListScreenPreview() {
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        bottomBar = {
-            HomeBottomNavigationBar(
-                navController = rememberNavController(),
-                onClick = {
-
-                }
-            )
-        }
-    ) { innerPadding ->
-        BBSListScreen(
-            modifier = Modifier.padding(innerPadding),
-            onClick = {})
     }
 }
 

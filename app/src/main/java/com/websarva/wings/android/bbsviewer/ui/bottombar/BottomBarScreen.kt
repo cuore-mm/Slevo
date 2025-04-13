@@ -1,6 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.bottombar
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -9,10 +10,13 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
@@ -20,37 +24,37 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.NavDestination
 import com.websarva.wings.android.bbsviewer.R
-import com.websarva.wings.android.bbsviewer.ui.AppRoute
+import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
+import com.websarva.wings.android.bbsviewer.ui.util.checkCurrentRoute
 
 @Composable
 fun HomeBottomNavigationBar(
-    navController: NavHostController,
+    currentDestination: NavDestination?,
     onClick: (AppRoute) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = navBackStackEntry?.destination
     val topLevelRoutes = listOf(
         TopLevelRoute(
             route = AppRoute.Bookmark,
             name = stringResource(R.string.bookmark),
             icon = Icons.Default.Favorite,
-            parentRoute = AppRoute.Bookmark
+            parentRoute = AppRoute.RouteName.BOOKMARK
         ),
         TopLevelRoute(
             route = AppRoute.BBSList,
             name = stringResource(R.string.boardList),
             icon = Icons.AutoMirrored.Filled.List,
-            parentRoute = AppRoute.RegisteredBBS
+            parentRoute = AppRoute.RouteName.REGISTERED_BBS
         )
     )
     NavigationBar(modifier = modifier) {
@@ -58,9 +62,10 @@ fun HomeBottomNavigationBar(
             NavigationBarItem(
                 icon = { Icon(topLevelRoute.icon, contentDescription = topLevelRoute.name) },
                 label = { Text(topLevelRoute.name) },
-                selected = currentDestination
-                    ?.hierarchy
-                    ?.any { it.route == topLevelRoute.parentRoute::class.qualifiedName } == true,
+                selected = checkCurrentRoute(
+                    currentDestination = currentDestination,
+                    routeNames = listOf(topLevelRoute.parentRoute)
+                ),
                 onClick = { onClick(topLevelRoute.route) }
             )
         }
@@ -71,12 +76,15 @@ private data class TopLevelRoute(
     val route: AppRoute,
     val name: String,
     val icon: ImageVector,
-    val parentRoute: AppRoute
+    val parentRoute: String
 )
 
 @Composable
 fun BoardAppBar(
+    sortOptions: List<String>,
+    onSortOptionSelected: (String) -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) }
     BottomAppBar(
         modifier = Modifier.height(56.dp),
         actions = {
@@ -84,8 +92,38 @@ fun BoardAppBar(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
+                Box {
+                    // IconButtonをクリックするとメニューが展開される
+                    IconButton(onClick = { expanded = true }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Sort,
+                            contentDescription = stringResource(R.string.sort)
+                        )
+                    }
+                    // DropdownMenuで選択肢を表示
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        sortOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option) },
+                                onClick = {
+                                    expanded = false
+                                    onSortOptionSelected(option)
+                                }
+                            )
+                        }
+                    }
+                }
                 IconButton(onClick = { /* doSomething() */ }) {
                     Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
+                }
+                IconButton(onClick = { /* doSomething() */ }) {
+                    Icon(
+                        Icons.Default.Home,
+                        contentDescription = stringResource(R.string.home)
+                    )
                 }
                 IconButton(onClick = { /* doSomething() */ }) {
                     Icon(
@@ -99,12 +137,6 @@ fun BoardAppBar(
                         contentDescription = stringResource(R.string.create_thread)
                     )
                 }
-                IconButton(onClick = { /* doSomething() */ }) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Sort,
-                        contentDescription = stringResource(R.string.sort)
-                    )
-                }
                 IconButton(onClick = {}) {
                     Icon(
                         Icons.Default.MoreHoriz,
@@ -112,6 +144,7 @@ fun BoardAppBar(
                     )
                 }
             }
+
         }
     )
 }
@@ -119,5 +152,8 @@ fun BoardAppBar(
 @Preview(showBackground = true)
 @Composable
 fun BoardAppBarPreview() {
-    BoardAppBar()
+    BoardAppBar(
+        sortOptions = listOf("Option 1", "Option 2", "Option 3"),
+        onSortOptionSelected = {}
+    )
 }

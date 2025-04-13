@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.bookmark
+package com.websarva.wings.android.bbsviewer.ui.thread
 
 import android.util.Log
 import androidx.compose.runtime.getValue
@@ -6,8 +6,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.bbsviewer.data.DatRepository
+import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
+import com.websarva.wings.android.bbsviewer.data.util.parseDat
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,8 +27,6 @@ import javax.inject.Inject
 class ThreadViewModel @Inject constructor(
     private val repository: DatRepository
 ) : ViewModel() {
-    private val _datContent = MutableStateFlow<String?>(null)
-    val datContent: StateFlow<String?> get() = _datContent.asStateFlow()
 
     private val _uiState = MutableStateFlow(ThreadUiState())
     val uiState: StateFlow<ThreadUiState> = _uiState.asStateFlow()
@@ -38,10 +38,21 @@ class ThreadViewModel @Inject constructor(
         enteredUrl = input
     }
 
-    private fun loadDat(url: String) {
-        viewModelScope.launch {
-            _datContent.value = repository.fetchDatData(url)
-            Log.i("BBSViewer", "_datContent success")
+    fun loadThread(datUrl: String) {
+        _uiState.update { it.copy(isLoading = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                _uiState.update {
+                    it.copy(
+                        posts = repository.getThread(datUrl).first,
+                        title = repository.getThread(datUrl).second ?: "",
+                        isLoading = false
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // エラー処理として、必要に応じてエラーステートを反映するなどの対応を行う
+            }
         }
     }
 
@@ -52,7 +63,7 @@ class ThreadViewModel @Inject constructor(
             val (board, thread) = parsed
             val datUrl = createDatUrl(board, thread)
             Log.i("BBSViewer", datUrl)
-
+            /*
             loadDat(datUrl)
             if (_datContent.value != null) {
                 _uiState.update { currentState ->
@@ -64,6 +75,7 @@ class ThreadViewModel @Inject constructor(
                 } // エラー時は空リスト
                 Log.i("BBSViewer", "fetchDatData failure")
             }
+             */
         }
     }
 
@@ -88,44 +100,5 @@ class ThreadViewModel @Inject constructor(
      */
     private fun createDatUrl(boardPath: String, threadId: String): String {
         return "https://$boardPath/dat/$threadId.dat"
-    }
-
-    private fun fetchDatData(datUrl: String, onResult: (String?) -> Unit) {
-        val client = OkHttpClient()
-        val request = Request.Builder().url(datUrl).build()
-
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: okhttp3.Call, e: IOException) {
-                onResult(null)
-            }
-
-            override fun onResponse(call: okhttp3.Call, response: Response) {
-                if (response.isSuccessful) {
-                    val data = response.body?.bytes()?.toString(Charset.forName("Shift_JIS"))
-                    onResult(data)
-                } else {
-                    onResult(null)
-                }
-            }
-        })
-    }
-
-    private fun parseDat(dat: String): List<ThreadPost> {
-        val regex = Regex("^(.+?)<>(.*?)<>(.*?)\\s+ID:(\\w+)<>\\s(.*)\\s<>$")
-
-        return dat.split("\n").mapNotNull { line ->
-            val match = regex.find(line)
-            if (match != null) {
-                ThreadPost(
-                    name = match.groupValues[1],  // 名前
-                    email = match.groupValues[2], // メール
-                    date = match.groupValues[3],  // 日付
-                    id = match.groupValues[4],    // ID
-                    content = match.groupValues[5] // 本文
-                )
-            } else {
-                null
-            }
-        }
     }
 }

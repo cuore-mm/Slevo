@@ -4,7 +4,8 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.bbsviewer.data.ThreadRepository
+import com.websarva.wings.android.bbsviewer.data.repository.ThreadListResult
+import com.websarva.wings.android.bbsviewer.data.repository.ThreadRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,14 +25,17 @@ class ThreadListViewModel @Inject constructor(
     val uiState: StateFlow<ThreadListUiState> = _uiState.asStateFlow()
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun loadThreads(url: String) {
+    fun loadThreadList(url: String) {
         _uiState.update { it.copy(isLoading = true) }
         val subjectUrl = "${url}subject.txt"
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 // Repositoryからsubject.txtを取得してパースした結果を取得
                 val threadListState = threadRepository.getThreadList(subjectUrl)
-                _uiState.value = ThreadListUiState(threads = threadListState)
+                if (threadListState is ThreadListResult.Updated){
+                    _uiState.value = ThreadListUiState(threads = threadListState.threads)
+                }
+
                 _uiState.update { it.copy(isLoading = false) }
             } catch (e: Exception) {
                 e.printStackTrace()

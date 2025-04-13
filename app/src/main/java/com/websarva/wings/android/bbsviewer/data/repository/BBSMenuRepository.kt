@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.data
+package com.websarva.wings.android.bbsviewer.data.repository
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.Moshi

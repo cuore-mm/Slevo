@@ -2,7 +2,7 @@ package com.websarva.wings.android.bbsviewer.ui.bbslist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.bbsviewer.data.BBSMenuRepository
+import com.websarva.wings.android.bbsviewer.data.repository.BBSMenuRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
