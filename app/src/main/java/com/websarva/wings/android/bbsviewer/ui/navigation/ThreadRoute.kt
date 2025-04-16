@@ -1,11 +1,13 @@
 package com.websarva.wings.android.bbsviewer.ui.navigation
 
+import android.util.Log
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
+import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadScreen
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 import com.websarva.wings.android.bbsviewer.ui.topbar.AppBarType
@@ -19,11 +21,17 @@ fun NavGraphBuilder.addThreadRoute(
         val uiState by viewModel.uiState.collectAsState()
         val thread: AppRoute.Thread = it.toRoute()
         topAppBarViewModel.setTopAppBar(
-            title = thread.title,
             type = AppBarType.Thread
         )
         if (uiState.posts == null) {
-            viewModel.loadThread(thread.datUrl)
+            viewModel.initializeThread(
+                datUrl = thread.datUrl,
+                boardInfo = BoardInfo(
+                    name = thread.boardName,
+                    url = thread.boardUrl
+                )
+            )
+            Log.i("ThreadRoute", thread.datUrl)
         }
         ThreadScreen(
             posts = uiState.posts ?: emptyList(),

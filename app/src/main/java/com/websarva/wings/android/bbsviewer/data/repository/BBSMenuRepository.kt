@@ -3,7 +3,7 @@ package com.websarva.wings.android.bbsviewer.data.repository
 import com.squareup.moshi.Json
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
-import com.websarva.wings.android.bbsviewer.ui.bbslist.Board
+import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.ui.bbslist.Category
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -34,7 +34,7 @@ class BBSMenuRepository @Inject constructor(
                     Category(
                         name = category.categoryName,
                         boards = category.categoryContent.map {
-                            Board(it.boardName, it.url)
+                            BoardInfo(it.boardName, it.url)
                         }
                     )
                 }

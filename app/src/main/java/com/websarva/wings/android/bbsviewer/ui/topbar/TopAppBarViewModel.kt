@@ -12,7 +12,7 @@ class TopAppBarViewModel @Inject constructor() : ViewModel() {
     private val _uiState = MutableStateFlow(TopAppBarUiState())
     val uiState: StateFlow<TopAppBarUiState> = _uiState.asStateFlow()
 
-    fun setTopAppBar(title: String, type: AppBarType) {
+    fun setTopAppBar(title: String="", type: AppBarType) {
         _uiState.value = TopAppBarUiState(title, type)
     }
 

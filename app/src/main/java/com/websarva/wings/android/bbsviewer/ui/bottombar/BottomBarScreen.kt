@@ -80,7 +80,7 @@ private data class TopLevelRoute(
 )
 
 @Composable
-fun BoardAppBar(
+fun BoardBottomBar(
     sortOptions: List<String>,
     onSortOptionSelected: (String) -> Unit
 ) {
@@ -149,10 +149,54 @@ fun BoardAppBar(
     )
 }
 
+@Composable
+fun ThreadBottomBar(
+) {
+    var expanded by remember { mutableStateOf(false) }
+    BottomAppBar(
+        modifier = Modifier.height(56.dp),
+        actions = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                IconButton(onClick = { /* doSomething() */ }) {
+                    Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
+                }
+                IconButton(onClick = { /* doSomething() */ }) {
+                    Icon(
+                        Icons.Default.Home,
+                        contentDescription = stringResource(R.string.home)
+                    )
+                }
+                IconButton(onClick = { /* doSomething() */ }) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = stringResource(R.string.refresh)
+                    )
+                }
+                IconButton(onClick = { /* doSomething() */ }) {
+                    Icon(
+                        Icons.Default.Create,
+                        contentDescription = stringResource(R.string.post)
+                    )
+                }
+                IconButton(onClick = {}) {
+                    Icon(
+                        Icons.Default.MoreHoriz,
+                        contentDescription = stringResource(R.string.more)
+                    )
+                }
+            }
+
+        }
+    )
+}
+
 @Preview(showBackground = true)
 @Composable
 fun BoardAppBarPreview() {
-    BoardAppBar(
+    BoardBottomBar(
         sortOptions = listOf("Option 1", "Option 2", "Option 3"),
         onSortOptionSelected = {}
     )

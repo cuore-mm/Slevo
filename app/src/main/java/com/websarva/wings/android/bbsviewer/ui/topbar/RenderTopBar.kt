@@ -40,8 +40,9 @@ fun RenderTopBar(
             threadViewModel?.let { viewModel ->
                 val uiState by viewModel.uiState.collectAsState()
                 ThreadTopBar(
-                    title = uiState.title,
-                    scrollBehavior = scrollBehavior
+                    scrollBehavior = scrollBehavior,
+                    onFavoriteClick = { viewModel.bookmarkThread() },
+                    uiState = uiState
                 )
             }
         }

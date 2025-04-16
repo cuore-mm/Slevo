@@ -17,6 +17,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
 import com.websarva.wings.android.bbsviewer.ui.bbslist.BBSListViewModel
+import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 import com.websarva.wings.android.bbsviewer.ui.bottombar.RenderBottomBar
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppNavGraph
@@ -28,9 +29,9 @@ import com.websarva.wings.android.bbsviewer.ui.topbar.RenderTopBar
 fun AppScaffold(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
-    threadViewModel: ThreadViewModel,
     bbsListViewModel: BBSListViewModel,
     topAppBarViewModel: TopAppBarViewModel,
+    bookmarkViewModel: BookmarkViewModel,
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     // 画面遷移が発生するたびに呼ばれ、スクロール位置をリセットする
@@ -64,9 +65,9 @@ fun AppScaffold(
         AppNavGraph(
             modifier = Modifier.padding(innerPadding),
             navController = navController,
-            threadViewModel = threadViewModel,
             bbsListViewModel = bbsListViewModel,
             topAppBarViewModel = topAppBarViewModel,
+            bookmarkViewModel = bookmarkViewModel,
         )
     }
 }

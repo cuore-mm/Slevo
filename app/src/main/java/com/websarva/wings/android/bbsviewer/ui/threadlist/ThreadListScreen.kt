@@ -20,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.websarva.wings.android.bbsviewer.data.model.ThreadDate
+import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,7 +95,7 @@ fun ThreadCardPreview() {
             title = "タイトル",
             key = "key",
             resCount = 10,
-            date = ThreadDate(2023, 1, 1, 1, 1)
+            date = ThreadDate(2023, 1, 1, 1, 1, "月")
         ),
         onClick = {}
     )

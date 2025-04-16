@@ -2,8 +2,8 @@ package com.websarva.wings.android.bbsviewer.data.repository
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.util.ThreadListParser.parseSubjectTxt
-import com.websarva.wings.android.bbsviewer.ui.threadlist.ThreadInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient

@@ -3,11 +3,15 @@ package com.websarva.wings.android.bbsviewer.ui.thread
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,9 +56,20 @@ fun PostCard(
                 .fillMaxWidth()
                 .padding(8.dp),
         ) {
-            Text(
-                text = "$postNum ${post.name} ${post.date} ${post.id}",
-            )
+            Row {
+                Text(
+                    text = postNum.toString(),
+                    modifier = Modifier.alignByBaseline(),
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "${post.name} ${post.email} ${post.date} ${post.id}",
+                    modifier = Modifier.alignByBaseline(),
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+
             Text(
                 text = post.content,
             )
@@ -67,8 +82,8 @@ fun PostCard(
 fun ReplyCardPreview() {
     PostCard(
         post = ReplyInfo(
-            name = "風吹けば名無し",
-            email = "email",
+            name = "風吹けば名無し (ｵｰﾊﾟｲW ddad-g3Sx [2001:268:98f4:c793:*])",
+            email = "sage",
             date = "1/21(月) 15:43:45.34",
             id = "testnanjj",
             content = "ガチで終わった模様"

@@ -6,8 +6,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.websarva.wings.android.bbsviewer.data.local.entity.BookmarkThreadEntity
+import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
+import com.websarva.wings.android.bbsviewer.data.repository.BookmarkRepository
 import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
-import com.websarva.wings.android.bbsviewer.data.util.parseDat
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,17 +17,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import okhttp3.Callback
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
-import java.io.IOException
-import java.nio.charset.Charset
 import javax.inject.Inject
 
 @HiltViewModel
 class ThreadViewModel @Inject constructor(
-    private val repository: DatRepository
+    private val repository: DatRepository,
+    private val bookmarkRepository: BookmarkRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ThreadUiState())
@@ -42,10 +39,10 @@ class ThreadViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                val (posts, title) = repository.getThread(datUrl)
                 _uiState.update {
                     it.copy(
-                        posts = repository.getThread(datUrl).first,
-                        title = repository.getThread(datUrl).second ?: "",
+                        posts = posts,
                         isLoading = false
                     )
                 }
@@ -100,5 +97,34 @@ class ThreadViewModel @Inject constructor(
      */
     private fun createDatUrl(boardPath: String, threadId: String): String {
         return "https://$boardPath/dat/$threadId.dat"
+    }
+
+    // お気に入り登録処理
+    fun bookmarkThread() {
+        // 現在のuiStateから情報を取得してBookmarkThreadEntityを生成
+        val currentState = _uiState.value
+        viewModelScope.launch {
+            val bookmark = BookmarkThreadEntity(
+                threadUrl = currentState.datUrl,
+                title = currentState.threadInfo.title,
+                boardName = currentState.boardInfo.name,
+                resCount = currentState.threadInfo.resCount
+            )
+            bookmarkRepository.insertBookmark(bookmark)
+        }
+    }
+
+    //画面遷移した最初に行う初期処理
+    fun initializeThread(
+        datUrl: String,
+        boardInfo: BoardInfo
+    ) {
+        _uiState.update {
+            it.copy(
+                datUrl = datUrl,
+                boardInfo = boardInfo
+            )
+        }
+        loadThread(datUrl = datUrl)
     }
 }

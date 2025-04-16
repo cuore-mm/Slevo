@@ -1,7 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.navigation
 
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,9 +36,9 @@ fun NavGraphBuilder.addThreadListRoute(
             onClick = { threadInfo ->
                 navController.navigate(
                     AppRoute.Thread(
-                        title = threadInfo.title,
                         datUrl = keyToDatUrl(threadList.boardUrl, threadInfo.key),
-                        resCount = threadInfo.resCount
+                        boardName = threadList.boardName,
+                        boardUrl = threadList.boardUrl,
                     )
                 ) {
                     launchSingleTop = true

@@ -8,6 +8,8 @@ plugins {
 
     // Kotlin serialization plugin for type safe routes and navigation arguments
     kotlin("plugin.serialization") version "2.1.0"
+
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -85,6 +87,10 @@ dependencies {
     //Icons
     implementation(libs.androidx.material.icons.extended)
 
+    //Room
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 }
 
 // Allow references to generated code

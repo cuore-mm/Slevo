@@ -2,8 +2,9 @@ package com.websarva.wings.android.bbsviewer.data.util
 
 import android.os.Build
 import androidx.annotation.RequiresApi
-import com.websarva.wings.android.bbsviewer.ui.threadlist.ThreadDate
-import com.websarva.wings.android.bbsviewer.ui.threadlist.ThreadInfo
+import com.websarva.wings.android.bbsviewer.data.model.ThreadDate
+import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -43,12 +44,23 @@ object ThreadListParser {
         // Japan Standard Time (Asia/Tokyo) を利用して日時に変換
         val localDateTime =
             LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds), ZoneId.of("Asia/Tokyo"))
+        // 曜日情報を取得し、日本語表記に変換
+        val dayOfWeek = when (localDateTime.dayOfWeek) {
+            DayOfWeek.MONDAY -> "月"
+            DayOfWeek.TUESDAY -> "火"
+            DayOfWeek.WEDNESDAY -> "水"
+            DayOfWeek.THURSDAY -> "木"
+            DayOfWeek.FRIDAY -> "金"
+            DayOfWeek.SATURDAY -> "土"
+            DayOfWeek.SUNDAY -> "日"
+        }
         return ThreadDate(
             year = localDateTime.year,
             month = localDateTime.monthValue,
             day = localDateTime.dayOfMonth,
             hour = localDateTime.hour,
-            minute = localDateTime.minute
+            minute = localDateTime.minute,
+            dayOfWeek = dayOfWeek
         )
     }
 }

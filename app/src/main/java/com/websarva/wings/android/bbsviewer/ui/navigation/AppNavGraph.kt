@@ -13,7 +13,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
 import com.websarva.wings.android.bbsviewer.ui.bbslist.BBSListViewModel
-import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
+import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 import kotlinx.serialization.Serializable
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -21,9 +21,9 @@ import kotlinx.serialization.Serializable
 fun AppNavGraph(
     modifier: Modifier = Modifier,
     navController: NavHostController,
-    threadViewModel: ThreadViewModel,
     bbsListViewModel: BBSListViewModel,
     topAppBarViewModel: TopAppBarViewModel,
+    bookmarkViewModel: BookmarkViewModel,
 ) {
 
     NavHost(
@@ -63,7 +63,8 @@ fun AppNavGraph(
         //お気に入り
         addBookmarkRoute(
             topAppBarViewModel = topAppBarViewModel,
-            threadViewModel = threadViewModel
+            bookmarkViewModel = bookmarkViewModel,
+            navController = navController
         )
         //掲示板一覧
         addRegisteredBBSNavigation(
@@ -104,7 +105,9 @@ sealed class AppRoute {
     data class ThreadList(val boardName: String, val boardUrl: String) : AppRoute()
 
     @Serializable
-    data class Thread(val title: String, val datUrl: String, val resCount: Int) : AppRoute()
+    data class Thread(
+        val datUrl: String, val boardName: String, val boardUrl: String
+    ) : AppRoute()
 
     data object RouteName {
         const val BOOKMARK = "Bookmark"

@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 
 @Composable
 fun BBSListScreen(
@@ -110,8 +111,8 @@ fun BoardCategoryList(
 @Composable
 fun CategorisedBoardListScreen(
     modifier: Modifier = Modifier,
-    boards: List<Board>,
-    onBoardClick: (Board) -> Unit
+    boards: List<BoardInfo>,
+    onBoardClick: (BoardInfo) -> Unit
 ) {
     LazyVerticalGrid(
         modifier = modifier,
@@ -145,7 +146,7 @@ fun CategorisedBoardListScreen(
 @Composable
 fun PreviewBoardCategoryList() {
     val sampleBoards = listOf(
-        Board(name = "なんJ", url = "https://example.com/thread_list")
+        BoardInfo(name = "なんJ", url = "https://example.com/thread_list")
     )
     val sampleCategories = listOf(
         Category(name = "カテゴリー1", boards = sampleBoards),
@@ -164,12 +165,12 @@ fun PreviewBoardCategoryList() {
 @Composable
 fun PreviewCategorisedBoardListScreen() {
     val sampleBoards = listOf(
-        Board(name = "board1", url = "https://example.com/thread_list"),
-        Board(name = "board2", url = "https://example.com/thread_list"),
-        Board(name = "board3", url = "https://example.com/thread_list"),
-        Board(name = "board4", url = "https://example.com/thread_list"),
-        Board(name = "board5", url = "https://example.com/thread_list"),
-        Board(name = "board6", url = "https://example.com/thread_list"),
+        BoardInfo(name = "board1", url = "https://example.com/thread_list"),
+        BoardInfo(name = "board2", url = "https://example.com/thread_list"),
+        BoardInfo(name = "board3", url = "https://example.com/thread_list"),
+        BoardInfo(name = "board4", url = "https://example.com/thread_list"),
+        BoardInfo(name = "board5", url = "https://example.com/thread_list"),
+        BoardInfo(name = "board6", url = "https://example.com/thread_list"),
     )
     CategorisedBoardListScreen(
         boards = sampleBoards,

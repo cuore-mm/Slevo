@@ -3,35 +3,69 @@ package com.websarva.wings.android.bbsviewer.data.util
 import com.websarva.wings.android.bbsviewer.ui.thread.ReplyInfo
 
 fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
-    // 各行は以下の形式とする
-    // 最初の行: 名前<>E-mail<>日付とIDとBE<>本文<>スレッドタイトル
-    // 以降の行: 名前<>E-mail<>日付とIDとBE<>本文<>
-    // 正規表現：最初の5キャプチャは各レスの要素、6番目(任意)はスレッドタイトル
-    val regex = Regex("^(.+?)<>(.*?)<>(.*?)\\s+ID:(\\w+)<>\\s(.*?)(?:<>(.*))?\$")
+    // <>で分割する単純な方法を使用
     val replies = mutableListOf<ReplyInfo>()
     var threadTitle: String? = null
 
     datContent.split("\n").forEachIndexed { index, line ->
         // 空行はスキップ
         if (line.isBlank()) return@forEachIndexed
-        val match = regex.find(line)
-        if (match != null) {
-            // 最初の行の場合、6番目のキャプチャグループにスレッドタイトルが格納される
-            if (index == 0 && match.groupValues.size >= 7) {
-                // 空文字の場合はnullにしておく（必要に応じて）
-                val title = match.groupValues[6]
-                threadTitle = if (title.isNotBlank()) title else null
+
+        val parts = line.split("<>")
+        if (parts.size >= 5) {
+            val name = cleanName(parts[0])
+            val email = parts[1]
+            // 日付とIDの部分（フォーマットが異なる場合もあるため正規表現に依存しない）
+            val dateAndId = parts[2]
+            // IDを抽出する（様々なフォーマットに対応）
+            val id = extractId(dateAndId)
+            val content = cleanContent(parts[3])
+
+            // 最初の行の場合、スレッドタイトルがある可能性がある
+            if (index == 0) {
+                threadTitle = parts[4].takeIf { it.isNotBlank() }
             }
+
             replies.add(
                 ReplyInfo(
-                    name = match.groupValues[1],
-                    email = match.groupValues[2],
-                    date = match.groupValues[3],
-                    id = match.groupValues[4],
-                    content = match.groupValues[5]
+                    name = name,
+                    email = email,
+                    date = dateAndId.replace(Regex("\\s+ID:.*$"), "").trim(), // IDの部分を除去
+                    id = id ?: "???", // ID抽出に失敗した場合のデフォルト値
+                    content = content
                 )
             )
         }
     }
     return Pair(replies, threadTitle)
+}
+
+// 不要なHTMLタグを除去する関数
+private fun cleanName(name: String): String {
+    return name.replace("<b>", "")
+        .replace("</b>", "")
+        .replace("<small>", "")
+        .replace("</small>", "")
+}
+
+private fun extractId(dateAndId: String): String? {
+    // ID:xxx形式の抽出を試みる
+    val idMatch = Regex("ID:([^\\s]+)").find(dateAndId)
+    return idMatch?.groupValues?.get(1)
+}
+
+// content内の <br> を改行に置き換える関数
+private fun cleanContent(content: String): String {
+    // <br> タグを改行に置き換え
+    var result =
+        if (content.contains(" <br> ")) {
+            content.replace(" <br> ", "\n")
+        } else {
+            content.replace("<br>", "\n")
+        }
+
+    // 最初と最後のスペースを削除
+    result = result.substring(1)
+    result = result.substring(0, result.length - 1)
+    return result
 }

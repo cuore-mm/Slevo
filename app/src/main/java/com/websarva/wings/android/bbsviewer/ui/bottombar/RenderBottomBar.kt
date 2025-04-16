@@ -39,9 +39,19 @@ fun RenderBottomBar(
                 AppRoute.RouteName.THREAD_LIST
             )
         ) -> {
-            BoardAppBar(
+            BoardBottomBar(
                 sortOptions = listOf("Option 1", "Option 2", "Option 3"),
                 onSortOptionSelected = {}
+            )
+        }
+
+        checkCurrentRoute(
+            currentDestination = currentDestination,
+            listOf(
+                AppRoute.RouteName.THREAD
+            )
+        ) -> {
+            ThreadBottomBar(
             )
         }
 
