@@ -1,16 +1,19 @@
 package com.websarva.wings.android.bbsviewer.ui.bottombar
 
 import androidx.compose.runtime.Composable
-import androidx.navigation.NavDestination
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
+import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.checkCurrentRoute
 
 @Composable
 fun RenderBottomBar(
     navController: NavHostController,
-    currentDestination: NavDestination?
-){
+    navBackStackEntry: NavBackStackEntry?
+) {
+    val currentDestination = navBackStackEntry?.destination
     when {
         checkCurrentRoute(
             currentDestination = currentDestination,
@@ -51,7 +54,10 @@ fun RenderBottomBar(
                 AppRoute.RouteName.THREAD
             )
         ) -> {
+            val threadViewModel: ThreadViewModel? =
+                navBackStackEntry?.let { hiltViewModel<ThreadViewModel>(it) }
             ThreadBottomBar(
+                onPostClick = { threadViewModel?.showPostDialog() },
             )
         }
 

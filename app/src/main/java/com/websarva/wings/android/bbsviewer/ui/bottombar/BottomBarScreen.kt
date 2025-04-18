@@ -151,8 +151,10 @@ fun BoardBottomBar(
 
 @Composable
 fun ThreadBottomBar(
+    modifier: Modifier= Modifier,
+    onPostClick: () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var dialogVisible by remember { mutableStateOf(false) }
     BottomAppBar(
         modifier = Modifier.height(56.dp),
         actions = {
@@ -175,7 +177,7 @@ fun ThreadBottomBar(
                         contentDescription = stringResource(R.string.refresh)
                     )
                 }
-                IconButton(onClick = { /* doSomething() */ }) {
+                IconButton(onClick = onPostClick) {
                     Icon(
                         Icons.Default.Create,
                         contentDescription = stringResource(R.string.post)

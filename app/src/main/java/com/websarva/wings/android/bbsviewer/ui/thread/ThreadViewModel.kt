@@ -9,7 +9,10 @@ import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.local.entity.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkRepository
+import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
+import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
+import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,8 +24,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ThreadViewModel @Inject constructor(
-    private val repository: DatRepository,
-    private val bookmarkRepository: BookmarkRepository
+    private val datRepository: DatRepository,
+    private val bookmarkRepository: BookmarkRepository,
+    private val postRepository: PostRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ThreadUiState())
@@ -31,15 +35,11 @@ class ThreadViewModel @Inject constructor(
     var enteredUrl by mutableStateOf("")
         private set
 
-    fun updateTextField(input: String) {
-        enteredUrl = input
-    }
-
     fun loadThread(datUrl: String) {
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val (posts, title) = repository.getThread(datUrl)
+                val (posts, title) = datRepository.getThread(datUrl)
                 _uiState.update {
                     it.copy(
                         posts = posts,
@@ -60,19 +60,6 @@ class ThreadViewModel @Inject constructor(
             val (board, thread) = parsed
             val datUrl = createDatUrl(board, thread)
             Log.i("BBSViewer", datUrl)
-            /*
-            loadDat(datUrl)
-            if (_datContent.value != null) {
-                _uiState.update { currentState ->
-                    currentState.copy(posts = parseDat(_datContent.value!!))
-                }
-            } else {
-                _uiState.update { currentState ->
-                    currentState.copy(posts = emptyList())
-                } // エラー時は空リスト
-                Log.i("BBSViewer", "fetchDatData failure")
-            }
-             */
         }
     }
 
@@ -105,7 +92,7 @@ class ThreadViewModel @Inject constructor(
         val currentState = _uiState.value
         viewModelScope.launch {
             val bookmark = BookmarkThreadEntity(
-                threadUrl = currentState.datUrl,
+                threadUrl = currentState.threadInfo.url,
                 title = currentState.threadInfo.title,
                 boardName = currentState.boardInfo.name,
                 resCount = currentState.threadInfo.resCount
@@ -116,15 +103,95 @@ class ThreadViewModel @Inject constructor(
 
     //画面遷移した最初に行う初期処理
     fun initializeThread(
+        threadKey: String,
         datUrl: String,
         boardInfo: BoardInfo
     ) {
         _uiState.update {
             it.copy(
-                datUrl = datUrl,
+                threadInfo = it.threadInfo.copy(
+                    key = threadKey,
+                    datUrl = datUrl
+                ),
                 boardInfo = boardInfo
             )
         }
         loadThread(datUrl = datUrl)
+    }
+
+    // 書き込み画面を表示
+    fun showPostDialog() {
+        _uiState.update { it.copy(postDialog = true) }
+    }
+
+    // 書き込み画面を閉じる
+    fun hidePostDialog() {
+        _uiState.update { it.copy(postDialog = false) }
+    }
+
+    // 書き込み確認画面を閉じる
+    fun hideConfirmationScreen() {
+        _uiState.update { it.copy(isConfirmationScreen = false) }
+    }
+
+    fun updatePostName(name: String) {
+        _uiState.update { it.copy(postFormState = it.postFormState.copy(name = name)) }
+    }
+
+    fun updatePostMail(mail: String) {
+        _uiState.update { it.copy(postFormState = it.postFormState.copy(mail = mail)) }
+    }
+
+    fun updatePostMessage(message: String) {
+        _uiState.update { it.copy(postFormState = it.postFormState.copy(message = message)) }
+    }
+
+    /**
+     * 初回投稿の確認フェーズを呼び出す
+     */
+    fun loadConfirmation(
+        host: String,
+        board: String,
+        threadKey: String,
+        name: String,
+        mail: String,
+        message: String
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val result =
+                postRepository.postTo5chFirstPhase(host, board, threadKey, name, mail, message)
+            val confirmationData = result
+            _uiState.update { it.copy(postConfirmation = confirmationData) }
+            _uiState.update { it.copy(isConfirmationScreen = true) }
+            _uiState.update { it.copy(isLoading = false) }
+        }
+    }
+
+    /**
+     * 2回目投稿（書き込み実行）
+     * 1回目の確認用リクエストから得た hidden パラメータと Cookie を使用して最終投稿を行う。
+     */
+    fun postTo5chSecondPhase(
+        host: String,
+        board: String,
+        threadKey: String,
+        confirmationData: ConfirmationData
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val result = postRepository.postTo5chSecondPhase(
+                host,
+                board,
+                threadKey,
+                confirmationData
+            )
+            if (result == PostResult.Success) {
+                _uiState.update { it.copy(isConfirmationScreen = false) }
+            } else {
+                // エラー処理
+            }
+            _uiState.update { it.copy(isLoading = false) }
+        }
     }
 }

@@ -106,7 +106,7 @@ sealed class AppRoute {
 
     @Serializable
     data class Thread(
-        val datUrl: String, val boardName: String, val boardUrl: String
+        val threadKey: String, val datUrl: String, val boardName: String, val boardUrl: String
     ) : AppRoute()
 
     data object RouteName {

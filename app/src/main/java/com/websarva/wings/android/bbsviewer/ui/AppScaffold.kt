@@ -18,7 +18,6 @@ import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
 import com.websarva.wings.android.bbsviewer.ui.bbslist.BBSListViewModel
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
-import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 import com.websarva.wings.android.bbsviewer.ui.bottombar.RenderBottomBar
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppNavGraph
 import com.websarva.wings.android.bbsviewer.ui.topbar.RenderTopBar
@@ -36,7 +35,6 @@ fun AppScaffold(
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     // 画面遷移が発生するたびに呼ばれ、スクロール位置をリセットする
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = navBackStackEntry?.destination
     LaunchedEffect(navBackStackEntry) {
         // 表示をリセット
         scrollBehavior.state.heightOffset = 0f
@@ -58,7 +56,7 @@ fun AppScaffold(
         bottomBar = {
             RenderBottomBar(
                 navController = navController,
-                currentDestination = currentDestination
+                navBackStackEntry = navBackStackEntry,
             )
         }
     ) { innerPadding ->

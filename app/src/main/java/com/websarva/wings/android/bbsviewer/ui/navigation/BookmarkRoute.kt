@@ -31,6 +31,7 @@ fun NavGraphBuilder.addBookmarkRoute(
                         datUrl = bookmark.threadUrl,
                         boardName = bookmark.boardName,
                         boardUrl = "",
+                        threadKey = ""
                     )
                 ) {
                     launchSingleTop = true

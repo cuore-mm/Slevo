@@ -36,6 +36,7 @@ fun NavGraphBuilder.addThreadListRoute(
             onClick = { threadInfo ->
                 navController.navigate(
                     AppRoute.Thread(
+                        threadKey = threadInfo.key,
                         datUrl = keyToDatUrl(threadList.boardUrl, threadInfo.key),
                         boardName = threadList.boardName,
                         boardUrl = threadList.boardUrl,

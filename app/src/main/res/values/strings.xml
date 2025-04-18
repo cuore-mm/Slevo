@@ -11,4 +11,6 @@
     <string name="more">その他</string>
     <string name="home">ホーム</string>
     <string name="post">書き込む</string>
+    <string name="e_mail">E-mail</string>
+    <string name="post_message">本文</string>
 </resources>
