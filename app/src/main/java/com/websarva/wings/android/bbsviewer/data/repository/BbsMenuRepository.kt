@@ -4,7 +4,6 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
-import com.websarva.wings.android.bbsviewer.ui.bbslist.Category
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -12,27 +11,33 @@ import okhttp3.Request
 import javax.inject.Inject
 import javax.inject.Singleton
 
+data class BbsMenuContent(
+    val categoryName: String,
+    val boards: List<BoardInfo>
+)
+
 @Singleton
-class BBSMenuRepository @Inject constructor(
+class BbsMenuRepository @Inject constructor(
     private val client: OkHttpClient
 ) {
-    suspend fun fetchBBSMenu(): List<Category>? {
+    suspend fun fetchBbsMenu(menuUrl: String): List<BbsMenuContent>? {
         return withContext(Dispatchers.IO) {
             try {
                 val request = Request.Builder()
-                    .url("https://menu.5ch.net/bbsmenu.json")
+                    .url(menuUrl)
                     .build()
                 val response = client.newCall(request).execute()
                 if (!response.isSuccessful) return@withContext null
 
                 val json = response.body?.string() ?: return@withContext null
+                // 以下は既存ロジックのまま
                 val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
-                val adapter = moshi.adapter(BBSMenuResponse::class.java)
+                val adapter = moshi.adapter(BbsMenuResponse::class.java)
                 val menu = adapter.fromJson(json) ?: return@withContext null
 
                 menu.menuList.map { category ->
-                    Category(
-                        name = category.categoryName,
+                    BbsMenuContent(
+                        categoryName   = category.categoryName,
                         boards = category.categoryContent.map {
                             BoardInfo(it.boardName, it.url)
                         }
@@ -44,7 +49,7 @@ class BBSMenuRepository @Inject constructor(
         }
     }
 
-    data class BBSMenuResponse(
+    data class BbsMenuResponse(
         @Json(name = "menu_list") val menuList: List<CategoryData>
     )
 

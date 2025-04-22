@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Room
 import com.websarva.wings.android.bbsviewer.data.local.AppDatabase
 import com.websarva.wings.android.bbsviewer.data.local.dao.BookmarkThreadDao
+import com.websarva.wings.android.bbsviewer.data.local.dao.BbsServiceDao
+import com.websarva.wings.android.bbsviewer.data.local.dao.CategoryDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -30,7 +32,17 @@ object DatabaseModule {
     }
 
     @Provides
-    fun provideBookmarkThreadDao(appDatabase: AppDatabase): BookmarkThreadDao {
-        return appDatabase.bookmarkThreadDao()
-    }
+    fun provideBookmarkThreadDao(
+        db: AppDatabase
+    ): BookmarkThreadDao = db.bookmarkThreadDao()
+
+    @Provides
+    fun provideBbsServiceDao(
+        db: AppDatabase
+    ): BbsServiceDao = db.bbsServiceDao()
+
+    @Provides
+    fun provideCategoryDao(
+        db: AppDatabase
+    ): CategoryDao = db.categoryDao()
 }

@@ -9,6 +9,7 @@ enum class AppBarType {
     Home,
     HomeWithScroll,
     Small,
+    BBSList,
     Thread,
     None
 }

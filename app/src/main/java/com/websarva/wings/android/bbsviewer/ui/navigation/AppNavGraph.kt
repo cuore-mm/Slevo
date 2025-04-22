@@ -11,8 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import com.websarva.wings.android.bbsviewer.ui.bbslist.board.BbsBoardViewModel
+import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BbsCategoryViewModel
 import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
-import com.websarva.wings.android.bbsviewer.ui.bbslist.BBSListViewModel
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.BbsServiceViewModel
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 import kotlinx.serialization.Serializable
 
@@ -21,11 +23,13 @@ import kotlinx.serialization.Serializable
 fun AppNavGraph(
     modifier: Modifier = Modifier,
     navController: NavHostController,
-    bbsListViewModel: BBSListViewModel,
     topAppBarViewModel: TopAppBarViewModel,
     bookmarkViewModel: BookmarkViewModel,
+    bbsServiceViewModel: BbsServiceViewModel,
+    bbsCategoryViewModel: BbsCategoryViewModel,
+    bbsBoardViewModel: BbsBoardViewModel
 ) {
-
+    val TIME= 300
     NavHost(
         navController = navController,
         startDestination = AppRoute.Bookmark,
@@ -35,29 +39,29 @@ fun AppNavGraph(
             slideInHorizontally(
                 // 画面全体の幅分右から開始
                 initialOffsetX = { fullWidth -> fullWidth },
-                animationSpec = tween(durationMillis = 300)
-            ) + fadeIn(animationSpec = tween(durationMillis = 300))
+                animationSpec = tween(durationMillis = TIME)
+            ) + fadeIn(animationSpec = tween(durationMillis = TIME))
         },
         // 古い画面が左へスライドアウト＋フェードアウト
         exitTransition = {
             slideOutHorizontally(
                 // 画面全体の幅分左へ退場
                 targetOffsetX = { fullWidth -> -fullWidth },
-                animationSpec = tween(durationMillis = 300)
-            ) + fadeOut(animationSpec = tween(durationMillis = 300))
+                animationSpec = tween(durationMillis = TIME)
+            ) + fadeOut(animationSpec = tween(durationMillis = TIME))
         },
         // 戻る時のアニメーション（pop）も設定するなら
         popEnterTransition = {
             slideInHorizontally(
                 initialOffsetX = { fullWidth -> -fullWidth },
-                animationSpec = tween(durationMillis = 300)
-            ) + fadeIn(animationSpec = tween(durationMillis = 300))
+                animationSpec = tween(durationMillis = TIME)
+            ) + fadeIn(animationSpec = tween(durationMillis = TIME))
         },
         popExitTransition = {
             slideOutHorizontally(
                 targetOffsetX = { fullWidth -> fullWidth },
-                animationSpec = tween(durationMillis = 300)
-            ) + fadeOut(animationSpec = tween(durationMillis = 300))
+                animationSpec = tween(durationMillis = TIME)
+            ) + fadeOut(animationSpec = tween(durationMillis = TIME))
         }
     ) {
         //お気に入り
@@ -70,7 +74,9 @@ fun AppNavGraph(
         addRegisteredBBSNavigation(
             navController = navController,
             topAppBarViewModel = topAppBarViewModel,
-            bbsListViewModel = bbsListViewModel
+            bbsServiceViewModel = bbsServiceViewModel,
+            bbsCategoryViewModel = bbsCategoryViewModel,
+            bbsBoardViewModel = bbsBoardViewModel
         )
         //スレッド一覧
         addThreadListRoute(
@@ -96,10 +102,10 @@ sealed class AppRoute {
     data object BBSList : AppRoute()
 
     @Serializable
-    data class BoardCategoryList(val appBarTitle: String) : AppRoute()
+    data class BoardCategoryList(val serviceId: String,val serviceName:String) : AppRoute()
 
     @Serializable
-    data class CategorisedBoardList(val appBarTitle: String) : AppRoute()
+    data class CategorisedBoardList(val serviceId: String,val categoryName:String) : AppRoute()
 
     @Serializable
     data class ThreadList(val boardName: String, val boardUrl: String) : AppRoute()

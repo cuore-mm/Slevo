@@ -13,4 +13,11 @@
     <string name="post">書き込む</string>
     <string name="e_mail">E-mail</string>
     <string name="post_message">本文</string>
+    <string name="open_tablist">タブ一覧を開く</string>
+    <string name="edit">編集</string>
+    <string name="cancel">キャンセル</string>
+    <string name="complete">完了</string>
+    <string name="add_board">板を追加</string>
+    <string name="prompt_enter_bbs_menu_or_board_url">BBSMenuまたは板のURLを入力してください</string>
+    <string name="add">追加</string>
 </resources>

@@ -25,7 +25,6 @@ fun NavGraphBuilder.addThreadListRoute(
         val threadListUiState by viewModel.uiState.collectAsState()
         val threadList: AppRoute.ThreadList = it.toRoute()
         topAppBarViewModel.setTopAppBar(
-            title = threadList.boardName,
             type = AppBarType.HomeWithScroll
         )
         if (threadListUiState.threads == null) {

@@ -1,19 +1,19 @@
 package com.websarva.wings.android.bbsviewer.ui.topbar
 
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -29,12 +29,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
+import com.websarva.wings.android.bbsviewer.R
+import com.websarva.wings.android.bbsviewer.ui.thread.PopUpMenu
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,6 +77,96 @@ fun SmallTopAppBarScreen(
         },
         modifier = modifier,
         scrollBehavior = scrollBehavior,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BBSListTopBarScreen(
+    modifier: Modifier = Modifier,
+    onNavigationClick: () -> Unit,
+    onEditClick: () -> Unit, // 編集処理のためのコールバック
+    onSearchClick: () -> Unit, // 検索処理のためのコールバック
+
+) {
+    CenterAlignedTopAppBar(
+        title = {
+            Text(
+                text = stringResource(R.string.BBSList),
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        navigationIcon = { // 左端にボタンを追加
+            IconButton(onClick = onNavigationClick) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ViewList,
+                    contentDescription = stringResource(R.string.open_tablist)
+                )
+            }
+        },
+        actions = {
+            IconButton(onClick = onEditClick) {
+                Icon(
+                    imageVector = Icons.Default.EditNote,
+                    contentDescription = stringResource(R.string.edit)
+                )
+            }
+            IconButton(onClick = onSearchClick) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = stringResource(R.string.search)
+                )
+            }
+        },
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditableBBSListTopBarScreen(
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+    onAddBoard: () -> Unit, // 新規掲示板追加処理のためのコールバック
+) {
+    TopAppBar(
+        navigationIcon ={
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back"
+                )
+            }
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.edit),
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        actions = {
+            Box(
+                modifier = Modifier
+                    .padding(8.dp)
+                    .clickable(onClick = onAddBoard),
+                contentAlignment = Alignment.Center
+            ) {
+                Row {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null
+                    )
+                    Text(
+                        text = stringResource(R.string.add_board),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            }
+        },
+        modifier = modifier
     )
 }
 
@@ -139,93 +229,7 @@ fun ThreadTopBar(
     }
 }
 
-@Composable
-fun PopUpMenu(
-    onDismissRequest: () -> Unit,
-    onEvaluateClick: () -> Unit,
-    onNGThreadClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    onArchiveClick: () -> Unit,
-    uiState: ThreadUiState
-) {
-    Dialog(onDismissRequest = onDismissRequest) {
-        // ダイアログの内容をCardで包むことで見た目を整える
-        Card(
-            shape = MaterialTheme.shapes.medium,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Text(
-                    text = uiState.threadInfo?.title ?: "",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-                with(uiState.threadInfo.date) {
-                    Text(
-                        text = "${year}年${month}月${day}日${dayOfWeek}曜日 $hour:%02d".format(minute),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
-                    )
-                }
-                // ★評価のボタン（例）
-                Button(
-                    onClick = {
-                        onEvaluateClick()
-                        onDismissRequest()
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        repeat(5) {
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("評価する")
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = {
-                        onNGThreadClick()
-                        onDismissRequest()
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("NGThread")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = {
-                        onDeleteClick()
-                        onDismissRequest()
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("削除")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = {
-                        onArchiveClick()
-                        onDismissRequest()
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("アーカイブ")
-                }
-            }
-        }
-    }
-}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
@@ -246,6 +250,27 @@ fun SmallTopAppBarScreenPreview() {
     )
 }
 
+// BBSListTopBarScreenのプレビュー
+@Preview(showBackground = true)
+@Composable
+fun BBSListTopBarScreenPreview() {
+    BBSListTopBarScreen(
+        onNavigationClick = { /* doSomething() */ },
+        onEditClick = { /* doSomething() */ },
+        onSearchClick = { /* doSomething() */ }
+    )
+}
+
+// EditableBBSListTopBarScreenのプレビュー
+@Preview(showBackground = true)
+@Composable
+fun EditableBBSListTopBarScreenPreview() {
+    EditableBBSListTopBarScreen(
+        onBack = { /* doSomething() */ },
+        onAddBoard = { /* doSomething() */ },
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
@@ -253,22 +278,5 @@ fun ThreadTopBarPreview() {
     ThreadTopBar(
         onFavoriteClick = { /* お気に入り処理 */ },
         uiState = ThreadUiState()
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PopUpMenuPreview() {
-    PopUpMenu(
-        onDismissRequest = { /* ダイアログを閉じる処理 */ },
-        onEvaluateClick = { /* 評価処理 */ },
-        onNGThreadClick = { /* NGスレッド処理 */ },
-        onDeleteClick = { /* 削除処理 */ },
-        onArchiveClick = { /* アーカイブ処理 */ },
-        uiState = ThreadUiState(
-            threadInfo = ThreadInfo(
-                title = "スレッドタイトル",
-            )
-        )
     )
 }

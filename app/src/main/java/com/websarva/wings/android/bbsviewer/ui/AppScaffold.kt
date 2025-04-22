@@ -15,8 +15,10 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.websarva.wings.android.bbsviewer.ui.bbslist.board.BbsBoardViewModel
+import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BbsCategoryViewModel
 import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
-import com.websarva.wings.android.bbsviewer.ui.bbslist.BBSListViewModel
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.BbsServiceViewModel
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.bottombar.RenderBottomBar
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppNavGraph
@@ -28,9 +30,11 @@ import com.websarva.wings.android.bbsviewer.ui.topbar.RenderTopBar
 fun AppScaffold(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
-    bbsListViewModel: BBSListViewModel,
     topAppBarViewModel: TopAppBarViewModel,
     bookmarkViewModel: BookmarkViewModel,
+    bbsServiceViewModel: BbsServiceViewModel,
+    bbsCategoryViewModel: BbsCategoryViewModel,
+    bbsBoardViewModel: BbsBoardViewModel
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     // 画面遷移が発生するたびに呼ばれ、スクロール位置をリセットする
@@ -50,7 +54,8 @@ fun AppScaffold(
                 navController = navController,
                 scrollBehavior = scrollBehavior,
                 topAppBarViewModel = topAppBarViewModel,
-                navBackStackEntry = navBackStackEntry
+                navBackStackEntry = navBackStackEntry,
+                bbsServiceViewModel = bbsServiceViewModel
             )
         },
         bottomBar = {
@@ -63,9 +68,11 @@ fun AppScaffold(
         AppNavGraph(
             modifier = Modifier.padding(innerPadding),
             navController = navController,
-            bbsListViewModel = bbsListViewModel,
             topAppBarViewModel = topAppBarViewModel,
             bookmarkViewModel = bookmarkViewModel,
+            bbsServiceViewModel = bbsServiceViewModel,
+            bbsCategoryViewModel = bbsCategoryViewModel,
+            bbsBoardViewModel = bbsBoardViewModel
         )
     }
 }
