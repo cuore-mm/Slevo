@@ -15,80 +15,66 @@ import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BbsCategoryListS
 import com.websarva.wings.android.bbsviewer.ui.bbslist.board.CategorisedBoardListScreen
 import com.websarva.wings.android.bbsviewer.ui.topbar.AppBarType
 import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
-import androidx.core.net.toUri
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.bbsviewer.ui.bbslist.board.BbsBoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BbsCategoryViewModel
 
 fun NavGraphBuilder.addRegisteredBBSNavigation(
     navController: NavHostController,
-    topAppBarViewModel: TopAppBarViewModel,
-    bbsServiceViewModel: BbsServiceViewModel,
-    bbsCategoryViewModel: BbsCategoryViewModel,
-    bbsBoardViewModel: BbsBoardViewModel
+    topAppBarViewModel: TopAppBarViewModel
 ) {
     navigation<AppRoute.RegisteredBBS>(
         startDestination = AppRoute.BBSList
     ) {
         //掲示板一覧
         composable<AppRoute.BBSList> {
-            val uiState by bbsServiceViewModel.uiState.collectAsState()
-            topAppBarViewModel.setTopAppBar(
-                type = AppBarType.BBSList
-            )
+            val viewModel: BbsServiceViewModel = hiltViewModel()
+            val uiState by viewModel.uiState.collectAsState()
+            topAppBarViewModel.setTopAppBar(AppBarType.BBSList)
                 BBSListScreen(
                     uiState = uiState,
                     onClick = { service ->
                         navController.navigate(
                             AppRoute.BoardCategoryList(
-                                serviceId = service.serviceId,
+                                serviceId = service.domain,
                                 serviceName = service.name
                             )
                         ) {
                             launchSingleTop = true
                         }
                     },
-                    onRemove = {},
-                    onMove = { from, to -> },
+                    onLongClick = { domain ->
+                        viewModel.toggleSelect(domain)
+                    },
                 )
 
             if (uiState.addBBSDialog) {
                 AddBbsDialog(
-                    onDismissRequest = { bbsServiceViewModel.toggleAddBBSDialog(false) },
+                    onDismissRequest = { viewModel.toggleAddBBSDialog(false) },
                     enteredUrl = uiState.enteredUrl,
-                    onUrlChange = { bbsServiceViewModel.updateEnteredUrl(it) },
-                    onCancel = { bbsServiceViewModel.toggleAddBBSDialog(false) },
+                    onUrlChange = { viewModel.updateEnteredUrl(it) },
+                    onCancel = { viewModel.toggleAddBBSDialog(false) },
                     onAdd = {
-                        val url = uiState.enteredUrl.trim()
-                        val uri = url.toUri()
-                        val host = uri.host ?: return@AddBbsDialog  // 例: "menu.5ch.net"
-                        // ドメイン部分だけ（例 "5ch.net"）にしたければ…
-                        val parts = host.split('.')
-                        val display =
-                            if (parts.size >= 2) parts.takeLast(2).joinToString(".") else host
-
-                        bbsServiceViewModel.addService(
-                            serviceId = host,
-                            displayName = display,
-                            menuUrl = url,
-                            boardUrl = null
-                        )
+                        viewModel.addService(uiState.enteredUrl)
                         // ダイアログ閉じ＆入力クリア
-                        bbsServiceViewModel.toggleAddBBSDialog(false)
-                        bbsServiceViewModel.updateEnteredUrl("")
+                        viewModel.toggleAddBBSDialog(false)
+                        viewModel.updateEnteredUrl("")
                     }
                 )
             }
         }
         //カテゴリ一覧
         composable<AppRoute.BoardCategoryList> {
-
             val bcl: AppRoute.BoardCategoryList = it.toRoute()
+
+            val viewModel: BbsCategoryViewModel = hiltViewModel()
+            val uiState by viewModel.uiState.collectAsState()
+
             topAppBarViewModel.setTopAppBar(
                 type = AppBarType.Small
             )
-            val uiState by bbsCategoryViewModel.uiState.collectAsState()
             LaunchedEffect(bcl.serviceId) {
-                bbsCategoryViewModel.loadCategoryInfo(bcl.serviceId)
+                viewModel.loadCategoryInfo(bcl.serviceId)
             }
             BbsCategoryListScreen(
                 uiState = uiState,
@@ -107,37 +93,38 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
         //カテゴリ -> 板一覧
         composable<AppRoute.CategorisedBoardList> {
             val cbl: AppRoute.CategorisedBoardList = it.toRoute()
-            val uiState by bbsBoardViewModel.uiState.collectAsState()
+            val viewModel: BbsBoardViewModel = hiltViewModel()
+            val uiState by viewModel.uiState.collectAsState()
 
             topAppBarViewModel.setTopAppBar(
                 type = AppBarType.Small
             )
-            bbsBoardViewModel.loadBoardInfo(
+            viewModel.loadBoardInfo(
                 serviceId = cbl.serviceId,
                 categoryName = cbl.categoryName
             )
             CategorisedBoardListScreen(
                 boards = uiState.boards,
-//                onBoardClick = { board ->
-//                    navController.navigate(
-//                        AppRoute.ThreadList(
-//                            boardName = board.name,
-//                            boardUrl = board.url
-//                        )
-//                    ) {
-//                        popUpTo(
-//                            AppRoute.ThreadList(
-//                                boardName = board.name,
-//                                boardUrl = board.url
-//                            )
-//                        ) {
-//                            inclusive = false
-//                            saveState = true
-//                        }
-//                        launchSingleTop = true
-//                        restoreState = true
-//                    }
-//                }
+                onBoardClick = { board ->
+                    navController.navigate(
+                        AppRoute.ThreadList(
+                            boardName = board.name,
+                            boardUrl = board.url
+                        )
+                    ) {
+                        popUpTo(
+                            AppRoute.ThreadList(
+                                boardName = board.name,
+                                boardUrl = board.url
+                            )
+                        ) {
+                            inclusive = false
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
             )
         }
     }

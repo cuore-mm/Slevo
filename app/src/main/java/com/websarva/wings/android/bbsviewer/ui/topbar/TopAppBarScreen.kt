@@ -1,16 +1,9 @@
 package com.websarva.wings.android.bbsviewer.ui.topbar
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -27,12 +20,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.thread.PopUpMenu
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadUiState
@@ -85,18 +76,12 @@ fun SmallTopAppBarScreen(
 fun BBSListTopBarScreen(
     modifier: Modifier = Modifier,
     onNavigationClick: () -> Unit,
-    onEditClick: () -> Unit, // 編集処理のためのコールバック
+    onAddClick: () -> Unit, // 編集処理のためのコールバック
     onSearchClick: () -> Unit, // 検索処理のためのコールバック
 
 ) {
     CenterAlignedTopAppBar(
-        title = {
-            Text(
-                text = stringResource(R.string.BBSList),
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium
-            )
-        },
+        title = {},
         navigationIcon = { // 左端にボタンを追加
             IconButton(onClick = onNavigationClick) {
                 Icon(
@@ -106,10 +91,10 @@ fun BBSListTopBarScreen(
             }
         },
         actions = {
-            IconButton(onClick = onEditClick) {
+            IconButton(onClick = onAddClick) {
                 Icon(
-                    imageVector = Icons.Default.EditNote,
-                    contentDescription = stringResource(R.string.edit)
+                    imageVector = Icons.Default.Add,
+                    contentDescription = stringResource(R.string.add_board)
                 )
             }
             IconButton(onClick = onSearchClick) {
@@ -125,10 +110,10 @@ fun BBSListTopBarScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditableBBSListTopBarScreen(
+fun SelectedBbsListTopBarScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
-    onAddBoard: () -> Unit, // 新規掲示板追加処理のためのコールバック
+    selectedCount: Int
 ) {
     TopAppBar(
         navigationIcon ={
@@ -141,30 +126,10 @@ fun EditableBBSListTopBarScreen(
         },
         title = {
             Text(
-                text = stringResource(R.string.edit),
+                text = "$selectedCount"+stringResource(R.string.selected_count_label),
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium
             )
-        },
-        actions = {
-            Box(
-                modifier = Modifier
-                    .padding(8.dp)
-                    .clickable(onClick = onAddBoard),
-                contentAlignment = Alignment.Center
-            ) {
-                Row {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = null
-                    )
-                    Text(
-                        text = stringResource(R.string.add_board),
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-            }
         },
         modifier = modifier
     )
@@ -256,7 +221,7 @@ fun SmallTopAppBarScreenPreview() {
 fun BBSListTopBarScreenPreview() {
     BBSListTopBarScreen(
         onNavigationClick = { /* doSomething() */ },
-        onEditClick = { /* doSomething() */ },
+        onAddClick = { /* doSomething() */ },
         onSearchClick = { /* doSomething() */ }
     )
 }
@@ -264,10 +229,10 @@ fun BBSListTopBarScreenPreview() {
 // EditableBBSListTopBarScreenのプレビュー
 @Preview(showBackground = true)
 @Composable
-fun EditableBBSListTopBarScreenPreview() {
-    EditableBBSListTopBarScreen(
+fun SelectedBbsListTopBarScreenPreview() {
+    SelectedBbsListTopBarScreen(
         onBack = { /* doSomething() */ },
-        onAddBoard = { /* doSomething() */ },
+        selectedCount = 3
     )
 }
 

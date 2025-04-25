@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.network
+package com.websarva.wings.android.bbsviewer.di
 
 import dagger.Module
 import dagger.Provides

@@ -1,50 +1,42 @@
 package com.websarva.wings.android.bbsviewer.ui.bbslist.service
 
+import android.util.Log
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.bbsviewer.data.local.entity.BbsServiceEntity
-import com.websarva.wings.android.bbsviewer.data.local.entity.BoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryWithCount
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.repository.BbsServiceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
- * BBSサービス画面の UI 状態を表すデータクラス
+ * ViewModel for the BBS service screen.
+ * - サービス一覧の取得・表示
+ * - サービス（menuUrl）追加
+ * - サービス削除
+ * - カテゴリ／ボード情報のリフレッシュ
  */
-data class BbsServiceUiState(
-    val services: List<ServiceInfo> = emptyList(),
-    val isLoading: Boolean = false,
-    val errorMessage: String? = null,
-    val editMode: Boolean = false,
-    val addBBSDialog: Boolean = false,
-    val enteredUrl: String = "",
-)
-
-data class ServiceInfo(
-    val serviceId: String,
-    val name: String,
-    val menuUrl: String? = null,
-    val boardCount: Int? = null,
-    val boardUrl: String? = null
-)
-
 @HiltViewModel
 class BbsServiceViewModel @Inject constructor(
     private val repository: BbsServiceRepository
 ) : ViewModel() {
+
+    companion object {
+        private const val TAG = "BbsServiceViewModel"
+    }
 
     private val _uiState = MutableStateFlow(BbsServiceUiState())
     val uiState: StateFlow<BbsServiceUiState> = _uiState.asStateFlow()
@@ -53,47 +45,20 @@ class BbsServiceViewModel @Inject constructor(
         loadServiceInfo()
     }
 
-    /** サービス一覧＋板数をまとめて取得 */
-    @OptIn(ExperimentalCoroutinesApi::class)
+    /**
+     * ServiceWithBoardCount を ServiceInfo にマッピングして UI に流す
+     */
     fun loadServiceInfo() {
         viewModelScope.launch {
-            repository.getAllServices()
-                // List<BbsServiceWithCategories> → Flow<List<ServiceInfo>>
-                .flatMapLatest { svcList ->
-                    // サービスごとに Flow<ServiceInfo> を作る
-                    val infoFlows: List<Flow<ServiceInfo>> = svcList.map { swc ->
-                        val svc = swc.service
-                        if (svc.menuUrl != null) {
-                            // menuUrl があればカテゴリ＋板を取得して合計数を計算
-                            repository.getCategoriesForService(svc.serviceId)
-                                .map { catsWithBoards ->
-                                    val totalBoards = catsWithBoards.sumOf { it.boards.size }
-                                    ServiceInfo(
-                                        serviceId  = svc.serviceId,
-                                        name       = svc.displayName,
-                                        menuUrl    = svc.menuUrl,
-                                        boardCount = totalBoards,
-                                        boardUrl   = svc.boardUrl
-                                    )
-                                }
-                        } else {
-                            // menuUrl が null の場合は板数も null
-                            flowOf(
-                                ServiceInfo(
-                                    serviceId  = svc.serviceId,
-                                    name       = svc.displayName,
-                                    menuUrl    = null,
-                                    boardCount = null,
-                                    boardUrl   = svc.boardUrl
-                                )
-                            )
-                        }
-                    }
-                    // infoFlows の List<Flow<ServiceInfo>> を一つの Flow<List<ServiceInfo>> にまとめる
-                    if (infoFlows.isEmpty()) {
-                        flowOf(emptyList())
-                    } else {
-                        combine(infoFlows) { infos -> infos.toList() }
+            repository.getAllServicesWithCount()
+                .map { list ->
+                    list.map { swc ->
+                        ServiceInfo(
+                            domain = swc.service.domain,
+                            name = swc.service.displayName ?: swc.service.domain,
+                            menuUrl = swc.service.menuUrl,
+                            boardCount = swc.boardCount
+                        )
                     }
                 }
                 .onStart {
@@ -102,16 +67,16 @@ class BbsServiceViewModel @Inject constructor(
                 .catch { e ->
                     _uiState.update {
                         it.copy(
-                            isLoading    = false,
+                            isLoading = false,
                             errorMessage = e.localizedMessage ?: "不明なエラー"
                         )
                     }
                 }
-                .collect { serviceInfos ->
+                .collect { infos ->
                     _uiState.update {
                         it.copy(
-                            services     = serviceInfos,
-                            isLoading    = false,
+                            services = infos,
+                            isLoading = false,
                             errorMessage = null
                         )
                     }
@@ -120,74 +85,137 @@ class BbsServiceViewModel @Inject constructor(
     }
 
     /**
-     * 新規サービス登録
+     * menuUrl を受け取り、リモートからカテゴリ・ボードを取得して一括保存
+     * @param menuUrl JSON/HTML のエンドポイント
      */
-    fun addService(
-        serviceId: String,
-        displayName: String,
-        menuUrl: String? = null,
-        boardUrl: String? = null
-    ) {
+    fun addService(menuUrl: String) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-                repository.addService(
-                    BbsServiceEntity(
-                        serviceId = serviceId,
-                        displayName = displayName,
-                        menuUrl = menuUrl,
-                        boardUrl = boardUrl
-                    )
-                )
+                repository.addService(menuUrl)
             } catch (e: Exception) {
-                _uiState.update { it.copy(errorMessage = e.localizedMessage) }
+                Log.e(TAG, "サービス追加に失敗しました: $menuUrl", e)
+                _uiState.update { it.copy(errorMessage = "サービス追加に失敗しました") }
             } finally {
                 _uiState.update { it.copy(isLoading = false) }
             }
         }
     }
 
+//    /**
+//     * 単一ボードURL を用いたサービス追加・更新
+//     * @param boardUrl 単一板の URL
+//     */
+//    fun addServiceByBoardUrl(boardUrl: String) {
+//        viewModelScope.launch {
+//            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+//            try {
+//                // domain は URL 解析で算出
+//                val uri = boardUrl.toUri()
+//                val host = uri.host ?: throw IllegalArgumentException("Invalid URL: $boardUrl")
+//                val parts = host.split('.')
+//                val domain = if (parts.size >= 2) parts.takeLast(2).joinToString(".") else host
+//
+//                // BoardUrl のみ持つエンティティを作成
+//                val service = BbsServiceEntity(
+//                    domain      = domain,
+//                    displayName = uri.pathSegments.firstOrNull(), // またはドメイン
+//                    menuUrl     = null
+//                )
+//                repository.addServiceByBoardUrl(service)
+//            } catch (e: Exception) {
+//                Log.e(TAG, "単一ボードサービス追加に失敗しました: $boardUrl", e)
+//                _uiState.update { it.copy(errorMessage = "ボード追加に失敗しました") }
+//            } finally {
+//                _uiState.update { it.copy(isLoading = false) }
+//            }
+//        }
+//    }
+
     /**
-     * サービス削除
+     * 指定サービスを削除 (CASCADE でカテゴリ・ボードも削除)
      */
     fun removeService(service: BbsServiceEntity) {
         viewModelScope.launch {
-            repository.removeService(service)
+            withContext(Dispatchers.IO) {
+                repository.removeService(service)
+            }
         }
     }
 
     /**
-     * カテゴリ・板キャッシュ更新
+     * 指定ドメインのカテゴリ件数を取得
      */
-    fun refreshCategories(serviceId: String) {
+    fun getCategoryCounts(domain: String): Flow<List<CategoryWithCount>> =
+        repository.getCategoryCounts(domain)
+
+    /**
+     * 指定カテゴリのボード一覧を取得
+     */
+    fun getBoardsForCategory(domain: String, categoryName: String) =
+        repository.getBoardsForCategory(domain, categoryName)
+
+    /**
+     * キャッシュをリフレッシュ（リモート再取得→ローカル一括置換）
+     */
+    fun refreshCategories(domain: String) {
         viewModelScope.launch {
-            repository.refreshCategories(serviceId)
+            withContext(Dispatchers.IO) {
+                repository.refreshCategories(domain)
+            }
         }
     }
 
-    /**
-     * 単一板サービスへの板追加
-     */
-    fun addBoardToService(board: BoardEntity) {
-        viewModelScope.launch {
-            repository.addBoardToService(board)
-        }
+//    /**
+//     * カテゴリをまたいだ単一ボードの追加
+//     */
+//    fun addBoardToService(board: BoardEntity) {
+//        viewModelScope.launch {
+//            repository.addBoardToService(board)
+//        }
+//    }
+
+    /** ダイアログ表示／非表示 */
+    fun toggleAddBBSDialog(show: Boolean) {
+        _uiState.update { it.copy(addBBSDialog = show) }
     }
 
-    /**
-     * 掲示板一覧の編集モードを切り替える
-     */
-    fun toggleEditMode(boolean: Boolean) {
-        _uiState.update { current ->
-            current.copy(editMode = boolean)
-        }
-    }
-
+    /** 入力 URL 更新 */
     fun updateEnteredUrl(url: String) {
         _uiState.update { it.copy(enteredUrl = url) }
     }
 
-    fun toggleAddBBSDialog(boolean: Boolean) {
-        _uiState.update { it.copy(addBBSDialog = boolean) }
+    /** 編集モード切替 */
+    fun toggleSelectMode(edit: Boolean) {
+        _uiState.update { it.copy(selectMode = edit) }
+    }
+
+    fun toggleSelect(domain: String) {
+        _uiState.update { state ->
+            val newSet = state.selected.toMutableSet().apply {
+                if (contains(domain)) remove(domain) else add(domain)
+            }
+            state.copy(selected = newSet)
+        }
+        toggleSelectMode(true)
     }
 }
+
+/** BBSサービス画面用 UI ステート */
+data class BbsServiceUiState(
+    val services: List<ServiceInfo> = emptyList(),
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+    val selectMode: Boolean = false,
+    val selected: Set<String> = emptySet(),
+    val addBBSDialog: Boolean = false,
+    val enteredUrl: String = ""
+)
+
+/** UI 表示用に整形したサービス情報 */
+data class ServiceInfo(
+    val domain: String,
+    val name: String,
+    val menuUrl: String? = null,
+    val boardCount: Int
+)

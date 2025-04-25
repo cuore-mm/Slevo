@@ -8,41 +8,28 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class BbsCategoryListUiState(
-    val categories: List<CategoryInfo> = emptyList(),
-    val isLoading: Boolean = false,
-    val errorMessage: String? = null
-)
-
-data class CategoryInfo(
-    val name: String,
-    val boardCount: Int
-)
-
+/**
+ * カテゴリ一覧画面の ViewModel
+ */
 @HiltViewModel
 class BbsCategoryViewModel @Inject constructor(
     private val repository: BbsServiceRepository
 ) : ViewModel() {
+
     private val _uiState = MutableStateFlow(BbsCategoryListUiState())
     val uiState: StateFlow<BbsCategoryListUiState> = _uiState.asStateFlow()
 
-    fun loadCategoryInfo(serviceId: String) {
+    /**
+     * 指定サービスのカテゴリごとのボード件数を取得して UI に反映
+     */
+    fun loadCategoryInfo(domain: String) {
         viewModelScope.launch {
-            repository.getCategoriesForService(serviceId)
-                .map { list ->
-                    list.map { cwb ->
-                        CategoryInfo(
-                            name = cwb.category.name,
-                            boardCount = cwb.boards.size
-                        )
-                    }
-                }
+            repository.getCategoryCounts(domain)
                 .onStart {
                     _uiState.update { it.copy(isLoading = true, errorMessage = null) }
                 }
@@ -54,15 +41,25 @@ class BbsCategoryViewModel @Inject constructor(
                         )
                     }
                 }
-                .collect { infos ->
+                .collect { list ->
+                    val infos = list.map { cwc ->
+                        CategoryInfo(name = cwc.name, boardCount = cwc.boardCount)
+                    }
                     _uiState.update {
-                        it.copy(
-                            categories = infos,
-                            isLoading = false,
-                            errorMessage = null
-                        )
+                        it.copy(categories = infos, isLoading = false, errorMessage = null)
                     }
                 }
         }
     }
 }
+
+data class BbsCategoryListUiState(
+    val categories: List<CategoryInfo> = emptyList(),
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null
+)
+
+data class CategoryInfo(
+    val name: String,
+    val boardCount: Int
+)

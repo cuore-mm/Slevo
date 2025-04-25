@@ -21,8 +21,8 @@ import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 @Composable
 fun CategorisedBoardListScreen(
     modifier: Modifier = Modifier,
-    boards:  List<BoardInfo>
-//    onBoardClick: (BoardInfo) -> Unit
+    boards:  List<BoardInfo>,
+    onBoardClick: (BoardInfo) -> Unit
 ) {
     LazyVerticalGrid(
         modifier = modifier,
@@ -35,7 +35,7 @@ fun CategorisedBoardListScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { },
+                    .clickable {onBoardClick(board) },
                 shape = RoundedCornerShape(8.dp),
             ) {
                 Text(

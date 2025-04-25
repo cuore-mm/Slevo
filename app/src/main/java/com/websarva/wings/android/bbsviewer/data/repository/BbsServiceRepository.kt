@@ -1,133 +1,131 @@
 package com.websarva.wings.android.bbsviewer.data.repository
 
-import com.websarva.wings.android.bbsviewer.data.local.dao.BbsServiceDao
-import com.websarva.wings.android.bbsviewer.data.local.dao.CategoryDao
-import com.websarva.wings.android.bbsviewer.data.local.entity.BbsServiceEntity
-import com.websarva.wings.android.bbsviewer.data.local.dao.BbsServiceWithCategories
-import com.websarva.wings.android.bbsviewer.data.local.entity.BoardEntity
-import com.websarva.wings.android.bbsviewer.data.local.entity.CategoryEntity
-import com.websarva.wings.android.bbsviewer.data.local.dao.CategoryWithBoards
+import android.util.Log
+import androidx.core.net.toUri
+import com.websarva.wings.android.bbsviewer.data.datasource.local.BbsLocalDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryWithCount
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ServiceWithBoardCount
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.BbsMenuDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.CategoryEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
- * BBSサービスとそのカテゴリ・板のキャッシュ管理を行うリポジトリ
+ * リポジトリ: BBSサービスの登録・更新・削除、およびカテゴリ・ボード情報の取得とキャッシュ管理を提供する。
  */
+@Singleton
 class BbsServiceRepository @Inject constructor(
-    private val serviceDao: BbsServiceDao,
-    private val categoryDao: CategoryDao,
-    private val networkRepo: BbsMenuRepository
+    private val local: BbsLocalDataSource,
+    private val remote: BbsMenuDataSource
 ) {
-    /**
-     * 登録済みサービスとそのキャッシュ済みカテゴリを監視取得する
-     */
-    fun getAllServices(): Flow<List<BbsServiceWithCategories>> =
-        serviceDao.getAllServicesWithCategories()
+    companion object {
+        private const val TAG = "BbsServiceRepository"
+    }
 
     /**
-     * サービスを登録または更新し、menuUrlが設定されていればカテゴリを取得してキャッシュする
+     * 登録済みサービスと、そのサービスに紐づくボード件数を取得する。
+     * @return Flow で監視可能な ServiceWithBoardCount のリスト
      */
-    suspend fun addService(service: BbsServiceEntity) = withContext(Dispatchers.IO) {
-        serviceDao.upsertService(service)
-        service.menuUrl?.let { menuUrl ->
-            // メニュー取得とキャッシュ
-            val categories = networkRepo.fetchBbsMenu(menuUrl) ?: return@let
-            // 既存キャッシュのクリア
-            categoryDao.clearBoardsFor(service.serviceId)
-            categoryDao.clearCategoriesFor(service.serviceId)
-            // エンティティへマッピング
-            val catEntities = categories.map { CategoryEntity(serviceId = service.serviceId, name = it.categoryName) }
+    fun getAllServicesWithCount(): Flow<List<ServiceWithBoardCount>> =
+        local.observeServicesWithCount()
+
+    /**
+     * 新規サービスを追加または既存サービスを更新する。
+     * @param menuUrl メニュー取得用の URL
+     * @details
+     *  - リモートからカテゴリ・ボード情報を取得し、
+     *    ドメインを抽出して BbsServiceEntity、CategoryEntity、BoardEntity にマッピング後
+     *    local.saveAll で一括保存を行う。
+     *  - 例外発生時はログに出力し、呼び出し元には例外を投げない。
+     */
+    suspend fun addService(menuUrl: String) = withContext(Dispatchers.IO) {
+        try {
+            val categories = remote.fetchBbsMenu(menuUrl) ?: emptyList()
+            val uri = menuUrl.toUri()
+            val host = uri.host ?: throw IllegalArgumentException("Invalid URL: $menuUrl")
+            val parts = host.split('.')
+            val domain = if (parts.size >= 2) parts.takeLast(2).joinToString(".") else host
+            val service = BbsServiceEntity(domain = domain, menuUrl = menuUrl)
+            val catEntities = categories.map { cat ->
+                CategoryEntity(domain = domain, name = cat.categoryName)
+            }
             val boardEntities = categories.flatMap { cat ->
                 cat.boards.map { bd ->
                     BoardEntity(
                         url = bd.url,
                         name = bd.name,
-                        serviceId = service.serviceId,
+                        domain = domain,
                         categoryName = cat.categoryName
                     )
                 }
             }
-            // Roomへ保存
-            categoryDao.insertCategories(catEntities)
-            categoryDao.insertBoards(boardEntities)
+            local.saveAll(service, catEntities, boardEntities)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to add or update service for URL: $menuUrl", e)
         }
     }
 
     /**
-     * 登録済みサービスを削除する（カテゴリと板も合わせて削除される）
+     * 指定サービスを削除する。
+     * @param service 削除対象の BbsServiceEntity
+     * @details CASCADE によって関連するカテゴリ・ボードも同時に削除される。
      */
-    suspend fun removeService(service: BbsServiceEntity) =
-        withContext(Dispatchers.IO) { serviceDao.deleteService(service) }
+    suspend fun removeService(service: BbsServiceEntity) = withContext(Dispatchers.IO) {
+        local.deleteService(service)
+    }
 
     /**
-     * 指定サービスのキャッシュ済みカテゴリおよび板を取得する
+     * 指定ドメインのカテゴリごとのボード件数を取得する。
+     * @param domain 対象サービスのドメイン
+     * @return Flow で監視可能な CategoryWithCount のリスト
      */
-    fun getCategoriesForService(serviceId: String): Flow<List<CategoryWithBoards>> =
-        categoryDao.getCategoriesWithBoards(serviceId)
-
-    /** serviceId＋categoryName から Flow<List<BoardEntity>> を返す */
-    fun getBoardsForCategory(
-        serviceId: String,
-        categoryName: String
-    ): Flow<List<BoardEntity>> =
-        categoryDao.getBoardsForCategory(serviceId, categoryName)
+    fun getCategoryCounts(domain: String): Flow<List<CategoryWithCount>> =
+        local.observeCategoryCounts(domain)
 
     /**
-     * 既存サービスのカテゴリキャッシュをネットワークから更新する
+     * 指定サービスのカテゴリ名に紐づくボード一覧を取得する。
+     * @param domain 対象サービスのドメイン
+     * @param categoryName 対象カテゴリ名
+     * @return Flow で監視可能な BoardEntity のリスト
      */
-    suspend fun refreshCategories(serviceId: String) = withContext(Dispatchers.IO) {
-        // サービス情報を取得してmenuUrlを確認
-        val service = serviceDao.getAllServicesWithCategories()
-            .map { it.firstOrNull { s -> s.service.serviceId == serviceId }?.service }
+    fun getBoardsForCategory(domain: String, categoryName: String): Flow<List<BoardEntity>> =
+        local.observeBoards(domain, categoryName)
+
+    /**
+     * リモート情報を用いて指定サービスのカテゴリ・ボード情報を更新する。
+     * @param domain 対象サービスのドメイン
+     * @details
+     *  - 現在の BbsServiceEntity を取得し、menuUrl があれば再フェッチ
+     *  - local.saveAll でトランザクション内に一括置換
+     */
+    suspend fun refreshCategories(domain: String) = withContext(Dispatchers.IO) {
+        val service = local.observeServicesWithCount()
+            .map { list -> list.firstOrNull { it.service.domain == domain }?.service }
             .first() ?: return@withContext
+
         service.menuUrl?.let { menuUrl ->
-            val categories = networkRepo.fetchBbsMenu(menuUrl) ?: return@let
-            categoryDao.clearBoardsFor(serviceId)
-            categoryDao.clearCategoriesFor(serviceId)
-            val catEntities = categories.map { CategoryEntity(serviceId, it.categoryName) }
-            val boardEntities = categories.flatMap { c ->
-                c.boards.map { b ->
+            val categories = remote.fetchBbsMenu(menuUrl) ?: return@let
+            val catEntities = categories.map {
+                CategoryEntity(domain = domain, name = it.categoryName)
+            }
+            val boardEntities = categories.flatMap { cat ->
+                cat.boards.map { bd ->
                     BoardEntity(
-                        url = b.url,
-                        name = b.name,
-                        serviceId = serviceId,
-                        categoryName = c.categoryName
+                        url = bd.url,
+                        name = bd.name,
+                        domain = domain,
+                        categoryName = cat.categoryName
                     )
                 }
             }
-            categoryDao.insertCategories(catEntities)
-            categoryDao.insertBoards(boardEntities)
+            local.saveAll(service, catEntities, boardEntities)
         }
     }
-
-    /**
-     * 単一板サービスに板を追加する
-     */
-    suspend fun addBoardToService(board: BoardEntity) = withContext(Dispatchers.IO) {
-        val category = CategoryEntity(
-            serviceId = board.serviceId,
-            name = board.categoryName
-        )
-        categoryDao.insertCategories(listOf(category))
-        categoryDao.insertBoards(listOf(board))
-    }
-
-    /**
-     * serviceId ごとの生カテゴリリストをそのまま返す
-     */
-    fun getCategoryEntities(
-        serviceId: String
-    ): Flow<List<CategoryEntity>> =
-        categoryDao.getCategoriesForService(serviceId)
-
-    fun getBoardCount(
-        serviceId: String,
-        categoryName: String
-    ): Flow<Int> =
-        categoryDao.getBoardCount(serviceId, categoryName)
 }
-

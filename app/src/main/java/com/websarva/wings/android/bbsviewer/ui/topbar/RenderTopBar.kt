@@ -15,7 +15,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.BbsServiceViewModel
+import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
+import com.websarva.wings.android.bbsviewer.ui.util.checkCurrentRoute
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,53 +26,67 @@ fun RenderTopBar(
     scrollBehavior: TopAppBarScrollBehavior,
     topAppBarViewModel: TopAppBarViewModel,
     navBackStackEntry: NavBackStackEntry?,
-    bbsServiceViewModel: BbsServiceViewModel
 ) {
+    val currentDestination = navBackStackEntry?.destination
     val topAppBarUiState by topAppBarViewModel.uiState.collectAsState()
 
-    when (topAppBarUiState.type) {
-        AppBarType.Home -> HomeTopAppBarScreen(title = topAppBarUiState.title)
-        AppBarType.HomeWithScroll -> HomeTopAppBarScreen(
-            title = topAppBarUiState.title,
-            scrollBehavior = scrollBehavior
-        )
+    when  {
+        checkCurrentRoute(
+            currentDestination = currentDestination,
+            listOf(
+                AppRoute.RouteName.BOOKMARK,
+            )
+        ) -> HomeTopAppBarScreen(title = topAppBarUiState.title)
+//        AppBarType.HomeWithScroll -> HomeTopAppBarScreen(
+//            title = topAppBarUiState.title,
+//            scrollBehavior = scrollBehavior
+//        )
 
-        AppBarType.Small -> SmallTopAppBarScreen(
-            title = topAppBarUiState.title,
-            onNavigateUp = { navController.navigateUp() },
-            scrollBehavior = scrollBehavior
-        )
+//        AppBarType.Small -> SmallTopAppBarScreen(
+//            title = topAppBarUiState.title,
+//            onNavigateUp = { navController.navigateUp() },
+//            scrollBehavior = scrollBehavior
+//        )
 
-        AppBarType.BBSList -> {
-            val uiState by bbsServiceViewModel.uiState.collectAsState()
+        checkCurrentRoute(
+             currentDestination =currentDestination,
+                listOf(AppRoute.RouteName.REGISTERED_BBS)
+        )  -> {
+            val viewModel: BbsServiceViewModel = hiltViewModel(navBackStackEntry!!)
+            val uiState by viewModel.uiState.collectAsState()
             Box {
                 // 通常モードの AppBar
                 AnimatedVisibility(
-                    visible = !uiState.editMode,
+                    visible = !uiState.selectMode,
                     enter = fadeIn(),
                     exit = fadeOut()
                 ) {
                     BBSListTopBarScreen(
                         onNavigationClick = {},
-                        onEditClick       = { bbsServiceViewModel.toggleEditMode(true) },
+                        onAddClick       = { viewModel.toggleAddBBSDialog(true) },
                         onSearchClick     = {}
                     )
                 }
                 // 編集モードの AppBar（上からスライドダウン）
                 AnimatedVisibility(
-                    visible = uiState.editMode,
+                    visible = uiState.selectMode,
                     enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
                     exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
                 ) {
-                    EditableBBSListTopBarScreen(
-                        onBack     = { bbsServiceViewModel.toggleEditMode(false) },
-                        onAddBoard = { bbsServiceViewModel.toggleAddBBSDialog(true) }
+                    SelectedBbsListTopBarScreen(
+                        onBack     = { viewModel.toggleSelectMode(false) },
+                        selectedCount = uiState.selected.size
                     )
                 }
             }
         }
 
-        AppBarType.Thread -> {
+        checkCurrentRoute(
+            currentDestination = currentDestination,
+            listOf(
+                AppRoute.RouteName.THREAD
+            )
+        ) -> {
             val threadViewModel: ThreadViewModel? =
                 navBackStackEntry?.let { hiltViewModel<ThreadViewModel>(it) }
             // threadViewModel が null でない場合にだけ処理を実施

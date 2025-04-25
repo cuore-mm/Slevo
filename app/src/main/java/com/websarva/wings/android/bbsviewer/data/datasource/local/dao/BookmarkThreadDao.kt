@@ -1,11 +1,11 @@
-package com.websarva.wings.android.bbsviewer.data.local.dao
+package com.websarva.wings.android.bbsviewer.data.datasource.local.dao
 
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import com.websarva.wings.android.bbsviewer.data.local.entity.BookmarkThreadEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao

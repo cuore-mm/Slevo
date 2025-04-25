@@ -1,6 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.bookmark
 
-import com.websarva.wings.android.bbsviewer.data.local.entity.BookmarkThreadEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
 
 data class BookmarkUiState(
     val bookmarks: List<BookmarkThreadEntity>? = null,

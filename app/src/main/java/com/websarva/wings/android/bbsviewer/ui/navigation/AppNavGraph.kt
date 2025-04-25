@@ -11,10 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
-import com.websarva.wings.android.bbsviewer.ui.bbslist.board.BbsBoardViewModel
-import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BbsCategoryViewModel
 import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
-import com.websarva.wings.android.bbsviewer.ui.bbslist.service.BbsServiceViewModel
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 import kotlinx.serialization.Serializable
 
@@ -25,9 +22,6 @@ fun AppNavGraph(
     navController: NavHostController,
     topAppBarViewModel: TopAppBarViewModel,
     bookmarkViewModel: BookmarkViewModel,
-    bbsServiceViewModel: BbsServiceViewModel,
-    bbsCategoryViewModel: BbsCategoryViewModel,
-    bbsBoardViewModel: BbsBoardViewModel
 ) {
     val TIME= 300
     NavHost(
@@ -73,10 +67,7 @@ fun AppNavGraph(
         //掲示板一覧
         addRegisteredBBSNavigation(
             navController = navController,
-            topAppBarViewModel = topAppBarViewModel,
-            bbsServiceViewModel = bbsServiceViewModel,
-            bbsCategoryViewModel = bbsCategoryViewModel,
-            bbsBoardViewModel = bbsBoardViewModel
+            topAppBarViewModel = topAppBarViewModel
         )
         //スレッド一覧
         addThreadListRoute(
