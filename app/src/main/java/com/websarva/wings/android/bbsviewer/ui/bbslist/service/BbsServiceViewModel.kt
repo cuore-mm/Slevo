@@ -41,7 +41,6 @@ class BbsServiceViewModel @Inject constructor(
 
     init {
         loadServiceInfo()
-        Log.d(TAG, "init")
     }
 
     /**

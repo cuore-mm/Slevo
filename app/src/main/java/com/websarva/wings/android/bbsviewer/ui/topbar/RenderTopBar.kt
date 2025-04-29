@@ -1,5 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.topbar
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -19,8 +21,10 @@ import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BbsCategoryViewM
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.BbsServiceViewModel
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
+import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RenderTopBar(
@@ -77,13 +81,11 @@ fun RenderTopBar(
         ) -> {
             val viewModel: BbsCategoryViewModel = hiltViewModel(navBackStackEntry!!)
             val uiState by viewModel.uiState.collectAsState()
-            Box {
-                BbsCategoryListTopBarScreen(
-                    title = uiState.serviceName,
-                    onNavigationClick = {},
-                    onSearchClick = {}
-                )
-            }
+            BbsCategoryListTopBarScreen(
+                title = uiState.serviceName,
+                onNavigationClick = {},
+                onSearchClick = {}
+            )
         }
 
         currentDestination.isInRoute(
@@ -91,13 +93,26 @@ fun RenderTopBar(
         ) -> {
             val viewModel: BbsBoardViewModel = hiltViewModel(navBackStackEntry!!)
             val uiState by viewModel.uiState.collectAsState()
-            Box {
-                BbsCategoryListTopBarScreen(
-                    title = "${uiState.serviceName} > ${uiState.categoryName}",
-                    onNavigationClick = {},
-                    onSearchClick = {}
-                )
-            }
+
+            BbsCategoryListTopBarScreen(
+                title = "${uiState.serviceName} > ${uiState.categoryName}",
+                onNavigationClick = {},
+                onSearchClick = {}
+            )
+
+        }
+
+        currentDestination.isInRoute(
+            AppRoute.RouteName.BOARD
+        ) -> {
+            val viewModel: BoardViewModel = hiltViewModel(navBackStackEntry!!)
+            val uiState by viewModel.uiState.collectAsState()
+            BoardTopBarScreen(
+                title = uiState.boardInfo.name,
+                onNavigationClick = {},
+                scrollBehavior = scrollBehavior
+            )
+
         }
 
         currentDestination.isInRoute(

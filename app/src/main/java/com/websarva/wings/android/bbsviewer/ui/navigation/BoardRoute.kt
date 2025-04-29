@@ -9,43 +9,40 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
-import com.websarva.wings.android.bbsviewer.ui.threadlist.ThreadListScreen
-import com.websarva.wings.android.bbsviewer.ui.threadlist.ThreadListViewModel
-import com.websarva.wings.android.bbsviewer.ui.topbar.AppBarType
+import com.websarva.wings.android.bbsviewer.ui.board.BoardScreen
+import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
 
 @RequiresApi(Build.VERSION_CODES.O)
-fun NavGraphBuilder.addThreadListRoute(
+fun NavGraphBuilder.addBoardRoute(
     navController: NavHostController,
     topAppBarViewModel: TopAppBarViewModel
 ) {
-    composable<AppRoute.ThreadList> {
-        val viewModel: ThreadListViewModel = hiltViewModel()
+    composable<AppRoute.Board> {
+        val board: AppRoute.Board = it.toRoute()
+
+        val viewModel: BoardViewModel = hiltViewModel(it)
         val threadListUiState by viewModel.uiState.collectAsState()
-        val threadList: AppRoute.ThreadList = it.toRoute()
-        topAppBarViewModel.setTopAppBar(
-            type = AppBarType.HomeWithScroll
-        )
-        if (threadListUiState.threads == null) {
-            viewModel.loadThreadList(threadList.boardUrl)
-        }
-        ThreadListScreen(
+
+        BoardScreen(
             threads = threadListUiState.threads ?: emptyList(),
             onClick = { threadInfo ->
                 navController.navigate(
                     AppRoute.Thread(
                         threadKey = threadInfo.key,
-                        datUrl = keyToDatUrl(threadList.boardUrl, threadInfo.key),
-                        boardName = threadList.boardName,
-                        boardUrl = threadList.boardUrl,
+                        datUrl = keyToDatUrl(board.boardUrl, threadInfo.key),
+                        boardName = board.boardName,
+                        boardUrl = board.boardUrl,
                     )
                 ) {
                     launchSingleTop = true
                 }
             },
             isRefreshing = threadListUiState.isLoading,
-            onRefresh = { viewModel.loadThreadList(threadList.boardUrl) }
+            onRefresh = {
+//                viewModel.loadThreadList(board.boardUrl)
+            }
         )
     }
 }

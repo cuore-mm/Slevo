@@ -25,4 +25,5 @@
     <string name="delete">削除</string>
     <string name="message_no_registered_bbs">登録されている掲示板がありません</string>
     <string name="settings">設定</string>
+    <string name="infomation">詳細</string>
 </resources>

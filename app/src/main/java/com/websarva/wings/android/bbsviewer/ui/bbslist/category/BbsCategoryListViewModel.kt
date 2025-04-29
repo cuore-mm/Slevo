@@ -30,8 +30,15 @@ class BbsCategoryViewModel @Inject constructor(
     )
     val uiState: StateFlow<BbsCategoryListUiState> = _uiState.asStateFlow()
 
+    init {
+        // SavedStateHandle から serviceId（domain）を取得してロード
+        savedStateHandle.get<String>("serviceId")?.let { domain ->
+            loadCategoryInfo(domain)
+        }
+    }
+
     /**
-     * 指定サービスのカテゴリごとのボード件数を取得して UI に反映
+     * 引数の domain でカテゴリ情報をロードし、uiState を更新
      */
     fun loadCategoryInfo(domain: String) {
         viewModelScope.launch {

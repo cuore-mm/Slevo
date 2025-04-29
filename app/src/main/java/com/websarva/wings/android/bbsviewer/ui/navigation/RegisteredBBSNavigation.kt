@@ -119,16 +119,13 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             val viewModel: BbsCategoryViewModel = hiltViewModel(it)
             val uiState by viewModel.uiState.collectAsState()
 
-            LaunchedEffect(bcl.serviceId) {
-                viewModel.loadCategoryInfo(bcl.serviceId)
-            }
             BbsCategoryListScreen(
                 uiState = uiState,
                 onCategoryClick = { categoryName ->
                     navController.navigate(
                         AppRoute.CategorisedBoardList(
                             serviceId = bcl.serviceId,
-                            serviceName = bcl.serviceName,
+                            serviceName = uiState.serviceName,
                             categoryName = categoryName
                         )
                     ) {
@@ -145,27 +142,21 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             popExitTransition = { defaultPopExitTransition() }
         ) {
             val cbl: AppRoute.CategorisedBoardList = it.toRoute()
+
             val viewModel: BbsBoardViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
 
-            topAppBarViewModel.setTopAppBar(
-                type = AppBarType.Small
-            )
-            viewModel.loadBoardInfo(
-                serviceId = cbl.serviceId,
-                categoryName = cbl.categoryName
-            )
             CategorisedBoardListScreen(
                 boards = uiState.boards,
                 onBoardClick = { board ->
                     navController.navigate(
-                        AppRoute.ThreadList(
+                        AppRoute.Board(
                             boardName = board.name,
                             boardUrl = board.url
                         )
                     ) {
                         popUpTo(
-                            AppRoute.ThreadList(
+                            AppRoute.Board(
                                 boardName = board.name,
                                 boardUrl = board.url
                             )

@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.threadlist
+package com.websarva.wings.android.bbsviewer.ui.board
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -25,7 +25,7 @@ import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ThreadListScreen(
+fun BoardScreen(
     modifier: Modifier = Modifier,
     threads: List<ThreadInfo>,
     onClick: (ThreadInfo) -> Unit,

@@ -43,7 +43,7 @@ fun AppNavGraph(
             topAppBarViewModel = topAppBarViewModel
         )
         //スレッド一覧
-        addThreadListRoute(
+        addBoardRoute(
             navController = navController,
             topAppBarViewModel = topAppBarViewModel
         )
@@ -81,7 +81,7 @@ sealed class AppRoute {
     ) : AppRoute()
 
     @Serializable
-    data class ThreadList(val boardName: String, val boardUrl: String) : AppRoute()
+    data class Board(val boardName: String, val boardUrl: String) : AppRoute()
 
     @Serializable
     data class Thread(
@@ -97,7 +97,7 @@ sealed class AppRoute {
         const val BBS_LIST = "BBSList"
         const val BOARD_CATEGORY_LIST = "BoardCategoryList"
         const val CATEGORISED_BOARD_LIST = "CategorisedBoardList"
-        const val THREAD_LIST = "ThreadList"
+        const val BOARD = "Board"
         const val THREAD = "Thread"
         const val SETTINGS = "Settings"
     }

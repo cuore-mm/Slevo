@@ -31,11 +31,21 @@ class BbsBoardViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(BbsBoardUiState(
-        serviceName = savedStateHandle.get<String>("serviceName") ?: "",
-        categoryName = savedStateHandle.get<String>("categoryName") ?: ""
-    ))
+    private val serviceId = savedStateHandle.get<String>("serviceId")!!
+    private val categoryName = savedStateHandle.get<String>("categoryName")!!
+
+    private val _uiState = MutableStateFlow(
+        BbsBoardUiState(
+            serviceName  = savedStateHandle.get<String>("serviceName") ?: "",
+            categoryName = categoryName
+        )
+    )
     val uiState: StateFlow<BbsBoardUiState> = _uiState.asStateFlow()
+
+    init {
+        // ViewModel の初期化時に一度だけ板一覧をロード
+        loadBoardInfo(serviceId, categoryName)
+    }
 
     /**
      * serviceId＋categoryName から板一覧を取得し、
@@ -52,7 +62,7 @@ class BbsBoardViewModel @Inject constructor(
                     list.map { boardEntity ->
                         BoardInfo(
                             name = boardEntity.name,
-                            url  = boardEntity.url
+                            url = boardEntity.url
                         )
                     }
                 }
@@ -62,7 +72,7 @@ class BbsBoardViewModel @Inject constructor(
                 .catch { e ->
                     _uiState.update {
                         it.copy(
-                            isLoading    = false,
+                            isLoading = false,
                             errorMessage = e.localizedMessage ?: "不明なエラー"
                         )
                     }
@@ -70,8 +80,8 @@ class BbsBoardViewModel @Inject constructor(
                 .collect { infos ->
                     _uiState.update {
                         it.copy(
-                            boards       = infos,
-                            isLoading    = false,
+                            boards = infos,
+                            isLoading = false,
                             errorMessage = null
                         )
                     }
