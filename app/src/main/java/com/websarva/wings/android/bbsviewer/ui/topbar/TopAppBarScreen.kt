@@ -14,6 +14,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,8 +39,10 @@ fun HomeTopAppBarScreen(
     CenterAlignedTopAppBar(
         title = { Text(title) },
         modifier = modifier,
-        scrollBehavior = scrollBehavior
-    )
+        scrollBehavior = scrollBehavior,
+        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+            containerColor            = MaterialTheme.colorScheme.primary)
+        )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,7 +76,7 @@ fun SmallTopAppBarScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BBSListTopBarScreen(
+fun BbsServiceListTopBarScreen(
     modifier: Modifier = Modifier,
     onNavigationClick: () -> Unit,
     onAddClick: () -> Unit, // 編集処理のためのコールバック
@@ -97,6 +100,42 @@ fun BBSListTopBarScreen(
                     contentDescription = stringResource(R.string.add_board)
                 )
             }
+            IconButton(onClick = onSearchClick) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = stringResource(R.string.search)
+                )
+            }
+        },
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BbsCategoryListTopBarScreen(
+    modifier: Modifier = Modifier,
+    title: String,
+    onNavigationClick: () -> Unit,
+    onSearchClick: () -> Unit, // 検索処理のためのコールバック
+) {
+    TopAppBar(
+        title = {
+            Text(
+                text = title,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        navigationIcon = { // 左端にボタンを追加
+            IconButton(onClick = onNavigationClick) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ViewList,
+                    contentDescription = stringResource(R.string.open_tablist)
+                )
+            }
+        },
+        actions = {
             IconButton(onClick = onSearchClick) {
                 Icon(
                     imageVector = Icons.Default.Search,
@@ -218,10 +257,20 @@ fun SmallTopAppBarScreenPreview() {
 // BBSListTopBarScreenのプレビュー
 @Preview(showBackground = true)
 @Composable
-fun BBSListTopBarScreenPreview() {
-    BBSListTopBarScreen(
+fun BbsServiceListTopBarScreenPreview() {
+    BbsServiceListTopBarScreen(
         onNavigationClick = { /* doSomething() */ },
         onAddClick = { /* doSomething() */ },
+        onSearchClick = { /* doSomething() */ }
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BbsCategoryListTopBarScreenPreview() {
+    BbsCategoryListTopBarScreen(
+        title = "カテゴリ",
+        onNavigationClick = { /* doSomething() */ },
         onSearchClick = { /* doSomething() */ }
     )
 }

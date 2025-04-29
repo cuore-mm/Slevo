@@ -58,15 +58,16 @@ data class CategoryEntity(
     indices = [Index(value = ["domain", "categoryName"])]
 )
 data class BoardEntity(
+    /** 自動採番ID を主キーにする */
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
     /** スレッド一覧取得用 URL（例: "https://.../dat/1234567890.dat"） */
-    @PrimaryKey val url: String,
+    val url: String,
     /** ボード名（例: "news4vip"） */
     val name: String,
     /** 所属サービスのドメイン（BbsServiceEntity.domain） */
     val domain: String,
-    /** 所属カテゴリ名（CategoryEntity.name）
-     *  単一ボードサービスの場合は null
-     */
+    /** 所属カテゴリ名（CategoryEntity.name） 単一ボードサービスの場合は null */
     val categoryName: String? = null
 )
 

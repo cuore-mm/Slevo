@@ -47,16 +47,18 @@ class BbsServiceRepository @Inject constructor(
      */
     suspend fun addService(menuUrl: String) = withContext(Dispatchers.IO) {
         try {
-            val categories = remote.fetchBbsMenu(menuUrl) ?: emptyList()
+            val allCategories  = remote.fetchBbsMenu(menuUrl) ?: emptyList()
+            // “ボードがゼロ件” のカテゴリは除外
+            val nonEmptyCategories = allCategories.filter { it.boards.isNotEmpty() }
             val uri = menuUrl.toUri()
             val host = uri.host ?: throw IllegalArgumentException("Invalid URL: $menuUrl")
             val parts = host.split('.')
             val domain = if (parts.size >= 2) parts.takeLast(2).joinToString(".") else host
             val service = BbsServiceEntity(domain = domain, menuUrl = menuUrl)
-            val catEntities = categories.map { cat ->
+            val catEntities = nonEmptyCategories.map { cat ->
                 CategoryEntity(domain = domain, name = cat.categoryName)
             }
-            val boardEntities = categories.flatMap { cat ->
+            val boardEntities = nonEmptyCategories.flatMap { cat ->
                 cat.boards.map { bd ->
                     BoardEntity(
                         url = bd.url,
@@ -73,12 +75,12 @@ class BbsServiceRepository @Inject constructor(
     }
 
     /**
-     * 指定サービスを削除する。
-     * @param service 削除対象の BbsServiceEntity
+     * 選択された複数サービスをまとめて削除する。
+     * @param domains 削除対象のサービスドメイン名リスト
      * @details CASCADE によって関連するカテゴリ・ボードも同時に削除される。
      */
-    suspend fun removeService(service: BbsServiceEntity) = withContext(Dispatchers.IO) {
-        local.deleteService(service)
+    suspend fun removeService(domains: List<String>) = withContext(Dispatchers.IO) {
+        local.deleteServices(domains)
     }
 
     /**

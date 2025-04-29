@@ -1,24 +1,33 @@
 package com.websarva.wings.android.bbsviewer.ui.bottombar
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
@@ -27,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -35,7 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
-import com.websarva.wings.android.bbsviewer.ui.util.checkCurrentRoute
+import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
 @Composable
 fun HomeBottomNavigationBar(
@@ -55,16 +65,21 @@ fun HomeBottomNavigationBar(
             name = stringResource(R.string.boardList),
             icon = Icons.AutoMirrored.Filled.List,
             parentRoute = AppRoute.RouteName.REGISTERED_BBS
-        )
+        ),
+        TopLevelRoute(
+            route = AppRoute.Settings,
+            name = stringResource(R.string.settings),
+            icon = Icons.Default.Settings,
+            parentRoute = AppRoute.RouteName.SETTINGS
+        ),
     )
     NavigationBar(modifier = modifier) {
         topLevelRoutes.forEach { topLevelRoute ->
             NavigationBarItem(
                 icon = { Icon(topLevelRoute.icon, contentDescription = topLevelRoute.name) },
                 label = { Text(topLevelRoute.name) },
-                selected = checkCurrentRoute(
-                    currentDestination = currentDestination,
-                    routeNames = listOf(topLevelRoute.parentRoute)
+                selected = currentDestination.isInRoute(
+                    topLevelRoute.parentRoute
                 ),
                 onClick = { onClick(topLevelRoute.route) }
             )
@@ -78,6 +93,59 @@ private data class TopLevelRoute(
     val icon: ImageVector,
     val parentRoute: String
 )
+
+@Composable
+fun BbsSelectBottomBar(
+    modifier: Modifier = Modifier,
+    onDelete: () -> Unit,
+    onOpen: () -> Unit
+) {
+    BottomAppBar(
+        modifier = Modifier.height(56.dp),
+        actions = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround,
+            ) {
+                BottomBarItem(
+                    icon    = Icons.Default.Delete,
+                    label   = "削除",
+                    onClick = onDelete
+                )
+                BottomBarItem(
+                    icon    = Icons.Default.OpenInBrowser,
+                    label   = "開く",
+                    onClick = onOpen
+                )
+            }
+        }
+    )
+}
+
+@Composable
+fun BottomBarItem(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector  = icon,
+            contentDescription = label,
+            modifier     = Modifier.size(24.dp)
+        )
+        Text(
+            text     = label,
+            style    = MaterialTheme.typography.labelSmall,
+            maxLines = 1
+        )
+    }
+}
 
 @Composable
 fun BoardBottomBar(
@@ -151,7 +219,7 @@ fun BoardBottomBar(
 
 @Composable
 fun ThreadBottomBar(
-    modifier: Modifier= Modifier,
+    modifier: Modifier = Modifier,
     onPostClick: () -> Unit
 ) {
     var dialogVisible by remember { mutableStateOf(false) }
@@ -197,9 +265,35 @@ fun ThreadBottomBar(
 
 @Preview(showBackground = true)
 @Composable
-fun BoardAppBarPreview() {
+fun HomeBottomNavigationBarPreview() {
+    HomeBottomNavigationBar(
+        currentDestination = null,
+        onClick = {}
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BbsSelectBottomBarPreview() {
+    BbsSelectBottomBar(
+        onDelete = {},
+        onOpen = {}
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BoardBottomBarPreview() {
     BoardBottomBar(
         sortOptions = listOf("Option 1", "Option 2", "Option 3"),
         onSortOptionSelected = {}
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ThreadBottomBarPreview() {
+    ThreadBottomBar(
+        onPostClick = {}
     )
 }

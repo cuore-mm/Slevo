@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.bbslist.category
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.repository.BbsServiceRepository
@@ -18,10 +19,15 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class BbsCategoryViewModel @Inject constructor(
-    private val repository: BbsServiceRepository
+    private val repository: BbsServiceRepository,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(BbsCategoryListUiState())
+    private val _uiState = MutableStateFlow(
+        BbsCategoryListUiState(
+            serviceName = savedStateHandle.get<String>("serviceName")!!
+        )
+    )
     val uiState: StateFlow<BbsCategoryListUiState> = _uiState.asStateFlow()
 
     /**
@@ -54,6 +60,7 @@ class BbsCategoryViewModel @Inject constructor(
 }
 
 data class BbsCategoryListUiState(
+    val serviceName: String = "",
     val categories: List<CategoryInfo> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null

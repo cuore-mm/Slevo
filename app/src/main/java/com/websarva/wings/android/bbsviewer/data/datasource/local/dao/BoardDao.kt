@@ -19,8 +19,17 @@ interface BoardDao {
      * @param categoryName カテゴリ名
      * @return BoardEntity のリストを Flow で返す
      */
-    @Query("SELECT * FROM boards WHERE domain = :domain AND categoryName = :categoryName ORDER BY name")
-    fun getBoards(domain: String, categoryName: String): Flow<List<BoardEntity>>
+    @Query("""
+    SELECT *
+      FROM boards
+     WHERE domain         = :domain
+       AND categoryName   = :categoryName
+  ORDER BY id ASC   -- ← 挿入順に並び替え
+""")
+    fun getBoards(
+        domain: String,
+        categoryName: String
+    ): Flow<List<BoardEntity>>
 
     /**
      * ボードリストを一括で挿入または更新 (同一 URL は置換)

@@ -1,7 +1,6 @@
 package com.websarva.wings.android.bbsviewer.data.datasource.local.dao
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -23,11 +22,18 @@ interface BbsServiceDao {
     suspend fun upsertService(service: BbsServiceEntity)
 
     /**
-     * 指定サービスを削除（外部キーのCASCADEにより関連カテゴリ・ボードも一括削除）
-     * @param service 削除対象のBbsServiceEntity
+     * 指定したドメインに対応する BBS サービスを削除します。（外部キーのCASCADEにより関連カテゴリ・ボードも一括削除）
+     * @param domain 削除対象のサービスのドメイン名
      */
-    @Delete
-    suspend fun deleteService(service: BbsServiceEntity)
+    @Query("DELETE FROM bbs_services WHERE domain = :domain")
+    suspend fun deleteByDomain(domain: String)
+
+    /**
+     * 指定した複数のドメインに対応する BBS サービスをまとめて削除します。（外部キーのCASCADEにより関連カテゴリ・ボードも一括削除）
+     * @param domains 削除対象とするサービスのドメイン名リスト
+     */
+    @Query("DELETE FROM bbs_services WHERE domain IN (:domains)")
+    suspend fun deleteByDomains(domains: List<String>)
 
     /**
      * サービスごとに所属ボード数を集計し、

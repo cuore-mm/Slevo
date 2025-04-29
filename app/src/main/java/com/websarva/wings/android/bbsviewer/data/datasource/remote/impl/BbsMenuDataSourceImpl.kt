@@ -130,7 +130,7 @@ class BbsMenuDataSourceImpl @Inject constructor(
                 i++
             }
 
-            return if (contents.isNotEmpty()) contents else null
+            return contents.ifEmpty { null }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse bbsmenu HTML", e)
             return null

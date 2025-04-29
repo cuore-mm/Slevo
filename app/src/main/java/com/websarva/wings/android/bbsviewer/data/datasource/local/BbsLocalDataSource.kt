@@ -25,9 +25,9 @@ interface BbsLocalDataSource {
 
     /**
      * 指定サービスを削除（Cascadeでカテゴリ・ボードも併せて削除）
-     * @param service 削除対象のBbsServiceEntity
+     * @param domains 削除対象とするサービスのドメイン名リスト
      */
-    suspend fun deleteService(service: BbsServiceEntity)
+    suspend fun deleteServices(domains: List<String>)
 
     /**
      * カテゴリ一覧を一括登録または更新

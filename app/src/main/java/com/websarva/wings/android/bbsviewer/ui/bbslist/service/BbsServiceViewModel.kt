@@ -1,12 +1,10 @@
 package com.websarva.wings.android.bbsviewer.ui.bbslist.service
 
 import android.util.Log
-import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryWithCount
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.repository.BbsServiceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -43,6 +41,7 @@ class BbsServiceViewModel @Inject constructor(
 
     init {
         loadServiceInfo()
+        Log.d(TAG, "init")
     }
 
     /**
@@ -133,13 +132,19 @@ class BbsServiceViewModel @Inject constructor(
 //    }
 
     /**
-     * 指定サービスを削除 (CASCADE でカテゴリ・ボードも削除)
+     * selected に含まれるドメインのサービスをまとめて削除する
      */
-    fun removeService(service: BbsServiceEntity) {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                repository.removeService(service)
+    fun removeService() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val toRemove = _uiState.value.selected.toList()
+            viewModelScope.launch {
+                repository.removeService(toRemove)
+                _uiState.update { it.copy(selectMode = false, selected = emptySet()) }
             }
+
+            // 終わったら選択状態をクリアしてモードも解除
+            _uiState.update { it.copy(selectMode = false, selected = emptySet()) }
+
         }
     }
 
@@ -148,12 +153,6 @@ class BbsServiceViewModel @Inject constructor(
      */
     fun getCategoryCounts(domain: String): Flow<List<CategoryWithCount>> =
         repository.getCategoryCounts(domain)
-
-    /**
-     * 指定カテゴリのボード一覧を取得
-     */
-    fun getBoardsForCategory(domain: String, categoryName: String) =
-        repository.getBoardsForCategory(domain, categoryName)
 
     /**
      * キャッシュをリフレッシュ（リモート再取得→ローカル一括置換）
@@ -177,7 +176,12 @@ class BbsServiceViewModel @Inject constructor(
 
     /** ダイアログ表示／非表示 */
     fun toggleAddBBSDialog(show: Boolean) {
-        _uiState.update { it.copy(addBBSDialog = show) }
+        _uiState.update { it.copy(showAddBBSDialog = show) }
+    }
+
+    /** 削除ダイアログ表示／非表示 */
+    fun toggleDeleteBBSDialog(show: Boolean) {
+        _uiState.update { it.copy(showDeleteBBSDialog = show) }
     }
 
     /** 入力 URL 更新 */
@@ -185,19 +189,19 @@ class BbsServiceViewModel @Inject constructor(
         _uiState.update { it.copy(enteredUrl = url) }
     }
 
-    /** 編集モード切替 */
-    fun toggleSelectMode(edit: Boolean) {
-        _uiState.update { it.copy(selectMode = edit) }
+    /** 選択モードの ON/OFF 切り替え */
+    fun toggleSelectMode(enabled: Boolean) {
+        _uiState.update { it.copy(selectMode = enabled, selected = if (enabled) it.selected else emptySet()) }
     }
 
+    /** ドメイン単位で選択／解除 */
     fun toggleSelect(domain: String) {
         _uiState.update { state ->
-            val newSet = state.selected.toMutableSet().apply {
-                if (contains(domain)) remove(domain) else add(domain)
+            val next = state.selected.toMutableSet().apply {
+                if (!add(domain)) remove(domain)
             }
-            state.copy(selected = newSet)
+            state.copy(selected = next)
         }
-        toggleSelectMode(true)
     }
 }
 
@@ -208,8 +212,9 @@ data class BbsServiceUiState(
     val errorMessage: String? = null,
     val selectMode: Boolean = false,
     val selected: Set<String> = emptySet(),
-    val addBBSDialog: Boolean = false,
-    val enteredUrl: String = ""
+    val showAddBBSDialog: Boolean = false,
+    val enteredUrl: String = "",
+    val showDeleteBBSDialog: Boolean = false
 )
 
 /** UI 表示用に整形したサービス情報 */

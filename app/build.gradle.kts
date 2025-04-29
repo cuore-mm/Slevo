@@ -97,6 +97,9 @@ dependencies {
 
     // HttpLoggingInterceptor
     implementation(libs.okhttp3.logging.interceptor)
+
+    // Preferences DataStore（1.1.5不具合あり）
+    implementation("androidx.datastore:datastore-preferences:1.1.4")
 }
 
 // Allow references to generated code

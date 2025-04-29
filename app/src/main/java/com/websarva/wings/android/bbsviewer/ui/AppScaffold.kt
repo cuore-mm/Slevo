@@ -19,6 +19,7 @@ import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.bottombar.RenderBottomBar
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppNavGraph
+import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
 import com.websarva.wings.android.bbsviewer.ui.topbar.RenderTopBar
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -29,6 +30,7 @@ fun AppScaffold(
     navController: NavHostController = rememberNavController(),
     topAppBarViewModel: TopAppBarViewModel,
     bookmarkViewModel: BookmarkViewModel,
+    settingsViewModel: SettingsViewModel
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     // 画面遷移が発生するたびに呼ばれ、スクロール位置をリセットする
@@ -63,6 +65,7 @@ fun AppScaffold(
             navController = navController,
             topAppBarViewModel = topAppBarViewModel,
             bookmarkViewModel = bookmarkViewModel,
+            settingsViewModel = settingsViewModel
         )
     }
 }

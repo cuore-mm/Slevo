@@ -67,6 +67,7 @@ interface CategoryDao {
          AND c.name   = b.categoryName
         WHERE c.domain = :domain
         GROUP BY c.domain, c.name
+        ORDER BY MIN(c.ROWID)   -- ← 挿入順に並び替え
         """
     )
     fun getCategoryWithCount(domain: String): Flow<List<CategoryWithCount>>

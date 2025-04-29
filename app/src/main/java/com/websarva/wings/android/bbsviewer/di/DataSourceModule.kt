@@ -1,16 +1,20 @@
 package com.websarva.wings.android.bbsviewer.di
 
+import android.content.Context
 import com.websarva.wings.android.bbsviewer.data.datasource.local.AppDatabase
 import com.websarva.wings.android.bbsviewer.data.datasource.local.BbsLocalDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.local.SettingsLocalDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BbsServiceDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.BbsLocalDataSourceImpl
+import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.SettingsLocalDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BbsMenuDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.BbsMenuDataSourceImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import javax.inject.Singleton
@@ -58,4 +62,10 @@ object DataSourceModule {
         categoryDao = categoryDao,
         boardDao    = boardDao
     )
+
+    @Provides
+    @Singleton
+    fun provideSettingsLocalDataSource(
+        @ApplicationContext context: Context
+    ): SettingsLocalDataSource = SettingsLocalDataSourceImpl(context)
 }

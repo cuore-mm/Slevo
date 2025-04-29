@@ -1,12 +1,15 @@
 package com.websarva.wings.android.bbsviewer.ui.bottombar
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.BbsServiceViewModel
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
-import com.websarva.wings.android.bbsviewer.ui.util.checkCurrentRoute
+import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
 @Composable
 fun RenderBottomBar(
@@ -15,32 +18,37 @@ fun RenderBottomBar(
 ) {
     val currentDestination = navBackStackEntry?.destination
     when {
-        checkCurrentRoute(
-            currentDestination = currentDestination,
-            listOf(
-                AppRoute.RouteName.BOOKMARK,
-                AppRoute.RouteName.REGISTERED_BBS
-            )
-        ) -> {
-            HomeBottomNavigationBar(
-                currentDestination = currentDestination,
-                onClick = { route ->
-                    navController.navigate(route) {
-                        popUpTo(navController.graph.startDestinationId) {
-                            saveState = true
+        currentDestination.isInRoute(
+            AppRoute.RouteName.BOOKMARK,
+            AppRoute.RouteName.REGISTERED_BBS
+        )
+             -> {
+            val viewModel: BbsServiceViewModel = hiltViewModel(navBackStackEntry!!)
+            val uiState by viewModel.uiState.collectAsState()
+
+            if (!uiState.selectMode){
+                HomeBottomNavigationBar(
+                    currentDestination = currentDestination,
+                    onClick = { route ->
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
                     }
-                }
-            )
+                )
+            }else{
+                BbsSelectBottomBar(
+                    onDelete = { viewModel.toggleDeleteBBSDialog(true) },
+                    onOpen = { /* TODO: Handle open action */ }
+                )
+            }
         }
 
-        checkCurrentRoute(
-            currentDestination = currentDestination,
-            listOf(
+        currentDestination.isInRoute(
                 AppRoute.RouteName.THREAD_LIST
-            )
         ) -> {
             BoardBottomBar(
                 sortOptions = listOf("Option 1", "Option 2", "Option 3"),
@@ -48,11 +56,8 @@ fun RenderBottomBar(
             )
         }
 
-        checkCurrentRoute(
-            currentDestination = currentDestination,
-            listOf(
+        currentDestination.isInRoute(
                 AppRoute.RouteName.THREAD
-            )
         ) -> {
             val threadViewModel: ThreadViewModel? =
                 navBackStackEntry?.let { hiltViewModel<ThreadViewModel>(it) }

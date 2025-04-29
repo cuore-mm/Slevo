@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.bbslist.board
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
@@ -17,6 +18,8 @@ import javax.inject.Inject
 
 // UIState：板一覧
 data class BbsBoardUiState(
+    val serviceName: String = "",
+    val categoryName: String = "",
     val boards: List<BoardInfo> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null
@@ -24,10 +27,14 @@ data class BbsBoardUiState(
 
 @HiltViewModel
 class BbsBoardViewModel @Inject constructor(
-    private val repository: BbsServiceRepository
+    private val repository: BbsServiceRepository,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(BbsBoardUiState())
+    private val _uiState = MutableStateFlow(BbsBoardUiState(
+        serviceName = savedStateHandle.get<String>("serviceName") ?: "",
+        categoryName = savedStateHandle.get<String>("categoryName") ?: ""
+    ))
     val uiState: StateFlow<BbsBoardUiState> = _uiState.asStateFlow()
 
     /**

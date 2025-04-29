@@ -35,8 +35,9 @@ class BbsLocalDataSourceImpl @Inject constructor(
         serviceDao.upsertService(service)
 
     /** サービス削除 */
-    override suspend fun deleteService(service: BbsServiceEntity) =
-        serviceDao.deleteService(service)
+    override suspend fun deleteServices(domains: List<String>) {
+        serviceDao.deleteByDomains(domains)
+    }
 
     /** カテゴリ登録/更新 */
     override suspend fun upsertCategories(categories: List<CategoryEntity>) =

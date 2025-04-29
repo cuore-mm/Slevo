@@ -15,7 +15,7 @@ fun NavGraphBuilder.addBookmarkRoute(
     bookmarkViewModel: BookmarkViewModel,
     navController: NavHostController
 ) {
-    composable<AppRoute.Bookmark> {
+    composable<AppRoute.Bookmark>{
         val uiState by bookmarkViewModel.uiState.collectAsState()
         topAppBarViewModel.setTopAppBar(
             type = AppBarType.Home

@@ -1,23 +1,25 @@
 package com.websarva.wings.android.bbsviewer.ui.bbslist.category
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material3.Card
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,19 +58,42 @@ fun CategoryGrid(
     categories: List<CategoryInfo>,
     onCategoryClick: (String) -> Unit
 ) {
-    LazyVerticalGrid(
+    // 2つずつのリストに変換。最後の要素が単数の場合は null 埋め。
+    val rows = categories.chunked(2).map { row ->
+        Pair(row.getOrNull(0), row.getOrNull(1))
+    }
+
+    LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        columns = GridCells.Fixed(2)
     ) {
-        items(categories) { category ->
-            BbsCategoryItem(
-                categoryName = category.name,
-                boardCount = category.boardCount,
-                onClick = onCategoryClick
-            )
+        itemsIndexed(rows) { index, (left, right) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min) // 縦線をセルいっぱいに伸ばすため
+            ) {
+                // 左セル
+                BbsCategoryItem(
+                    category = left,
+                    modifier = Modifier.weight(1f),
+                    onClick = onCategoryClick
+                )
+
+                // 真ん中の縦線
+                VerticalDivider()
+
+                // 右セル
+                BbsCategoryItem(
+                    category = right,
+                    modifier = Modifier.weight(1f),
+                    onClick = onCategoryClick
+                )
+            }
+            // 各行の下の横線
+            if (index < rows.lastIndex) {
+                HorizontalDivider()
+            }
         }
     }
 }
@@ -76,32 +101,35 @@ fun CategoryGrid(
 @Composable
 fun BbsCategoryItem(
     modifier: Modifier = Modifier,
-    categoryName: String,
-    boardCount: Int,
+    category: CategoryInfo?,
     onClick: (String) -> Unit
 ) {
-    Card(
+    Box(
         modifier = modifier
-            .fillMaxWidth()
-            .clickable { onClick(categoryName) },
-        shape = RoundedCornerShape(12.dp),
+            .clickable(enabled = category != null) { category?.let { onClick(it.name) } }
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Folder,
-                contentDescription = null
-            )
-            Text(
-                text = "$categoryName (${boardCount})",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.fillMaxWidth()
-            )
+        category?.let {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Folder,
+                    contentDescription = null
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = it.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "(${it.boardCount})",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
     }
 }
@@ -110,8 +138,10 @@ fun BbsCategoryItem(
 @Composable
 fun BbsCategoryItemPreview() {
     BbsCategoryItem(
-        categoryName = "カテゴリ名",
-        boardCount = 3,
+        category = CategoryInfo(
+            name = "Test Category",
+            boardCount = 10
+        ),
         onClick = {}
     )
 }
