@@ -10,82 +10,78 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// UIState：板一覧
-data class BbsBoardUiState(
-    val serviceName: String = "",
-    val categoryName: String = "",
-    val boards: List<BoardInfo> = emptyList(),
-    val isLoading: Boolean = false,
-    val errorMessage: String? = null
-)
-
+/**
+ * ViewModel for the board list screen.
+ * - 指定サービス/カテゴリの板一覧取得
+ */
 @HiltViewModel
 class BbsBoardViewModel @Inject constructor(
     private val repository: BbsServiceRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val serviceId = savedStateHandle.get<String>("serviceId")!!
-    private val categoryName = savedStateHandle.get<String>("categoryName")!!
+    // サービスID, サービス名, カテゴリID, カテゴリ名を取得
+    private val serviceId: Long = savedStateHandle.get<Long>("serviceId")
+        ?: error("serviceId is required")
+    private val serviceName: String = savedStateHandle.get<String>("serviceName")
+        ?: ""
+    private val categoryId: Long = savedStateHandle.get<Long>("categoryId")
+        ?: error("categoryId is required")
+    private val categoryName: String = savedStateHandle.get<String>("categoryName")
+        ?: ""
 
     private val _uiState = MutableStateFlow(
         BbsBoardUiState(
-            serviceName  = savedStateHandle.get<String>("serviceName") ?: "",
+            serviceName = serviceName,
+            categoryId = categoryId,
             categoryName = categoryName
         )
     )
     val uiState: StateFlow<BbsBoardUiState> = _uiState.asStateFlow()
 
     init {
-        // ViewModel の初期化時に一度だけ板一覧をロード
-        loadBoardInfo(serviceId, categoryName)
+        loadBoardInfo()
     }
 
     /**
-     * serviceId＋categoryName から板一覧を取得し、
-     * uiState.boards に格納する
+     * サービスID＋カテゴリID から板一覧を取得し、UIに反映
      */
-    fun loadBoardInfo(
-        serviceId: String,
-        categoryName: String
-    ) {
+    private fun loadBoardInfo() {
         viewModelScope.launch {
-            repository.getBoardsForCategory(serviceId, categoryName)
-                // BoardEntity → BoardInfo にマッピング
-                .map { list ->
-                    list.map { boardEntity ->
-                        BoardInfo(
-                            name = boardEntity.name,
-                            url = boardEntity.url
-                        )
-                    }
-                }
+            repository.getBoardsForCategory(serviceId, categoryId)
                 .onStart {
                     _uiState.update { it.copy(isLoading = true, errorMessage = null) }
                 }
                 .catch { e ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = e.localizedMessage ?: "不明なエラー"
-                        )
-                    }
+                    _uiState.update { it.copy(isLoading = false, errorMessage = e.localizedMessage ?: "不明なエラー") }
                 }
-                .collect { infos ->
-                    _uiState.update {
-                        it.copy(
-                            boards = infos,
-                            isLoading = false,
-                            errorMessage = null
+                .collect { list ->
+                    val infos = list.map { entity ->
+                        BoardInfo(
+                            boardId = entity.boardId,
+                            name = entity.name,
+                            url = entity.url
                         )
                     }
+                    _uiState.update { it.copy(boards = infos, isLoading = false, errorMessage = null) }
                 }
         }
     }
 }
+
+/**
+ * UI State for board list screen
+ */
+data class BbsBoardUiState(
+    val serviceName: String,
+    val categoryId: Long,
+    val categoryName: String,
+    val boards: List<BoardInfo> = emptyList(),
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null
+)

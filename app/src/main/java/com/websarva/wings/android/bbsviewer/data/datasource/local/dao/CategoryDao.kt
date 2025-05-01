@@ -1,6 +1,7 @@
 package com.websarva.wings.android.bbsviewer.data.datasource.local.dao
 
 import androidx.room.Dao
+import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -9,66 +10,41 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.Categor
 import kotlinx.coroutines.flow.Flow
 
 /**
- * カテゴリ名とそのカテゴリ内に属するボード件数を保持するデータクラス
- * Room のクエリ結果をマッピングするために使用
- *
- * @property name カテゴリ名
- * @property domain サービスを識別するドメイン名
- * @property boardCount カテゴリ内のボード数
- */
-data class CategoryWithCount(
-    val name: String,
-    val domain: String,
-    val boardCount: Int
-)
-
-/**
  * カテゴリ情報およびカテゴリに紐づくボード数のキャッシュ管理を行うDAO
  */
 @Dao
 interface CategoryDao {
-
     /**
-     * カテゴリリストを一括挿入または更新（同一主キーが存在する場合は置換）
-     *
-     * @param categories 保存対象のCategoryEntityリスト
+     * 単一カテゴリをINSERT or REPLACEして、自動採番されたcategoryIdを返す
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertCategories(categories: List<CategoryEntity>)
+    suspend fun insertCategory(category: CategoryEntity): Long
 
-    /**
-     * 指定サービス(domain)に紐づく全カテゴリを削除
-     *
-     * @param serviceId 削除対象のサービスドメイン名
-     */
-    @Query("DELETE FROM categories WHERE domain = :serviceId")
-    suspend fun clearCategoriesFor(serviceId: String)
+    @Query("DELETE FROM categories WHERE serviceId = :serviceId")
+    suspend fun clearForService(serviceId: Long)
 
-    /**
-     * 指定サービス内の各カテゴリについて、
-     * そのカテゴリに属するボード数を集計し CategoryWithCount として取得する
-     *
-     * - LEFT JOIN を用いることで、ボードが0件のカテゴリも取得可能
-     * - 集計結果は Flow でリアクティブに購読可能
-     *
-     * @param domain サービスを一意に識別するドメイン名
-     * @return カテゴリごとの板数を持つ CategoryWithCount のリスト
-     */
     @Transaction
     @Query(
         """
-        SELECT
-          c.name       AS name,
-          c.domain     AS domain,
-          COUNT(b.url) AS boardCount
-        FROM categories AS c
-        LEFT JOIN boards AS b
-          ON c.domain = b.domain
-         AND c.name   = b.categoryName
-        WHERE c.domain = :domain
-        GROUP BY c.domain, c.name
-        ORDER BY MIN(c.ROWID)   -- ← 挿入順に並び替え
+        SELECT c.*, COUNT(b.boardId) AS boardCount
+          FROM categories AS c
+     LEFT JOIN board_category_cross_ref AS bc ON c.categoryId = bc.categoryId
+     LEFT JOIN boards AS b ON bc.boardId = b.boardId
+         WHERE c.serviceId = :serviceId
+      GROUP BY c.categoryId
         """
     )
-    fun getCategoryWithCount(domain: String): Flow<List<CategoryWithCount>>
+    fun getCategoriesWithBoardCount(serviceId: Long): Flow<List<CategoryWithBoardCount>>
+
+    @Query("SELECT * FROM categories WHERE serviceId = :serviceId")
+    fun getCategoriesForService(serviceId: Long): Flow<List<CategoryEntity>>
 }
+
+
+/**
+ * カテゴリ一覧取得時に板数を含めるためのデータクラス
+ */
+data class CategoryWithBoardCount(
+    @Embedded val category: CategoryEntity,
+    val boardCount: Int
+)

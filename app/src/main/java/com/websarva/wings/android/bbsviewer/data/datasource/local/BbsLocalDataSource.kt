@@ -1,6 +1,6 @@
 package com.websarva.wings.android.bbsviewer.data.datasource.local
 
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryWithCount
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryWithBoardCount
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ServiceWithBoardCount
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
@@ -8,83 +8,44 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.Categor
 import kotlinx.coroutines.flow.Flow
 
 /**
- * サービス／カテゴリ／ボードの永続化操作をまとめて提供するローカルデータソース
+ * ローカルデータソース：サービス／カテゴリ／板の操作をまとめる
  */
 interface BbsLocalDataSource {
-    /**
-     * サービス一覧とそれぞれのボード数を取得する
-     * @return サービス情報とボード数をまとめたリストをFlowで返却
-     */
+    /** 登録済みサービス一覧（板数付き）を監視 */
     fun observeServicesWithCount(): Flow<List<ServiceWithBoardCount>>
 
-    /**
-     * サービス情報を新規登録または更新
-     * @param service 保存対象のBbsServiceEntity
-     */
+    /** サービスを登録または更新 */
     suspend fun upsertService(service: BbsServiceEntity)
 
-    /**
-     * 指定サービスを削除（Cascadeでカテゴリ・ボードも併せて削除）
-     * @param domains 削除対象とするサービスのドメイン名リスト
-     */
-    suspend fun deleteServices(domains: List<String>)
+    /** サービスを削除 */
+    suspend fun deleteService(serviceId: Long)
+
+    /** 指定サービスのカテゴリ一覧（板数付き）を監視 */
+    fun observeCategoriesWithCount(serviceId: Long): Flow<List<CategoryWithBoardCount>>
+
+    /** カテゴリ一覧を登録または更新 */
+    suspend fun insertCategory(category: CategoryEntity): Long
+
+    /** 指定サービスのカテゴリをクリア */
+    suspend fun clearCategories(serviceId: Long)
+
+    /** 指定サービスの板一覧を監視 */
+    fun observeBoards(serviceId: Long): Flow<List<BoardEntity>>
+
+    /** 板一覧を登録または更新 */
+    suspend fun insertOrGetBoard(board: BoardEntity): Long
+
+    /** 指定サービスの板をクリア */
+    suspend fun clearBoards(serviceId: Long)
+
+    /** 指定板のカテゴリ関連をクリア */
+    suspend fun clearBoardCategories(boardId: Long)
+
+    /** 板⇔カテゴリの紐付けを登録 */
+    suspend fun linkBoardCategory(boardId: Long, categoryId: Long)
 
     /**
-     * カテゴリ一覧を一括登録または更新
-     * @param categories 保存対象のCategoryEntityリスト
+     * サービスIDとカテゴリIDから、そのカテゴリに紐づく板一覧を取得
      */
-    suspend fun upsertCategories(categories: List<CategoryEntity>)
-
-    /**
-     * 指定サービス(domain)に紐づくすべてのカテゴリを削除
-     * @param domain サービスドメイン
-     */
-    suspend fun clearCategories(domain: String)
-
-    /**
-     * カテゴリとそのボード件数を取得
-     * @param domain サービスドメイン
-     * @return カテゴリ名とボード数を持つCategoryWithCountのリストをFlowで返却
-     */
-    fun observeCategoryCounts(domain: String): Flow<List<CategoryWithCount>>
-
-    /**
-     * 指定カテゴリに属するボード一覧を取得
-     * @param domain サービスドメイン
-     * @param categoryName カテゴリ名
-     * @return BoardEntityのリストをFlowで返却
-     */
-    fun observeBoards(domain: String, categoryName: String): Flow<List<BoardEntity>>
-
-    /**
-     * ボード一覧を一括登録または更新
-     * @param boards 保存対象のBoardEntityリスト
-     */
-    suspend fun upsertBoards(boards: List<BoardEntity>)
-
-    /**
-     * 指定サービス(domain)に紐づくすべてのボードを削除
-     * @param domain サービスドメイン
-     */
-    suspend fun clearBoards(domain: String)
-
-    /**
-     * 特定ボードを削除
-     * @param board 削除対象のBoardEntity
-     */
-    suspend fun deleteBoard(board: BoardEntity)
-
-    /**
-     * サービス、カテゴリ、ボードをまとめて登録するトランザクション
-     * - 全操作を原子的に行い、途中失敗時はロールバック
-     *
-     * @param service 登録対象のサービス
-     * @param categories 登録対象のカテゴリリスト
-     * @param boards 登録対象のボードリスト
-     */
-    suspend fun saveAll(
-        service: BbsServiceEntity,
-        categories: List<CategoryEntity>,
-        boards: List<BoardEntity>
-    )
+    fun observeBoardsForCategory(serviceId: Long, categoryId: Long): Flow<List<BoardEntity>>
 }

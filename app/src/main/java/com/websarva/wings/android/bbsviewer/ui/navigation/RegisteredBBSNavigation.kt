@@ -1,21 +1,17 @@
 package com.websarva.wings.android.bbsviewer.ui.navigation
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
-import androidx.navigation.toRoute
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.AddBbsDialog
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.BBSListScreen
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.BbsServiceViewModel
 import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BbsCategoryListScreen
 import com.websarva.wings.android.bbsviewer.ui.bbslist.board.CategorisedBoardListScreen
-import com.websarva.wings.android.bbsviewer.ui.topbar.AppBarType
-import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.bbsviewer.ui.bbslist.board.BbsBoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BbsCategoryViewModel
@@ -24,7 +20,6 @@ import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
 fun NavGraphBuilder.addRegisteredBBSNavigation(
     navController: NavHostController,
-    topAppBarViewModel: TopAppBarViewModel,
 ) {
     navigation<AppRoute.RegisteredBBS>(
         startDestination = AppRoute.BBSList
@@ -56,46 +51,46 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
         ) {
             val viewModel: BbsServiceViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
-            topAppBarViewModel.setTopAppBar(AppBarType.BBSList)
+
             BBSListScreen(
                 uiState = uiState,
                 onClick = { service ->
                     navController.navigate(
                         AppRoute.BoardCategoryList(
-                            serviceId = service.domain,
+                            serviceId = service.serviceId,
                             serviceName = service.name
                         )
                     ) {
                         launchSingleTop = true
                     }
                 },
-                onLongClick = { domain ->
+                onLongClick = { serviceId ->
                     viewModel.toggleSelectMode(true)
-                    viewModel.toggleSelect(domain)
+                    viewModel.toggleSelect(serviceId)
                 },
             )
 
-            if (uiState.showAddBBSDialog) {
+            if (uiState.showAddDialog) {
                 AddBbsDialog(
-                    onDismissRequest = { viewModel.toggleAddBBSDialog(false) },
+                    onDismissRequest = { viewModel.toggleAddDialog(false) },
                     enteredUrl = uiState.enteredUrl,
                     onUrlChange = { viewModel.updateEnteredUrl(it) },
-                    onCancel = { viewModel.toggleAddBBSDialog(false) },
+                    onCancel = { viewModel.toggleAddDialog(false) },
                     onAdd = {
-                        viewModel.addService(uiState.enteredUrl)
+                        viewModel.addOrUpdateService(uiState.enteredUrl)
                         // ダイアログ閉じ＆入力クリア
-                        viewModel.toggleAddBBSDialog(false)
+                        viewModel.toggleAddDialog(false)
                         viewModel.updateEnteredUrl("")
                     }
                 )
             }
 
-            if (uiState.showDeleteBBSDialog) {
+            if (uiState.showDeleteDialog) {
                 DeleteBbsDialog(
-                    onDismissRequest = { viewModel.toggleDeleteBBSDialog(false) },
+                    onDismissRequest = { viewModel.toggleDeleteDialog(false) },
                     onDelete = {
-                        viewModel.removeService()
-                        viewModel.toggleDeleteBBSDialog(false)
+                        viewModel.removeSelectedServices()
+                        viewModel.toggleDeleteDialog(false)
                     },
                     selectedCount = uiState.selected.size
                 )
@@ -114,19 +109,18 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             popEnterTransition = { defaultPopEnterTransition() },
             popExitTransition = { defaultPopExitTransition() }
         ) {
-            val bcl: AppRoute.BoardCategoryList = it.toRoute()
-
             val viewModel: BbsCategoryViewModel = hiltViewModel(it)
             val uiState by viewModel.uiState.collectAsState()
 
             BbsCategoryListScreen(
                 uiState = uiState,
-                onCategoryClick = { categoryName ->
+                onCategoryClick = { category ->
                     navController.navigate(
                         AppRoute.CategorisedBoardList(
-                            serviceId = bcl.serviceId,
+                            serviceId = uiState.serviceId,
+                            categoryId = category.categoryId,
                             serviceName = uiState.serviceName,
-                            categoryName = categoryName
+                            categoryName = category.name,
                         )
                     ) {
                         launchSingleTop = true
@@ -141,8 +135,6 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             popEnterTransition = { defaultPopEnterTransition() },
             popExitTransition = { defaultPopExitTransition() }
         ) {
-            val cbl: AppRoute.CategorisedBoardList = it.toRoute()
-
             val viewModel: BbsBoardViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
 
@@ -151,12 +143,14 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                 onBoardClick = { board ->
                     navController.navigate(
                         AppRoute.Board(
+                            boardId = board.boardId,
                             boardName = board.name,
                             boardUrl = board.url
                         )
                     ) {
                         popUpTo(
                             AppRoute.Board(
+                                boardId = board.boardId,
                                 boardName = board.name,
                                 boardUrl = board.url
                             )

@@ -11,13 +11,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.websarva.wings.android.bbsviewer.ui.board.BoardScreen
 import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
-import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
 
 @RequiresApi(Build.VERSION_CODES.O)
 fun NavGraphBuilder.addBoardRoute(
     navController: NavHostController,
-    topAppBarViewModel: TopAppBarViewModel
 ) {
     composable<AppRoute.Board> {
         val board: AppRoute.Board = it.toRoute()

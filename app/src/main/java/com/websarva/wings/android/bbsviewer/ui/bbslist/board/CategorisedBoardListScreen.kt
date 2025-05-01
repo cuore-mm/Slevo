@@ -99,7 +99,8 @@ fun CategorisedBoardItem(
 fun CategorisedBoardItemPreview(){
     val board = BoardInfo(
         name = "Test Board",
-        url = "https://example.com/test"
+        url = "https://example.com/test",
+        boardId = 10,
     )
     CategorisedBoardItem(
         board = board,

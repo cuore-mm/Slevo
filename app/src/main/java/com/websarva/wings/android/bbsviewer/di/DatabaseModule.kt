@@ -5,7 +5,9 @@ import androidx.room.Room
 import com.websarva.wings.android.bbsviewer.data.datasource.local.AppDatabase
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkThreadDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BbsServiceDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardCategoryCrossRefDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDao
 import dagger.Module
 import dagger.Provides
@@ -88,4 +90,12 @@ object DatabaseModule {
     fun provideBoardDao(
         db: AppDatabase
     ): BoardDao = db.boardDao()
+
+    @Provides
+    fun provideBookmarkBoardDao(db: AppDatabase): BookmarkBoardDao =
+        db.bookmarkBoardDao()
+
+    @Provides
+    fun provideBoardCategoryCrossRefDao(db: AppDatabase): BoardCategoryCrossRefDao =
+        db.boardCategoryCrossRefDao()
 }

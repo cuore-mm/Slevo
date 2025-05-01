@@ -32,7 +32,8 @@ fun NavGraphBuilder.addThreadRoute(
                 datUrl = thread.datUrl,
                 boardInfo = BoardInfo(
                     name = thread.boardName,
-                    url = thread.boardUrl
+                    url = thread.boardUrl,
+                    boardId = 0,
                 )
             )
             Log.i("ThreadRoute", thread.datUrl)

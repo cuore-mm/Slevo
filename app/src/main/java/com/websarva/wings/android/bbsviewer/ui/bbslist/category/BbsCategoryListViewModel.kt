@@ -23,26 +23,30 @@ class BbsCategoryViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
+    // サービスIDと表示名を SavedStateHandle から取得
+    private val serviceId: Long = savedStateHandle.get<Long>("serviceId")
+        ?: error("serviceId is required")
+    private val serviceName: String = savedStateHandle.get<String>("serviceName")
+        ?: ""
+
     private val _uiState = MutableStateFlow(
         BbsCategoryListUiState(
-            serviceName = savedStateHandle.get<String>("serviceName")!!
+            serviceId = serviceId,
+            serviceName = serviceName
         )
     )
     val uiState: StateFlow<BbsCategoryListUiState> = _uiState.asStateFlow()
 
     init {
-        // SavedStateHandle から serviceId（domain）を取得してロード
-        savedStateHandle.get<String>("serviceId")?.let { domain ->
-            loadCategoryInfo(domain)
-        }
+        loadCategoryInfo()
     }
 
     /**
-     * 引数の domain でカテゴリ情報をロードし、uiState を更新
+     * カテゴリ一覧と各カテゴリの板数を取得し UIState に反映
      */
-    fun loadCategoryInfo(domain: String) {
+    private fun loadCategoryInfo() {
         viewModelScope.launch {
-            repository.getCategoryCounts(domain)
+            repository.getCategoriesWithCount(serviceId)
                 .onStart {
                     _uiState.update { it.copy(isLoading = true, errorMessage = null) }
                 }
@@ -56,7 +60,11 @@ class BbsCategoryViewModel @Inject constructor(
                 }
                 .collect { list ->
                     val infos = list.map { cwc ->
-                        CategoryInfo(name = cwc.name, boardCount = cwc.boardCount)
+                        CategoryInfo(
+                            categoryId = cwc.category.categoryId,
+                            name = cwc.category.name,
+                            boardCount = cwc.boardCount
+                        )
                     }
                     _uiState.update {
                         it.copy(categories = infos, isLoading = false, errorMessage = null)
@@ -66,14 +74,22 @@ class BbsCategoryViewModel @Inject constructor(
     }
 }
 
+/**
+ * UI ステート: サービス情報＋カテゴリ一覧
+ */
 data class BbsCategoryListUiState(
+    val serviceId: Long,
     val serviceName: String = "",
     val categories: List<CategoryInfo> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null
 )
 
+/**
+ * UI 用カテゴリ情報
+ */
 data class CategoryInfo(
+    val categoryId: Long,
     val name: String,
     val boardCount: Int
 )

@@ -41,7 +41,7 @@ fun RenderBottomBar(
                 )
             }else{
                 BbsSelectBottomBar(
-                    onDelete = { viewModel.toggleDeleteBBSDialog(true) },
+                    onDelete = { viewModel.toggleDeleteDialog(true) },
                     onOpen = { /* TODO: Handle open action */ }
                 )
             }

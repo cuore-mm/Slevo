@@ -58,7 +58,7 @@ fun RenderTopBar(
                 ) {
                     BbsServiceListTopBarScreen(
                         onNavigationClick = {},
-                        onAddClick = { viewModel.toggleAddBBSDialog(true) },
+                        onAddClick = { viewModel.toggleAddDialog(true) },
                         onSearchClick = {}
                     )
                 }
@@ -107,9 +107,12 @@ fun RenderTopBar(
         ) -> {
             val viewModel: BoardViewModel = hiltViewModel(navBackStackEntry!!)
             val uiState by viewModel.uiState.collectAsState()
+
             BoardTopBarScreen(
                 title = uiState.boardInfo.name,
                 onNavigationClick = {},
+                onBookmarkClick = {},
+                onInfoClick = {},
                 scrollBehavior = scrollBehavior
             )
 

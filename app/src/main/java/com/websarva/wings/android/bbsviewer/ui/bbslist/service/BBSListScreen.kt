@@ -39,7 +39,7 @@ fun BBSListScreen(
     uiState: BbsServiceUiState,
     modifier: Modifier = Modifier,
     onClick: (ServiceInfo) -> Unit,
-    onLongClick: (String) -> Unit,
+    onLongClick: (Long) -> Unit,
 ) {
     // スピナーをいつ表示／非表示にするかを管理する状態
     val spinnerState by produceState<SpinnerState>(
@@ -84,14 +84,14 @@ fun BBSListScreen(
                     items = uiState.services,
                     key = { _, service -> service.domain }
                 ) { index, service ->
-                    val isSelected = service.domain in uiState.selected
+                    val isSelected = service.serviceId in uiState.selected
 
                     ServiceCard(
                         service = service,
                         selected = isSelected,
                         selectMode = uiState.selectMode,
                         onClick = { onClick(service) },
-                        onLongClick = { onLongClick(service.domain) },
+                        onLongClick = { onLongClick(service.serviceId) },
                     )
 
                     // 最後のアイテムじゃなければ Divider を入れる
@@ -249,7 +249,8 @@ fun ServiceCardPreview() {
         service = ServiceInfo(
             domain = "1",
             name = "5ch.net",
-            boardCount = 100
+            boardCount = 100,
+            serviceId = 1,
         ),
         onClick = {},
         onLongClick = {},

@@ -23,6 +23,8 @@ import com.websarva.wings.android.bbsviewer.R
 fun BoardTopBarScreen(
     title: String,
     onNavigationClick: () -> Unit,
+    onBookmarkClick: () -> Unit,
+    onInfoClick: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior? = null
 ) {
     TopAppBar(
@@ -30,7 +32,8 @@ fun BoardTopBarScreen(
             Text(
                 text = title,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleMedium
             )
         },
         navigationIcon = {
@@ -42,13 +45,13 @@ fun BoardTopBarScreen(
             }
         },
         actions = {
-            IconButton(onClick = {}) {
+            IconButton(onClick = onBookmarkClick) {
                 Icon(
                     imageVector = Icons.Outlined.Star,
                     contentDescription = stringResource(R.string.bookmark)
                 )
             }
-            IconButton(onClick = {}) {
+            IconButton(onClick = onInfoClick) {
                 Icon(
                     imageVector = Icons.Outlined.Info,
                     contentDescription = stringResource(R.string.infomation)
@@ -67,6 +70,8 @@ fun BoardTopBarScreenPreview() {
         BoardTopBarScreen(
             title = "なんでも実況J",
             onNavigationClick = {},
+            onBookmarkClick = {},
+            onInfoClick = {},
             scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
         )
     }

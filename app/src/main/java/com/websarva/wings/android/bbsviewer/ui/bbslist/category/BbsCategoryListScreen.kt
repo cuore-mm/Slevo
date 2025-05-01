@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.dp
 fun BbsCategoryListScreen(
     modifier: Modifier = Modifier,
     uiState: BbsCategoryListUiState,
-    onCategoryClick: (String) -> Unit
+    onCategoryClick: (CategoryInfo) -> Unit
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         when {
@@ -56,7 +56,7 @@ fun BbsCategoryListScreen(
 fun CategoryGrid(
     modifier: Modifier = Modifier,
     categories: List<CategoryInfo>,
-    onCategoryClick: (String) -> Unit
+    onCategoryClick: (CategoryInfo) -> Unit
 ) {
     // 2つずつのリストに変換。最後の要素が単数の場合は null 埋め。
     val rows = categories.chunked(2).map { row ->
@@ -102,11 +102,11 @@ fun CategoryGrid(
 fun BbsCategoryItem(
     modifier: Modifier = Modifier,
     category: CategoryInfo?,
-    onClick: (String) -> Unit
+    onClick: (CategoryInfo) -> Unit
 ) {
     Box(
         modifier = modifier
-            .clickable(enabled = category != null) { category?.let { onClick(it.name) } }
+            .clickable(enabled = category != null) { category?.let { onClick(it) } }
     ) {
         category?.let {
             Row(
@@ -140,7 +140,8 @@ fun BbsCategoryItemPreview() {
     BbsCategoryItem(
         category = CategoryInfo(
             name = "Test Category",
-            boardCount = 10
+            boardCount = 10,
+            categoryId = 1L
         ),
         onClick = {}
     )

@@ -1,17 +1,16 @@
 package com.websarva.wings.android.bbsviewer.data.datasource.local.impl
 
-import androidx.room.withTransaction
-import com.websarva.wings.android.bbsviewer.data.datasource.local.AppDatabase
 import com.websarva.wings.android.bbsviewer.data.datasource.local.BbsLocalDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BbsServiceDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardCategoryCrossRefDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryWithCount
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ServiceWithBoardCount
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardCategoryCrossRef
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.CategoryEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,68 +19,64 @@ import javax.inject.Singleton
  */
 @Singleton
 class BbsLocalDataSourceImpl @Inject constructor(
-    private val database: AppDatabase,
     private val serviceDao: BbsServiceDao,
     private val categoryDao: CategoryDao,
-    private val boardDao: BoardDao
+    private val boardDao: BoardDao,
+    private val crossRefDao: BoardCategoryCrossRefDao
 ) : BbsLocalDataSource {
 
-    /** サービス一覧＋ボード件数の監視取得 */
-    override fun observeServicesWithCount(): Flow<List<ServiceWithBoardCount>> =
-        serviceDao.getServicesWithBoardCount()
+    override fun observeServicesWithCount() = serviceDao.getServicesWithBoardCount()
 
-    /** サービス登録/更新 */
-    override suspend fun upsertService(service: BbsServiceEntity) =
-        serviceDao.upsertService(service)
-
-    /** サービス削除 */
-    override suspend fun deleteServices(domains: List<String>) {
-        serviceDao.deleteByDomains(domains)
+    override suspend fun upsertService(service: BbsServiceEntity) {
+        serviceDao.upsert(service)
     }
 
-    /** カテゴリ登録/更新 */
-    override suspend fun upsertCategories(categories: List<CategoryEntity>) =
-        categoryDao.insertCategories(categories)
+    override suspend fun deleteService(serviceId: Long) {
+        serviceDao.deleteById(serviceId)
+    }
 
-    /** カテゴリ一括削除 */
-    override suspend fun clearCategories(domain: String) =
-        categoryDao.clearCategoriesFor(domain)
+    override fun observeCategoriesWithCount(serviceId: Long) =
+        categoryDao.getCategoriesWithBoardCount(serviceId)
 
-    /** カテゴリ件数取得 */
-    override fun observeCategoryCounts(domain: String): Flow<List<CategoryWithCount>> =
-        categoryDao.getCategoryWithCount(domain)
+    override suspend fun insertCategory(category:CategoryEntity) =
+        categoryDao.insertCategory(category)
 
-    /** ボード一覧取得 */
-    override fun observeBoards(domain: String, categoryName: String): Flow<List<BoardEntity>> =
-        boardDao.getBoards(domain, categoryName)
 
-    /** ボード登録/更新 */
-    override suspend fun upsertBoards(boards: List<BoardEntity>) =
-        boardDao.insertBoards(boards)
+    override suspend fun clearCategories(serviceId: Long) {
+        categoryDao.clearForService(serviceId)
+    }
 
-    /** ボード一括削除 */
-    override suspend fun clearBoards(domain: String) =
-        boardDao.clearBoardsForService(domain)
+    override fun observeBoards(serviceId: Long): Flow<List<BoardEntity>> =
+        boardDao.getBoardsForService(serviceId)
 
-    /** 個別ボード削除 */
-    override suspend fun deleteBoard(board: BoardEntity) =
-        boardDao.deleteBoard(board)
-
-    /**
-     * 全エンティティをトランザクションでまとめて登録
-     * - serviceDao, categoryDao, boardDao の操作をwithTransactionで原子的に実行
-     */
-    override suspend fun saveAll(
-        service: BbsServiceEntity,
-        categories: List<CategoryEntity>,
-        boards: List<BoardEntity>
-    ) {
-        database.withTransaction {
-            serviceDao.upsertService(service)
-            categoryDao.clearCategoriesFor(service.domain)
-            categoryDao.insertCategories(categories)
-            boardDao.clearBoardsForService(service.domain)
-            boardDao.insertBoards(boards)
+    override suspend fun insertOrGetBoard(board: BoardEntity): Long {
+        // 1) まず挿入を試みる
+        val rowId = boardDao.insertBoard(board)
+        if (rowId != -1L) {
+            // 新しく挿入できた → そのまま ID を返す
+            return rowId
         }
+        // 既に存在していた → URL で再取得
+        return boardDao.findBoardIdByUrl(board.url)
     }
+
+
+    override suspend fun clearBoards(serviceId: Long) {
+        boardDao.clearForService(serviceId)
+    }
+
+    override suspend fun clearBoardCategories(boardId: Long) {
+        crossRefDao.clearForBoard(boardId)
+    }
+
+    override suspend fun linkBoardCategory(boardId: Long, categoryId: Long) {
+        crossRefDao.insert(BoardCategoryCrossRef(boardId, categoryId))
+    }
+
+    override fun observeBoardsForCategory(serviceId: Long, categoryId: Long): Flow<List<BoardEntity>> =
+        // crossRef テーブル経由で取得
+        crossRefDao.getBoardIdsForCategory(categoryId)
+            .flatMapLatest { boardIds ->
+                boardDao.getBoardsByIds(boardIds)
+            }
 }

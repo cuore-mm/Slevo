@@ -1,11 +1,12 @@
 package com.websarva.wings.android.bbsviewer.data.datasource.local.dao
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardWithCategories
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -13,40 +14,24 @@ import kotlinx.coroutines.flow.Flow
  */
 @Dao
 interface BoardDao {
-    /**
-     * 指定サービスの指定カテゴリに属するボード一覧を取得
-     * @param domain サービスドメイン
-     * @param categoryName カテゴリ名
-     * @return BoardEntity のリストを Flow で返す
-     */
-    @Query("""
-    SELECT *
-      FROM boards
-     WHERE domain         = :domain
-       AND categoryName   = :categoryName
-  ORDER BY id ASC   -- ← 挿入順に並び替え
-""")
-    fun getBoards(
-        domain: String,
-        categoryName: String
-    ): Flow<List<BoardEntity>>
+    /** URL 一意制約を利用して、重複挿入時は何もしない */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertBoard(board: BoardEntity): Long
 
-    /**
-     * ボードリストを一括で挿入または更新 (同一 URL は置換)
-     */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBoards(boards: List<BoardEntity>)
+    /** URL から boardId を取得 */
+    @Query("SELECT boardId FROM boards WHERE url = :url LIMIT 1")
+    suspend fun findBoardIdByUrl(url: String): Long
 
-    /**
-     * 指定サービスのすべてのボードを削除
-     * @param domain サービスドメイン
-     */
-    @Query("DELETE FROM boards WHERE domain = :domain")
-    suspend fun clearBoardsForService(domain: String)
+    @Query("DELETE FROM boards WHERE serviceId = :serviceId")
+    suspend fun clearForService(serviceId: Long)
 
-    /**
-     * 指定のボードを削除
-     */
-    @Delete
-    suspend fun deleteBoard(board: BoardEntity)
+    @Query("SELECT * FROM boards WHERE serviceId = :serviceId")
+    fun getBoardsForService(serviceId: Long): Flow<List<BoardEntity>>
+
+    @Transaction
+    @Query("SELECT * FROM boards WHERE boardId = :boardId")
+    fun getBoardWithCategories(boardId: Long): Flow<BoardWithCategories>
+
+    @Query("SELECT * FROM boards WHERE boardId IN (:ids)")
+    fun getBoardsByIds(ids: List<Long>): Flow<List<BoardEntity>>
 }

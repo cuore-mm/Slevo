@@ -40,12 +40,10 @@ fun AppNavGraph(
         //掲示板一覧
         addRegisteredBBSNavigation(
             navController = navController,
-            topAppBarViewModel = topAppBarViewModel
         )
         //スレッド一覧
         addBoardRoute(
             navController = navController,
-            topAppBarViewModel = topAppBarViewModel
         )
         //スレッド画面
         addThreadRoute(
@@ -71,17 +69,18 @@ sealed class AppRoute {
     data object BBSList : AppRoute()
 
     @Serializable
-    data class BoardCategoryList(val serviceId: String, val serviceName: String) : AppRoute()
+    data class BoardCategoryList(val serviceId: Long, val serviceName: String) : AppRoute()
 
     @Serializable
     data class CategorisedBoardList(
-        val serviceId: String,
+        val serviceId: Long,
+        val categoryId: Long,
         val serviceName: String,
         val categoryName: String
     ) : AppRoute()
 
     @Serializable
-    data class Board(val boardName: String, val boardUrl: String) : AppRoute()
+    data class Board(val boardId: Long, val boardName: String, val boardUrl: String) : AppRoute()
 
     @Serializable
     data class Thread(
