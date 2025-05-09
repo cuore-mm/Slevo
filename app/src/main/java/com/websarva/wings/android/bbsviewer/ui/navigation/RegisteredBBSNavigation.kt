@@ -3,6 +3,7 @@ package com.websarva.wings.android.bbsviewer.ui.navigation
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
@@ -19,6 +20,7 @@ import com.websarva.wings.android.bbsviewer.ui.bbslist.service.DeleteBbsDialog
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
 fun NavGraphBuilder.addRegisteredBBSNavigation(
+    modifier: Modifier = Modifier,
     navController: NavHostController,
 ) {
     navigation<AppRoute.RegisteredBBS>(
@@ -53,6 +55,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             val uiState by viewModel.uiState.collectAsState()
 
             BBSListScreen(
+                modifier = modifier,
                 uiState = uiState,
                 onClick = { service ->
                     navController.navigate(
@@ -113,6 +116,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             val uiState by viewModel.uiState.collectAsState()
 
             BbsCategoryListScreen(
+                modifier = modifier,
                 uiState = uiState,
                 onCategoryClick = { category ->
                     navController.navigate(
@@ -139,6 +143,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             val uiState by viewModel.uiState.collectAsState()
 
             CategorisedBoardListScreen(
+                modifier = modifier,
                 boards = uiState.boards,
                 onBoardClick = { board ->
                     navController.navigate(

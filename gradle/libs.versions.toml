@@ -1,6 +1,8 @@
 [versions]
 agp = "8.9.0"
 datastorePreferences = "1.1.5"
+foundation = "1.8.0"
+foundationPager = "<compose_version>"
 hiltAndroid = "2.51.1"
 hiltNavigationCompose = "1.2.0"
 jsoup = "1.17.2"
@@ -28,6 +30,8 @@ squareupRetrofitVersion = "2.9.0"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
+androidx-foundation = { module = "androidx.compose.foundation:foundation", version.ref = "foundation" }
+androidx-foundation-pager = { module = "androidx.compose.foundation:foundation-pager", version.ref = "foundationPager" }
 androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }

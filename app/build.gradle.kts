@@ -100,6 +100,9 @@ dependencies {
 
     // Preferences DataStore（1.1.5不具合あり）
     implementation("androidx.datastore:datastore-preferences:1.1.4")
+
+    // compose.foundation
+    implementation(libs.androidx.foundation)
 }
 
 // Allow references to generated code

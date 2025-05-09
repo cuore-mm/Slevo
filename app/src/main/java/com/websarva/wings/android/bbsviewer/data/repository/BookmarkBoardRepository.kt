@@ -1,42 +1,52 @@
 package com.websarva.wings.android.bbsviewer.data.repository
 
-import com.websarva.wings.android.bbsviewer.data.datasource.local.BookmarkBoardLocalDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardGroupDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardGroupEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkWithGroup
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class BookmarkBoardRepository @Inject constructor(
-    private val local: BookmarkBoardLocalDataSource
+    private val boardDao: BookmarkBoardDao,
+    private val groupDao: BoardGroupDao,
 ) {
-    fun getBoardsWithGroup(serviceId: Long, categoryId: Long) =
-        local.observe(serviceId, categoryId)
 
-    suspend fun toggleBookmark(boardId: Long) =
-        local.toggleBookmark(boardId)
+    fun observeGroups(): Flow<List<BoardGroupEntity>> =
+        groupDao.getAllGroupsSorted()
 
-    suspend fun assignGroup(bookmarkId: Int, name: String, colorHex: String) {
-        local.setGroup(bookmarkId, BoardGroupEntity(name = name, colorHex = colorHex))
+    suspend fun reorderGroups(updated: List<BoardGroupEntity>) {
+        groupDao.updateGroups(updated)
     }
 
-    suspend fun removeGroup(bookmarkId: Int) =
-        local.clearGroup(bookmarkId)
-
-    /**
-     * 新規にお気に入り登録するとき、同時にグループを作成して紐付け
-     */
-    suspend fun addWithGroup(boardId: Long, groupName: String, groupColorHex: String) {
-        local.addBookmarkWithGroup(
-            boardId,
-            BoardGroupEntity(name = groupName, colorHex = groupColorHex)
+    /** 新規グループを末尾に追加 */
+    suspend fun addGroupAtEnd(name: String, colorHex: String) {
+        // まず既存最大 + 1
+        val nextOrder = groupDao.getMaxSortOrder() + 1
+        val newGroup = BoardGroupEntity(
+            name      = name,
+            colorHex  = colorHex,
+            sortOrder = nextOrder
         )
+        groupDao.insertGroup(newGroup)
     }
 
     /**
-      * boardUrl から お気に入り＋グループ情報をまとめて取得する Flow
-      */
-     fun getBookmarkWithGroupByUrl(url: String): Flow<BookmarkWithGroup?> =
-           local.findWithGroupByUrl(url)
+     * お気に入り登録または更新
+     * @param bookmark 登録・更新対象の BookmarkBoardEntity
+     */
+    suspend fun upsertBookmark(bookmark: BookmarkBoardEntity) = withContext(Dispatchers.IO) {
+        boardDao.upsertBookmark(bookmark)
+    }
+
+    /**
+     * お気に入り解除
+     */
+    suspend fun deleteBookmark(bookmark: BookmarkBoardEntity) = withContext(Dispatchers.IO) {
+        boardDao.deleteBookmark(bookmark)
+    }
 }

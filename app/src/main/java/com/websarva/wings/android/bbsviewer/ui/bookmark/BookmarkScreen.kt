@@ -10,18 +10,77 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
+import kotlinx.coroutines.launch
 
 @Composable
 fun BookmarkScreen(
+    modifier: Modifier = Modifier,
+    bookmarks: List<BookmarkThreadEntity>,
+    onItemClick: (BookmarkThreadEntity) -> Unit
+) {
+    val scope = rememberCoroutineScope()
+
+    // 0: 板一覧, 1: スレッド一覧
+    val pagerState = rememberPagerState(
+        initialPage = 0,
+        pageCount = { 2 }      // ← 必須で渡す
+    )
+
+    Column(modifier = modifier.fillMaxSize()) {
+        // タブ行
+        TabRow(
+            selectedTabIndex = pagerState.currentPage,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            listOf(stringResource(R.string.board), stringResource(R.string.thread))
+                .forEachIndexed { index, text ->
+                    Tab(
+                        text = { Text(text) },
+                        selected = pagerState.currentPage == index,
+                        onClick = {
+                            scope.launch { pagerState.animateScrollToPage(index) }
+                        }
+                    )
+                }
+        }
+
+        // ページ本体
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.weight(1f)
+        ) { page ->
+            when (page) {
+                0 -> BookmarkBoardScreen(
+                    bookmarks = bookmarks,
+                    onItemClick = onItemClick,
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                1 -> ThreadList(
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun BookmarkBoardScreen(
     modifier: Modifier = Modifier,
     bookmarks: List<BookmarkThreadEntity>,
     onItemClick: (BookmarkThreadEntity) -> Unit
@@ -59,9 +118,11 @@ fun BookmarkItem(
             .fillMaxWidth()
             .clickable { onClick(bookmark) }
     ) {
-        Column(modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+        ) {
             Text(
                 text = bookmark.title,
                 style = MaterialTheme.typography.titleMedium
@@ -74,6 +135,11 @@ fun BookmarkItem(
             }
         }
     }
+}
+
+@Composable
+fun ThreadList() {
+    Text(text = "スレッド一覧")
 }
 
 @Preview(showBackground = true)

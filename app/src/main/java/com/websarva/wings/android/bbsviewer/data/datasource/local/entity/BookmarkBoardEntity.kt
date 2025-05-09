@@ -28,7 +28,7 @@ import androidx.room.Relation
 data class BookmarkBoardEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val boardId: Long,
-    val groupId: Long?    // null → グループ未設定
+    val groupId: Long
 )
 
 data class BoardWithBookmarkAndGroup(

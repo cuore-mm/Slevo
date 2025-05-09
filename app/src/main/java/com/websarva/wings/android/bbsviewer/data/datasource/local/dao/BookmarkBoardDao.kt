@@ -1,7 +1,6 @@
 package com.websarva.wings.android.bbsviewer.data.datasource.local.dao
 
 import androidx.room.*
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardWithBookmarkAndGroup
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkWithGroup
@@ -49,14 +48,6 @@ interface BookmarkBoardDao {
     /** Board に紐づく Bookmark レコードを取得 */
     @Query("SELECT * FROM bookmark_boards WHERE boardId = :boardId LIMIT 1")
     suspend fun findBookmarkByBoardId(boardId: Long): BookmarkBoardEntity?
-
-    /** グループの登録／更新。戻り値は生成された groupId */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertGroup(g: BoardGroupEntity): Long
-
-    /** グループ削除 */
-    @Delete
-    suspend fun deleteGroup(g: BoardGroupEntity)
 
     /**
      * boardUrl（boards.url）から単一 Board + Bookmark + Group 情報を取得

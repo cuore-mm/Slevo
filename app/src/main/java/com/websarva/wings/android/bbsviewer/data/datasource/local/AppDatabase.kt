@@ -6,6 +6,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkTh
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BbsServiceDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardCategoryCrossRefDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardGroupDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
@@ -36,4 +37,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun boardCategoryCrossRefDao(): BoardCategoryCrossRefDao
     abstract fun bookmarkBoardDao(): BookmarkBoardDao
     abstract fun bookmarkThreadDao(): BookmarkThreadDao
+    abstract fun boardGroupDao(): BoardGroupDao
 }

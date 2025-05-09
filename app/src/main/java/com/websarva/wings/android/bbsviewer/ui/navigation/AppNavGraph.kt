@@ -25,7 +25,6 @@ fun AppNavGraph(
     NavHost(
         navController = navController,
         startDestination = AppRoute.Bookmark,
-        modifier = modifier,
         enterTransition = { EnterTransition.None },
         exitTransition = { ExitTransition.None },
         popEnterTransition = { EnterTransition.None },
@@ -33,12 +32,14 @@ fun AppNavGraph(
     ) {
         //お気に入り
         addBookmarkRoute(
+            modifier = modifier,
             topAppBarViewModel = topAppBarViewModel,
             bookmarkViewModel = bookmarkViewModel,
             navController = navController
         )
         //掲示板一覧
         addRegisteredBBSNavigation(
+            modifier = modifier,
             navController = navController,
         )
         //スレッド一覧

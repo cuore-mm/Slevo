@@ -5,6 +5,8 @@ import androidx.annotation.RequiresApi
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
@@ -46,19 +48,18 @@ class BoardViewModel @Inject constructor(
         loadThreadList()
 
         // お気に入り状態を監視し、UI state に反映
-        viewModelScope.launch {
-            bookmarkRepo
-                .getBookmarkWithGroupByUrl(boardUrl)
-                .collect { bg ->
-                    _uiState.update {
-                        it.copy(
-                            isBookmarked = (bg?.bookmark != null),
-                            groupName = bg?.group?.name,
-                            groupColorHex = bg?.group?.colorHex
-                        )
-                    }
-                }
-        }
+//        viewModelScope.launch {
+//            bookmarkRepo
+//                .getBookmarkWithGroupByUrl(boardUrl)
+//                .collect { bg ->
+//                    _uiState.update {
+//                        it.copy(
+//                            isBookmarked = (bg?.bookmark != null),
+//                            selectedGroup = bg?.group,
+//                        )
+//                    }
+//                }
+//        }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -76,26 +77,76 @@ class BoardViewModel @Inject constructor(
         }
     }
 
-//    /** 単純なお気に入り登録／解除 */
-//    fun toggleBookmark() {
-//        viewModelScope.launch {
-//            bookmarkRepo.toggleByUrl(boardUrl)
-//        }
-//    }
-//
-//    /**
-//     * お気に入り登録時に同時にグループ名＋色を登録
-//     * @param groupName  グループ名称
-//     * @param colorHex   カラーコード (#RRGGBB)
-//     */
-//    fun addBookmarkWithGroup(groupName: String, colorHex: String) {
-//        viewModelScope.launch {
-//            bookmarkRepo.addWithGroupByUrl(
-//                boardUrl,
-//                GroupEntity(name = groupName, colorHex = colorHex)
-//            )
-//        }
-//    }
+    fun loadGroups() {
+        viewModelScope.launch {
+            bookmarkRepo.observeGroups()         // Flow<List<BoardGroupEntity>>
+                .collect { groups ->
+                    _uiState.update { it.copy(groups = groups) }
+                }
+        }
+    }
+
+    /** ブックマークシートを開く */
+    fun openBookmarkSheet() = viewModelScope.launch {
+        _uiState.update { it.copy(showBookmarkSheet = true) }
+    }
+
+    /** ブックマークシートを閉じる */
+    fun closeBookmarkSheet() = viewModelScope.launch {
+        _uiState.update { it.copy(showBookmarkSheet = false) }
+    }
+
+    /** グループ追加ダイアログを開く */
+    fun openAddGroupDialog() = viewModelScope.launch {
+        _uiState.update { it.copy(showAddGroupDialog = true) }
+    }
+
+    /** グループ追加ダイアログを閉じる */
+    fun closeAddGroupDialog() = viewModelScope.launch {
+        _uiState.update { it.copy(showAddGroupDialog = false) }
+    }
+
+    /** グループ名をセット */
+    fun setGroupName(name: String) = viewModelScope.launch {
+        _uiState.update { it.copy(enteredGroupName = name) }
+    }
+
+    /** カラーコードをセット */
+    fun setColorCode(color: String) = viewModelScope.launch {
+        _uiState.update { it.copy(selectedColor = color) }
+    }
+
+    fun addGroup() = viewModelScope.launch {
+        val name = uiState.value.enteredGroupName.takeIf { it.isNotBlank() } ?: return@launch
+        val color = uiState.value.selectedColor ?: return@launch
+        bookmarkRepo.addGroupAtEnd(name, color)
+        closeAddGroupDialog()
+    }
+
+    /**
+     * お気に入りを登録または更新
+     */
+    fun saveBookmark(groupId: Long) {
+        viewModelScope.launch {
+            bookmarkRepo.upsertBookmark(
+                BookmarkBoardEntity(
+                    boardId = uiState.value.boardInfo.boardId,
+                    groupId = groupId,
+                )
+            )
+        }
+        closeBookmarkSheet()
+    }
+
+    /**
+     * お気に入りを解除
+     */
+    fun deleteBookmark(bookmark: BookmarkBoardEntity) {
+        viewModelScope.launch {
+            bookmarkRepo.deleteBookmark(bookmark)
+        }
+    }
+
 }
 
 data class BoardUiState(
@@ -103,6 +154,10 @@ data class BoardUiState(
     val isLoading: Boolean = false,
     val boardInfo: BoardInfo = BoardInfo(0, "", ""),
     val isBookmarked: Boolean = false,
-    val groupName: String? = null,
-    val groupColorHex: String? = null
+    val groups: List<BoardGroupEntity> = emptyList(),
+    val selectedGroup: BoardGroupEntity? = null,
+    val showBookmarkSheet: Boolean = false,
+    val showAddGroupDialog: Boolean = false,
+    val selectedColor: String? = null,
+    val enteredGroupName: String = "",
 )

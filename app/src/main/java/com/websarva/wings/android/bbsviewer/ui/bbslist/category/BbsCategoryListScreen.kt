@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Folder
@@ -59,41 +60,40 @@ fun CategoryGrid(
     onCategoryClick: (CategoryInfo) -> Unit
 ) {
     // 2つずつのリストに変換。最後の要素が単数の場合は null 埋め。
-    val rows = categories.chunked(2).map { row ->
-        Pair(row.getOrNull(0), row.getOrNull(1))
-    }
+    val rows: List<Pair<CategoryInfo, CategoryInfo?>> =
+        categories.chunked(2).map { row ->
+            // chunked(2) の返す各 row は必ず size>=1
+            val first  = row[0]              // non-null
+            val second = row.getOrNull(1)    // nullable
+            first to second
+        }
 
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(8.dp),
     ) {
-        itemsIndexed(rows) { index, (left, right) ->
+        items(
+            items = rows,
+            key = { (left, _) -> left.categoryId }    // 左側カテゴリの ID をキーに
+        ) { (left, right) ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(IntrinsicSize.Min) // 縦線をセルいっぱいに伸ばすため
+                    .height(IntrinsicSize.Min)
             ) {
-                // 左セル
                 BbsCategoryItem(
                     category = left,
                     modifier = Modifier.weight(1f),
                     onClick = onCategoryClick
                 )
-
-                // 真ん中の縦線
                 VerticalDivider()
-
-                // 右セル
                 BbsCategoryItem(
                     category = right,
                     modifier = Modifier.weight(1f),
                     onClick = onCategoryClick
                 )
             }
-            // 各行の下の横線
-            if (index < rows.lastIndex) {
-                HorizontalDivider()
-            }
+            HorizontalDivider()
         }
     }
 }

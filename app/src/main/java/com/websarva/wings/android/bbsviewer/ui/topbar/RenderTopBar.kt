@@ -21,7 +21,6 @@ import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BbsCategoryViewM
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.BbsServiceViewModel
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
-import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -29,19 +28,17 @@ import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 @Composable
 fun RenderTopBar(
     navController: NavHostController,
-    scrollBehavior: TopAppBarScrollBehavior,
-    topAppBarViewModel: TopAppBarViewModel,
     navBackStackEntry: NavBackStackEntry?,
 ) {
     val currentDestination = navBackStackEntry?.destination
-    val topAppBarUiState by topAppBarViewModel.uiState.collectAsState()
 
     when {
         currentDestination.isInRoute(
             AppRoute.RouteName.BOOKMARK,
-        ) -> HomeTopAppBarScreen(
-            title = topAppBarUiState.title,
-            scrollBehavior = scrollBehavior
+        ) -> BbsServiceListTopBarScreen(
+            onNavigationClick = { },
+            onAddClick = { },
+            onSearchClick = { }
         )
 
         currentDestination.isInRoute(
@@ -103,22 +100,6 @@ fun RenderTopBar(
         }
 
         currentDestination.isInRoute(
-            AppRoute.RouteName.BOARD
-        ) -> {
-            val viewModel: BoardViewModel = hiltViewModel(navBackStackEntry!!)
-            val uiState by viewModel.uiState.collectAsState()
-
-            BoardTopBarScreen(
-                title = uiState.boardInfo.name,
-                onNavigationClick = {},
-                onBookmarkClick = {},
-                onInfoClick = {},
-                scrollBehavior = scrollBehavior
-            )
-
-        }
-
-        currentDestination.isInRoute(
             AppRoute.RouteName.THREAD
         ) -> {
             val threadViewModel: ThreadViewModel? =
@@ -127,7 +108,6 @@ fun RenderTopBar(
             threadViewModel?.let { viewModel ->
                 val uiState by viewModel.uiState.collectAsState()
                 ThreadTopBar(
-                    scrollBehavior = scrollBehavior,
                     onFavoriteClick = { viewModel.bookmarkThread() },
                     uiState = uiState
                 )

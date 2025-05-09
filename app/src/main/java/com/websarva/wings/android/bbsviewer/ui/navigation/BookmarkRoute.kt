@@ -2,6 +2,7 @@ package com.websarva.wings.android.bbsviewer.ui.navigation
 
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
@@ -11,6 +12,7 @@ import com.websarva.wings.android.bbsviewer.ui.topbar.AppBarType
 import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
 
 fun NavGraphBuilder.addBookmarkRoute(
+    modifier: Modifier = Modifier,
     topAppBarViewModel: TopAppBarViewModel,
     bookmarkViewModel: BookmarkViewModel,
     navController: NavHostController
@@ -21,6 +23,7 @@ fun NavGraphBuilder.addBookmarkRoute(
             type = AppBarType.Home
         )
         BookmarkScreen(
+            modifier = modifier,
             bookmarks = uiState.bookmarks ?: emptyList(),
             onItemClick = { bookmark ->
                 navController.navigate(

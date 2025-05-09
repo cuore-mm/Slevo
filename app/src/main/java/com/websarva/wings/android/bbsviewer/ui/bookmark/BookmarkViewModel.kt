@@ -44,3 +44,8 @@ class BookmarkViewModel @Inject constructor(
     }
 
 }
+
+data class BookmarkUiState(
+    val bookmarks: List<BookmarkThreadEntity>? = null,
+    val isLoading: Boolean = false
+)
