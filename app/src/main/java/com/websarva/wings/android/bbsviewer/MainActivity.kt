@@ -17,12 +17,10 @@ import com.websarva.wings.android.bbsviewer.ui.AppScaffold
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
 import com.websarva.wings.android.bbsviewer.ui.theme.BBSViewerTheme
-import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private val topAppBarViewModel: TopAppBarViewModel by viewModels()
     private val bookmarkViewModel: BookmarkViewModel by viewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
 
@@ -46,7 +44,6 @@ class MainActivity : ComponentActivity() {
 
             BBSViewerTheme(darkTheme = uiState.isDark) {
                 AppScaffold(
-                    topAppBarViewModel = topAppBarViewModel,
                     bookmarkViewModel = bookmarkViewModel,
                     settingsViewModel = settingsViewModel
                 )

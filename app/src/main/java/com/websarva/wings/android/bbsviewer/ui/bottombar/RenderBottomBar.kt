@@ -3,6 +3,7 @@ package com.websarva.wings.android.bbsviewer.ui.bottombar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
@@ -13,6 +14,7 @@ import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
 @Composable
 fun RenderBottomBar(
+    modifier: Modifier = Modifier,
     navController: NavHostController,
     navBackStackEntry: NavBackStackEntry?
 ) {
@@ -28,6 +30,7 @@ fun RenderBottomBar(
 
             if (!uiState.selectMode){
                 HomeBottomNavigationBar(
+                    modifier = modifier,
                     currentDestination = currentDestination,
                     onClick = { route ->
                         navController.navigate(route) {

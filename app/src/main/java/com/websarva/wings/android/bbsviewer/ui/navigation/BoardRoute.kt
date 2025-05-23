@@ -77,21 +77,21 @@ fun NavGraphBuilder.addBoardRoute(
                     onDismissRequest = { viewModel.closeBookmarkSheet() },
                     groups = uiState.groups,
                     selectedGroupId = uiState.selectedGroup?.groupId,
-                    onAddGroup = {viewModel.openAddGroupDialog()},
-                    onGroupSelected = {viewModel.saveBookmark(it)}
+                    onAddGroup = { viewModel.openAddGroupDialog() },
+                    onGroupSelected = { viewModel.saveBookmark(it) }
                 )
             }
 
             if (uiState.showAddGroupDialog) {
                 AddGroupDialog(
                     onDismissRequest = { viewModel.closeAddGroupDialog() },
-                    onAdd ={viewModel.addGroup()},
+                    onAdd = { viewModel.addGroup() },
                     onValueChange = { viewModel.setGroupName(it) },
-                    enteredValue =uiState.enteredGroupName,
+                    enteredValue = uiState.enteredGroupName,
                     onColorSelected = { viewModel.setColorCode(it) },
-                    selectedColor =uiState.selectedColor?:"",
+                    selectedColor = uiState.selectedColor ?: "",
                 )
             }
         }
-        }
     }
+}

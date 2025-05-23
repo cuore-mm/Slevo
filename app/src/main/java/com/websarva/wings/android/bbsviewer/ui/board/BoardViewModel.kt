@@ -15,6 +15,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -46,20 +47,6 @@ class BoardViewModel @Inject constructor(
     init {
         // 初期化時に一度だけ subject.txt をロード
         loadThreadList()
-
-        // お気に入り状態を監視し、UI state に反映
-//        viewModelScope.launch {
-//            bookmarkRepo
-//                .getBookmarkWithGroupByUrl(boardUrl)
-//                .collect { bg ->
-//                    _uiState.update {
-//                        it.copy(
-//                            isBookmarked = (bg?.bookmark != null),
-//                            selectedGroup = bg?.group,
-//                        )
-//                    }
-//                }
-//        }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)

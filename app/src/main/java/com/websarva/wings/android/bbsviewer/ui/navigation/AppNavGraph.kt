@@ -4,21 +4,22 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
-import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
 import kotlinx.serialization.Serializable
 
+@OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNavGraph(
-    modifier: Modifier = Modifier,
     navController: NavHostController,
-    topAppBarViewModel: TopAppBarViewModel,
+    scrollBehavior: TopAppBarScrollBehavior,
     bookmarkViewModel: BookmarkViewModel,
     settingsViewModel: SettingsViewModel
 ) {
@@ -32,14 +33,12 @@ fun AppNavGraph(
     ) {
         //お気に入り
         addBookmarkRoute(
-            modifier = modifier,
-            topAppBarViewModel = topAppBarViewModel,
+            scrollBehavior = scrollBehavior,
             bookmarkViewModel = bookmarkViewModel,
             navController = navController
         )
         //掲示板一覧
         addRegisteredBBSNavigation(
-            modifier = modifier,
             navController = navController,
         )
         //スレッド一覧
@@ -48,7 +47,6 @@ fun AppNavGraph(
         )
         //スレッド画面
         addThreadRoute(
-            topAppBarViewModel = topAppBarViewModel
         )
         //設定画面
         addSettingsRoute(

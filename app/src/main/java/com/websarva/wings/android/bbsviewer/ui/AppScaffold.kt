@@ -3,52 +3,79 @@ package com.websarva.wings.android.bbsviewer.ui
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.websarva.wings.android.bbsviewer.ui.topbar.TopAppBarViewModel
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.bottombar.RenderBottomBar
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppNavGraph
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
-import com.websarva.wings.android.bbsviewer.ui.topbar.RenderTopBar
+import kotlin.math.roundToInt
 
+@OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppScaffold(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
-    topAppBarViewModel: TopAppBarViewModel,
     bookmarkViewModel: BookmarkViewModel,
     settingsViewModel: SettingsViewModel
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
 
+    /* ① 共有する TopAppBarState と ScrollBehavior を用意 */
+    val topBarState   = rememberTopAppBarState()
+    val scrollBehavior = TopAppBarDefaults
+        .enterAlwaysScrollBehavior(topBarState)
+
+    /* ② BottomBar の高さ(px) を取得しておく */
+    val density             = LocalDensity.current
+    val bottomBarHeightDp    = 56.dp
+    val bottomBarHeightPx    = with(density) { bottomBarHeightDp.toPx() }
+
+    // 画面遷移ごとにheightOffsetをリセット
+    LaunchedEffect(navBackStackEntry?.destination?.route) {
+        topBarState.heightOffset = 0f
+    }
+
     Scaffold(
         modifier = modifier
-            .fillMaxSize(),
-        topBar = {
-            RenderTopBar(
-                navController = navController,
-                navBackStackEntry = navBackStackEntry,
-            )
-        },
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
         bottomBar = {
+            val offsetY = (-topBarState.heightOffset)        // 符号反転
+                .coerceIn(0f, bottomBarHeightPx)             // 0 … BottomBarH
+
             RenderBottomBar(
+                modifier = Modifier
+                    .height(bottomBarHeightDp)
+                    .offset { IntOffset(0, offsetY.roundToInt()) },
                 navController = navController,
                 navBackStackEntry = navBackStackEntry,
             )
         }
     ) { innerPadding ->
+        // innerPadding から下だけ取り出す
+        val bottomPadding = innerPadding.calculateBottomPadding()
+
         AppNavGraph(
-            modifier = Modifier.padding(innerPadding),
             navController = navController,
-            topAppBarViewModel = topAppBarViewModel,
+            scrollBehavior = scrollBehavior,
             bookmarkViewModel = bookmarkViewModel,
             settingsViewModel = settingsViewModel
         )

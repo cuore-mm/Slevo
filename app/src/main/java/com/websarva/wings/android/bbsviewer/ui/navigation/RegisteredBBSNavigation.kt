@@ -1,6 +1,15 @@
 package com.websarva.wings.android.bbsviewer.ui.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -17,8 +26,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.bbsviewer.ui.bbslist.board.BbsBoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BbsCategoryViewModel
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.DeleteBbsDialog
+import com.websarva.wings.android.bbsviewer.ui.topbar.BbsCategoryListTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.topbar.BbsServiceListTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.topbar.SelectedBbsListTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
+@OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.addRegisteredBBSNavigation(
     modifier: Modifier = Modifier,
     navController: NavHostController,
@@ -54,55 +67,86 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             val viewModel: BbsServiceViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
 
-            BBSListScreen(
-                modifier = modifier,
-                uiState = uiState,
-                onClick = { service ->
-                    navController.navigate(
-                        AppRoute.BoardCategoryList(
-                            serviceId = service.serviceId,
-                            serviceName = service.name
-                        )
-                    ) {
-                        launchSingleTop = true
+            Scaffold(
+                topBar = {
+                    Box {
+                        // 通常モードの AppBar
+                        AnimatedVisibility(
+                            visible = !uiState.selectMode,
+                            enter = fadeIn(),
+                            exit = fadeOut()
+                        ) {
+                            BbsServiceListTopBarScreen(
+                                onNavigationClick = {},
+                                onAddClick = { viewModel.toggleAddDialog(true) },
+                                onSearchClick = {}
+                            )
+                        }
+                        // 編集モードの AppBar（上からスライドダウン）
+                        AnimatedVisibility(
+                            visible = uiState.selectMode,
+                            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
+                        ) {
+                            SelectedBbsListTopBarScreen(
+                                onBack = { viewModel.toggleSelectMode(false) },
+                                selectedCount = uiState.selected.size
+                            )
+                        }
                     }
                 },
-                onLongClick = { serviceId ->
-                    viewModel.toggleSelectMode(true)
-                    viewModel.toggleSelect(serviceId)
-                },
-            )
+            ) { innerPadding ->
 
-            if (uiState.showAddDialog) {
-                AddBbsDialog(
-                    onDismissRequest = { viewModel.toggleAddDialog(false) },
-                    enteredUrl = uiState.enteredUrl,
-                    onUrlChange = { viewModel.updateEnteredUrl(it) },
-                    onCancel = { viewModel.toggleAddDialog(false) },
-                    onAdd = {
-                        viewModel.addOrUpdateService(uiState.enteredUrl)
-                        // ダイアログ閉じ＆入力クリア
-                        viewModel.toggleAddDialog(false)
-                        viewModel.updateEnteredUrl("")
-                    }
-                )
-            }
-
-            if (uiState.showDeleteDialog) {
-                DeleteBbsDialog(
-                    onDismissRequest = { viewModel.toggleDeleteDialog(false) },
-                    onDelete = {
-                        viewModel.removeSelectedServices()
-                        viewModel.toggleDeleteDialog(false)
+                BBSListScreen(
+                    modifier = modifier.padding(innerPadding),
+                    uiState = uiState,
+                    onClick = { service ->
+                        navController.navigate(
+                            AppRoute.BoardCategoryList(
+                                serviceId = service.serviceId,
+                                serviceName = service.name
+                            )
+                        ) {
+                            launchSingleTop = true
+                        }
                     },
-                    selectedCount = uiState.selected.size
+                    onLongClick = { serviceId ->
+                        viewModel.toggleSelectMode(true)
+                        viewModel.toggleSelect(serviceId)
+                    },
                 )
-            }
 
-            // selectMode が true の間は「戻る」をキャッチして解除だけ行う
-            BackHandler(enabled = uiState.selectMode) {
-                viewModel.toggleSelectMode(false)
-                // 必要なら選択リストもクリア
+                if (uiState.showAddDialog) {
+                    AddBbsDialog(
+                        onDismissRequest = { viewModel.toggleAddDialog(false) },
+                        enteredUrl = uiState.enteredUrl,
+                        onUrlChange = { viewModel.updateEnteredUrl(it) },
+                        onCancel = { viewModel.toggleAddDialog(false) },
+                        onAdd = {
+                            viewModel.addOrUpdateService(uiState.enteredUrl)
+                            // ダイアログ閉じ＆入力クリア
+                            viewModel.toggleAddDialog(false)
+                            viewModel.updateEnteredUrl("")
+                        }
+                    )
+                }
+
+                if (uiState.showDeleteDialog) {
+                    DeleteBbsDialog(
+                        onDismissRequest = { viewModel.toggleDeleteDialog(false) },
+                        onDelete = {
+                            viewModel.removeSelectedServices()
+                            viewModel.toggleDeleteDialog(false)
+                        },
+                        selectedCount = uiState.selected.size
+                    )
+                }
+
+                // selectMode が true の間は「戻る」をキャッチして解除だけ行う
+                BackHandler(enabled = uiState.selectMode) {
+                    viewModel.toggleSelectMode(false)
+                    // 必要なら選択リストもクリア
+                }
             }
         }
         //カテゴリ一覧
@@ -115,22 +159,32 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             val viewModel: BbsCategoryViewModel = hiltViewModel(it)
             val uiState by viewModel.uiState.collectAsState()
 
-            BbsCategoryListScreen(
-                modifier = modifier,
-                uiState = uiState,
-                onCategoryClick = { category ->
-                    navController.navigate(
-                        AppRoute.CategorisedBoardList(
-                            serviceId = uiState.serviceId,
-                            categoryId = category.categoryId,
-                            serviceName = uiState.serviceName,
-                            categoryName = category.name,
-                        )
-                    ) {
-                        launchSingleTop = true
+            Scaffold(
+                topBar = {
+                    BbsCategoryListTopBarScreen(
+                        title = uiState.serviceName,
+                        onNavigationClick = {},
+                        onSearchClick = {}
+                    )
+                },
+            ) { innerPadding ->
+                BbsCategoryListScreen(
+                    modifier = modifier.padding(innerPadding),
+                    uiState = uiState,
+                    onCategoryClick = { category ->
+                        navController.navigate(
+                            AppRoute.CategorisedBoardList(
+                                serviceId = uiState.serviceId,
+                                categoryId = category.categoryId,
+                                serviceName = uiState.serviceName,
+                                categoryName = category.name,
+                            )
+                        ) {
+                            launchSingleTop = true
+                        }
                     }
-                }
-            )
+                )
+            }
         }
         //カテゴリ -> 板一覧
         composable<AppRoute.CategorisedBoardList>(
@@ -142,32 +196,42 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             val viewModel: BbsBoardViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
 
-            CategorisedBoardListScreen(
-                modifier = modifier,
-                boards = uiState.boards,
-                onBoardClick = { board ->
-                    navController.navigate(
-                        AppRoute.Board(
-                            boardId = board.boardId,
-                            boardName = board.name,
-                            boardUrl = board.url
-                        )
-                    ) {
-                        popUpTo(
+            Scaffold(
+                topBar = {
+                    BbsCategoryListTopBarScreen(
+                        title = "${uiState.serviceName} > ${uiState.categoryName}",
+                        onNavigationClick = {},
+                        onSearchClick = {}
+                    )
+                },
+            ) { innerPadding ->
+                CategorisedBoardListScreen(
+                    modifier = modifier.padding(innerPadding),
+                    boards = uiState.boards,
+                    onBoardClick = { board ->
+                        navController.navigate(
                             AppRoute.Board(
                                 boardId = board.boardId,
                                 boardName = board.name,
                                 boardUrl = board.url
                             )
                         ) {
-                            inclusive = false
-                            saveState = true
+                            popUpTo(
+                                AppRoute.Board(
+                                    boardId = board.boardId,
+                                    boardName = board.name,
+                                    boardUrl = board.url
+                                )
+                            ) {
+                                inclusive = false
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
                     }
-                }
-            )
+                )
+            }
         }
     }
 }

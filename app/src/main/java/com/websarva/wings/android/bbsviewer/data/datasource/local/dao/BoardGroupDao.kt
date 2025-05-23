@@ -4,8 +4,10 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithBoards
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -25,4 +27,9 @@ interface BoardGroupDao {
     /** 並び順を更新 */
     @Update
     suspend fun updateGroups(groups: List<BoardGroupEntity>)
+
+    /** グループ順（sortOrder）に並べた全グループ＋その中のお気に入り板を一気に取得 */
+    @Transaction
+    @Query("SELECT * FROM `groups` ORDER BY sortOrder ASC")
+    fun getGroupsWithBoards(): Flow<List<GroupWithBoards>>
 }

@@ -41,8 +41,9 @@ fun HomeTopAppBarScreen(
         modifier = modifier,
         scrollBehavior = scrollBehavior,
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            containerColor            = MaterialTheme.colorScheme.primary)
+            containerColor = MaterialTheme.colorScheme.primary
         )
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,9 +82,14 @@ fun BbsServiceListTopBarScreen(
     onNavigationClick: () -> Unit,
     onAddClick: () -> Unit, // 編集処理のためのコールバック
     onSearchClick: () -> Unit, // 検索処理のためのコールバック
-
+    scrollBehavior: TopAppBarScrollBehavior?= null
 ) {
     CenterAlignedTopAppBar(
+        colors = TopAppBarDefaults.largeTopAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surface,          // 通常時の色
+            scrolledContainerColor = MaterialTheme.colorScheme.surface   // 折りたたみ後も同じ色
+        ),
+        scrollBehavior = scrollBehavior,
         title = {},
         navigationIcon = { // 左端にボタンを追加
             IconButton(onClick = onNavigationClick) {
@@ -155,7 +161,7 @@ fun SelectedBbsListTopBarScreen(
     selectedCount: Int
 ) {
     TopAppBar(
-        navigationIcon ={
+        navigationIcon = {
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -165,7 +171,7 @@ fun SelectedBbsListTopBarScreen(
         },
         title = {
             Text(
-                text = "$selectedCount"+stringResource(R.string.selected_count_label),
+                text = "$selectedCount" + stringResource(R.string.selected_count_label),
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium
             )
@@ -188,10 +194,10 @@ fun ThreadTopBar(
     TopAppBar(
         title = {
             Text(
-                    text = uiState.threadInfo.title,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium
-                )
+                text = uiState.threadInfo.title,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
         },
         modifier = modifier,
 
@@ -234,7 +240,6 @@ fun ThreadTopBar(
 }
 
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
@@ -255,6 +260,7 @@ fun SmallTopAppBarScreenPreview() {
 }
 
 // BBSListTopBarScreenのプレビュー
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
 fun BbsServiceListTopBarScreenPreview() {

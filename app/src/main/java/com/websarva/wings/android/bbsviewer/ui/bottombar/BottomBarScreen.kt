@@ -43,6 +43,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavDestination.Companion.hierarchy
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
@@ -58,30 +60,42 @@ fun HomeBottomNavigationBar(
             route = AppRoute.Bookmark,
             name = stringResource(R.string.bookmark),
             icon = Icons.Default.Favorite,
-            parentRoute = AppRoute.RouteName.BOOKMARK
+            parentRoute = AppRoute.Bookmark
         ),
         TopLevelRoute(
             route = AppRoute.BBSList,
             name = stringResource(R.string.boardList),
             icon = Icons.AutoMirrored.Filled.List,
-            parentRoute = AppRoute.RouteName.REGISTERED_BBS
+            parentRoute = AppRoute.RegisteredBBS
         ),
         TopLevelRoute(
             route = AppRoute.Settings,
             name = stringResource(R.string.settings),
             icon = Icons.Default.Settings,
-            parentRoute = AppRoute.RouteName.SETTINGS
+            parentRoute = AppRoute.Settings
         ),
     )
     NavigationBar(modifier = modifier) {
-        topLevelRoutes.forEach { topLevelRoute ->
+        topLevelRoutes.forEach { item ->
             NavigationBarItem(
-                icon = { Icon(topLevelRoute.icon, contentDescription = topLevelRoute.name) },
-                label = { Text(topLevelRoute.name) },
-                selected = currentDestination.isInRoute(
-                    topLevelRoute.parentRoute
-                ),
-                onClick = { onClick(topLevelRoute.route) }
+                icon = {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(item.icon, contentDescription = item.name)
+                        Text(
+                            text = item.name,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1
+                        )
+                    }
+                },
+                label = null, // labelはnullにしてicon内で表示
+                alwaysShowLabel = true,
+                selected = currentDestination?.hierarchy?.any {
+                    it.hasRoute(item.parentRoute::class)
+                } ?: false,
+                onClick = { onClick(item.route) }
             )
         }
     }
@@ -91,7 +105,7 @@ private data class TopLevelRoute(
     val route: AppRoute,
     val name: String,
     val icon: ImageVector,
-    val parentRoute: String
+    val parentRoute: AppRoute
 )
 
 @Composable
@@ -108,13 +122,13 @@ fun BbsSelectBottomBar(
                 horizontalArrangement = Arrangement.SpaceAround,
             ) {
                 BottomBarItem(
-                    icon    = Icons.Default.Delete,
-                    label   = "削除",
+                    icon = Icons.Default.Delete,
+                    label = "削除",
                     onClick = onDelete
                 )
                 BottomBarItem(
-                    icon    = Icons.Default.OpenInBrowser,
-                    label   = "開く",
+                    icon = Icons.Default.OpenInBrowser,
+                    label = "開く",
                     onClick = onOpen
                 )
             }
@@ -135,13 +149,13 @@ fun BottomBarItem(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
-            imageVector  = icon,
+            imageVector = icon,
             contentDescription = label,
-            modifier     = Modifier.size(24.dp)
+            modifier = Modifier.size(24.dp)
         )
         Text(
-            text     = label,
-            style    = MaterialTheme.typography.labelSmall,
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
             maxLines = 1
         )
     }
@@ -267,6 +281,8 @@ fun ThreadBottomBar(
 @Composable
 fun HomeBottomNavigationBarPreview() {
     HomeBottomNavigationBar(
+        modifier = Modifier
+            .height(56.dp),
         currentDestination = null,
         onClick = {}
     )
