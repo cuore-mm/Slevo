@@ -20,14 +20,13 @@ import androidx.room.Relation
             entity        = BoardGroupEntity::class,
             parentColumns = ["groupId"],
             childColumns  = ["groupId"],
-            onDelete      = ForeignKey.SET_NULL
+            onDelete      = ForeignKey.CASCADE
         )
     ],
-    indices = [ Index("boardId"), Index("groupId") ]
+    indices = [ Index("groupId") ]
 )
 data class BookmarkBoardEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val boardId: Long,
+    @PrimaryKey val boardId: Long,
     val groupId: Long
 )
 

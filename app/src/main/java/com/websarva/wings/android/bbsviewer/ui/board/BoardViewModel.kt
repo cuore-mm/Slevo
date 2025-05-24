@@ -32,11 +32,12 @@ class BoardViewModel @Inject constructor(
         ?: error("boardUrl is required")
     private val boardName = savedStateHandle.get<String>("boardName")
         ?: error("boardName is required")
+    private val boardId = savedStateHandle.get<Long>("boardId") ?: 0
 
     private val _uiState = MutableStateFlow(
         BoardUiState(
             boardInfo = BoardInfo(
-                boardId = savedStateHandle.get<Long>("boardId") ?: 0,
+                boardId = boardId,
                 name = boardName,
                 url = boardUrl
             )
@@ -47,6 +48,7 @@ class BoardViewModel @Inject constructor(
     init {
         // 初期化時に一度だけ subject.txt をロード
         loadThreadList()
+        loadBookmarkDetails()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -61,6 +63,27 @@ class BoardViewModel @Inject constructor(
             } finally {
                 _uiState.update { it.copy(isLoading = false) }
             }
+        }
+    }
+
+    private fun loadBookmarkDetails() {
+        viewModelScope.launch {
+            bookmarkRepo.getBoardWithBookmarkAndGroupByUrlFlow(boardUrl)
+                .collectLatest { boardWithBookmarkAndGroup ->
+                    boardWithBookmarkAndGroup?.let {
+                        _uiState.update { state ->
+                            state.copy(
+                                boardInfo = BoardInfo(
+                                    boardId = it.board.boardId,
+                                    name = it.board.name,
+                                    url = it.board.url
+                                ),
+                                isBookmarked = it.bookmarkWithGroup != null,
+                                selectedGroup = it.bookmarkWithGroup?.group
+                            )
+                        }
+                    }
+                }
         }
     }
 

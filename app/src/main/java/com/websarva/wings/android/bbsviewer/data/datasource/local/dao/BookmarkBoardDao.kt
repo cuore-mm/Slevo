@@ -71,4 +71,8 @@ interface BookmarkBoardDao {
     fun getBookmarkWithGroupByUrlFlow(
         boardUrl: String
     ): Flow<BookmarkWithGroup?>
+
+    @Transaction
+    @Query("SELECT * FROM boards WHERE url = :boardUrl LIMIT 1")
+    fun getBoardWithBookmarkAndGroupByUrlFlow(boardUrl: String): Flow<BoardWithBookmarkAndGroup?>
 }

@@ -5,6 +5,7 @@ import androidx.room.Transaction
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardGroupDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardWithBookmarkAndGroup
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkWithGroup
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithBoards
@@ -58,14 +59,7 @@ class BookmarkBoardRepository @Inject constructor(
     fun observeGroupsWithBoards(): Flow<List<GroupWithBoards>> =
         groupDao.getGroupsWithBoards()
 
-    /**
-     * boardUrl をキーにして、お気に入り情報とグループ情報を Flow で取得します。
-     * このメソッドを追加します。
-     *
-     * @param boardUrl 検索対象の板 URL
-     * @return BookmarkWithGroup の Flow
-     */
-    fun getBookmarkWithGroupByUrlFlow(boardUrl: String): Flow<BookmarkWithGroup?> {
-        return boardDao.getBookmarkWithGroupByUrlFlow(boardUrl)
+    fun getBoardWithBookmarkAndGroupByUrlFlow(boardUrl: String): Flow<BoardWithBookmarkAndGroup?> {
+        return boardDao.getBoardWithBookmarkAndGroupByUrlFlow(boardUrl)
     }
 }
