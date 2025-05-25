@@ -30,4 +30,5 @@
     <string name="group_name">グループ名</string>
     <string name="board">板</string>
     <string name="thread">スレッド</string>
+    <string name="no_registered_boards">登録されている板がありません</string>
 </resources>

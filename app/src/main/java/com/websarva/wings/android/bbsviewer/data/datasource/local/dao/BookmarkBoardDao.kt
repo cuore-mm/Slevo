@@ -16,7 +16,6 @@ interface BookmarkBoardDao {
     @Query("""
         SELECT
           b.*,
-          bm.id        AS bookmarkId,
           bm.groupId   AS groupId,
           g.name       AS groupName,
           g.colorHex   AS groupColorHex
@@ -45,6 +44,10 @@ interface BookmarkBoardDao {
     @Delete
     suspend fun deleteBookmark(b: BookmarkBoardEntity)
 
+    /** boardId を指定してお気に入り解除 */
+    @Query("DELETE FROM bookmark_boards WHERE boardId = :boardId")
+    suspend fun deleteBookmarkByBoardId(boardId: Long)
+
     /** Board に紐づく Bookmark レコードを取得 */
     @Query("SELECT * FROM bookmark_boards WHERE boardId = :boardId LIMIT 1")
     suspend fun findBookmarkByBoardId(boardId: Long): BookmarkBoardEntity?
@@ -56,7 +59,6 @@ interface BookmarkBoardDao {
     @Query("""
         SELECT
     b.*,
-    bm.id        AS id,           -- ← ここを bookmarkId→id に
     bm.groupId   AS groupId,
     g.name       AS groupName,
     g.colorHex   AS groupColorHex

@@ -2,6 +2,7 @@ package com.websarva.wings.android.bbsviewer.ui.bookmark
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.R
@@ -54,10 +56,11 @@ fun BookmarkScreen(
 ) {
     val scope = rememberCoroutineScope()
 
+
     // 0: 板一覧, 1: スレッド一覧
     val pagerState = rememberPagerState(
         initialPage = 0,
-        pageCount = { 2 }      // ← 必須で渡す
+        pageCount = { 2 }
     )
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -87,7 +90,9 @@ fun BookmarkScreen(
                 0 -> BookmarkBoardScreen(
                     boardGroups = boardGroups,
                     onBoardClick = onBoardClick,
-                    modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection)
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(scrollBehavior.nestedScrollConnection)
                 )
 
                 1 -> ThreadList(
@@ -107,7 +112,7 @@ fun BookmarkBoardScreen(
     if (boardGroups.isEmpty()) {
         // お気に入りがない場合の表示
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
-            Text(text = "お気に入りがありません")
+            Text(text = stringResource(R.string.no_registered_boards))
         }
     } else {
         // お気に入り一覧の表示
@@ -118,14 +123,25 @@ fun BookmarkBoardScreen(
             boardGroups.forEach { gwb ->
                 // ────────────── グループ名 ──────────────
                 item {
-                    Text(
-                        text = gwb.group.name,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                    )
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween // グループ名と板数を両端に配置
+                    ) {
+                        Text(
+                            text = gwb.group.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            // modifier = Modifier.weight(1f) // SpaceBetween を使うので weight は不要な場合あり
+                        )
+                        Text(
+                            text = "(${gwb.boards.size})", // 板数を表示
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Normal // 板数は通常の太さにするなど調整可能
+                        )
+                    }
                 }
 
                 // ────────────── カードで囲む ──────────────
@@ -142,9 +158,9 @@ fun BookmarkBoardScreen(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
                         )
                     ) {
-                        Row (
+                        Row(
                             modifier = Modifier.height(IntrinsicSize.Min)
-                        ){
+                        ) {
                             // ← 左端のカラーバー
                             Box(
                                 modifier = Modifier
@@ -154,23 +170,37 @@ fun BookmarkBoardScreen(
                             )
                             // ← ボード一覧
                             Column(modifier = Modifier.fillMaxWidth()) {
-                                gwb.boards.forEachIndexed { index, board ->
+                                if (gwb.boards.isEmpty()) { // 板がない場合の表示
                                     Text(
-                                        text = board.name,
+                                        text = stringResource(R.string.no_registered_boards),
                                         style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Bold,
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickable { onBoardClick(board) }
-                                            .padding(16.dp)
+                                            .padding(16.dp),
+                                        textAlign = TextAlign.Center
                                     )
-                                    if (index < gwb.boards.lastIndex) {
-                                        HorizontalDivider(
+                                } else {
+                                    gwb.boards.forEachIndexed { index, board ->
+                                        Text(
+                                            text = board.name,
+                                            style = MaterialTheme.typography.bodyLarge,
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(horizontal = 16.dp),
-                                            thickness = 1.dp,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                                                .clickable { onBoardClick(board) }
+                                                .padding(16.dp)
                                         )
+                                        if (index < gwb.boards.lastIndex) {
+                                            HorizontalDivider(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 16.dp),
+                                                thickness = 1.dp,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(
+                                                    alpha = 0.12f
+                                                )
+                                            )
+                                        }
                                     }
                                 }
                             }

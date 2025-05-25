@@ -36,7 +36,8 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideAppDatabase(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        callback: DatabaseCallback
     ): AppDatabase {
         return Room.databaseBuilder(
             context,
@@ -45,6 +46,7 @@ object DatabaseModule {
         )
             // マイグレーション未定義時は既存データを破棄し再生成
             .fallbackToDestructiveMigration(false)
+            .addCallback(callback)
             .build()
     }
 

@@ -163,12 +163,13 @@ fun BottomBarItem(
 
 @Composable
 fun BoardBottomBar(
+    modifier: Modifier = Modifier,
     sortOptions: List<String>,
     onSortOptionSelected: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     BottomAppBar(
-        modifier = Modifier.height(56.dp),
+        modifier = modifier,
         actions = {
             Row(
                 modifier = Modifier.fillMaxWidth(),

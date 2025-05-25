@@ -1,6 +1,5 @@
 package com.websarva.wings.android.bbsviewer.ui.board
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,7 +28,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -49,6 +47,7 @@ fun BookmarkBottomSheet(
     groups: List<BoardGroupEntity>,          // 追加：グループ一覧
     selectedGroupId: Long?,                  // 追加：現在選択中のグループID
     onGroupSelected: (Long) -> Unit,         // 追加：グループ選択時
+    onUnbookmarkRequested: () -> Unit, // ★ お気に入り解除のリクエスト用コールバックを追加
     onAddGroup: () -> Unit,
     onDismissRequest: () -> Unit,
     sheetState: SheetState,
@@ -62,6 +61,7 @@ fun BookmarkBottomSheet(
             groups = groups,
             selectedGroupId = selectedGroupId,
             onGroupSelected = onGroupSelected,
+            onUnbookmarkRequested = onUnbookmarkRequested,
             onAddGroup = onAddGroup,
         )
     }
@@ -72,6 +72,7 @@ fun BookmarkSheetContent(
     groups: List<BoardGroupEntity>,
     selectedGroupId: Long?,
     onGroupSelected: (Long) -> Unit,
+    onUnbookmarkRequested: () -> Unit,
     onAddGroup: () -> Unit,
 ) {
     Column(
@@ -117,7 +118,13 @@ fun BookmarkSheetContent(
                 }
                 Card(
                     modifier = Modifier
-                        .clickable { onGroupSelected(group.groupId) },
+                        .clickable {
+                            if (isSelected) { // ★ すでに選択されているグループをタップした場合
+                                onUnbookmarkRequested() // ★ お気に入り解除をリクエスト
+                            } else { // ★ 選択されていないグループをタップした場合
+                                onGroupSelected(group.groupId) // ★ グループ選択/変更
+                            }
+                        },
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = bgColor)
                 ) {
@@ -151,6 +158,8 @@ fun BookmarkSheetPreview() {
     BookmarkSheetContent(
         onAddGroup = {},
         onGroupSelected = {},
+        onUnbookmarkRequested = {},
+
         groups = listOf(
             BoardGroupEntity(1, "グループ1", "#FF0000", sortOrder = 1),
             BoardGroupEntity(2, "グループ2", "#00FF00", sortOrder = 2),

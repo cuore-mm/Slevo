@@ -49,10 +49,10 @@ class BookmarkBoardRepository @Inject constructor(
     }
 
     /**
-     * お気に入り解除
+     * boardId を指定してお気に入り解除
      */
-    suspend fun deleteBookmark(bookmark: BookmarkBoardEntity) = withContext(Dispatchers.IO) {
-        boardDao.deleteBookmark(bookmark)
+    suspend fun deleteBookmark(boardId: Long) = withContext(Dispatchers.IO) {
+        boardDao.deleteBookmarkByBoardId(boardId)
     }
 
     /** グループ別のお気に入り板一覧を取得 */

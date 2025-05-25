@@ -5,11 +5,15 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.core.graphics.toColorInt
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -35,6 +39,18 @@ fun NavGraphBuilder.addBoardRoute(
 
         val sheetState = rememberModalBottomSheetState()
 
+        // ブックマークアイコンの色を決定
+        val bookmarkIconColor = if (uiState.isBookmarked && uiState.selectedGroup?.colorHex != null) {
+            try {
+                Color(uiState.selectedGroup!!.colorHex.toColorInt())
+            } catch (e: IllegalArgumentException) {
+                // HEX文字列が無効な場合、デフォルトの色を使用
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+        } else {
+            Color.Unspecified // ブックマークされていない場合、またはグループの色がない場合のデフォルト
+        }
+
         Scaffold(
             topBar = {
                 BoardTopBarScreen(
@@ -46,6 +62,8 @@ fun NavGraphBuilder.addBoardRoute(
                         Log.d("BoardTopBarScreen", uiState.showBookmarkSheet.toString())
                     },
                     onInfoClick = {},
+                    isBookmarked = uiState.isBookmarked,
+                    bookmarkIconColor = bookmarkIconColor,
 //                    scrollBehavior = scrollBehavior
                 )
             },
@@ -78,7 +96,8 @@ fun NavGraphBuilder.addBoardRoute(
                     groups = uiState.groups,
                     selectedGroupId = uiState.selectedGroup?.groupId,
                     onAddGroup = { viewModel.openAddGroupDialog() },
-                    onGroupSelected = { viewModel.saveBookmark(it) }
+                    onGroupSelected = { viewModel.saveBookmark(it) },
+                    onUnbookmarkRequested = { viewModel.unbookmarkBoard() }
                 )
             }
 

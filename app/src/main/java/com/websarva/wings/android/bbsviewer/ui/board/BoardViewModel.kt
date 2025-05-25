@@ -145,18 +145,19 @@ class BoardViewModel @Inject constructor(
                 )
             )
         }
-        closeBookmarkSheet()
     }
 
     /**
-     * お気に入りを解除
+     * 現在の板のお気に入りを解除するメソッド
      */
-    fun deleteBookmark(bookmark: BookmarkBoardEntity) {
+    fun unbookmarkBoard() {
         viewModelScope.launch {
-            bookmarkRepo.deleteBookmark(bookmark)
+            val currentBoardId = uiState.value.boardInfo.boardId
+            bookmarkRepo.deleteBookmark(currentBoardId)
+            // UI状態も更新 (ブックマーク解除、選択グループ解除)
+            _uiState.update { it.copy(isBookmarked = false, selectedGroup = null) }
         }
     }
-
 }
 
 data class BoardUiState(
