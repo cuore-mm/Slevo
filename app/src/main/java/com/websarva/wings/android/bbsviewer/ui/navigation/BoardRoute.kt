@@ -3,9 +3,10 @@ package com.websarva.wings.android.bbsviewer.ui.navigation
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -13,6 +14,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
@@ -20,9 +22,11 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.websarva.wings.android.bbsviewer.ui.board.AddGroupDialog
+import com.websarva.wings.android.bbsviewer.ui.board.BoardBottomBar
 import com.websarva.wings.android.bbsviewer.ui.board.BoardScreen
 import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.board.BookmarkBottomSheet
+import com.websarva.wings.android.bbsviewer.ui.board.SortBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.topbar.BoardTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
 
@@ -37,19 +41,22 @@ fun NavGraphBuilder.addBoardRoute(
         val viewModel: BoardViewModel = hiltViewModel(backStackEntry)
         val uiState by viewModel.uiState.collectAsState()
 
-        val sheetState = rememberModalBottomSheetState()
+        val bookmarkSheetState = rememberModalBottomSheetState() // Bookmark用
+        val sortSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true) // Sort用
+
 
         // ブックマークアイコンの色を決定
-        val bookmarkIconColor = if (uiState.isBookmarked && uiState.selectedGroup?.colorHex != null) {
-            try {
-                Color(uiState.selectedGroup!!.colorHex.toColorInt())
-            } catch (e: IllegalArgumentException) {
-                // HEX文字列が無効な場合、デフォルトの色を使用
-                MaterialTheme.colorScheme.onSurfaceVariant
+        val bookmarkIconColor =
+            if (uiState.isBookmarked && uiState.selectedGroup?.colorHex != null) {
+                try {
+                    Color(uiState.selectedGroup!!.colorHex.toColorInt())
+                } catch (e: IllegalArgumentException) {
+                    // HEX文字列が無効な場合、デフォルトの色を使用
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            } else {
+                Color.Unspecified // ブックマークされていない場合、またはグループの色がない場合のデフォルト
             }
-        } else {
-            Color.Unspecified // ブックマークされていない場合、またはグループの色がない場合のデフォルト
-        }
 
         Scaffold(
             topBar = {
@@ -65,6 +72,15 @@ fun NavGraphBuilder.addBoardRoute(
                     isBookmarked = uiState.isBookmarked,
                     bookmarkIconColor = bookmarkIconColor,
 //                    scrollBehavior = scrollBehavior
+                )
+            },
+            bottomBar = {
+                BoardBottomBar(
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .height(56.dp),
+                    onSortClick = { viewModel.openSortBottomSheet() },
+                    onRefreshClick = { viewModel.loadThreadList() }
                 )
             },
         ) { innerPadding ->
@@ -85,13 +101,13 @@ fun NavGraphBuilder.addBoardRoute(
                 },
                 isRefreshing = uiState.isLoading,
                 onRefresh = {
-//                viewModel.loadThreadList(board.boardUrl)
+                    viewModel.loadThreadList()
                 }
             )
 
             if (uiState.showBookmarkSheet) {
                 BookmarkBottomSheet(
-                    sheetState = sheetState,
+                    sheetState = bookmarkSheetState,
                     onDismissRequest = { viewModel.closeBookmarkSheet() },
                     groups = uiState.groups,
                     selectedGroupId = uiState.selectedGroup?.groupId,
@@ -109,6 +125,23 @@ fun NavGraphBuilder.addBoardRoute(
                     enteredValue = uiState.enteredGroupName,
                     onColorSelected = { viewModel.setColorCode(it) },
                     selectedColor = uiState.selectedColor ?: "",
+                )
+            }
+
+            // 並び替えボトムシートの表示
+            if (uiState.showSortSheet) {
+                SortBottomSheet(
+                    sheetState = sortSheetState,
+                    onDismissRequest = { viewModel.closeSortBottomSheet() },
+                    sortKeys = uiState.sortKeys, // ViewModelからソート基準のリストを渡す
+                    currentSortKey = uiState.currentSortKey, // 現在のソート基準
+                    isSortAscending = uiState.isSortAscending, // 現在の昇順/降順
+                    onSortKeySelected = { selectedKey -> // ソート基準が選択された
+                        viewModel.setSortKey(selectedKey)
+                    },
+                    onToggleSortOrder = { // 昇順/降順ボタンが押された
+                        viewModel.toggleSortOrder()
+                    },
                 )
             }
         }

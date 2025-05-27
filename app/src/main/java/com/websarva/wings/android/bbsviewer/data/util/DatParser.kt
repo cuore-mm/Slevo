@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.data.util
 
+import androidx.core.text.HtmlCompat
 import com.websarva.wings.android.bbsviewer.ui.thread.ReplyInfo
 
 fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
@@ -19,11 +20,13 @@ fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
             val dateAndId = parts[2]
             // IDを抽出する（様々なフォーマットに対応）
             val id = extractId(dateAndId)
-            val content = cleanContent(parts[3])
+            val contentHtml = parts[3] // HTMLとして取得
+            val content = cleanContent(contentHtml) // HTMLデコードと<br>変換
 
             // 最初の行の場合、スレッドタイトルがある可能性がある
             if (index == 0) {
-                threadTitle = parts[4].takeIf { it.isNotBlank() }
+                // タイトルもHTMLデコード
+                threadTitle = HtmlCompat.fromHtml(parts[4], HtmlCompat.FROM_HTML_MODE_LEGACY).toString().takeIf { it.isNotBlank() }
             }
 
             replies.add(
@@ -41,8 +44,10 @@ fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
 }
 
 // 不要なHTMLタグを除去する関数
-private fun cleanName(name: String): String {
-    return name.replace("<b>", "")
+private fun cleanName(nameHtml: String): String {
+    // 名前フィールドもHTMLデコードする
+    val name = HtmlCompat.fromHtml(nameHtml, HtmlCompat.FROM_HTML_MODE_LEGACY).toString()
+    return name.replace("<b>", "") // fromHtmlで処理されない特定のタグは手動で除去することも検討
         .replace("</b>", "")
         .replace("<small>", "")
         .replace("</small>", "")
@@ -54,18 +59,30 @@ private fun extractId(dateAndId: String): String? {
     return idMatch?.groupValues?.get(1)
 }
 
-// content内の <br> を改行に置き換える関数
-private fun cleanContent(content: String): String {
-    // <br> タグを改行に置き換え
-    var result =
-        if (content.contains(" <br> ")) {
-            content.replace(" <br> ", "\n")
+// content内の <br> を改行に置き換え、HTMLエンティティをデコードする関数
+private fun cleanContent(contentHtml: String): String {
+    // 1. <br> タグを改行コードに変換
+    var resultWithNewlines =
+        if (contentHtml.contains(" <br> ")) {
+            contentHtml.replace(" <br> ", "\n")
         } else {
-            content.replace("<br>", "\n")
+            contentHtml.replace("<br>", "\n")
         }
 
-    // 最初と最後のスペースを削除
-    result = result.substring(1)
-    result = result.substring(0, result.length - 1)
-    return result
+    // 2. HTMLエンティティをデコード
+    var decodedContent = HtmlCompat.fromHtml(resultWithNewlines, HtmlCompat.FROM_HTML_MODE_LEGACY).toString()
+
+    // 3. 最初と最後の不要な空白や改行を削除 (fromHtmlの結果によって調整が必要な場合がある)
+    decodedContent = decodedContent.trim() // 一般的なtrim
+
+    // DATファイルの特性上、最初のスペースや最後の改行が入ることがあるため、より具体的に処理
+    // (例: " 本文 " のような形式から "本文" へ)
+    if (decodedContent.startsWith(" ") && decodedContent.length > 1) {
+        decodedContent = decodedContent.substring(1)
+    }
+    // fromHtmlが最後に余計な改行を付与する場合があるため、それも除去
+    if (decodedContent.endsWith("\n")) {
+        decodedContent = decodedContent.dropLast(1)
+    }
+    return decodedContent
 }

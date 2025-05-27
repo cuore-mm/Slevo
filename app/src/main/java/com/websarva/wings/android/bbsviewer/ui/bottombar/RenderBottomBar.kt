@@ -8,6 +8,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.BbsServiceViewModel
+import com.websarva.wings.android.bbsviewer.ui.board.BoardBottomBar
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
@@ -50,15 +51,15 @@ fun RenderBottomBar(
             }
         }
 
-        currentDestination.isInRoute(
-                AppRoute.RouteName.BOARD
-        ) -> {
-            BoardBottomBar(
-                modifier = modifier,
-                sortOptions = listOf("Option 1", "Option 2", "Option 3"),
-                onSortOptionSelected = {}
-            )
-        }
+//        currentDestination.isInRoute(
+//                AppRoute.RouteName.BOARD
+//        ) -> {
+//            BoardBottomBar(
+//                modifier = modifier,
+//                sortOptions = listOf("Option 1", "Option 2", "Option 3"),
+//                onSortOptionSelected = {}
+//            )
+//        }
 
         currentDestination.isInRoute(
                 AppRoute.RouteName.THREAD

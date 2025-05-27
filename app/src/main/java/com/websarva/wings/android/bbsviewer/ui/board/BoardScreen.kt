@@ -8,20 +8,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.data.model.ThreadDate
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
+import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,13 +42,17 @@ fun BoardScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 16.dp)
+            contentPadding = PaddingValues(vertical = 8.dp)
         ) {
-            items(threads) { thread ->
+            itemsIndexed(threads) { index, thread ->
                 ThreadCard(
                     threadInfo = thread,
                     onClick = onClick
                 )
+                // 最後のアイテムでなければ区切り線を表示
+                if (index < threads.lastIndex) {
+                    HorizontalDivider()
+                }
             }
         }
     }
@@ -57,32 +63,34 @@ fun ThreadCard(
     threadInfo: ThreadInfo,
     onClick: (ThreadInfo) -> Unit
 ) {
-    OutlinedCard(
+    val momentumFormatter = remember { DecimalFormat("0.0") }
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = { onClick(threadInfo) }),
-        shape = RectangleShape
+            .clickable(onClick = { onClick(threadInfo) })
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-        ) {
+        Text(
+            text = threadInfo.title,
+        )
+        Spacer(modifier = Modifier.padding(4.dp))
+        Row {
             Text(
-                text = threadInfo.title,
+                text = threadInfo.date.run { "$year/$month/$day $hour:%02d".format(minute) },
+                style = MaterialTheme.typography.labelMedium
             )
-            Row {
-                Text(
-                    text = threadInfo.date.run { "$year/$month/$day $hour:%02d".format(minute) },
-                    style = MaterialTheme.typography.labelMedium
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Text(
-                    text = threadInfo.resCount.toString(),
-                    style = MaterialTheme.typography.labelMedium
-                )
-            }
-
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = momentumFormatter.format(threadInfo.momentum),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.secondary
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = threadInfo.resCount.toString(),
+                style = MaterialTheme.typography.labelMedium
+            )
         }
     }
 }
@@ -95,7 +103,8 @@ fun ThreadCardPreview() {
             title = "タイトル",
             key = "key",
             resCount = 10,
-            date = ThreadDate(2023, 1, 1, 1, 1, "月")
+            date = ThreadDate(2023, 1, 1, 1, 1, "月"),
+            momentum = 1235.4
         ),
         onClick = {}
     )

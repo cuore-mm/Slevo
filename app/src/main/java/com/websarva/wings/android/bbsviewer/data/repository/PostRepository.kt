@@ -10,6 +10,7 @@ import okhttp3.Request
 import java.net.URLEncoder
 import java.nio.charset.Charset
 import javax.inject.Inject
+import javax.inject.Named
 
 // 書き込み結果の表現
 sealed class PostResult {
@@ -18,7 +19,8 @@ sealed class PostResult {
 }
 
 class PostRepository @Inject constructor(
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    @Named("UserAgent") private val userAgent: String
 ) {
 
     /**
@@ -51,7 +53,7 @@ class PostRepository @Inject constructor(
             val request1 = Request.Builder()
                 .url(postUrl)
                 .header("Referer", referer)
-                .header("User-Agent", "Monazilla/1.00 (BBSViewer/1.00)")
+                .header("User-Agent", userAgent)
                 .post(form1)
                 .build()
 
@@ -113,7 +115,7 @@ class PostRepository @Inject constructor(
         val request = Request.Builder()
             .url(url)
             .header("Referer", referer)
-            .header("User-Agent", "Monazilla/1.00 (BBSViewer/1.00)")
+            .header("User-Agent", userAgent)
             //.header("Cookie", confirmationData.cookies.joinToString("; "))
             .post(formBuilder.build())
             .build()

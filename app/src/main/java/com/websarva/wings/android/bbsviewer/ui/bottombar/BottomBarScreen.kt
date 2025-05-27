@@ -2,7 +2,6 @@ package com.websarva.wings.android.bbsviewer.ui.bottombar
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,20 +10,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomAppBar
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,7 +42,6 @@ import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
-import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
 @Composable
 fun HomeBottomNavigationBar(
@@ -162,77 +156,6 @@ fun BottomBarItem(
 }
 
 @Composable
-fun BoardBottomBar(
-    modifier: Modifier = Modifier,
-    sortOptions: List<String>,
-    onSortOptionSelected: (String) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    BottomAppBar(
-        modifier = modifier,
-        actions = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                Box {
-                    // IconButtonをクリックするとメニューが展開される
-                    IconButton(onClick = { expanded = true }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Sort,
-                            contentDescription = stringResource(R.string.sort)
-                        )
-                    }
-                    // DropdownMenuで選択肢を表示
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        sortOptions.forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text(option) },
-                                onClick = {
-                                    expanded = false
-                                    onSortOptionSelected(option)
-                                }
-                            )
-                        }
-                    }
-                }
-                IconButton(onClick = { /* doSomething() */ }) {
-                    Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
-                }
-                IconButton(onClick = { /* doSomething() */ }) {
-                    Icon(
-                        Icons.Default.Home,
-                        contentDescription = stringResource(R.string.home)
-                    )
-                }
-                IconButton(onClick = { /* doSomething() */ }) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = stringResource(R.string.refresh)
-                    )
-                }
-                IconButton(onClick = { /* doSomething() */ }) {
-                    Icon(
-                        Icons.Default.Create,
-                        contentDescription = stringResource(R.string.create_thread)
-                    )
-                }
-                IconButton(onClick = {}) {
-                    Icon(
-                        Icons.Default.MoreHoriz,
-                        contentDescription = stringResource(R.string.more)
-                    )
-                }
-            }
-
-        }
-    )
-}
-
-@Composable
 fun ThreadBottomBar(
     modifier: Modifier = Modifier,
     onPostClick: () -> Unit
@@ -295,15 +218,6 @@ fun BbsSelectBottomBarPreview() {
     BbsSelectBottomBar(
         onDelete = {},
         onOpen = {}
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun BoardBottomBarPreview() {
-    BoardBottomBar(
-        sortOptions = listOf("Option 1", "Option 2", "Option 3"),
-        onSortOptionSelected = {}
     )
 }
 

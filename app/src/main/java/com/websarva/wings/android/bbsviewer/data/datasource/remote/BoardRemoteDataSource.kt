@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.data.datasource.local
+package com.websarva.wings.android.bbsviewer.data.datasource.remote
 
 interface BoardRemoteDataSource {
     /**

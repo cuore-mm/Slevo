@@ -1,10 +1,10 @@
 package com.websarva.wings.android.bbsviewer.di
 
 import com.websarva.wings.android.bbsviewer.data.datasource.local.BbsLocalDataSource
-import com.websarva.wings.android.bbsviewer.data.datasource.local.BoardRemoteDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.BoardRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.SettingsLocalDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.BbsLocalDataSourceImpl
-import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.BoardRemoteDataSourceImpl
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.BoardRemoteDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.SettingsLocalDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BbsMenuDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.BbsMenuDataSourceImpl

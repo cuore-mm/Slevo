@@ -2,31 +2,51 @@ package com.websarva.wings.android.bbsviewer.data.util
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.core.text.HtmlCompat
 import com.websarva.wings.android.bbsviewer.data.model.ThreadDate
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import kotlin.math.max
 
 object ThreadListParser {
     @RequiresApi(Build.VERSION_CODES.O)
     fun parseSubjectTxt(text: String): List<ThreadInfo> {
         val threads = mutableListOf<ThreadInfo>()
         val regex = Regex("""^(\d+)\.dat<>(.+?)\s+\((\d+)\)$""")
+        val currentUnixTime = System.currentTimeMillis() / 1000 // 現在のUNIX時間（秒）
+
         text.split("\n").forEach { line ->
             if (line.isNotBlank()) {
                 val trimmedLine = line.trim()
                 val match = regex.find(trimmedLine)
                 if (match != null) {
-                    val (key, title, resCountStr) = match.destructured
+                    val (key, titleHtml, resCountStr) = match.destructured
+                    val title = HtmlCompat.fromHtml(titleHtml, HtmlCompat.FROM_HTML_MODE_LEGACY).toString()
                     val resCount = resCountStr.toIntOrNull() ?: 0
+                    val threadEpochSeconds = key.toLongOrNull() ?: 0
+
+                    val momentum = if (threadEpochSeconds > 0 && resCount > 0) {
+                        val elapsedTimeSeconds = max(1, currentUnixTime - threadEpochSeconds) // 経過時間（秒）、最低1秒
+                        val elapsedTimeDays = elapsedTimeSeconds / 86400.0 // 経過時間（日）
+                        if (elapsedTimeDays > 0) {
+                            resCount / elapsedTimeDays
+                        } else {
+                            0.0 // 経過時間が0日未満の場合は勢い0（または大きな値）
+                        }
+                    } else {
+                        0.0
+                    }
+
                     threads.add(
                         ThreadInfo(
                             title = title,
                             key = key,
                             resCount = resCount,
-                            date = calculateThreadDate(key)
+                            date = calculateThreadDate(key),
+                            momentum = momentum // <--- 勢いをセット
                         )
                     )
                 }
