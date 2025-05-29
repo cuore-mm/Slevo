@@ -2,6 +2,7 @@ package com.websarva.wings.android.bbsviewer.ui.navigation
 
 import android.os.Build
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -28,12 +30,14 @@ import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.board.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.board.SortBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.topbar.BoardTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 fun NavGraphBuilder.addBoardRoute(
     navController: NavHostController,
+    scrollBehavior: TopAppBarScrollBehavior
 ) {
     composable<AppRoute.Board> { backStackEntry ->
         val board: AppRoute.Board = backStackEntry.toRoute()
@@ -44,6 +48,10 @@ fun NavGraphBuilder.addBoardRoute(
         val bookmarkSheetState = rememberModalBottomSheetState() // Bookmark用
         val sortSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true) // Sort用
 
+        // 検索モード中に「戻る」が押された場合の処理
+        BackHandler(enabled = uiState.isSearchActive) {
+            viewModel.setSearchMode(false)
+        }
 
         // ブックマークアイコンの色を決定
         val bookmarkIconColor =
@@ -60,19 +68,28 @@ fun NavGraphBuilder.addBoardRoute(
 
         Scaffold(
             topBar = {
-                BoardTopBarScreen(
-                    title = uiState.boardInfo.name,
-                    onNavigationClick = {},
-                    onBookmarkClick = {
-                        viewModel.loadGroups()
-                        viewModel.openBookmarkSheet()
-                        Log.d("BoardTopBarScreen", uiState.showBookmarkSheet.toString())
-                    },
-                    onInfoClick = {},
-                    isBookmarked = uiState.isBookmarked,
-                    bookmarkIconColor = bookmarkIconColor,
-//                    scrollBehavior = scrollBehavior
-                )
+                // 検索モードに応じてトップバーを切り替え
+                if (uiState.isSearchActive) {
+                    SearchTopAppBar(
+                        searchQuery = uiState.searchQuery,
+                        onQueryChange = { viewModel.setSearchQuery(it) },
+                        onCloseSearch = { viewModel.setSearchMode(false) },
+                        scrollBehavior = scrollBehavior
+                    )
+                } else {
+                    BoardTopBarScreen(
+                        title = uiState.boardInfo.name,
+                        onNavigationClick = {},
+                        onBookmarkClick = {
+                            viewModel.loadGroups()
+                            viewModel.openBookmarkSheet()
+                        },
+                        onInfoClick = {},
+                        isBookmarked = uiState.isBookmarked,
+                        bookmarkIconColor = bookmarkIconColor,
+                        scrollBehavior = scrollBehavior
+                    )
+                }
             },
             bottomBar = {
                 BoardBottomBar(
@@ -80,7 +97,8 @@ fun NavGraphBuilder.addBoardRoute(
                         .navigationBarsPadding()
                         .height(56.dp),
                     onSortClick = { viewModel.openSortBottomSheet() },
-                    onRefreshClick = { viewModel.loadThreadList() }
+                    onRefreshClick = { viewModel.loadThreadList() },
+                    onSearchClick = { viewModel.setSearchMode(true) }
                 )
             },
         ) { innerPadding ->

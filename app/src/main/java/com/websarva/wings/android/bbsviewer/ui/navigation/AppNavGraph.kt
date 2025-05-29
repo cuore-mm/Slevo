@@ -44,6 +44,7 @@ fun AppNavGraph(
         //スレッド一覧
         addBoardRoute(
             navController = navController,
+            scrollBehavior = scrollBehavior
         )
         //スレッド画面
         addThreadRoute(

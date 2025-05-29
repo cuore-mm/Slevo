@@ -23,7 +23,8 @@ import com.websarva.wings.android.bbsviewer.R
 fun BoardBottomBar(
     modifier: Modifier = Modifier,
     onSortClick: () -> Unit,
-    onRefreshClick: () -> Unit
+    onRefreshClick: () -> Unit,
+    onSearchClick: () -> Unit
 ) {
     BottomAppBar(
         modifier = modifier,
@@ -39,7 +40,7 @@ fun BoardBottomBar(
                         contentDescription = stringResource(R.string.sort)
                     )
                 }
-                IconButton(onClick = { /* doSomething() */ }) {
+                IconButton(onClick = onSearchClick) {
                     Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
                 }
                 IconButton(onClick = { /* doSomething() */ }) {
@@ -77,6 +78,7 @@ fun BoardBottomBar(
 fun BoardBottomBarPreview() {
     BoardBottomBar(
         onSortClick = {},
-        onRefreshClick = { /* do something */ }
+        onRefreshClick = { /* do something */ },
+        onSearchClick = { /* do something */ }
     )
 }

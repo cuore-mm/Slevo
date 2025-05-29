@@ -61,14 +61,8 @@ class BoardViewModel @Inject constructor(
             try {
                 val threads = repository.getThreadList("$boardUrl/subject.txt")
                 if (threads != null) {
-                    originalThreads = threads // サーバーから取得したリストを保存
-                    // 現在のソートオプションでソートしてUIに反映
-                    val sortedThreads = applySort(
-                        threads, // ここではソート前のリストを渡す
-                        _uiState.value.currentSortKey,
-                        _uiState.value.isSortAscending
-                    )
-                    _uiState.update { it.copy(threads = sortedThreads) }
+                    originalThreads = threads
+                    applyFiltersAndSort() // フィルタとソートを適用
                 }
             } catch (e: Exception) {
                 // Handle error
@@ -78,45 +72,66 @@ class BoardViewModel @Inject constructor(
         }
     }
 
-    // 並び替え基準が選択されたとき
     fun setSortKey(sortKey: ThreadSortKey) {
         _uiState.update { it.copy(currentSortKey = sortKey) }
-        applyCurrentSort()
-        // ボトムシートはここでは閉じない (昇順/降順を選んでから閉じるか、別途閉じるボタン)
+        applyFiltersAndSort()
     }
 
-    // 昇順/降順が切り替えられたとき
     fun toggleSortOrder() {
         if (_uiState.value.currentSortKey != ThreadSortKey.DEFAULT) {
             _uiState.update { it.copy(isSortAscending = !it.isSortAscending) }
-            applyCurrentSort()
+            applyFiltersAndSort()
         }
     }
 
-    // 現在の基準と順序でソートを適用
-    private fun applyCurrentSort() {
-        originalThreads?.let { currentList ->
-            val sortedList = applySort(currentList, _uiState.value.currentSortKey, _uiState.value.isSortAscending)
+    // 検索クエリの更新
+    fun setSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        applyFiltersAndSort()
+    }
+
+    // 検索モードの切り替え
+    fun setSearchMode(isActive: Boolean) {
+        _uiState.update { it.copy(isSearchActive = isActive) }
+        if (!isActive) {
+            // 検索モード終了時にクエリをクリアし、フィルタもリセット
+            setSearchQuery("")
+        }
+    }
+
+    private fun applyFiltersAndSort() {
+        originalThreads?.let { allThreads ->
+            // 1. フィルタリング
+            val filteredList = if (_uiState.value.searchQuery.isNotBlank()) {
+                allThreads.filter {
+                    it.title.contains(_uiState.value.searchQuery, ignoreCase = true)
+                }
+            } else {
+                allThreads
+            }
+            // 2. ソート
+            val sortedList = applySort(filteredList, _uiState.value.currentSortKey, _uiState.value.isSortAscending)
             _uiState.update { it.copy(threads = sortedList) }
         }
     }
 
+
     private fun applySort(list: List<ThreadInfo>, sortKey: ThreadSortKey, ascending: Boolean): List<ThreadInfo> {
-        if (sortKey == ThreadSortKey.DEFAULT) {
-            // originalThreads が null でないことを期待。loadThreadListでセットされる。
-            // DEFAULT の場合は、サーバーから取得した順序のまま (originalThreads) を使用する。
-            // この関数に渡される list は originalThreads のはずなので、そのまま返す。
+        if (sortKey == ThreadSortKey.DEFAULT && _uiState.value.searchQuery.isBlank()) {
+            // 検索もしていないデフォルトの場合は originalThreads の順序をそのまま使うが、
+            // この関数に渡される list は既にフィルタリングされた可能性のあるリスト。
+            // ここでは渡された list をソートせずに返すことで「フィルタ後のデフォルト順」とする。
+            // 厳密な「サーバーから返ってきた順」は originalThreads を直接使う必要があるが、
+            // フィルタリングと組み合わせる場合はこれで良い。
             return list
         }
-
+        // 検索時、またはデフォルト以外のソートキーの場合はソートを行う
         val sortedList = when (sortKey) {
-            // DEFAULTは上で処理済み
+            ThreadSortKey.DEFAULT -> list // フィルタ適用済みの場合、この時点での順序を維持
             ThreadSortKey.MOMENTUM -> list.sortedBy { it.momentum }
             ThreadSortKey.RES_COUNT -> list.sortedBy { it.resCount }
             ThreadSortKey.DATE_CREATED -> list.sortedBy { it.key.toLongOrNull() ?: 0L }
-            else -> list // ありえないが念のため
         }
-        // DEFAULT 以外は昇順/降順を適用
         return if (ascending) sortedList else sortedList.reversed()
     }
 
@@ -238,7 +253,10 @@ data class BoardUiState(
 
     val currentSortKey: ThreadSortKey = ThreadSortKey.DEFAULT,
     val isSortAscending: Boolean = false, // falseが降順、trueが昇順 (デフォルト降順)
-    val sortKeys: List<ThreadSortKey> = ThreadSortKey.values().toList()
+    val sortKeys: List<ThreadSortKey> = ThreadSortKey.values().toList(),
+
+    val isSearchActive: Boolean = false, // 検索モードか
+    val searchQuery: String = "" // 検索クエリ
 )
 
 // 並び替え基準の定義
