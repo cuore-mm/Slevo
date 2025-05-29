@@ -1,6 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui
 
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -74,6 +75,15 @@ fun AppScaffold(
             )
         }
     ) {
+        // ドロワーが開いているときに「戻る」ボタンでドロワーを閉じる
+        if (drawerState.isOpen) {
+            BackHandler {
+                scope.launch {
+                    drawerState.close()
+                }
+            }
+        }
+        
         Scaffold(
             modifier = modifier
                 .fillMaxSize()
