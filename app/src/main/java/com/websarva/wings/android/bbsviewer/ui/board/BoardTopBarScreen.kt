@@ -1,7 +1,7 @@
-package com.websarva.wings.android.bbsviewer.ui.topbar
+package com.websarva.wings.android.bbsviewer.ui.board
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarOutline
 import androidx.compose.material.icons.outlined.Info
@@ -43,7 +43,7 @@ fun BoardTopBarScreen(
         navigationIcon = {
             IconButton(onClick = onNavigationClick) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ViewList,
+                    imageVector = Icons.Default.Menu,
                     contentDescription = stringResource(R.string.open_tablist)
                 )
             }

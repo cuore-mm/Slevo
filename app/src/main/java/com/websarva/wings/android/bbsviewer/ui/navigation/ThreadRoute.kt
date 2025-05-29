@@ -1,49 +1,68 @@
 package com.websarva.wings.android.bbsviewer.ui.navigation
 
-import android.util.Log
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
+import com.websarva.wings.android.bbsviewer.ui.drawer.TabInfo
+import com.websarva.wings.android.bbsviewer.ui.drawer.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ConfirmationWebView
 import com.websarva.wings.android.bbsviewer.ui.thread.PostDialog
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadScreen
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
-import com.websarva.wings.android.bbsviewer.ui.topbar.ThreadTopBar
+import com.websarva.wings.android.bbsviewer.ui.thread.ThreadTopBar
 import com.websarva.wings.android.bbsviewer.ui.util.parseBoardUrl
 
 @OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.addThreadRoute(
+    navController: NavHostController,
+    tabsViewModel: TabsViewModel,
+    openDrawer: () -> Unit,
 ) {
     composable<AppRoute.Thread> {
         val viewModel: ThreadViewModel = hiltViewModel()
         val uiState by viewModel.uiState.collectAsState()
         val thread: AppRoute.Thread = it.toRoute()
+
+        // LaunchedEffect を使って、スレッド遷移時に一度だけタブを開く
+        LaunchedEffect(thread.threadKey, thread.boardUrl) {
+            val tab = TabInfo(
+                key = thread.threadKey,
+                title = thread.threadTitle,
+                boardName = thread.boardName,
+                boardUrl = thread.boardUrl,
+                boardId = thread.boardId
+            )
+            tabsViewModel.openThread(tab)
+        }
+
         if (uiState.posts == null) {
             viewModel.initializeThread(
                 threadKey = thread.threadKey,
-                datUrl = thread.datUrl,
                 boardInfo = BoardInfo(
                     name = thread.boardName,
                     url = thread.boardUrl,
-                    boardId = 0,
-                )
+                    boardId = thread.boardId,
+                ),
+                threadTitle = thread.threadTitle
             )
-            Log.i("ThreadRoute", thread.datUrl)
         }
 
         Scaffold(
             topBar = {
                 ThreadTopBar(
                     onFavoriteClick = { viewModel.bookmarkThread() },
-                    uiState = uiState
+                    uiState = uiState,
+                    onNavigationClick = openDrawer
                 )
             },
         ) { innerPadding ->

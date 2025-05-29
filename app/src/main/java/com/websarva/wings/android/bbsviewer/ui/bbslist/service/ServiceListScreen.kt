@@ -1,6 +1,5 @@
 package com.websarva.wings.android.bbsviewer.ui.bbslist.service
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,8 +34,8 @@ import com.websarva.wings.android.bbsviewer.R
 import kotlinx.coroutines.delay
 
 @Composable
-fun BBSListScreen(
-    uiState: BbsServiceUiState,
+fun ServiceListScreen(
+    uiState: ServiceListUiState,
     modifier: Modifier = Modifier,
     onClick: (ServiceInfo) -> Unit,
     onLongClick: (Long) -> Unit,
@@ -58,7 +57,8 @@ fun BBSListScreen(
                     if (elapsed < 300) delay(300 - elapsed)
                 }
 
-                else -> { /* Idle ならそのまま */ }
+                else -> { /* Idle ならそのまま */
+                }
             }
             value = SpinnerState.Idle
         }
@@ -109,7 +109,6 @@ private sealed class SpinnerState {
     data class Showing(val startedAt: Long) : SpinnerState()
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ServiceCard(
     service: ServiceInfo,
@@ -125,7 +124,7 @@ fun ServiceCard(
                 onClick = {
                     if (!selectMode) {
                         onClick()
-                    }else{
+                    } else {
                         onLongClick()
                     }
                 },

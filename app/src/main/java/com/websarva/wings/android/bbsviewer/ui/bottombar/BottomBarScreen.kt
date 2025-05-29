@@ -57,10 +57,10 @@ fun HomeBottomNavigationBar(
             parentRoute = AppRoute.Bookmark
         ),
         TopLevelRoute(
-            route = AppRoute.BBSList,
+            route = AppRoute.ServiceList,
             name = stringResource(R.string.boardList),
             icon = Icons.AutoMirrored.Filled.List,
-            parentRoute = AppRoute.RegisteredBBS
+            parentRoute = AppRoute.BbsServiceGroup
         ),
         TopLevelRoute(
             route = AppRoute.Settings,

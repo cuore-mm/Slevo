@@ -1,7 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.navigation
 
 import android.os.Build
-import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.height
@@ -29,15 +28,15 @@ import com.websarva.wings.android.bbsviewer.ui.board.BoardScreen
 import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.board.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.board.SortBottomSheet
-import com.websarva.wings.android.bbsviewer.ui.topbar.BoardTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.board.BoardTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar
-import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 fun NavGraphBuilder.addBoardRoute(
     navController: NavHostController,
-    scrollBehavior: TopAppBarScrollBehavior
+    scrollBehavior: TopAppBarScrollBehavior,
+    openDrawer: () -> Unit,
 ) {
     composable<AppRoute.Board> { backStackEntry ->
         val board: AppRoute.Board = backStackEntry.toRoute()
@@ -79,7 +78,7 @@ fun NavGraphBuilder.addBoardRoute(
                 } else {
                     BoardTopBarScreen(
                         title = uiState.boardInfo.name,
-                        onNavigationClick = {},
+                        onNavigationClick = openDrawer,
                         onBookmarkClick = {
                             viewModel.loadGroups()
                             viewModel.openBookmarkSheet()
@@ -109,9 +108,10 @@ fun NavGraphBuilder.addBoardRoute(
                     navController.navigate(
                         AppRoute.Thread(
                             threadKey = threadInfo.key,
-                            datUrl = keyToDatUrl(board.boardUrl, threadInfo.key),
                             boardName = board.boardName,
                             boardUrl = board.boardUrl,
+                            boardId = board.boardId,
+                            threadTitle = threadInfo.title
                         )
                     ) {
                         launchSingleTop = true

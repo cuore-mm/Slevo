@@ -7,8 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
-import com.websarva.wings.android.bbsviewer.ui.bbslist.service.BbsServiceViewModel
-import com.websarva.wings.android.bbsviewer.ui.board.BoardBottomBar
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListViewModel
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
@@ -23,13 +22,13 @@ fun RenderBottomBar(
     when {
         currentDestination.isInRoute(
             AppRoute.RouteName.BOOKMARK,
-            AppRoute.RouteName.REGISTERED_BBS
+            AppRoute.RouteName.BBS_SERVICE_GROUP
         )
-             -> {
-            val viewModel: BbsServiceViewModel = hiltViewModel(navBackStackEntry!!)
+            -> {
+            val viewModel: ServiceListViewModel = hiltViewModel(navBackStackEntry!!)
             val uiState by viewModel.uiState.collectAsState()
 
-            if (!uiState.selectMode){
+            if (!uiState.selectMode) {
                 HomeBottomNavigationBar(
                     modifier = modifier,
                     currentDestination = currentDestination,
@@ -43,7 +42,7 @@ fun RenderBottomBar(
                         }
                     }
                 )
-            }else{
+            } else {
                 BbsSelectBottomBar(
                     onDelete = { viewModel.toggleDeleteDialog(true) },
                     onOpen = { /* TODO: Handle open action */ }
@@ -62,7 +61,7 @@ fun RenderBottomBar(
 //        }
 
         currentDestination.isInRoute(
-                AppRoute.RouteName.THREAD
+            AppRoute.RouteName.THREAD
         ) -> {
             val threadViewModel: ThreadViewModel? =
                 navBackStackEntry?.let { hiltViewModel<ThreadViewModel>(it) }

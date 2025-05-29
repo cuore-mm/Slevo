@@ -24,7 +24,7 @@ import javax.inject.Inject
  * カテゴリ一覧画面の ViewModel
  */
 @HiltViewModel
-class BbsCategoryViewModel @Inject constructor(
+class BoardCategoryListViewModel @Inject constructor(
     private val repository: BbsServiceRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -36,12 +36,12 @@ class BbsCategoryViewModel @Inject constructor(
         ?: ""
 
     private val _uiState = MutableStateFlow(
-        BbsCategoryListUiState(
+        BoardCategoryListUiState(
             serviceId = serviceId,
             serviceName = serviceName
         )
     )
-    val uiState: StateFlow<BbsCategoryListUiState> = _uiState.asStateFlow()
+    val uiState: StateFlow<BoardCategoryListUiState> = _uiState.asStateFlow()
 
     init {
         loadCategoryInfo()
@@ -57,9 +57,9 @@ class BbsCategoryViewModel @Inject constructor(
                 .map { list ->
                     list.map { cwc ->                         // ← リスト変換も別スレッド
                         CategoryInfo(
-                            categoryId  = cwc.category.categoryId,
-                            name        = cwc.category.name,
-                            boardCount  = cwc.boardCount
+                            categoryId = cwc.category.categoryId,
+                            name = cwc.category.name,
+                            boardCount = cwc.boardCount
                         )
                     }
                 }
@@ -73,7 +73,10 @@ class BbsCategoryViewModel @Inject constructor(
                 .catch { e ->
                     withContext(Dispatchers.Main) {
                         _uiState.update {
-                            it.copy(isLoading = false, errorMessage = e.localizedMessage ?: "不明なエラー")
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = e.localizedMessage ?: "不明なエラー"
+                            )
                         }
                     }
                 }
@@ -91,7 +94,7 @@ class BbsCategoryViewModel @Inject constructor(
 /**
  * UI ステート: サービス情報＋カテゴリ一覧
  */
-data class BbsCategoryListUiState(
+data class BoardCategoryListUiState(
     val serviceId: Long,
     val serviceName: String = "",
     val categories: List<CategoryInfo> = emptyList(),

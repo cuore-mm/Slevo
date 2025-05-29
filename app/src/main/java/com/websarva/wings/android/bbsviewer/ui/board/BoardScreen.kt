@@ -69,7 +69,7 @@ fun ThreadCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = { onClick(threadInfo) })
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
         Text(
             text = threadInfo.title,

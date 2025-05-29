@@ -3,40 +3,38 @@ package com.websarva.wings.android.bbsviewer.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkScreen
+import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkTopBar
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
-import com.websarva.wings.android.bbsviewer.ui.topbar.BbsServiceListTopBarScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.addBookmarkRoute(
     modifier: Modifier = Modifier,
     bookmarkViewModel: BookmarkViewModel,
     navController: NavHostController,
-    scrollBehavior: TopAppBarScrollBehavior
+    scrollBehavior: TopAppBarScrollBehavior,
+    openDrawer: () -> Unit
 ) {
-    composable<AppRoute.Bookmark>{
+    composable<AppRoute.Bookmark> {
         val uiState by bookmarkViewModel.uiState.collectAsState()
 
-        Scaffold (
+        Scaffold(
             topBar = {
-                BbsServiceListTopBarScreen(
+                BookmarkTopBar(
                     scrollBehavior = scrollBehavior,
-                    onNavigationClick = { },
+                    onNavigationClick = openDrawer,
                     onAddClick = { },
                     onSearchClick = { }
                 )
             },
-        ){ innerPadding ->
+        ) { innerPadding ->
 
             BookmarkScreen(
                 modifier = modifier.padding(innerPadding),

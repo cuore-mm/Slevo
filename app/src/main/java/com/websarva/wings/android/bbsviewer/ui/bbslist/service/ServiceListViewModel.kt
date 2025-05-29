@@ -23,7 +23,7 @@ import javax.inject.Inject
  * - サービス削除
  */
 @HiltViewModel
-class BbsServiceViewModel @Inject constructor(
+class ServiceListViewModel @Inject constructor(
     private val repository: BbsServiceRepository
 ) : ViewModel() {
 
@@ -31,8 +31,8 @@ class BbsServiceViewModel @Inject constructor(
         private const val TAG = "BbsServiceViewModel"
     }
 
-    private val _uiState = MutableStateFlow(BbsServiceUiState())
-    val uiState: StateFlow<BbsServiceUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(ServiceListUiState())
+    val uiState: StateFlow<ServiceListUiState> = _uiState.asStateFlow()
 
     init {
         loadServiceInfo()
@@ -132,7 +132,7 @@ class BbsServiceViewModel @Inject constructor(
 }
 
 /** UIステート */
-data class BbsServiceUiState(
+data class ServiceListUiState(
     val services: List<ServiceInfo> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,

@@ -9,7 +9,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -17,9 +16,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.ui.bbslist.board.BbsBoardViewModel
-import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BbsCategoryViewModel
-import com.websarva.wings.android.bbsviewer.ui.bbslist.service.BbsServiceViewModel
+import com.websarva.wings.android.bbsviewer.ui.bbslist.BbsListTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BoardCategoryListViewModel
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.SelectedBbsListTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListViewModel
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
+import com.websarva.wings.android.bbsviewer.ui.thread.ThreadTopBar
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
@@ -35,16 +38,16 @@ fun RenderTopBar(
     when {
         currentDestination.isInRoute(
             AppRoute.RouteName.BOOKMARK,
-        ) -> BbsServiceListTopBarScreen(
+        ) -> ServiceListTopBarScreen(
             onNavigationClick = { },
             onAddClick = { },
             onSearchClick = { }
         )
 
         currentDestination.isInRoute(
-            AppRoute.RouteName.BBS_LIST
+            AppRoute.RouteName.SERVICE_LIST
         ) -> {
-            val viewModel: BbsServiceViewModel = hiltViewModel(navBackStackEntry!!)
+            val viewModel: ServiceListViewModel = hiltViewModel(navBackStackEntry!!)
             val uiState by viewModel.uiState.collectAsState()
             Box {
                 // 通常モードの AppBar
@@ -53,7 +56,7 @@ fun RenderTopBar(
                     enter = fadeIn(),
                     exit = fadeOut()
                 ) {
-                    BbsServiceListTopBarScreen(
+                    ServiceListTopBarScreen(
                         onNavigationClick = {},
                         onAddClick = { viewModel.toggleAddDialog(true) },
                         onSearchClick = {}
@@ -76,9 +79,9 @@ fun RenderTopBar(
         currentDestination.isInRoute(
             AppRoute.RouteName.BOARD_CATEGORY_LIST
         ) -> {
-            val viewModel: BbsCategoryViewModel = hiltViewModel(navBackStackEntry!!)
+            val viewModel: BoardCategoryListViewModel = hiltViewModel(navBackStackEntry!!)
             val uiState by viewModel.uiState.collectAsState()
-            BbsCategoryListTopBarScreen(
+            BbsListTopBarScreen(
                 title = uiState.serviceName,
                 onNavigationClick = {},
                 onSearchClick = {}
@@ -86,12 +89,12 @@ fun RenderTopBar(
         }
 
         currentDestination.isInRoute(
-            AppRoute.RouteName.CATEGORISED_BOARD_LIST
+            AppRoute.RouteName.BOARD_LIST_BY_CATEGORY
         ) -> {
             val viewModel: BbsBoardViewModel = hiltViewModel(navBackStackEntry!!)
             val uiState by viewModel.uiState.collectAsState()
 
-            BbsCategoryListTopBarScreen(
+            BbsListTopBarScreen(
                 title = "${uiState.serviceName} > ${uiState.categoryName}",
                 onNavigationClick = {},
                 onSearchClick = {}
@@ -109,7 +112,8 @@ fun RenderTopBar(
                 val uiState by viewModel.uiState.collectAsState()
                 ThreadTopBar(
                     onFavoriteClick = { viewModel.bookmarkThread() },
-                    uiState = uiState
+                    uiState = uiState,
+                    onNavigationClick = {}
                 )
             }
         }

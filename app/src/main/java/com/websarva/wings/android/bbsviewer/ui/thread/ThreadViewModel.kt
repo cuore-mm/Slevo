@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
@@ -13,6 +14,7 @@ import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
+import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,7 +45,9 @@ class ThreadViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         posts = posts,
-                        isLoading = false
+                        isLoading = false,
+                        // タイトルが取得できたら更新
+                        threadInfo = it.threadInfo.copy(title = title ?: it.threadInfo.title)
                     )
                 }
             } catch (e: Exception) {
@@ -104,19 +108,36 @@ class ThreadViewModel @Inject constructor(
     //画面遷移した最初に行う初期処理
     fun initializeThread(
         threadKey: String,
-        datUrl: String,
-        boardInfo: BoardInfo
+        boardInfo: BoardInfo,
+        threadTitle: String
     ) {
+        val boardUrl = boardInfo.url
+        val datUrl = keyToDatUrl(boardUrl, threadKey) // 導出
+
+        val uri = boardUrl.toUri()
+        val host = uri.host
+        // boardUrl の末尾が / の場合とそうでない場合を考慮
+        val boardKey = uri.pathSegments.filter { it.isNotEmpty() }.firstOrNull()
+
+        val readCgiUrl = if (host != null && boardKey != null) {
+            "https://${host}/test/read.cgi/${boardKey}/${threadKey}"
+        } else {
+            "" // 不正な URL の場合は空にするか、エラー処理
+        }
+
+
         _uiState.update {
             it.copy(
                 threadInfo = it.threadInfo.copy(
                     key = threadKey,
-                    datUrl = datUrl
+                    datUrl = datUrl, // 導出した datUrl を保持
+                    title = threadTitle, // 初期タイトルを設定
+                    url = readCgiUrl // read.cgi URL を設定
                 ),
                 boardInfo = boardInfo
             )
         }
-        loadThread(datUrl = datUrl)
+        loadThread(datUrl = datUrl) // datUrl を使ってスレッドを読み込む
     }
 
     // 書き込み画面を表示

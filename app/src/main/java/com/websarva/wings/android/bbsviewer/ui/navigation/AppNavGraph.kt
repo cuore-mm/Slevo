@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
+import com.websarva.wings.android.bbsviewer.ui.drawer.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
 import kotlinx.serialization.Serializable
 
@@ -18,12 +19,16 @@ import kotlinx.serialization.Serializable
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNavGraph(
+    modifier: Modifier = Modifier,
     navController: NavHostController,
     scrollBehavior: TopAppBarScrollBehavior,
     bookmarkViewModel: BookmarkViewModel,
-    settingsViewModel: SettingsViewModel
+    settingsViewModel: SettingsViewModel,
+    openDrawer: () -> Unit,
+    tabsViewModel: TabsViewModel,
 ) {
     NavHost(
+        modifier = modifier,
         navController = navController,
         startDestination = AppRoute.Bookmark,
         enterTransition = { EnterTransition.None },
@@ -35,19 +40,25 @@ fun AppNavGraph(
         addBookmarkRoute(
             scrollBehavior = scrollBehavior,
             bookmarkViewModel = bookmarkViewModel,
-            navController = navController
+            navController = navController,
+            openDrawer = openDrawer
         )
         //掲示板一覧
         addRegisteredBBSNavigation(
             navController = navController,
+            openDrawer = openDrawer
         )
         //スレッド一覧
         addBoardRoute(
             navController = navController,
-            scrollBehavior = scrollBehavior
+            scrollBehavior = scrollBehavior,
+            openDrawer = openDrawer
         )
         //スレッド画面
         addThreadRoute(
+            navController = navController,
+            tabsViewModel = tabsViewModel,
+            openDrawer = openDrawer
         )
         //設定画面
         addSettingsRoute(
@@ -63,16 +74,16 @@ sealed class AppRoute {
     data object Bookmark : AppRoute()
 
     @Serializable
-    data object RegisteredBBS : AppRoute()
+    data object BbsServiceGroup : AppRoute()
 
     @Serializable
-    data object BBSList : AppRoute()
+    data object ServiceList : AppRoute()
 
     @Serializable
     data class BoardCategoryList(val serviceId: Long, val serviceName: String) : AppRoute()
 
     @Serializable
-    data class CategorisedBoardList(
+    data class BoardListByCategory(
         val serviceId: Long,
         val categoryId: Long,
         val serviceName: String,
@@ -84,7 +95,11 @@ sealed class AppRoute {
 
     @Serializable
     data class Thread(
-        val threadKey: String, val datUrl: String, val boardName: String, val boardUrl: String
+        val threadKey: String,     // 必須：スレッド識別子
+        val boardUrl: String,      // 必須：板URL（datUrl導出、投稿情報のため）
+        val boardName: String,     // 推奨：表示用
+        val boardId: Long,         // 推奨：将来的な機能（板情報連携）のため
+        val threadTitle: String    // 推奨：UX向上（即時タイトル表示）のため
     ) : AppRoute()
 
     @Serializable
@@ -92,10 +107,10 @@ sealed class AppRoute {
 
     data object RouteName {
         const val BOOKMARK = "Bookmark"
-        const val REGISTERED_BBS = "RegisteredBBS"
-        const val BBS_LIST = "BBSList"
+        const val BBS_SERVICE_GROUP = "BbsServiceGroup"
+        const val SERVICE_LIST = "ServiceList"
         const val BOARD_CATEGORY_LIST = "BoardCategoryList"
-        const val CATEGORISED_BOARD_LIST = "CategorisedBoardList"
+        const val BOARD_LIST_BY_CATEGORY = "BoardListByCategory"
         const val BOARD = "Board"
         const val THREAD = "Thread"
         const val SETTINGS = "Settings"

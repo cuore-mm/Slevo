@@ -18,33 +18,34 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.AddBbsDialog
-import com.websarva.wings.android.bbsviewer.ui.bbslist.service.BBSListScreen
-import com.websarva.wings.android.bbsviewer.ui.bbslist.service.BbsServiceViewModel
-import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BbsCategoryListScreen
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListScreen
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListViewModel
+import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BoaredCategoryListScreen
 import com.websarva.wings.android.bbsviewer.ui.bbslist.board.CategorisedBoardListScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.bbsviewer.ui.bbslist.board.BbsBoardViewModel
-import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BbsCategoryViewModel
+import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BoardCategoryListViewModel
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.DeleteBbsDialog
-import com.websarva.wings.android.bbsviewer.ui.topbar.BbsCategoryListTopBarScreen
-import com.websarva.wings.android.bbsviewer.ui.topbar.BbsServiceListTopBarScreen
-import com.websarva.wings.android.bbsviewer.ui.topbar.SelectedBbsListTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.bbslist.BbsListTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.SelectedBbsListTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
 @OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.addRegisteredBBSNavigation(
     modifier: Modifier = Modifier,
     navController: NavHostController,
+    openDrawer: () -> Unit
 ) {
-    navigation<AppRoute.RegisteredBBS>(
-        startDestination = AppRoute.BBSList
+    navigation<AppRoute.BbsServiceGroup>(
+        startDestination = AppRoute.ServiceList
     ) {
         //掲示板一覧
-        composable<AppRoute.BBSList>(
+        composable<AppRoute.ServiceList>(
             exitTransition = {
                 if (targetState.destination.isInRoute(
                         AppRoute.RouteName.BOARD_CATEGORY_LIST,
-                        AppRoute.RouteName.CATEGORISED_BOARD_LIST
+                        AppRoute.RouteName.BOARD_LIST_BY_CATEGORY
                     )
                 ) {
                     defaultExitTransition()
@@ -55,7 +56,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             popEnterTransition = {
                 if (initialState.destination.isInRoute(
                         AppRoute.RouteName.BOARD_CATEGORY_LIST,
-                        AppRoute.RouteName.CATEGORISED_BOARD_LIST
+                        AppRoute.RouteName.BOARD_LIST_BY_CATEGORY
                     )
                 ) {
                     defaultPopEnterTransition()
@@ -64,7 +65,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                 }
             }
         ) {
-            val viewModel: BbsServiceViewModel = hiltViewModel()
+            val viewModel: ServiceListViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
 
             Scaffold(
@@ -76,8 +77,8 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                             enter = fadeIn(),
                             exit = fadeOut()
                         ) {
-                            BbsServiceListTopBarScreen(
-                                onNavigationClick = {},
+                            ServiceListTopBarScreen(
+                                onNavigationClick = openDrawer,
                                 onAddClick = { viewModel.toggleAddDialog(true) },
                                 onSearchClick = {}
                             )
@@ -97,7 +98,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                 },
             ) { innerPadding ->
 
-                BBSListScreen(
+                ServiceListScreen(
                     modifier = modifier.padding(innerPadding),
                     uiState = uiState,
                     onClick = { service ->
@@ -156,24 +157,24 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             popEnterTransition = { defaultPopEnterTransition() },
             popExitTransition = { defaultPopExitTransition() }
         ) {
-            val viewModel: BbsCategoryViewModel = hiltViewModel(it)
+            val viewModel: BoardCategoryListViewModel = hiltViewModel(it)
             val uiState by viewModel.uiState.collectAsState()
 
             Scaffold(
                 topBar = {
-                    BbsCategoryListTopBarScreen(
+                    BbsListTopBarScreen(
                         title = uiState.serviceName,
-                        onNavigationClick = {},
+                        onNavigationClick = openDrawer,
                         onSearchClick = {}
                     )
                 },
             ) { innerPadding ->
-                BbsCategoryListScreen(
+                BoaredCategoryListScreen(
                     modifier = modifier.padding(innerPadding),
                     uiState = uiState,
                     onCategoryClick = { category ->
                         navController.navigate(
-                            AppRoute.CategorisedBoardList(
+                            AppRoute.BoardListByCategory(
                                 serviceId = uiState.serviceId,
                                 categoryId = category.categoryId,
                                 serviceName = uiState.serviceName,
@@ -187,7 +188,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             }
         }
         //カテゴリ -> 板一覧
-        composable<AppRoute.CategorisedBoardList>(
+        composable<AppRoute.BoardListByCategory>(
             enterTransition = { defaultEnterTransition() },
             exitTransition = { defaultExitTransition() },
             popEnterTransition = { defaultPopEnterTransition() },
@@ -198,9 +199,9 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
 
             Scaffold(
                 topBar = {
-                    BbsCategoryListTopBarScreen(
+                    BbsListTopBarScreen(
                         title = "${uiState.serviceName} > ${uiState.categoryName}",
-                        onNavigationClick = {},
+                        onNavigationClick = openDrawer,
                         onSearchClick = {}
                     )
                 },
