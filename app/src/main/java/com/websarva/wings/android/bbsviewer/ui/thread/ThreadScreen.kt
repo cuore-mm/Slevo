@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Star
@@ -44,11 +46,13 @@ import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 @Composable
 fun ThreadScreen(
     modifier: Modifier = Modifier,
-    posts: List<ReplyInfo>
+    posts: List<ReplyInfo>,
+    listState: LazyListState = rememberLazyListState()
 ) {
     LazyColumn(
         modifier = modifier
             .fillMaxSize(),
+        state = listState,
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
         itemsIndexed(posts) { index, post ->

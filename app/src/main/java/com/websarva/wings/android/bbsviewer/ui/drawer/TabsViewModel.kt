@@ -16,7 +16,15 @@ class TabsViewModel @Inject constructor() : ViewModel() {
     fun openThread(tab: TabInfo) {
         _openTabs.update { current ->
             if (current.any { it.key == tab.key && it.boardUrl == tab.boardUrl }) {
-                current // 既に開いている場合は何もしない
+                // 既に開いているタブがあれば、その情報を更新する（スクロール位置は新しいタブの情報を使うか、既存のを維持するか選択）
+                current.map {
+                    if (it.key == tab.key && it.boardUrl == tab.boardUrl) {
+                        // ここでは新しいタブ情報で上書きする例（スクロール位置は引数で渡されたもの、またはデフォルト）
+                        tab
+                    } else {
+                        it
+                    }
+                }
             } else {
                 current + tab // 新しく追加
             }
@@ -27,5 +35,27 @@ class TabsViewModel @Inject constructor() : ViewModel() {
         _openTabs.update { current -> current - tab }
     }
 
-    // 必要に応じて、タブをアクティブにする、順序を変更するなどの機能を追加
+    fun updateScrollPosition(
+        tabKey: String,
+        boardUrl: String,
+        index: Int,
+        offset: Int
+    ) {
+        _openTabs.update { currentTabs ->
+            currentTabs.map { tab ->
+                if (tab.key == tabKey && tab.boardUrl == boardUrl) {
+                    tab.copy(
+                        firstVisibleItemIndex = index,
+                        firstVisibleItemScrollOffset = offset
+                    )
+                } else {
+                    tab
+                }
+            }
+        }
+    }
+
+    fun getTabInfo(tabKey: String, boardUrl: String): TabInfo? {
+        return _openTabs.value.find { it.key == tabKey && it.boardUrl == boardUrl }
+    }
 }

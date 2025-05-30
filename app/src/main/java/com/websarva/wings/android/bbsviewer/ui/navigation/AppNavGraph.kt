@@ -58,7 +58,8 @@ fun AppNavGraph(
         addThreadRoute(
             navController = navController,
             tabsViewModel = tabsViewModel,
-            openDrawer = openDrawer
+            openDrawer = openDrawer,
+            scrollBehavior = scrollBehavior
         )
         //設定画面
         addSettingsRoute(

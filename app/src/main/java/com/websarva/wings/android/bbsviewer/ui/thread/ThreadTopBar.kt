@@ -8,6 +8,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -34,7 +35,7 @@ fun ThreadTopBar(
     // 中央ダイアログの表示状態を管理する変数
     var dialogVisible by remember { mutableStateOf(false) }
 
-    TopAppBar(
+    MediumTopAppBar(
         title = {
             Text(
                 text = uiState.threadInfo.title,
