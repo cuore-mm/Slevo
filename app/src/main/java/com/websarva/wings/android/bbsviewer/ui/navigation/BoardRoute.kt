@@ -22,11 +22,11 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
-import com.websarva.wings.android.bbsviewer.ui.board.AddGroupDialog
+import com.websarva.wings.android.bbsviewer.ui.common.AddGroupDialog
 import com.websarva.wings.android.bbsviewer.ui.board.BoardBottomBar
 import com.websarva.wings.android.bbsviewer.ui.board.BoardScreen
 import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
-import com.websarva.wings.android.bbsviewer.ui.board.BookmarkBottomSheet
+import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.board.SortBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.board.BoardTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar

@@ -50,7 +50,21 @@ fun NavGraphBuilder.addBookmarkRoute(
                     ) {
                         launchSingleTop = true
                     }
-                }
+                },
+                threadGroups = uiState.groupedThreadBookmarks,
+                onThreadClick = { thread ->
+                    navController.navigate(
+                        AppRoute.Thread(
+                            threadKey = thread.threadKey,
+                            boardName = thread.boardName,
+                            boardUrl = thread.boardUrl,
+                            threadTitle = thread.title,
+                            boardId = thread.boardId
+                        )
+                    ) {
+                        launchSingleTop = true
+                    }
+                },
             )
         }
 

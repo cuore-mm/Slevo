@@ -9,6 +9,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardGroupDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBookmarkGroupDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardCategoryCrossRef
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
@@ -16,6 +17,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardGr
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.CategoryEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadBookmarkGroupEntity
 
 @Database(
     entities = [
@@ -26,6 +28,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.Categor
         BoardGroupEntity::class,
         BookmarkBoardEntity::class,
         BookmarkThreadEntity::class,
+        ThreadBookmarkGroupEntity::class
     ],
     version = 1,
     exportSchema = false
@@ -38,4 +41,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun bookmarkBoardDao(): BookmarkBoardDao
     abstract fun bookmarkThreadDao(): BookmarkThreadDao
     abstract fun boardGroupDao(): BoardGroupDao
+    abstract fun threadBookmarkGroupDao(): ThreadBookmarkGroupDao
 }

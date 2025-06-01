@@ -1,19 +1,15 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
-import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
-import com.websarva.wings.android.bbsviewer.data.repository.BookmarkRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
+import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -27,15 +23,12 @@ import javax.inject.Inject
 @HiltViewModel
 class ThreadViewModel @Inject constructor(
     private val datRepository: DatRepository,
-    private val bookmarkRepository: BookmarkRepository,
-    private val postRepository: PostRepository
+    private val threadBookmarkRepository: ThreadBookmarkRepository,
+    private val postRepository: PostRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ThreadUiState())
     val uiState: StateFlow<ThreadUiState> = _uiState.asStateFlow()
-
-    var enteredUrl by mutableStateOf("")
-        private set
 
     fun loadThread(datUrl: String) {
         _uiState.update { it.copy(isLoading = true) }
@@ -57,53 +50,38 @@ class ThreadViewModel @Inject constructor(
         }
     }
 
-    fun parseUrl() {
-        // URLを解析
-        val parsed = parseThreadUrl(enteredUrl)
-        if (parsed != null) {
-            val (board, thread) = parsed
-            val datUrl = createDatUrl(board, thread)
-            Log.i("BBSViewer", datUrl)
-        }
-    }
-
-    /*
-    入力されたURLからホスト名/板名/スレッドIDを抽出
-     */
-    private fun parseThreadUrl(url: String): Pair<String, String>? {
-        val regex = Regex("""https://([^/]+)/test/read.cgi/([^/]+)/(\d+)""")
-        val matchResult = regex.find(url)
-        return matchResult?.let {
-            val hostName = it.groupValues[1] // ホスト名
-            val boardName = it.groupValues[2] // 板の名前
-            val threadId = it.groupValues[3] // スレッドID
-
-            Log.i("BBSViewer", "Host: $hostName, Board: $boardName, ThreadID: $threadId")
-            Pair("$hostName/$boardName", threadId)
-        }
-    }
-
-    /*
-    datファイルのURLに変換
-     */
-    private fun createDatUrl(boardPath: String, threadId: String): String {
-        return "https://$boardPath/dat/$threadId.dat"
-    }
-
-    // お気に入り登録処理
-    fun bookmarkThread() {
-        // 現在のuiStateから情報を取得してBookmarkThreadEntityを生成
-        val currentState = _uiState.value
-        viewModelScope.launch {
-            val bookmark = BookmarkThreadEntity(
-                threadUrl = currentState.threadInfo.url,
-                title = currentState.threadInfo.title,
-                boardName = currentState.boardInfo.name,
-                resCount = currentState.threadInfo.resCount
-            )
-            bookmarkRepository.insertBookmark(bookmark)
-        }
-    }
+//    fun parseUrl() {
+//        // URLを解析
+//        val parsed = parseThreadUrl(enteredUrl)
+//        if (parsed != null) {
+//            val (board, thread) = parsed
+//            val datUrl = createDatUrl(board, thread)
+//            Log.i("BBSViewer", datUrl)
+//        }
+//    }
+//
+//    /*
+//    入力されたURLからホスト名/板名/スレッドIDを抽出
+//     */
+//    private fun parseThreadUrl(url: String): Pair<String, String>? {
+//        val regex = Regex("""https://([^/]+)/test/read.cgi/([^/]+)/(\d+)""")
+//        val matchResult = regex.find(url)
+//        return matchResult?.let {
+//            val hostName = it.groupValues[1] // ホスト名
+//            val boardName = it.groupValues[2] // 板の名前
+//            val threadId = it.groupValues[3] // スレッドID
+//
+//            Log.i("BBSViewer", "Host: $hostName, Board: $boardName, ThreadID: $threadId")
+//            Pair("$hostName/$boardName", threadId)
+//        }
+//    }
+//
+//    /*
+//    datファイルのURLに変換
+//     */
+//    private fun createDatUrl(boardPath: String, threadId: String): String {
+//        return "https://$boardPath/dat/$threadId.dat"
+//    }
 
     //画面遷移した最初に行う初期処理
     fun initializeThread(
@@ -134,10 +112,119 @@ class ThreadViewModel @Inject constructor(
                     title = threadTitle, // 初期タイトルを設定
                     url = readCgiUrl // read.cgi URL を設定
                 ),
-                boardInfo = boardInfo
+                boardInfo = boardInfo,
+                isBookmarked = false, // 初期値。Flowで更新される
+                currentThreadGroup = null
             )
         }
         loadThread(datUrl = datUrl) // datUrl を使ってスレッドを読み込む
+        loadAvailableGroups() // グループ一覧を読み込む
+
+        // ブックマーク状態を監視
+        viewModelScope.launch {
+            threadBookmarkRepository.getBookmarkWithGroup(threadKey, boardInfo.url)
+                .collect { bookmarkWithGroup ->
+                    _uiState.update {
+                        it.copy(
+                            isBookmarked = bookmarkWithGroup != null,
+                            currentThreadGroup = bookmarkWithGroup?.group
+                        )
+                    }
+                }
+        }
+    }
+
+    private fun loadAvailableGroups() {
+        viewModelScope.launch {
+            threadBookmarkRepository.observeAllGroups().collect { groups ->
+                _uiState.update { it.copy(availableThreadGroups = groups) } // ★ map処理を削除
+            }
+        }
+    }
+
+    fun handleFavoriteClick() {
+        if (_uiState.value.isBookmarked) {
+            unbookmarkCurrentThread()
+        } else {
+            if (_uiState.value.availableThreadGroups.isEmpty()) {
+                // グループが一つもなければ、まずグループ作成を促すか、デフォルトグループに登録する仕様も検討可
+                // ここでは、グループ選択画面は表示するが、グループがない場合は追加を促すことになる
+                _uiState.update {
+                    it.copy(
+                        showThreadGroupSelector = true,
+                        showAddGroupDialog = true
+                    )
+                } // グループがなければ追加ダイアログも開く
+            } else {
+                _uiState.update { it.copy(showThreadGroupSelector = true) }
+            }
+        }
+    }
+
+    fun selectGroupAndBookmark(groupId: Long) {
+        val currentThreadInfo = _uiState.value.threadInfo
+        val currentBoardInfo = _uiState.value.boardInfo
+        viewModelScope.launch {
+            val bookmark = BookmarkThreadEntity(
+                threadKey = currentThreadInfo.key,
+                boardUrl = currentBoardInfo.url,
+                boardId = currentBoardInfo.boardId,
+                groupId = groupId,
+                title = currentThreadInfo.title.ifEmpty { "タイトルなし" },
+                boardName = currentBoardInfo.name,
+                resCount = currentThreadInfo.resCount // ThreadInfoから取得
+            )
+            threadBookmarkRepository.insertBookmark(bookmark)
+            _uiState.update { it.copy(showThreadGroupSelector = false) }
+        }
+    }
+
+    fun unbookmarkCurrentThread() {
+        val currentThreadInfo = _uiState.value.threadInfo
+        val currentBoardInfo = _uiState.value.boardInfo
+        viewModelScope.launch {
+            threadBookmarkRepository.deleteBookmark(currentThreadInfo.key, currentBoardInfo.url)
+            _uiState.update { it.copy(showThreadGroupSelector = false) } // 念のためシートも閉じる
+        }
+    }
+
+    fun dismissThreadGroupSelector() {
+        _uiState.update { it.copy(showThreadGroupSelector = false) }
+    }
+
+    // グループ追加ダイアログ関連
+    fun openAddGroupDialog() {
+        _uiState.update { it.copy(showAddGroupDialog = true) }
+    }
+
+    fun closeAddGroupDialog() {
+        _uiState.update {
+            it.copy(
+                showAddGroupDialog = false,
+                enteredNewGroupName = "",
+                selectedColorForNewGroup = "#FF0000"
+            )
+        } // 初期化
+    }
+
+    fun setEnteredGroupName(name: String) {
+        _uiState.update { it.copy(enteredNewGroupName = name) }
+    }
+
+    fun setSelectedColorCode(color: String) {
+        _uiState.update { it.copy(selectedColorForNewGroup = color) }
+    }
+
+    fun addNewGroup() {
+        viewModelScope.launch {
+            val name = _uiState.value.enteredNewGroupName.trim()
+            val color = _uiState.value.selectedColorForNewGroup
+            if (name.isNotBlank() && color != null) {
+                threadBookmarkRepository.addGroupAtEnd(name, color)
+                closeAddGroupDialog() // ダイアログを閉じて入力値をクリア
+                // availableThreadGroups は observeGroups() により自動更新される
+            }
+        }
     }
 
     // 書き込み画面を表示

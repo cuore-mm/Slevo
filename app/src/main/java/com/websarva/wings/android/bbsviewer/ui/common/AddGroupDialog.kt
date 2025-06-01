@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.board
+package com.websarva.wings.android.bbsviewer.ui.common
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable

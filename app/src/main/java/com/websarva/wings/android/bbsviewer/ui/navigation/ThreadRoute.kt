@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -16,6 +17,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
+import com.websarva.wings.android.bbsviewer.ui.common.AddGroupDialog
+import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.drawer.TabInfo
 import com.websarva.wings.android.bbsviewer.ui.drawer.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ConfirmationWebView
@@ -94,10 +97,12 @@ fun NavGraphBuilder.addThreadRoute(
                 }
         }
 
+        val threadGroupSheetState = rememberModalBottomSheetState()
+
         Scaffold(
             topBar = {
                 ThreadTopBar(
-                    onFavoriteClick = { viewModel.bookmarkThread() },
+                    onFavoriteClick = { viewModel.handleFavoriteClick() },
                     uiState = uiState,
                     onNavigationClick = openDrawer,
                     scrollBehavior = scrollBehavior
@@ -109,6 +114,31 @@ fun NavGraphBuilder.addThreadRoute(
                 posts = uiState.posts ?: emptyList(),
                 listState = lazyListState // LazyListState を渡す
             )
+
+            // ★ スレッドお気に入りグループ選択ボトムシート
+            if (uiState.showThreadGroupSelector) {
+                BookmarkBottomSheet(
+                    sheetState = threadGroupSheetState,
+                    onDismissRequest = { viewModel.dismissThreadGroupSelector() },
+                    groups = uiState.availableThreadGroups,
+                    selectedGroupId = uiState.currentThreadGroup?.groupId,
+                    onGroupSelected = { groupId -> viewModel.selectGroupAndBookmark(groupId) },
+                    onUnbookmarkRequested = { viewModel.unbookmarkCurrentThread() },
+                    onAddGroup = { viewModel.openAddGroupDialog() }
+                )
+            }
+
+            // ★ スレッドお気に入りグループ追加ダイアログ
+            if (uiState.showAddGroupDialog) {
+                AddGroupDialog(
+                    onDismissRequest = { viewModel.closeAddGroupDialog() },
+                    onAdd = { viewModel.addNewGroup() },
+                    onValueChange = { name -> viewModel.setEnteredGroupName(name) },
+                    enteredValue = uiState.enteredNewGroupName,
+                    onColorSelected = { color -> viewModel.setSelectedColorCode(color) },
+                    selectedColor = uiState.selectedColorForNewGroup ?: "#FF0000" // デフォルト色
+                )
+            }
 
             if (uiState.postDialog) {
                 PostDialog(

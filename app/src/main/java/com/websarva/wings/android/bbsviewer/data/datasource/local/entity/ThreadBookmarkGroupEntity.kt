@@ -4,8 +4,8 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.websarva.wings.android.bbsviewer.data.model.Groupable
 
-@Entity(tableName = "groups")
-data class BoardGroupEntity(
+@Entity(tableName = "thread_bookmark_groups")
+data class ThreadBookmarkGroupEntity(
     @PrimaryKey(autoGenerate = true) val groupId: Long = 0,
     override val name: String,
     override val colorHex: String,

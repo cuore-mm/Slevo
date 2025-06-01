@@ -1,27 +1,15 @@
 package com.websarva.wings.android.bbsviewer.ui.bookmark
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -29,13 +17,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.R
@@ -43,8 +27,10 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEn
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithBoards
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithThreadBookmarks
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadBookmarkGroupEntity
+import com.websarva.wings.android.bbsviewer.data.model.GroupedData
 import kotlinx.coroutines.launch
-import androidx.core.graphics.toColorInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,7 +38,9 @@ fun BookmarkScreen(
     modifier: Modifier = Modifier,
     scrollBehavior: TopAppBarScrollBehavior,
     boardGroups: List<GroupWithBoards>,
-    onBoardClick: (BoardEntity) -> Unit
+    onBoardClick: (BoardEntity) -> Unit,
+    threadGroups: List<GroupWithThreadBookmarks>,
+    onThreadClick: (BookmarkThreadEntity) -> Unit
 ) {
     val scope = rememberCoroutineScope()
 
@@ -86,16 +74,22 @@ fun BookmarkScreen(
             state = pagerState,
             modifier = Modifier.weight(1f)
         ) { page ->
+            val screenModifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+
             when (page) {
                 0 -> BookmarkBoardScreen(
+                    modifier = screenModifier,
                     boardGroups = boardGroups,
                     onBoardClick = onBoardClick,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .nestedScroll(scrollBehavior.nestedScrollConnection)
-                )
 
-                1 -> ThreadList(
+                    )
+
+                1 -> BookmarkThreadListScreen(
+                    modifier = screenModifier,
+                    groupedThreadBookmarks = threadGroups,
+                    onThreadClick = onThreadClick,
                 )
             }
         }
@@ -108,108 +102,54 @@ fun BookmarkBoardScreen(
     boardGroups: List<GroupWithBoards>,
     onBoardClick: (BoardEntity) -> Unit
 ) {
-
-    if (boardGroups.isEmpty()) {
-        // お気に入りがない場合の表示
-        Box(modifier = modifier, contentAlignment = Alignment.Center) {
-            Text(text = stringResource(R.string.no_registered_boards))
-        }
-    } else {
-        // お気に入り一覧の表示
-        LazyColumn(
-            modifier = modifier,
-            contentPadding = PaddingValues(vertical = 8.dp, horizontal = 16.dp)
-        ) {
-            boardGroups.forEach { gwb ->
-                // ────────────── グループ名 ──────────────
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween // グループ名と板数を両端に配置
-                    ) {
-                        Text(
-                            text = gwb.group.name,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            // modifier = Modifier.weight(1f) // SpaceBetween を使うので weight は不要な場合あり
-                        )
-                        Text(
-                            text = "(${gwb.boards.size})", // 板数を表示
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Normal // 板数は通常の太さにするなど調整可能
-                        )
-                    }
-                }
-
-                // ────────────── カードで囲む ──────────────
-                item {
-                    // カラーコード文字列を Color に変換
-                    val groupColor = Color(gwb.group.colorHex.toColorInt())
-
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier.height(IntrinsicSize.Min)
-                        ) {
-                            // ← 左端のカラーバー
-                            Box(
-                                modifier = Modifier
-                                    .width(8.dp)
-                                    .fillMaxHeight()
-                                    .background(groupColor)
-                            )
-                            // ← ボード一覧
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                if (gwb.boards.isEmpty()) { // 板がない場合の表示
-                                    Text(
-                                        text = stringResource(R.string.no_registered_boards),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(16.dp),
-                                        textAlign = TextAlign.Center
-                                    )
-                                } else {
-                                    gwb.boards.forEachIndexed { index, board ->
-                                        Text(
-                                            text = board.name,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable { onBoardClick(board) }
-                                                .padding(16.dp)
-                                        )
-                                        if (index < gwb.boards.lastIndex) {
-                                            HorizontalDivider(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(horizontal = 16.dp),
-                                                thickness = 1.dp,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(
-                                                    alpha = 0.12f
-                                                )
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    val groupedDataList = boardGroups.map { gwb ->
+        GroupedData(group = gwb.group, items = gwb.boards)
     }
+
+    GenericGroupedListScreen(
+        modifier = modifier,
+        groupedDataList = groupedDataList,
+        emptyListMessageResId = R.string.no_registered_boards,
+        emptyGroupMessageResId = R.string.no_registered_boards, // グループ内が空の場合も同じメッセージ
+        itemKey = { board -> board.boardId }, // BoardEntityの一意なキー
+        itemContent = { board ->
+            // BoardEntity を表示するためのコンポーザブル
+            Text(
+                text = board.name,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onBoardClick(board) } // クリック処理
+                    .padding(16.dp)
+            )
+        }
+    )
+}
+
+@Composable
+fun BookmarkThreadListScreen(
+    modifier: Modifier = Modifier,
+    groupedThreadBookmarks: List<GroupWithThreadBookmarks>,
+    onThreadClick: (BookmarkThreadEntity) -> Unit,
+) {
+    val groupedDataList = groupedThreadBookmarks.map { gwtb ->
+        GroupedData(group = gwtb.group, items = gwtb.threads)
+    }
+
+    GenericGroupedListScreen(
+        modifier = modifier,
+        groupedDataList = groupedDataList,
+        emptyListMessageResId = R.string.no_bookmarked_threads,
+        emptyGroupMessageResId = R.string.no_bookmarked_threads, // strings.xml に要追加
+        itemKey = { thread -> thread.threadKey + thread.boardUrl }, // BookmarkThreadEntityの一意なキー
+        itemContent = { thread ->
+            // BookmarkThreadEntity を表示するためのコンポーザブル
+            BookmarkItem( // BookmarkItem は clickable を持つので、itemContent内で直接呼び出す
+                thread = thread,
+                onClick = { onThreadClick(thread) }
+            )
+        }
+    )
 }
 
 @Composable
@@ -218,7 +158,7 @@ fun BookmarkItem(
     thread: BookmarkThreadEntity,
     onClick: (BookmarkThreadEntity) -> Unit
 ) {
-    Card(
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onClick(thread) }
@@ -240,11 +180,6 @@ fun BookmarkItem(
             }
         }
     }
-}
-
-@Composable
-fun ThreadList() {
-    Text(text = "スレッド一覧")
 }
 
 @Preview(showBackground = true)
@@ -278,14 +213,50 @@ fun BookmarkBoardScreenPreview() {
 
 @Preview(showBackground = true)
 @Composable
-fun BookmarkItemPreview() {
-    BookmarkItem(
-        thread = BookmarkThreadEntity(
-            threadUrl = "https://example.com/test/read.cgi/example/1234567890",
-            title = "スレッドタイトル",
-            boardName = "example板",
-            resCount = 100
+fun BookmarkThreadListScreenPreview() {
+    // サンプルのグループとスレッド
+    val groups = listOf(
+        GroupWithThreadBookmarks(
+            group = ThreadBookmarkGroupEntity(
+                groupId = 0,
+                name = "お気に入りグループA",
+                colorHex = "#FF9800",
+                sortOrder = 0
+            ),
+            threads = listOf(
+                BookmarkThreadEntity(
+                    threadKey = "key1",
+                    boardUrl = "https://example.com/board1",
+                    title = "スレッド1",
+                    boardName = "板1",
+                    resCount = 123,
+                    boardId = 1,
+                    groupId = 1 // グループIDを設定
+                ),
+                BookmarkThreadEntity(
+                    threadKey = "key2",
+                    boardUrl = "https://example.com/board1",
+                    title = "スレッド2",
+                    boardName = "板1",
+                    resCount = 45,
+                    boardId = 1,
+                    groupId = 1 // グループIDを設定
+                )
+            )
         ),
-        onClick = {}
+        GroupWithThreadBookmarks(
+            group = ThreadBookmarkGroupEntity(
+                groupId = 1,
+                name = "お気に入りグループB",
+                colorHex = "#4CAF50",
+                sortOrder = 1
+            ),
+            threads = emptyList()
+        )
+    )
+
+    BookmarkThreadListScreen(
+        groupedThreadBookmarks = groups,
+        onThreadClick = {}
     )
 }

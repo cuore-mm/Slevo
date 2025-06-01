@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.board
+package com.websarva.wings.android.bbsviewer.ui.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,20 +34,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import com.websarva.wings.android.bbsviewer.R
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardGroupEntity
+import com.websarva.wings.android.bbsviewer.data.model.Groupable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BookmarkBottomSheet(
+fun <T : Groupable> BookmarkBottomSheet(
     modifier: Modifier = Modifier,
-    groups: List<BoardGroupEntity>,          // 追加：グループ一覧
-    selectedGroupId: Long?,                  // 追加：現在選択中のグループID
-    onGroupSelected: (Long) -> Unit,         // 追加：グループ選択時
-    onUnbookmarkRequested: () -> Unit, // ★ お気に入り解除のリクエスト用コールバックを追加
+    groups: List<T>,
+    selectedGroupId: Long?,
+    onGroupSelected: (groupId: Long) -> Unit,
+    onUnbookmarkRequested: () -> Unit,
     onAddGroup: () -> Unit,
     onDismissRequest: () -> Unit,
     sheetState: SheetState,
@@ -68,10 +69,10 @@ fun BookmarkBottomSheet(
 }
 
 @Composable
-fun BookmarkSheetContent(
-    groups: List<BoardGroupEntity>,
+private fun <T : Groupable> BookmarkSheetContent(
+    groups: List<T>,
     selectedGroupId: Long?,
-    onGroupSelected: (Long) -> Unit,
+    onGroupSelected: (groupId: Long) -> Unit,
     onUnbookmarkRequested: () -> Unit,
     onAddGroup: () -> Unit,
 ) {
@@ -109,8 +110,8 @@ fun BookmarkSheetContent(
             verticalArrangement = Arrangement.spacedBy(8.dp),    // 行間の縦スペース
             contentPadding = PaddingValues(8.dp)           // グリッド全体の余白
         ) {
-            items(groups) { group ->
-                val isSelected = group.groupId == selectedGroupId
+            items(groups, key = { group -> group.id }) { group ->
+                val isSelected = group.id == selectedGroupId
                 val bgColor = if (isSelected) {
                     Color(group.colorHex.toColorInt())
                 } else {
@@ -122,7 +123,7 @@ fun BookmarkSheetContent(
                             if (isSelected) { // ★ すでに選択されているグループをタップした場合
                                 onUnbookmarkRequested() // ★ お気に入り解除をリクエスト
                             } else { // ★ 選択されていないグループをタップした場合
-                                onGroupSelected(group.groupId) // ★ グループ選択/変更
+                                onGroupSelected(group.id) // ★ グループ選択/変更
                             }
                         },
                     shape = RoundedCornerShape(16.dp),
@@ -143,7 +144,9 @@ fun BookmarkSheetContent(
                         Text(
                             text = group.name,
                             color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -152,20 +155,30 @@ fun BookmarkSheetContent(
     }
 }
 
+// Preview用のダミーデータと呼び出し
+private data class PreviewGroup(
+    override val id: Long,
+    override val name: String,
+    override val colorHex: String,
+    override val sortOrder: Int
+) : Groupable
+
 @Preview(showBackground = true)
 @Composable
 fun BookmarkSheetPreview() {
-    BookmarkSheetContent(
-        onAddGroup = {},
-        onGroupSelected = {},
-        onUnbookmarkRequested = {},
-
-        groups = listOf(
-            BoardGroupEntity(1, "グループ1", "#FF0000", sortOrder = 1),
-            BoardGroupEntity(2, "グループ2", "#00FF00", sortOrder = 2),
-            BoardGroupEntity(3, "グループ3", "#0000FF", sortOrder = 3),
-            BoardGroupEntity(4, "グループ4", "#FFFF00", sortOrder = 4),
-        ),
-        selectedGroupId = 1
+    val previewGroups = listOf(
+        PreviewGroup(1, "グループA", "#FF0000", 1),
+        PreviewGroup(2, "グループB", "#00FF00", 2),
+        PreviewGroup(3, "グループC", "#0000FF", 3),
+        PreviewGroup(4, "グループD（とても長い名前）", "#FFFF00", 4),
     )
+    MaterialTheme { // PreviewでもThemeを適用
+        BookmarkSheetContent(
+            groups = previewGroups,
+            selectedGroupId = 1L,
+            onGroupSelected = {},
+            onUnbookmarkRequested = {},
+            onAddGroup = {}
+        )
+    }
 }

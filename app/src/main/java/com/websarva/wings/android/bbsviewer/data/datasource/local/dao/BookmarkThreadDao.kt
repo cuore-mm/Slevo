@@ -5,25 +5,26 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadBookmarkWithGroup
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface BookmarkThreadDao {
-    // 全てのブックマークされたスレッドを、追加日時の降順で取得します
-    @Query("SELECT * FROM bookmark_threads")
-    fun getAllBookmarks(): Flow<List<BookmarkThreadEntity>>
+    @Transaction // グループ情報も一緒に取得するためトランザクション化
+    @Query("SELECT * FROM bookmark_threads") // ソート順は指定しない
+    fun getAllBookmarksWithGroup(): Flow<List<ThreadBookmarkWithGroup>>
 
-    // ブックマークを新規追加または既存のものを更新します
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBookmark(bookmark: BookmarkThreadEntity)
 
-    // ブックマークをエンティティごと削除します
-    @Delete
-    suspend fun deleteBookmark(bookmark: BookmarkThreadEntity)
+    // threadKeyとboardUrlを元に削除
+    @Query("DELETE FROM bookmark_threads WHERE threadKey = :threadKey AND boardUrl = :boardUrl")
+    suspend fun deleteBookmark(threadKey: String, boardUrl: String)
 
-    // 指定したスレッドIDのお気に入りスレッドを取得します
-    @Query("SELECT * FROM bookmark_threads WHERE id = :id LIMIT 1")
-    suspend fun getBookmarkById(id: String): BookmarkThreadEntity?
+    @Transaction // グループ情報も一緒に取得するためトランザクション化
+    @Query("SELECT * FROM bookmark_threads WHERE threadKey = :threadKey AND boardUrl = :boardUrl LIMIT 1")
+    fun getBookmarkWithGroup(threadKey: String, boardUrl: String): Flow<ThreadBookmarkWithGroup?>
+
 }
-

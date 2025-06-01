@@ -6,6 +6,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.repository.BbsServiceRepository
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
+import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,7 +23,8 @@ import javax.inject.Singleton
 class DatabaseCallback @Inject constructor(
     @ApplicationContext private val context: Context,
     private val bbsServiceRepositoryProvider: Provider<BbsServiceRepository>,
-    private val bookmarkBoardRepositoryProvider: Provider<BookmarkBoardRepository> // ← BookmarkBoardRepository の Provider を追加
+    private val bookmarkBoardRepositoryProvider: Provider<BookmarkBoardRepository>,
+    private val bookmarkThreadRepositoryProvider: Provider<ThreadBookmarkRepository>
 ) : RoomDatabase.Callback() {
 
     // データベース操作用のコルーチンスコープ
@@ -52,6 +54,12 @@ class DatabaseCallback @Inject constructor(
         bookmarkBoardRepositoryProvider.get().addGroupAtEnd(
             name = favoriteGroupName, // ← 取得した文字列を使用
             colorHex = "#FFFF00" // 黄色のHEXコード
+        )
+
+        val threadFavoriteGroupName = context.getString(R.string.bookmark)
+        bookmarkThreadRepositoryProvider.get().addGroupAtEnd(
+            name = threadFavoriteGroupName,
+            colorHex = "#FFFF00"
         )
     }
 }

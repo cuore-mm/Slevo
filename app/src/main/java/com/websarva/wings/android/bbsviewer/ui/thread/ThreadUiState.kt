@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
@@ -13,7 +14,16 @@ data class ThreadUiState(
     val postFormState: PostFormState = PostFormState(),
     val isPosting: Boolean = false,
     val postConfirmation: ConfirmationData? = null,
-    val isConfirmationScreen: Boolean = false
+    val isConfirmationScreen: Boolean = false,
+
+    // スレッドお気に入り関連のUI状態
+    val isBookmarked: Boolean = false,
+    val currentThreadGroup: ThreadBookmarkGroupEntity? = null,
+    val availableThreadGroups: List<ThreadBookmarkGroupEntity> = emptyList(),
+    val showThreadGroupSelector: Boolean = false,
+    val showAddGroupDialog: Boolean = false,
+    val enteredNewGroupName: String = "",
+    val selectedColorForNewGroup: String? = "#FF0000" // デフォルト色など適当に設定
 )
 
 data class ReplyInfo(

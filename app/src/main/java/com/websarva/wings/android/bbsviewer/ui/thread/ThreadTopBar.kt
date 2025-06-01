@@ -1,16 +1,17 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,9 +19,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.graphics.toColorInt
 import com.websarva.wings.android.bbsviewer.R
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,16 +57,29 @@ fun ThreadTopBar(
         },
         scrollBehavior = scrollBehavior,
         actions = {
-            IconButton(onClick = onFavoriteClick) {
+            IconButton(onClick = onFavoriteClick) { // この onFavoriteClick は viewModel.handleFavoriteClick() に繋がる
+                val iconImage =
+                    if (uiState.isBookmarked) Icons.Filled.Star else Icons.Outlined.StarOutline
+                val iconTint =
+                    if (uiState.isBookmarked && uiState.currentThreadGroup?.colorHex != null) {
+                        try {
+                            Color(uiState.currentThreadGroup.colorHex.toColorInt())
+                        } catch (e: Exception) {
+                            LocalContentColor.current
+                        }
+                    } else {
+                        LocalContentColor.current
+                    }
                 Icon(
-                    imageVector = Icons.Default.Favorite,
-                    contentDescription = "お気に入り"
+                    imageVector = iconImage,
+                    contentDescription = stringResource(R.string.bookmark),
+                    tint = iconTint
                 )
             }
             IconButton(onClick = { dialogVisible = true }) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
-                    contentDescription = "その他の操作"
+                    contentDescription = ""
                 )
             }
         }
