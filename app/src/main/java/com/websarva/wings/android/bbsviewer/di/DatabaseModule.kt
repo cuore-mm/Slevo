@@ -7,7 +7,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkTh
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BbsServiceDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardCategoryCrossRefDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardGroupDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardBookmarkGroupDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBookmarkGroupDao
@@ -104,7 +104,7 @@ object DatabaseModule {
         db.boardCategoryCrossRefDao()
 
     @Provides
-    fun provideBoardGroupDao(db: AppDatabase): BoardGroupDao =
+    fun provideBoardGroupDao(db: AppDatabase): BoardBookmarkGroupDao =
                db.boardGroupDao()
 
     @Provides

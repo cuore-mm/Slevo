@@ -5,7 +5,7 @@ import androidx.annotation.RequiresApi
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
@@ -243,8 +243,8 @@ data class BoardUiState(
     val isLoading: Boolean = false,
     val boardInfo: BoardInfo = BoardInfo(0, "", ""),
     val isBookmarked: Boolean = false,
-    val groups: List<BoardGroupEntity> = emptyList(),
-    val selectedGroup: BoardGroupEntity? = null,
+    val groups: List<BoardBookmarkGroupEntity> = emptyList(),
+    val selectedGroup: BoardBookmarkGroupEntity? = null,
     val showBookmarkSheet: Boolean = false,
     val showAddGroupDialog: Boolean = false,
     val selectedColor: String? = null,

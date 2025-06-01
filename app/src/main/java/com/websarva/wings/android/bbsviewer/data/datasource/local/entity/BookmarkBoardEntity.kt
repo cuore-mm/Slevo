@@ -17,7 +17,7 @@ import androidx.room.Relation
             onDelete      = ForeignKey.CASCADE
         ),
         ForeignKey(
-            entity        = BoardGroupEntity::class,
+            entity        = BoardBookmarkGroupEntity::class,
             parentColumns = ["groupId"],
             childColumns  = ["groupId"],
             onDelete      = ForeignKey.CASCADE
@@ -46,5 +46,5 @@ data class BookmarkWithGroup(
         parentColumn  = "groupId",        // BookmarkBoardEntity 側の groupId
         entityColumn  = "groupId"         // BoardGroupEntity 側の groupId
     )
-    val group: BoardGroupEntity?
+    val group: BoardBookmarkGroupEntity?
 )

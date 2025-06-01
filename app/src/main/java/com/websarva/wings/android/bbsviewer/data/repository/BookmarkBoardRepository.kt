@@ -1,13 +1,10 @@
 package com.websarva.wings.android.bbsviewer.data.repository
 
-import androidx.room.Query
-import androidx.room.Transaction
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardGroupDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardBookmarkGroupDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardWithBookmarkAndGroup
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkWithGroup
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithBoards
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -18,13 +15,13 @@ import javax.inject.Singleton
 @Singleton
 class BookmarkBoardRepository @Inject constructor(
     private val boardDao: BookmarkBoardDao,
-    private val groupDao: BoardGroupDao,
+    private val groupDao: BoardBookmarkGroupDao,
 ) {
 
-    fun observeGroups(): Flow<List<BoardGroupEntity>> =
+    fun observeGroups(): Flow<List<BoardBookmarkGroupEntity>> =
         groupDao.getAllGroupsSorted()
 
-    suspend fun reorderGroups(updated: List<BoardGroupEntity>) {
+    suspend fun reorderGroups(updated: List<BoardBookmarkGroupEntity>) {
         groupDao.updateGroups(updated)
     }
 
@@ -32,7 +29,7 @@ class BookmarkBoardRepository @Inject constructor(
     suspend fun addGroupAtEnd(name: String, colorHex: String) {
         // まず既存最大 + 1
         val nextOrder = groupDao.getMaxSortOrder() + 1
-        val newGroup = BoardGroupEntity(
+        val newGroup = BoardBookmarkGroupEntity(
             name      = name,
             colorHex  = colorHex,
             sortOrder = nextOrder

@@ -1,8 +1,10 @@
 package com.websarva.wings.android.bbsviewer.data.datasource.local.entity
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
+import androidx.room.Relation
 
 @Entity(
     tableName = "bookmark_threads",
@@ -25,4 +27,14 @@ data class BookmarkThreadEntity(
     val title: String,
     val boardName: String,
     val resCount: Int
+)
+
+data class ThreadBookmarkWithGroup(
+    @Embedded val bookmark: BookmarkThreadEntity,
+    @Relation(
+        parentColumn = "groupId",
+        entityColumn = "groupId",
+        entity = ThreadBookmarkGroupEntity::class
+    )
+    val group: ThreadBookmarkGroupEntity?
 )

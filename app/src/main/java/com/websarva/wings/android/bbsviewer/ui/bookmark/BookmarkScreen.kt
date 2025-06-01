@@ -24,7 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithBoards
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithThreadBookmarks
@@ -188,7 +188,7 @@ fun BookmarkBoardScreenPreview() {
     BookmarkBoardScreen(
         boardGroups = listOf(
             GroupWithBoards(
-                group = BoardGroupEntity(
+                group = BoardBookmarkGroupEntity(
                     name = "グループ1",
                     colorHex = "#FF0E00",
                     sortOrder = 1
