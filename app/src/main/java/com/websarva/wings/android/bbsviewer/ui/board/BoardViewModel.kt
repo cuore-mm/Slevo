@@ -49,24 +49,27 @@ class BoardViewModel @Inject constructor(
     )
     val uiState: StateFlow<BoardUiState> = _uiState.asStateFlow()
 
+    private var isInitialBoardLoad = true // このViewModelインスタンスでの初回読み込みフラグ
+
     init {
         Log.d("ViewModelDebug", "BoardViewModel init: id=$boardId, name='$boardName', url='$boardUrl'")
-        Log.d("ViewModelDebug", "BoardViewModel init (hashCode: ${this.hashCode()}): id=$boardId, name='$boardName', url='$boardUrl'")
-        // 初期化時に一度だけ subject.txt をロード
-        loadThreadList()
+        loadThreadList(force = true) // ViewModel初期化時は強制フル取得
         loadBookmarkDetails()
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun loadThreadList() {
-        Log.i("BoardViewModel", "Loading thread list for board: $boardUrl")
+    fun loadThreadList(force: Boolean = false) { // pull-to-refreshからは force=false で呼ばれる想定
+        val shouldForceRefresh = force || isInitialBoardLoad
+        Log.i("BoardViewModel", "Loading thread list for board: $boardUrl, forceRefresh: $shouldForceRefresh")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                val threads = repository.getThreadList("$boardUrl/subject.txt")
+                val threads = repository.getThreadList("$boardUrl/subject.txt", shouldForceRefresh)
                 if (threads != null) {
                     originalThreads = threads
-                    applyFiltersAndSort() // フィルタとソートを適用
+                    applyFiltersAndSort()
+                }
+                if (isInitialBoardLoad) {
+                    isInitialBoardLoad = false // 初回ロード完了
                 }
             } catch (e: Exception) {
                 // Handle error
@@ -239,6 +242,11 @@ class BoardViewModel @Inject constructor(
 
     fun closeSortBottomSheet() {
         _uiState.update { it.copy(showSortSheet = false) }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun refreshBoardData() { // Pull-to-refresh 用のメソッド
+        loadThreadList(force = false) // 通常の差分取得
     }
 }
 

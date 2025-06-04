@@ -126,7 +126,7 @@ fun NavGraphBuilder.addBoardRoute(
                 },
                 isRefreshing = uiState.isLoading,
                 onRefresh = {
-                    viewModel.loadThreadList()
+                    viewModel.refreshBoardData()
                 }
             )
 

@@ -1,8 +1,10 @@
 package com.websarva.wings.android.bbsviewer.data.datasource.remote.impl
 
+import android.util.Log
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BoardRemoteDataSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.CacheControl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
@@ -16,52 +18,96 @@ class BoardRemoteDataSourceImpl @Inject constructor(
     private val client: OkHttpClient,
     @Named("UserAgent") private val userAgent: String
 ) : BoardRemoteDataSource {
-    private var lastModified: String? = null
-    private var eTag: String? = null
 
-    override suspend fun fetchSubjectTxt(url: String): String? = withContext(Dispatchers.IO) {
-        val builder = Request.Builder()
-            .url(url)
-            .header("User-Agent", userAgent)
+    override suspend fun fetchSubjectTxt(url: String, forceRefresh: Boolean): String? =
+        withContext(Dispatchers.IO) {
+            val requestBuilder = Request.Builder()
+                .url(url)
+                .header("User-Agent", userAgent)
 
-        // 差分取得かどうかを判定
-        val isDifferential = lastModified != null || eTag != null
+            if (forceRefresh) {
+                requestBuilder.cacheControl(CacheControl.Builder().noCache().build())
+            }
 
-        if (isDifferential) {
-            // 差分取得の場合：ヘッダーを追加し、gzipを無効化
-            lastModified?.let { builder.header("If-Modified-Since", it) }
-            eTag?.let         { builder.header("If-None-Match", it) }
-            builder.header("Accept-Encoding", "identity") // gzipを無効にする
-        } else {
-            // 通常取得の場合：OkHttpのデフォルト (gzip有効) に任せる
-            // 明示的に builder.header("Accept-Encoding", "gzip") を追加しても良いが、
-            // OkHttpが自動で行うため必須ではない。
-        }
+            val request = requestBuilder.build()
 
-        val resp = client.newCall(builder.build()).execute()
+            try {
+                val response = client.newCall(request).execute()
 
-        return@withContext when (resp.code) {
-            304 -> {
-                // 304 Not Modified - 更新なし、nullを返す
+                // 詳細ログ（開発中に役立ちます）
+                val networkResponse = response.networkResponse
+                val cacheResponse = response.cacheResponse
+                Log.d("BoardRemoteDataSource", "URL: $url, forceRefresh: $forceRefresh")
+                Log.d("BoardRemoteDataSource", "Final Response Code: ${response.code}")
+                if (networkResponse != null) {
+                    Log.d(
+                        "BoardRemoteDataSource",
+                        "Network Response: code=${networkResponse.code}, headers=${networkResponse.headers}"
+                    )
+                } else {
+                    Log.d(
+                        "BoardRemoteDataSource",
+                        "Network Response: null (no network call or not applicable)"
+                    )
+                }
+                if (cacheResponse != null) {
+                    Log.d(
+                        "BoardRemoteDataSource",
+                        "Cache Response: code=${cacheResponse.code}, headers=${cacheResponse.headers}"
+                    )
+                } else {
+                    Log.d(
+                        "BoardRemoteDataSource",
+                        "Cache Response: null (no cache hit or not applicable)"
+                    )
+                }
+                Log.d("BoardRemoteDataSource", "Response Headers (final): ${response.headers}")
+
+
+                // ネットワークレスポンスが304であれば、内容に変更なしと判断
+                if (networkResponse?.code == 304) {
+                    Log.i(
+                        "BoardRemoteDataSource",
+                        "Network returned 304 for $url. Content not modified."
+                    )
+                    return@withContext null // データ更新なし
+                }
+
+                return@withContext when (response.code) {
+                    200 -> response.use {
+                        Log.i("BoardRemoteDataSource", "Received 200 for $url. Processing body.")
+                        it.body?.bytes()?.toString(Charset.forName("Shift_JIS"))
+                            ?: run {
+                                Log.e(
+                                    "BoardRemoteDataSource",
+                                    "Response body was null for 200 response on $url"
+                                )
+                                null
+                            }
+                    }
+                    // OkHttpがキャッシュヒットし、かつネットワーク検証なしで response.code が直接304を返す可能性は低いが念のため
+                    304 -> {
+                        Log.i(
+                            "BoardRemoteDataSource",
+                            "Final response.code was 304 for $url. Content not modified."
+                        )
+                        null
+                    }
+
+                    else -> {
+                        Log.e(
+                            "BoardRemoteDataSource",
+                            "Unexpected final response code ${response.code} for $url"
+                        )
+                        null
+                    }
+                }
+            } catch (e: IOException) {
+                Log.e("BoardRemoteDataSource", "IOException for $url: ${e.message}", e)
+                null
+            } catch (e: Exception) { // その他の予期せぬ例外
+                Log.e("BoardRemoteDataSource", "Exception for $url: ${e.message}", e)
                 null
             }
-            200 -> resp.use {
-                // 200 OK - 更新あり
-                // lastModified と eTag を更新
-                it.header("Last-Modified")?.also { lm -> lastModified = lm }
-                it.header("ETag")?.also          { et -> eTag = et  }
-
-                // レスポンスボディを取得してデコード
-                // OkHttpが自動でgzipを解凍してくれる
-                it.body!!.bytes().toString(Charset.forName("Shift_JIS"))
-            }
-            else -> {
-                // その他のエラー
-                // 差分取得に失敗した可能性があるので、次回はフル取得するようにヘッダー情報をクリア
-                lastModified = null
-                eTag = null
-                throw IOException("Unexpected response code ${resp.code}")
-            }
         }
-    }
 }

@@ -7,8 +7,10 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+import java.io.File
 import javax.inject.Named
 import javax.inject.Singleton
 
@@ -18,17 +20,21 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
-        // ログ出力用インターセプター
+    fun provideOkHttpClient(@ApplicationContext context: Context): OkHttpClient { // ApplicationContextをインジェクト
         val logging = HttpLoggingInterceptor { message ->
             android.util.Log.d("OkHttp", message)
         }.apply {
-            // BODY レベルでヘッダーもボディも丸ごとログ出力
             level = HttpLoggingInterceptor.Level.BODY
         }
 
+        // キャッシュディレクトリとサイズを設定
+        val cacheSize = 10 * 1024 * 1024L // 10 MB
+        val cacheDirectory = File(context.cacheDir, "http-cache")
+        val cache = Cache(cacheDirectory, cacheSize)
+
         return OkHttpClient.Builder()
             .addInterceptor(logging)
+            .cache(cache) // キャッシュを設定
             .build()
     }
 

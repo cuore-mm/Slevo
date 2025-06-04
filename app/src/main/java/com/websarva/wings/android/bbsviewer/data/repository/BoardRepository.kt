@@ -17,8 +17,8 @@ class BoardRepository @Inject constructor(
      * 304 (Not Modified) の場合は null を返す。
      */
     @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun getThreadList(subjectUrl: String): List<ThreadInfo>? {
-        val text = remote.fetchSubjectTxt(subjectUrl) ?: return null
+    suspend fun getThreadList(subjectUrl: String, forceRefresh: Boolean = false): List<ThreadInfo>? {
+        val text = remote.fetchSubjectTxt(subjectUrl, forceRefresh) ?: return null
         return parseSubjectTxt(text)
     }
 }
