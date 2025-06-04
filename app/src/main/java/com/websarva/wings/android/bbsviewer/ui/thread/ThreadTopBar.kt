@@ -1,9 +1,11 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -22,9 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.graphics.toColorInt
 import com.websarva.wings.android.bbsviewer.R
+import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +47,9 @@ fun ThreadTopBar(
             Text(
                 text = uiState.threadInfo.title,
                 fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         },
         modifier = modifier,
@@ -78,7 +84,7 @@ fun ThreadTopBar(
             }
             IconButton(onClick = { dialogVisible = true }) {
                 Icon(
-                    imageVector = Icons.Default.MoreVert,
+                    imageVector = Icons.Outlined.Info,
                     contentDescription = ""
                 )
             }
@@ -112,7 +118,13 @@ fun ThreadTopBar(
 fun ThreadTopBarPreview() {
     ThreadTopBar(
         onFavoriteClick = { /* お気に入り処理 */ },
-        uiState = ThreadUiState(),
+        uiState = ThreadUiState(
+            threadInfo = ThreadInfo(
+                title = "スレッドのタイトル",
+            ),
+            isBookmarked = false,
+            currentThreadGroup = null
+        ),
         onNavigationClick = { /* ナビゲーション処理 */ },
     )
 }

@@ -42,17 +42,21 @@ fun BoardScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 8.dp)
         ) {
+            // リスト全体の先頭に区切り線を追加
+            if (threads.isNotEmpty()) { // リストが空でない場合のみ線を表示
+                item {
+                    HorizontalDivider()
+                }
+            }
+
             itemsIndexed(threads) { index, thread ->
                 ThreadCard(
                     threadInfo = thread,
                     onClick = onClick
                 )
-                // 最後のアイテムでなければ区切り線を表示
-                if (index < threads.lastIndex) {
-                    HorizontalDivider()
-                }
+                // 各アイテムの下に区切り線を表示
+                HorizontalDivider()
             }
         }
     }

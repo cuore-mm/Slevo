@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
+import android.util.Log
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -34,18 +35,40 @@ class ThreadViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val (posts, title) = datRepository.getThread(datUrl)
-                _uiState.update {
-                    it.copy(
-                        posts = posts,
-                        isLoading = false,
-                        // タイトルが取得できたら更新
-                        threadInfo = it.threadInfo.copy(title = title ?: it.threadInfo.title)
-                    )
+                val threadData = datRepository.getThread(datUrl)
+                if (threadData != null) {
+                    val (posts, title) = threadData
+                    _uiState.update {
+                        it.copy(
+                            posts = posts,
+                            isLoading = false,
+                            // タイトルが取得できたら更新
+                            threadInfo = it.threadInfo.copy(title = title ?: it.threadInfo.title)
+                        )
+                    }
+                } else {
+                    // スレッドデータの取得またはパースに失敗した場合の処理
+                    // 例: エラーステートを更新する、ログを出すなど
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            // posts は null のままか、空のリストにするなど、仕様に応じて設定
+                            // posts = null or emptyList()
+                            // errorMessage = "スレッドの読み込みに失敗しました" (UIに表示する場合)
+                        )
+                    }
+                    // 必要であればエラーログを出力
+                    Log.e("ThreadViewModel", "Failed to load thread data for URL: $datUrl")
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                // エラー処理として、必要に応じてエラーステートを反映するなどの対応を行う
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        // posts = null or emptyList()
+                        // errorMessage = "予期せぬエラーが発生しました"
+                    )
+                }
             }
         }
     }
@@ -137,7 +160,7 @@ class ThreadViewModel @Inject constructor(
     private fun loadAvailableGroups() {
         viewModelScope.launch {
             threadBookmarkRepository.observeAllGroups().collect { groups ->
-                _uiState.update { it.copy(availableThreadGroups = groups) } // ★ map処理を削除
+                _uiState.update { it.copy(availableThreadGroups = groups) }
             }
         }
     }

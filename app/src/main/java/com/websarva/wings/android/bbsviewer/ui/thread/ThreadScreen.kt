@@ -4,7 +4,6 @@ import android.webkit.WebView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -26,13 +25,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -53,53 +50,56 @@ fun ThreadScreen(
         modifier = modifier
             .fillMaxSize(),
         state = listState,
-        contentPadding = PaddingValues(vertical = 16.dp)
     ) {
+        // リスト全体の先頭に区切り線を追加
+        if (posts.isNotEmpty()) { // リストが空でない場合のみ線を表示
+            item {
+                HorizontalDivider()
+            }
+        }
+
         itemsIndexed(posts) { index, post ->
-            PostCard(
+            PostItem(
                 post = post,
                 postNum = index + 1
             )
+            // 各アイテムの下に区切り線を表示
+            HorizontalDivider()
         }
     }
 }
 
 @Composable
-fun PostCard(
+fun PostItem(
     modifier: Modifier = Modifier,
     post: ReplyInfo,
     postNum: Int
 ) {
-    OutlinedCard(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = { }),
-        shape = RectangleShape
+            .clickable(onClick = { /* クリック処理が必要な場合はここに実装 */ })
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-        ) {
-            Row {
-                Text(
-                    text = postNum.toString(),
-                    modifier = Modifier.alignByBaseline(),
-                    style = MaterialTheme.typography.labelMedium
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "${post.name} ${post.email} ${post.date} ${post.id}",
-                    modifier = Modifier.alignByBaseline(),
-                    style = MaterialTheme.typography.labelMedium
-                )
-            }
-
+        Row {
             Text(
-                text = post.content,
+                text = postNum.toString(),
+                modifier = Modifier.alignByBaseline(),
+                style = MaterialTheme.typography.labelMedium
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "${post.name} ${post.email} ${post.date} ${post.id}",
+                modifier = Modifier.alignByBaseline(),
+                style = MaterialTheme.typography.labelMedium
             )
         }
+
+        Text(
+            text = post.content,
+        )
     }
+
 }
 
 @Composable
@@ -247,7 +247,9 @@ fun PopUpMenu(
                 )
                 with(uiState.threadInfo.date) {
                     Text(
-                        text = "${year}年${month}月${day}日${dayOfWeek}曜日 $hour:%02d".format(minute),
+                        text = "${year}年${month}月${day}日${dayOfWeek}曜日 $hour:%02d".format(
+                            minute
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center
@@ -310,7 +312,7 @@ fun PopUpMenu(
 @Preview(showBackground = true)
 @Composable
 fun ReplyCardPreview() {
-    PostCard(
+    PostItem(
         post = ReplyInfo(
             name = "風吹けば名無し (ｵｰﾊﾟｲW ddad-g3Sx [2001:268:98f4:c793:*])",
             email = "sage",

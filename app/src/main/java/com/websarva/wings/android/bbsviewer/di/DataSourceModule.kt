@@ -7,7 +7,9 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.BbsLocalD
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.BoardRemoteDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.SettingsLocalDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BbsMenuDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.DatRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.BbsMenuDataSourceImpl
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.DatRemoteDataSourceImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -48,5 +50,12 @@ abstract class DataSourceModule {
     abstract fun bindBoardRemoteDataSource(
         impl: BoardRemoteDataSourceImpl
     ): BoardRemoteDataSource
+
+    /** DATファイル取得用 */
+    @Binds
+    @Singleton
+    abstract fun bindDatRemoteDataSource(
+        impl: DatRemoteDataSourceImpl
+    ): DatRemoteDataSource
 }
 

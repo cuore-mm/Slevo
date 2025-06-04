@@ -10,27 +10,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.OpenInBrowser
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -155,52 +145,6 @@ fun BottomBarItem(
     }
 }
 
-@Composable
-fun ThreadBottomBar(
-    modifier: Modifier = Modifier,
-    onPostClick: () -> Unit
-) {
-    var dialogVisible by remember { mutableStateOf(false) }
-    BottomAppBar(
-        modifier = Modifier.height(56.dp),
-        actions = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                IconButton(onClick = { /* doSomething() */ }) {
-                    Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
-                }
-                IconButton(onClick = { /* doSomething() */ }) {
-                    Icon(
-                        Icons.Default.Home,
-                        contentDescription = stringResource(R.string.home)
-                    )
-                }
-                IconButton(onClick = { /* doSomething() */ }) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = stringResource(R.string.refresh)
-                    )
-                }
-                IconButton(onClick = onPostClick) {
-                    Icon(
-                        Icons.Default.Create,
-                        contentDescription = stringResource(R.string.post)
-                    )
-                }
-                IconButton(onClick = {}) {
-                    Icon(
-                        Icons.Default.MoreHoriz,
-                        contentDescription = stringResource(R.string.more)
-                    )
-                }
-            }
-
-        }
-    )
-}
-
 @Preview(showBackground = true)
 @Composable
 fun HomeBottomNavigationBarPreview() {
@@ -221,10 +165,3 @@ fun BbsSelectBottomBarPreview() {
     )
 }
 
-@Preview(showBackground = true)
-@Composable
-fun ThreadBottomBarPreview() {
-    ThreadBottomBar(
-        onPostClick = {}
-    )
-}

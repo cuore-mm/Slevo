@@ -50,26 +50,6 @@ fun RenderBottomBar(
             }
         }
 
-//        currentDestination.isInRoute(
-//                AppRoute.RouteName.BOARD
-//        ) -> {
-//            BoardBottomBar(
-//                modifier = modifier,
-//                sortOptions = listOf("Option 1", "Option 2", "Option 3"),
-//                onSortOptionSelected = {}
-//            )
-//        }
-
-        currentDestination.isInRoute(
-            AppRoute.RouteName.THREAD
-        ) -> {
-            val threadViewModel: ThreadViewModel? =
-                navBackStackEntry?.let { hiltViewModel<ThreadViewModel>(it) }
-            ThreadBottomBar(
-                onPostClick = { threadViewModel?.showPostDialog() },
-            )
-        }
-
         else -> {}
     }
 }

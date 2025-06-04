@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.data.repository
 
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.DatRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.util.parseDat
 import com.websarva.wings.android.bbsviewer.ui.thread.ReplyInfo
 import kotlinx.coroutines.Dispatchers
@@ -10,30 +11,25 @@ import java.nio.charset.Charset
 import javax.inject.Inject
 
 class DatRepository @Inject constructor(
-    private val client: OkHttpClient
+    private val remoteDataSource: DatRemoteDataSource
 ) {
-    private suspend fun fetchDatData(datUrl: String): String? {
-        return withContext(Dispatchers.IO) {
+    /**
+     * 指定されたURLからスレッド情報を取得し、パースして返します。
+     * 取得またはパースに失敗した場合はnullを返すことを検討できます。
+     * (現在の実装ではparseDatがnullを許容しないため、呼び出し側で !! を使っていますが、
+     * エラーハンドリングをより丁寧にする場合は変更も考慮)
+     */
+    suspend fun getThread(datUrl: String): Pair<List<ReplyInfo>, String?>? = withContext(Dispatchers.Default) { // 計算処理なのでDefaultディスパッチャも検討
+        val datContent = remoteDataSource.fetchDatString(datUrl)
+        if (datContent != null) {
             try {
-                val request = Request.Builder()
-                    .url(datUrl)
-                    .build()
-                client.newCall(request).execute().use { response ->
-                    if (response.isSuccessful) {
-                        response.body?.bytes()?.let { bytes ->
-                            String(bytes, Charset.forName("Shift_JIS"))
-                        }
-                    } else {
-                        null
-                    }
-                }
+                parseDat(datContent) // DatParser.kt内の関数を直接呼び出し
             } catch (e: Exception) {
-                null
+                // パースエラー時の処理 (例: ログ出力、nullを返すなど)
+                null // またはエラーを通知するカスタムResult型など
             }
+        } else {
+            null // データ取得失敗
         }
-    }
-
-    suspend fun getThread(url: String): Pair<List<ReplyInfo>, String?>{
-        return parseDat(fetchDatData(url)!!)
     }
 }

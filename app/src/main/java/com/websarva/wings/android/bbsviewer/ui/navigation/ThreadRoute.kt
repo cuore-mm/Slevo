@@ -1,22 +1,29 @@
 package com.websarva.wings.android.bbsviewer.ui.navigation
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.ThreadBottomBar
 import com.websarva.wings.android.bbsviewer.ui.common.AddGroupDialog
 import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.drawer.TabInfo
@@ -36,7 +43,6 @@ fun NavGraphBuilder.addThreadRoute(
     navController: NavHostController,
     tabsViewModel: TabsViewModel,
     openDrawer: () -> Unit,
-    scrollBehavior: TopAppBarScrollBehavior
 ) {
     composable<AppRoute.Thread> { backStackEntry -> // backStackEntry を引数に追加
         val viewModel: ThreadViewModel = hiltViewModel()
@@ -99,6 +105,10 @@ fun NavGraphBuilder.addThreadRoute(
 
         val threadGroupSheetState = rememberModalBottomSheetState()
 
+        val topBarState = rememberTopAppBarState()
+        val scrollBehavior = TopAppBarDefaults
+            .exitUntilCollapsedScrollBehavior(topBarState)
+
         Scaffold(
             topBar = {
                 ThreadTopBar(
@@ -108,9 +118,19 @@ fun NavGraphBuilder.addThreadRoute(
                     scrollBehavior = scrollBehavior
                 )
             },
+            bottomBar = {
+                ThreadBottomBar(
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .height(56.dp),
+                    onPostClick = { viewModel.showPostDialog() },
+                )
+            }
         ) { innerPadding ->
             ThreadScreen(
-                modifier = Modifier.padding(innerPadding),
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .nestedScroll(scrollBehavior.nestedScrollConnection),
                 posts = uiState.posts ?: emptyList(),
                 listState = lazyListState // LazyListState を渡す
             )

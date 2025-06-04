@@ -85,9 +85,9 @@ fun AppScaffold(
         }
         
         Scaffold(
-            modifier = modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
+//            modifier = modifier
+//                .fillMaxSize()
+//                .nestedScroll(scrollBehavior.nestedScrollConnection),
             bottomBar = {
                 val offsetY = (-topBarState.heightOffset)        // 符号反転
                     .coerceIn(0f, bottomBarHeightPx)             // 0 … BottomBarH

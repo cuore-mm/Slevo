@@ -51,7 +51,6 @@ fun AppNavGraph(
         //スレッド一覧
         addBoardRoute(
             navController = navController,
-            scrollBehavior = scrollBehavior,
             openDrawer = openDrawer
         )
         //スレッド画面
@@ -59,7 +58,6 @@ fun AppNavGraph(
             navController = navController,
             tabsViewModel = tabsViewModel,
             openDrawer = openDrawer,
-            scrollBehavior = scrollBehavior
         )
         //設定画面
         addSettingsRoute(

@@ -1,6 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.board
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -49,6 +50,8 @@ class BoardViewModel @Inject constructor(
     val uiState: StateFlow<BoardUiState> = _uiState.asStateFlow()
 
     init {
+        Log.d("ViewModelDebug", "BoardViewModel init: id=$boardId, name='$boardName', url='$boardUrl'")
+        Log.d("ViewModelDebug", "BoardViewModel init (hashCode: ${this.hashCode()}): id=$boardId, name='$boardName', url='$boardUrl'")
         // 初期化時に一度だけ subject.txt をロード
         loadThreadList()
         loadBookmarkDetails()
@@ -56,6 +59,7 @@ class BoardViewModel @Inject constructor(
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun loadThreadList() {
+        Log.i("BoardViewModel", "Loading thread list for board: $boardUrl")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
@@ -253,7 +257,7 @@ data class BoardUiState(
 
     val currentSortKey: ThreadSortKey = ThreadSortKey.DEFAULT,
     val isSortAscending: Boolean = false, // falseが降順、trueが昇順 (デフォルト降順)
-    val sortKeys: List<ThreadSortKey> = ThreadSortKey.values().toList(),
+    val sortKeys: List<ThreadSortKey> = ThreadSortKey.entries,
 
     val isSearchActive: Boolean = false, // 検索モードか
     val searchQuery: String = "" // 検索クエリ
