@@ -19,6 +19,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -87,16 +88,15 @@ fun ThreadCard(
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = momentumFormatter.format(threadInfo.momentum).padStart(6),
-                modifier = Modifier.width(60.dp),
+                text = momentumFormatter.format(threadInfo.momentum),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.secondary,
-                textAlign = TextAlign.End
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = threadInfo.resCount.toString(),
-                style = MaterialTheme.typography.labelMedium
+                text = threadInfo.resCount.toString().padStart(4),
+                style = MaterialTheme.typography.labelMedium,
+                fontFamily = FontFamily.Monospace
             )
         }
     }
