@@ -40,4 +40,6 @@ echo "sdk.dir=$ANDROID_SDK_ROOT" > /workspace/Slevo/local.properties
 
 cd "$PROJECT_DIR"
 
+chmod +x ./gradlew
+
 ./gradlew resolveAllDependencies
