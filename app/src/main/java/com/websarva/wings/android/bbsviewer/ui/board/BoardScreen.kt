@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.data.model.ThreadDate
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
@@ -86,9 +87,11 @@ fun ThreadCard(
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = momentumFormatter.format(threadInfo.momentum),
+                text = momentumFormatter.format(threadInfo.momentum).padStart(6),
+                modifier = Modifier.width(60.dp),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.secondary
+                color = MaterialTheme.colorScheme.secondary,
+                textAlign = TextAlign.End
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
