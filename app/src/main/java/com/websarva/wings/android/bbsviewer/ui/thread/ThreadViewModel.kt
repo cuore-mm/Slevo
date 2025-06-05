@@ -325,4 +325,16 @@ class ThreadViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = false) }
         }
     }
+
+    fun openInAppWebView(url: String) {
+        _uiState.update {
+            it.copy(webViewUrl = url, showInAppWebView = true)
+        }
+    }
+
+    fun closeInAppWebView() {
+        _uiState.update {
+            it.copy(showInAppWebView = false, webViewUrl = null) // Clear URL on close
+        }
+    }
 }

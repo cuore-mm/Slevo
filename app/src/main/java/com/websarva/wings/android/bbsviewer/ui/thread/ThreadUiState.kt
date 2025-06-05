@@ -23,7 +23,11 @@ data class ThreadUiState(
     val showThreadGroupSelector: Boolean = false,
     val showAddGroupDialog: Boolean = false,
     val enteredNewGroupName: String = "",
-    val selectedColorForNewGroup: String? = "#FF0000" // デフォルト色など適当に設定
+    val selectedColorForNewGroup: String? = "#FF0000", // デフォルト色など適当に設定
+
+    // WebView State
+    val webViewUrl: String? = null,
+    val showInAppWebView: Boolean = false
 )
 
 data class ReplyInfo(
