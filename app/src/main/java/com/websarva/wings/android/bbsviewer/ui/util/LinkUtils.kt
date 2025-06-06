@@ -2,11 +2,11 @@ package com.websarva.wings.android.bbsviewer.ui.util
 
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import java.util.regex.Pattern
 
-private val urlRegex: Pattern = Pattern.compile("(https?://[\\w\\-._~:/?#[\\]@!$&'()*+,;=%]+)")
+private val urlRegex: Pattern =
+    Pattern.compile("(https?://[\\w\\-._~:/?#\\[\\]@!$&'()*+,;=%]+)")
 
 /**
  * 入力されたテキストから URL を検出し、クリック可能な AnnotatedString を生成します。
