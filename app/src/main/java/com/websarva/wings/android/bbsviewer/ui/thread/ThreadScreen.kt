@@ -29,7 +29,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -99,16 +98,10 @@ fun PostItem(
         }
 
         val uriHandler = LocalUriHandler.current
-        val annotatedText = buildUrlAnnotatedString(post.content)
-        ClickableText(
+        val annotatedText = buildUrlAnnotatedString(post.content) { uriHandler.openUri(it) }
+        Text(
             text = annotatedText,
-            style = MaterialTheme.typography.bodyMedium,
-            onClick = { offset ->
-                annotatedText.getStringAnnotations("URL", offset, offset)
-                    .firstOrNull()?.let { annotation ->
-                        uriHandler.openUri(annotation.item)
-                    }
-            }
+            style = MaterialTheme.typography.bodyMedium
         )
     }
 
