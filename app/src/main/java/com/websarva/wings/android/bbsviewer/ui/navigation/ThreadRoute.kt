@@ -24,6 +24,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadBottomBar
+import com.websarva.wings.android.bbsviewer.ui.thread.TabsBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.common.AddGroupDialog
 import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.drawer.TabInfo
@@ -104,6 +105,7 @@ fun NavGraphBuilder.addThreadRoute(
         }
 
         val threadGroupSheetState = rememberModalBottomSheetState()
+        val tabListSheetState = rememberModalBottomSheetState()
 
         val topBarState = rememberTopAppBarState()
         val scrollBehavior = TopAppBarDefaults
@@ -124,6 +126,7 @@ fun NavGraphBuilder.addThreadRoute(
                         .navigationBarsPadding()
                         .height(56.dp),
                     onPostClick = { viewModel.showPostDialog() },
+                    onTabListClick = { viewModel.openTabListSheet() },
                 )
             }
         ) { innerPadding ->
@@ -157,6 +160,15 @@ fun NavGraphBuilder.addThreadRoute(
                     enteredValue = uiState.enteredNewGroupName,
                     onColorSelected = { color -> viewModel.setSelectedColorCode(color) },
                     selectedColor = uiState.selectedColorForNewGroup ?: "#FF0000" // デフォルト色
+                )
+            }
+
+            if (uiState.showTabListSheet) {
+                TabsBottomSheet(
+                    sheetState = tabListSheetState,
+                    tabsViewModel = tabsViewModel,
+                    navController = navController,
+                    onDismissRequest = { viewModel.closeTabListSheet() },
                 )
             }
 

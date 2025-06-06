@@ -7,17 +7,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -27,9 +23,9 @@ import com.websarva.wings.android.bbsviewer.R
 @Composable
 fun ThreadBottomBar(
     modifier: Modifier = Modifier,
-    onPostClick: () -> Unit
+    onPostClick: () -> Unit,
+    onTabListClick: () -> Unit,
 ) {
-    var dialogVisible by remember { mutableStateOf(false) }
     BottomAppBar(
         modifier = modifier,
         actions = {
@@ -58,10 +54,10 @@ fun ThreadBottomBar(
                         contentDescription = stringResource(R.string.post)
                     )
                 }
-                IconButton(onClick = {}) {
+                IconButton(onClick = onTabListClick) {
                     Icon(
-                        Icons.Default.MoreHoriz,
-                        contentDescription = stringResource(R.string.more)
+                        Icons.Default.Menu,
+                        contentDescription = stringResource(R.string.open_tablist)
                     )
                 }
             }
@@ -74,6 +70,7 @@ fun ThreadBottomBar(
 @Composable
 fun ThreadBottomBarPreview() {
     ThreadBottomBar(
-        onPostClick = {}
+        onPostClick = {},
+        onTabListClick = {}
     )
 }

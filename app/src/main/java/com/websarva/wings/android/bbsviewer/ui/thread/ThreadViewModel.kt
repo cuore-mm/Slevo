@@ -250,6 +250,16 @@ class ThreadViewModel @Inject constructor(
         }
     }
 
+    // タブ一覧ボトムシートを開く
+    fun openTabListSheet() {
+        _uiState.update { it.copy(showTabListSheet = true) }
+    }
+
+    // タブ一覧ボトムシートを閉じる
+    fun closeTabListSheet() {
+        _uiState.update { it.copy(showTabListSheet = false) }
+    }
+
     // 書き込み画面を表示
     fun showPostDialog() {
         _uiState.update { it.copy(postDialog = true) }
