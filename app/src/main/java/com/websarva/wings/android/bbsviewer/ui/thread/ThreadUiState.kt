@@ -23,7 +23,10 @@ data class ThreadUiState(
     val showThreadGroupSelector: Boolean = false,
     val showAddGroupDialog: Boolean = false,
     val enteredNewGroupName: String = "",
-    val selectedColorForNewGroup: String? = "#FF0000" // デフォルト色など適当に設定
+    val selectedColorForNewGroup: String? = "#FF0000", // デフォルト色など適当に設定
+
+    // タブ一覧ボトムシートの表示状態
+    val showTabListSheet: Boolean = false,
 )
 
 data class ReplyInfo(
