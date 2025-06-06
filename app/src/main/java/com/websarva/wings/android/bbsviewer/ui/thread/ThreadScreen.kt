@@ -28,6 +28,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -39,6 +41,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
+import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 
 @Composable
 fun ThreadScreen(
@@ -95,8 +98,17 @@ fun PostItem(
             )
         }
 
-        Text(
-            text = post.content,
+        val uriHandler = LocalUriHandler.current
+        val annotatedText = buildUrlAnnotatedString(post.content)
+        ClickableText(
+            text = annotatedText,
+            style = MaterialTheme.typography.bodyMedium,
+            onClick = { offset ->
+                annotatedText.getStringAnnotations("URL", offset, offset)
+                    .firstOrNull()?.let { annotation ->
+                        uriHandler.openUri(annotation.item)
+                    }
+            }
         )
     }
 
