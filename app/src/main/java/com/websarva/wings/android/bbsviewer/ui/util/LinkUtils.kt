@@ -7,9 +7,11 @@ import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import java.util.regex.Pattern
 
-private val urlRegex: Pattern = Pattern.compile("(https?://[\\w\\-._~:/?#[\\]@!$&'()*+,;=%]+)")
+private val urlRegex: Pattern =
+    Pattern.compile("(https?://[\\w\\-._~:/?#\\[\\]@!$&'()*+,;=%]+)")
 
 /**
  * 入力されたテキストから URL を検出し、クリック可能な AnnotatedString を生成します。
