@@ -25,6 +25,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
+import com.websarva.wings.android.bbsviewer.ui.navigation.openThread
 
 @Composable
 fun AppDrawerContent(
@@ -63,14 +64,28 @@ fun OpenThreadsList(
                 NavigationDrawerItem(
                     label = { Text(tab.title, maxLines = 1) },
                     badge = {
-                        IconButton(onClick = { tabsViewModel.closeThread(tab) }) {
+                        IconButton(
+                            onClick = {
+                                tabsViewModel.closeThread(tab)
+                                navController.popBackStack(
+                                    AppRoute.Thread(
+                                        threadKey = tab.key,
+                                        boardUrl = tab.boardUrl,
+                                        boardName = tab.boardName,
+                                        boardId = tab.boardId,
+                                        threadTitle = tab.title
+                                    ),
+                                    inclusive = true
+                                )
+                            }
+                        ) {
                             Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close))
                         }
                     },
                     selected = false, // TODO: 必要に応じて、現在表示中のスレッドを判定して selected を true にする
                     onClick = {
                         closeDrawer()
-                        navController.navigate(
+                        navController.openThread(
                             AppRoute.Thread(
                                 threadKey = tab.key,
                                 boardUrl = tab.boardUrl,
@@ -78,10 +93,7 @@ fun OpenThreadsList(
                                 boardId = tab.boardId,
                                 threadTitle = tab.title
                             )
-                        ) {
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        )
                     }
                 )
             }

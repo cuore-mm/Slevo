@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkScreen
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkTopBar
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
+import com.websarva.wings.android.bbsviewer.ui.navigation.openThread
 
 @OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.addBookmarkRoute(
@@ -53,7 +54,7 @@ fun NavGraphBuilder.addBookmarkRoute(
                 },
                 threadGroups = uiState.groupedThreadBookmarks,
                 onThreadClick = { thread ->
-                    navController.navigate(
+                    navController.openThread(
                         AppRoute.Thread(
                             threadKey = thread.threadKey,
                             boardName = thread.boardName,
@@ -61,9 +62,7 @@ fun NavGraphBuilder.addBookmarkRoute(
                             threadTitle = thread.title,
                             boardId = thread.boardId
                         )
-                    ) {
-                        launchSingleTop = true
-                    }
+                    )
                 },
             )
         }

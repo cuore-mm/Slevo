@@ -33,6 +33,7 @@ import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.board.SortBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.board.BoardTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar
+import com.websarva.wings.android.bbsviewer.ui.navigation.openThread
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -112,7 +113,7 @@ fun NavGraphBuilder.addBoardRoute(
                     .nestedScroll(scrollBehavior.nestedScrollConnection),
                 threads = uiState.threads ?: emptyList(),
                 onClick = { threadInfo ->
-                    navController.navigate(
+                    navController.openThread(
                         AppRoute.Thread(
                             threadKey = threadInfo.key,
                             boardName = board.boardName,
@@ -120,9 +121,7 @@ fun NavGraphBuilder.addBoardRoute(
                             boardId = board.boardId,
                             threadTitle = threadInfo.title
                         )
-                    ) {
-                        launchSingleTop = true
-                    }
+                    )
                 },
                 isRefreshing = uiState.isLoading,
                 onRefresh = {
