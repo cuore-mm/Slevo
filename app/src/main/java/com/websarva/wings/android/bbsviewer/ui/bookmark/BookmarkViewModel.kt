@@ -42,10 +42,41 @@ class BookmarkViewModel @Inject constructor(
                 }
         }
     }
+
+    fun toggleSelectMode(enabled: Boolean) {
+        _uiState.update { state ->
+            state.copy(
+                selectMode = enabled,
+                selectedBoards = if (enabled) state.selectedBoards else emptySet(),
+                selectedThreads = if (enabled) state.selectedThreads else emptySet()
+            )
+        }
+    }
+
+    fun toggleBoardSelect(boardId: Long) {
+        _uiState.update { state ->
+            val next = state.selectedBoards.toMutableSet().apply {
+                if (!add(boardId)) remove(boardId)
+            }
+            state.copy(selectedBoards = next)
+        }
+    }
+
+    fun toggleThreadSelect(id: String) {
+        _uiState.update { state ->
+            val next = state.selectedThreads.toMutableSet().apply {
+                if (!add(id)) remove(id)
+            }
+            state.copy(selectedThreads = next)
+        }
+    }
 }
 
 data class BookmarkUiState(
     val isLoading: Boolean = false,
     val boardList: List<GroupWithBoards> = emptyList(),
-    val groupedThreadBookmarks: List<GroupWithThreadBookmarks> = emptyList()
+    val groupedThreadBookmarks: List<GroupWithThreadBookmarks> = emptyList(),
+    val selectMode: Boolean = false,
+    val selectedBoards: Set<Long> = emptySet(),
+    val selectedThreads: Set<String> = emptySet(),
 )
