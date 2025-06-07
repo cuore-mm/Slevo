@@ -1,6 +1,8 @@
 package com.websarva.wings.android.bbsviewer.ui.bookmark
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +13,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -40,7 +44,12 @@ fun BookmarkScreen(
     boardGroups: List<GroupWithBoards>,
     onBoardClick: (BoardEntity) -> Unit,
     threadGroups: List<GroupWithThreadBookmarks>,
-    onThreadClick: (BookmarkThreadEntity) -> Unit
+    onThreadClick: (BookmarkThreadEntity) -> Unit,
+    selectMode: Boolean,
+    selectedBoardIds: Set<Long>,
+    selectedThreadIds: Set<String>,
+    onBoardLongClick: (Long) -> Unit,
+    onThreadLongClick: (String) -> Unit
 ) {
     val scope = rememberCoroutineScope()
 
@@ -83,13 +92,18 @@ fun BookmarkScreen(
                     modifier = screenModifier,
                     boardGroups = boardGroups,
                     onBoardClick = onBoardClick,
-
-                    )
+                    selectMode = selectMode,
+                    selectedBoardIds = selectedBoardIds,
+                    onLongClick = onBoardLongClick,
+                )
 
                 1 -> BookmarkThreadListScreen(
                     modifier = screenModifier,
                     groupedThreadBookmarks = threadGroups,
                     onThreadClick = onThreadClick,
+                    selectMode = selectMode,
+                    selectedThreadIds = selectedThreadIds,
+                    onLongClick = onThreadLongClick,
                 )
             }
         }
@@ -100,7 +114,10 @@ fun BookmarkScreen(
 fun BookmarkBoardScreen(
     modifier: Modifier = Modifier,
     boardGroups: List<GroupWithBoards>,
-    onBoardClick: (BoardEntity) -> Unit
+    onBoardClick: (BoardEntity) -> Unit,
+    selectMode: Boolean,
+    selectedBoardIds: Set<Long>,
+    onLongClick: (Long) -> Unit
 ) {
     val groupedDataList = boardGroups.map { gwb ->
         GroupedData(group = gwb.group, items = gwb.boards)
@@ -113,14 +130,13 @@ fun BookmarkBoardScreen(
         emptyGroupMessageResId = R.string.no_registered_boards, // グループ内が空の場合も同じメッセージ
         itemKey = { board -> board.boardId }, // BoardEntityの一意なキー
         itemContent = { board ->
-            // BoardEntity を表示するためのコンポーザブル
-            Text(
-                text = board.name,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onBoardClick(board) } // クリック処理
-                    .padding(16.dp)
+            val selected = board.boardId in selectedBoardIds
+            BookmarkBoardItem(
+                board = board,
+                selected = selected,
+                selectMode = selectMode,
+                onClick = { onBoardClick(board) },
+                onLongClick = { onLongClick(board.boardId) }
             )
         }
     )
@@ -131,6 +147,9 @@ fun BookmarkThreadListScreen(
     modifier: Modifier = Modifier,
     groupedThreadBookmarks: List<GroupWithThreadBookmarks>,
     onThreadClick: (BookmarkThreadEntity) -> Unit,
+    selectMode: Boolean,
+    selectedThreadIds: Set<String>,
+    onLongClick: (String) -> Unit,
 ) {
     val groupedDataList = groupedThreadBookmarks.map { gwtb ->
         GroupedData(group = gwtb.group, items = gwtb.threads)
@@ -143,10 +162,14 @@ fun BookmarkThreadListScreen(
         emptyGroupMessageResId = R.string.no_bookmarked_threads, // strings.xml に要追加
         itemKey = { thread -> thread.threadKey + thread.boardUrl }, // BookmarkThreadEntityの一意なキー
         itemContent = { thread ->
-            // BookmarkThreadEntity を表示するためのコンポーザブル
-            BookmarkItem( // BookmarkItem は clickable を持つので、itemContent内で直接呼び出す
+            val id = thread.threadKey + thread.boardUrl
+            val selected = id in selectedThreadIds
+            BookmarkItem(
                 thread = thread,
-                onClick = { onThreadClick(thread) }
+                selected = selected,
+                selectMode = selectMode,
+                onClick = { onThreadClick(thread) },
+                onLongClick = { onLongClick(id) }
             )
         }
     )
@@ -156,12 +179,28 @@ fun BookmarkThreadListScreen(
 fun BookmarkItem(
     modifier: Modifier = Modifier,
     thread: BookmarkThreadEntity,
-    onClick: (BookmarkThreadEntity) -> Unit
+    selected: Boolean,
+    selectMode: Boolean,
+    onClick: (BookmarkThreadEntity) -> Unit,
+    onLongClick: () -> Unit
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick(thread) }
+            .combinedClickable(
+                onClick = {
+                    if (!selectMode) {
+                        onClick(thread)
+                    } else {
+                        onLongClick()
+                    }
+                },
+                onLongClick = { if (!selectMode) onLongClick() }
+            )
+            .background(
+                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                else MaterialTheme.colorScheme.surface
+            )
     ) {
         Column(
             modifier = Modifier
@@ -180,6 +219,43 @@ fun BookmarkItem(
             }
         }
     }
+}
+
+@Composable
+fun BookmarkBoardItem(
+    board: BoardEntity,
+    selected: Boolean,
+    selectMode: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    ListItem(
+        modifier = modifier
+            .combinedClickable(
+                onClick = {
+                    if (!selectMode) {
+                        onClick()
+                    } else {
+                        onLongClick()
+                    }
+                },
+                onLongClick = { if (!selectMode) onLongClick() }
+            ),
+        headlineContent = {
+            Text(
+                text = board.name,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        },
+        colors = ListItemDefaults.colors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        )
+    )
 }
 
 @Preview(showBackground = true)
@@ -207,7 +283,10 @@ fun BookmarkBoardScreenPreview() {
                 )
             )
         ),
-        onBoardClick = {}
+        onBoardClick = {},
+        selectMode = false,
+        selectedBoardIds = emptySet(),
+        onLongClick = {}
     )
 }
 
@@ -257,6 +336,9 @@ fun BookmarkThreadListScreenPreview() {
 
     BookmarkThreadListScreen(
         groupedThreadBookmarks = groups,
-        onThreadClick = {}
+        onThreadClick = {},
+        selectMode = false,
+        selectedThreadIds = emptySet(),
+        onLongClick = {}
     )
 }
