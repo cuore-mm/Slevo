@@ -1,8 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.bookmark
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,9 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -27,8 +26,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.R
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardBookmarkGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithBoards
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithThreadBookmarks
@@ -127,8 +126,8 @@ fun BookmarkBoardScreen(
         modifier = modifier,
         groupedDataList = groupedDataList,
         emptyListMessageResId = R.string.no_registered_boards,
-        emptyGroupMessageResId = R.string.no_registered_boards, // グループ内が空の場合も同じメッセージ
-        itemKey = { board -> board.boardId }, // BoardEntityの一意なキー
+        emptyGroupMessageResId = R.string.no_registered_boards,
+        itemKey = { board -> board.boardId },
         itemContent = { board ->
             val selected = board.boardId in selectedBoardIds
             BookmarkBoardItem(
@@ -159,12 +158,12 @@ fun BookmarkThreadListScreen(
         modifier = modifier,
         groupedDataList = groupedDataList,
         emptyListMessageResId = R.string.no_bookmarked_threads,
-        emptyGroupMessageResId = R.string.no_bookmarked_threads, // strings.xml に要追加
-        itemKey = { thread -> thread.threadKey + thread.boardUrl }, // BookmarkThreadEntityの一意なキー
+        emptyGroupMessageResId = R.string.no_bookmarked_threads,
+        itemKey = { thread -> thread.threadKey + thread.boardUrl },
         itemContent = { thread ->
             val id = thread.threadKey + thread.boardUrl
             val selected = id in selectedThreadIds
-            BookmarkItem(
+            BookmarkThreadItem(
                 thread = thread,
                 selected = selected,
                 selectMode = selectMode,
@@ -176,7 +175,7 @@ fun BookmarkThreadListScreen(
 }
 
 @Composable
-fun BookmarkItem(
+fun BookmarkThreadItem(
     modifier: Modifier = Modifier,
     thread: BookmarkThreadEntity,
     selected: Boolean,
