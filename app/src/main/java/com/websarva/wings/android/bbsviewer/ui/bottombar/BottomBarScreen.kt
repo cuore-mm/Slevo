@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +52,12 @@ fun HomeBottomNavigationBar(
             name = stringResource(R.string.boardList),
             icon = Icons.AutoMirrored.Filled.List,
             parentRoute = AppRoute.BbsServiceGroup
+        ),
+        TopLevelRoute(
+            route = AppRoute.Tabs,
+            name = stringResource(R.string.tabs),
+            icon = Icons.Default.Menu,
+            parentRoute = AppRoute.Tabs
         ),
         TopLevelRoute(
             route = AppRoute.Settings,

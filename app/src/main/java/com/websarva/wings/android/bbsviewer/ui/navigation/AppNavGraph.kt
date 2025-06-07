@@ -59,6 +59,11 @@ fun AppNavGraph(
             tabsViewModel = tabsViewModel,
             openDrawer = openDrawer,
         )
+        //タブ画面
+        addTabsRoute(
+            navController = navController,
+            tabsViewModel = tabsViewModel
+        )
         //設定画面
         addSettingsRoute(
             viewModel = settingsViewModel,
@@ -104,6 +109,9 @@ sealed class AppRoute {
     @Serializable
     data object Settings : AppRoute()
 
+    @Serializable
+    data object Tabs : AppRoute()
+
     data object RouteName {
         const val BOOKMARK = "Bookmark"
         const val BBS_SERVICE_GROUP = "BbsServiceGroup"
@@ -113,5 +121,6 @@ sealed class AppRoute {
         const val BOARD = "Board"
         const val THREAD = "Thread"
         const val SETTINGS = "Settings"
+        const val TABS = "Tabs"
     }
 }
