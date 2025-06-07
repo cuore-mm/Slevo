@@ -1,10 +1,12 @@
 package com.websarva.wings.android.bbsviewer.data.datasource.remote.impl
 
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.DatRemoteDataSource
+import com.websarva.wings.android.bbsviewer.data.util.DataUsageTracker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import java.io.IOException
 import java.nio.charset.Charset
 import javax.inject.Inject
@@ -14,28 +16,69 @@ import javax.inject.Singleton
 class DatRemoteDataSourceImpl @Inject constructor(
     private val client: OkHttpClient
 ) : DatRemoteDataSource {
+
+    private data class CacheEntry(
+        var bytes: ByteArray,
+        var lastModified: String?
+    )
+
+    private val cache = mutableMapOf<String, CacheEntry>()
+
     override suspend fun fetchDatString(datUrl: String): String? = withContext(Dispatchers.IO) {
         try {
-            val request = Request.Builder()
+            val builder = Request.Builder()
                 .url(datUrl)
-                // 必要であればUser-Agentなどのヘッダーを追加
-                .build()
+
+            val cacheEntry = cache[datUrl]
+            if (cacheEntry != null) {
+                cacheEntry.lastModified?.let { builder.header("If-Modified-Since", it) }
+                builder.header("Range", "bytes=${cacheEntry.bytes.size}-")
+                builder.header("Accept-Encoding", "identity")
+            }
+
+            val request = builder.build()
             client.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    response.body?.bytes()?.let { bytes ->
-                        String(bytes, Charset.forName("Shift_JIS"))
-                    }
-                } else {
-                    // エラーログなどをここに追加しても良い
-                    null
-                }
+                return@withContext handleResponse(datUrl, response, cacheEntry)
             }
         } catch (e: IOException) {
-            // エラーログなどをここに追加しても良い
             null
         } catch (e: Exception) {
-            // その他の予期せぬエラー
             null
+        }
+    }
+
+    private fun handleResponse(
+        datUrl: String,
+        response: Response,
+        cacheEntry: CacheEntry?
+    ): String? {
+        when (response.code) {
+            200 -> {
+                val bytes = response.body?.bytes() ?: return null
+                DataUsageTracker.addBytes(bytes.size.toLong())
+                val lastMod = response.header("Last-Modified")
+                cache[datUrl] = CacheEntry(bytes, lastMod)
+                return String(bytes, Charset.forName("Shift_JIS"))
+            }
+            206 -> {
+                val newBytes = response.body?.bytes() ?: return null
+                DataUsageTracker.addBytes(newBytes.size.toLong())
+                val lastMod = response.header("Last-Modified")
+                if (cacheEntry != null) {
+                    cacheEntry.bytes += newBytes
+                    cacheEntry.lastModified = lastMod ?: cacheEntry.lastModified
+                    return String(cacheEntry.bytes, Charset.forName("Shift_JIS"))
+                }
+                // 206だがキャッシュがない場合は全取得とみなす
+                cache[datUrl] = CacheEntry(newBytes, lastMod)
+                return String(newBytes, Charset.forName("Shift_JIS"))
+            }
+            304 -> {
+                return null
+            }
+            else -> {
+                return null
+            }
         }
     }
 }
