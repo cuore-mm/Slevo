@@ -198,7 +198,7 @@ fun BookmarkThreadItem(
             )
             .background(
                 if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                else MaterialTheme.colorScheme.surface
+                else MaterialTheme.colorScheme.surfaceContainer
             )
     ) {
         Column(
@@ -251,7 +251,7 @@ fun BookmarkBoardItem(
             containerColor = if (selected) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
             } else {
-                MaterialTheme.colorScheme.surface
+                MaterialTheme.colorScheme.surfaceContainer
             }
         )
     )
