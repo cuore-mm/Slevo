@@ -4,10 +4,6 @@ import androidx.navigation.NavHostController
 
 fun NavHostController.openThread(thread: AppRoute.Thread) {
     navigate(thread) {
-        popUpTo(thread) {
-            inclusive = false
-            saveState = true
-        }
         launchSingleTop = true
         restoreState = true
     }
