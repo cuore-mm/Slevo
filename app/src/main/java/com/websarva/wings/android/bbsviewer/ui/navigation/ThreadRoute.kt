@@ -120,33 +120,12 @@ fun NavGraphBuilder.addThreadRoute(
         val scrollBehavior = TopAppBarDefaults
             .exitUntilCollapsedScrollBehavior(topBarState)
 
-        Scaffold(
-            topBar = {
-                ThreadTopBar(
-                    onFavoriteClick = { viewModel.handleFavoriteClick() },
-                    uiState = uiState,
-                    onNavigationClick = openDrawer,
-                    scrollBehavior = scrollBehavior
-                )
-            },
-            bottomBar = {
-                ThreadBottomBar(
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .height(56.dp),
-                    onPostClick = { viewModel.showPostDialog() },
-                    onTabListClick = { viewModel.openTabListSheet() },
-                    onRefreshClick = { viewModel.reloadThread() }
-                )
-            }
-        ) { innerPadding ->
-            // 各タブを横に並べ、スワイプで切り替えられる Pager
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .nestedScroll(scrollBehavior.nestedScrollConnection)
-            ) { page ->
+        // 各タブを横に並べ、スワイプで切り替えられる Pager
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+        ) { page ->
                 // 表示対象のタブ情報を取得
                 val tab = openTabs[page]
                 val mapKey = tab.key + tab.boardUrl
@@ -193,11 +172,35 @@ fun NavGraphBuilder.addThreadRoute(
                 // 非表示のページでは描画コスト削減のため空リスト
                 val posts = if (isActive) uiState.posts ?: emptyList() else emptyList()
 
-                ThreadScreen(
-                    modifier = Modifier.fillMaxSize(),
-                    posts = posts,
-                    listState = listState
-                )
+                Scaffold(
+                    topBar = {
+                        ThreadTopBar(
+                            onFavoriteClick = { viewModel.handleFavoriteClick() },
+                            uiState = uiState,
+                            onNavigationClick = openDrawer,
+                            scrollBehavior = scrollBehavior
+                        )
+                    },
+                    bottomBar = {
+                        ThreadBottomBar(
+                            modifier = Modifier
+                                .navigationBarsPadding()
+                                .height(56.dp),
+                            onPostClick = { viewModel.showPostDialog() },
+                            onTabListClick = { viewModel.openTabListSheet() },
+                            onRefreshClick = { viewModel.reloadThread() }
+                        )
+                    }
+                ) { innerPadding ->
+                    ThreadScreen(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        posts = posts,
+                        listState = listState
+                    )
+
+                }
             }
 
             // ★ スレッドお気に入りグループ選択ボトムシート
@@ -285,4 +288,4 @@ fun NavGraphBuilder.addThreadRoute(
             }
         }
     }
-}
+
