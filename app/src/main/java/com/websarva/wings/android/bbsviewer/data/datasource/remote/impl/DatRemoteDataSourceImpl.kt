@@ -10,11 +10,13 @@ import okhttp3.Response
 import java.io.IOException
 import java.nio.charset.Charset
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Singleton
 class DatRemoteDataSourceImpl @Inject constructor(
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    @Named("UserAgent") private val userAgent: String
 ) : DatRemoteDataSource {
 
     private data class CacheEntry(
@@ -28,6 +30,7 @@ class DatRemoteDataSourceImpl @Inject constructor(
         try {
             val builder = Request.Builder()
                 .url(datUrl)
+                .header("User-Agent", userAgent)
 
             val cacheEntry = cache[datUrl]
             if (cacheEntry != null) {
@@ -99,6 +102,7 @@ class DatRemoteDataSourceImpl @Inject constructor(
     private fun fetchFullDat(datUrl: String): String? {
         val request = Request.Builder()
             .url(datUrl)
+            .header("User-Agent", userAgent)
             .header("Accept-Encoding", "identity")
             .build()
         client.newCall(request).execute().use { res ->
