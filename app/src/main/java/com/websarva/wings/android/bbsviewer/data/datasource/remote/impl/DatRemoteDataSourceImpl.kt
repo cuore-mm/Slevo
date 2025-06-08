@@ -32,7 +32,8 @@ class DatRemoteDataSourceImpl @Inject constructor(
             val cacheEntry = cache[datUrl]
             if (cacheEntry != null) {
                 cacheEntry.lastModified?.let { builder.header("If-Modified-Since", it) }
-                builder.header("Range", "bytes=${cacheEntry.bytes.size}-")
+                // ローカルサイズ - 1 を指定することであぼーんを検出しやすくする
+                builder.header("Range", "bytes=${cacheEntry.bytes.size - 1}-")
                 builder.header("Accept-Encoding", "identity")
             }
 
@@ -65,20 +66,48 @@ class DatRemoteDataSourceImpl @Inject constructor(
                 DataUsageTracker.addBytes(newBytes.size.toLong())
                 val lastMod = response.header("Last-Modified")
                 if (cacheEntry != null) {
-                    cacheEntry.bytes += newBytes
+                    if (newBytes.isNotEmpty()) {
+                        return if (newBytes[0].toInt() == '\n'.code) {
+                            val appendBytes = newBytes.copyOfRange(1, newBytes.size)
+                            cacheEntry.bytes += appendBytes
+                            cacheEntry.lastModified = lastMod ?: cacheEntry.lastModified
+                            String(cacheEntry.bytes, Charset.forName("Shift_JIS"))
+                        } else {
+                            cache.remove(datUrl)
+                            fetchFullDat(datUrl)
+                        }
+                    }
                     cacheEntry.lastModified = lastMod ?: cacheEntry.lastModified
                     return String(cacheEntry.bytes, Charset.forName("Shift_JIS"))
                 }
-                // 206だがキャッシュがない場合は全取得とみなす
                 cache[datUrl] = CacheEntry(newBytes, lastMod)
                 return String(newBytes, Charset.forName("Shift_JIS"))
             }
             304 -> {
                 return null
             }
+            416 -> {
+                cache.remove(datUrl)
+                return fetchFullDat(datUrl)
+            }
             else -> {
                 return null
             }
+        }
+    }
+
+    private fun fetchFullDat(datUrl: String): String? {
+        val request = Request.Builder()
+            .url(datUrl)
+            .header("Accept-Encoding", "identity")
+            .build()
+        client.newCall(request).execute().use { res ->
+            if (res.code != 200) return null
+            val bytes = res.body?.bytes() ?: return null
+            DataUsageTracker.addBytes(bytes.size.toLong())
+            val lastMod = res.header("Last-Modified")
+            cache[datUrl] = CacheEntry(bytes, lastMod)
+            return String(bytes, Charset.forName("Shift_JIS"))
         }
     }
 }
