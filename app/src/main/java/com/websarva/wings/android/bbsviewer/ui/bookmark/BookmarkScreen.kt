@@ -70,8 +70,11 @@ fun BookmarkScreen(
                     Tab(
                         text = { Text(text) },
                         selected = pagerState.currentPage == index,
+                        enabled = !selectMode,
                         onClick = {
-                            scope.launch { pagerState.animateScrollToPage(index) }
+                            if (!selectMode) {
+                                scope.launch { pagerState.animateScrollToPage(index) }
+                            }
                         }
                     )
                 }
@@ -80,7 +83,8 @@ fun BookmarkScreen(
         // ページ本体
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            userScrollEnabled = !selectMode
         ) { page ->
             val screenModifier = Modifier
                 .fillMaxSize()
