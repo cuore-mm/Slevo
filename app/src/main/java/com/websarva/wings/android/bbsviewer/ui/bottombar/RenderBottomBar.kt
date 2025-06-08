@@ -9,7 +9,6 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListViewModel
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
-import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
 @Composable
@@ -22,7 +21,8 @@ fun RenderBottomBar(
     when {
         currentDestination.isInRoute(
             AppRoute.RouteName.BOOKMARK,
-            AppRoute.RouteName.BBS_SERVICE_GROUP
+            AppRoute.RouteName.BBS_SERVICE_GROUP,
+            AppRoute.RouteName.TABS
         )
             -> {
             val viewModel: ServiceListViewModel = hiltViewModel(navBackStackEntry!!)
