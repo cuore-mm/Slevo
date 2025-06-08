@@ -1,9 +1,12 @@
 package com.websarva.wings.android.bbsviewer.ui.navigation
 
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarDefaults
@@ -13,6 +16,8 @@ import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -48,10 +53,18 @@ fun NavGraphBuilder.addThreadRoute(
     composable<AppRoute.Thread> { backStackEntry -> // backStackEntry を引数に追加
         val viewModel: ThreadViewModel = hiltViewModel()
         val uiState by viewModel.uiState.collectAsState()
-        val threadRoute: AppRoute.Thread = backStackEntry.toRoute() // toRoute() で引数を取得
+        // 開いているスレッドのタブ一覧を監視
+        val openTabs by tabsViewModel.openTabs.collectAsState()
+        // 画面遷移で受け取った引数を取得
+        val threadRoute: AppRoute.Thread = backStackEntry.toRoute()
 
-        val lazyListState = rememberLazyListState()
+        // 既に開かれているタブならそのページから表示する
+        val initialPage = openTabs.indexOfFirst { it.key == threadRoute.threadKey && it.boardUrl == threadRoute.boardUrl }.let { if (it == -1) 0 else it }
+        // HorizontalPager の状態を保持
+        val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { openTabs.size })
 
+        // タブ毎のスクロール状態を保持するマップ
+        val listStates = remember(openTabs) { mutableStateMapOf<String, LazyListState>() }
         // スレッドのキー (threadKey と boardUrl) が変更されたら、スレッドを初期化し、タブ情報を更新する
         LaunchedEffect(threadRoute.threadKey, threadRoute.boardUrl) {
             // ViewModelの初期化
@@ -66,8 +79,8 @@ fun NavGraphBuilder.addThreadRoute(
             )
 
             // タブの処理とスクロール位置の復元
-            val existingTab = tabsViewModel.getTabInfo(threadRoute.threadKey, threadRoute.boardUrl) //
-            val tabToOpen = TabInfo( //
+            val existingTab = tabsViewModel.getTabInfo(threadRoute.threadKey, threadRoute.boardUrl)
+            val tabToOpen = TabInfo(
                 key = threadRoute.threadKey,
                 title = threadRoute.threadTitle,
                 boardName = threadRoute.boardName,
@@ -76,33 +89,29 @@ fun NavGraphBuilder.addThreadRoute(
                 firstVisibleItemIndex = existingTab?.firstVisibleItemIndex ?: 0,
                 firstVisibleItemScrollOffset = existingTab?.firstVisibleItemScrollOffset ?: 0
             )
-            tabsViewModel.openThread(tabToOpen) //
+            tabsViewModel.openThread(tabToOpen)
 
+            // タブを一意に識別するキーを生成
+            val mapKey = tabToOpen.key + tabToOpen.boardUrl
+            // 未登録なら初期値で LazyListState を作成
+            val state = listStates.getOrPut(mapKey) {
+                LazyListState(
+                    existingTab?.firstVisibleItemIndex ?: 0,
+                    existingTab?.firstVisibleItemScrollOffset ?: 0
+                )
+            }
+            // 以前開いていたタブなら保存済みの位置までスクロール
             if (existingTab != null) {
-                lazyListState.scrollToItem(
+                state.scrollToItem(
                     existingTab.firstVisibleItemIndex,
                     existingTab.firstVisibleItemScrollOffset
                 )
             } else {
-                // 新しいタブの場合、リストの先頭にスクロール
-                lazyListState.scrollToItem(0, 0)
+                // 新規タブは先頭から表示
+                state.scrollToItem(0, 0)
             }
         }
 
-        // スクロール位置の変更を監視し、TabsViewModel に保存する
-        // スクロールが頻繁に発生するため、debounce を挟んで更新頻度を調整
-        LaunchedEffect(lazyListState) {
-            snapshotFlow { lazyListState.firstVisibleItemIndex to lazyListState.firstVisibleItemScrollOffset }
-                .debounce(200L) // 200ミリ秒待ってから最新の値で更新
-                .collectLatest { (index, offset) ->
-                    tabsViewModel.updateScrollPosition(
-                        threadRoute.threadKey,
-                        threadRoute.boardUrl,
-                        index,
-                        offset
-                    )
-                }
-        }
 
         val threadGroupSheetState = rememberModalBottomSheetState()
         val tabListSheetState = rememberModalBottomSheetState()
@@ -131,13 +140,65 @@ fun NavGraphBuilder.addThreadRoute(
                 )
             }
         ) { innerPadding ->
-            ThreadScreen(
+            // 各タブを横に並べ、スワイプで切り替えられる Pager
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier
                     .padding(innerPadding)
-                    .nestedScroll(scrollBehavior.nestedScrollConnection),
-                posts = uiState.posts ?: emptyList(),
-                listState = lazyListState // LazyListState を渡す
-            )
+                    .nestedScroll(scrollBehavior.nestedScrollConnection)
+            ) { page ->
+                // 表示対象のタブ情報を取得
+                val tab = openTabs[page]
+                val mapKey = tab.key + tab.boardUrl
+                // タブごとの LazyListState を取得・作成
+                val listState = listStates.getOrPut(mapKey) {
+                    LazyListState(
+                        tab.firstVisibleItemIndex,
+                        tab.firstVisibleItemScrollOffset
+                    )
+                }
+
+                val isActive = pagerState.currentPage == page
+                // ページがアクティブになったときだけスレッドを初期化
+                LaunchedEffect(isActive, tab) {
+                    if (isActive) {
+                        viewModel.initializeThread(
+                            threadKey = tab.key,
+                            boardInfo = BoardInfo(
+                                name = tab.boardName,
+                                url = tab.boardUrl,
+                                boardId = tab.boardId
+                            ),
+                            threadTitle = tab.title
+                        )
+                    }
+                }
+
+                // スクロール位置を定期的に保存
+                LaunchedEffect(listState) {
+                    snapshotFlow {
+                        listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+                    }
+                        .debounce(200L)
+                        .collectLatest { (index, offset) ->
+                            tabsViewModel.updateScrollPosition(
+                                tab.key,
+                                tab.boardUrl,
+                                index,
+                                offset
+                            )
+                        }
+                }
+
+                // 非表示のページでは描画コスト削減のため空リスト
+                val posts = if (isActive) uiState.posts ?: emptyList() else emptyList()
+
+                ThreadScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    posts = posts,
+                    listState = listState
+                )
+            }
 
             // ★ スレッドお気に入りグループ選択ボトムシート
             if (uiState.showThreadGroupSelector) {
