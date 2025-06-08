@@ -51,8 +51,7 @@ fun NavGraphBuilder.addThreadRoute(
     openDrawer: () -> Unit,
 ) {
     composable<AppRoute.Thread> { backStackEntry -> // backStackEntry を引数に追加
-        val viewModel: ThreadViewModel = hiltViewModel()
-        val uiState by viewModel.uiState.collectAsState()
+        // ページごとに個別のThreadViewModelを保持したいので、ここでは取得しない
         // 開いているスレッドのタブ一覧を監視
         val openTabs by tabsViewModel.openTabs.collectAsState()
         // 画面遷移で受け取った引数を取得
@@ -65,19 +64,8 @@ fun NavGraphBuilder.addThreadRoute(
 
         // タブ毎のスクロール状態を保持するマップ
         val listStates = remember(openTabs) { mutableStateMapOf<String, LazyListState>() }
-        // スレッドのキー (threadKey と boardUrl) が変更されたら、スレッドを初期化し、タブ情報を更新する
+        // スレッドのキー (threadKey と boardUrl) が変更されたらタブ情報を更新する
         LaunchedEffect(threadRoute.threadKey, threadRoute.boardUrl) {
-            // ViewModelの初期化
-            viewModel.initializeThread( //
-                threadKey = threadRoute.threadKey,
-                boardInfo = BoardInfo( //
-                    name = threadRoute.boardName,
-                    url = threadRoute.boardUrl,
-                    boardId = threadRoute.boardId,
-                ),
-                threadTitle = threadRoute.threadTitle
-            )
-
             // タブの処理とスクロール位置の復元
             val existingTab = tabsViewModel.getTabInfo(threadRoute.threadKey, threadRoute.boardUrl)
             val tabToOpen = TabInfo(
@@ -129,6 +117,11 @@ fun NavGraphBuilder.addThreadRoute(
                 // 表示対象のタブ情報を取得
                 val tab = openTabs[page]
                 val mapKey = tab.key + tab.boardUrl
+
+                // 各タブ専用の ViewModel を取得
+                val viewModel: ThreadViewModel = hiltViewModel(key = mapKey)
+                val uiState by viewModel.uiState.collectAsState()
+
                 // タブごとの LazyListState を取得・作成
                 val listState = listStates.getOrPut(mapKey) {
                     LazyListState(
@@ -201,7 +194,6 @@ fun NavGraphBuilder.addThreadRoute(
                     )
 
                 }
-            }
 
             // ★ スレッドお気に入りグループ選択ボトムシート
             if (uiState.showThreadGroupSelector) {
@@ -289,3 +281,4 @@ fun NavGraphBuilder.addThreadRoute(
         }
     }
 
+}
