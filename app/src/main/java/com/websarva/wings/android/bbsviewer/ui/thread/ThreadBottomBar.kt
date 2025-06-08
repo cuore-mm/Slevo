@@ -25,6 +25,7 @@ fun ThreadBottomBar(
     modifier: Modifier = Modifier,
     onPostClick: () -> Unit,
     onTabListClick: () -> Unit,
+    onRefreshClick: () -> Unit,
 ) {
     BottomAppBar(
         modifier = modifier,
@@ -42,7 +43,7 @@ fun ThreadBottomBar(
                         contentDescription = stringResource(R.string.home)
                     )
                 }
-                IconButton(onClick = { /* doSomething() */ }) {
+                IconButton(onClick = onRefreshClick) {
                     Icon(
                         Icons.Default.Refresh,
                         contentDescription = stringResource(R.string.refresh)
@@ -71,6 +72,7 @@ fun ThreadBottomBar(
 fun ThreadBottomBarPreview() {
     ThreadBottomBar(
         onPostClick = {},
-        onTabListClick = {}
+        onTabListClick = {},
+        onRefreshClick = {}
     )
 }

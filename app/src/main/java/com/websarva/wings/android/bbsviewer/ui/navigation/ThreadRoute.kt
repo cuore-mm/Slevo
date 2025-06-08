@@ -127,6 +127,7 @@ fun NavGraphBuilder.addThreadRoute(
                         .height(56.dp),
                     onPostClick = { viewModel.showPostDialog() },
                     onTabListClick = { viewModel.openTabListSheet() },
+                    onRefreshClick = { viewModel.reloadThread() }
                 )
             }
         ) { innerPadding ->

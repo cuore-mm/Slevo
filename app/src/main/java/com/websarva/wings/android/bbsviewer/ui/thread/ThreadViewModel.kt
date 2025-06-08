@@ -250,6 +250,13 @@ class ThreadViewModel @Inject constructor(
         }
     }
 
+    fun reloadThread() {
+        val datUrl = _uiState.value.threadInfo.datUrl
+        if (datUrl.isNotBlank()) {
+            loadThread(datUrl)
+        }
+    }
+
     // タブ一覧ボトムシートを開く
     fun openTabListSheet() {
         _uiState.update { it.copy(showTabListSheet = true) }
