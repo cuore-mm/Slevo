@@ -1,6 +1,5 @@
 package com.websarva.wings.android.bbsviewer.data.util
 
-import android.util.Log
 import androidx.core.text.HtmlCompat
 import com.websarva.wings.android.bbsviewer.ui.thread.ReplyInfo
 
@@ -9,7 +8,6 @@ fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
     val replies = mutableListOf<ReplyInfo>()
     var threadTitle: String? = null
 
-    Log.i("DatParser", datContent)
     datContent.split("\n").forEachIndexed { index, line ->
         // 空行はスキップ
         if (line.isBlank()) return@forEachIndexed
@@ -28,7 +26,9 @@ fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
             // 最初の行の場合、スレッドタイトルがある可能性がある
             if (index == 0) {
                 // タイトルもHTMLデコード
-                threadTitle = HtmlCompat.fromHtml(parts[4], HtmlCompat.FROM_HTML_MODE_LEGACY).toString().takeIf { it.isNotBlank() }
+                threadTitle =
+                    HtmlCompat.fromHtml(parts[4], HtmlCompat.FROM_HTML_MODE_LEGACY).toString()
+                        .takeIf { it.isNotBlank() }
             }
 
             replies.add(
@@ -42,7 +42,6 @@ fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
             )
         }
     }
-    Log.i("DatParser", replies.toString())
     return Pair(replies, threadTitle)
 }
 
@@ -68,30 +67,19 @@ private fun cleanContent(contentHtml: String): String {
     val newlinePlaceholder = "[[[NEWLINE_PLACEHOLDER]]]"
 
     // 1. <br> タグをプレースホルダに変換
-    val textWithPlaceholders = contentHtml.replace(Regex(" <br\\s*/?> ", RegexOption.IGNORE_CASE), newlinePlaceholder)
-    Log.d("DatParserDebug", "textWithPlaceholders: [$textWithPlaceholders]")
+    val textWithPlaceholders =
+        contentHtml.replace(Regex(" <br\\s*/?> ", RegexOption.IGNORE_CASE), newlinePlaceholder)
 
     // 2. HTMLエンティティをデコード (この時プレースホルダはそのままのはず)
-    val decodedContent = HtmlCompat.fromHtml(textWithPlaceholders, HtmlCompat.FROM_HTML_MODE_LEGACY).toString()
-    Log.d("DatParserDebug", "decodedContent (after fromHtml): [$decodedContent]")
+    val decodedContent =
+        HtmlCompat.fromHtml(textWithPlaceholders, HtmlCompat.FROM_HTML_MODE_LEGACY).toString()
 
     // 3. プレースホルダを実際の改行コード \n に戻す
     var finalContent = decodedContent.replace(newlinePlaceholder, "\n")
-    Log.d("DatParserDebug", "finalContent (after placeholder replacement): [$finalContent]")
 
     // 4. 必要最小限のトリミング (主にfromHtmlが追加する可能性のある先頭/末尾の不要な空白)
     //    改行コード自体を消さないように注意
-    finalContent = finalContent.trim { it <= ' ' } // Javaの Character.isWhitespace と同様の挙動
+    finalContent = finalContent.trim() // Javaの Character.isWhitespace と同様の挙動
 
-    // 例: fromHtml が末尾に余計な改行を1つだけ付ける場合で、それが不要な場合の処理
-    // if (finalContent.endsWith("\n\n")) { // ユーザーが意図した改行 + fromHtmlの改行
-    //     finalContent = finalContent.dropLast(1)
-    // } else if (finalContent.endsWith("\n") && !contentHtml.endsWith("<br>") && !contentHtml.endsWith("<br/>")) {
-    //     // 元のHTMLが<br>で終わっていないのに、変換後が\nで終わっている場合はfromHtmlが付与した可能性がある
-    //     // ただし、この判定は完璧ではない
-    // }
-
-
-    Log.d("DatParserDebug", "Final returned content: [$finalContent]")
     return finalContent
 }
