@@ -19,7 +19,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkTopBar
-import com.websarva.wings.android.bbsviewer.ui.bbslist.service.SelectedBbsListTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.common.SelectedTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,7 +53,7 @@ fun NavGraphBuilder.addBookmarkRoute(
                         enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
                         exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
                     ) {
-                        SelectedBbsListTopBarScreen(
+                        SelectedTopBarScreen(
                             onBack = { bookmarkViewModel.toggleSelectMode(false) },
                             selectedCount = uiState.selectedBoards.size + uiState.selectedThreads.size
                         )

@@ -18,7 +18,7 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.ui.bbslist.board.BbsBoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.bbslist.BbsListTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BoardCategoryListViewModel
-import com.websarva.wings.android.bbsviewer.ui.bbslist.service.SelectedBbsListTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.common.SelectedTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListViewModel
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
@@ -68,7 +68,7 @@ fun RenderTopBar(
                     enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
                     exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
                 ) {
-                    SelectedBbsListTopBarScreen(
+                    SelectedTopBarScreen(
                         onBack = { viewModel.toggleSelectMode(false) },
                         selectedCount = uiState.selected.size
                     )

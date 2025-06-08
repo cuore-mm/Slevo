@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.bbslist.service
+package com.websarva.wings.android.bbsviewer.ui.common
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -17,7 +17,7 @@ import com.websarva.wings.android.bbsviewer.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SelectedBbsListTopBarScreen(
+fun SelectedTopBarScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
     selectedCount: Int
@@ -45,8 +45,8 @@ fun SelectedBbsListTopBarScreen(
 // EditableBBSListTopBarScreenのプレビュー
 @Preview(showBackground = true)
 @Composable
-fun SelectedBbsListTopBarScreenPreview() {
-    SelectedBbsListTopBarScreen(
+fun SelectedTopBarScreenPreview() {
+    SelectedTopBarScreen(
         onBack = { /* doSomething() */ },
         selectedCount = 3
     )

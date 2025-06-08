@@ -28,7 +28,7 @@ import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BoardCategoryLis
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.DeleteBbsDialog
 import com.websarva.wings.android.bbsviewer.ui.bbslist.BbsListTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListTopBarScreen
-import com.websarva.wings.android.bbsviewer.ui.bbslist.service.SelectedBbsListTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.common.SelectedTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -89,7 +89,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                             enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
                             exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
                         ) {
-                            SelectedBbsListTopBarScreen(
+                            SelectedTopBarScreen(
                                 onBack = { viewModel.toggleSelectMode(false) },
                                 selectedCount = uiState.selected.size
                             )
