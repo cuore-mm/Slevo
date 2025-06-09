@@ -21,6 +21,15 @@ class TabsViewModel @Inject constructor(
     // threadKey + boardUrl をキーとして ThreadViewModel を保持
     private val threadViewModels: MutableMap<String, ThreadViewModel> = mutableMapOf()
 
+    /**
+     * 指定キーの ThreadViewModel を取得。存在しなければ Factory から生成して登録する
+     */
+    fun getOrCreateThreadViewModel(mapKey: String): ThreadViewModel {
+        return threadViewModels.getOrPut(mapKey) {
+            threadViewModelFactory.create(mapKey)
+        }
+    }
+
     fun openThread(tab: TabInfo) {
         _openTabs.update { current ->
             if (current.any { it.key == tab.key && it.boardUrl == tab.boardUrl }) {
@@ -40,10 +49,16 @@ class TabsViewModel @Inject constructor(
     }
 
     fun closeThread(tab: TabInfo) {
-        _openTabs.update { current -> current - tab }
-        val mapKey = tab.key + tab.boardUrl
-        // タブを閉じたら対応する ViewModel も破棄
-        threadViewModels.remove(mapKey)
+        val key = tab.key + tab.boardUrl
+        val viewModelToDestroy = threadViewModels[key]
+
+        // onCleared()の代わりに、新しく作った公開メソッドrelease()を呼び出す
+        viewModelToDestroy?.release()
+
+        threadViewModels.remove(key)
+        _openTabs.update { current ->
+            current.filterNot { it.key == tab.key && it.boardUrl == tab.boardUrl }
+        }
     }
 
     fun updateScrollPosition(
@@ -70,12 +85,10 @@ class TabsViewModel @Inject constructor(
         return _openTabs.value.find { it.key == tabKey && it.boardUrl == boardUrl }
     }
 
-    /**
-     * 指定キーの ThreadViewModel を取得。存在しなければ Factory から生成して登録する
-     */
-    fun getOrCreateThreadViewModel(mapKey: String): ThreadViewModel {
-        return threadViewModels.getOrPut(mapKey) {
-            threadViewModelFactory.create(mapKey)
-        }
+    override fun onCleared() {
+        super.onCleared()
+        // 親が破棄されるときは、すべての子ViewModelも破棄する
+        threadViewModels.values.forEach { it.release() }
+        threadViewModels.clear()
     }
 }

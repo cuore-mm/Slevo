@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
@@ -322,7 +321,7 @@ class ThreadViewModel @AssistedInject constructor(
      * 2回目投稿（書き込み実行）
      * 1回目の確認用リクエストから得た hidden パラメータと Cookie を使用して最終投稿を行う。
      */
-fun postTo5chSecondPhase(
+    fun postTo5chSecondPhase(
         host: String,
         board: String,
         threadKey: String,
@@ -344,6 +343,16 @@ fun postTo5chSecondPhase(
             _uiState.update { it.copy(isLoading = false) }
         }
     }
+
+    /**
+     * このViewModelが不要になったときに、所有者であるTabsViewModelから呼び出される公開メソッド。
+     * 内部で自身のライフサイクル終了処理を呼び出す。
+     */
+    fun release() {
+        // このクラスの内部からなので、protectedなonCleared()を呼び出せる
+        super.onCleared()
+    }
+
 }
 
 @AssistedFactory

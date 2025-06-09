@@ -49,8 +49,7 @@ fun NavGraphBuilder.addThreadRoute(
     tabsViewModel: TabsViewModel,
     openDrawer: () -> Unit,
 ) {
-    composable<AppRoute.Thread> { backStackEntry -> // backStackEntry を引数に追加
-        // ページごとに個別のThreadViewModelを保持したいので、ここでは取得しない
+    composable<AppRoute.Thread> { backStackEntry ->
         // 開いているスレッドのタブ一覧を監視
         val openTabs by tabsViewModel.openTabs.collectAsState()
         // 画面遷移で受け取った引数を取得
