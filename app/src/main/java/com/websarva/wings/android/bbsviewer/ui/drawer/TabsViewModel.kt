@@ -1,6 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.drawer
 
 import androidx.lifecycle.ViewModel
+import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,8 +11,12 @@ import javax.inject.Inject
 
 @HiltViewModel
 class TabsViewModel @Inject constructor() : ViewModel() {
+    // 開いているタブ一覧と合わせて、タブに紐づく ThreadViewModel も保持する
     private val _openTabs = MutableStateFlow<List<TabInfo>>(emptyList())
     val openTabs: StateFlow<List<TabInfo>> = _openTabs.asStateFlow()
+
+    // threadKey + boardUrl をキーとして ThreadViewModel を保持
+    private val threadViewModels: MutableMap<String, ThreadViewModel> = mutableMapOf()
 
     fun openThread(tab: TabInfo) {
         _openTabs.update { current ->
@@ -33,6 +38,9 @@ class TabsViewModel @Inject constructor() : ViewModel() {
 
     fun closeThread(tab: TabInfo) {
         _openTabs.update { current -> current - tab }
+        val mapKey = tab.key + tab.boardUrl
+        // タブを閉じたら対応する ViewModel も破棄
+        threadViewModels.remove(mapKey)
     }
 
     fun updateScrollPosition(
@@ -57,5 +65,13 @@ class TabsViewModel @Inject constructor() : ViewModel() {
 
     fun getTabInfo(tabKey: String, boardUrl: String): TabInfo? {
         return _openTabs.value.find { it.key == tabKey && it.boardUrl == boardUrl }
+    }
+
+    /** 指定キーの ThreadViewModel を取得 */
+    fun getThreadViewModel(mapKey: String): ThreadViewModel? = threadViewModels[mapKey]
+
+    /** 生成した ThreadViewModel を登録 */
+    fun registerThreadViewModel(mapKey: String, viewModel: ThreadViewModel) {
+        threadViewModels[mapKey] = viewModel
     }
 }

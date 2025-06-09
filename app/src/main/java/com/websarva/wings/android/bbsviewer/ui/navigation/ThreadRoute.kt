@@ -118,8 +118,11 @@ fun NavGraphBuilder.addThreadRoute(
                 val tab = openTabs[page]
                 val mapKey = tab.key + tab.boardUrl
 
-                // 各タブ専用の ViewModel を取得
-                val viewModel: ThreadViewModel = hiltViewModel(key = mapKey)
+                // 各タブ専用の ViewModel を取得。未登録なら生成して登録
+                val existingViewModel = tabsViewModel.getThreadViewModel(mapKey)
+                val viewModel: ThreadViewModel = existingViewModel ?: hiltViewModel(key = mapKey).also {
+                    tabsViewModel.registerThreadViewModel(mapKey, it)
+                }
                 val uiState by viewModel.uiState.collectAsState()
 
                 // タブごとの LazyListState を取得・作成
