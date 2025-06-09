@@ -22,7 +22,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
@@ -118,11 +117,8 @@ fun NavGraphBuilder.addThreadRoute(
                 val tab = openTabs[page]
                 val mapKey = tab.key + tab.boardUrl
 
-                // 各タブ専用の ViewModel を取得。未登録なら生成して登録
-                val existingViewModel = tabsViewModel.getThreadViewModel(mapKey)
-                val viewModel: ThreadViewModel = existingViewModel ?: hiltViewModel(key = mapKey).also {
-                    tabsViewModel.registerThreadViewModel(mapKey, it)
-                }
+                // 各タブ専用の ViewModel を取得。未登録なら Factory から生成
+                val viewModel: ThreadViewModel = tabsViewModel.getOrCreateThreadViewModel(mapKey)
                 val uiState by viewModel.uiState.collectAsState()
 
                 // タブごとの LazyListState を取得・作成

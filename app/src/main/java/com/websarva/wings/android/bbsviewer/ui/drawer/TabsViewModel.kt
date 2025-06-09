@@ -2,6 +2,7 @@ package com.websarva.wings.android.bbsviewer.ui.drawer
 
 import androidx.lifecycle.ViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
+import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModelFactory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,7 +11,9 @@ import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 
 @HiltViewModel
-class TabsViewModel @Inject constructor() : ViewModel() {
+class TabsViewModel @Inject constructor(
+    private val threadViewModelFactory: ThreadViewModelFactory
+) : ViewModel() {
     // 開いているタブ一覧と合わせて、タブに紐づく ThreadViewModel も保持する
     private val _openTabs = MutableStateFlow<List<TabInfo>>(emptyList())
     val openTabs: StateFlow<List<TabInfo>> = _openTabs.asStateFlow()
@@ -67,11 +70,12 @@ class TabsViewModel @Inject constructor() : ViewModel() {
         return _openTabs.value.find { it.key == tabKey && it.boardUrl == boardUrl }
     }
 
-    /** 指定キーの ThreadViewModel を取得 */
-    fun getThreadViewModel(mapKey: String): ThreadViewModel? = threadViewModels[mapKey]
-
-    /** 生成した ThreadViewModel を登録 */
-    fun registerThreadViewModel(mapKey: String, viewModel: ThreadViewModel) {
-        threadViewModels[mapKey] = viewModel
+    /**
+     * 指定キーの ThreadViewModel を取得。存在しなければ Factory から生成して登録する
+     */
+    fun getOrCreateThreadViewModel(mapKey: String): ThreadViewModel {
+        return threadViewModels.getOrPut(mapKey) {
+            threadViewModelFactory.create(mapKey)
+        }
     }
 }

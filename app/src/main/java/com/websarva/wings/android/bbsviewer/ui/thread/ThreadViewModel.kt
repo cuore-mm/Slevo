@@ -12,7 +12,9 @@ import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
-import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,11 +23,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-@HiltViewModel
-class ThreadViewModel @Inject constructor(
+class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
     private val threadBookmarkRepository: ThreadBookmarkRepository,
     private val postRepository: PostRepository,
+    @Assisted val mapKey: String,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ThreadUiState())
@@ -320,7 +322,7 @@ class ThreadViewModel @Inject constructor(
      * 2回目投稿（書き込み実行）
      * 1回目の確認用リクエストから得た hidden パラメータと Cookie を使用して最終投稿を行う。
      */
-    fun postTo5chSecondPhase(
+fun postTo5chSecondPhase(
         host: String,
         board: String,
         threadKey: String,
@@ -342,4 +344,9 @@ class ThreadViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = false) }
         }
     }
+}
+
+@AssistedFactory
+interface ThreadViewModelFactory {
+    fun create(mapKey: String): ThreadViewModel
 }
