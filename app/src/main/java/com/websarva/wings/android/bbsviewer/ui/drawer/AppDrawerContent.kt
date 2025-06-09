@@ -25,6 +25,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
+import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
+import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModelFactory
 
 @Composable
 fun AppDrawerContent(
@@ -99,7 +101,12 @@ fun OpenThreadsListPreview() {
     )
     OpenThreadsList(
         openTabs = sampleTabs,
-        tabsViewModel = TabsViewModel(),
+        tabsViewModel = TabsViewModel(
+            threadViewModelFactory = object : ThreadViewModelFactory {
+                override fun create(mapKey: String): ThreadViewModel =
+                    throw NotImplementedError()
+            }
+        ),
         navController = rememberNavController(),
         closeDrawer = {}
     )
