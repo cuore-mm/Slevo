@@ -99,15 +99,9 @@ fun NavGraphBuilder.addThreadRoute(
             val threadGroupSheetState = rememberModalBottomSheetState()
             val tabListSheetState = rememberModalBottomSheetState()
 
-            val topBarState = rememberTopAppBarState()
-            val scrollBehavior = TopAppBarDefaults
-                .exitUntilCollapsedScrollBehavior(topBarState)
-
             // 各タブを横に並べ、スワイプで切り替えられる Pager
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier
-                    .nestedScroll(scrollBehavior.nestedScrollConnection)
             ) { page ->
                 // 表示対象のタブ情報を取得
                 val tab = openTabs[page]
@@ -165,7 +159,13 @@ fun NavGraphBuilder.addThreadRoute(
 
                 val posts = uiState.posts ?: emptyList()
 
+                val topBarState = rememberTopAppBarState()
+                val scrollBehavior = TopAppBarDefaults
+                    .exitUntilCollapsedScrollBehavior(topBarState)
+
                 Scaffold(
+                    modifier = Modifier
+                        .nestedScroll(scrollBehavior.nestedScrollConnection),
                     topBar = {
                         ThreadTopBar(
                             onFavoriteClick = { viewModel.handleFavoriteClick() },
