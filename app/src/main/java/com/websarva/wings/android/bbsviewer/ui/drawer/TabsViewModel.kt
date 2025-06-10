@@ -30,20 +30,19 @@ class TabsViewModel @Inject constructor(
         }
     }
 
-    fun openThread(tab: TabInfo) {
-        _openTabs.update { current ->
-            if (current.any { it.key == tab.key && it.boardUrl == tab.boardUrl }) {
-                // 既に開いているタブがあれば、その情報を更新する（スクロール位置は新しいタブの情報を使うか、既存のを維持するか選択）
-                current.map {
-                    if (it.key == tab.key && it.boardUrl == tab.boardUrl) {
-                        // ここでは新しいタブ情報で上書きする例（スクロール位置は引数で渡されたもの、またはデフォルト）
-                        tab
-                    } else {
-                        it
-                    }
+    fun openThread(newTabInfo: TabInfo) {
+        _openTabs.update { currentTabs ->
+            val tabIndex =
+                currentTabs.indexOfFirst { it.key == newTabInfo.key && it.boardUrl == newTabInfo.boardUrl }
+
+            if (tabIndex != -1) {
+                // 既存タブのタイトルのみを更新し、スクロール位置はそのまま維持する
+                currentTabs.toMutableList().apply {
+                    this[tabIndex] = this[tabIndex].copy(title = newTabInfo.title)
                 }
             } else {
-                current + tab // 新しく追加
+                // 新規タブとして追加
+                currentTabs + newTabInfo
             }
         }
     }
