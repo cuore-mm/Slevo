@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.navigation
 
+import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -162,8 +163,7 @@ fun NavGraphBuilder.addThreadRoute(
                     }
                 }
 
-                // 非表示のページでは描画コスト削減のため空リスト
-                val posts = if (isActive) uiState.posts ?: emptyList() else emptyList()
+                val posts = uiState.posts ?: emptyList()
 
                 Scaffold(
                     topBar = {

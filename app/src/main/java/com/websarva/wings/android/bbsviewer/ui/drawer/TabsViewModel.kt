@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.drawer
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModelFactory
@@ -66,6 +67,7 @@ class TabsViewModel @Inject constructor(
         index: Int,
         offset: Int
     ) {
+//        Log.i("TabsViewModel", "Updating scroll position for tabKey: $tabKey, boardUrl: $boardUrl, index: $index, offset: $offset")
         _openTabs.update { currentTabs ->
             currentTabs.map { tab ->
                 if (tab.key == tabKey && tab.boardUrl == boardUrl) {
