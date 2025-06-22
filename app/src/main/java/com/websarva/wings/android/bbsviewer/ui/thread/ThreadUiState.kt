@@ -9,6 +9,7 @@ data class ThreadUiState(
     val threadInfo: ThreadInfo = ThreadInfo(),
     val posts: List<ReplyInfo>? = null,
     val isLoading: Boolean = false,
+    val loadProgress: Float = 0f,
     val boardInfo: BoardInfo = BoardInfo(0, "", ""),
     val postDialog: Boolean = false,
     val postFormState: PostFormState = PostFormState(),
