@@ -15,7 +15,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowInsetsControllerCompat
 import com.websarva.wings.android.bbsviewer.ui.AppScaffold
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
-import com.websarva.wings.android.bbsviewer.ui.drawer.TabsViewModel
+import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
 import com.websarva.wings.android.bbsviewer.ui.theme.BBSViewerTheme
 import dagger.hilt.android.AndroidEntryPoint

@@ -1,6 +1,5 @@
-package com.websarva.wings.android.bbsviewer.ui.drawer
+package com.websarva.wings.android.bbsviewer.ui.tabs
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModelFactory

@@ -1,6 +1,5 @@
 package com.websarva.wings.android.bbsviewer.ui.navigation
 
-import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -31,11 +30,11 @@ import androidx.navigation.toRoute
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.ui.common.AddGroupDialog
 import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
-import com.websarva.wings.android.bbsviewer.ui.drawer.TabInfo
-import com.websarva.wings.android.bbsviewer.ui.drawer.TabsViewModel
+import com.websarva.wings.android.bbsviewer.ui.tabs.TabInfo
+import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ConfirmationWebView
 import com.websarva.wings.android.bbsviewer.ui.thread.PostDialog
-import com.websarva.wings.android.bbsviewer.ui.thread.TabsBottomSheet
+import com.websarva.wings.android.bbsviewer.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadBottomBar
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadScreen
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadTopBar

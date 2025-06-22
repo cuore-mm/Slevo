@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.drawer
+package com.websarva.wings.android.bbsviewer.ui.tabs
 
 data class TabInfo(
     val key: String,
