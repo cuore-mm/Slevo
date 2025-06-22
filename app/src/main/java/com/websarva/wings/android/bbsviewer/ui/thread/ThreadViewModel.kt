@@ -12,20 +12,21 @@ import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
-import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class ThreadViewModel @Inject constructor(
+class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
     private val threadBookmarkRepository: ThreadBookmarkRepository,
     private val postRepository: PostRepository,
+    @Assisted val mapKey: String,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ThreadUiState())
@@ -250,6 +251,13 @@ class ThreadViewModel @Inject constructor(
         }
     }
 
+    fun reloadThread() {
+        val datUrl = _uiState.value.threadInfo.datUrl
+        if (datUrl.isNotBlank()) {
+            loadThread(datUrl)
+        }
+    }
+
     // タブ一覧ボトムシートを開く
     fun openTabListSheet() {
         _uiState.update { it.copy(showTabListSheet = true) }
@@ -335,4 +343,19 @@ class ThreadViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = false) }
         }
     }
+
+    /**
+     * このViewModelが不要になったときに、所有者であるTabsViewModelから呼び出される公開メソッド。
+     * 内部で自身のライフサイクル終了処理を呼び出す。
+     */
+    fun release() {
+        // このクラスの内部からなので、protectedなonCleared()を呼び出せる
+        super.onCleared()
+    }
+
+}
+
+@AssistedFactory
+interface ThreadViewModelFactory {
+    fun create(mapKey: String): ThreadViewModel
 }
