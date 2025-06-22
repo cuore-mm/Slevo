@@ -1,21 +1,12 @@
 package com.websarva.wings.android.bbsviewer.ui.bottombar
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.BottomAppBar
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -35,16 +26,22 @@ import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 
 @Composable
-fun HomeBottomNavigationBar(
+fun NavigationBottomBar(
     currentDestination: NavDestination?,
     onClick: (AppRoute) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val topLevelRoutes = listOf(
         TopLevelRoute(
+            route = AppRoute.Tabs,
+            name = stringResource(R.string.tabs),
+            icon = Icons.Default.Menu,
+            parentRoute = AppRoute.Tabs
+        ),
+        TopLevelRoute(
             route = AppRoute.Bookmark,
             name = stringResource(R.string.bookmark),
-            icon = Icons.Default.Favorite,
+            icon = Icons.Default.Star,
             parentRoute = AppRoute.Bookmark
         ),
         TopLevelRoute(
@@ -52,12 +49,6 @@ fun HomeBottomNavigationBar(
             name = stringResource(R.string.boardList),
             icon = Icons.AutoMirrored.Filled.List,
             parentRoute = AppRoute.BbsServiceGroup
-        ),
-        TopLevelRoute(
-            route = AppRoute.Tabs,
-            name = stringResource(R.string.tabs),
-            icon = Icons.Default.Menu,
-            parentRoute = AppRoute.Tabs
         ),
         TopLevelRoute(
             route = AppRoute.Settings,
@@ -99,113 +90,13 @@ private data class TopLevelRoute(
     val parentRoute: AppRoute
 )
 
-@Composable
-fun BbsSelectBottomBar(
-    modifier: Modifier = Modifier,
-    onDelete: () -> Unit,
-    onOpen: () -> Unit
-) {
-    BottomAppBar(
-        modifier = modifier.height(56.dp),
-        actions = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround,
-            ) {
-                BottomBarItem(
-                    icon = Icons.Default.Delete,
-                    label = "削除",
-                    onClick = onDelete
-                )
-                BottomBarItem(
-                    icon = Icons.Default.OpenInBrowser,
-                    label = "開く",
-                    onClick = onOpen
-                )
-            }
-        }
-    )
-}
-
-@Composable
-fun BookmarkSelectBottomBar(
-    modifier: Modifier = Modifier,
-    onDelete: () -> Unit,
-    onOpen: () -> Unit
-) {
-    BottomAppBar(
-        modifier = modifier.height(56.dp),
-        actions = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround,
-            ) {
-                BottomBarItem(
-                    icon = Icons.Default.Delete,
-                    label = "削除",
-                    onClick = onDelete
-                )
-                BottomBarItem(
-                    icon = Icons.Default.OpenInBrowser,
-                    label = "開く",
-                    onClick = onOpen
-                )
-            }
-        }
-    )
-}
-
-@Composable
-fun BottomBarItem(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            modifier = Modifier.size(24.dp)
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            maxLines = 1
-        )
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
 fun HomeBottomNavigationBarPreview() {
-    HomeBottomNavigationBar(
+    NavigationBottomBar(
         modifier = Modifier
             .height(56.dp),
         currentDestination = null,
         onClick = {}
     )
 }
-
-@Preview(showBackground = true)
-@Composable
-fun BbsSelectBottomBarPreview() {
-    BbsSelectBottomBar(
-        onDelete = {},
-        onOpen = {}
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun BookmarkSelectBottomBarPreview() {
-    BookmarkSelectBottomBar(
-        onDelete = {},
-        onOpen = {}
-    )
-}
-

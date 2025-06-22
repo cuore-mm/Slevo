@@ -27,7 +27,7 @@ fun RenderBottomBar(
             val uiState by viewModel.uiState.collectAsState()
 
             if (!uiState.selectMode) {
-                HomeBottomNavigationBar(
+                NavigationBottomBar(
                     modifier = modifier,
                     currentDestination = currentDestination,
                     onClick = { route ->
@@ -57,7 +57,7 @@ fun RenderBottomBar(
             val uiState by viewModel.uiState.collectAsState()
 
             if (!uiState.selectMode) {
-                HomeBottomNavigationBar(
+                NavigationBottomBar(
                     modifier = modifier,
                     currentDestination = currentDestination,
                     onClick = { route ->

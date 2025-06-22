@@ -81,7 +81,6 @@ fun AppScaffold(
         AppNavGraph(
             navController = navController,
             scrollBehavior = scrollBehavior,
-            bookmarkViewModel = bookmarkViewModel,
             settingsViewModel = settingsViewModel,
             openDrawer = openDrawer,
             tabsViewModel = tabsViewModel

@@ -1,9 +1,9 @@
 package com.websarva.wings.android.bbsviewer.ui.navigation
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -34,10 +34,10 @@ import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.ui.common.AddGroupDialog
 import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabInfo
+import com.websarva.wings.android.bbsviewer.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ConfirmationWebView
 import com.websarva.wings.android.bbsviewer.ui.thread.PostDialog
-import com.websarva.wings.android.bbsviewer.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadBottomBar
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadScreen
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadTopBar
@@ -165,25 +165,25 @@ fun NavGraphBuilder.addThreadRoute(
                 val scrollBehavior = TopAppBarDefaults
                     .exitUntilCollapsedScrollBehavior(topBarState)
 
-        Scaffold(
-          modifier = Modifier
+                Scaffold(
+                    modifier = Modifier
                         .nestedScroll(scrollBehavior.nestedScrollConnection),
-            topBar = {
-                Column {
-                    ThreadTopBar(
-                        onFavoriteClick = { viewModel.handleFavoriteClick() },
-                        uiState = uiState,
-                        onNavigationClick = openDrawer,
-                        scrollBehavior = scrollBehavior
-                    )
-                    if (uiState.isLoading) {
-                        LinearProgressIndicator(
-                            modifier = Modifier.fillMaxWidth(),
-                            progress = uiState.loadProgress
-                        )
-                    }
-                }
-            },
+                    topBar = {
+                        Column {
+                            ThreadTopBar(
+                                onFavoriteClick = { viewModel.handleFavoriteClick() },
+                                uiState = uiState,
+                                onNavigationClick = openDrawer,
+                                scrollBehavior = scrollBehavior
+                            )
+                            if (uiState.isLoading) {
+                                LinearProgressIndicator(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    progress = uiState.loadProgress
+                                )
+                            }
+                        }
+                    },
                     bottomBar = {
                         ThreadBottomBar(
                             modifier = Modifier
