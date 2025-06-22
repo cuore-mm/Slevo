@@ -128,6 +128,34 @@ fun BbsSelectBottomBar(
 }
 
 @Composable
+fun BookmarkSelectBottomBar(
+    modifier: Modifier = Modifier,
+    onDelete: () -> Unit,
+    onOpen: () -> Unit
+) {
+    BottomAppBar(
+        modifier = Modifier.height(56.dp),
+        actions = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround,
+            ) {
+                BottomBarItem(
+                    icon = Icons.Default.Delete,
+                    label = "削除",
+                    onClick = onDelete
+                )
+                BottomBarItem(
+                    icon = Icons.Default.OpenInBrowser,
+                    label = "開く",
+                    onClick = onOpen
+                )
+            }
+        }
+    )
+}
+
+@Composable
 fun BottomBarItem(
     icon: ImageVector,
     label: String,
@@ -167,6 +195,15 @@ fun HomeBottomNavigationBarPreview() {
 @Composable
 fun BbsSelectBottomBarPreview() {
     BbsSelectBottomBar(
+        onDelete = {},
+        onOpen = {}
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BookmarkSelectBottomBarPreview() {
+    BookmarkSelectBottomBar(
         onDelete = {},
         onOpen = {}
     )

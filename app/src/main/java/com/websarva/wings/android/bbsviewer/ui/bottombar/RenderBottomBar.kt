@@ -8,6 +8,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListViewModel
+import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
@@ -20,11 +21,37 @@ fun RenderBottomBar(
     val currentDestination = navBackStackEntry?.destination
     when {
         currentDestination.isInRoute(
-            AppRoute.RouteName.BOOKMARK,
+            AppRoute.RouteName.BOOKMARK
+        ) -> {
+            val viewModel: BookmarkViewModel = hiltViewModel(navBackStackEntry!!)
+            val uiState by viewModel.uiState.collectAsState()
+
+            if (!uiState.selectMode) {
+                HomeBottomNavigationBar(
+                    modifier = modifier,
+                    currentDestination = currentDestination,
+                    onClick = { route ->
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            } else {
+                BookmarkSelectBottomBar(
+                    onDelete = { /* TODO: Delete action */ },
+                    onOpen = { /* TODO: Handle open action */ }
+                )
+            }
+        }
+
+        currentDestination.isInRoute(
             AppRoute.RouteName.BBS_SERVICE_GROUP,
             AppRoute.RouteName.TABS
-        )
-            -> {
+        ) -> {
             val viewModel: ServiceListViewModel = hiltViewModel(navBackStackEntry!!)
             val uiState by viewModel.uiState.collectAsState()
 
