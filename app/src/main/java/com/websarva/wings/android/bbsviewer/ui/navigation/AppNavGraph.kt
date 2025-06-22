@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
-import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.drawer.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
 import kotlinx.serialization.Serializable
@@ -22,7 +21,6 @@ fun AppNavGraph(
     modifier: Modifier = Modifier,
     navController: NavHostController,
     scrollBehavior: TopAppBarScrollBehavior,
-    bookmarkViewModel: BookmarkViewModel,
     settingsViewModel: SettingsViewModel,
     openDrawer: () -> Unit,
     tabsViewModel: TabsViewModel,
@@ -39,7 +37,6 @@ fun AppNavGraph(
         //お気に入り
         addBookmarkRoute(
             scrollBehavior = scrollBehavior,
-            bookmarkViewModel = bookmarkViewModel,
             navController = navController,
             openDrawer = openDrawer
         )

@@ -12,9 +12,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -106,7 +106,7 @@ fun BbsSelectBottomBar(
     onOpen: () -> Unit
 ) {
     BottomAppBar(
-        modifier = Modifier.height(56.dp),
+        modifier = modifier.height(56.dp),
         actions = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -134,7 +134,7 @@ fun BookmarkSelectBottomBar(
     onOpen: () -> Unit
 ) {
     BottomAppBar(
-        modifier = Modifier.height(56.dp),
+        modifier = modifier.height(56.dp),
         actions = {
             Row(
                 modifier = Modifier.fillMaxWidth(),

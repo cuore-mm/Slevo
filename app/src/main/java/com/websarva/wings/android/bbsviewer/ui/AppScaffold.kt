@@ -3,7 +3,6 @@ package com.websarva.wings.android.bbsviewer.ui
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.DrawerValue
@@ -18,14 +17,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.bottombar.RenderBottomBar
 import com.websarva.wings.android.bbsviewer.ui.drawer.AppDrawerContent
 import com.websarva.wings.android.bbsviewer.ui.drawer.TabsViewModel
@@ -39,7 +35,6 @@ import kotlinx.coroutines.launch
 fun AppScaffold(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
-    bookmarkViewModel: BookmarkViewModel,
     settingsViewModel: SettingsViewModel,
     tabsViewModel: TabsViewModel
 ) {
@@ -83,7 +78,7 @@ fun AppScaffold(
                 }
             }
         }
-        
+
         Scaffold(
 //            modifier = modifier
 //                .fillMaxSize()
@@ -108,7 +103,6 @@ fun AppScaffold(
             AppNavGraph(
                 navController = navController,
                 scrollBehavior = scrollBehavior,
-                bookmarkViewModel = bookmarkViewModel,
                 settingsViewModel = settingsViewModel,
                 openDrawer = openDrawer,
                 tabsViewModel = tabsViewModel

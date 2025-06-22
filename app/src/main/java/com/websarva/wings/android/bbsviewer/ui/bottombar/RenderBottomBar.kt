@@ -42,6 +42,7 @@ fun RenderBottomBar(
                 )
             } else {
                 BookmarkSelectBottomBar(
+                    modifier = modifier,
                     onDelete = { /* TODO: Delete action */ },
                     onOpen = { /* TODO: Handle open action */ }
                 )
@@ -71,6 +72,7 @@ fun RenderBottomBar(
                 )
             } else {
                 BbsSelectBottomBar(
+                    modifier = modifier,
                     onDelete = { viewModel.toggleDeleteDialog(true) },
                     onOpen = { /* TODO: Handle open action */ }
                 )
