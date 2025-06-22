@@ -24,7 +24,6 @@ fun AppNavGraph(
     modifier: Modifier = Modifier,
     navController: NavHostController,
     scrollBehavior: TopAppBarScrollBehavior,
-    bookmarkViewModel: BookmarkViewModel,
     settingsViewModel: SettingsViewModel,
     openDrawer: () -> Unit,
     tabsViewModel: TabsViewModel,
@@ -41,7 +40,6 @@ fun AppNavGraph(
         //お気に入り
         addBookmarkRoute(
             scrollBehavior = scrollBehavior,
-            bookmarkViewModel = bookmarkViewModel,
             navController = navController,
             openDrawer = openDrawer
         )

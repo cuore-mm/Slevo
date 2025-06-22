@@ -22,7 +22,6 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private val bookmarkViewModel: BookmarkViewModel by viewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
     private val tabsViewModel: TabsViewModel by viewModels()
 
@@ -47,7 +46,6 @@ class MainActivity : ComponentActivity() {
 
             BBSViewerTheme(darkTheme = uiState.isDark) {
                 AppScaffold(
-                    bookmarkViewModel = bookmarkViewModel,
                     settingsViewModel = settingsViewModel,
                     tabsViewModel = tabsViewModel
                 )

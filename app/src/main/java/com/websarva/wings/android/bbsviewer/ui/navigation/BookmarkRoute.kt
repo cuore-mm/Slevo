@@ -1,36 +1,37 @@
 package com.websarva.wings.android.bbsviewer.ui.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.activity.compose.BackHandler
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.navigation.NavGraphBuilder
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.composable
-import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkScreen
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.composable
+import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkScreen
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkTopBar
-import com.websarva.wings.android.bbsviewer.ui.common.SelectedTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
+import com.websarva.wings.android.bbsviewer.ui.common.SelectedTopBarScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.addBookmarkRoute(
     modifier: Modifier = Modifier,
-    bookmarkViewModel: BookmarkViewModel,
     navController: NavHostController,
     scrollBehavior: TopAppBarScrollBehavior,
     openDrawer: () -> Unit
 ) {
     composable<AppRoute.Bookmark> {
+        val bookmarkViewModel: BookmarkViewModel = hiltViewModel()
         val uiState by bookmarkViewModel.uiState.collectAsState()
 
         Scaffold(

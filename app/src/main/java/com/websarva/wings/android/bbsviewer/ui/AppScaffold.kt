@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.bottombar.RenderBottomBar
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppNavGraph
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
@@ -33,7 +32,6 @@ import kotlinx.coroutines.launch
 fun AppScaffold(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
-    bookmarkViewModel: BookmarkViewModel,
     settingsViewModel: SettingsViewModel,
     tabsViewModel: TabsViewModel
 ) {
