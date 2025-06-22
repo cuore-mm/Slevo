@@ -1,14 +1,11 @@
 package com.websarva.wings.android.bbsviewer.ui
 
 import android.os.Build
-import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
@@ -18,19 +15,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.bottombar.RenderBottomBar
-import com.websarva.wings.android.bbsviewer.ui.drawer.AppDrawerContent
-import com.websarva.wings.android.bbsviewer.ui.drawer.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppNavGraph
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
+import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,7 +32,6 @@ import kotlinx.coroutines.launch
 fun AppScaffold(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
-    bookmarkViewModel: BookmarkViewModel,
     settingsViewModel: SettingsViewModel,
     tabsViewModel: TabsViewModel
 ) {
@@ -65,54 +57,35 @@ fun AppScaffold(
         topBarState.heightOffset = 0f
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            AppDrawerContent(
-                tabsViewModel = tabsViewModel,
-                navController = navController,
-                closeDrawer = closeDrawer
-            )
-        }
-    ) {
-        // ドロワーが開いているときに「戻る」ボタンでドロワーを閉じる
-        if (drawerState.isOpen) {
-            BackHandler {
-                scope.launch {
-                    drawerState.close()
-                }
-            }
-        }
-        
-        Scaffold(
+    Scaffold(
 //            modifier = modifier
 //                .fillMaxSize()
 //                .nestedScroll(scrollBehavior.nestedScrollConnection),
-            bottomBar = {
-                val offsetY = (-topBarState.heightOffset)        // 符号反転
-                    .coerceIn(0f, bottomBarHeightPx)             // 0 … BottomBarH
+        bottomBar = {
+            val offsetY = (-topBarState.heightOffset)        // 符号反転
+                .coerceIn(0f, bottomBarHeightPx)             // 0 … BottomBarH
 
-                RenderBottomBar(
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .height(bottomBarHeightDp),
+            RenderBottomBar(
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .height(bottomBarHeightDp),
 //                    .offset { IntOffset(0, offsetY.roundToInt()) },
-                    navController = navController,
-                    navBackStackEntry = navBackStackEntry,
-                )
-            }
-        ) { innerPadding ->
-            // innerPadding から下だけ取り出す
-            val bottomPadding = innerPadding.calculateBottomPadding()
-
-            AppNavGraph(
                 navController = navController,
-                scrollBehavior = scrollBehavior,
-                bookmarkViewModel = bookmarkViewModel,
-                settingsViewModel = settingsViewModel,
-                openDrawer = openDrawer,
-                tabsViewModel = tabsViewModel
+                navBackStackEntry = navBackStackEntry,
             )
         }
+    ) { innerPadding ->
+        // innerPadding から下だけ取り出す
+        val bottomPadding = innerPadding.calculateBottomPadding()
+
+        AppNavGraph(
+            navController = navController,
+            scrollBehavior = scrollBehavior,
+            bookmarkViewModel = bookmarkViewModel,
+            settingsViewModel = settingsViewModel,
+            openDrawer = openDrawer,
+            tabsViewModel = tabsViewModel
+        )
     }
+
 }

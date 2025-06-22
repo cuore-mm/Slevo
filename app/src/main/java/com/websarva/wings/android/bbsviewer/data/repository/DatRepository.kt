@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.data.repository
 
+import android.util.Log
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.DatRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.util.parseDat
 import com.websarva.wings.android.bbsviewer.ui.thread.ReplyInfo
@@ -29,9 +30,11 @@ class DatRepository @Inject constructor(
                 parseDat(datContent) // DatParser.kt内の関数を直接呼び出し
             } catch (e: Exception) {
                 // パースエラー時の処理 (例: ログ出力、nullを返すなど)
+                Log.i("DatRepository", "Failed to parse DAT content: ${e.message}")
                 null // またはエラーを通知するカスタムResult型など
             }
         } else {
+            Log.i("DatRepository", "Failed to fetch DAT content from $datUrl")
             null // データ取得失敗
         }
     }

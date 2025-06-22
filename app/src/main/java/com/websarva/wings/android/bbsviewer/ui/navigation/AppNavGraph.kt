@@ -10,9 +10,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
-import com.websarva.wings.android.bbsviewer.ui.drawer.TabsViewModel
+import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
+import com.websarva.wings.android.bbsviewer.ui.tabs.TabsScaffold
 import kotlinx.serialization.Serializable
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -22,7 +24,6 @@ fun AppNavGraph(
     modifier: Modifier = Modifier,
     navController: NavHostController,
     scrollBehavior: TopAppBarScrollBehavior,
-    bookmarkViewModel: BookmarkViewModel,
     settingsViewModel: SettingsViewModel,
     openDrawer: () -> Unit,
     tabsViewModel: TabsViewModel,
@@ -39,7 +40,6 @@ fun AppNavGraph(
         //お気に入り
         addBookmarkRoute(
             scrollBehavior = scrollBehavior,
-            bookmarkViewModel = bookmarkViewModel,
             navController = navController,
             openDrawer = openDrawer
         )
@@ -60,10 +60,12 @@ fun AppNavGraph(
             openDrawer = openDrawer,
         )
         //タブ画面
-        addTabsRoute(
-            navController = navController,
-            tabsViewModel = tabsViewModel
-        )
+        composable<AppRoute.Tabs> {
+            TabsScaffold(
+                tabsViewModel = tabsViewModel,
+                navController = navController
+            )
+        }
         //設定画面
         addSettingsRoute(
             viewModel = settingsViewModel,

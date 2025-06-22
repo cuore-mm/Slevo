@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.thread
+package com.websarva.wings.android.bbsviewer.ui.tabs
 
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -8,8 +8,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
-import com.websarva.wings.android.bbsviewer.ui.drawer.OpenThreadsList
-import com.websarva.wings.android.bbsviewer.ui.drawer.TabsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,7 +26,9 @@ fun TabsBottomSheet(
     ) {
         OpenThreadsList(
             openTabs = openTabs,
-            tabsViewModel = tabsViewModel,
+            onCloseClick = { tab ->
+                tabsViewModel.closeThread(tab)
+            },
             navController = navController,
             closeDrawer = onDismissRequest,
         )

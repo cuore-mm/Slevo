@@ -1,5 +1,6 @@
-package com.websarva.wings.android.bbsviewer.ui.drawer
+package com.websarva.wings.android.bbsviewer.ui.tabs
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -10,13 +11,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -27,31 +25,14 @@ import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 
 @Composable
-fun AppDrawerContent(
-    tabsViewModel: TabsViewModel,
-    navController: NavHostController,
-    closeDrawer: () -> Unit
-) {
-    val openTabs by tabsViewModel.openTabs.collectAsState()
-
-    ModalDrawerSheet { // ModalDrawerSheet で囲む
-        OpenThreadsList(
-            openTabs = openTabs,
-            tabsViewModel = tabsViewModel,
-            navController = navController,
-            closeDrawer = closeDrawer
-        )
-    }
-}
-
-@Composable
 fun OpenThreadsList(
+    modifier: Modifier = Modifier,
     openTabs: List<TabInfo>,
-    tabsViewModel: TabsViewModel,
+    onCloseClick: (TabInfo) -> Unit = {},
     navController: NavHostController,
     closeDrawer: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = modifier.fillMaxSize()) {
         Text(
             text = stringResource(R.string.drawer_open_threads),
             modifier = Modifier.padding(16.dp),
@@ -60,15 +41,17 @@ fun OpenThreadsList(
         HorizontalDivider()
         LazyColumn(modifier = Modifier.weight(1f)) {
             items(openTabs, key = { it.key + it.boardUrl }) { tab ->
-                NavigationDrawerItem(
-                    label = { Text(tab.title, maxLines = 1) },
-                    badge = {
-                        IconButton(onClick = { tabsViewModel.closeThread(tab) }) {
-                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close))
+                ListItem(
+                    headlineContent = { Text(tab.title, maxLines = 1) },
+                    trailingContent = {
+                        IconButton(onClick = { onCloseClick(tab) }) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = stringResource(R.string.close)
+                            )
                         }
                     },
-                    selected = false, // TODO: 必要に応じて、現在表示中のスレッドを判定して selected を true にする
-                    onClick = {
+                    modifier = Modifier.clickable {
                         closeDrawer()
                         navController.navigate(
                             AppRoute.Thread(
@@ -84,6 +67,7 @@ fun OpenThreadsList(
                         }
                     }
                 )
+                HorizontalDivider()
             }
         }
     }
@@ -99,7 +83,7 @@ fun OpenThreadsListPreview() {
     )
     OpenThreadsList(
         openTabs = sampleTabs,
-        tabsViewModel = TabsViewModel(),
+        onCloseClick = {},
         navController = rememberNavController(),
         closeDrawer = {}
     )
