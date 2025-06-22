@@ -26,7 +26,7 @@ class DatRemoteDataSourceImpl @Inject constructor(
 
     private val cache = mutableMapOf<String, CacheEntry>()
 
-    override suspend fun fetchDatString(datUrl: String): String? = withContext(Dispatchers.IO) {
+    override suspend fun fetchDatString(datUrl: String, onProgress: (Float) -> Unit): String? = withContext(Dispatchers.IO) {
         try {
             val builder = Request.Builder()
                 .url(datUrl)
@@ -42,7 +42,7 @@ class DatRemoteDataSourceImpl @Inject constructor(
 
             val request = builder.build()
             client.newCall(request).execute().use { response ->
-                return@withContext handleResponse(datUrl, response, cacheEntry)
+                return@withContext handleResponse(datUrl, response, cacheEntry, onProgress)
             }
         } catch (e: IOException) {
             null
@@ -54,18 +54,21 @@ class DatRemoteDataSourceImpl @Inject constructor(
     private fun handleResponse(
         datUrl: String,
         response: Response,
-        cacheEntry: CacheEntry?
+        cacheEntry: CacheEntry?,
+        onProgress: (Float) -> Unit,
     ): String? {
         when (response.code) {
             200 -> {
-                val bytes = response.body?.bytes() ?: return null
+                val body = response.body ?: return null
+                val bytes = readBytesWithProgress(body, onProgress)
                 DataUsageTracker.addBytes(bytes.size.toLong())
                 val lastMod = response.header("Last-Modified")
                 cache[datUrl] = CacheEntry(bytes, lastMod)
                 return String(bytes, Charset.forName("Shift_JIS"))
             }
             206 -> {
-                val newBytes = response.body?.bytes() ?: return null
+                val body = response.body ?: return null
+                val newBytes = readBytesWithProgress(body, onProgress)
                 DataUsageTracker.addBytes(newBytes.size.toLong())
                 val lastMod = response.header("Last-Modified")
                 if (cacheEntry != null) {
@@ -77,7 +80,7 @@ class DatRemoteDataSourceImpl @Inject constructor(
                             String(cacheEntry.bytes, Charset.forName("Shift_JIS"))
                         } else {
                             cache.remove(datUrl)
-                            fetchFullDat(datUrl)
+                            fetchFullDat(datUrl, onProgress)
                         }
                     }
                     cacheEntry.lastModified = lastMod ?: cacheEntry.lastModified
@@ -91,7 +94,7 @@ class DatRemoteDataSourceImpl @Inject constructor(
             }
             416 -> {
                 cache.remove(datUrl)
-                return fetchFullDat(datUrl)
+                return fetchFullDat(datUrl, onProgress)
             }
             else -> {
                 return null
@@ -99,7 +102,7 @@ class DatRemoteDataSourceImpl @Inject constructor(
         }
     }
 
-    private fun fetchFullDat(datUrl: String): String? {
+    private fun fetchFullDat(datUrl: String, onProgress: (Float) -> Unit): String? {
         val request = Request.Builder()
             .url(datUrl)
             .header("User-Agent", userAgent)
@@ -107,11 +110,29 @@ class DatRemoteDataSourceImpl @Inject constructor(
             .build()
         client.newCall(request).execute().use { res ->
             if (res.code != 200) return null
-            val bytes = res.body?.bytes() ?: return null
+            val body = res.body ?: return null
+            val bytes = readBytesWithProgress(body, onProgress)
             DataUsageTracker.addBytes(bytes.size.toLong())
             val lastMod = res.header("Last-Modified")
             cache[datUrl] = CacheEntry(bytes, lastMod)
             return String(bytes, Charset.forName("Shift_JIS"))
         }
+    }
+    private fun readBytesWithProgress(body: okhttp3.ResponseBody, onProgress: (Float) -> Unit): ByteArray {
+        val contentLength = body.contentLength()
+        val input = body.byteStream()
+        val buffer = ByteArray(8 * 1024)
+        var bytesRead: Int
+        var total = 0L
+        val output = java.io.ByteArrayOutputStream()
+        while (input.read(buffer).also { bytesRead = it } != -1) {
+            output.write(buffer, 0, bytesRead)
+            total += bytesRead
+            if (contentLength > 0) {
+                onProgress(total.toFloat() / contentLength)
+            }
+        }
+        onProgress(1f)
+        return output.toByteArray()
     }
 }

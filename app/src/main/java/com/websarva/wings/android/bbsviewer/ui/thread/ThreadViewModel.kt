@@ -32,16 +32,19 @@ class ThreadViewModel @Inject constructor(
     val uiState: StateFlow<ThreadUiState> = _uiState.asStateFlow()
 
     fun loadThread(datUrl: String) {
-        _uiState.update { it.copy(isLoading = true) }
+        _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val threadData = datRepository.getThread(datUrl)
+                val threadData = datRepository.getThread(datUrl) { progress ->
+                    _uiState.update { it.copy(loadProgress = progress) }
+                }
                 if (threadData != null) {
                     val (posts, title) = threadData
                     _uiState.update {
                         it.copy(
                             posts = posts,
                             isLoading = false,
+                            loadProgress = 1f,
                             // タイトルが取得できたら更新
                             threadInfo = it.threadInfo.copy(title = title ?: it.threadInfo.title)
                         )
@@ -52,6 +55,7 @@ class ThreadViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
+                            loadProgress = 1f,
                             // posts は null のままか、空のリストにするなど、仕様に応じて設定
                             // posts = null or emptyList()
                             // errorMessage = "スレッドの読み込みに失敗しました" (UIに表示する場合)
@@ -65,6 +69,7 @@ class ThreadViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        loadProgress = 1f,
                         // posts = null or emptyList()
                         // errorMessage = "予期せぬエラーが発生しました"
                     )

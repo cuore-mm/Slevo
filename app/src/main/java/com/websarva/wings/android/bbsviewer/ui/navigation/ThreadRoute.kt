@@ -1,10 +1,13 @@
 package com.websarva.wings.android.bbsviewer.ui.navigation
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -113,12 +116,20 @@ fun NavGraphBuilder.addThreadRoute(
 
         Scaffold(
             topBar = {
-                ThreadTopBar(
-                    onFavoriteClick = { viewModel.handleFavoriteClick() },
-                    uiState = uiState,
-                    onNavigationClick = openDrawer,
-                    scrollBehavior = scrollBehavior
-                )
+                Column {
+                    ThreadTopBar(
+                        onFavoriteClick = { viewModel.handleFavoriteClick() },
+                        uiState = uiState,
+                        onNavigationClick = openDrawer,
+                        scrollBehavior = scrollBehavior
+                    )
+                    if (uiState.isLoading) {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth(),
+                            progress = uiState.loadProgress
+                        )
+                    }
+                }
             },
             bottomBar = {
                 ThreadBottomBar(

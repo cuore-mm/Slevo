@@ -19,8 +19,11 @@ class DatRepository @Inject constructor(
      * (現在の実装ではparseDatがnullを許容しないため、呼び出し側で !! を使っていますが、
      * エラーハンドリングをより丁寧にする場合は変更も考慮)
      */
-    suspend fun getThread(datUrl: String): Pair<List<ReplyInfo>, String?>? = withContext(Dispatchers.Default) { // 計算処理なのでDefaultディスパッチャも検討
-        val datContent = remoteDataSource.fetchDatString(datUrl)
+    suspend fun getThread(
+        datUrl: String,
+        onProgress: (Float) -> Unit = {}
+    ): Pair<List<ReplyInfo>, String?>? = withContext(Dispatchers.Default) { // 計算処理なのでDefaultディスパッチャも検討
+        val datContent = remoteDataSource.fetchDatString(datUrl, onProgress)
         if (datContent != null) {
             try {
                 parseDat(datContent) // DatParser.kt内の関数を直接呼び出し
