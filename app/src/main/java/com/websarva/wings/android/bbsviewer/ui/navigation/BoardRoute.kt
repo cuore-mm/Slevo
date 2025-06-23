@@ -32,6 +32,7 @@ import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.board.SortBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.board.BoardTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.board.BoardInfoDialog
 import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,7 +89,7 @@ fun NavGraphBuilder.addBoardRoute(
                             viewModel.loadGroups()
                             viewModel.openBookmarkSheet()
                         },
-                        onInfoClick = {},
+                        onInfoClick = { viewModel.openInfoDialog() },
                         isBookmarked = uiState.isBookmarked,
                         bookmarkIconColor = bookmarkIconColor,
                         scrollBehavior = scrollBehavior
@@ -168,6 +169,15 @@ fun NavGraphBuilder.addBoardRoute(
                     onToggleSortOrder = { // 昇順/降順ボタンが押された
                         viewModel.toggleSortOrder()
                     },
+                )
+            }
+
+            if (uiState.showInfoDialog) {
+                BoardInfoDialog(
+                    serviceName = uiState.serviceName,
+                    boardName = uiState.boardInfo.name,
+                    boardUrl = uiState.boardInfo.url,
+                    onDismissRequest = { viewModel.closeInfoDialog() }
                 )
             }
         }
