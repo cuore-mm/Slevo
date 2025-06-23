@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -19,13 +20,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.websarva.wings.android.bbsviewer.R
 
 @Composable
 fun BookmarkSelectBottomBar(
     modifier: Modifier = Modifier,
-    onDelete: () -> Unit,
+    onEdit: () -> Unit,
     onOpen: () -> Unit
 ) {
     BottomAppBar(
@@ -36,9 +39,9 @@ fun BookmarkSelectBottomBar(
                 horizontalArrangement = Arrangement.SpaceAround,
             ) {
                 BottomBarItem(
-                    icon = Icons.Default.Delete,
-                    label = "削除",
-                    onClick = onDelete
+                    icon = Icons.Default.Star,
+                    label = stringResource(R.string.edit),
+                    onClick = onEdit
                 )
                 BottomBarItem(
                     icon = Icons.Default.OpenInBrowser,
@@ -107,7 +110,7 @@ fun BottomBarItem(
 @Composable
 fun BookmarkSelectBottomBarPreview() {
     BookmarkSelectBottomBar(
-        onDelete = {},
+        onEdit = {},
         onOpen = {}
     )
 }
