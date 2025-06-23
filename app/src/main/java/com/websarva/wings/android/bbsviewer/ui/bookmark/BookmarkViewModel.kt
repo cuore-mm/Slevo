@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithBoards
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithThreadBookmarks
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -70,6 +72,92 @@ class BookmarkViewModel @Inject constructor(
             state.copy(selectedThreads = next)
         }
     }
+
+    fun openEditSheet() {
+        val groupId = computeSelectedGroupId()
+        _uiState.update { it.copy(showEditSheet = true, selectedGroupId = groupId) }
+    }
+
+    fun closeEditSheet() {
+        _uiState.update { it.copy(showEditSheet = false, selectedGroupId = null) }
+    }
+
+    fun applyGroupToSelection(groupId: Long) {
+        val current = _uiState.value
+        viewModelScope.launch {
+            current.selectedBoards.forEach { id ->
+                boardRepo.upsertBookmark(BookmarkBoardEntity(boardId = id, groupId = groupId))
+            }
+            current.selectedThreads.forEach { key ->
+                findThreadEntity(key)?.let { thread ->
+                    threadBookmarkRepo.insertBookmark(thread.copy(groupId = groupId))
+                }
+            }
+            _uiState.update {
+                it.copy(
+                    selectMode = false,
+                    selectedBoards = emptySet(),
+                    selectedThreads = emptySet(),
+                    showEditSheet = false,
+                    selectedGroupId = null
+                )
+            }
+        }
+    }
+
+    fun unbookmarkSelection() {
+        val current = _uiState.value
+        viewModelScope.launch {
+            current.selectedBoards.forEach { id ->
+                boardRepo.deleteBookmark(id)
+            }
+            current.selectedThreads.forEach { key ->
+                findThreadEntity(key)?.let { thread ->
+                    threadBookmarkRepo.deleteBookmark(thread.threadKey, thread.boardUrl)
+                }
+            }
+            _uiState.update {
+                it.copy(
+                    selectMode = false,
+                    selectedBoards = emptySet(),
+                    selectedThreads = emptySet(),
+                    showEditSheet = false,
+                    selectedGroupId = null
+                )
+            }
+        }
+    }
+
+    private fun computeSelectedGroupId(): Long? {
+        val state = _uiState.value
+        if (state.selectedBoards.isNotEmpty()) {
+            val groups = state.selectedBoards.mapNotNull { findBoardGroupId(it) }.distinct()
+            return if (groups.size == 1) groups.first() else null
+        }
+        if (state.selectedThreads.isNotEmpty()) {
+            val groups = state.selectedThreads.mapNotNull { findThreadGroupId(it) }.distinct()
+            return if (groups.size == 1) groups.first() else null
+        }
+        return null
+    }
+
+    private fun findBoardGroupId(boardId: Long): Long? {
+        _uiState.value.boardList.forEach { g ->
+            if (g.boards.any { it.boardId == boardId }) return g.group.groupId
+        }
+        return null
+    }
+
+    private fun findThreadGroupId(key: String): Long? = findThreadEntity(key)?.groupId
+
+    private fun findThreadEntity(key: String): BookmarkThreadEntity? {
+        _uiState.value.groupedThreadBookmarks.forEach { g ->
+            g.threads.forEach { t ->
+                if (t.threadKey + t.boardUrl == key) return t
+            }
+        }
+        return null
+    }
 }
 
 data class BookmarkUiState(
@@ -79,4 +167,6 @@ data class BookmarkUiState(
     val selectMode: Boolean = false,
     val selectedBoards: Set<Long> = emptySet(),
     val selectedThreads: Set<String> = emptySet(),
+    val showEditSheet: Boolean = false,
+    val selectedGroupId: Long? = null,
 )
