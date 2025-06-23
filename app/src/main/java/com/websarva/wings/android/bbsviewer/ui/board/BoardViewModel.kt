@@ -3,9 +3,11 @@ package com.websarva.wings.android.bbsviewer.ui.board
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
@@ -20,14 +22,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @RequiresApi(Build.VERSION_CODES.O)
-@HiltViewModel
-class BoardViewModel @Inject constructor(
+class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
     private val bookmarkRepo: BookmarkBoardRepository,
-    savedStateHandle: SavedStateHandle
+    @Assisted("boardId") val boardId: Long,
+    @Assisted("boardName") val boardName: String,
+    @Assisted("boardUrl") val boardUrl: String
 ) : ViewModel() {
 
     private val boardUrl = savedStateHandle.get<String>("boardUrl")
@@ -247,6 +249,14 @@ class BoardViewModel @Inject constructor(
         _uiState.update { it.copy(showSortSheet = false) }
     }
 
+    // Tabs bottom sheet
+    fun openTabListSheet() {
+        _uiState.update { it.copy(showTabListSheet = true) }
+    }
+
+    fun closeTabListSheet() {
+        _uiState.update { it.copy(showTabListSheet = false) }
+        
     fun openInfoDialog() {
         _uiState.update { it.copy(showInfoDialog = true) }
     }
@@ -260,6 +270,10 @@ class BoardViewModel @Inject constructor(
         loadThreadList(force = false) // 通常の差分取得
     }
 
+    fun release() {
+        super.onCleared()
+    }
+    
     private fun parseServiceName(url: String): String {
         return try {
             val host = url.toUri().host ?: return ""
@@ -269,6 +283,15 @@ class BoardViewModel @Inject constructor(
             ""
         }
     }
+}
+
+@AssistedFactory
+interface BoardViewModelFactory {
+    fun create(
+        @Assisted("boardId") boardId: Long,
+        @Assisted("boardName") boardName: String,
+        @Assisted("boardUrl") boardUrl: String
+    ): BoardViewModel
 }
 
 data class BoardUiState(
@@ -283,6 +306,7 @@ data class BoardUiState(
     val selectedColor: String? = null,
     val enteredGroupName: String = "",
     val showSortSheet: Boolean = false,
+    val showTabListSheet: Boolean = false,
 
     val serviceName: String = "",
     val showInfoDialog: Boolean = false,

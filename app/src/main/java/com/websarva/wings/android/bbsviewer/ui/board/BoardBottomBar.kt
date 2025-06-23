@@ -7,7 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.BottomAppBar
@@ -24,7 +24,8 @@ fun BoardBottomBar(
     modifier: Modifier = Modifier,
     onSortClick: () -> Unit,
     onRefreshClick: () -> Unit,
-    onSearchClick: () -> Unit
+    onSearchClick: () -> Unit,
+    onTabListClick: () -> Unit
 ) {
     BottomAppBar(
         modifier = modifier,
@@ -61,10 +62,10 @@ fun BoardBottomBar(
                         contentDescription = stringResource(R.string.create_thread)
                     )
                 }
-                IconButton(onClick = {}) {
+                IconButton(onClick = onTabListClick) {
                     Icon(
-                        Icons.Default.MoreHoriz,
-                        contentDescription = stringResource(R.string.more)
+                        Icons.Default.Menu,
+                        contentDescription = stringResource(R.string.open_tablist)
                     )
                 }
             }
@@ -79,6 +80,7 @@ fun BoardBottomBarPreview() {
     BoardBottomBar(
         onSortClick = {},
         onRefreshClick = { /* do something */ },
-        onSearchClick = { /* do something */ }
+        onSearchClick = { /* do something */ },
+        onTabListClick = {}
     )
 }

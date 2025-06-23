@@ -3,6 +3,8 @@ package com.websarva.wings.android.bbsviewer.ui.tabs
 import androidx.lifecycle.ViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModelFactory
+import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
+import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModelFactory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,11 +14,19 @@ import javax.inject.Inject
 
 @HiltViewModel
 class TabsViewModel @Inject constructor(
-    private val threadViewModelFactory: ThreadViewModelFactory
+    private val threadViewModelFactory: ThreadViewModelFactory,
+    private val boardViewModelFactory: BoardViewModelFactory
 ) : ViewModel() {
     // 開いているタブ一覧と合わせて、タブに紐づく ThreadViewModel も保持する
     private val _openTabs = MutableStateFlow<List<TabInfo>>(emptyList())
     val openTabs: StateFlow<List<TabInfo>> = _openTabs.asStateFlow()
+
+    // 開いている板タブ一覧
+    private val _openBoardTabs = MutableStateFlow<List<BoardTabInfo>>(emptyList())
+    val openBoardTabs: StateFlow<List<BoardTabInfo>> = _openBoardTabs.asStateFlow()
+
+    // boardUrl をキーとして BoardViewModel を保持
+    private val boardViewModels: MutableMap<String, BoardViewModel> = mutableMapOf()
 
     // threadKey + boardUrl をキーとして ThreadViewModel を保持
     private val threadViewModels: MutableMap<String, ThreadViewModel> = mutableMapOf()
@@ -27,6 +37,16 @@ class TabsViewModel @Inject constructor(
     fun getOrCreateThreadViewModel(mapKey: String): ThreadViewModel {
         return threadViewModels.getOrPut(mapKey) {
             threadViewModelFactory.create(mapKey)
+        }
+    }
+
+    fun getOrCreateBoardViewModel(
+        boardUrl: String,
+        boardName: String,
+        boardId: Long
+    ): BoardViewModel {
+        return boardViewModels.getOrPut(boardUrl) {
+            boardViewModelFactory.create(boardId, boardName, boardUrl)
         }
     }
 
@@ -52,6 +72,19 @@ class TabsViewModel @Inject constructor(
         }
     }
 
+    fun openBoard(newTabInfo: BoardTabInfo) {
+        _openBoardTabs.update { currentBoards ->
+            val index = currentBoards.indexOfFirst { it.boardUrl == newTabInfo.boardUrl }
+            if (index != -1) {
+                currentBoards.toMutableList().apply {
+                    this[index] = newTabInfo
+                }
+            } else {
+                currentBoards + newTabInfo
+            }
+        }
+    }
+
     fun closeThread(tab: TabInfo) {
         val key = tab.key + tab.boardUrl
         val viewModelToDestroy = threadViewModels[key]
@@ -62,6 +95,13 @@ class TabsViewModel @Inject constructor(
         threadViewModels.remove(key)
         _openTabs.update { current ->
             current.filterNot { it.key == tab.key && it.boardUrl == tab.boardUrl }
+        }
+    }
+
+    fun closeBoard(tab: BoardTabInfo) {
+        boardViewModels.remove(tab.boardUrl)?.release()
+        _openBoardTabs.update { current ->
+            current.filterNot { it.boardUrl == tab.boardUrl }
         }
     }
 
@@ -95,5 +135,7 @@ class TabsViewModel @Inject constructor(
         // 親が破棄されるときは、すべての子ViewModelも破棄する
         threadViewModels.values.forEach { it.release() }
         threadViewModels.clear()
+        boardViewModels.values.forEach { it.release() }
+        boardViewModels.clear()
     }
 }
