@@ -105,7 +105,8 @@ sealed class AppRoute {
         val boardUrl: String,      // 必須：板URL（datUrl導出、投稿情報のため）
         val boardName: String,     // 推奨：表示用
         val boardId: Long,         // 推奨：将来的な機能（板情報連携）のため
-        val threadTitle: String    // 推奨：UX向上（即時タイトル表示）のため
+        val threadTitle: String,   // 推奨：UX向上（即時タイトル表示）のため
+        val resCount: Int = 0      // 表示用: レス数
     ) : AppRoute()
 
     @Serializable

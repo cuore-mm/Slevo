@@ -36,9 +36,14 @@ class TabsViewModel @Inject constructor(
                 currentTabs.indexOfFirst { it.key == newTabInfo.key && it.boardUrl == newTabInfo.boardUrl }
 
             if (tabIndex != -1) {
-                // 既存タブのタイトルのみを更新し、スクロール位置はそのまま維持する
+                // 既存タブの情報を更新し、スクロール位置はそのまま維持する
                 currentTabs.toMutableList().apply {
-                    this[tabIndex] = this[tabIndex].copy(title = newTabInfo.title)
+                    this[tabIndex] = this[tabIndex].copy(
+                        title = newTabInfo.title,
+                        boardName = newTabInfo.boardName,
+                        boardId = newTabInfo.boardId,
+                        resCount = newTabInfo.resCount
+                    )
                 }
             } else {
                 // 新規タブとして追加

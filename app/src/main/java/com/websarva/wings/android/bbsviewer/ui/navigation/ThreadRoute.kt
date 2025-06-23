@@ -69,6 +69,7 @@ fun NavGraphBuilder.addThreadRoute(
                     boardName = threadRoute.boardName,
                     boardUrl = threadRoute.boardUrl,
                     boardId = threadRoute.boardId,
+                    resCount = threadRoute.resCount
                 )
             )
         }
