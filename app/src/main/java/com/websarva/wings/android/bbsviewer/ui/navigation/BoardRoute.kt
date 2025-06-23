@@ -10,18 +10,19 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
@@ -58,143 +59,152 @@ fun NavGraphBuilder.addBoardRoute(
             )
         }
 
-        val viewModel: BoardViewModel = hiltViewModel(backStackEntry)
-        val uiState by viewModel.uiState.collectAsState()
+        val openBoards by tabsViewModel.openBoardTabs.collectAsState()
 
-        val bookmarkSheetState = rememberModalBottomSheetState() // Bookmark用
-        val sortSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true) // Sort用
-        val tabListSheetState = rememberModalBottomSheetState()
-
-        // 検索モード中に「戻る」が押された場合の処理
-        BackHandler(enabled = uiState.isSearchActive) {
-            viewModel.setSearchMode(false)
+        val initialPage = remember(board, openBoards.size) {
+            openBoards.indexOfFirst { it.boardUrl == board.boardUrl }.coerceAtLeast(0)
         }
 
-        // ブックマークアイコンの色を決定
-        val bookmarkIconColor =
-            if (uiState.isBookmarked && uiState.selectedGroup?.colorHex != null) {
-                try {
-                    Color(uiState.selectedGroup!!.colorHex.toColorInt())
-                } catch (e: IllegalArgumentException) {
-                    // HEX文字列が無効な場合、デフォルトの色を使用
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                }
-            } else {
-                Color.Unspecified // ブックマークされていない場合、またはグループの色がない場合のデフォルト
+        val pagerState = rememberPagerState(
+            initialPage = initialPage,
+            pageCount = { openBoards.size }
+        )
+
+        LaunchedEffect(initialPage) {
+            if (pagerState.currentPage != initialPage) {
+                pagerState.scrollToPage(initialPage)
+            }
+        }
+
+        HorizontalPager(state = pagerState) { page ->
+            val tab = openBoards[page]
+            val viewModel: BoardViewModel =
+                tabsViewModel.getOrCreateBoardViewModel(tab.boardUrl, tab.boardName, tab.boardId)
+            val uiState by viewModel.uiState.collectAsState()
+
+            val bookmarkSheetState = rememberModalBottomSheetState()
+            val sortSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            val tabListSheetState = rememberModalBottomSheetState()
+
+            BackHandler(enabled = uiState.isSearchActive) {
+                viewModel.setSearchMode(false)
             }
 
-        val topBarState = rememberTopAppBarState()
-        val scrollBehavior = TopAppBarDefaults
-            .enterAlwaysScrollBehavior(topBarState)
-
-        Scaffold(
-            topBar = {
-                // 検索モードに応じてトップバーを切り替え
-                if (uiState.isSearchActive) {
-                    SearchTopAppBar(
-                        searchQuery = uiState.searchQuery,
-                        onQueryChange = { viewModel.setSearchQuery(it) },
-                        onCloseSearch = { viewModel.setSearchMode(false) },
-                    )
+            val bookmarkIconColor =
+                if (uiState.isBookmarked && uiState.selectedGroup?.colorHex != null) {
+                    try {
+                        Color(uiState.selectedGroup!!.colorHex.toColorInt())
+                    } catch (e: IllegalArgumentException) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 } else {
-                    BoardTopBarScreen(
-                        title = uiState.boardInfo.name,
-                        onNavigationClick = openDrawer,
-                        onBookmarkClick = {
-                            viewModel.loadGroups()
-                            viewModel.openBookmarkSheet()
-                        },
-                        onInfoClick = {},
-                        isBookmarked = uiState.isBookmarked,
-                        bookmarkIconColor = bookmarkIconColor,
-                        scrollBehavior = scrollBehavior
-                    )
+                    Color.Unspecified
                 }
-            },
-            bottomBar = {
-                BoardBottomBar(
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .height(56.dp),
-                    onSortClick = { viewModel.openSortBottomSheet() },
-                    onRefreshClick = { viewModel.loadThreadList() },
-                    onSearchClick = { viewModel.setSearchMode(true) },
-                    onTabListClick = { viewModel.openTabListSheet() }
-                )
-            },
-        ) { innerPadding ->
-            BoardScreen(
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .nestedScroll(scrollBehavior.nestedScrollConnection),
-                threads = uiState.threads ?: emptyList(),
-                onClick = { threadInfo ->
-                    navController.navigate(
-                        AppRoute.Thread(
-                            threadKey = threadInfo.key,
-                            boardName = board.boardName,
-                            boardUrl = board.boardUrl,
-                            boardId = board.boardId,
-                            threadTitle = threadInfo.title,
-                            resCount = threadInfo.resCount
+
+            val topBarState = rememberTopAppBarState()
+            val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
+
+            Scaffold(
+                topBar = {
+                    if (uiState.isSearchActive) {
+                        SearchTopAppBar(
+                            searchQuery = uiState.searchQuery,
+                            onQueryChange = { viewModel.setSearchQuery(it) },
+                            onCloseSearch = { viewModel.setSearchMode(false) },
                         )
-                    ) {
-                        launchSingleTop = true
+                    } else {
+                        BoardTopBarScreen(
+                            title = uiState.boardInfo.name,
+                            onNavigationClick = openDrawer,
+                            onBookmarkClick = {
+                                viewModel.loadGroups()
+                                viewModel.openBookmarkSheet()
+                            },
+                            onInfoClick = {},
+                            isBookmarked = uiState.isBookmarked,
+                            bookmarkIconColor = bookmarkIconColor,
+                            scrollBehavior = scrollBehavior
+                        )
                     }
                 },
-                isRefreshing = uiState.isLoading,
-                onRefresh = {
-                    viewModel.refreshBoardData()
+                bottomBar = {
+                    BoardBottomBar(
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .height(56.dp),
+                        onSortClick = { viewModel.openSortBottomSheet() },
+                        onRefreshClick = { viewModel.loadThreadList() },
+                        onSearchClick = { viewModel.setSearchMode(true) },
+                        onTabListClick = { viewModel.openTabListSheet() }
+                    )
+                },
+            ) { innerPadding ->
+                BoardScreen(
+                    modifier = Modifier
+                        .padding(innerPadding)
+                        .nestedScroll(scrollBehavior.nestedScrollConnection),
+                    threads = uiState.threads ?: emptyList(),
+                    onClick = { threadInfo ->
+                        navController.navigate(
+                            AppRoute.Thread(
+                                threadKey = threadInfo.key,
+                                boardName = tab.boardName,
+                                boardUrl = tab.boardUrl,
+                                boardId = tab.boardId,
+                                threadTitle = threadInfo.title,
+                                resCount = threadInfo.resCount
+                            )
+                        ) {
+                            launchSingleTop = true
+                        }
+                    },
+                    isRefreshing = uiState.isLoading,
+                    onRefresh = { viewModel.refreshBoardData() }
+                )
+
+                if (uiState.showBookmarkSheet) {
+                    BookmarkBottomSheet(
+                        sheetState = bookmarkSheetState,
+                        onDismissRequest = { viewModel.closeBookmarkSheet() },
+                        groups = uiState.groups,
+                        selectedGroupId = uiState.selectedGroup?.groupId,
+                        onAddGroup = { viewModel.openAddGroupDialog() },
+                        onGroupSelected = { viewModel.saveBookmark(it) },
+                        onUnbookmarkRequested = { viewModel.unbookmarkBoard() }
+                    )
                 }
-            )
 
-            if (uiState.showBookmarkSheet) {
-                BookmarkBottomSheet(
-                    sheetState = bookmarkSheetState,
-                    onDismissRequest = { viewModel.closeBookmarkSheet() },
-                    groups = uiState.groups,
-                    selectedGroupId = uiState.selectedGroup?.groupId,
-                    onAddGroup = { viewModel.openAddGroupDialog() },
-                    onGroupSelected = { viewModel.saveBookmark(it) },
-                    onUnbookmarkRequested = { viewModel.unbookmarkBoard() }
-                )
-            }
+                if (uiState.showAddGroupDialog) {
+                    AddGroupDialog(
+                        onDismissRequest = { viewModel.closeAddGroupDialog() },
+                        onAdd = { viewModel.addGroup() },
+                        onValueChange = { viewModel.setGroupName(it) },
+                        enteredValue = uiState.enteredGroupName,
+                        onColorSelected = { viewModel.setColorCode(it) },
+                        selectedColor = uiState.selectedColor ?: "",
+                    )
+                }
 
-            if (uiState.showAddGroupDialog) {
-                AddGroupDialog(
-                    onDismissRequest = { viewModel.closeAddGroupDialog() },
-                    onAdd = { viewModel.addGroup() },
-                    onValueChange = { viewModel.setGroupName(it) },
-                    enteredValue = uiState.enteredGroupName,
-                    onColorSelected = { viewModel.setColorCode(it) },
-                    selectedColor = uiState.selectedColor ?: "",
-                )
-            }
+                if (uiState.showSortSheet) {
+                    SortBottomSheet(
+                        sheetState = sortSheetState,
+                        onDismissRequest = { viewModel.closeSortBottomSheet() },
+                        sortKeys = uiState.sortKeys,
+                        currentSortKey = uiState.currentSortKey,
+                        isSortAscending = uiState.isSortAscending,
+                        onSortKeySelected = { viewModel.setSortKey(it) },
+                        onToggleSortOrder = { viewModel.toggleSortOrder() },
+                    )
+                }
 
-            // 並び替えボトムシートの表示
-            if (uiState.showSortSheet) {
-                SortBottomSheet(
-                    sheetState = sortSheetState,
-                    onDismissRequest = { viewModel.closeSortBottomSheet() },
-                    sortKeys = uiState.sortKeys, // ViewModelからソート基準のリストを渡す
-                    currentSortKey = uiState.currentSortKey, // 現在のソート基準
-                    isSortAscending = uiState.isSortAscending, // 現在の昇順/降順
-                    onSortKeySelected = { selectedKey -> // ソート基準が選択された
-                        viewModel.setSortKey(selectedKey)
-                    },
-                    onToggleSortOrder = { // 昇順/降順ボタンが押された
-                        viewModel.toggleSortOrder()
-                    },
-                )
-            }
-
-            if (uiState.showTabListSheet) {
-                TabsBottomSheet(
-                    sheetState = tabListSheetState,
-                    tabsViewModel = tabsViewModel,
-                    navController = navController,
-                    onDismissRequest = { viewModel.closeTabListSheet() },
-                )
+                if (uiState.showTabListSheet) {
+                    TabsBottomSheet(
+                        sheetState = tabListSheetState,
+                        tabsViewModel = tabsViewModel,
+                        navController = navController,
+                        onDismissRequest = { viewModel.closeTabListSheet() },
+                    )
+                }
             }
         }
     }

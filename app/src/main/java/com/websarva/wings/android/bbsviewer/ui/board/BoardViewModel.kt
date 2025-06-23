@@ -3,37 +3,32 @@ package com.websarva.wings.android.bbsviewer.ui.board
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @RequiresApi(Build.VERSION_CODES.O)
-@HiltViewModel
-class BoardViewModel @Inject constructor(
+class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
     private val bookmarkRepo: BookmarkBoardRepository,
-    savedStateHandle: SavedStateHandle
+    @Assisted("boardId") val boardId: Long,
+    @Assisted("boardName") val boardName: String,
+    @Assisted("boardUrl") val boardUrl: String
 ) : ViewModel() {
-
-    private val boardUrl = savedStateHandle.get<String>("boardUrl")
-        ?: error("boardUrl is required")
-    private val boardName = savedStateHandle.get<String>("boardName")
-        ?: error("boardName is required")
-    private val boardId = savedStateHandle.get<Long>("boardId") ?: 0
 
     // 元のスレッドリストを保持
     private var originalThreads: List<ThreadInfo>? = null
@@ -257,6 +252,19 @@ class BoardViewModel @Inject constructor(
     fun refreshBoardData() { // Pull-to-refresh 用のメソッド
         loadThreadList(force = false) // 通常の差分取得
     }
+
+    fun release() {
+        super.onCleared()
+    }
+}
+
+@AssistedFactory
+interface BoardViewModelFactory {
+    fun create(
+        @Assisted("boardId") boardId: Long,
+        @Assisted("boardName") boardName: String,
+        @Assisted("boardUrl") boardUrl: String
+    ): BoardViewModel
 }
 
 data class BoardUiState(
