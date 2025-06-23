@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.rememberModalBottomSheetState
+import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -33,6 +35,8 @@ fun NavGraphBuilder.addBookmarkRoute(
     composable<AppRoute.Bookmark> {
         val bookmarkViewModel: BookmarkViewModel = hiltViewModel()
         val uiState by bookmarkViewModel.uiState.collectAsState()
+
+        val editSheetState = rememberModalBottomSheetState()
 
         Scaffold(
             topBar = {
@@ -108,6 +112,23 @@ fun NavGraphBuilder.addBookmarkRoute(
 
             BackHandler(enabled = uiState.selectMode) {
                 bookmarkViewModel.toggleSelectMode(false)
+            }
+
+            if (uiState.showEditSheet) {
+                val groups = if (uiState.selectedBoards.isNotEmpty()) {
+                    uiState.boardList.map { it.group }
+                } else {
+                    uiState.groupedThreadBookmarks.map { it.group }
+                }
+                BookmarkBottomSheet(
+                    sheetState = editSheetState,
+                    onDismissRequest = { bookmarkViewModel.closeEditSheet() },
+                    groups = groups,
+                    selectedGroupId = uiState.selectedGroupId,
+                    onGroupSelected = { bookmarkViewModel.applyGroupToSelection(it) },
+                    onUnbookmarkRequested = { bookmarkViewModel.unbookmarkSelection() },
+                    onAddGroup = { }
+                )
             }
         }
 

@@ -34,6 +34,7 @@ import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.board.SortBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.board.BoardTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.board.BoardInfoDialog
 import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.bbsviewer.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsBottomSheet
@@ -114,17 +115,17 @@ fun NavGraphBuilder.addBoardRoute(
                         )
                     } else {
                         BoardTopBarScreen(
-                            title = uiState.boardInfo.name,
-                            onNavigationClick = openDrawer,
-                            onBookmarkClick = {
-                                viewModel.loadGroups()
-                                viewModel.openBookmarkSheet()
-                            },
-                            onInfoClick = {},
-                            isBookmarked = uiState.isBookmarked,
-                            bookmarkIconColor = bookmarkIconColor,
-                            scrollBehavior = scrollBehavior
-                        )
+                        title = uiState.boardInfo.name,
+                        onNavigationClick = openDrawer,
+                        onBookmarkClick = {
+                            viewModel.loadGroups()
+                            viewModel.openBookmarkSheet()
+                        },
+                        onInfoClick = { viewModel.openInfoDialog() },
+                        isBookmarked = uiState.isBookmarked,
+                        bookmarkIconColor = bookmarkIconColor,
+                        scrollBehavior = scrollBehavior
+                    )
                     }
                 },
                 bottomBar = {
@@ -205,6 +206,15 @@ fun NavGraphBuilder.addBoardRoute(
                         onDismissRequest = { viewModel.closeTabListSheet() },
                     )
                 }
+            }
+
+            if (uiState.showInfoDialog) {
+                BoardInfoDialog(
+                    serviceName = uiState.serviceName,
+                    boardName = uiState.boardInfo.name,
+                    boardUrl = uiState.boardInfo.url,
+                    onDismissRequest = { viewModel.closeInfoDialog() }
+                )
             }
         }
     }

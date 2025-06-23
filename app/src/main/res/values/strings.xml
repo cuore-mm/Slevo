@@ -36,4 +36,5 @@
     <string name="drawer_open_threads">開いているスレッド</string>
     <string name="close">閉じる</string>
     <string name="no_bookmarked_threads">お気に入りのスレがありません</string>
+    <string name="ok">OK</string>
 </resources>
