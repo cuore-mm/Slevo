@@ -15,7 +15,6 @@ import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
 import androidx.core.net.toUri
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,11 +31,6 @@ class BoardViewModel @AssistedInject constructor(
     @Assisted("boardUrl") val boardUrl: String
 ) : ViewModel() {
 
-    private val boardUrl = savedStateHandle.get<String>("boardUrl")
-        ?: error("boardUrl is required")
-    private val boardName = savedStateHandle.get<String>("boardName")
-        ?: error("boardName is required")
-    private val boardId = savedStateHandle.get<Long>("boardId") ?: 0
     private val serviceName = parseServiceName(boardUrl)
 
     // 元のスレッドリストを保持
@@ -256,7 +250,8 @@ class BoardViewModel @AssistedInject constructor(
 
     fun closeTabListSheet() {
         _uiState.update { it.copy(showTabListSheet = false) }
-        
+    }
+
     fun openInfoDialog() {
         _uiState.update { it.copy(showInfoDialog = true) }
     }
