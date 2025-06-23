@@ -90,7 +90,8 @@ fun NavGraphBuilder.addBookmarkRoute(
                             boardName = thread.boardName,
                             boardUrl = thread.boardUrl,
                             threadTitle = thread.title,
-                            boardId = thread.boardId
+                            boardId = thread.boardId,
+                            resCount = thread.resCount
                         )
                     ) {
                         launchSingleTop = true
