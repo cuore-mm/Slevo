@@ -123,9 +123,9 @@ fun NavGraphBuilder.addBookmarkRoute(
                     sheetState = editSheetState,
                     onDismissRequest = { bookmarkViewModel.closeEditSheet() },
                     groups = groups,
-                    selectedGroupId = null,
-                    onGroupSelected = { },
-                    onUnbookmarkRequested = { },
+                    selectedGroupId = uiState.selectedGroupId,
+                    onGroupSelected = { bookmarkViewModel.applyGroupToSelection(it) },
+                    onUnbookmarkRequested = { bookmarkViewModel.unbookmarkSelection() },
                     onAddGroup = { }
                 )
             }
