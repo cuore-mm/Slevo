@@ -18,6 +18,10 @@ class TabsViewModel @Inject constructor(
     private val _openTabs = MutableStateFlow<List<TabInfo>>(emptyList())
     val openTabs: StateFlow<List<TabInfo>> = _openTabs.asStateFlow()
 
+    // 開いている板タブ一覧
+    private val _openBoardTabs = MutableStateFlow<List<BoardTabInfo>>(emptyList())
+    val openBoardTabs: StateFlow<List<BoardTabInfo>> = _openBoardTabs.asStateFlow()
+
     // threadKey + boardUrl をキーとして ThreadViewModel を保持
     private val threadViewModels: MutableMap<String, ThreadViewModel> = mutableMapOf()
 
@@ -52,6 +56,19 @@ class TabsViewModel @Inject constructor(
         }
     }
 
+    fun openBoard(newTabInfo: BoardTabInfo) {
+        _openBoardTabs.update { currentBoards ->
+            val index = currentBoards.indexOfFirst { it.boardUrl == newTabInfo.boardUrl }
+            if (index != -1) {
+                currentBoards.toMutableList().apply {
+                    this[index] = newTabInfo
+                }
+            } else {
+                currentBoards + newTabInfo
+            }
+        }
+    }
+
     fun closeThread(tab: TabInfo) {
         val key = tab.key + tab.boardUrl
         val viewModelToDestroy = threadViewModels[key]
@@ -62,6 +79,12 @@ class TabsViewModel @Inject constructor(
         threadViewModels.remove(key)
         _openTabs.update { current ->
             current.filterNot { it.key == tab.key && it.boardUrl == tab.boardUrl }
+        }
+    }
+
+    fun closeBoard(tab: BoardTabInfo) {
+        _openBoardTabs.update { current ->
+            current.filterNot { it.boardUrl == tab.boardUrl }
         }
     }
 

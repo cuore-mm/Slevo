@@ -244,6 +244,15 @@ class BoardViewModel @Inject constructor(
         _uiState.update { it.copy(showSortSheet = false) }
     }
 
+    // Tabs bottom sheet
+    fun openTabListSheet() {
+        _uiState.update { it.copy(showTabListSheet = true) }
+    }
+
+    fun closeTabListSheet() {
+        _uiState.update { it.copy(showTabListSheet = false) }
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     fun refreshBoardData() { // Pull-to-refresh 用のメソッド
         loadThreadList(force = false) // 通常の差分取得
@@ -262,6 +271,7 @@ data class BoardUiState(
     val selectedColor: String? = null,
     val enteredGroupName: String = "",
     val showSortSheet: Boolean = false,
+    val showTabListSheet: Boolean = false,
 
     val currentSortKey: ThreadSortKey = ThreadSortKey.DEFAULT,
     val isSortAscending: Boolean = false, // falseが降順、trueが昇順 (デフォルト降順)

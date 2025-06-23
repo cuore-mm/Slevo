@@ -3,10 +3,9 @@ package com.websarva.wings.android.bbsviewer.ui.tabs
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.bbsviewer.ui.tabs.TabsPagerContent
 
 @Composable
 fun TabsScaffold(
@@ -14,17 +13,12 @@ fun TabsScaffold(
     tabsViewModel: TabsViewModel,
     navController: NavHostController
 ) {
-    val openTabs by tabsViewModel.openTabs.collectAsState()
-
     Scaffold { innerPadding ->
-        OpenThreadsList(
+        TabsPagerContent(
             modifier = modifier.padding(innerPadding),
-            openTabs = openTabs,
-            onCloseClick = { tab ->
-                tabsViewModel.closeThread(tab)
-            },
+            tabsViewModel = tabsViewModel,
             navController = navController,
-            closeDrawer = {},
+            closeDrawer = {}
         )
     }
 }

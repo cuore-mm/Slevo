@@ -13,6 +13,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -33,21 +34,36 @@ import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.board.SortBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.board.BoardTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar
+import com.websarva.wings.android.bbsviewer.ui.tabs.BoardTabInfo
+import com.websarva.wings.android.bbsviewer.ui.tabs.TabsBottomSheet
+import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 fun NavGraphBuilder.addBoardRoute(
     navController: NavHostController,
     openDrawer: () -> Unit,
+    tabsViewModel: TabsViewModel,
 ) {
     composable<AppRoute.Board> { backStackEntry ->
         val board: AppRoute.Board = backStackEntry.toRoute()
+
+        LaunchedEffect(board) {
+            tabsViewModel.openBoard(
+                BoardTabInfo(
+                    boardId = board.boardId,
+                    boardName = board.boardName,
+                    boardUrl = board.boardUrl
+                )
+            )
+        }
 
         val viewModel: BoardViewModel = hiltViewModel(backStackEntry)
         val uiState by viewModel.uiState.collectAsState()
 
         val bookmarkSheetState = rememberModalBottomSheetState() // Bookmark用
         val sortSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true) // Sort用
+        val tabListSheetState = rememberModalBottomSheetState()
 
         // 検索モード中に「戻る」が押された場合の処理
         BackHandler(enabled = uiState.isSearchActive) {
@@ -102,7 +118,8 @@ fun NavGraphBuilder.addBoardRoute(
                         .height(56.dp),
                     onSortClick = { viewModel.openSortBottomSheet() },
                     onRefreshClick = { viewModel.loadThreadList() },
-                    onSearchClick = { viewModel.setSearchMode(true) }
+                    onSearchClick = { viewModel.setSearchMode(true) },
+                    onTabListClick = { viewModel.openTabListSheet() }
                 )
             },
         ) { innerPadding ->
@@ -168,6 +185,15 @@ fun NavGraphBuilder.addBoardRoute(
                     onToggleSortOrder = { // 昇順/降順ボタンが押された
                         viewModel.toggleSortOrder()
                     },
+                )
+            }
+
+            if (uiState.showTabListSheet) {
+                TabsBottomSheet(
+                    sheetState = tabListSheetState,
+                    tabsViewModel = tabsViewModel,
+                    navController = navController,
+                    onDismissRequest = { viewModel.closeTabListSheet() },
                 )
             }
         }
