@@ -2,7 +2,6 @@ package com.websarva.wings.android.bbsviewer.ui.board
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -18,12 +17,12 @@ fun BoardInfoDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text(text = stringResource(R.string.board_information)) },
+        title = { Text(text = stringResource(R.string.infomation)) },
         text = {
             Column {
-                Text(text = stringResource(R.string.service_name) + ": " + serviceName)
-                Text(text = stringResource(R.string.board_name) + ": " + boardName)
-                Text(text = stringResource(R.string.board_url) + ": " + boardUrl)
+                Text(text = serviceName)
+                Text(text = boardName)
+                Text(text = boardUrl)
             }
         },
         confirmButton = {
