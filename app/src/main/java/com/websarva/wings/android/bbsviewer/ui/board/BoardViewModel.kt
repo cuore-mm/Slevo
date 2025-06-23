@@ -12,6 +12,7 @@ import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
+import androidx.core.net.toUri
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +35,7 @@ class BoardViewModel @Inject constructor(
     private val boardName = savedStateHandle.get<String>("boardName")
         ?: error("boardName is required")
     private val boardId = savedStateHandle.get<Long>("boardId") ?: 0
+    private val serviceName = parseServiceName(boardUrl)
 
     // 元のスレッドリストを保持
     private var originalThreads: List<ThreadInfo>? = null
@@ -44,7 +46,8 @@ class BoardViewModel @Inject constructor(
                 boardId = boardId,
                 name = boardName,
                 url = boardUrl
-            )
+            ),
+            serviceName = serviceName
         )
     )
     val uiState: StateFlow<BoardUiState> = _uiState.asStateFlow()
@@ -244,9 +247,27 @@ class BoardViewModel @Inject constructor(
         _uiState.update { it.copy(showSortSheet = false) }
     }
 
+    fun openInfoDialog() {
+        _uiState.update { it.copy(showInfoDialog = true) }
+    }
+
+    fun closeInfoDialog() {
+        _uiState.update { it.copy(showInfoDialog = false) }
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     fun refreshBoardData() { // Pull-to-refresh 用のメソッド
         loadThreadList(force = false) // 通常の差分取得
+    }
+
+    private fun parseServiceName(url: String): String {
+        return try {
+            val host = url.toUri().host ?: return ""
+            val parts = host.split(".")
+            if (parts.size >= 2) parts.takeLast(2).joinToString(".") else host
+        } catch (e: Exception) {
+            ""
+        }
     }
 }
 
@@ -262,6 +283,9 @@ data class BoardUiState(
     val selectedColor: String? = null,
     val enteredGroupName: String = "",
     val showSortSheet: Boolean = false,
+
+    val serviceName: String = "",
+    val showInfoDialog: Boolean = false,
 
     val currentSortKey: ThreadSortKey = ThreadSortKey.DEFAULT,
     val isSortAscending: Boolean = false, // falseが降順、trueが昇順 (デフォルト降順)
