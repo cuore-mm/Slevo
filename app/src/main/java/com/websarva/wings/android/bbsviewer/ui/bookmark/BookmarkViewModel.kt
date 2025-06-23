@@ -70,6 +70,14 @@ class BookmarkViewModel @Inject constructor(
             state.copy(selectedThreads = next)
         }
     }
+
+    fun openEditSheet() {
+        _uiState.update { it.copy(showEditSheet = true) }
+    }
+
+    fun closeEditSheet() {
+        _uiState.update { it.copy(showEditSheet = false) }
+    }
 }
 
 data class BookmarkUiState(
@@ -79,4 +87,5 @@ data class BookmarkUiState(
     val selectMode: Boolean = false,
     val selectedBoards: Set<Long> = emptySet(),
     val selectedThreads: Set<String> = emptySet(),
+    val showEditSheet: Boolean = false,
 )

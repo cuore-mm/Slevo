@@ -43,7 +43,7 @@ fun RenderBottomBar(
             } else {
                 BookmarkSelectBottomBar(
                     modifier = modifier,
-                    onDelete = { /* TODO: Delete action */ },
+                    onEdit = { viewModel.openEditSheet() },
                     onOpen = { /* TODO: Handle open action */ }
                 )
             }
