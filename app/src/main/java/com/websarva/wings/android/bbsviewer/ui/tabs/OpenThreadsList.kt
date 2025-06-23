@@ -43,6 +43,7 @@ fun OpenThreadsList(
             items(openTabs, key = { it.key + it.boardUrl }) { tab ->
                 ListItem(
                     headlineContent = { Text(tab.title, maxLines = 1) },
+                    supportingContent = { Text("${tab.boardName} ${tab.resCount}") },
                     trailingContent = {
                         IconButton(onClick = { onCloseClick(tab) }) {
                             Icon(
@@ -59,7 +60,8 @@ fun OpenThreadsList(
                                 boardUrl = tab.boardUrl,
                                 boardName = tab.boardName,
                                 boardId = tab.boardId,
-                                threadTitle = tab.title
+                                threadTitle = tab.title,
+                                resCount = tab.resCount
                             )
                         ) {
                             launchSingleTop = true
@@ -77,9 +79,9 @@ fun OpenThreadsList(
 @Composable
 fun OpenThreadsListPreview() {
     val sampleTabs = listOf(
-        TabInfo("1", "スレッド1", "板1", "https://example.com/board1", 1),
-        TabInfo("2", "スレッド2", "板2", "https://example.com/board2", 2),
-        TabInfo("3", "スレッド3", "板3", "https://example.com/board3", 3)
+        TabInfo("1", "スレッド1", "板1", "https://example.com/board1", 1, 100),
+        TabInfo("2", "スレッド2", "板2", "https://example.com/board2", 2, 200),
+        TabInfo("3", "スレッド3", "板3", "https://example.com/board3", 3, 300)
     )
     OpenThreadsList(
         openTabs = sampleTabs,

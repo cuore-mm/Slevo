@@ -118,7 +118,8 @@ fun NavGraphBuilder.addBoardRoute(
                             boardName = board.boardName,
                             boardUrl = board.boardUrl,
                             boardId = board.boardId,
-                            threadTitle = threadInfo.title
+                            threadTitle = threadInfo.title,
+                            resCount = threadInfo.resCount
                         )
                     ) {
                         launchSingleTop = true
