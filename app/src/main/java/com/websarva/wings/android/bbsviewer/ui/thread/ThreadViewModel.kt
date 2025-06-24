@@ -79,39 +79,6 @@ class ThreadViewModel @AssistedInject constructor(
         }
     }
 
-//    fun parseUrl() {
-//        // URLを解析
-//        val parsed = parseThreadUrl(enteredUrl)
-//        if (parsed != null) {
-//            val (board, thread) = parsed
-//            val datUrl = createDatUrl(board, thread)
-//            Log.i("BBSViewer", datUrl)
-//        }
-//    }
-//
-//    /*
-//    入力されたURLからホスト名/板名/スレッドIDを抽出
-//     */
-//    private fun parseThreadUrl(url: String): Pair<String, String>? {
-//        val regex = Regex("""https://([^/]+)/test/read.cgi/([^/]+)/(\d+)""")
-//        val matchResult = regex.find(url)
-//        return matchResult?.let {
-//            val hostName = it.groupValues[1] // ホスト名
-//            val boardName = it.groupValues[2] // 板の名前
-//            val threadId = it.groupValues[3] // スレッドID
-//
-//            Log.i("BBSViewer", "Host: $hostName, Board: $boardName, ThreadID: $threadId")
-//            Pair("$hostName/$boardName", threadId)
-//        }
-//    }
-//
-//    /*
-//    datファイルのURLに変換
-//     */
-//    private fun createDatUrl(boardPath: String, threadId: String): String {
-//        return "https://$boardPath/dat/$threadId.dat"
-//    }
-
     //画面遷移した最初に行う初期処理
     fun initializeThread(
         threadKey: String,
@@ -124,14 +91,13 @@ class ThreadViewModel @AssistedInject constructor(
         val uri = boardUrl.toUri()
         val host = uri.host
         // boardUrl の末尾が / の場合とそうでない場合を考慮
-        val boardKey = uri.pathSegments.filter { it.isNotEmpty() }.firstOrNull()
+        val boardKey = uri.pathSegments.firstOrNull { it.isNotEmpty() }
 
         val readCgiUrl = if (host != null && boardKey != null) {
             "https://${host}/test/read.cgi/${boardKey}/${threadKey}"
         } else {
             "" // 不正な URL の場合は空にするか、エラー処理
         }
-
 
         _uiState.update {
             it.copy(

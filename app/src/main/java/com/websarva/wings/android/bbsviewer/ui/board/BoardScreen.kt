@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +37,7 @@ fun BoardScreen(
     onClick: (ThreadInfo) -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
+    listState: LazyListState = rememberLazyListState()
 ) {
     PullToRefreshBox(
         modifier = modifier,
@@ -44,6 +47,7 @@ fun BoardScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize(),
+            state = listState,
         ) {
             // リスト全体の先頭に区切り線を追加
             if (threads.isNotEmpty()) { // リストが空でない場合のみ線を表示

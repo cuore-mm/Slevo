@@ -99,7 +99,7 @@ fun NavGraphBuilder.addThreadRoute(
                 }
             }
 
-            val threadGroupSheetState = rememberModalBottomSheetState()
+            val bookmarkSheetState = rememberModalBottomSheetState()
             val tabListSheetState = rememberModalBottomSheetState()
 
             // 各タブを横に並べ、スワイプで切り替えられる Pager
@@ -150,7 +150,7 @@ fun NavGraphBuilder.addThreadRoute(
                         }
                             .debounce(200L)
                             .collectLatest { (index, offset) ->
-                                tabsViewModel.updateScrollPosition(
+                                tabsViewModel.updateThreadScrollPosition(
                                     tab.key,
                                     tab.boardUrl,
                                     firstVisibleIndex = index,
@@ -179,8 +179,10 @@ fun NavGraphBuilder.addThreadRoute(
                             )
                             if (uiState.isLoading) {
                                 LinearProgressIndicator(
+                                    progress = {
+                                        uiState.loadProgress
+                                    },
                                     modifier = Modifier.fillMaxWidth(),
-                                    progress = uiState.loadProgress
                                 )
                             }
                         }
@@ -209,7 +211,7 @@ fun NavGraphBuilder.addThreadRoute(
                 // ★ スレッドお気に入りグループ選択ボトムシート
                 if (uiState.showThreadGroupSelector) {
                     BookmarkBottomSheet(
-                        sheetState = threadGroupSheetState,
+                        sheetState = bookmarkSheetState,
                         onDismissRequest = { viewModel.dismissThreadGroupSelector() },
                         groups = uiState.availableThreadGroups,
                         selectedGroupId = uiState.currentThreadGroup?.groupId,

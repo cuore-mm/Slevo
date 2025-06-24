@@ -52,12 +52,10 @@ class TabsViewModel @Inject constructor(
      * まだ生成されていなければ Factory から作成してキャッシュする。
      */
     fun getOrCreateBoardViewModel(
-        boardUrl: String,
-        boardName: String,
-        boardId: Long
+        boardUrl: String
     ): BoardViewModel {
         return boardViewModelMap.getOrPut(boardUrl) {
-            boardViewModelFactory.create(boardId, boardName, boardUrl)
+            boardViewModelFactory.create(boardUrl)
         }
     }
 
@@ -94,7 +92,10 @@ class TabsViewModel @Inject constructor(
             val index = currentBoards.indexOfFirst { it.boardUrl == boardTabInfo.boardUrl }
             if (index != -1) {
                 currentBoards.toMutableList().apply {
-                    this[index] = boardTabInfo
+                    this[index] = boardTabInfo.copy(
+                        firstVisibleItemIndex = this[index].firstVisibleItemIndex,
+                        firstVisibleItemScrollOffset = this[index].firstVisibleItemScrollOffset
+                    )
                 }
             } else {
                 currentBoards + boardTabInfo
@@ -132,7 +133,7 @@ class TabsViewModel @Inject constructor(
     /**
      * スレッドタブのスクロール位置を保存する。
      */
-    fun updateScrollPosition(
+    fun updateThreadScrollPosition(
         tabKey: String,
         boardUrl: String,
         firstVisibleIndex: Int,
@@ -142,6 +143,28 @@ class TabsViewModel @Inject constructor(
         _openThreadTabs.update { currentTabs ->
             currentTabs.map { tab ->
                 if (tab.key == tabKey && tab.boardUrl == boardUrl) {
+                    tab.copy(
+                        firstVisibleItemIndex = firstVisibleIndex,
+                        firstVisibleItemScrollOffset = scrollOffset
+                    )
+                } else {
+                    tab
+                }
+            }
+        }
+    }
+
+    /**
+     * 板タブのスクロール位置を保存する。
+     */
+    fun updateBoardScrollPosition(
+        boardUrl: String,
+        firstVisibleIndex: Int,
+        scrollOffset: Int
+    ) {
+        _openBoardTabs.update { currentTabs ->
+            currentTabs.map { tab ->
+                if (tab.boardUrl == boardUrl) {
                     tab.copy(
                         firstVisibleItemIndex = firstVisibleIndex,
                         firstVisibleItemScrollOffset = scrollOffset

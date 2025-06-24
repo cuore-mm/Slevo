@@ -26,37 +26,39 @@ import kotlinx.coroutines.launch
 class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
     private val bookmarkRepo: BookmarkBoardRepository,
-    @Assisted("boardId") val boardId: Long,
-    @Assisted("boardName") val boardName: String,
-    @Assisted("boardUrl") val boardUrl: String
+    @Assisted("viewModelKey") val viewModelKey: String
 ) : ViewModel() {
 
-    private val serviceName = parseServiceName(boardUrl)
+    private var isInitialized = false
 
     // 元のスレッドリストを保持
     private var originalThreads: List<ThreadInfo>? = null
 
-    private val _uiState = MutableStateFlow(
-        BoardUiState(
-            boardInfo = BoardInfo(
-                boardId = boardId,
-                name = boardName,
-                url = boardUrl
-            ),
-            serviceName = serviceName
-        )
-    )
+    private val _uiState = MutableStateFlow(BoardUiState())
     val uiState: StateFlow<BoardUiState> = _uiState.asStateFlow()
 
     private var isInitialBoardLoad = true // このViewModelインスタンスでの初回読み込みフラグ
 
-    init {
-        Log.d("ViewModelDebug", "BoardViewModel init: id=$boardId, name='$boardName', url='$boardUrl'")
-        loadThreadList(force = true) // ViewModel初期化時は強制フル取得
+    fun initializeBoard(boardInfo: BoardInfo) {
+        if (isInitialized) return
+        isInitialized = true
+
+        val serviceName = parseServiceName(boardInfo.url)
+        _uiState.update {
+            it.copy(
+                boardInfo = boardInfo,
+                serviceName = serviceName
+            )
+        }
+
+        loadThreadList(force = true)
         loadBookmarkDetails()
     }
 
     fun loadThreadList(force: Boolean = false) { // pull-to-refreshからは force=false で呼ばれる想定
+        val boardUrl = uiState.value.boardInfo.url
+        if (boardUrl.isBlank()) return
+
         val shouldForceRefresh = force || isInitialBoardLoad
         Log.i("BoardViewModel", "Loading thread list for board: $boardUrl, forceRefresh: $shouldForceRefresh")
         viewModelScope.launch {
@@ -142,6 +144,9 @@ class BoardViewModel @AssistedInject constructor(
     }
 
     private fun loadBookmarkDetails() {
+        val boardUrl = uiState.value.boardInfo.url
+        if (boardUrl.isBlank()) return
+
         viewModelScope.launch {
             bookmarkRepo.getBoardWithBookmarkAndGroupByUrlFlow(boardUrl)
                 .collectLatest { boardWithBookmarkAndGroup ->
@@ -283,9 +288,7 @@ class BoardViewModel @AssistedInject constructor(
 @AssistedFactory
 interface BoardViewModelFactory {
     fun create(
-        @Assisted("boardId") boardId: Long,
-        @Assisted("boardName") boardName: String,
-        @Assisted("boardUrl") boardUrl: String
+        @Assisted("viewModelKey") viewModelKey: String
     ): BoardViewModel
 }
 
