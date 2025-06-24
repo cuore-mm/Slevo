@@ -33,7 +33,7 @@ import androidx.navigation.toRoute
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.ui.common.AddGroupDialog
 import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
-import com.websarva.wings.android.bbsviewer.ui.tabs.TabInfo
+import com.websarva.wings.android.bbsviewer.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ConfirmationWebView
@@ -63,7 +63,7 @@ fun NavGraphBuilder.addThreadRoute(
         // 1. 現在のルートに対応するタブがリストに存在することを保証する
         LaunchedEffect(threadRoute) {
             tabsViewModel.openThread(
-                TabInfo(
+                ThreadTabInfo(
                     key = threadRoute.threadKey,
                     title = threadRoute.threadTitle,
                     boardName = threadRoute.boardName,

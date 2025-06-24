@@ -1,6 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.tabs
 
-data class TabInfo(
+data class ThreadTabInfo(
     val key: String,
     val title: String,
     val boardName: String,

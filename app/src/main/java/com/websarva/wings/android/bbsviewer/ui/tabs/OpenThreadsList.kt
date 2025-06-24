@@ -27,8 +27,8 @@ import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 @Composable
 fun OpenThreadsList(
     modifier: Modifier = Modifier,
-    openTabs: List<TabInfo>,
-    onCloseClick: (TabInfo) -> Unit = {},
+    openTabs: List<ThreadTabInfo>,
+    onCloseClick: (ThreadTabInfo) -> Unit = {},
     navController: NavHostController,
     closeDrawer: () -> Unit
 ) {
@@ -79,9 +79,9 @@ fun OpenThreadsList(
 @Composable
 fun OpenThreadsListPreview() {
     val sampleTabs = listOf(
-        TabInfo("1", "スレッド1", "板1", "https://example.com/board1", 1, 100),
-        TabInfo("2", "スレッド2", "板2", "https://example.com/board2", 2, 200),
-        TabInfo("3", "スレッド3", "板3", "https://example.com/board3", 3, 300)
+        ThreadTabInfo("1", "スレッド1", "板1", "https://example.com/board1", 1, 100),
+        ThreadTabInfo("2", "スレッド2", "板2", "https://example.com/board2", 2, 200),
+        ThreadTabInfo("3", "スレッド3", "板3", "https://example.com/board3", 3, 300)
     )
     OpenThreadsList(
         openTabs = sampleTabs,

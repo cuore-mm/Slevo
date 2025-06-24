@@ -1,5 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.tabs
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModelFactory
@@ -18,8 +20,8 @@ class TabsViewModel @Inject constructor(
     private val boardViewModelFactory: BoardViewModelFactory
 ) : ViewModel() {
     // 開いているタブ一覧と合わせて、タブに紐づく ThreadViewModel も保持する
-    private val _openTabs = MutableStateFlow<List<TabInfo>>(emptyList())
-    val openTabs: StateFlow<List<TabInfo>> = _openTabs.asStateFlow()
+    private val _openTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
+    val openTabs: StateFlow<List<ThreadTabInfo>> = _openTabs.asStateFlow()
 
     // 開いている板タブ一覧
     private val _openBoardTabs = MutableStateFlow<List<BoardTabInfo>>(emptyList())
@@ -50,24 +52,24 @@ class TabsViewModel @Inject constructor(
         }
     }
 
-    fun openThread(newTabInfo: TabInfo) {
+    fun openThread(newThreadTabInfo: ThreadTabInfo) {
         _openTabs.update { currentTabs ->
             val tabIndex =
-                currentTabs.indexOfFirst { it.key == newTabInfo.key && it.boardUrl == newTabInfo.boardUrl }
+                currentTabs.indexOfFirst { it.key == newThreadTabInfo.key && it.boardUrl == newThreadTabInfo.boardUrl }
 
             if (tabIndex != -1) {
                 // 既存タブの情報を更新し、スクロール位置はそのまま維持する
                 currentTabs.toMutableList().apply {
                     this[tabIndex] = this[tabIndex].copy(
-                        title = newTabInfo.title,
-                        boardName = newTabInfo.boardName,
-                        boardId = newTabInfo.boardId,
-                        resCount = newTabInfo.resCount
+                        title = newThreadTabInfo.title,
+                        boardName = newThreadTabInfo.boardName,
+                        boardId = newThreadTabInfo.boardId,
+                        resCount = newThreadTabInfo.resCount
                     )
                 }
             } else {
                 // 新規タブとして追加
-                currentTabs + newTabInfo
+                currentTabs + newThreadTabInfo
             }
         }
     }
@@ -85,7 +87,7 @@ class TabsViewModel @Inject constructor(
         }
     }
 
-    fun closeThread(tab: TabInfo) {
+    fun closeThread(tab: ThreadTabInfo) {
         val key = tab.key + tab.boardUrl
         val viewModelToDestroy = threadViewModels[key]
 
@@ -98,6 +100,7 @@ class TabsViewModel @Inject constructor(
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     fun closeBoard(tab: BoardTabInfo) {
         boardViewModels.remove(tab.boardUrl)?.release()
         _openBoardTabs.update { current ->
@@ -126,10 +129,11 @@ class TabsViewModel @Inject constructor(
         }
     }
 
-    fun getTabInfo(tabKey: String, boardUrl: String): TabInfo? {
+    fun getTabInfo(tabKey: String, boardUrl: String): ThreadTabInfo? {
         return _openTabs.value.find { it.key == tabKey && it.boardUrl == boardUrl }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCleared() {
         super.onCleared()
         // 親が破棄されるときは、すべての子ViewModelも破棄する
