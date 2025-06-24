@@ -23,7 +23,7 @@ fun TabsPagerContent(
     navController: NavHostController,
     closeDrawer: () -> Unit
 ) {
-    val openThreadTabs by tabsViewModel.openTabs.collectAsState()
+    val openThreadTabs by tabsViewModel.openThreadTabs.collectAsState()
     val openBoardTabs by tabsViewModel.openBoardTabs.collectAsState()
 
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
@@ -46,13 +46,13 @@ fun TabsPagerContent(
             when (page) {
                 0 -> OpenBoardsList(
                     openTabs = openBoardTabs,
-                    onCloseClick = { tabsViewModel.closeBoard(it) },
+                    onCloseClick = { tabsViewModel.closeBoardTab(it) },
                     navController = navController,
                     closeDrawer = closeDrawer
                 )
                 else -> OpenThreadsList(
                     openTabs = openThreadTabs,
-                    onCloseClick = { tabsViewModel.closeThread(it) },
+                    onCloseClick = { tabsViewModel.closeThreadTab(it) },
                     navController = navController,
                     closeDrawer = closeDrawer
                 )

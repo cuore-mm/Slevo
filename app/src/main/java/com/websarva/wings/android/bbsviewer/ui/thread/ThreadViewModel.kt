@@ -26,7 +26,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
     private val threadBookmarkRepository: ThreadBookmarkRepository,
     private val postRepository: PostRepository,
-    @Assisted val mapKey: String,
+    @Assisted val viewModelKey: String,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ThreadUiState())
@@ -362,5 +362,5 @@ class ThreadViewModel @AssistedInject constructor(
 
 @AssistedFactory
 interface ThreadViewModelFactory {
-    fun create(mapKey: String): ThreadViewModel
+    fun create(viewModelKey: String): ThreadViewModel
 }
