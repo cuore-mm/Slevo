@@ -209,7 +209,8 @@ fun NavGraphBuilder.addBoardRoute(
                             }
                         },
                         isRefreshing = uiState.isLoading,
-                        onRefresh = { viewModel.refreshBoardData() }
+                        onRefresh = { viewModel.refreshBoardData() },
+                        listState = listState
                     )
 
                     if (uiState.showBookmarkSheet) {
