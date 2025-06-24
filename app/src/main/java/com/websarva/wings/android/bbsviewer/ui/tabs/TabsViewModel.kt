@@ -15,11 +15,15 @@ import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 
 @HiltViewModel
+/**
+ * スレッドタブ・板タブをまとめて管理する ViewModel。
+ * 各タブに紐づく ViewModel の生成や破棄もここで行う。
+ */
 class TabsViewModel @Inject constructor(
     private val threadViewModelFactory: ThreadViewModelFactory,
     private val boardViewModelFactory: BoardViewModelFactory
 ) : ViewModel() {
-    // 開いているスレッドタブ一覧と、各タブに対応するThreadViewModelを保持
+    // 開いているスレッドタブ一覧と、各タブに紐づく ViewModel を保持
     private val _openThreadTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
     val openThreadTabs: StateFlow<List<ThreadTabInfo>> = _openThreadTabs.asStateFlow()
 
@@ -27,14 +31,15 @@ class TabsViewModel @Inject constructor(
     private val _openBoardTabs = MutableStateFlow<List<BoardTabInfo>>(emptyList())
     val openBoardTabs: StateFlow<List<BoardTabInfo>> = _openBoardTabs.asStateFlow()
 
-    // boardUrl をキーとして BoardViewModel を保持
+    // boardUrl をキーに BoardViewModel をキャッシュ
     private val boardViewModelMap: MutableMap<String, BoardViewModel> = mutableMapOf()
 
-    // threadKey + boardUrl をキーとして ThreadViewModel を保持
+    // threadKey + boardUrl をキーに ThreadViewModel をキャッシュ
     private val threadViewModelMap: MutableMap<String, ThreadViewModel> = mutableMapOf()
 
     /**
-     * 指定キーの ThreadViewModel を取得。存在しなければ Factory から生成して登録する
+     * 指定キーの [ThreadViewModel] を取得。
+     * 存在しない場合は Factory から生成して登録する。
      */
     fun getOrCreateThreadViewModel(viewModelKey: String): ThreadViewModel {
         return threadViewModelMap.getOrPut(viewModelKey) {
@@ -42,6 +47,10 @@ class TabsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 指定URLの [BoardViewModel] を取得。
+     * まだ生成されていなければ Factory から作成してキャッシュする。
+     */
     fun getOrCreateBoardViewModel(
         boardUrl: String,
         boardName: String,
@@ -52,6 +61,9 @@ class TabsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * スレッドタブを開く。既に同じキーのタブが存在する場合は情報のみ更新する。
+     */
     fun openThreadTab(tabInfo: ThreadTabInfo) {
         _openThreadTabs.update { currentTabs ->
             val tabIndex =
@@ -74,6 +86,9 @@ class TabsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 板タブを開く。すでに存在する場合は最新情報で上書きする。
+     */
     fun openBoardTab(boardTabInfo: BoardTabInfo) {
         _openBoardTabs.update { currentBoards ->
             val index = currentBoards.indexOfFirst { it.boardUrl == boardTabInfo.boardUrl }
@@ -87,6 +102,9 @@ class TabsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * スレッドタブを閉じ、関連する [ThreadViewModel] を解放する。
+     */
     fun closeThreadTab(tab: ThreadTabInfo) {
         val mapKey = tab.key + tab.boardUrl
         val viewModelToDestroy = threadViewModelMap[mapKey]
@@ -100,6 +118,9 @@ class TabsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 板タブを閉じ、対応する [BoardViewModel] を解放する。
+     */
     @RequiresApi(Build.VERSION_CODES.O)
     fun closeBoardTab(tab: BoardTabInfo) {
         boardViewModelMap.remove(tab.boardUrl)?.release()
@@ -108,6 +129,9 @@ class TabsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * スレッドタブのスクロール位置を保存する。
+     */
     fun updateScrollPosition(
         tabKey: String,
         boardUrl: String,
@@ -129,14 +153,20 @@ class TabsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 指定キーのタブ情報を取得する。
+     */
     fun getTabInfo(tabKey: String, boardUrl: String): ThreadTabInfo? {
         return _openThreadTabs.value.find { it.key == tabKey && it.boardUrl == boardUrl }
     }
 
+    /**
+     * ViewModel 自身が破棄される際に呼び出される処理。
+     * 登録済みの子 ViewModel もすべて解放する。
+     */
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCleared() {
         super.onCleared()
-        // 親が破棄されるときは、すべての子ViewModelも破棄する
         threadViewModelMap.values.forEach { it.release() }
         threadViewModelMap.clear()
         boardViewModelMap.values.forEach { it.release() }
