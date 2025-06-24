@@ -51,7 +51,7 @@ fun NavGraphBuilder.addBoardRoute(
         val board: AppRoute.Board = backStackEntry.toRoute()
 
         LaunchedEffect(board) {
-            tabsViewModel.openBoard(
+            tabsViewModel.openBoardTab(
                 BoardTabInfo(
                     boardId = board.boardId,
                     boardName = board.boardName,

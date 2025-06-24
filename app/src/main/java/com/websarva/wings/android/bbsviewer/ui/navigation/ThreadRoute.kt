@@ -55,14 +55,14 @@ fun NavGraphBuilder.addThreadRoute(
 ) {
     composable<AppRoute.Thread> { backStackEntry ->
         // 開いているスレッドのタブ一覧を監視
-        val openTabs by tabsViewModel.openTabs.collectAsState()
+        val openTabs by tabsViewModel.openThreadTabs.collectAsState()
         // 画面遷移で受け取った引数を取得
         val threadRoute: AppRoute.Thread = backStackEntry.toRoute()
 
 
         // 1. 現在のルートに対応するタブがリストに存在することを保証する
         LaunchedEffect(threadRoute) {
-            tabsViewModel.openThread(
+            tabsViewModel.openThreadTab(
                 ThreadTabInfo(
                     key = threadRoute.threadKey,
                     title = threadRoute.threadTitle,
@@ -108,10 +108,10 @@ fun NavGraphBuilder.addThreadRoute(
             ) { page ->
                 // 表示対象のタブ情報を取得
                 val tab = openTabs[page]
-                val mapKey = tab.key + tab.boardUrl
+                val viewModelKey = tab.key + tab.boardUrl
 
                 // 各タブ専用の ViewModel を取得。未登録なら Factory から生成
-                val viewModel: ThreadViewModel = tabsViewModel.getOrCreateThreadViewModel(mapKey)
+                val viewModel: ThreadViewModel = tabsViewModel.getOrCreateThreadViewModel(viewModelKey)
                 val uiState by viewModel.uiState.collectAsState()
 
                 // rememberのキーにスクロール位置を渡す。
@@ -153,8 +153,8 @@ fun NavGraphBuilder.addThreadRoute(
                                 tabsViewModel.updateScrollPosition(
                                     tab.key,
                                     tab.boardUrl,
-                                    index,
-                                    offset
+                                    firstVisibleIndex = index,
+                                    scrollOffset = offset
                                 )
                             }
                     }
