@@ -13,7 +13,11 @@ import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
 import androidx.core.net.toUri
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
+import com.websarva.wings.android.bbsviewer.ui.favorite.FavoriteViewModel
+import com.websarva.wings.android.bbsviewer.ui.favorite.FavoriteViewModelFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
@@ -22,7 +26,7 @@ import kotlinx.coroutines.launch
 @RequiresApi(Build.VERSION_CODES.O)
 class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
-    private val bookmarkRepo: BookmarkBoardRepository,
+    private val favoriteViewModelFactory: FavoriteViewModelFactory,
     @Assisted("viewModelKey") val viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
 
@@ -32,6 +36,7 @@ class BoardViewModel @AssistedInject constructor(
     private var originalThreads: List<ThreadInfo>? = null
 
     override val _uiState = MutableStateFlow(BoardUiState())
+    private var favoriteViewModel: FavoriteViewModel? = null
 
     private var isInitialBoardLoad = true // このViewModelインスタンスでの初回読み込みフラグ
 
@@ -39,27 +44,39 @@ class BoardViewModel @AssistedInject constructor(
         if (isInitialized) return
         isInitialized = true
 
+        // Factoryを使ってFavoriteViewModelを生成
+        favoriteViewModel = favoriteViewModelFactory.create(boardInfo, null)
+
         val serviceName = parseServiceName(boardInfo.url)
-        _uiState.update {
-            it.copy(
-                boardInfo = boardInfo,
-                serviceName = serviceName
-            )
+        _uiState.update { it.copy(boardInfo = boardInfo, serviceName = serviceName) }
+
+        // FavoriteViewModelのUI状態を監視し、自身のUI状態にマージする
+        viewModelScope.launch {
+            favoriteViewModel?.uiState?.collect { favState ->
+                _uiState.update { it.copy(favoriteState = favState) }
+            }
         }
 
         loadThreadList(force = true)
-        loadBookmarkDetails()
     }
+
+    // --- お気に入り関連の処理はFavoriteViewModelに委譲 ---
+//    fun handleFavoriteClick() = favoriteViewModel?.handleFavoriteClick()
+    fun saveBookmark(groupId: Long) = favoriteViewModel?.saveBookmark(groupId)
+    fun unbookmarkBoard() = favoriteViewModel?.unbookmark()
+    fun openAddGroupDialog() = favoriteViewModel?.openAddGroupDialog()
+    fun closeAddGroupDialog() = favoriteViewModel?.closeAddGroupDialog()
+    fun setEnteredGroupName(name: String) = favoriteViewModel?.setEnteredGroupName(name)
+    fun setSelectedColor(color: String) = favoriteViewModel?.setSelectedColor(color)
+    fun addGroup() = favoriteViewModel?.addGroup()
+    fun openBookmarkSheet() = favoriteViewModel?.openBookmarkSheet()
+    fun closeBookmarkSheet() = favoriteViewModel?.closeBookmarkSheet()
 
     fun loadThreadList(force: Boolean = false) { // pull-to-refreshからは force=false で呼ばれる想定
         val boardUrl = uiState.value.boardInfo.url
         if (boardUrl.isBlank()) return
 
         val shouldForceRefresh = force || isInitialBoardLoad
-        Log.i(
-            "BoardViewModel",
-            "Loading thread list for board: $boardUrl, forceRefresh: $shouldForceRefresh"
-        )
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
@@ -148,82 +165,6 @@ class BoardViewModel @AssistedInject constructor(
             ThreadSortKey.DATE_CREATED -> list.sortedBy { it.key.toLongOrNull() ?: 0L }
         }
         return if (ascending) sortedList else sortedList.reversed()
-    }
-
-    private fun loadBookmarkDetails() {
-        val boardUrl = uiState.value.boardInfo.url
-        if (boardUrl.isBlank()) return
-
-        viewModelScope.launch {
-            bookmarkRepo.getBoardWithBookmarkAndGroupByUrlFlow(boardUrl)
-                .collectLatest { boardWithBookmarkAndGroup ->
-                    boardWithBookmarkAndGroup?.let {
-                        _uiState.update { state ->
-                            state.copy(
-                                boardInfo = BoardInfo(
-                                    boardId = it.board.boardId,
-                                    name = it.board.name,
-                                    url = it.board.url
-                                ),
-                                isBookmarked = it.bookmarkWithGroup != null,
-                                selectedGroup = it.bookmarkWithGroup?.group
-                            )
-                        }
-                    }
-                }
-        }
-    }
-
-    fun loadGroups() {
-        viewModelScope.launch {
-            bookmarkRepo.observeGroups()         // Flow<List<BoardGroupEntity>>
-                .collect { groups ->
-                    _uiState.update { it.copy(groups = groups) }
-                }
-        }
-    }
-
-    /** ブックマークシートを開く */
-    fun openBookmarkSheet() = viewModelScope.launch {
-        _uiState.update { it.copy(showBookmarkSheet = true) }
-    }
-
-    /** ブックマークシートを閉じる */
-    fun closeBookmarkSheet() = viewModelScope.launch {
-        _uiState.update { it.copy(showBookmarkSheet = false) }
-    }
-
-    fun addGroup() = viewModelScope.launch {
-        val name = uiState.value.enteredGroupName.takeIf { it.isNotBlank() } ?: return@launch
-        val color = uiState.value.selectedColor ?: return@launch
-        bookmarkRepo.addGroupAtEnd(name, color)
-        closeAddGroupDialog()
-    }
-
-    /**
-     * お気に入りを登録または更新
-     */
-    fun saveBookmark(groupId: Long) {
-        viewModelScope.launch {
-            bookmarkRepo.upsertBookmark(
-                BookmarkBoardEntity(
-                    boardId = uiState.value.boardInfo.boardId,
-                    groupId = groupId,
-                )
-            )
-        }
-    }
-
-    /**
-     * 現在の板のお気に入りを解除するメソッド
-     */
-    fun unbookmarkBoard() {
-        viewModelScope.launch {
-            val currentBoardId = uiState.value.boardInfo.boardId
-            bookmarkRepo.deleteBookmark(currentBoardId)
-            // UI状態も更新 (ブックマーク解除、選択グループ解除)
-            _uiState.update { it.copy(isBookmarked = false, selectedGroup = null) }
-        }
     }
 
     // Sort BottomSheet 関連

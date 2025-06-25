@@ -113,6 +113,7 @@ fun NavGraphBuilder.addThreadRoute(
                 // 各タブ専用の ViewModel を取得。未登録なら Factory から生成
                 val viewModel: ThreadViewModel = tabsViewModel.getOrCreateThreadViewModel(viewModelKey)
                 val uiState by viewModel.uiState.collectAsState()
+                val favoriteState = uiState.favoriteState
 
                 // rememberのキーにスクロール位置を渡す。
                 // これにより、ViewModelに保存されているスクロール位置(`tab`のプロパティ)が
@@ -172,7 +173,7 @@ fun NavGraphBuilder.addThreadRoute(
                     topBar = {
                         Column {
                             ThreadTopBar(
-                                onFavoriteClick = { viewModel.handleFavoriteClick() },
+                                onFavoriteClick = { viewModel.openBookmarkSheet() },
                                 uiState = uiState,
                                 onNavigationClick = openDrawer,
                                 scrollBehavior = scrollBehavior
@@ -209,27 +210,27 @@ fun NavGraphBuilder.addThreadRoute(
                 }
 
                 // ★ スレッドお気に入りグループ選択ボトムシート
-                if (uiState.showThreadGroupSelector) {
+                if (favoriteState.showBookmarkSheet) {
                     BookmarkBottomSheet(
                         sheetState = bookmarkSheetState,
-                        onDismissRequest = { viewModel.dismissThreadGroupSelector() },
-                        groups = uiState.availableThreadGroups,
-                        selectedGroupId = uiState.currentThreadGroup?.groupId,
-                        onGroupSelected = { groupId -> viewModel.selectGroupAndBookmark(groupId) },
-                        onUnbookmarkRequested = { viewModel.unbookmarkCurrentThread() },
+                        onDismissRequest = { viewModel.closeBookmarkSheet() },
+                        groups = favoriteState.groups,
+                        selectedGroupId = favoriteState.selectedGroup?.id,
+                        onGroupSelected = { viewModel.saveBookmark(it) },
+                        onUnbookmarkRequested = { viewModel.unbookmarkBoard() },
                         onAddGroup = { viewModel.openAddGroupDialog() }
                     )
                 }
 
                 // ★ スレッドお気に入りグループ追加ダイアログ
-                if (uiState.showAddGroupDialog) {
+                if (favoriteState.showAddGroupDialog) {
                     AddGroupDialog(
                         onDismissRequest = { viewModel.closeAddGroupDialog() },
-                        onAdd = { viewModel.addNewGroup() },
+                        onAdd = { viewModel.addGroup() },
                         onValueChange = { name -> viewModel.setEnteredGroupName(name) },
-                        enteredValue = uiState.enteredGroupName,
-                        onColorSelected = { color -> viewModel.setSelectedColorCode(color) },
-                        selectedColor = uiState.selectedColor ?: "#FF0000" // デフォルト色
+                        enteredValue = favoriteState.enteredGroupName,
+                        onColorSelected = { viewModel.setSelectedColor(it) },
+                        selectedColor = favoriteState.selectedColor
                     )
                 }
 

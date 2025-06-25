@@ -9,29 +9,7 @@ abstract class BaseViewModel<S> : ViewModel() where S : BaseUiState<S> {
     protected abstract val _uiState: MutableStateFlow<S>
     val uiState: StateFlow<S> get() = _uiState
 
-    // 公開する共通メソッド
-    fun openAddGroupDialog() {
-        _uiState.update { it.copyState(showAddGroupDialog = true) }
-    }
-
-    fun closeAddGroupDialog() {
-        _uiState.update {
-            it.copyState(
-                showAddGroupDialog = false,
-                enteredGroupName = "",
-                selectedColor = "#FF0000" // デフォルトカラー
-            )
-        }
-    }
-
-    fun setEnteredGroupName(name: String) {
-        _uiState.update { it.copyState(enteredGroupName = name) }
-    }
-
-    fun setSelectedColor(color: String) {
-        _uiState.update { it.copyState(selectedColor = color) }
-    }
-
+    // Common methods
     fun openTabListSheet() {
         _uiState.update { it.copyState(showTabListSheet = true) }
     }

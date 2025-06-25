@@ -6,6 +6,7 @@ import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.ui.board.BoardUiState
 import com.websarva.wings.android.bbsviewer.ui.common.BaseUiState
+import com.websarva.wings.android.bbsviewer.ui.favorite.FavoriteUiState
 
 data class ThreadUiState(
     val threadInfo: ThreadInfo = ThreadInfo(),
@@ -17,32 +18,16 @@ data class ThreadUiState(
     val isPosting: Boolean = false,
     val postConfirmation: ConfirmationData? = null,
     val isConfirmationScreen: Boolean = false,
-
-    // スレッドお気に入り関連のUI状態
-    val isBookmarked: Boolean = false,
-    val currentThreadGroup: ThreadBookmarkGroupEntity? = null,
-    val availableThreadGroups: List<ThreadBookmarkGroupEntity> = emptyList(),
-    val showThreadGroupSelector: Boolean = false,
-
+    val favoriteState: FavoriteUiState = FavoriteUiState(),
     override val isLoading: Boolean = false,
-    override val showAddGroupDialog: Boolean = false,
-    override val selectedColor: String? = "#FF0000",
-    override val enteredGroupName: String = "",
     override val showTabListSheet: Boolean = false,
-) : BaseUiState<ThreadUiState> { // 自分自身の型を渡す
+) : BaseUiState<ThreadUiState> {
     override fun copyState(
         isLoading: Boolean,
-        showAddGroupDialog: Boolean,
-        enteredGroupName: String,
-        selectedColor: String?,
         showTabListSheet: Boolean
     ): ThreadUiState {
-        // data classのcopyメソッドを呼び出して返す
         return this.copy(
             isLoading = isLoading,
-            showAddGroupDialog = showAddGroupDialog,
-            enteredGroupName = enteredGroupName,
-            selectedColor = selectedColor,
             showTabListSheet = showTabListSheet
         )
     }
