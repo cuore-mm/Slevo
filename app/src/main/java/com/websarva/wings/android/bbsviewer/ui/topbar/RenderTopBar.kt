@@ -111,7 +111,7 @@ fun RenderTopBar(
             threadViewModel?.let { viewModel ->
                 val uiState by viewModel.uiState.collectAsState()
                 ThreadTopBar(
-                    onFavoriteClick = { viewModel.handleFavoriteClick() },
+                    onFavoriteClick = { viewModel.openBookmarkSheet() },
                     uiState = uiState,
                     onNavigationClick = {}
                 )

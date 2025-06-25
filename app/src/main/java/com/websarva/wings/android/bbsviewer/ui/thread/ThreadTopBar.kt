@@ -29,6 +29,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.graphics.toColorInt
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
+import com.websarva.wings.android.bbsviewer.ui.favorite.FavoriteUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,19 +64,23 @@ fun ThreadTopBar(
         },
         scrollBehavior = scrollBehavior,
         actions = {
-            IconButton(onClick = onFavoriteClick) { // この onFavoriteClick は viewModel.handleFavoriteClick() に繋がる
-                val iconImage =
-                    if (uiState.isBookmarked) Icons.Filled.Star else Icons.Outlined.StarOutline
-                val iconTint =
-                    if (uiState.isBookmarked && uiState.currentThreadGroup?.colorHex != null) {
-                        try {
-                            Color(uiState.currentThreadGroup.colorHex.toColorInt())
-                        } catch (e: Exception) {
-                            LocalContentColor.current
-                        }
-                    } else {
+            IconButton(onClick = onFavoriteClick) {
+                val iconImage = if (uiState.favoriteState.isBookmarked) {
+                    Icons.Filled.Star
+                } else {
+                    Icons.Outlined.StarOutline
+                }
+                val iconTint = if (
+                    uiState.favoriteState.isBookmarked && uiState.favoriteState.selectedGroup?.colorHex != null
+                ) {
+                    try {
+                        Color(uiState.favoriteState.selectedGroup!!.colorHex.toColorInt())
+                    } catch (e: Exception) {
                         LocalContentColor.current
                     }
+                } else {
+                    LocalContentColor.current
+                }
                 Icon(
                     imageVector = iconImage,
                     contentDescription = stringResource(R.string.bookmark),
@@ -122,8 +127,10 @@ fun ThreadTopBarPreview() {
             threadInfo = ThreadInfo(
                 title = "スレッドのタイトル",
             ),
-            isBookmarked = false,
-            currentThreadGroup = null
+            favoriteState = FavoriteUiState(
+                isBookmarked = false,
+                selectedGroup = null
+            )
         ),
         onNavigationClick = { /* ナビゲーション処理 */ },
     )
