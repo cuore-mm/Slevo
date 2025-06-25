@@ -113,7 +113,7 @@ fun NavGraphBuilder.addThreadRoute(
                 // 各タブ専用の ViewModel を取得。未登録なら Factory から生成
                 val viewModel: ThreadViewModel = tabsViewModel.getOrCreateThreadViewModel(viewModelKey)
                 val uiState by viewModel.uiState.collectAsState()
-                val favoriteState = uiState.favoriteState
+                val bookmarkState = uiState.bookmarkState
 
                 // rememberのキーにスクロール位置を渡す。
                 // これにより、ViewModelに保存されているスクロール位置(`tab`のプロパティ)が
@@ -173,7 +173,7 @@ fun NavGraphBuilder.addThreadRoute(
                     topBar = {
                         Column {
                             ThreadTopBar(
-                                onFavoriteClick = { viewModel.openBookmarkSheet() },
+                                onBookmarkClick = { viewModel.openBookmarkSheet() },
                                 uiState = uiState,
                                 onNavigationClick = openDrawer,
                                 scrollBehavior = scrollBehavior
@@ -210,12 +210,12 @@ fun NavGraphBuilder.addThreadRoute(
                 }
 
                 // ★ スレッドお気に入りグループ選択ボトムシート
-                if (favoriteState.showBookmarkSheet) {
+                if (bookmarkState.showBookmarkSheet) {
                     BookmarkBottomSheet(
                         sheetState = bookmarkSheetState,
                         onDismissRequest = { viewModel.closeBookmarkSheet() },
-                        groups = favoriteState.groups,
-                        selectedGroupId = favoriteState.selectedGroup?.id,
+                        groups = bookmarkState.groups,
+                        selectedGroupId = bookmarkState.selectedGroup?.id,
                         onGroupSelected = { viewModel.saveBookmark(it) },
                         onUnbookmarkRequested = { viewModel.unbookmarkBoard() },
                         onAddGroup = { viewModel.openAddGroupDialog() }
@@ -223,14 +223,14 @@ fun NavGraphBuilder.addThreadRoute(
                 }
 
                 // ★ スレッドお気に入りグループ追加ダイアログ
-                if (favoriteState.showAddGroupDialog) {
+                if (bookmarkState.showAddGroupDialog) {
                     AddGroupDialog(
                         onDismissRequest = { viewModel.closeAddGroupDialog() },
                         onAdd = { viewModel.addGroup() },
                         onValueChange = { name -> viewModel.setEnteredGroupName(name) },
-                        enteredValue = favoriteState.enteredGroupName,
+                        enteredValue = bookmarkState.enteredGroupName,
                         onColorSelected = { viewModel.setSelectedColor(it) },
-                        selectedColor = favoriteState.selectedColor
+                        selectedColor = bookmarkState.selectedColor
                     )
                 }
 

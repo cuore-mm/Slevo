@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.favorite
+package com.websarva.wings.android.bbsviewer.ui.bookmark
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,15 +19,15 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class FavoriteViewModel @AssistedInject constructor(
+class BookmarkStateViewModel @AssistedInject constructor(
     private val boardBookmarkRepo: BookmarkBoardRepository,
     private val threadBookmarkRepo: ThreadBookmarkRepository,
     @Assisted private val boardInfo: BoardInfo,
     @Assisted private val threadInfo: ThreadInfo? // スレッド画面の場合のみ渡される
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(FavoriteUiState())
-    val uiState: StateFlow<FavoriteUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(BookmarkState())
+    val uiState: StateFlow<BookmarkState> = _uiState.asStateFlow()
 
     init {
         // boardInfoは必須、threadInfoの有無で板画面かスレ画面かを判断
@@ -66,7 +66,7 @@ class FavoriteViewModel @AssistedInject constructor(
         }
     }
 
-//    fun handleFavoriteClick() {
+//    fun handleBookmarkClick() {
 //        if (_uiState.value.isBookmarked) {
 //            unbookmark()
 //        } else {
@@ -146,9 +146,9 @@ class FavoriteViewModel @AssistedInject constructor(
 
 // --- HiltがこのFactoryを生成できるように設定 ---
 @AssistedFactory
-interface FavoriteViewModelFactory {
+interface BookmarkStateViewModelFactory {
     fun create(
         boardInfo: BoardInfo,
         threadInfo: ThreadInfo?
-    ): FavoriteViewModel
+    ): BookmarkStateViewModel
 }

@@ -8,8 +8,8 @@ import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
-import com.websarva.wings.android.bbsviewer.ui.favorite.FavoriteViewModel
-import com.websarva.wings.android.bbsviewer.ui.favorite.FavoriteViewModelFactory
+import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkStateViewModel
+import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkStateViewModelFactory
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 @RequiresApi(Build.VERSION_CODES.O)
 class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
-    private val favoriteViewModelFactory: FavoriteViewModelFactory,
+    private val bookmarkStateViewModelFactory: BookmarkStateViewModelFactory,
     @Assisted("viewModelKey") val viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
 
@@ -30,7 +30,7 @@ class BoardViewModel @AssistedInject constructor(
     private var originalThreads: List<ThreadInfo>? = null
 
     override val _uiState = MutableStateFlow(BoardUiState())
-    private var favoriteViewModel: FavoriteViewModel? = null
+    private var bookmarkStateViewModel: BookmarkStateViewModel? = null
 
     private var isInitialBoardLoad = true // このViewModelインスタンスでの初回読み込みフラグ
 
@@ -38,32 +38,32 @@ class BoardViewModel @AssistedInject constructor(
         if (isInitialized) return
         isInitialized = true
 
-        // Factoryを使ってFavoriteViewModelを生成
-        favoriteViewModel = favoriteViewModelFactory.create(boardInfo, null)
+        // Factoryを使ってBookmarkStateViewModelを生成
+        bookmarkStateViewModel = bookmarkStateViewModelFactory.create(boardInfo, null)
 
         val serviceName = parseServiceName(boardInfo.url)
         _uiState.update { it.copy(boardInfo = boardInfo, serviceName = serviceName) }
 
-        // FavoriteViewModelのUI状態を監視し、自身のUI状態にマージする
+        // BookmarkStateViewModelのUI状態を監視し、自身のUI状態にマージする
         viewModelScope.launch {
-            favoriteViewModel?.uiState?.collect { favState ->
-                _uiState.update { it.copy(favoriteState = favState) }
+            bookmarkStateViewModel?.uiState?.collect { favState ->
+                _uiState.update { it.copy(bookmarkState = favState) }
             }
         }
 
         loadThreadList(force = true)
     }
 
-    // --- お気に入り関連の処理はFavoriteViewModelに委譲 ---
-    fun saveBookmark(groupId: Long) = favoriteViewModel?.saveBookmark(groupId)
-    fun unbookmarkBoard() = favoriteViewModel?.unbookmark()
-    fun openAddGroupDialog() = favoriteViewModel?.openAddGroupDialog()
-    fun closeAddGroupDialog() = favoriteViewModel?.closeAddGroupDialog()
-    fun setEnteredGroupName(name: String) = favoriteViewModel?.setEnteredGroupName(name)
-    fun setSelectedColor(color: String) = favoriteViewModel?.setSelectedColor(color)
-    fun addGroup() = favoriteViewModel?.addGroup()
-    fun openBookmarkSheet() = favoriteViewModel?.openBookmarkSheet()
-    fun closeBookmarkSheet() = favoriteViewModel?.closeBookmarkSheet()
+    // --- お気に入り関連の処理はBookmarkStateViewModelに委譲 ---
+    fun saveBookmark(groupId: Long) = bookmarkStateViewModel?.saveBookmark(groupId)
+    fun unbookmarkBoard() = bookmarkStateViewModel?.unbookmark()
+    fun openAddGroupDialog() = bookmarkStateViewModel?.openAddGroupDialog()
+    fun closeAddGroupDialog() = bookmarkStateViewModel?.closeAddGroupDialog()
+    fun setEnteredGroupName(name: String) = bookmarkStateViewModel?.setEnteredGroupName(name)
+    fun setSelectedColor(color: String) = bookmarkStateViewModel?.setSelectedColor(color)
+    fun addGroup() = bookmarkStateViewModel?.addGroup()
+    fun openBookmarkSheet() = bookmarkStateViewModel?.openBookmarkSheet()
+    fun closeBookmarkSheet() = bookmarkStateViewModel?.closeBookmarkSheet()
 
     fun loadThreadList(force: Boolean = false) { // pull-to-refreshからは force=false で呼ばれる想定
         val boardUrl = uiState.value.boardInfo.url

@@ -98,7 +98,7 @@ fun NavGraphBuilder.addBoardRoute(
                 val viewModel: BoardViewModel =
                     tabsViewModel.getOrCreateBoardViewModel(tab.boardUrl)
                 val uiState by viewModel.uiState.collectAsState()
-                val favoriteState = uiState.favoriteState
+                val bookmarkState = uiState.bookmarkState
 
                 val listState = remember(tab.firstVisibleItemIndex, tab.firstVisibleItemScrollOffset) {
                     LazyListState(
@@ -142,9 +142,9 @@ fun NavGraphBuilder.addBoardRoute(
                 }
 
                 val bookmarkIconColor =
-                    if (favoriteState.isBookmarked && favoriteState.selectedGroup?.colorHex != null) {
+                    if (bookmarkState.isBookmarked && bookmarkState.selectedGroup?.colorHex != null) {
                         try {
-                            Color(favoriteState.selectedGroup.colorHex.toColorInt())
+                            Color(bookmarkState.selectedGroup.colorHex.toColorInt())
                         } catch (e: IllegalArgumentException) {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         }
@@ -171,7 +171,7 @@ fun NavGraphBuilder.addBoardRoute(
                                     viewModel.openBookmarkSheet()
                                 },
                                 onInfoClick = { viewModel.openInfoDialog() },
-                                isBookmarked = favoriteState.isBookmarked,
+                                isBookmarked = bookmarkState.isBookmarked,
                                 bookmarkIconColor = bookmarkIconColor,
                                 scrollBehavior = scrollBehavior
                             )
@@ -213,26 +213,26 @@ fun NavGraphBuilder.addBoardRoute(
                         listState = listState
                     )
 
-                    if (favoriteState.showBookmarkSheet) {
+                    if (bookmarkState.showBookmarkSheet) {
                         BookmarkBottomSheet(
                             sheetState = bookmarkSheetState,
                             onDismissRequest = { viewModel.closeBookmarkSheet() },
-                            groups = favoriteState.groups,
-                            selectedGroupId = favoriteState.selectedGroup?.id,
+                            groups = bookmarkState.groups,
+                            selectedGroupId = bookmarkState.selectedGroup?.id,
                             onAddGroup = { viewModel.openAddGroupDialog() },
                             onGroupSelected = { viewModel.saveBookmark(it) },
                             onUnbookmarkRequested = { viewModel.unbookmarkBoard() }
                         )
                     }
 
-                    if (favoriteState.showAddGroupDialog) {
+                    if (bookmarkState.showAddGroupDialog) {
                         AddGroupDialog(
                             onDismissRequest = { viewModel.closeAddGroupDialog() },
                             onAdd = { viewModel.addGroup() },
                             onValueChange = { viewModel.setEnteredGroupName(it) },
-                            enteredValue = favoriteState.enteredGroupName,
+                            enteredValue = bookmarkState.enteredGroupName,
                             onColorSelected = { viewModel.setSelectedColor(it) },
-                            selectedColor = favoriteState.selectedColor,
+                            selectedColor = bookmarkState.selectedColor,
                         )
                     }
 
