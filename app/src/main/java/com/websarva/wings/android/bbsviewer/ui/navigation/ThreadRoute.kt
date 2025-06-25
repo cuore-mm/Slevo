@@ -227,9 +227,9 @@ fun NavGraphBuilder.addThreadRoute(
                         onDismissRequest = { viewModel.closeAddGroupDialog() },
                         onAdd = { viewModel.addNewGroup() },
                         onValueChange = { name -> viewModel.setEnteredGroupName(name) },
-                        enteredValue = uiState.enteredNewGroupName,
+                        enteredValue = uiState.enteredGroupName,
                         onColorSelected = { color -> viewModel.setSelectedColorCode(color) },
-                        selectedColor = uiState.selectedColorForNewGroup ?: "#FF0000" // デフォルト色
+                        selectedColor = uiState.selectedColor ?: "#FF0000" // デフォルト色
                     )
                 }
 

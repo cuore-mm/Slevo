@@ -4,11 +4,12 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadB
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
+import com.websarva.wings.android.bbsviewer.ui.board.BoardUiState
+import com.websarva.wings.android.bbsviewer.ui.common.BaseUiState
 
 data class ThreadUiState(
     val threadInfo: ThreadInfo = ThreadInfo(),
     val posts: List<ReplyInfo>? = null,
-    val isLoading: Boolean = false,
     val loadProgress: Float = 0f,
     val boardInfo: BoardInfo = BoardInfo(0, "", ""),
     val postDialog: Boolean = false,
@@ -22,13 +23,30 @@ data class ThreadUiState(
     val currentThreadGroup: ThreadBookmarkGroupEntity? = null,
     val availableThreadGroups: List<ThreadBookmarkGroupEntity> = emptyList(),
     val showThreadGroupSelector: Boolean = false,
-    val showAddGroupDialog: Boolean = false,
-    val enteredNewGroupName: String = "",
-    val selectedColorForNewGroup: String? = "#FF0000", // デフォルト色など適当に設定
 
-    // タブ一覧ボトムシートの表示状態
-    val showTabListSheet: Boolean = false,
-)
+    override val isLoading: Boolean = false,
+    override val showAddGroupDialog: Boolean = false,
+    override val selectedColor: String? = "#FF0000",
+    override val enteredGroupName: String = "",
+    override val showTabListSheet: Boolean = false,
+) : BaseUiState<ThreadUiState> { // 自分自身の型を渡す
+    override fun copyState(
+        isLoading: Boolean,
+        showAddGroupDialog: Boolean,
+        enteredGroupName: String,
+        selectedColor: String?,
+        showTabListSheet: Boolean
+    ): ThreadUiState {
+        // data classのcopyメソッドを呼び出して返す
+        return this.copy(
+            isLoading = isLoading,
+            showAddGroupDialog = showAddGroupDialog,
+            enteredGroupName = enteredGroupName,
+            selectedColor = selectedColor,
+            showTabListSheet = showTabListSheet
+        )
+    }
+}
 
 data class ReplyInfo(
     val name: String,

@@ -11,6 +11,8 @@ import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
+import com.websarva.wings.android.bbsviewer.ui.board.BoardUiState
+import com.websarva.wings.android.bbsviewer.ui.common.BaseListViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -27,10 +29,9 @@ class ThreadViewModel @AssistedInject constructor(
     private val threadBookmarkRepository: ThreadBookmarkRepository,
     private val postRepository: PostRepository,
     @Assisted val viewModelKey: String,
-) : ViewModel() {
+) : BaseListViewModel<ThreadUiState>() {
 
-    private val _uiState = MutableStateFlow(ThreadUiState())
-    val uiState: StateFlow<ThreadUiState> = _uiState.asStateFlow()
+    override val _uiState = MutableStateFlow(ThreadUiState())
 
     fun loadThread(datUrl: String) {
         _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
@@ -187,33 +188,14 @@ class ThreadViewModel @AssistedInject constructor(
         _uiState.update { it.copy(showThreadGroupSelector = false) }
     }
 
-    // グループ追加ダイアログ関連
-    fun openAddGroupDialog() {
-        _uiState.update { it.copy(showAddGroupDialog = true) }
-    }
-
-    fun closeAddGroupDialog() {
-        _uiState.update {
-            it.copy(
-                showAddGroupDialog = false,
-                enteredNewGroupName = "",
-                selectedColorForNewGroup = "#FF0000"
-            )
-        } // 初期化
-    }
-
-    fun setEnteredGroupName(name: String) {
-        _uiState.update { it.copy(enteredNewGroupName = name) }
-    }
-
     fun setSelectedColorCode(color: String) {
-        _uiState.update { it.copy(selectedColorForNewGroup = color) }
+        _uiState.update { it.copy(selectedColor = color) }
     }
 
     fun addNewGroup() {
         viewModelScope.launch {
-            val name = _uiState.value.enteredNewGroupName.trim()
-            val color = _uiState.value.selectedColorForNewGroup
+            val name = _uiState.value.enteredGroupName.trim()
+            val color = _uiState.value.selectedColor
             if (name.isNotBlank() && color != null) {
                 threadBookmarkRepository.addGroupAtEnd(name, color)
                 closeAddGroupDialog() // ダイアログを閉じて入力値をクリア
@@ -227,16 +209,6 @@ class ThreadViewModel @AssistedInject constructor(
         if (datUrl.isNotBlank()) {
             loadThread(datUrl)
         }
-    }
-
-    // タブ一覧ボトムシートを開く
-    fun openTabListSheet() {
-        _uiState.update { it.copy(showTabListSheet = true) }
-    }
-
-    // タブ一覧ボトムシートを閉じる
-    fun closeTabListSheet() {
-        _uiState.update { it.copy(showTabListSheet = false) }
     }
 
     // 書き込み画面を表示
@@ -313,15 +285,6 @@ class ThreadViewModel @AssistedInject constructor(
             }
             _uiState.update { it.copy(isLoading = false) }
         }
-    }
-
-    /**
-     * このViewModelが不要になったときに、所有者であるTabsViewModelから呼び出される公開メソッド。
-     * 内部で自身のライフサイクル終了処理を呼び出す。
-     */
-    fun release() {
-        // このクラスの内部からなので、protectedなonCleared()を呼び出せる
-        super.onCleared()
     }
 
 }

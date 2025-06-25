@@ -229,9 +229,9 @@ fun NavGraphBuilder.addBoardRoute(
                         AddGroupDialog(
                             onDismissRequest = { viewModel.closeAddGroupDialog() },
                             onAdd = { viewModel.addGroup() },
-                            onValueChange = { viewModel.setGroupName(it) },
+                            onValueChange = { viewModel.setEnteredGroupName(it) },
                             enteredValue = uiState.enteredGroupName,
-                            onColorSelected = { viewModel.setColorCode(it) },
+                            onColorSelected = { viewModel.setSelectedColor(it) },
                             selectedColor = uiState.selectedColor ?: "",
                         )
                     }
