@@ -1,15 +1,14 @@
 package com.websarva.wings.android.bbsviewer.ui.board
 
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.ui.common.BaseUiState
-import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkState
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkState
 
 data class BoardUiState(
     val threads: List<ThreadInfo>? = null,
     val boardInfo: BoardInfo = BoardInfo(0, "", ""),
-    val bookmarkState: BookmarkState = BookmarkState(),
+    val singleBookmarkState: SingleBookmarkState = SingleBookmarkState(),
     val showSortSheet: Boolean = false,
     val serviceName: String = "",
     val showInfoDialog: Boolean = false,

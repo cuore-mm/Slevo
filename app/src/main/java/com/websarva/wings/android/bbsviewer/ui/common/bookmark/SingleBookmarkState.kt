@@ -1,8 +1,8 @@
-package com.websarva.wings.android.bbsviewer.ui.bookmark
+package com.websarva.wings.android.bbsviewer.ui.common.bookmark
 
 import com.websarva.wings.android.bbsviewer.data.model.Groupable
 
-data class BookmarkState(
+data class SingleBookmarkState(
     val isBookmarked: Boolean = false,
     val groups: List<Groupable> = emptyList(),
     val selectedGroup: Groupable? = null,

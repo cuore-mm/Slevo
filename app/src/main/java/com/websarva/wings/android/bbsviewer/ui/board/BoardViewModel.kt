@@ -8,8 +8,8 @@ import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
-import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkStateViewModel
-import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkStateViewModelFactory
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkStateViewModel
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkStateViewModelFactory
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -47,7 +47,7 @@ class BoardViewModel @AssistedInject constructor(
         // BookmarkStateViewModelのUI状態を監視し、自身のUI状態にマージする
         viewModelScope.launch {
             bookmarkStateViewModel?.uiState?.collect { favState ->
-                _uiState.update { it.copy(bookmarkState = favState) }
+                _uiState.update { it.copy(singleBookmarkState = favState) }
             }
         }
 

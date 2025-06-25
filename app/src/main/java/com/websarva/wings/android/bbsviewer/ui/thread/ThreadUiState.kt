@@ -1,12 +1,10 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
-import com.websarva.wings.android.bbsviewer.ui.board.BoardUiState
 import com.websarva.wings.android.bbsviewer.ui.common.BaseUiState
-import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkState
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkState
 
 data class ThreadUiState(
     val threadInfo: ThreadInfo = ThreadInfo(),
@@ -18,7 +16,7 @@ data class ThreadUiState(
     val isPosting: Boolean = false,
     val postConfirmation: ConfirmationData? = null,
     val isConfirmationScreen: Boolean = false,
-    val bookmarkState: BookmarkState = BookmarkState(),
+    val singleBookmarkState: SingleBookmarkState = SingleBookmarkState(),
     override val isLoading: Boolean = false,
     override val showTabListSheet: Boolean = false,
 ) : BaseUiState<ThreadUiState> {

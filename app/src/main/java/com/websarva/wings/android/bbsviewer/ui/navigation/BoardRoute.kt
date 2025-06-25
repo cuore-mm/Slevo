@@ -41,7 +41,7 @@ import com.websarva.wings.android.bbsviewer.ui.board.BoardTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.board.SortBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.common.AddGroupDialog
-import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
@@ -98,7 +98,7 @@ fun NavGraphBuilder.addBoardRoute(
                 val viewModel: BoardViewModel =
                     tabsViewModel.getOrCreateBoardViewModel(tab.boardUrl)
                 val uiState by viewModel.uiState.collectAsState()
-                val bookmarkState = uiState.bookmarkState
+                val bookmarkState = uiState.singleBookmarkState
 
                 val listState = remember(tab.firstVisibleItemIndex, tab.firstVisibleItemScrollOffset) {
                     LazyListState(

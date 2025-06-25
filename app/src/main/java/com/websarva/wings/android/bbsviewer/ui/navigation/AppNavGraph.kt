@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
+import com.websarva.wings.android.bbsviewer.ui.bookmarklist.BookmarkListScaffold
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsScaffold
@@ -37,12 +37,14 @@ fun AppNavGraph(
         popEnterTransition = { EnterTransition.None },
         popExitTransition = { ExitTransition.None }
     ) {
-        //お気に入り
-        addBookmarkRoute(
-            scrollBehavior = scrollBehavior,
-            navController = navController,
-            openDrawer = openDrawer
-        )
+        //お気に入り一覧
+        composable<AppRoute.BookmarkList> {
+            BookmarkListScaffold(
+                scrollBehavior = scrollBehavior,
+                navController = navController,
+                openDrawer = openDrawer
+            )
+        }
         //掲示板一覧
         addRegisteredBBSNavigation(
             navController = navController,
@@ -78,7 +80,7 @@ fun AppNavGraph(
 @Serializable
 sealed class AppRoute {
     @Serializable
-    data object Bookmark : AppRoute()
+    data object BookmarkList : AppRoute()
 
     @Serializable
     data object BbsServiceGroup : AppRoute()
@@ -117,7 +119,7 @@ sealed class AppRoute {
     data object Tabs : AppRoute()
 
     data object RouteName {
-        const val BOOKMARK = "Bookmark"
+        const val BOOKMARK_LIST = "BookmarkList"
         const val BBS_SERVICE_GROUP = "BbsServiceGroup"
         const val SERVICE_LIST = "ServiceList"
         const val BOARD_CATEGORY_LIST = "BoardCategoryList"

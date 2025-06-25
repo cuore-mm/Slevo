@@ -27,7 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.graphics.toColorInt
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
-import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkState
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,16 +63,16 @@ fun ThreadTopBar(
         scrollBehavior = scrollBehavior,
         actions = {
             IconButton(onClick = onBookmarkClick) {
-                val iconImage = if (uiState.bookmarkState.isBookmarked) {
+                val iconImage = if (uiState.singleBookmarkState.isBookmarked) {
                     Icons.Filled.Star
                 } else {
                     Icons.Outlined.StarOutline
                 }
                 val iconTint = if (
-                    uiState.bookmarkState.isBookmarked && uiState.bookmarkState.selectedGroup?.colorHex != null
+                    uiState.singleBookmarkState.isBookmarked && uiState.singleBookmarkState.selectedGroup?.colorHex != null
                 ) {
                     try {
-                        Color(uiState.bookmarkState.selectedGroup!!.colorHex.toColorInt())
+                        Color(uiState.singleBookmarkState.selectedGroup!!.colorHex.toColorInt())
                     } catch (e: Exception) {
                         LocalContentColor.current
                     }
@@ -125,7 +125,7 @@ fun ThreadTopBarPreview() {
             threadInfo = ThreadInfo(
                 title = "スレッドのタイトル",
             ),
-            bookmarkState = BookmarkState(
+            singleBookmarkState = SingleBookmarkState(
                 isBookmarked = false,
                 selectedGroup = null
             )

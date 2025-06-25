@@ -39,10 +39,10 @@ fun NavigationBottomBar(
             parentRoute = AppRoute.Tabs
         ),
         TopLevelRoute(
-            route = AppRoute.Bookmark,
+            route = AppRoute.BookmarkList,
             name = stringResource(R.string.bookmark),
             icon = Icons.Default.Star,
-            parentRoute = AppRoute.Bookmark
+            parentRoute = AppRoute.BookmarkList
         ),
         TopLevelRoute(
             route = AppRoute.ServiceList,

@@ -32,7 +32,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.ui.common.AddGroupDialog
-import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
@@ -113,7 +113,7 @@ fun NavGraphBuilder.addThreadRoute(
                 // 各タブ専用の ViewModel を取得。未登録なら Factory から生成
                 val viewModel: ThreadViewModel = tabsViewModel.getOrCreateThreadViewModel(viewModelKey)
                 val uiState by viewModel.uiState.collectAsState()
-                val bookmarkState = uiState.bookmarkState
+                val bookmarkState = uiState.singleBookmarkState
 
                 // rememberのキーにスクロール位置を渡す。
                 // これにより、ViewModelに保存されているスクロール位置(`tab`のプロパティ)が

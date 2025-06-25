@@ -8,8 +8,8 @@ import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
-import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkStateViewModel
-import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkStateViewModelFactory
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkStateViewModel
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkStateViewModelFactory
 import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -95,7 +95,7 @@ class ThreadViewModel @AssistedInject constructor(
         // 状態をマージ
         viewModelScope.launch {
             bookmarkStateViewModel?.uiState?.collect { favState ->
-                _uiState.update { it.copy(bookmarkState = favState) }
+                _uiState.update { it.copy(singleBookmarkState = favState) }
             }
         }
 

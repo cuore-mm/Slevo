@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.bookmark
+package com.websarva.wings.android.bbsviewer.ui.common.bookmark
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,7 +14,6 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -26,8 +25,8 @@ class BookmarkStateViewModel @AssistedInject constructor(
     @Assisted private val threadInfo: ThreadInfo? // スレッド画面の場合のみ渡される
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(BookmarkState())
-    val uiState: StateFlow<BookmarkState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(SingleBookmarkState())
+    val uiState: StateFlow<SingleBookmarkState> = _uiState.asStateFlow()
 
     init {
         // boardInfoは必須、threadInfoの有無で板画面かスレ画面かを判断
@@ -65,17 +64,6 @@ class BookmarkStateViewModel @AssistedInject constructor(
             }
         }
     }
-
-//    fun handleBookmarkClick() {
-//        if (_uiState.value.isBookmarked) {
-//            unbookmark()
-//        } else {
-//            openBookmarkSheet()
-//        }
-//    }
-
-    // ... (addGroup, saveBookmark, unbookmark, open/closeシートなどのロジックはここに集約) ...
-    // 以下、主要なメソッドを記載
 
     fun unbookmark() {
         viewModelScope.launch {
@@ -122,7 +110,6 @@ class BookmarkStateViewModel @AssistedInject constructor(
         }
     }
 
-    // ... 他のヘルパーメソッド（closeBookmarkSheet, openAddGroupDialogなど）も同様にここに実装 ...
     fun closeBookmarkSheet() = _uiState.update { it.copy(showBookmarkSheet = false) }
     fun openAddGroupDialog() = _uiState.update { it.copy(showAddGroupDialog = true) }
     fun closeAddGroupDialog() = _uiState.update { it.copy(showAddGroupDialog = false, enteredGroupName = "", selectedColor = "#FF0000") }

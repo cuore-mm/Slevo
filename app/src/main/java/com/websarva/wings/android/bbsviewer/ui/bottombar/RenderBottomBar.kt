@@ -8,7 +8,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListViewModel
-import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkViewModel
+import com.websarva.wings.android.bbsviewer.ui.bookmarklist.BookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
@@ -21,7 +21,7 @@ fun RenderBottomBar(
     val currentDestination = navBackStackEntry?.destination
     when {
         currentDestination.isInRoute(
-            AppRoute.RouteName.BOOKMARK
+            AppRoute.RouteName.BOOKMARK_LIST
         ) -> {
             val viewModel: BookmarkViewModel = hiltViewModel(navBackStackEntry!!)
             val uiState by viewModel.uiState.collectAsState()
