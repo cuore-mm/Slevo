@@ -1,25 +1,19 @@
 package com.websarva.wings.android.bbsviewer.ui.board
 
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.core.net.toUri
 import androidx.lifecycle.viewModelScope
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
-import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
-import androidx.core.net.toUri
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
 import com.websarva.wings.android.bbsviewer.ui.favorite.FavoriteViewModel
 import com.websarva.wings.android.bbsviewer.ui.favorite.FavoriteViewModelFactory
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -61,7 +55,6 @@ class BoardViewModel @AssistedInject constructor(
     }
 
     // --- お気に入り関連の処理はFavoriteViewModelに委譲 ---
-//    fun handleFavoriteClick() = favoriteViewModel?.handleFavoriteClick()
     fun saveBookmark(groupId: Long) = favoriteViewModel?.saveBookmark(groupId)
     fun unbookmarkBoard() = favoriteViewModel?.unbookmark()
     fun openAddGroupDialog() = favoriteViewModel?.openAddGroupDialog()

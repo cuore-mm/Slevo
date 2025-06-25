@@ -1,15 +1,12 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
 import android.util.Log
-import androidx.core.net.toUri
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
-import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
 import com.websarva.wings.android.bbsviewer.ui.favorite.FavoriteViewModel
 import com.websarva.wings.android.bbsviewer.ui.favorite.FavoriteViewModelFactory
@@ -85,7 +82,11 @@ class ThreadViewModel @AssistedInject constructor(
         boardInfo: BoardInfo,
         threadTitle: String
     ) {
-        val threadInfo = com.websarva.wings.android.bbsviewer.data.model.ThreadInfo(key = threadKey, title = threadTitle, url = boardInfo.url /*...*/)
+        val threadInfo = com.websarva.wings.android.bbsviewer.data.model.ThreadInfo(
+            key = threadKey,
+            title = threadTitle,
+            url = boardInfo.url /*...*/
+        )
         _uiState.update { it.copy(boardInfo = boardInfo, threadInfo = threadInfo) }
 
         // Factoryを使ってFavoriteViewModelを生成
@@ -103,7 +104,6 @@ class ThreadViewModel @AssistedInject constructor(
 
 
     // --- お気に入り関連の処理はFavoriteViewModelに委譲 ---
-//    fun handleFavoriteClick() = favoriteViewModel?.handleFavoriteClick()
     fun saveBookmark(groupId: Long) = favoriteViewModel?.saveBookmark(groupId)
     fun unbookmarkBoard() = favoriteViewModel?.unbookmark()
     fun openAddGroupDialog() = favoriteViewModel?.openAddGroupDialog()
