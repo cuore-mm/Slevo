@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.bookmark
+package com.websarva.wings.android.bbsviewer.ui.bookmarklist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

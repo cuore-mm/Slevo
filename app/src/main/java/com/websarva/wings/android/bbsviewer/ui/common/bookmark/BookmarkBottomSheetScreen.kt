@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.common
+package com.websarva.wings.android.bbsviewer.ui.common.bookmark
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

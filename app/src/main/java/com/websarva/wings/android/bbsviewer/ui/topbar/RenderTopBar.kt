@@ -37,7 +37,7 @@ fun RenderTopBar(
 
     when {
         currentDestination.isInRoute(
-            AppRoute.RouteName.BOOKMARK,
+            AppRoute.RouteName.BOOKMARK_LIST,
         ) -> ServiceListTopBarScreen(
             onNavigationClick = { },
             onAddClick = { },
@@ -111,7 +111,7 @@ fun RenderTopBar(
             threadViewModel?.let { viewModel ->
                 val uiState by viewModel.uiState.collectAsState()
                 ThreadTopBar(
-                    onFavoriteClick = { viewModel.handleFavoriteClick() },
+                    onBookmarkClick = { viewModel.openBookmarkSheet() },
                     uiState = uiState,
                     onNavigationClick = {}
                 )

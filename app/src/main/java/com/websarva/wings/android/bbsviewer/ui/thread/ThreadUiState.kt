@@ -1,14 +1,14 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
+import com.websarva.wings.android.bbsviewer.ui.common.BaseUiState
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkState
 
 data class ThreadUiState(
     val threadInfo: ThreadInfo = ThreadInfo(),
     val posts: List<ReplyInfo>? = null,
-    val isLoading: Boolean = false,
     val loadProgress: Float = 0f,
     val boardInfo: BoardInfo = BoardInfo(0, "", ""),
     val postDialog: Boolean = false,
@@ -16,19 +16,20 @@ data class ThreadUiState(
     val isPosting: Boolean = false,
     val postConfirmation: ConfirmationData? = null,
     val isConfirmationScreen: Boolean = false,
-
-    // スレッドお気に入り関連のUI状態
-    val isBookmarked: Boolean = false,
-    val currentThreadGroup: ThreadBookmarkGroupEntity? = null,
-    val availableThreadGroups: List<ThreadBookmarkGroupEntity> = emptyList(),
-    val showThreadGroupSelector: Boolean = false,
-    val showAddGroupDialog: Boolean = false,
-    val enteredNewGroupName: String = "",
-    val selectedColorForNewGroup: String? = "#FF0000", // デフォルト色など適当に設定
-
-    // タブ一覧ボトムシートの表示状態
-    val showTabListSheet: Boolean = false,
-)
+    val singleBookmarkState: SingleBookmarkState = SingleBookmarkState(),
+    override val isLoading: Boolean = false,
+    override val showTabListSheet: Boolean = false,
+) : BaseUiState<ThreadUiState> {
+    override fun copyState(
+        isLoading: Boolean,
+        showTabListSheet: Boolean
+    ): ThreadUiState {
+        return this.copy(
+            isLoading = isLoading,
+            showTabListSheet = showTabListSheet
+        )
+    }
+}
 
 data class ReplyInfo(
     val name: String,

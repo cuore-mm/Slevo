@@ -31,8 +31,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
-import com.websarva.wings.android.bbsviewer.ui.common.AddGroupDialog
-import com.websarva.wings.android.bbsviewer.ui.common.BookmarkBottomSheet
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.AddGroupDialog
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
@@ -113,6 +113,7 @@ fun NavGraphBuilder.addThreadRoute(
                 // 各タブ専用の ViewModel を取得。未登録なら Factory から生成
                 val viewModel: ThreadViewModel = tabsViewModel.getOrCreateThreadViewModel(viewModelKey)
                 val uiState by viewModel.uiState.collectAsState()
+                val bookmarkState = uiState.singleBookmarkState
 
                 // rememberのキーにスクロール位置を渡す。
                 // これにより、ViewModelに保存されているスクロール位置(`tab`のプロパティ)が
@@ -172,7 +173,7 @@ fun NavGraphBuilder.addThreadRoute(
                     topBar = {
                         Column {
                             ThreadTopBar(
-                                onFavoriteClick = { viewModel.handleFavoriteClick() },
+                                onBookmarkClick = { viewModel.openBookmarkSheet() },
                                 uiState = uiState,
                                 onNavigationClick = openDrawer,
                                 scrollBehavior = scrollBehavior
@@ -209,27 +210,27 @@ fun NavGraphBuilder.addThreadRoute(
                 }
 
                 // ★ スレッドお気に入りグループ選択ボトムシート
-                if (uiState.showThreadGroupSelector) {
+                if (bookmarkState.showBookmarkSheet) {
                     BookmarkBottomSheet(
                         sheetState = bookmarkSheetState,
-                        onDismissRequest = { viewModel.dismissThreadGroupSelector() },
-                        groups = uiState.availableThreadGroups,
-                        selectedGroupId = uiState.currentThreadGroup?.groupId,
-                        onGroupSelected = { groupId -> viewModel.selectGroupAndBookmark(groupId) },
-                        onUnbookmarkRequested = { viewModel.unbookmarkCurrentThread() },
+                        onDismissRequest = { viewModel.closeBookmarkSheet() },
+                        groups = bookmarkState.groups,
+                        selectedGroupId = bookmarkState.selectedGroup?.id,
+                        onGroupSelected = { viewModel.saveBookmark(it) },
+                        onUnbookmarkRequested = { viewModel.unbookmarkBoard() },
                         onAddGroup = { viewModel.openAddGroupDialog() }
                     )
                 }
 
                 // ★ スレッドお気に入りグループ追加ダイアログ
-                if (uiState.showAddGroupDialog) {
+                if (bookmarkState.showAddGroupDialog) {
                     AddGroupDialog(
                         onDismissRequest = { viewModel.closeAddGroupDialog() },
-                        onAdd = { viewModel.addNewGroup() },
+                        onAdd = { viewModel.addGroup() },
                         onValueChange = { name -> viewModel.setEnteredGroupName(name) },
-                        enteredValue = uiState.enteredNewGroupName,
-                        onColorSelected = { color -> viewModel.setSelectedColorCode(color) },
-                        selectedColor = uiState.selectedColorForNewGroup ?: "#FF0000" // デフォルト色
+                        enteredValue = bookmarkState.enteredGroupName,
+                        onColorSelected = { viewModel.setSelectedColor(it) },
+                        selectedColor = bookmarkState.selectedColor
                     )
                 }
 
