@@ -31,7 +31,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
-import com.websarva.wings.android.bbsviewer.ui.common.AddGroupDialog
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.AddGroupDialog
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsBottomSheet

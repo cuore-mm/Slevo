@@ -8,8 +8,8 @@ import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
-import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkStateViewModel
-import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkStateViewModelFactory
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModel
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModelFactory
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -20,74 +20,67 @@ import kotlinx.coroutines.launch
 @RequiresApi(Build.VERSION_CODES.O)
 class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
-    private val bookmarkStateViewModelFactory: BookmarkStateViewModelFactory,
+    private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     @Assisted("viewModelKey") val viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
-
-    private var isInitialized = false
 
     // 元のスレッドリストを保持
     private var originalThreads: List<ThreadInfo>? = null
 
     override val _uiState = MutableStateFlow(BoardUiState())
-    private var bookmarkStateViewModel: BookmarkStateViewModel? = null
-
-    private var isInitialBoardLoad = true // このViewModelインスタンスでの初回読み込みフラグ
+    private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
 
     fun initializeBoard(boardInfo: BoardInfo) {
-        if (isInitialized) return
-        isInitialized = true
-
         // Factoryを使ってBookmarkStateViewModelを生成
-        bookmarkStateViewModel = bookmarkStateViewModelFactory.create(boardInfo, null)
+        singleBookmarkViewModel = singleBookmarkViewModelFactory.create(boardInfo, null)
 
         val serviceName = parseServiceName(boardInfo.url)
         _uiState.update { it.copy(boardInfo = boardInfo, serviceName = serviceName) }
 
         // BookmarkStateViewModelのUI状態を監視し、自身のUI状態にマージする
         viewModelScope.launch {
-            bookmarkStateViewModel?.uiState?.collect { favState ->
-                _uiState.update { it.copy(singleBookmarkState = favState) }
+            singleBookmarkViewModel?.uiState?.collect { bkState ->
+                _uiState.update { it.copy(singleBookmarkState = bkState) }
             }
         }
 
-        loadThreadList(force = true)
+        initialize() // BaseViewModelの初期化処理を呼び出す
     }
 
-    // --- お気に入り関連の処理はBookmarkStateViewModelに委譲 ---
-    fun saveBookmark(groupId: Long) = bookmarkStateViewModel?.saveBookmark(groupId)
-    fun unbookmarkBoard() = bookmarkStateViewModel?.unbookmark()
-    fun openAddGroupDialog() = bookmarkStateViewModel?.openAddGroupDialog()
-    fun closeAddGroupDialog() = bookmarkStateViewModel?.closeAddGroupDialog()
-    fun setEnteredGroupName(name: String) = bookmarkStateViewModel?.setEnteredGroupName(name)
-    fun setSelectedColor(color: String) = bookmarkStateViewModel?.setSelectedColor(color)
-    fun addGroup() = bookmarkStateViewModel?.addGroup()
-    fun openBookmarkSheet() = bookmarkStateViewModel?.openBookmarkSheet()
-    fun closeBookmarkSheet() = bookmarkStateViewModel?.closeBookmarkSheet()
-
-    fun loadThreadList(force: Boolean = false) { // pull-to-refreshからは force=false で呼ばれる想定
+    override suspend fun loadData(isRefresh: Boolean) {
         val boardUrl = uiState.value.boardInfo.url
         if (boardUrl.isBlank()) return
 
-        val shouldForceRefresh = force || isInitialBoardLoad
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            try {
-                val threads = repository.getThreadList("$boardUrl/subject.txt", shouldForceRefresh)
-                if (threads != null) {
-                    originalThreads = threads
-                    applyFiltersAndSort()
-                }
-                if (isInitialBoardLoad) {
-                    isInitialBoardLoad = false // 初回ロード完了
-                }
-            } catch (e: Exception) {
-                // Handle error
-            } finally {
-                _uiState.update { it.copy(isLoading = false) }
+        _uiState.update { it.copy(isLoading = true) }
+        try {
+            val threads =
+                repository.getThreadList("$boardUrl/subject.txt", forceRefresh = isRefresh)
+            if (threads != null) {
+                originalThreads = threads
+                applyFiltersAndSort()
             }
+        } catch (e: Exception) {
+            // Handle error
+        } finally {
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun refreshBoardData() { // Pull-to-refresh 用のメソッド
+        initialize(force = true) // 強制的に初期化処理を再実行
+    }
+
+    // --- お気に入り関連の処理はBookmarkStateViewModelに委譲 ---
+    fun saveBookmark(groupId: Long) = singleBookmarkViewModel?.saveBookmark(groupId)
+    fun unbookmarkBoard() = singleBookmarkViewModel?.unbookmark()
+    fun openAddGroupDialog() = singleBookmarkViewModel?.openAddGroupDialog()
+    fun closeAddGroupDialog() = singleBookmarkViewModel?.closeAddGroupDialog()
+    fun setEnteredGroupName(name: String) = singleBookmarkViewModel?.setEnteredGroupName(name)
+    fun setSelectedColor(color: String) = singleBookmarkViewModel?.setSelectedColor(color)
+    fun addGroup() = singleBookmarkViewModel?.addGroup()
+    fun openBookmarkSheet() = singleBookmarkViewModel?.openBookmarkSheet()
+    fun closeBookmarkSheet() = singleBookmarkViewModel?.closeBookmarkSheet()
 
     fun setSortKey(sortKey: ThreadSortKey) {
         _uiState.update { it.copy(currentSortKey = sortKey) }
@@ -175,11 +168,6 @@ class BoardViewModel @AssistedInject constructor(
 
     fun closeInfoDialog() {
         _uiState.update { it.copy(showInfoDialog = false) }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun refreshBoardData() { // Pull-to-refresh 用のメソッド
-        loadThreadList(force = false) // 通常の差分取得
     }
 
     private fun parseServiceName(url: String): String {

@@ -8,13 +8,12 @@ import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
-import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkStateViewModel
-import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkStateViewModelFactory
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModel
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModelFactory
 import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -22,59 +21,12 @@ import kotlinx.coroutines.launch
 class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
     private val postRepository: PostRepository,
-    private val bookmarkStateViewModelFactory: BookmarkStateViewModelFactory,
+    private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     @Assisted val viewModelKey: String,
 ) : BaseViewModel<ThreadUiState>() {
 
     override val _uiState = MutableStateFlow(ThreadUiState())
-    private var bookmarkStateViewModel: BookmarkStateViewModel? = null
-
-    fun loadThread(datUrl: String) {
-        _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val threadData = datRepository.getThread(datUrl) { progress ->
-                    _uiState.update { it.copy(loadProgress = progress) }
-                }
-                if (threadData != null) {
-                    val (posts, title) = threadData
-                    _uiState.update {
-                        it.copy(
-                            posts = posts,
-                            isLoading = false,
-                            loadProgress = 1f,
-                            // タイトルが取得できたら更新
-                            threadInfo = it.threadInfo.copy(title = title ?: it.threadInfo.title)
-                        )
-                    }
-                } else {
-                    // スレッドデータの取得またはパースに失敗した場合の処理
-                    // 例: エラーステートを更新する、ログを出すなど
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            loadProgress = 1f,
-                            // posts は null のままか、空のリストにするなど、仕様に応じて設定
-                            // posts = null or emptyList()
-                            // errorMessage = "スレッドの読み込みに失敗しました" (UIに表示する場合)
-                        )
-                    }
-                    // 必要であればエラーログを出力
-                    Log.e("ThreadViewModel", "Failed to load thread data for URL: $datUrl")
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        loadProgress = 1f,
-                        // posts = null or emptyList()
-                        // errorMessage = "予期せぬエラーが発生しました"
-                    )
-                }
-            }
-        }
-    }
+    private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
 
     //画面遷移した最初に行う初期処理
     fun initializeThread(
@@ -85,42 +37,66 @@ class ThreadViewModel @AssistedInject constructor(
         val threadInfo = com.websarva.wings.android.bbsviewer.data.model.ThreadInfo(
             key = threadKey,
             title = threadTitle,
-            url = boardInfo.url /*...*/
+            url = boardInfo.url
         )
         _uiState.update { it.copy(boardInfo = boardInfo, threadInfo = threadInfo) }
 
         // Factoryを使ってBookmarkStateViewModelを生成
-        bookmarkStateViewModel = bookmarkStateViewModelFactory.create(boardInfo, threadInfo)
+        singleBookmarkViewModel = singleBookmarkViewModelFactory.create(boardInfo, threadInfo)
 
         // 状態をマージ
         viewModelScope.launch {
-            bookmarkStateViewModel?.uiState?.collect { favState ->
+            singleBookmarkViewModel?.uiState?.collect { favState ->
                 _uiState.update { it.copy(singleBookmarkState = favState) }
             }
         }
 
-        loadThread(keyToDatUrl(boardInfo.url, threadKey))
+        initialize() // BaseViewModelの初期化処理を呼び出す
+    }
+
+    override suspend fun loadData(isRefresh: Boolean) {
+        _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
+        val datUrl = keyToDatUrl(uiState.value.boardInfo.url, uiState.value.threadInfo.key)
+
+        try {
+            val threadData = datRepository.getThread(datUrl) { progress ->
+                _uiState.update { it.copy(loadProgress = progress) }
+            }
+            if (threadData != null) {
+                val (posts, title) = threadData
+                _uiState.update {
+                    it.copy(
+                        posts = posts,
+                        isLoading = false,
+                        loadProgress = 1f,
+                        threadInfo = it.threadInfo.copy(title = title ?: it.threadInfo.title)
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
+                Log.e("ThreadViewModel", "Failed to load thread data for URL: $datUrl")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
+        }
+    }
+
+    fun reloadThread() {
+        initialize(force = true) // 強制的に初期化処理を再実行
     }
 
 
     // --- お気に入り関連の処理はBookmarkStateViewModelに委譲 ---
-    fun saveBookmark(groupId: Long) = bookmarkStateViewModel?.saveBookmark(groupId)
-    fun unbookmarkBoard() = bookmarkStateViewModel?.unbookmark()
-    fun openAddGroupDialog() = bookmarkStateViewModel?.openAddGroupDialog()
-    fun closeAddGroupDialog() = bookmarkStateViewModel?.closeAddGroupDialog()
-    fun setEnteredGroupName(name: String) = bookmarkStateViewModel?.setEnteredGroupName(name)
-    fun setSelectedColor(color: String) = bookmarkStateViewModel?.setSelectedColor(color)
-    fun addGroup() = bookmarkStateViewModel?.addGroup()
-    fun openBookmarkSheet() = bookmarkStateViewModel?.openBookmarkSheet()
-    fun closeBookmarkSheet() = bookmarkStateViewModel?.closeBookmarkSheet()
-
-
-    fun reloadThread() {
-        val datUrl = _uiState.value.threadInfo.datUrl
-        if (datUrl.isNotBlank()) {
-            loadThread(datUrl)
-        }
-    }
+    fun saveBookmark(groupId: Long) = singleBookmarkViewModel?.saveBookmark(groupId)
+    fun unbookmarkBoard() = singleBookmarkViewModel?.unbookmark()
+    fun openAddGroupDialog() = singleBookmarkViewModel?.openAddGroupDialog()
+    fun closeAddGroupDialog() = singleBookmarkViewModel?.closeAddGroupDialog()
+    fun setEnteredGroupName(name: String) = singleBookmarkViewModel?.setEnteredGroupName(name)
+    fun setSelectedColor(color: String) = singleBookmarkViewModel?.setSelectedColor(color)
+    fun addGroup() = singleBookmarkViewModel?.addGroup()
+    fun openBookmarkSheet() = singleBookmarkViewModel?.openBookmarkSheet()
+    fun closeBookmarkSheet() = singleBookmarkViewModel?.closeBookmarkSheet()
 
     // 書き込み画面を表示
     fun showPostDialog() {

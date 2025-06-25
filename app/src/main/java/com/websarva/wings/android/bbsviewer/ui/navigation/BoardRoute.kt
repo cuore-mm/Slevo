@@ -40,7 +40,7 @@ import com.websarva.wings.android.bbsviewer.ui.board.BoardScreen
 import com.websarva.wings.android.bbsviewer.ui.board.BoardTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.board.SortBottomSheet
-import com.websarva.wings.android.bbsviewer.ui.common.AddGroupDialog
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.AddGroupDialog
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsBottomSheet
@@ -100,12 +100,13 @@ fun NavGraphBuilder.addBoardRoute(
                 val uiState by viewModel.uiState.collectAsState()
                 val bookmarkState = uiState.singleBookmarkState
 
-                val listState = remember(tab.firstVisibleItemIndex, tab.firstVisibleItemScrollOffset) {
-                    LazyListState(
-                        firstVisibleItemIndex = tab.firstVisibleItemIndex,
-                        firstVisibleItemScrollOffset = tab.firstVisibleItemScrollOffset
-                    )
-                }
+                val listState =
+                    remember(tab.firstVisibleItemIndex, tab.firstVisibleItemScrollOffset) {
+                        LazyListState(
+                            firstVisibleItemIndex = tab.firstVisibleItemIndex,
+                            firstVisibleItemScrollOffset = tab.firstVisibleItemScrollOffset
+                        )
+                    }
                 val isActive = pagerState.currentPage == page
 
                 LaunchedEffect(isActive, tab) {
@@ -183,7 +184,7 @@ fun NavGraphBuilder.addBoardRoute(
                                 .navigationBarsPadding()
                                 .height(56.dp),
                             onSortClick = { viewModel.openSortBottomSheet() },
-                            onRefreshClick = { viewModel.loadThreadList() },
+                            onRefreshClick = { viewModel.refreshBoardData() },
                             onSearchClick = { viewModel.setSearchMode(true) },
                             onTabListClick = { viewModel.openTabListSheet() }
                         )

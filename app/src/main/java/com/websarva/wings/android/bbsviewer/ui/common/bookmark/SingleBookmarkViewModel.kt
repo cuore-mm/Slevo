@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class BookmarkStateViewModel @AssistedInject constructor(
+class SingleBookmarkViewModel @AssistedInject constructor(
     private val boardBookmarkRepo: BookmarkBoardRepository,
     private val threadBookmarkRepo: ThreadBookmarkRepository,
     @Assisted private val boardInfo: BoardInfo,
@@ -39,28 +39,30 @@ class BookmarkStateViewModel @AssistedInject constructor(
 
     private fun observeBoardBookmark() {
         viewModelScope.launch {
-            boardBookmarkRepo.getBoardWithBookmarkAndGroupByUrlFlow(boardInfo.url).collect { boardWithBookmark ->
-                _uiState.update {
-                    it.copy(
-                        isBookmarked = boardWithBookmark?.bookmarkWithGroup != null,
-                        selectedGroup = boardWithBookmark?.bookmarkWithGroup?.group
-                    )
+            boardBookmarkRepo.getBoardWithBookmarkAndGroupByUrlFlow(boardInfo.url)
+                .collect { boardWithBookmark ->
+                    _uiState.update {
+                        it.copy(
+                            isBookmarked = boardWithBookmark?.bookmarkWithGroup != null,
+                            selectedGroup = boardWithBookmark?.bookmarkWithGroup?.group
+                        )
+                    }
                 }
-            }
         }
     }
 
     private fun observeThreadBookmark() {
         viewModelScope.launch {
             threadInfo?.let {
-                threadBookmarkRepo.getBookmarkWithGroup(it.key, it.url).collect { threadWithBookmark ->
-                    _uiState.update {
-                        it.copy(
-                            isBookmarked = threadWithBookmark != null,
-                            selectedGroup = threadWithBookmark?.group
-                        )
+                threadBookmarkRepo.getBookmarkWithGroup(it.key, it.url)
+                    .collect { threadWithBookmark ->
+                        _uiState.update {
+                            it.copy(
+                                isBookmarked = threadWithBookmark != null,
+                                selectedGroup = threadWithBookmark?.group
+                            )
+                        }
                     }
-                }
             }
         }
     }
@@ -112,7 +114,14 @@ class BookmarkStateViewModel @AssistedInject constructor(
 
     fun closeBookmarkSheet() = _uiState.update { it.copy(showBookmarkSheet = false) }
     fun openAddGroupDialog() = _uiState.update { it.copy(showAddGroupDialog = true) }
-    fun closeAddGroupDialog() = _uiState.update { it.copy(showAddGroupDialog = false, enteredGroupName = "", selectedColor = "#FF0000") }
+    fun closeAddGroupDialog() = _uiState.update {
+        it.copy(
+            showAddGroupDialog = false,
+            enteredGroupName = "",
+            selectedColor = "#FF0000"
+        )
+    }
+
     fun setEnteredGroupName(name: String) = _uiState.update { it.copy(enteredGroupName = name) }
     fun setSelectedColor(color: String) = _uiState.update { it.copy(selectedColor = color) }
 
@@ -133,9 +142,9 @@ class BookmarkStateViewModel @AssistedInject constructor(
 
 // --- HiltがこのFactoryを生成できるように設定 ---
 @AssistedFactory
-interface BookmarkStateViewModelFactory {
+interface SingleBookmarkViewModelFactory {
     fun create(
         boardInfo: BoardInfo,
         threadInfo: ThreadInfo?
-    ): BookmarkStateViewModel
+    ): SingleBookmarkViewModel
 }
