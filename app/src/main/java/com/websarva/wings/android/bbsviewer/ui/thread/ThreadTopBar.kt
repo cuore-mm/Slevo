@@ -27,14 +27,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.graphics.toColorInt
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
-import com.websarva.wings.android.bbsviewer.ui.favorite.FavoriteUiState
+import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadTopBar(
     modifier: Modifier = Modifier,
     scrollBehavior: TopAppBarScrollBehavior? = null,
-    onFavoriteClick: () -> Unit,
+    onBookmarkClick: () -> Unit,
     uiState: ThreadUiState,
     onNavigationClick: () -> Unit
 ) {
@@ -62,17 +62,17 @@ fun ThreadTopBar(
         },
         scrollBehavior = scrollBehavior,
         actions = {
-            IconButton(onClick = onFavoriteClick) {
-                val iconImage = if (uiState.favoriteState.isBookmarked) {
+            IconButton(onClick = onBookmarkClick) {
+                val iconImage = if (uiState.bookmarkState.isBookmarked) {
                     Icons.Filled.Star
                 } else {
                     Icons.Outlined.StarOutline
                 }
                 val iconTint = if (
-                    uiState.favoriteState.isBookmarked && uiState.favoriteState.selectedGroup?.colorHex != null
+                    uiState.bookmarkState.isBookmarked && uiState.bookmarkState.selectedGroup?.colorHex != null
                 ) {
                     try {
-                        Color(uiState.favoriteState.selectedGroup!!.colorHex.toColorInt())
+                        Color(uiState.bookmarkState.selectedGroup!!.colorHex.toColorInt())
                     } catch (e: Exception) {
                         LocalContentColor.current
                     }
@@ -120,12 +120,12 @@ fun ThreadTopBar(
 @Composable
 fun ThreadTopBarPreview() {
     ThreadTopBar(
-        onFavoriteClick = { /* お気に入り処理 */ },
+        onBookmarkClick = { /* お気に入り処理 */ },
         uiState = ThreadUiState(
             threadInfo = ThreadInfo(
                 title = "スレッドのタイトル",
             ),
-            favoriteState = FavoriteUiState(
+            bookmarkState = BookmarkState(
                 isBookmarked = false,
                 selectedGroup = null
             )

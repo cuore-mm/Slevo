@@ -6,7 +6,7 @@ import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.ui.board.BoardUiState
 import com.websarva.wings.android.bbsviewer.ui.common.BaseUiState
-import com.websarva.wings.android.bbsviewer.ui.favorite.FavoriteUiState
+import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkState
 
 data class ThreadUiState(
     val threadInfo: ThreadInfo = ThreadInfo(),
@@ -18,7 +18,7 @@ data class ThreadUiState(
     val isPosting: Boolean = false,
     val postConfirmation: ConfirmationData? = null,
     val isConfirmationScreen: Boolean = false,
-    val favoriteState: FavoriteUiState = FavoriteUiState(),
+    val bookmarkState: BookmarkState = BookmarkState(),
     override val isLoading: Boolean = false,
     override val showTabListSheet: Boolean = false,
 ) : BaseUiState<ThreadUiState> {

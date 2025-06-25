@@ -4,12 +4,12 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardBo
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.ui.common.BaseUiState
-import com.websarva.wings.android.bbsviewer.ui.favorite.FavoriteUiState
+import com.websarva.wings.android.bbsviewer.ui.bookmark.BookmarkState
 
 data class BoardUiState(
     val threads: List<ThreadInfo>? = null,
     val boardInfo: BoardInfo = BoardInfo(0, "", ""),
-    val favoriteState: FavoriteUiState = FavoriteUiState(),
+    val bookmarkState: BookmarkState = BookmarkState(),
     val showSortSheet: Boolean = false,
     val serviceName: String = "",
     val showInfoDialog: Boolean = false,

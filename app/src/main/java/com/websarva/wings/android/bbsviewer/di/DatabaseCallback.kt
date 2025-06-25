@@ -48,17 +48,17 @@ class DatabaseCallback @Inject constructor(
         bbsServiceRepositoryProvider.get().addOrUpdateService("https://menu.5ch.net/bbsmenu.html")
 
         // 文字列リソースから「お気に入り」を取得
-        val favoriteGroupName = context.getString(R.string.bookmark) // ← Context を使って文字列を取得
+        val bookmarkGroupName = context.getString(R.string.bookmark) // ← Context を使って文字列を取得
 
         // デフォルトのお気に入りグループを登録
         bookmarkBoardRepositoryProvider.get().addGroupAtEnd(
-            name = favoriteGroupName, // ← 取得した文字列を使用
+            name = bookmarkGroupName, // ← 取得した文字列を使用
             colorHex = "#FFFF00" // 黄色のHEXコード
         )
 
-        val threadFavoriteGroupName = context.getString(R.string.bookmark)
+        val threadBookmarkGroupName = context.getString(R.string.bookmark)
         bookmarkThreadRepositoryProvider.get().addGroupAtEnd(
-            name = threadFavoriteGroupName,
+            name = threadBookmarkGroupName,
             colorHex = "#FFFF00"
         )
     }
