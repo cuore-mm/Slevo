@@ -3,7 +3,6 @@ package com.websarva.wings.android.bbsviewer.ui.board
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -14,10 +13,8 @@ import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
 import androidx.core.net.toUri
-import com.websarva.wings.android.bbsviewer.ui.common.BaseListViewModel
+import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -27,7 +24,7 @@ class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
     private val bookmarkRepo: BookmarkBoardRepository,
     @Assisted("viewModelKey") val viewModelKey: String
-) : BaseListViewModel<BoardUiState>() {
+) : BaseViewModel<BoardUiState>() {
 
     private var isInitialized = false
 

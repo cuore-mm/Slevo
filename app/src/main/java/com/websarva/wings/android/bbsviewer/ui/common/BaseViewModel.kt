@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 
-abstract class BaseListViewModel<S> : ViewModel() where S : BaseUiState<S> {
+abstract class BaseViewModel<S> : ViewModel() where S : BaseUiState<S> {
     protected abstract val _uiState: MutableStateFlow<S>
     val uiState: StateFlow<S> get() = _uiState
 

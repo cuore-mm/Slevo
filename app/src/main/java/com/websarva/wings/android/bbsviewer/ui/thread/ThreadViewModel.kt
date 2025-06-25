@@ -2,7 +2,6 @@ package com.websarva.wings.android.bbsviewer.ui.thread
 
 import android.util.Log
 import androidx.core.net.toUri
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
@@ -11,16 +10,13 @@ import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
-import com.websarva.wings.android.bbsviewer.ui.board.BoardUiState
-import com.websarva.wings.android.bbsviewer.ui.common.BaseListViewModel
+import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -29,7 +25,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val threadBookmarkRepository: ThreadBookmarkRepository,
     private val postRepository: PostRepository,
     @Assisted val viewModelKey: String,
-) : BaseListViewModel<ThreadUiState>() {
+) : BaseViewModel<ThreadUiState>() {
 
     override val _uiState = MutableStateFlow(ThreadUiState())
 
