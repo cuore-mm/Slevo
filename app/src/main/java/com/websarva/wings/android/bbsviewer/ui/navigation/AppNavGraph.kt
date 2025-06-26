@@ -11,10 +11,13 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
+import com.websarva.wings.android.bbsviewer.ui.board.BoardScaffold
 import com.websarva.wings.android.bbsviewer.ui.bookmarklist.BookmarkListScaffold
-import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsScaffold
+import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
+import com.websarva.wings.android.bbsviewer.ui.thread.ThreadScaffold
 import kotlinx.serialization.Serializable
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,17 +54,25 @@ fun AppNavGraph(
             openDrawer = openDrawer
         )
         //スレッド一覧
-        addBoardRoute(
-            navController = navController,
-            openDrawer = openDrawer,
-            tabsViewModel = tabsViewModel
-        )
+        composable<AppRoute.Board> { backStackEntry ->
+            val boardRoute: AppRoute.Board = backStackEntry.toRoute()
+            BoardScaffold(
+                boardRoute = boardRoute,
+                navController = navController,
+                openDrawer = openDrawer,
+                tabsViewModel = tabsViewModel
+            )
+        }
         //スレッド画面
-        addThreadRoute(
-            navController = navController,
-            tabsViewModel = tabsViewModel,
-            openDrawer = openDrawer,
-        )
+        composable<AppRoute.Thread> { backStackEntry ->
+            val threadRoute: AppRoute.Thread = backStackEntry.toRoute()
+            ThreadScaffold(
+                threadRoute = threadRoute,
+                navController = navController,
+                tabsViewModel = tabsViewModel,
+                openDrawer = openDrawer
+            )
+        }
         //タブ画面
         composable<AppRoute.Tabs> {
             TabsScaffold(
