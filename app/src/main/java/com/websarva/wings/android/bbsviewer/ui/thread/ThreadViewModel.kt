@@ -3,6 +3,7 @@ package com.websarva.wings.android.bbsviewer.ui.thread
 import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
+import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
@@ -34,7 +35,7 @@ class ThreadViewModel @AssistedInject constructor(
         boardInfo: BoardInfo,
         threadTitle: String
     ) {
-        val threadInfo = com.websarva.wings.android.bbsviewer.data.model.ThreadInfo(
+        val threadInfo = ThreadInfo(
             key = threadKey,
             title = threadTitle,
             url = boardInfo.url
