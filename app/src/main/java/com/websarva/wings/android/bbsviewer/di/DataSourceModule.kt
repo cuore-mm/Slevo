@@ -1,15 +1,17 @@
 package com.websarva.wings.android.bbsviewer.di
 
 import com.websarva.wings.android.bbsviewer.data.datasource.local.BbsLocalDataSource
-import com.websarva.wings.android.bbsviewer.data.datasource.remote.BoardRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.SettingsLocalDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.BbsLocalDataSourceImpl
-import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.BoardRemoteDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.SettingsLocalDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BbsMenuDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.BoardRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.DatRemoteDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.PostRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.BbsMenuDataSourceImpl
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.BoardRemoteDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.DatRemoteDataSourceImpl
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.PostRemoteDataSourceImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -57,5 +59,12 @@ abstract class DataSourceModule {
     abstract fun bindDatRemoteDataSource(
         impl: DatRemoteDataSourceImpl
     ): DatRemoteDataSource
+
+    /** 投稿処理用 */
+    @Binds
+    @Singleton
+    abstract fun bindPostRemoteDataSource(
+        impl: PostRemoteDataSourceImpl
+    ): PostRemoteDataSource
 }
 
