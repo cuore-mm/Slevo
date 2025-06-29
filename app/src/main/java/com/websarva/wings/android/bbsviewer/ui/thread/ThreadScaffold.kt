@@ -121,7 +121,7 @@ fun ThreadScaffold(
                     onMessageChange = { viewModel.updatePostMessage(it) },
                     onPostClick = {
                         parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                            viewModel.loadConfirmation(
+                            viewModel.postFirstPhase(
                                 host,
                                 boardKey,
                                 uiState.threadInfo.key,
@@ -136,10 +136,10 @@ fun ThreadScaffold(
 
             if (uiState.isConfirmationScreen) {
                 uiState.postConfirmation?.let { confirmationData ->
-                    ConfirmationWebView(
+                    ResponseWebViewDialog(
                         htmlContent = confirmationData.html,
                         onDismissRequest = { viewModel.hideConfirmationScreen() },
-                        onPostClick = {
+                        onConfirm = {
                             parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                                 viewModel.postTo5chSecondPhase(
                                     host,
@@ -148,10 +148,20 @@ fun ThreadScaffold(
                                     confirmationData
                                 )
                             }
-                            viewModel.hideConfirmationScreen()
-                        }
+                        },
+                        title = "書き込み確認",
+                        confirmButtonText = "書き込む"
                     )
                 }
+            }
+
+            if (uiState.showErrorWebView) {
+                ResponseWebViewDialog(
+                    htmlContent = uiState.errorHtmlContent,
+                    onDismissRequest = { viewModel.hideErrorWebView() },
+                    title = "応答結果",
+                    onConfirm = null // 確認ボタンは不要なのでnull
+                )
             }
         }
     )

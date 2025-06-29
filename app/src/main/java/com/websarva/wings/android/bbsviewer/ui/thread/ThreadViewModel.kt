@@ -126,10 +126,13 @@ class ThreadViewModel @AssistedInject constructor(
         _uiState.update { it.copy(postFormState = it.postFormState.copy(message = message)) }
     }
 
-    /**
-     * 初回投稿の確認フェーズを呼び出す
-     */
-    fun loadConfirmation(
+    // エラーWebViewを閉じる処理
+    fun hideErrorWebView() {
+        _uiState.update { it.copy(showErrorWebView = false, errorHtmlContent = "") }
+    }
+
+    // 初回投稿処理
+    fun postFirstPhase(
         host: String,
         board: String,
         threadKey: String,
@@ -138,20 +141,39 @@ class ThreadViewModel @AssistedInject constructor(
         message: String
     ) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isPosting = true, postDialog = false) }
             val result =
                 postRepository.postTo5chFirstPhase(host, board, threadKey, name, mail, message)
-            val confirmationData = result
-            _uiState.update { it.copy(postConfirmation = confirmationData) }
-            _uiState.update { it.copy(isConfirmationScreen = true) }
-            _uiState.update { it.copy(isLoading = false) }
+
+            _uiState.update { it.copy(isPosting = false) }
+
+            when(result) {
+                is PostResult.Success -> {
+                    // 成功メッセージ表示など
+                    _uiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
+                    reloadThread() // スレッドをリロード
+                }
+                is PostResult.Confirm -> {
+                    _uiState.update {
+                        it.copy(
+                            postConfirmation = result.confirmationData,
+                            isConfirmationScreen = true
+                        )
+                    }
+                }
+                is PostResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            showErrorWebView = true,
+                            errorHtmlContent = result.html
+                        )
+                    }
+                }
+            }
         }
     }
 
-    /**
-     * 2回目投稿（書き込み実行）
-     * 1回目の確認用リクエストから得た hidden パラメータと Cookie を使用して最終投稿を行う。
-     */
+    // 2回目投稿
     fun postTo5chSecondPhase(
         host: String,
         board: String,
@@ -159,20 +181,45 @@ class ThreadViewModel @AssistedInject constructor(
         confirmationData: ConfirmationData
     ) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isPosting = true, isConfirmationScreen = false) }
             val result = postRepository.postTo5chSecondPhase(
                 host,
                 board,
                 threadKey,
                 confirmationData
             )
-            if (result == PostResult.Success) {
-                _uiState.update { it.copy(isConfirmationScreen = false) }
-            } else {
-                // エラー処理
+
+            _uiState.update { it.copy(isPosting = false) }
+
+            when(result) {
+                is PostResult.Success -> {
+                    // 成功メッセージ表示など
+                    _uiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
+                    reloadThread()
+                }
+                is PostResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            showErrorWebView = true,
+                            errorHtmlContent = result.html
+                        )
+                    }
+                }
+                is PostResult.Confirm -> {
+                    // 2回目でConfirmが返ることは基本ないが念のため
+                    _uiState.update {
+                        it.copy(
+                            postConfirmation = result.confirmationData,
+                            isConfirmationScreen = true
+                        )
+                    }
+                }
             }
-            _uiState.update { it.copy(isLoading = false) }
         }
+    }
+
+    fun clearPostResultMessage() {
+        _uiState.update { it.copy(postResultMessage = null) }
     }
 
 }

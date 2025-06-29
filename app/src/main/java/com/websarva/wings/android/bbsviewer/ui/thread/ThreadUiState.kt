@@ -19,6 +19,9 @@ data class ThreadUiState(
     val singleBookmarkState: SingleBookmarkState = SingleBookmarkState(),
     override val isLoading: Boolean = false,
     override val showTabListSheet: Boolean = false,
+    val showErrorWebView: Boolean = false,
+    val errorHtmlContent: String = "",
+    val postResultMessage: String? = null
 ) : BaseUiState<ThreadUiState> {
     override fun copyState(
         isLoading: Boolean,
