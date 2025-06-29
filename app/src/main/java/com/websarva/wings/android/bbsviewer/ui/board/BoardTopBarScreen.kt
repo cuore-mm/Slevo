@@ -40,14 +40,6 @@ fun BoardTopBarScreen(
                 style = MaterialTheme.typography.titleMedium
             )
         },
-        navigationIcon = {
-            IconButton(onClick = onNavigationClick) {
-                Icon(
-                    imageVector = Icons.Default.Menu,
-                    contentDescription = stringResource(R.string.open_tablist)
-                )
-            }
-        },
         actions = {
             IconButton(onClick = onBookmarkClick) {
                 Icon(
