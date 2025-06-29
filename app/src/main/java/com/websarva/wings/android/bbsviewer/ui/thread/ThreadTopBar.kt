@@ -52,14 +52,6 @@ fun ThreadTopBar(
             )
         },
         modifier = modifier,
-        navigationIcon = {
-            IconButton(onClick = onNavigationClick) {
-                Icon(
-                    imageVector = Icons.Default.Menu,
-                    contentDescription = stringResource(R.string.open_tablist)
-                )
-            }
-        },
         scrollBehavior = scrollBehavior,
         actions = {
             IconButton(onClick = onBookmarkClick) {
@@ -96,7 +88,7 @@ fun ThreadTopBar(
 
     // ダイアログ表示
     if (dialogVisible) {
-        PopUpMenu(
+        ThreadInfoDialog(
             onDismissRequest = { dialogVisible = false },
             onEvaluateClick = {
                 // 評価時の処理をここに記述
