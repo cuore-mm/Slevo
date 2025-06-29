@@ -1,8 +1,10 @@
 package com.websarva.wings.android.bbsviewer.di
 
 import com.websarva.wings.android.bbsviewer.data.datasource.local.BbsLocalDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.local.CookieLocalDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.SettingsLocalDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.BbsLocalDataSourceImpl
+import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.CookieLocalDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.SettingsLocalDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BbsMenuDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BoardRemoteDataSource
@@ -66,5 +68,12 @@ abstract class DataSourceModule {
     abstract fun bindPostRemoteDataSource(
         impl: PostRemoteDataSourceImpl
     ): PostRemoteDataSource
+
+    /** クッキー永続化用 */
+    @Binds
+    @Singleton
+    abstract fun bindCookieLocalDataSource(
+        impl: CookieLocalDataSourceImpl
+    ): CookieLocalDataSource
 }
 

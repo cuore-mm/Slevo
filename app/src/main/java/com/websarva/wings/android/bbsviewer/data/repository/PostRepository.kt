@@ -9,13 +9,27 @@ import javax.inject.Inject
 
 // 書き込み結果の表現
 sealed class PostResult {
-    object Success : PostResult()
-    data class Error(val message: String) : PostResult()
+    object Success : PostResult() // 書き込み成功
+    data class Confirm(val confirmationData: ConfirmationData) : PostResult() // 書き込み確認画面
+    data class Error(val html: String, val message: String) : PostResult() // その他のエラー（WebView表示用）
 }
 
 class PostRepository @Inject constructor(
-    private val remoteDataSource: PostRemoteDataSource
+    private val remoteDataSource: PostRemoteDataSource // DIでDataSourceを受け取る
 ) {
+    private suspend fun handlePostResponse(response: okhttp3.Response?): PostResult {
+        if (response == null) {
+            return PostResult.Error("", "ネットワークエラーが発生しました。")
+        }
+        return response.use {
+            val html = it.body?.string() ?: return PostResult.Error("", "空のレスポンスです。")
+            if (!it.isSuccessful) {
+                return PostResult.Error(html, "サーバーエラー: ${it.code}")
+            }
+            PostParser.parseWriteResponse(html)
+        }
+    }
+
     suspend fun postTo5chFirstPhase(
         host: String,
         board: String,
@@ -23,31 +37,13 @@ class PostRepository @Inject constructor(
         name: String,
         mail: String,
         message: String
-    ): ConfirmationData? = withContext(Dispatchers.IO) {
+    ): PostResult = withContext(Dispatchers.IO) {
         try {
-            remoteDataSource.postFirstPhase(host, board, threadKey, name, mail, message)
-                ?.use { response ->
-                    if (!response.isSuccessful) return@withContext null
-
-                    val body = response.body ?: return@withContext null
-                    val html = body.string()
-
-                    val cookies = PostParser.extractCookies(response.headers.values("Set-Cookie"))
-                    val hiddenParams = PostParser.extractHiddenParams(html)
-
-                    Log.i("PostRepository", "html1: $html")
-                    Log.i("PostRepository", "hiddenParams: $hiddenParams")
-                    Log.i("PostRepository", "cookies: $cookies")
-
-                    ConfirmationData(
-                        html = html,
-                        hiddenParams = hiddenParams,
-                        cookies = cookies
-                    )
-                }
+            val response = remoteDataSource.postFirstPhase(host, board, threadKey, name, mail, message)
+            handlePostResponse(response)
         } catch (e: Exception) {
             Log.e("PostRepository", "初回投稿リクエスト失敗", e)
-            null
+            PostResult.Error("", e.message ?: "不明なエラー")
         }
     }
 
@@ -58,22 +54,16 @@ class PostRepository @Inject constructor(
         confirmationData: ConfirmationData
     ): PostResult = withContext(Dispatchers.IO) {
         try {
-            remoteDataSource.postSecondPhase(host, board, threadKey, confirmationData)
-                ?.use { response ->
-                    val body = response.body?.string()
-                        ?: return@withContext PostResult.Error("空レスポンス")
-                    if (PostParser.isSuccess(body)) PostResult.Success
-                    else PostResult.Error("書き込み失敗")
-                } ?: PostResult.Error("レスポンスがありません")
+            val response = remoteDataSource.postSecondPhase(host, board, threadKey, confirmationData)
+            handlePostResponse(response)
         } catch (e: Exception) {
             Log.e("PostRepository", "2回目投稿リクエスト失敗", e)
-            PostResult.Error(e.message ?: "不明なエラー")
+            PostResult.Error("", e.message ?: "不明なエラー")
         }
     }
 }
 
 data class ConfirmationData(
     val html: String,
-    val hiddenParams: List<PostParser.HiddenParam>,
-    val cookies: List<String>
+    val hiddenParams: Map<String, String>
 )
