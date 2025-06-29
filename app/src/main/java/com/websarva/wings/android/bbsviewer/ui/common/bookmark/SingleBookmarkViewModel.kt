@@ -14,7 +14,6 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -34,6 +33,20 @@ class SingleBookmarkViewModel @AssistedInject constructor(
             observeBoardBookmark()
         } else {
             observeThreadBookmark()
+        }
+        observeGroups()
+    }
+
+    private fun observeGroups() {
+        viewModelScope.launch {
+            val groupsFlow = if (threadInfo == null) {
+                boardBookmarkRepo.observeGroups()
+            } else {
+                threadBookmarkRepo.observeAllGroups()
+            }
+            groupsFlow.collect { groups ->
+                _uiState.update { it.copy(groups = groups) }
+            }
         }
     }
 
@@ -99,19 +112,7 @@ class SingleBookmarkViewModel @AssistedInject constructor(
         }
     }
 
-    fun openBookmarkSheet() {
-        viewModelScope.launch {
-            val groupsFlow = if (threadInfo == null) {
-                boardBookmarkRepo.observeGroups()
-            } else {
-                threadBookmarkRepo.observeAllGroups()
-            }
-            groupsFlow.first().let { groups ->
-                _uiState.update { it.copy(showBookmarkSheet = true, groups = groups) }
-            }
-        }
-    }
-
+    fun openBookmarkSheet() = _uiState.update { it.copy(showBookmarkSheet = true) }
     fun closeBookmarkSheet() = _uiState.update { it.copy(showBookmarkSheet = false) }
     fun openAddGroupDialog() = _uiState.update { it.copy(showAddGroupDialog = true) }
     fun closeAddGroupDialog() = _uiState.update {
