@@ -2,12 +2,17 @@ package com.websarva.wings.android.bbsviewer.di
 
 import android.content.Context
 import android.content.pm.PackageManager
+import com.squareup.moshi.FromJson
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.ToJson
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.Cache
+import okhttp3.Cookie
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import java.io.File
@@ -18,9 +23,23 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
+    // Moshiのインスタンスを提供
     @Provides
     @Singleton
-    fun provideOkHttpClient(@ApplicationContext context: Context): OkHttpClient { // ApplicationContextをインジェクト
+    fun provideMoshi(): Moshi {
+        return Moshi.Builder()
+            .add(KotlinJsonAdapterFactory())
+            // OkHttpのCookieクラスをシリアライズ/デシリアライズするためのアダプタを追加
+            .add(CookieJsonAdapter())
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(
+        @ApplicationContext context: Context,
+        cookieJar: PersistentCookieJar
+    ): OkHttpClient {
         val logging = HttpLoggingInterceptor { message ->
             android.util.Log.d("OkHttp", message)
         }.apply {
@@ -35,6 +54,7 @@ object NetworkModule {
         return OkHttpClient.Builder()
             .addInterceptor(logging)
             .cache(cache) // キャッシュを設定
+            .cookieJar(cookieJar) // ★ ここでCookieJarをセット
             .build()
     }
 
@@ -55,5 +75,33 @@ object NetworkModule {
     @Named("UserAgent")
     fun provideUserAgent(@Named("VersionName") versionName: String): String {
         return "Monazilla/1.00 (BBSViewer/$versionName)"
+    }
+}
+
+// CookieをMoshiで扱うためのカスタムアダプタ
+class CookieJsonAdapter {
+    @ToJson
+    fun toJson(cookie: Cookie): String {
+        return "${cookie.name}|${cookie.value}|${cookie.expiresAt}|${cookie.domain}|${cookie.path}|${cookie.secure}|${cookie.httpOnly}"
+    }
+
+    @FromJson
+    fun fromJson(json: String): Cookie? {
+        val parts = json.split("|")
+        return try {
+            Cookie.Builder()
+                .name(parts[0])
+                .value(parts[1])
+                .expiresAt(parts[2].toLong())
+                .domain(parts[3])
+                .path(parts[4])
+                .apply {
+                    if (parts[5].toBoolean()) secure()
+                    if (parts[6].toBoolean()) httpOnly()
+                }
+                .build()
+        } catch (e: Exception) {
+            null
+        }
     }
 }

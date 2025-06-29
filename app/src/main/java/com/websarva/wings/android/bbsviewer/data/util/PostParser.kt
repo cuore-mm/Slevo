@@ -15,12 +15,6 @@ object PostParser {
             }
     }
 
-    fun extractCookies(headers: List<String>): List<String> {
-        return headers
-            .filter { it.startsWith("Set-Cookie:", ignoreCase = true) }
-            .map { it.substringAfter("Set-Cookie:").substringBefore(";").trim() }
-    }
-
     fun isSuccess(html: String): Boolean {
         return "書きこみました。" in html || "書きこみが終わりました。" in html
     }

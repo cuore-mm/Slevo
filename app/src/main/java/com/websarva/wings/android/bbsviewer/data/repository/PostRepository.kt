@@ -14,7 +14,7 @@ sealed class PostResult {
 }
 
 class PostRepository @Inject constructor(
-    private val remoteDataSource: PostRemoteDataSource
+    private val remoteDataSource: PostRemoteDataSource // DIでDataSourceを受け取る
 ) {
     suspend fun postTo5chFirstPhase(
         host: String,
@@ -32,17 +32,15 @@ class PostRepository @Inject constructor(
                     val body = response.body ?: return@withContext null
                     val html = body.string()
 
-                    val cookies = PostParser.extractCookies(response.headers.values("Set-Cookie"))
+                    // Cookieの抽出は不要になる
                     val hiddenParams = PostParser.extractHiddenParams(html)
 
                     Log.i("PostRepository", "html1: $html")
                     Log.i("PostRepository", "hiddenParams: $hiddenParams")
-                    Log.i("PostRepository", "cookies: $cookies")
 
                     ConfirmationData(
                         html = html,
-                        hiddenParams = hiddenParams,
-                        cookies = cookies
+                        hiddenParams = hiddenParams
                     )
                 }
         } catch (e: Exception) {
@@ -58,6 +56,7 @@ class PostRepository @Inject constructor(
         confirmationData: ConfirmationData
     ): PostResult = withContext(Dispatchers.IO) {
         try {
+            // 第2引数のcookieは不要になる
             remoteDataSource.postSecondPhase(host, board, threadKey, confirmationData)
                 ?.use { response ->
                     val body = response.body?.string()
@@ -74,6 +73,5 @@ class PostRepository @Inject constructor(
 
 data class ConfirmationData(
     val html: String,
-    val hiddenParams: List<PostParser.HiddenParam>,
-    val cookies: List<String>
+    val hiddenParams: List<PostParser.HiddenParam>
 )
