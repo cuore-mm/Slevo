@@ -28,6 +28,12 @@ interface BoardBookmarkGroupDao {
     @Update
     suspend fun updateGroups(groups: List<BoardBookmarkGroupEntity>)
 
+    @Query("UPDATE `groups` SET name = :name, colorHex = :colorHex WHERE groupId = :groupId")
+    suspend fun updateGroupInfo(groupId: Long, name: String, colorHex: String)
+
+    @Query("DELETE FROM `groups` WHERE groupId = :groupId")
+    suspend fun deleteGroupById(groupId: Long)
+
     /** グループ順（sortOrder）に並べた全グループ＋その中のお気に入り板を一気に取得 */
     @Transaction
     @Query("SELECT * FROM `groups` ORDER BY sortOrder ASC")

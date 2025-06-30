@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
+import com.websarva.wings.android.bbsviewer.data.model.Groupable
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
@@ -75,10 +76,12 @@ class BoardViewModel @AssistedInject constructor(
     fun saveBookmark(groupId: Long) = singleBookmarkViewModel?.saveBookmark(groupId)
     fun unbookmarkBoard() = singleBookmarkViewModel?.unbookmark()
     fun openAddGroupDialog() = singleBookmarkViewModel?.openAddGroupDialog()
+    fun openEditGroupDialog(group: Groupable) = singleBookmarkViewModel?.openEditGroupDialog(group)
     fun closeAddGroupDialog() = singleBookmarkViewModel?.closeAddGroupDialog()
     fun setEnteredGroupName(name: String) = singleBookmarkViewModel?.setEnteredGroupName(name)
     fun setSelectedColor(color: String) = singleBookmarkViewModel?.setSelectedColor(color)
-    fun addGroup() = singleBookmarkViewModel?.addGroup()
+    fun confirmGroup() = singleBookmarkViewModel?.confirmGroup()
+    fun deleteGroup() = singleBookmarkViewModel?.deleteEditingGroup()
     fun openBookmarkSheet() = singleBookmarkViewModel?.openBookmarkSheet()
     fun closeBookmarkSheet() = singleBookmarkViewModel?.closeBookmarkSheet()
 

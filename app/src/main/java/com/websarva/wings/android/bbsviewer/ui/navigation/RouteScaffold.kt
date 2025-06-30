@@ -142,6 +142,10 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         onAddGroup = {
                             (viewModel as? BoardViewModel)?.openAddGroupDialog()
                                 ?: (viewModel as? ThreadViewModel)?.openAddGroupDialog()
+                        },
+                        onGroupLongClick = { group ->
+                            (viewModel as? BoardViewModel)?.openEditGroupDialog(group)
+                                ?: (viewModel as? ThreadViewModel)?.openEditGroupDialog(group)
                         }
                     )
                 }
@@ -152,9 +156,14 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                             (viewModel as? BoardViewModel)?.closeAddGroupDialog()
                                 ?: (viewModel as? ThreadViewModel)?.closeAddGroupDialog()
                         },
-                        onAdd = {
-                            (viewModel as? BoardViewModel)?.addGroup()
-                                ?: (viewModel as? ThreadViewModel)?.addGroup()
+                        isEdit = bookmarkState.editingGroupId != null,
+                        onConfirm = {
+                            (viewModel as? BoardViewModel)?.confirmGroup()
+                                ?: (viewModel as? ThreadViewModel)?.confirmGroup()
+                        },
+                        onDelete = {
+                            (viewModel as? BoardViewModel)?.deleteGroup()
+                                ?: (viewModel as? ThreadViewModel)?.deleteGroup()
                         },
                         onValueChange = {
                             (viewModel as? BoardViewModel)?.setEnteredGroupName(it)

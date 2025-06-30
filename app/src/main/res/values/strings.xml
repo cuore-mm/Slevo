@@ -21,6 +21,7 @@
     <string name="add_board">板を追加</string>
     <string name="prompt_enter_bbs_menu_or_board_url">BBSMenuまたは板のURLを入力してください</string>
     <string name="add">追加</string>
+    <string name="save">保存</string>
     <string name="selected_count_label">件選択</string>
     <string name="dialog_confirm_delete_bbs">件の掲示板を削除しますか？</string>
     <string name="delete">削除</string>

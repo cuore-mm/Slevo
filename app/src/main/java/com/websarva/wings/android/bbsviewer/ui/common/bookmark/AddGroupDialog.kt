@@ -9,8 +9,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -21,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -32,8 +38,10 @@ import com.websarva.wings.android.bbsviewer.R
 @Composable
 fun AddGroupDialog(
     modifier: Modifier = Modifier,
+    isEdit: Boolean = false,
     onDismissRequest: () -> Unit,
-    onAdd: () -> Unit,
+    onConfirm: () -> Unit,
+    onDelete: () -> Unit = {},
     onValueChange: (String) -> Unit,
     enteredValue: String,
     onColorSelected: (String) -> Unit,
@@ -49,6 +57,21 @@ fun AddGroupDialog(
         onDismissRequest = onDismissRequest,
         text = {
             Column {
+                if (isEdit) {
+                    TextButton(
+                        onClick = onDelete,
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.delete),
+                            modifier = Modifier.size(ButtonDefaults.IconSize)
+                        )
+                        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                        Text(text = stringResource(R.string.delete))
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
                 /* ---------- ① 色選択エリア ---------- */
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -88,10 +111,9 @@ fun AddGroupDialog(
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = onAdd
-            ) {
-                Text(text = stringResource(R.string.add))
+            TextButton(onClick = onConfirm) {
+                val textRes = if (isEdit) R.string.save else R.string.add
+                Text(text = stringResource(textRes))
             }
         },
         dismissButton = {
@@ -112,8 +134,10 @@ fun AddGroupDialogPreview() {
     val palette = listOf("#FF4081", "#3F51B5", "#4CAF50", "#FF9800")
 
     AddGroupDialog(
+        isEdit = true,
         onDismissRequest = {},
-        onAdd = {},
+        onConfirm = {},
+        onDelete = {},
         onValueChange = { name = it },
         onColorSelected = { selColor = it },
         enteredValue = name,

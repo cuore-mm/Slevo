@@ -124,7 +124,8 @@ fun BookmarkListScaffold(
                 selectedGroupId = uiState.selectedGroupId,
                 onGroupSelected = { bookmarkViewModel.applyGroupToSelection(it) },
                 onUnbookmarkRequested = { bookmarkViewModel.unbookmarkSelection() },
-                onAddGroup = { }
+                onAddGroup = { },
+                onGroupLongClick = {}
             )
         }
     }
