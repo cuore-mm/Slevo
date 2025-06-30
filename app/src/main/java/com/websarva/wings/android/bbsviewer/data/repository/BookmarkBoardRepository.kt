@@ -41,6 +41,10 @@ class BookmarkBoardRepository @Inject constructor(
         groupDao.updateGroupInfo(groupId, name, colorHex)
     }
 
+    suspend fun deleteGroup(groupId: Long) {
+        groupDao.deleteGroupById(groupId)
+    }
+
     /**
      * お気に入り登録または更新
      * @param bookmark 登録・更新対象の BookmarkBoardEntity

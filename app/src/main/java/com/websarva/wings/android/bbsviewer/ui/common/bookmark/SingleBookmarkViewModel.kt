@@ -162,6 +162,14 @@ class SingleBookmarkViewModel @AssistedInject constructor(
         }
     }
 
+    private suspend fun deleteGroup(id: Long) {
+        if (threadInfo == null) {
+            boardBookmarkRepo.deleteGroup(id)
+        } else {
+            threadBookmarkRepo.deleteGroup(id)
+        }
+    }
+
     fun confirmGroup() {
         viewModelScope.launch {
             val name = _uiState.value.enteredGroupName.takeIf { it.isNotBlank() } ?: return@launch
@@ -172,6 +180,14 @@ class SingleBookmarkViewModel @AssistedInject constructor(
             } else {
                 updateGroup(editId, name, color)
             }
+            closeAddGroupDialog()
+        }
+    }
+
+    fun deleteEditingGroup() {
+        val groupId = _uiState.value.editingGroupId ?: return
+        viewModelScope.launch {
+            deleteGroup(groupId)
             closeAddGroupDialog()
         }
     }

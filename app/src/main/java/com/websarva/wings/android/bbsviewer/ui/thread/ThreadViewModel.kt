@@ -98,6 +98,7 @@ class ThreadViewModel @AssistedInject constructor(
     fun setEnteredGroupName(name: String) = singleBookmarkViewModel?.setEnteredGroupName(name)
     fun setSelectedColor(color: String) = singleBookmarkViewModel?.setSelectedColor(color)
     fun confirmGroup() = singleBookmarkViewModel?.confirmGroup()
+    fun deleteGroup() = singleBookmarkViewModel?.deleteEditingGroup()
     fun openBookmarkSheet() = singleBookmarkViewModel?.openBookmarkSheet()
     fun closeBookmarkSheet() = singleBookmarkViewModel?.closeBookmarkSheet()
 

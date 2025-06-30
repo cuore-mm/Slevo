@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,6 +36,7 @@ fun AddGroupDialog(
     isEdit: Boolean = false,
     onDismissRequest: () -> Unit,
     onConfirm: () -> Unit,
+    onDelete: () -> Unit = {},
     onValueChange: (String) -> Unit,
     enteredValue: String,
     onColorSelected: (String) -> Unit,
@@ -89,11 +91,17 @@ fun AddGroupDialog(
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = onConfirm
-            ) {
-                val textRes = if (isEdit) R.string.save else R.string.add
-                Text(text = stringResource(textRes))
+            Row {
+                if (isEdit) {
+                    TextButton(onClick = onDelete) {
+                        Text(text = stringResource(R.string.delete))
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+                TextButton(onClick = onConfirm) {
+                    val textRes = if (isEdit) R.string.save else R.string.add
+                    Text(text = stringResource(textRes))
+                }
             }
         },
         dismissButton = {
@@ -116,6 +124,7 @@ fun AddGroupDialogPreview() {
     AddGroupDialog(
         onDismissRequest = {},
         onConfirm = {},
+        onDelete = {},
         onValueChange = { name = it },
         onColorSelected = { selColor = it },
         enteredValue = name,

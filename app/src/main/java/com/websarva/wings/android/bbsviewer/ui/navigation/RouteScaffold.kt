@@ -161,6 +161,10 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                             (viewModel as? BoardViewModel)?.confirmGroup()
                                 ?: (viewModel as? ThreadViewModel)?.confirmGroup()
                         },
+                        onDelete = {
+                            (viewModel as? BoardViewModel)?.deleteGroup()
+                                ?: (viewModel as? ThreadViewModel)?.deleteGroup()
+                        },
                         onValueChange = {
                             (viewModel as? BoardViewModel)?.setEnteredGroupName(it)
                                 ?: (viewModel as? ThreadViewModel)?.setEnteredGroupName(it)

@@ -49,6 +49,10 @@ class ThreadBookmarkRepository @Inject constructor(
         threadGroupDao.updateGroupInfo(groupId, name, colorHex)
     }
 
+    suspend fun deleteGroup(groupId: Long) {
+        threadGroupDao.deleteGroupById(groupId)
+    }
+
     suspend fun updateGroupsOrder(groups: List<ThreadBookmarkGroupEntity>) {
         threadGroupDao.updateGroups(groups) // DAOに一括更新メソッドがある前提
     }
