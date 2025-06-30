@@ -6,12 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.repository.BbsServiceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
@@ -42,6 +44,9 @@ class BoardCategoryListViewModel @Inject constructor(
         )
     )
     val uiState: StateFlow<BoardCategoryListUiState> = _uiState.asStateFlow()
+
+    private var originalCategories: List<CategoryInfo>? = null
+    private var searchJob: Job? = null
 
     init {
         loadCategoryInfo()
@@ -82,11 +87,40 @@ class BoardCategoryListViewModel @Inject constructor(
                 }
                 .collectLatest { infos ->                     // ここまで BG スレッド
                     withContext(Dispatchers.Main) {           // ← UI 更新だけ Main
-                        _uiState.update {
-                            it.copy(categories = infos, isLoading = false, errorMessage = null)
-                        }
+                        originalCategories = infos
+                        applyFilter()
+                        _uiState.update { it.copy(isLoading = false, errorMessage = null) }
                     }
                 }
+        }
+    }
+
+    /** 検索クエリ変更 */
+    fun setSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        applyFilter()
+    }
+
+    /** 検索モード切替 */
+    fun setSearchMode(active: Boolean) {
+        _uiState.update { it.copy(isSearchActive = active) }
+        if (!active) {
+            setSearchQuery("")
+        }
+    }
+
+    /** 現在の検索クエリでフィルタリング */
+    private fun applyFilter() {
+        val base = originalCategories ?: return
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            if (_uiState.value.searchQuery.isBlank()) {
+                _uiState.update { it.copy(categories = base) }
+            } else {
+                val ids = repository.findCategoryIdsForBoardName(serviceId, _uiState.value.searchQuery).first().toSet()
+                val filtered = base.filter { it.categoryId in ids }
+                _uiState.update { it.copy(categories = filtered) }
+            }
         }
     }
 }
@@ -99,7 +133,9 @@ data class BoardCategoryListUiState(
     val serviceName: String = "",
     val categories: List<CategoryInfo> = emptyList(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val isSearchActive: Boolean = false,
+    val searchQuery: String = ""
 )
 
 /**

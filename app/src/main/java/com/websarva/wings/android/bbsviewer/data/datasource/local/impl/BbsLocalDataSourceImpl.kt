@@ -49,6 +49,15 @@ class BbsLocalDataSourceImpl @Inject constructor(
     override fun observeBoards(serviceId: Long): Flow<List<BoardEntity>> =
         boardDao.getBoardsForService(serviceId)
 
+    override fun searchBoards(query: String): Flow<List<BoardEntity>> =
+        boardDao.searchBoardsByName(query)
+
+    override fun searchBoardsInService(serviceId: Long, query: String): Flow<List<BoardEntity>> =
+        boardDao.searchBoardsByNameInService(serviceId, query)
+
+    override fun findCategoryIdsForBoardName(serviceId: Long, query: String): Flow<List<Long>> =
+        crossRefDao.findCategoryIdsForBoardName(serviceId, query)
+
     override suspend fun insertOrGetBoard(board: BoardEntity): Long {
         // 1) まず挿入を試みる
         val rowId = boardDao.insertBoard(board)

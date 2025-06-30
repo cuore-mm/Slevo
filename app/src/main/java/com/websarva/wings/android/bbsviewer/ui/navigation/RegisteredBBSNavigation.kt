@@ -72,17 +72,26 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             Scaffold(
                 topBar = {
                     Box {
-                        // 通常モードの AppBar
-                        AnimatedVisibility(
-                            visible = !uiState.selectMode,
-                            enter = fadeIn(),
-                            exit = fadeOut()
-                        ) {
-                            ServiceListTopBarScreen(
-                                onNavigationClick = openDrawer,
-                                onAddClick = { viewModel.toggleAddDialog(true) },
-                                onSearchClick = {}
+                        // 検索モード
+                        if (uiState.isSearchActive && !uiState.selectMode) {
+                            SearchTopAppBar(
+                                searchQuery = uiState.searchQuery,
+                                onQueryChange = { viewModel.setSearchQuery(it) },
+                                onCloseSearch = { viewModel.setSearchMode(false) }
                             )
+                        } else {
+                            // 通常モードの AppBar
+                            AnimatedVisibility(
+                                visible = !uiState.selectMode,
+                                enter = fadeIn(),
+                                exit = fadeOut()
+                            ) {
+                                ServiceListTopBarScreen(
+                                    onNavigationClick = openDrawer,
+                                    onAddClick = { viewModel.toggleAddDialog(true) },
+                                    onSearchClick = { viewModel.setSearchMode(true) }
+                                )
+                            }
                         }
                         // 編集モードの AppBar（上からスライドダウン）
                         AnimatedVisibility(
@@ -163,11 +172,19 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
 
             Scaffold(
                 topBar = {
-                    BbsListTopBarScreen(
-                        title = uiState.serviceName,
-                        onNavigationClick = openDrawer,
-                        onSearchClick = {}
-                    )
+                    if (uiState.isSearchActive) {
+                        SearchTopAppBar(
+                            searchQuery = uiState.searchQuery,
+                            onQueryChange = { viewModel.setSearchQuery(it) },
+                            onCloseSearch = { viewModel.setSearchMode(false) }
+                        )
+                    } else {
+                        BbsListTopBarScreen(
+                            title = uiState.serviceName,
+                            onNavigationClick = openDrawer,
+                            onSearchClick = { viewModel.setSearchMode(true) }
+                        )
+                    }
                 },
             ) { innerPadding ->
                 BoaredCategoryListScreen(

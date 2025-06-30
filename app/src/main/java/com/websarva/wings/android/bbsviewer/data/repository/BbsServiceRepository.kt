@@ -97,4 +97,16 @@ class BbsServiceRepository @Inject constructor(
      */
     fun getBoardsForCategory(serviceId: Long, categoryId: Long): Flow<List<BoardEntity>> =
         local.observeBoardsForCategory(serviceId, categoryId)
+
+    /** 板名で検索（全サービス） */
+    fun searchBoards(query: String): Flow<List<BoardEntity>> =
+        local.searchBoards(query)
+
+    /** 板名で検索（サービス単位） */
+    fun searchBoardsInService(serviceId: Long, query: String): Flow<List<BoardEntity>> =
+        local.searchBoardsInService(serviceId, query)
+
+    /** 板名からカテゴリIDを取得 */
+    fun findCategoryIdsForBoardName(serviceId: Long, query: String): Flow<List<Long>> =
+        local.findCategoryIdsForBoardName(serviceId, query)
 }

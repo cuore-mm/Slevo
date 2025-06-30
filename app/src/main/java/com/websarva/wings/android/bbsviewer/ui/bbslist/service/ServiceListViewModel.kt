@@ -6,10 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.repository.BbsServiceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
@@ -33,6 +35,10 @@ class ServiceListViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ServiceListUiState())
     val uiState: StateFlow<ServiceListUiState> = _uiState.asStateFlow()
+
+    // 元のサービスリストを保持
+    private var originalServices: List<ServiceInfo>? = null
+    private var searchJob: Job? = null
 
     init {
         loadServiceInfo()
@@ -62,7 +68,9 @@ class ServiceListViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, errorMessage = e.localizedMessage ?: "不明なエラー") }
                 }
                 .collect { infos ->
-                    _uiState.update { it.copy(services = infos, isLoading = false, errorMessage = null) }
+                    originalServices = infos
+                    applyFilter()
+                    _uiState.update { it.copy(isLoading = false, errorMessage = null) }
                 }
         }
     }
@@ -113,6 +121,20 @@ class ServiceListViewModel @Inject constructor(
         _uiState.update { it.copy(enteredUrl = url) }
     }
 
+    /** 検索クエリ変更 */
+    fun setSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        applyFilter()
+    }
+
+    /** 検索モード切替 */
+    fun setSearchMode(active: Boolean) {
+        _uiState.update { it.copy(isSearchActive = active) }
+        if (!active) {
+            setSearchQuery("")
+        }
+    }
+
     /**
      * 選択モード切替
      */
@@ -129,6 +151,22 @@ class ServiceListViewModel @Inject constructor(
             state.copy(selected = next)
         }
     }
+
+    /** 現在の検索クエリでフィルタリング */
+    private fun applyFilter() {
+        val base = originalServices ?: return
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            if (_uiState.value.searchQuery.isBlank()) {
+                _uiState.update { it.copy(services = base) }
+            } else {
+                val boards = repository.searchBoards(_uiState.value.searchQuery).first()
+                val ids = boards.map { it.serviceId }.toSet()
+                val filtered = base.filter { it.serviceId in ids }
+                _uiState.update { it.copy(services = filtered) }
+            }
+        }
+    }
 }
 
 /** UIステート */
@@ -140,7 +178,9 @@ data class ServiceListUiState(
     val selected: Set<Long> = emptySet(),
     val showAddDialog: Boolean = false,
     val enteredUrl: String = "",
-    val showDeleteDialog: Boolean = false
+    val showDeleteDialog: Boolean = false,
+    val isSearchActive: Boolean = false,
+    val searchQuery: String = ""
 )
 
 /** UI用サービス情報 */

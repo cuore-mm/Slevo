@@ -32,6 +32,15 @@ interface BbsLocalDataSource {
     /** 指定サービスの板一覧を監視 */
     fun observeBoards(serviceId: Long): Flow<List<BoardEntity>>
 
+    /** 板名で検索（全サービス） */
+    fun searchBoards(query: String): Flow<List<BoardEntity>>
+
+    /** 板名で検索（サービス単位） */
+    fun searchBoardsInService(serviceId: Long, query: String): Flow<List<BoardEntity>>
+
+    /** 板名からカテゴリIDを取得 */
+    fun findCategoryIdsForBoardName(serviceId: Long, query: String): Flow<List<Long>>
+
     /** 板一覧を登録または更新 */
     suspend fun insertOrGetBoard(board: BoardEntity): Long
 

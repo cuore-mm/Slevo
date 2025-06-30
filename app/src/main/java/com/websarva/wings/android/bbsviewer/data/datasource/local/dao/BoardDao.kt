@@ -28,6 +28,14 @@ interface BoardDao {
     @Query("SELECT * FROM boards WHERE serviceId = :serviceId")
     fun getBoardsForService(serviceId: Long): Flow<List<BoardEntity>>
 
+    /** 名前で板を検索（全サービス対象） */
+    @Query("SELECT * FROM boards WHERE name LIKE '%' || :query || '%'")
+    fun searchBoardsByName(query: String): Flow<List<BoardEntity>>
+
+    /** 名前で板を検索（サービス限定） */
+    @Query("SELECT * FROM boards WHERE serviceId = :serviceId AND name LIKE '%' || :query || '%'")
+    fun searchBoardsByNameInService(serviceId: Long, query: String): Flow<List<BoardEntity>>
+
     @Transaction
     @Query("SELECT * FROM boards WHERE boardId = :boardId")
     fun getBoardWithCategories(boardId: Long): Flow<BoardWithCategories>
