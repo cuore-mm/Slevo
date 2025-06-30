@@ -22,3 +22,17 @@ fun parseBoardUrl(url: String): Pair<String, String>? {
     val boardKey = segments[0]
     return host to boardKey
 }
+
+/**
+ * URL からサービス名（ドメイン部分）を抽出します。
+ * 例: https://agree.5ch.net/operate/ -> 5ch.net
+ */
+fun parseServiceName(url: String): String {
+    return try {
+        val host = url.toUri().host ?: return ""
+        val parts = host.split(".")
+        if (parts.size >= 2) parts.takeLast(2).joinToString(".") else host
+    } catch (e: Exception) {
+        ""
+    }
+}

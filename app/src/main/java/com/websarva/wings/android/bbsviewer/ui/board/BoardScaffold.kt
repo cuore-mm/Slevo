@@ -24,6 +24,7 @@ import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.navigation.RouteScaffold
 import com.websarva.wings.android.bbsviewer.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
+import com.websarva.wings.android.bbsviewer.ui.util.parseServiceName
 import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,7 +43,8 @@ fun BoardScaffold(
             BoardTabInfo(
                 boardId = boardRoute.boardId,
                 boardName = boardRoute.boardName,
-                boardUrl = boardRoute.boardUrl
+                boardUrl = boardRoute.boardUrl,
+                serviceName = parseServiceName(boardRoute.boardUrl)
             )
         )
     }
