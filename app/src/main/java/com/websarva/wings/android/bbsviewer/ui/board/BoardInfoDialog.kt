@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -21,6 +22,7 @@ fun BoardInfoDialog(
     boardName: String,
     boardUrl: String,
     onDismissRequest: () -> Unit,
+    onLocalRuleClick: () -> Unit,
 ) {
     Dialog(
         onDismissRequest = onDismissRequest
@@ -53,6 +55,15 @@ fun BoardInfoDialog(
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )
+                TextButton(
+                    onClick = {
+                        onDismissRequest()
+                        onLocalRuleClick()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("ローカルルール")
+                }
             }
         }
 
@@ -66,6 +77,7 @@ fun BoardInfoDialogPreview() {
         serviceName = "5ch",
         boardName = "なんでも実況J",
         boardUrl = "https://example.com/board",
-        onDismissRequest = {}
+        onDismissRequest = {},
+        onLocalRuleClick = {}
     )
 }

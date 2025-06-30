@@ -170,6 +170,14 @@ class BoardViewModel @AssistedInject constructor(
         _uiState.update { it.copy(showInfoDialog = false) }
     }
 
+    fun openLocalRuleDialog() {
+        _uiState.update { it.copy(showLocalRuleDialog = true) }
+    }
+
+    fun closeLocalRuleDialog() {
+        _uiState.update { it.copy(showLocalRuleDialog = false) }
+    }
+
 }
 
 

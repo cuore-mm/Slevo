@@ -26,6 +26,8 @@ import com.websarva.wings.android.bbsviewer.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.parseServiceName
 import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar
+import com.websarva.wings.android.bbsviewer.ui.board.LocalRuleWebViewDialog
+import com.websarva.wings.android.bbsviewer.ui.board.BoardInfoDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -146,7 +148,14 @@ fun BoardScaffold(
                     serviceName = uiState.serviceName,
                     boardName = uiState.boardInfo.name,
                     boardUrl = uiState.boardInfo.url,
-                    onDismissRequest = { viewModel.closeInfoDialog() }
+                    onDismissRequest = { viewModel.closeInfoDialog() },
+                    onLocalRuleClick = { viewModel.openLocalRuleDialog() }
+                )
+            }
+            if (uiState.showLocalRuleDialog) {
+                LocalRuleWebViewDialog(
+                    url = uiState.boardInfo.url + "head.txt",
+                    onDismissRequest = { viewModel.closeLocalRuleDialog() }
                 )
             }
         },

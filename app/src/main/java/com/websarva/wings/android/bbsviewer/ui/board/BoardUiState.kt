@@ -12,6 +12,7 @@ data class BoardUiState(
     val showSortSheet: Boolean = false,
     val serviceName: String = "",
     val showInfoDialog: Boolean = false,
+    val showLocalRuleDialog: Boolean = false,
     val currentSortKey: ThreadSortKey = ThreadSortKey.DEFAULT,
     val isSortAscending: Boolean = false,
     val sortKeys: List<ThreadSortKey> = ThreadSortKey.entries,
