@@ -2,7 +2,6 @@ package com.websarva.wings.android.bbsviewer.ui.board
 
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.core.net.toUri
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
@@ -10,6 +9,7 @@ import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModelFactory
+import com.websarva.wings.android.bbsviewer.ui.util.parseServiceName
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -170,15 +170,6 @@ class BoardViewModel @AssistedInject constructor(
         _uiState.update { it.copy(showInfoDialog = false) }
     }
 
-    private fun parseServiceName(url: String): String {
-        return try {
-            val host = url.toUri().host ?: return ""
-            val parts = host.split(".")
-            if (parts.size >= 2) parts.takeLast(2).joinToString(".") else host
-        } catch (e: Exception) {
-            ""
-        }
-    }
 }
 
 

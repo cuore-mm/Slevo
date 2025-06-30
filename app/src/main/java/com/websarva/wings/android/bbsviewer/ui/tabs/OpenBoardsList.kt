@@ -43,6 +43,7 @@ fun OpenBoardsList(
             items(openTabs, key = { it.boardUrl }) { tab ->
                 ListItem(
                     headlineContent = { Text(tab.boardName, maxLines = 1) },
+                    supportingContent = { Text(tab.serviceName) },
                     trailingContent = {
                         IconButton(onClick = { onCloseClick(tab) }) {
                             Icon(
@@ -75,9 +76,9 @@ fun OpenBoardsList(
 @Composable
 fun OpenBoardsListPreview() {
     val sampleBoards = listOf(
-        BoardTabInfo(1, "板1", "https://example.com/board1"),
-        BoardTabInfo(2, "板2", "https://example.com/board2"),
-        BoardTabInfo(3, "板3", "https://example.com/board3")
+        BoardTabInfo(1, "板1", "https://example.com/board1", "example.com"),
+        BoardTabInfo(2, "板2", "https://example.com/board2", "example.com"),
+        BoardTabInfo(3, "板3", "https://example.com/board3", "example.com")
     )
     OpenBoardsList(
         openTabs = sampleBoards,
