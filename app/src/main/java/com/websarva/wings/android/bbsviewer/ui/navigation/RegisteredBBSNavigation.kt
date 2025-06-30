@@ -29,6 +29,7 @@ import com.websarva.wings.android.bbsviewer.ui.bbslist.service.DeleteBbsDialog
 import com.websarva.wings.android.bbsviewer.ui.bbslist.BbsListTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.common.SelectedTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -199,11 +200,19 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
 
             Scaffold(
                 topBar = {
-                    BbsListTopBarScreen(
-                        title = "${uiState.serviceName} > ${uiState.categoryName}",
-                        onNavigationClick = openDrawer,
-                        onSearchClick = {}
-                    )
+                    if (uiState.isSearchActive) {
+                        SearchTopAppBar(
+                            searchQuery = uiState.searchQuery,
+                            onQueryChange = { viewModel.setSearchQuery(it) },
+                            onCloseSearch = { viewModel.setSearchMode(false) }
+                        )
+                    } else {
+                        BbsListTopBarScreen(
+                            title = "${uiState.serviceName} > ${uiState.categoryName}",
+                            onNavigationClick = openDrawer,
+                            onSearchClick = { viewModel.setSearchMode(true) }
+                        )
+                    }
                 },
             ) { innerPadding ->
                 CategorisedBoardListScreen(

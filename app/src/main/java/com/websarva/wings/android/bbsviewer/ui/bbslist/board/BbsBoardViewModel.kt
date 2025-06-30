@@ -44,6 +44,9 @@ class BbsBoardViewModel @Inject constructor(
     )
     val uiState: StateFlow<BbsBoardUiState> = _uiState.asStateFlow()
 
+    // 元の板リストを保持し、検索時に利用
+    private var originalBoards: List<BoardInfo>? = null
+
     init {
         loadBoardInfo()
     }
@@ -68,9 +71,36 @@ class BbsBoardViewModel @Inject constructor(
                             url = entity.url
                         )
                     }
-                    _uiState.update { it.copy(boards = infos, isLoading = false, errorMessage = null) }
+                    originalBoards = infos
+                    applyFilter()
+                    _uiState.update { it.copy(isLoading = false, errorMessage = null) }
                 }
         }
+    }
+
+    /** 検索クエリ変更 */
+    fun setSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        applyFilter()
+    }
+
+    /** 検索モード切替 */
+    fun setSearchMode(active: Boolean) {
+        _uiState.update { it.copy(isSearchActive = active) }
+        if (!active) {
+            setSearchQuery("")
+        }
+    }
+
+    /** 現在の検索クエリでフィルタリング */
+    private fun applyFilter() {
+        val base = originalBoards ?: return
+        val filtered = if (_uiState.value.searchQuery.isNotBlank()) {
+            base.filter { it.name.contains(_uiState.value.searchQuery, ignoreCase = true) }
+        } else {
+            base
+        }
+        _uiState.update { it.copy(boards = filtered) }
     }
 }
 
@@ -83,5 +113,7 @@ data class BbsBoardUiState(
     val categoryName: String,
     val boards: List<BoardInfo> = emptyList(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val isSearchActive: Boolean = false,
+    val searchQuery: String = ""
 )
