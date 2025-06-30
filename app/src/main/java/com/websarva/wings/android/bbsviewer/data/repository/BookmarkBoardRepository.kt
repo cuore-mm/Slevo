@@ -37,6 +37,10 @@ class BookmarkBoardRepository @Inject constructor(
         groupDao.insertGroup(newGroup)
     }
 
+    suspend fun updateGroup(groupId: Long, name: String, colorHex: String) {
+        groupDao.updateGroupInfo(groupId, name, colorHex)
+    }
+
     /**
      * お気に入り登録または更新
      * @param bookmark 登録・更新対象の BookmarkBoardEntity

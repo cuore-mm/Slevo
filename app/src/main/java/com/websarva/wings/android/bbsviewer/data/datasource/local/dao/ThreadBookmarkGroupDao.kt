@@ -24,6 +24,9 @@ interface ThreadBookmarkGroupDao {
     @Update
     suspend fun updateGroups(groups: List<ThreadBookmarkGroupEntity>)
 
+    @Query("UPDATE thread_bookmark_groups SET name = :name, colorHex = :colorHex WHERE groupId = :groupId")
+    suspend fun updateGroupInfo(groupId: Long, name: String, colorHex: String)
+
     // 必要に応じて特定のIDでグループを取得するメソッドなども追加
     @Query("SELECT * FROM thread_bookmark_groups WHERE groupId = :groupId LIMIT 1")
     suspend fun getGroupById(groupId: Long): ThreadBookmarkGroupEntity?

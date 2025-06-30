@@ -3,6 +3,7 @@ package com.websarva.wings.android.bbsviewer.ui.thread
 import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
+import com.websarva.wings.android.bbsviewer.data.model.Groupable
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
@@ -92,10 +93,11 @@ class ThreadViewModel @AssistedInject constructor(
     fun saveBookmark(groupId: Long) = singleBookmarkViewModel?.saveBookmark(groupId)
     fun unbookmarkBoard() = singleBookmarkViewModel?.unbookmark()
     fun openAddGroupDialog() = singleBookmarkViewModel?.openAddGroupDialog()
+    fun openEditGroupDialog(group: Groupable) = singleBookmarkViewModel?.openEditGroupDialog(group)
     fun closeAddGroupDialog() = singleBookmarkViewModel?.closeAddGroupDialog()
     fun setEnteredGroupName(name: String) = singleBookmarkViewModel?.setEnteredGroupName(name)
     fun setSelectedColor(color: String) = singleBookmarkViewModel?.setSelectedColor(color)
-    fun addGroup() = singleBookmarkViewModel?.addGroup()
+    fun confirmGroup() = singleBookmarkViewModel?.confirmGroup()
     fun openBookmarkSheet() = singleBookmarkViewModel?.openBookmarkSheet()
     fun closeBookmarkSheet() = singleBookmarkViewModel?.closeBookmarkSheet()
 

@@ -1,7 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.common.bookmark
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +50,7 @@ fun <T : Groupable> BookmarkBottomSheet(
     onGroupSelected: (groupId: Long) -> Unit,
     onUnbookmarkRequested: () -> Unit,
     onAddGroup: () -> Unit,
+    onGroupLongClick: (T) -> Unit,
     onDismissRequest: () -> Unit,
     sheetState: SheetState,
 ) {
@@ -64,6 +65,7 @@ fun <T : Groupable> BookmarkBottomSheet(
             onGroupSelected = onGroupSelected,
             onUnbookmarkRequested = onUnbookmarkRequested,
             onAddGroup = onAddGroup,
+            onGroupLongClick = onGroupLongClick,
         )
     }
 }
@@ -75,6 +77,7 @@ private fun <T : Groupable> BookmarkSheetContent(
     onGroupSelected: (groupId: Long) -> Unit,
     onUnbookmarkRequested: () -> Unit,
     onAddGroup: () -> Unit,
+    onGroupLongClick: (T) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -119,13 +122,16 @@ private fun <T : Groupable> BookmarkSheetContent(
                 }
                 Card(
                     modifier = Modifier
-                        .clickable {
-                            if (isSelected) { // ★ すでに選択されているグループをタップした場合
-                                onUnbookmarkRequested() // ★ お気に入り解除をリクエスト
-                            } else { // ★ 選択されていないグループをタップした場合
-                                onGroupSelected(group.id) // ★ グループ選択/変更
-                            }
-                        },
+                        .combinedClickable(
+                            onClick = {
+                                if (isSelected) {
+                                    onUnbookmarkRequested()
+                                } else {
+                                    onGroupSelected(group.id)
+                                }
+                            },
+                            onLongClick = { onGroupLongClick(group) }
+                        ),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = bgColor)
                 ) {
@@ -178,7 +184,8 @@ fun BookmarkSheetPreview() {
             selectedGroupId = 1L,
             onGroupSelected = {},
             onUnbookmarkRequested = {},
-            onAddGroup = {}
+            onAddGroup = {},
+            onGroupLongClick = {}
         )
     }
 }

@@ -32,8 +32,9 @@ import com.websarva.wings.android.bbsviewer.R
 @Composable
 fun AddGroupDialog(
     modifier: Modifier = Modifier,
+    isEdit: Boolean = false,
     onDismissRequest: () -> Unit,
-    onAdd: () -> Unit,
+    onConfirm: () -> Unit,
     onValueChange: (String) -> Unit,
     enteredValue: String,
     onColorSelected: (String) -> Unit,
@@ -89,9 +90,10 @@ fun AddGroupDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = onAdd
+                onClick = onConfirm
             ) {
-                Text(text = stringResource(R.string.add))
+                val textRes = if (isEdit) R.string.save else R.string.add
+                Text(text = stringResource(textRes))
             }
         },
         dismissButton = {
@@ -113,7 +115,7 @@ fun AddGroupDialogPreview() {
 
     AddGroupDialog(
         onDismissRequest = {},
-        onAdd = {},
+        onConfirm = {},
         onValueChange = { name = it },
         onColorSelected = { selColor = it },
         enteredValue = name,

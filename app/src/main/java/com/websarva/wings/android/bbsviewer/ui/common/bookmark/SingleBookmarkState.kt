@@ -9,5 +9,6 @@ data class SingleBookmarkState(
     val showBookmarkSheet: Boolean = false,
     val showAddGroupDialog: Boolean = false,
     val enteredGroupName: String = "",
-    val selectedColor: String = "#FF0000"
+    val selectedColor: String = "#FF0000",
+    val editingGroupId: Long? = null
 )

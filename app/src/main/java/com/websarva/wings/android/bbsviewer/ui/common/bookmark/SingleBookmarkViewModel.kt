@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
+import com.websarva.wings.android.bbsviewer.data.model.Groupable
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
@@ -114,26 +115,62 @@ class SingleBookmarkViewModel @AssistedInject constructor(
 
     fun openBookmarkSheet() = _uiState.update { it.copy(showBookmarkSheet = true) }
     fun closeBookmarkSheet() = _uiState.update { it.copy(showBookmarkSheet = false) }
-    fun openAddGroupDialog() = _uiState.update { it.copy(showAddGroupDialog = true) }
+
+    fun openAddGroupDialog() = _uiState.update {
+        it.copy(
+            showAddGroupDialog = true,
+            enteredGroupName = "",
+            selectedColor = "#FF0000",
+            editingGroupId = null
+        )
+    }
+
+    fun openEditGroupDialog(group: Groupable) = _uiState.update {
+        it.copy(
+            showAddGroupDialog = true,
+            enteredGroupName = group.name,
+            selectedColor = group.colorHex,
+            editingGroupId = group.id
+        )
+    }
+
     fun closeAddGroupDialog() = _uiState.update {
         it.copy(
             showAddGroupDialog = false,
             enteredGroupName = "",
-            selectedColor = "#FF0000"
+            selectedColor = "#FF0000",
+            editingGroupId = null
         )
     }
 
     fun setEnteredGroupName(name: String) = _uiState.update { it.copy(enteredGroupName = name) }
     fun setSelectedColor(color: String) = _uiState.update { it.copy(selectedColor = color) }
 
-    fun addGroup() {
+    private suspend fun addGroup(name: String, color: String) {
+        if (threadInfo == null) {
+            boardBookmarkRepo.addGroupAtEnd(name, color)
+        } else {
+            threadBookmarkRepo.addGroupAtEnd(name, color)
+        }
+    }
+
+    private suspend fun updateGroup(id: Long, name: String, color: String) {
+        if (threadInfo == null) {
+            boardBookmarkRepo.updateGroup(id, name, color)
+        } else {
+            threadBookmarkRepo.updateGroup(id, name, color)
+        }
+    }
+
+    fun confirmGroup() {
         viewModelScope.launch {
             val name = _uiState.value.enteredGroupName.takeIf { it.isNotBlank() } ?: return@launch
             val color = _uiState.value.selectedColor
-            if (threadInfo == null) {
-                boardBookmarkRepo.addGroupAtEnd(name, color)
+            val editId = _uiState.value.editingGroupId
+            if (editId == null) {
+                addGroup(name, color)
             } else {
-                threadBookmarkRepo.addGroupAtEnd(name, color)
+                updateGroup(editId, name, color)
             }
             closeAddGroupDialog()
         }
