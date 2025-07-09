@@ -3,15 +3,18 @@ package com.websarva.wings.android.bbsviewer.ui.tabs
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModelFactory
 import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModelFactory
+import com.websarva.wings.android.bbsviewer.data.repository.TabsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -21,7 +24,8 @@ import javax.inject.Inject
  */
 class TabsViewModel @Inject constructor(
     private val threadViewModelFactory: ThreadViewModelFactory,
-    private val boardViewModelFactory: BoardViewModelFactory
+    private val boardViewModelFactory: BoardViewModelFactory,
+    private val repository: TabsRepository
 ) : ViewModel() {
     // 開いているスレッドタブ一覧と、各タブに紐づく ViewModel を保持
     private val _openThreadTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
@@ -36,6 +40,19 @@ class TabsViewModel @Inject constructor(
 
     // threadKey + boardUrl をキーに ThreadViewModel をキャッシュ
     private val threadViewModelMap: MutableMap<String, ThreadViewModel> = mutableMapOf()
+
+    init {
+        viewModelScope.launch {
+            repository.observeOpenBoardTabs().collect { tabs ->
+                _openBoardTabs.value = tabs
+            }
+        }
+        viewModelScope.launch {
+            repository.observeOpenThreadTabs().collect { tabs ->
+                _openThreadTabs.value = tabs
+            }
+        }
+    }
 
     /**
      * 指定キーの [ThreadViewModel] を取得。
@@ -82,6 +99,7 @@ class TabsViewModel @Inject constructor(
                 currentTabs + tabInfo
             }
         }
+        viewModelScope.launch { repository.saveOpenThreadTabs(_openThreadTabs.value) }
     }
 
     /**
@@ -101,6 +119,7 @@ class TabsViewModel @Inject constructor(
                 currentBoards + boardTabInfo
             }
         }
+        viewModelScope.launch { repository.saveOpenBoardTabs(_openBoardTabs.value) }
     }
 
     /**
@@ -117,6 +136,7 @@ class TabsViewModel @Inject constructor(
         _openThreadTabs.update { current ->
             current.filterNot { it.key == tab.key && it.boardUrl == tab.boardUrl }
         }
+        viewModelScope.launch { repository.saveOpenThreadTabs(_openThreadTabs.value) }
     }
 
     /**
@@ -128,6 +148,7 @@ class TabsViewModel @Inject constructor(
         _openBoardTabs.update { current ->
             current.filterNot { it.boardUrl == tab.boardUrl }
         }
+        viewModelScope.launch { repository.saveOpenBoardTabs(_openBoardTabs.value) }
     }
 
     /**
@@ -152,6 +173,7 @@ class TabsViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch { repository.saveOpenThreadTabs(_openThreadTabs.value) }
     }
 
     /**
@@ -174,6 +196,7 @@ class TabsViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch { repository.saveOpenBoardTabs(_openBoardTabs.value) }
     }
 
     /**
