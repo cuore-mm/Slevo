@@ -11,7 +11,6 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardBookm
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBookmarkGroupDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.Migrations
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -48,7 +47,6 @@ object DatabaseModule {
         )
             // マイグレーション未定義時は既存データを破棄し再生成
             .fallbackToDestructiveMigration(false)
-            .addMigrations(Migrations.MIGRATION_1_2)
             .addCallback(callback)
             .build()
     }
