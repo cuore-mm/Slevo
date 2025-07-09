@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalUriHandler
@@ -176,6 +177,14 @@ fun ThreadScreen(
     }
 }
 
+private fun getIdColor(count: Int): Color = when {
+    count in 2..3 -> Color.Blue
+    count in 4..5 -> Color(0xFF9C27B0)
+    count in 6..7 -> Color(0xFFE91E63)
+    count >= 8 -> Color.Red
+    else -> Color.Unspecified
+}
+
 @Composable
 fun PostItem(
     modifier: Modifier = Modifier,
@@ -199,10 +208,17 @@ fun PostItem(
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = "${post.name} ${post.email} ${post.date} " +
-                    if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id,
+                text = "${'$'}{post.name} ${'$'}{post.email} ${'$'}{post.date}",
                 modifier = Modifier.alignByBaseline(),
                 style = MaterialTheme.typography.labelMedium
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            val idColor = getIdColor(idTotal)
+            Text(
+                text = if (idTotal > 1) "${'$'}{post.id} (${ '$'}{idIndex}/${'$'}{idTotal})" else post.id,
+                modifier = Modifier.alignByBaseline(),
+                style = MaterialTheme.typography.labelMedium,
+                color = idColor
             )
         }
 
