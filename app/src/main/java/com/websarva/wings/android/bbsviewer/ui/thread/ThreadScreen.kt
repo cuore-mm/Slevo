@@ -29,14 +29,18 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -200,25 +204,28 @@ fun PostItem(
             .clickable(onClick = { /* クリック処理が必要な場合はここに実装 */ })
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        Row {
+        val idColor = getIdColor(idTotal)
+        val headerText = buildAnnotatedString {
+            // postNumとname、email、dateを結合
+            append("${post.name} ${post.email} ${post.date} ")
+
+            // ID部分にだけ色を適用
+            withStyle(style = SpanStyle(color = idColor)) {
+                append(if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id)
+            }
+        }
+
+        Row{
             Text(
+                modifier = Modifier.alignByBaseline(),
                 text = postNum.toString(),
-                modifier = Modifier.alignByBaseline(),
                 style = MaterialTheme.typography.labelMedium
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = "${'$'}{post.name} ${'$'}{post.email} ${'$'}{post.date}",
                 modifier = Modifier.alignByBaseline(),
+                text = headerText,
                 style = MaterialTheme.typography.labelMedium
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            val idColor = getIdColor(idTotal)
-            Text(
-                text = if (idTotal > 1) "${'$'}{post.id} (${ '$'}{idIndex}/${'$'}{idTotal})" else post.id,
-                modifier = Modifier.alignByBaseline(),
-                style = MaterialTheme.typography.labelMedium,
-                color = idColor
             )
         }
 
@@ -334,7 +341,7 @@ fun ThreadScreenPreview() {
                 content = "これはテスト投稿です。"
             ),
             ReplyInfo(
-                name = "名無し2",
+                name = "名無しさん",
                 email = "sage",
                 date = "2025/07/09(水) 19:41:00.123",
                 id = "test2",
