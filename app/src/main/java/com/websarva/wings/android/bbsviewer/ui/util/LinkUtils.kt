@@ -11,7 +11,8 @@ private val urlRegex: Pattern =
 private val replyRegex: Pattern = Pattern.compile(">>(\\d+)")
 
 /**
- * 入力されたテキストから URL を検出し、クリック可能な AnnotatedString を生成します。
+ * 入力されたテキストからURLと返信アンカー（>>1など）を検出し、
+ * それぞれクリック可能な注釈（Annotation）を付けたAnnotatedStringを生成します。
  */
 fun buildUrlAnnotatedString(
     text: String,
@@ -39,6 +40,7 @@ fun buildUrlAnnotatedString(
                     append(match)
                     pop()
                 }
+
                 replyRegex.matcher(match).matches() -> {
                     val number = replyRegex.matcher(match).run { if (find()) group(1) else null }
                     pushStringAnnotation(tag = "REPLY", annotation = number ?: "")

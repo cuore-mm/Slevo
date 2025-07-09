@@ -1,5 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,9 +15,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Card
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,19 +27,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 
 data class PopupInfo(
@@ -45,6 +46,7 @@ data class PopupInfo(
     val size: IntSize = IntSize.Zero,
 )
 
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun ThreadScreen(
     modifier: Modifier = Modifier,
@@ -175,12 +177,14 @@ fun PostItem(
             text = annotatedText,
             style = MaterialTheme.typography.bodyMedium,
             onClick = { offset ->
-                annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()?.let { ann ->
-                    uriHandler.openUri(ann.item)
-                }
-                annotatedText.getStringAnnotations("REPLY", offset, offset).firstOrNull()?.let { ann ->
-                    ann.item.toIntOrNull()?.let { onReplyClick?.invoke(it) }
-                }
+                annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()
+                    ?.let { ann ->
+                        uriHandler.openUri(ann.item)
+                    }
+                annotatedText.getStringAnnotations("REPLY", offset, offset).firstOrNull()
+                    ?.let { ann ->
+                        ann.item.toIntOrNull()?.let { onReplyClick?.invoke(it) }
+                    }
             }
         )
     }
