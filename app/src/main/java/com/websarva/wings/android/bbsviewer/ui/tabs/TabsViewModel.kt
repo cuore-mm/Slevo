@@ -9,10 +9,13 @@ import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModelFactory
 import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModelFactory
 import com.websarva.wings.android.bbsviewer.data.repository.TabsRepository
+import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
+import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -25,7 +28,9 @@ import javax.inject.Inject
 class TabsViewModel @Inject constructor(
     private val threadViewModelFactory: ThreadViewModelFactory,
     private val boardViewModelFactory: BoardViewModelFactory,
-    private val repository: TabsRepository
+    private val repository: TabsRepository,
+    private val bookmarkBoardRepo: BookmarkBoardRepository,
+    private val threadBookmarkRepo: ThreadBookmarkRepository,
 ) : ViewModel() {
     // 開いているスレッドタブ一覧と、各タブに紐づく ViewModel を保持
     private val _openThreadTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
@@ -43,14 +48,32 @@ class TabsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            repository.observeOpenBoardTabs().collect { tabs ->
-                _openBoardTabs.value = tabs
-            }
+            combine(
+                repository.observeOpenBoardTabs(),
+                bookmarkBoardRepo.observeGroupsWithBoards()
+            ) { tabs, groups ->
+                val colorMap = mutableMapOf<Long, String>()
+                groups.forEach { g ->
+                    val color = g.group.colorName
+                    g.boards.forEach { b -> colorMap[b.boardId] = color }
+                }
+                tabs.map { it.copy(bookmarkColorName = colorMap[it.boardId]) }
+            }.collect { _openBoardTabs.value = it }
         }
         viewModelScope.launch {
-            repository.observeOpenThreadTabs().collect { tabs ->
-                _openThreadTabs.value = tabs
-            }
+            combine(
+                repository.observeOpenThreadTabs(),
+                threadBookmarkRepo.observeSortedGroupsWithThreadBookmarks()
+            ) { tabs, groups ->
+                val colorMap = mutableMapOf<String, String>()
+                groups.forEach { g ->
+                    val color = g.group.colorName
+                    g.threads.forEach { t ->
+                        colorMap[t.threadKey + t.boardUrl] = color
+                    }
+                }
+                tabs.map { it.copy(bookmarkColorName = colorMap[it.key + it.boardUrl]) }
+            }.collect { _openThreadTabs.value = it }
         }
     }
 

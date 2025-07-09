@@ -6,5 +6,6 @@ data class BoardTabInfo(
     val boardUrl: String,
     val serviceName: String,
     val firstVisibleItemIndex: Int = 0, // スクロール位置（インデックス）
-    val firstVisibleItemScrollOffset: Int = 0 // スクロール位置（オフセット）
+    val firstVisibleItemScrollOffset: Int = 0, // スクロール位置（オフセット）
+    val bookmarkColorName: String? = null
 )

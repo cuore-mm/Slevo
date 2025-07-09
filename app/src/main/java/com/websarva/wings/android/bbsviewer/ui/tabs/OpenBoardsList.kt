@@ -2,7 +2,11 @@ package com.websarva.wings.android.bbsviewer.ui.tabs
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -16,10 +20,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
+import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
+import com.websarva.wings.android.bbsviewer.ui.theme.BookmarkColor
 
 @Composable
 fun OpenBoardsList(
@@ -32,31 +39,44 @@ fun OpenBoardsList(
     Column(modifier = modifier.fillMaxSize()) {
         LazyColumn(modifier = Modifier.weight(1f)) {
             items(openTabs, key = { it.boardUrl }) { tab ->
-                ListItem(
-                    headlineContent = { Text(tab.boardName, maxLines = 1) },
-                    supportingContent = { Text(tab.serviceName) },
-                    trailingContent = {
-                        IconButton(onClick = { onCloseClick(tab) }) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = stringResource(R.string.close)
-                            )
-                        }
-                    },
-                    modifier = Modifier.clickable {
-                        closeDrawer()
-                        navController.navigate(
-                            AppRoute.Board(
-                                boardId = tab.boardId,
-                                boardName = tab.boardName,
-                                boardUrl = tab.boardUrl
-                            )
-                        ) {
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
+                Row(modifier = Modifier.fillMaxHeight()) {
+                    if (color != null) {
+                        androidx.compose.foundation.layout.Box(
+                            modifier = Modifier
+                                .width(8.dp)
+                                .fillMaxHeight()
+                                .background(color)
+                        )
                     }
-                )
+                    ListItem(
+                        headlineContent = { Text(tab.boardName, maxLines = 1) },
+                        supportingContent = { Text(tab.serviceName) },
+                        trailingContent = {
+                            IconButton(onClick = { onCloseClick(tab) }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.close)
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                closeDrawer()
+                                navController.navigate(
+                                    AppRoute.Board(
+                                        boardId = tab.boardId,
+                                        boardName = tab.boardName,
+                                        boardUrl = tab.boardUrl
+                                    )
+                                ) {
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                    )
+                }
                 HorizontalDivider()
             }
         }
@@ -67,8 +87,8 @@ fun OpenBoardsList(
 @Composable
 fun OpenBoardsListPreview() {
     val sampleBoards = listOf(
-        BoardTabInfo(1, "板1", "https://example.com/board1", "example.com"),
-        BoardTabInfo(2, "板2", "https://example.com/board2", "example.com"),
+        BoardTabInfo(1, "板1", "https://example.com/board1", "example.com", bookmarkColorName = BookmarkColor.RED.value),
+        BoardTabInfo(2, "板2", "https://example.com/board2", "example.com", bookmarkColorName = BookmarkColor.GREEN.value),
         BoardTabInfo(3, "板3", "https://example.com/board3", "example.com")
     )
     OpenBoardsList(
