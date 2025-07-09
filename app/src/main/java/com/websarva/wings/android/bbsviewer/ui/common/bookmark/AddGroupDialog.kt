@@ -28,12 +28,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.toColorInt
 import com.websarva.wings.android.bbsviewer.R
+import com.websarva.wings.android.bbsviewer.ui.theme.BookmarkColor
+import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
 
 @Composable
 fun AddGroupDialog(
@@ -46,12 +46,9 @@ fun AddGroupDialog(
     enteredValue: String,
     onColorSelected: (String) -> Unit,
     selectedColor: String,
-    colors: List<String> = listOf(
-        "#FF0000", "#00FF00", "#0000FF", "#FFFF00",
-        "#FF00FF", "#00FFFF", "#FFA500", "#800080",
-        "#008080", "#FFC0CB",
-    )
 ) {
+    val colors = BookmarkColor.values()
+
     AlertDialog(
         modifier = modifier,
         onDismissRequest = onDismissRequest,
@@ -79,9 +76,8 @@ fun AddGroupDialog(
                     horizontalArrangement = Arrangement.SpaceAround,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    colors.forEach { hex ->
-                        val isSelected = hex == selectedColor
-                        val bgColor = Color(hex.toColorInt())
+                    colors.forEach { color  ->
+                        val isSelected = color.value.equals(selectedColor, ignoreCase = true)
                         val border = if (isSelected)
                             BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
                         else null
@@ -89,9 +85,9 @@ fun AddGroupDialog(
                         Surface(
                             modifier = Modifier
                                 .size(40.dp)
-                                .clickable { onColorSelected(hex) },
+                                .clickable { onColorSelected(color.value) },
                             shape = CircleShape,
-                            color = bgColor,
+                            color = bookmarkColor(color.value),
                             border = border
                         ) { /* 円形チップ */ }
                     }
@@ -130,8 +126,7 @@ fun AddGroupDialog(
 @Composable
 fun AddGroupDialogPreview() {
     var name by remember { mutableStateOf("") }
-    var selColor by remember { mutableStateOf("#FF4081") }
-    val palette = listOf("#FF4081", "#3F51B5", "#4CAF50", "#FF9800")
+    var selColor by remember { mutableStateOf(BookmarkColor.RED.value) }
 
     AddGroupDialog(
         isEdit = true,

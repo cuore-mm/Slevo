@@ -33,6 +33,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWi
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithThreadBookmarks
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.model.GroupedData
+import com.websarva.wings.android.bbsviewer.ui.theme.BookmarkColor
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -269,7 +270,7 @@ fun BookmarkBoardScreenPreview() {
             GroupWithBoards(
                 group = BoardBookmarkGroupEntity(
                     name = "グループ1",
-                    colorHex = "#FF0E00",
+                    colorName = BookmarkColor.RED.value,
                     sortOrder = 1
                 ),
                 boards = listOf(
@@ -302,7 +303,7 @@ fun BookmarkThreadListScreenPreview() {
             group = ThreadBookmarkGroupEntity(
                 groupId = 0,
                 name = "お気に入りグループA",
-                colorHex = "#FF9800",
+                colorName = BookmarkColor.AMBER.value,
                 sortOrder = 0
             ),
             threads = listOf(
@@ -330,7 +331,7 @@ fun BookmarkThreadListScreenPreview() {
             group = ThreadBookmarkGroupEntity(
                 groupId = 1,
                 name = "お気に入りグループB",
-                colorHex = "#4CAF50",
+                colorName = BookmarkColor.GREEN.value,
                 sortOrder = 1
             ),
             threads = emptyList()

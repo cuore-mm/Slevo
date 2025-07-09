@@ -24,8 +24,8 @@ interface ThreadBookmarkGroupDao {
     @Update
     suspend fun updateGroups(groups: List<ThreadBookmarkGroupEntity>)
 
-    @Query("UPDATE thread_bookmark_groups SET name = :name, colorHex = :colorHex WHERE groupId = :groupId")
-    suspend fun updateGroupInfo(groupId: Long, name: String, colorHex: String)
+    @Query("UPDATE thread_bookmark_groups SET name = :name, colorName = :colorName WHERE groupId = :groupId")
+    suspend fun updateGroupInfo(groupId: Long, name: String, colorName: String)
 
     @Query("DELETE FROM thread_bookmark_groups WHERE groupId = :groupId")
     suspend fun deleteGroupById(groupId: Long)

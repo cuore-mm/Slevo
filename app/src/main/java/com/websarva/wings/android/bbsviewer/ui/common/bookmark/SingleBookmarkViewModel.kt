@@ -9,6 +9,7 @@ import com.websarva.wings.android.bbsviewer.data.model.Groupable
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
+import com.websarva.wings.android.bbsviewer.ui.theme.BookmarkColor
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -120,7 +121,7 @@ class SingleBookmarkViewModel @AssistedInject constructor(
         it.copy(
             showAddGroupDialog = true,
             enteredGroupName = "",
-            selectedColor = "#FF0000",
+            selectedColor = BookmarkColor.RED.value,
             editingGroupId = null
         )
     }
@@ -129,7 +130,7 @@ class SingleBookmarkViewModel @AssistedInject constructor(
         it.copy(
             showAddGroupDialog = true,
             enteredGroupName = group.name,
-            selectedColor = group.colorHex,
+            selectedColor = group.colorName,
             editingGroupId = group.id
         )
     }
@@ -138,7 +139,7 @@ class SingleBookmarkViewModel @AssistedInject constructor(
         it.copy(
             showAddGroupDialog = false,
             enteredGroupName = "",
-            selectedColor = "#FF0000",
+            selectedColor = BookmarkColor.RED.value,
             editingGroupId = null
         )
     }

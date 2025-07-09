@@ -35,18 +35,18 @@ class ThreadBookmarkRepository @Inject constructor(
         return threadGroupDao.getAllGroupsSorted()
     }
 
-    suspend fun addGroupAtEnd(name: String, colorHex: String) {
+    suspend fun addGroupAtEnd(name: String, colorName: String) {
         val nextOrder = threadGroupDao.getMaxSortOrder() + 1
         val newGroup = ThreadBookmarkGroupEntity(
             name = name,
-            colorHex = colorHex,
+            colorName = colorName,
             sortOrder = nextOrder
         )
         threadGroupDao.insertGroup(newGroup)
     }
 
-    suspend fun updateGroup(groupId: Long, name: String, colorHex: String) {
-        threadGroupDao.updateGroupInfo(groupId, name, colorHex)
+    suspend fun updateGroup(groupId: Long, name: String, colorName: String) {
+        threadGroupDao.updateGroupInfo(groupId, name, colorName)
     }
 
     suspend fun deleteGroup(groupId: Long) {

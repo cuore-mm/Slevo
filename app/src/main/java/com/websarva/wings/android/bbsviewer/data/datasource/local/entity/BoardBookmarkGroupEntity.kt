@@ -11,7 +11,7 @@ import com.websarva.wings.android.bbsviewer.data.model.Groupable
 data class BoardBookmarkGroupEntity(
     @PrimaryKey(autoGenerate = true) val groupId: Long = 0,
     override val name: String,
-    override val colorHex: String,
+    override val colorName: String,
     override val sortOrder: Int
 ) : Groupable {
     override val id: Long

@@ -18,7 +18,7 @@ interface BookmarkBoardDao {
           b.*,
           bm.groupId   AS groupId,
           g.name       AS groupName,
-          g.colorHex   AS groupColorHex
+          g.colorName   AS groupColorName
         FROM boards AS b
         INNER JOIN board_category_cross_ref AS bc
           ON b.boardId = bc.boardId
@@ -61,7 +61,7 @@ interface BookmarkBoardDao {
     b.*,
     bm.groupId   AS groupId,
     g.name       AS groupName,
-    g.colorHex   AS groupColorHex
+    g.colorName  AS groupColorName
         FROM boards AS b
         LEFT JOIN bookmark_boards AS bm
           ON bm.boardId = b.boardId

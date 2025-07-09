@@ -28,8 +28,8 @@ interface BoardBookmarkGroupDao {
     @Update
     suspend fun updateGroups(groups: List<BoardBookmarkGroupEntity>)
 
-    @Query("UPDATE `groups` SET name = :name, colorHex = :colorHex WHERE groupId = :groupId")
-    suspend fun updateGroupInfo(groupId: Long, name: String, colorHex: String)
+    @Query("UPDATE `groups` SET name = :name, colorName = :colorName WHERE groupId = :groupId")
+    suspend fun updateGroupInfo(groupId: Long, name: String, colorName: String)
 
     @Query("DELETE FROM `groups` WHERE groupId = :groupId")
     suspend fun deleteGroupById(groupId: Long)
