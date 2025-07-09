@@ -75,10 +75,9 @@ fun AppScaffold(
             )
         }
     ) { innerPadding ->
-        // innerPadding から下だけ取り出す
-        val bottomPadding = innerPadding.calculateBottomPadding()
 
         AppNavGraph(
+            parentPadding = innerPadding,
             navController = navController,
             scrollBehavior = scrollBehavior,
             settingsViewModel = settingsViewModel,

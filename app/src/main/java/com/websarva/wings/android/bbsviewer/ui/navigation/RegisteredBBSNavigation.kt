@@ -7,33 +7,37 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
-import com.websarva.wings.android.bbsviewer.ui.bbslist.service.AddBbsDialog
-import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListScreen
-import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListViewModel
-import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BoaredCategoryListScreen
-import com.websarva.wings.android.bbsviewer.ui.bbslist.board.CategorisedBoardListScreen
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.websarva.wings.android.bbsviewer.ui.bbslist.board.BbsBoardViewModel
-import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BoardCategoryListViewModel
-import com.websarva.wings.android.bbsviewer.ui.bbslist.service.DeleteBbsDialog
 import com.websarva.wings.android.bbsviewer.ui.bbslist.BbsListTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.bbslist.board.BbsBoardViewModel
+import com.websarva.wings.android.bbsviewer.ui.bbslist.board.CategorisedBoardListScreen
+import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BoardCategoryListViewModel
+import com.websarva.wings.android.bbsviewer.ui.bbslist.category.BoaredCategoryListScreen
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.AddBbsDialog
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.DeleteBbsDialog
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListScreen
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListTopBarScreen
+import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.SelectedTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
 @OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.addRegisteredBBSNavigation(
-    modifier: Modifier = Modifier,
+    parentPadding: PaddingValues,
     navController: NavHostController,
     openDrawer: () -> Unit
 ) {
@@ -99,7 +103,13 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             ) { innerPadding ->
 
                 ServiceListScreen(
-                    modifier = modifier.padding(innerPadding),
+                    modifier = Modifier.padding(
+                        // 左右と下は親のpadding、上は子のpaddingを使用
+                        start = parentPadding.calculateStartPadding(LayoutDirection.Ltr),
+                        top = innerPadding.calculateTopPadding(),
+                        end = parentPadding.calculateEndPadding(LayoutDirection.Ltr),
+                        bottom = parentPadding.calculateBottomPadding()
+                    ),
                     uiState = uiState,
                     onClick = { service ->
                         navController.navigate(
@@ -170,7 +180,13 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                 },
             ) { innerPadding ->
                 BoaredCategoryListScreen(
-                    modifier = modifier.padding(innerPadding),
+                    modifier = Modifier.padding(
+                        // 左右と下は親のpadding、上は子のpaddingを使用
+                        start = parentPadding.calculateStartPadding(LayoutDirection.Ltr),
+                        top = innerPadding.calculateTopPadding(),
+                        end = parentPadding.calculateEndPadding(LayoutDirection.Ltr),
+                        bottom = parentPadding.calculateBottomPadding()
+                    ),
                     uiState = uiState,
                     onCategoryClick = { category ->
                         navController.navigate(
@@ -207,7 +223,13 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                 },
             ) { innerPadding ->
                 CategorisedBoardListScreen(
-                    modifier = modifier.padding(innerPadding),
+                    modifier = Modifier.padding(
+                        // 左右と下は親のpadding、上は子のpaddingを使用
+                        start = parentPadding.calculateStartPadding(LayoutDirection.Ltr),
+                        top = innerPadding.calculateTopPadding(),
+                        end = parentPadding.calculateEndPadding(LayoutDirection.Ltr),
+                        bottom = parentPadding.calculateBottomPadding()
+                    ),
                     boards = uiState.boards,
                     onBoardClick = { board ->
                         navController.navigate(

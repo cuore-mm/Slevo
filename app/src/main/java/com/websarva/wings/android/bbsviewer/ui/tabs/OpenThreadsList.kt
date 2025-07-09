@@ -1,9 +1,11 @@
 package com.websarva.wings.android.bbsviewer.ui.tabs
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -12,13 +14,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.bbsviewer.R
@@ -33,17 +33,19 @@ fun OpenThreadsList(
     closeDrawer: () -> Unit
 ) {
     Column(modifier = modifier.fillMaxSize()) {
-        Text(
-            text = stringResource(R.string.drawer_open_threads),
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.titleMedium
-        )
-        HorizontalDivider()
         LazyColumn(modifier = Modifier.weight(1f)) {
             items(openTabs, key = { it.key + it.boardUrl }) { tab ->
                 ListItem(
-                    headlineContent = { Text(tab.title, maxLines = 1) },
-                    supportingContent = { Text("${tab.boardName} ${tab.resCount}") },
+                    headlineContent = { Text(tab.title) },
+                    supportingContent = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(tab.boardName)
+                            Text(tab.resCount.toString())
+                        }
+                    },
                     trailingContent = {
                         IconButton(onClick = { onCloseClick(tab) }) {
                             Icon(
