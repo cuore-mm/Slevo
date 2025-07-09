@@ -96,7 +96,16 @@ fun ThreadScreen(
                 onDismissRequest = { popupPost = null }
             ) {
                 Card {
-                    PostItem(post = reply, postNum = posts.indexOf(reply) + 1)
+                    PostItem(
+                        post = reply,
+                        postNum = posts.indexOf(reply) + 1,
+                        onReplyClick = { num ->
+                            if (num in 1..posts.size) {
+                                popupPost = posts[num - 1]
+                                // ポジションはそのまま
+                            }
+                        }
+                    )
                 }
             }
         }
