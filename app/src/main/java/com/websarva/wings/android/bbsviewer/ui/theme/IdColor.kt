@@ -1,6 +1,5 @@
 package com.websarva.wings.android.bbsviewer.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
@@ -20,5 +19,5 @@ fun idColor(count: Int): Color {
         count >= 8 -> IdColor.LEVEL4
         else -> return Color.Unspecified
     }
-    return if (isSystemInDarkTheme()) color.dark else color.light
+    return if (LocalIsDarkTheme.current) color.dark else color.light
 }

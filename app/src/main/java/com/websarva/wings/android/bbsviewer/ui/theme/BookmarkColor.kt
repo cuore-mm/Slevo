@@ -1,6 +1,5 @@
 package com.websarva.wings.android.bbsviewer.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
@@ -25,5 +24,5 @@ enum class BookmarkColor(val value: String, val light: Color, val dark: Color) {
 @Composable
 fun bookmarkColor(name: String): Color {
     val color = BookmarkColor.fromValue(name) ?: BookmarkColor.RED
-    return if (isSystemInDarkTheme()) color.dark else color.light
+    return if (LocalIsDarkTheme.current) color.dark else color.light
 }
