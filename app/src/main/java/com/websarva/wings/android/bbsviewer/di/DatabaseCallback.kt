@@ -7,6 +7,7 @@ import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.repository.BbsServiceRepository
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
+import com.websarva.wings.android.bbsviewer.ui.theme.BookmarkColor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,13 +54,13 @@ class DatabaseCallback @Inject constructor(
         // デフォルトのお気に入りグループを登録
         bookmarkBoardRepositoryProvider.get().addGroupAtEnd(
             name = bookmarkGroupName, // ← 取得した文字列を使用
-            colorHex = "#FFFF00" // 黄色のHEXコード
+            colorName = BookmarkColor.YELLOW.value
         )
 
         val threadBookmarkGroupName = context.getString(R.string.bookmark)
         bookmarkThreadRepositoryProvider.get().addGroupAtEnd(
             name = threadBookmarkGroupName,
-            colorHex = "#FFFF00"
+            colorName = BookmarkColor.YELLOW.value
         )
     }
 }

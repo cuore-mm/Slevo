@@ -37,9 +37,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.toColorInt
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.model.Groupable
+import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
+import com.websarva.wings.android.bbsviewer.ui.theme.BookmarkColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -116,7 +117,7 @@ private fun <T : Groupable> BookmarkSheetContent(
             items(groups, key = { group -> group.id }) { group ->
                 val isSelected = group.id == selectedGroupId
                 val bgColor = if (isSelected) {
-                    Color(group.colorHex.toColorInt())
+                    bookmarkColor(group.colorName)
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant
                 }
@@ -144,7 +145,7 @@ private fun <T : Groupable> BookmarkSheetContent(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .width(10.dp)
-                                .background(color = Color(group.colorHex.toColorInt()))
+                                .background(color = bookmarkColor(group.colorName))
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
@@ -165,7 +166,7 @@ private fun <T : Groupable> BookmarkSheetContent(
 private data class PreviewGroup(
     override val id: Long,
     override val name: String,
-    override val colorHex: String,
+    override val colorName: String,
     override val sortOrder: Int
 ) : Groupable
 
@@ -173,10 +174,10 @@ private data class PreviewGroup(
 @Composable
 fun BookmarkSheetPreview() {
     val previewGroups = listOf(
-        PreviewGroup(1, "グループA", "#FF0000", 1),
-        PreviewGroup(2, "グループB", "#00FF00", 2),
-        PreviewGroup(3, "グループC", "#0000FF", 3),
-        PreviewGroup(4, "グループD（とても長い名前）", "#FFFF00", 4),
+        PreviewGroup(1, "グループA", BookmarkColor.RED.value, 1),
+        PreviewGroup(2, "グループB", BookmarkColor.GREEN.value, 2),
+        PreviewGroup(3, "グループC", BookmarkColor.BLUE.value, 3),
+        PreviewGroup(4, "グループD（とても長い名前）", BookmarkColor.YELLOW.value, 4),
     )
     MaterialTheme { // PreviewでもThemeを適用
         BookmarkSheetContent(

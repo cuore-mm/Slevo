@@ -17,7 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.toColorInt
+import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
@@ -76,12 +76,8 @@ fun BoardScaffold(
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             val bookmarkState = uiState.singleBookmarkState
             val bookmarkIconColor =
-                if (bookmarkState.isBookmarked && bookmarkState.selectedGroup?.colorHex != null) {
-                    try {
-                        Color(bookmarkState.selectedGroup.colorHex.toColorInt())
-                    } catch (e: IllegalArgumentException) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
+                if (bookmarkState.isBookmarked && bookmarkState.selectedGroup?.colorName != null) {
+                    bookmarkColor(bookmarkState.selectedGroup.colorName)
                 } else {
                     Color.Unspecified
                 }
