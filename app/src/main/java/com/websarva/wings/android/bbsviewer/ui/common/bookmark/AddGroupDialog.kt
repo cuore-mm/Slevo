@@ -2,6 +2,7 @@ package com.websarva.wings.android.bbsviewer.ui.common.bookmark
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -29,11 +30,42 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import com.websarva.wings.android.bbsviewer.R
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_amber
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_blue
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_blue_gray
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_brown
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_cyan
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_deep_purple
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_green
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_indigo
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_lime
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_orange
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_pink
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_purple
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_red
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_teal
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_dark_yellow
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_amber
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_blue
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_blue_gray
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_brown
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_cyan
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_deep_purple
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_green
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_indigo
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_lime
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_orange
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_pink
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_purple
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_red
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_teal
+import com.websarva.wings.android.bbsviewer.ui.theme.md_theme_light_yellow
 
 @Composable
 fun AddGroupDialog(
@@ -46,12 +78,21 @@ fun AddGroupDialog(
     enteredValue: String,
     onColorSelected: (String) -> Unit,
     selectedColor: String,
-    colors: List<String> = listOf(
-        "#FF0000", "#00FF00", "#0000FF", "#FFFF00",
-        "#FF00FF", "#00FFFF", "#FFA500", "#800080",
-        "#008080", "#FFC0CB",
-    )
 ) {
+    val colors = if (isSystemInDarkTheme()) {
+        listOf(
+            md_theme_dark_red, md_theme_dark_pink, md_theme_dark_purple, md_theme_dark_indigo,
+            md_theme_dark_blue, md_theme_dark_teal, md_theme_dark_green, md_theme_dark_yellow,
+            md_theme_dark_amber, md_theme_dark_brown
+        )
+    } else {
+        listOf(
+            md_theme_light_red, md_theme_light_pink, md_theme_light_purple, md_theme_light_indigo,
+            md_theme_light_blue, md_theme_light_teal, md_theme_light_green, md_theme_light_yellow,
+            md_theme_light_amber, md_theme_light_brown
+        )
+    }
+
     AlertDialog(
         modifier = modifier,
         onDismissRequest = onDismissRequest,
@@ -79,9 +120,9 @@ fun AddGroupDialog(
                     horizontalArrangement = Arrangement.SpaceAround,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    colors.forEach { hex ->
-                        val isSelected = hex == selectedColor
-                        val bgColor = Color(hex.toColorInt())
+                    colors.forEach { color  ->
+                        val hex = String.format("#%06X", 0xFFFFFF and color.toArgb())
+                        val isSelected = hex.equals(selectedColor, ignoreCase = true)
                         val border = if (isSelected)
                             BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
                         else null
@@ -91,7 +132,7 @@ fun AddGroupDialog(
                                 .size(40.dp)
                                 .clickable { onColorSelected(hex) },
                             shape = CircleShape,
-                            color = bgColor,
+                            color = color,
                             border = border
                         ) { /* 円形チップ */ }
                     }
