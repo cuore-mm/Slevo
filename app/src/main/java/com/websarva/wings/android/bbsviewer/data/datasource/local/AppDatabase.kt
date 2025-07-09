@@ -30,7 +30,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadB
         BookmarkThreadEntity::class,
         ThreadBookmarkGroupEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
