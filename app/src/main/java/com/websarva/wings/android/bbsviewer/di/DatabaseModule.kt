@@ -2,6 +2,8 @@ package com.websarva.wings.android.bbsviewer.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.websarva.wings.android.bbsviewer.data.datasource.local.AppDatabase
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkThreadDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BbsServiceDao
@@ -11,6 +13,8 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardBookm
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBookmarkGroupDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenBoardTabDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenThreadTabDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -27,6 +31,36 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
+
+    private val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("""
+                CREATE TABLE IF NOT EXISTS open_board_tabs (
+                    boardUrl TEXT NOT NULL PRIMARY KEY,
+                    boardId INTEGER NOT NULL,
+                    boardName TEXT NOT NULL,
+                    serviceName TEXT NOT NULL,
+                    sortOrder INTEGER NOT NULL,
+                    firstVisibleItemIndex INTEGER NOT NULL,
+                    firstVisibleItemScrollOffset INTEGER NOT NULL
+                )
+            """.trimIndent())
+            database.execSQL("""
+                CREATE TABLE IF NOT EXISTS open_thread_tabs (
+                    threadKey TEXT NOT NULL,
+                    boardUrl TEXT NOT NULL,
+                    boardId INTEGER NOT NULL,
+                    boardName TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    resCount INTEGER NOT NULL,
+                    sortOrder INTEGER NOT NULL,
+                    firstVisibleItemIndex INTEGER NOT NULL,
+                    firstVisibleItemScrollOffset INTEGER NOT NULL,
+                    PRIMARY KEY(threadKey, boardUrl)
+                )
+            """.trimIndent())
+        }
+    }
 
     /**
      * Room の AppDatabase インスタンスをシングルトンとして提供
@@ -47,6 +81,7 @@ object DatabaseModule {
         )
             // マイグレーション未定義時は既存データを破棄し再生成
             .fallbackToDestructiveMigration(false)
+            .addMigrations(MIGRATION_1_2)
             .addCallback(callback)
             .build()
     }
@@ -110,4 +145,12 @@ object DatabaseModule {
     @Provides
     fun provideThreadBookmarkGroupDao(db: AppDatabase): ThreadBookmarkGroupDao =
         db.threadBookmarkGroupDao()
+
+    @Provides
+    fun provideOpenBoardTabDao(db: AppDatabase): OpenBoardTabDao =
+        db.openBoardTabDao()
+
+    @Provides
+    fun provideOpenThreadTabDao(db: AppDatabase): OpenThreadTabDao =
+        db.openThreadTabDao()
 }

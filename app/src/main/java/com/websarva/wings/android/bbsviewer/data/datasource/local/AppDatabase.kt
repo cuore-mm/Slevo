@@ -10,6 +10,8 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardBookm
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBookmarkGroupDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenBoardTabDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenThreadTabDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardCategoryCrossRef
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
@@ -18,6 +20,8 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.Bookmar
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.CategoryEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadBookmarkGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenBoardTabEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenThreadTabEntity
 
 @Database(
     entities = [
@@ -28,9 +32,11 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadB
         BoardBookmarkGroupEntity::class,
         BookmarkBoardEntity::class,
         BookmarkThreadEntity::class,
-        ThreadBookmarkGroupEntity::class
+        ThreadBookmarkGroupEntity::class,
+        OpenBoardTabEntity::class,
+        OpenThreadTabEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -42,4 +48,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun bookmarkThreadDao(): BookmarkThreadDao
     abstract fun boardGroupDao(): BoardBookmarkGroupDao
     abstract fun threadBookmarkGroupDao(): ThreadBookmarkGroupDao
+    abstract fun openBoardTabDao(): OpenBoardTabDao
+    abstract fun openThreadTabDao(): OpenThreadTabDao
 }
