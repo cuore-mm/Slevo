@@ -1,6 +1,9 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,41 +15,131 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 
+data class PopupInfo(
+    val post: ReplyInfo,
+    val offset: IntOffset,
+    val size: IntSize = IntSize.Zero,
+)
+
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun ThreadScreen(
     modifier: Modifier = Modifier,
     posts: List<ReplyInfo>,
     listState: LazyListState = rememberLazyListState()
 ) {
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize(),
-        state = listState,
-    ) {
-        // リスト全体の先頭に区切り線を追加
-        if (posts.isNotEmpty()) { // リストが空でない場合のみ線を表示
-            item {
+    val popupStack = remember { mutableStateListOf<PopupInfo>() }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = listState,
+        ) {
+            if (posts.isNotEmpty()) {
+                item {
+                    HorizontalDivider()
+                }
+            }
+
+            itemsIndexed(posts) { index, post ->
+                var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
+                PostItem(
+                    modifier = Modifier.onGloballyPositioned { coords ->
+                        val pos = coords.positionInWindow()
+                        itemOffset = IntOffset(pos.x.toInt(), pos.y.toInt())
+                    },
+                    post = post,
+                    postNum = index + 1,
+                    onReplyClick = { num ->
+                        if (num in 1..posts.size) {
+                            val target = posts[num - 1]
+                            val baseOffset = itemOffset
+                            val offset = if (popupStack.isEmpty()) {
+                                baseOffset
+                            } else {
+                                val last = popupStack.last()
+                                IntOffset(
+                                    last.offset.x,
+                                    (last.offset.y - last.size.height).coerceAtLeast(0)
+                                )
+                            }
+                            popupStack.add(PopupInfo(target, offset))
+                        }
+                    }
+                )
                 HorizontalDivider()
             }
         }
 
-        itemsIndexed(posts) { index, post ->
-            PostItem(
-                post = post,
-                postNum = index + 1
-            )
-            // 各アイテムの下に区切り線を表示
-            HorizontalDivider()
+        popupStack.forEachIndexed { index, info ->
+            Popup(
+                popupPositionProvider = object : PopupPositionProvider {
+                    override fun calculatePosition(
+                        anchorBounds: IntRect,
+                        windowSize: IntSize,
+                        layoutDirection: LayoutDirection,
+                        popupContentSize: IntSize,
+                    ): IntOffset {
+                        return IntOffset(
+                            info.offset.x,
+                            (info.offset.y - popupContentSize.height).coerceAtLeast(0)
+                        )
+                    }
+                },
+                onDismissRequest = {
+                    if (popupStack.isNotEmpty()) popupStack.removeLast()
+                }
+            ) {
+                Card(
+                    modifier = Modifier.onGloballyPositioned { coords ->
+                        val size = coords.size
+                        if (size != info.size) {
+                            popupStack[index] = info.copy(size = size)
+                        }
+                    }
+                ) {
+                    PostItem(
+                        post = info.post,
+                        postNum = posts.indexOf(info.post) + 1,
+                        onReplyClick = { num ->
+                            if (num in 1..posts.size) {
+                                val target = posts[num - 1]
+                                val base = popupStack[index]
+                                val offset = IntOffset(
+                                    base.offset.x,
+                                    (base.offset.y - base.size.height).coerceAtLeast(0)
+                                )
+                                popupStack.add(PopupInfo(target, offset))
+                            }
+                        }
+                    )
+                }
+            }
         }
     }
 }
@@ -55,7 +148,8 @@ fun ThreadScreen(
 fun PostItem(
     modifier: Modifier = Modifier,
     post: ReplyInfo,
-    postNum: Int
+    postNum: Int,
+    onReplyClick: ((Int) -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -79,9 +173,19 @@ fun PostItem(
 
         val uriHandler = LocalUriHandler.current
         val annotatedText = buildUrlAnnotatedString(post.content) { uriHandler.openUri(it) }
-        Text(
+        ClickableText(
             text = annotatedText,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
+            onClick = { offset ->
+                annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()
+                    ?.let { ann ->
+                        uriHandler.openUri(ann.item)
+                    }
+                annotatedText.getStringAnnotations("REPLY", offset, offset).firstOrNull()
+                    ?.let { ann ->
+                        ann.item.toIntOrNull()?.let { onReplyClick?.invoke(it) }
+                    }
+            }
         )
     }
 
