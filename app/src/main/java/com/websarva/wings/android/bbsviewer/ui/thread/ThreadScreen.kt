@@ -19,6 +19,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -38,14 +39,19 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 
+data class PopupInfo(
+    val post: ReplyInfo,
+    val offset: IntOffset,
+    val size: IntSize = IntSize.Zero,
+)
+
 @Composable
 fun ThreadScreen(
     modifier: Modifier = Modifier,
     posts: List<ReplyInfo>,
     listState: LazyListState = rememberLazyListState()
 ) {
-    var popupPost by remember { mutableStateOf<ReplyInfo?>(null) }
-    var anchorOffset by remember { mutableStateOf(IntOffset.Zero) }
+    val popupStack = remember { mutableStateListOf<PopupInfo>() }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -69,8 +75,18 @@ fun ThreadScreen(
                     postNum = index + 1,
                     onReplyClick = { num ->
                         if (num in 1..posts.size) {
-                            popupPost = posts[num - 1]
-                            anchorOffset = itemOffset
+                            val target = posts[num - 1]
+                            val baseOffset = itemOffset
+                            val offset = if (popupStack.isEmpty()) {
+                                baseOffset
+                            } else {
+                                val last = popupStack.last()
+                                IntOffset(
+                                    last.offset.x,
+                                    (last.offset.y - last.size.height).coerceAtLeast(0)
+                                )
+                            }
+                            popupStack.add(PopupInfo(target, offset))
                         }
                     }
                 )
@@ -78,7 +94,7 @@ fun ThreadScreen(
             }
         }
 
-        popupPost?.let { reply ->
+        popupStack.forEachIndexed { index, info ->
             Popup(
                 popupPositionProvider = object : PopupPositionProvider {
                     override fun calculatePosition(
@@ -88,21 +104,35 @@ fun ThreadScreen(
                         popupContentSize: IntSize,
                     ): IntOffset {
                         return IntOffset(
-                            anchorOffset.x,
-                            (anchorOffset.y - popupContentSize.height).coerceAtLeast(0)
+                            info.offset.x,
+                            (info.offset.y - popupContentSize.height).coerceAtLeast(0)
                         )
                     }
                 },
-                onDismissRequest = { popupPost = null }
+                onDismissRequest = {
+                    if (popupStack.isNotEmpty()) popupStack.removeLast()
+                }
             ) {
-                Card {
+                Card(
+                    modifier = Modifier.onGloballyPositioned { coords ->
+                        val size = coords.size
+                        if (size != info.size) {
+                            popupStack[index] = info.copy(size = size)
+                        }
+                    }
+                ) {
                     PostItem(
-                        post = reply,
-                        postNum = posts.indexOf(reply) + 1,
+                        post = info.post,
+                        postNum = posts.indexOf(info.post) + 1,
                         onReplyClick = { num ->
                             if (num in 1..posts.size) {
-                                popupPost = posts[num - 1]
-                                // ポジションはそのまま
+                                val target = posts[num - 1]
+                                val base = popupStack[index]
+                                val offset = IntOffset(
+                                    base.offset.x,
+                                    (base.offset.y - base.size.height).coerceAtLeast(0)
+                                )
+                                popupStack.add(PopupInfo(target, offset))
                             }
                         }
                     )
