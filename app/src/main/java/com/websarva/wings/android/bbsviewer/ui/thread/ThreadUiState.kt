@@ -39,7 +39,8 @@ data class ReplyInfo(
     val email: String,
     val date: String,
     val id: String,
-    val content: String
+    val content: String,
+    val momentum: Float = 0.0f
 )
 
 data class PostFormState(

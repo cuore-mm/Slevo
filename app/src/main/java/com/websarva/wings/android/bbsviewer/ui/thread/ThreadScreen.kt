@@ -2,11 +2,13 @@ package com.websarva.wings.android.bbsviewer.ui.thread
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -20,6 +22,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -27,6 +30,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalUriHandler
@@ -56,44 +62,57 @@ fun ThreadScreen(
     val popupStack = remember { mutableStateListOf<PopupInfo>() }
 
     Box(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-        ) {
-            if (posts.isNotEmpty()) {
-                item {
+        Row(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                state = listState,
+            ) {
+                if (posts.isNotEmpty()) {
+                    item {
+                        HorizontalDivider()
+                    }
+                }
+
+                itemsIndexed(posts) { index, post ->
+                    var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
+                    PostItem(
+                        modifier = Modifier.onGloballyPositioned { coords ->
+                            val pos = coords.positionInWindow()
+                            itemOffset = IntOffset(pos.x.toInt(), pos.y.toInt())
+                        },
+                        post = post,
+                        postNum = index + 1,
+                        onReplyClick = { num ->
+                            if (num in 1..posts.size) {
+                                val target = posts[num - 1]
+                                val baseOffset = itemOffset
+                                val offset = if (popupStack.isEmpty()) {
+                                    baseOffset
+                                } else {
+                                    val last = popupStack.last()
+                                    IntOffset(
+                                        last.offset.x,
+                                        (last.offset.y - last.size.height).coerceAtLeast(0)
+                                    )
+                                }
+                                popupStack.add(PopupInfo(target, offset))
+                            }
+                        }
+                    )
                     HorizontalDivider()
                 }
             }
+            // 中央の区切り線
+            VerticalDivider()
 
-            itemsIndexed(posts) { index, post ->
-                var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
-                PostItem(
-                    modifier = Modifier.onGloballyPositioned { coords ->
-                        val pos = coords.positionInWindow()
-                        itemOffset = IntOffset(pos.x.toInt(), pos.y.toInt())
-                    },
-                    post = post,
-                    postNum = index + 1,
-                    onReplyClick = { num ->
-                        if (num in 1..posts.size) {
-                            val target = posts[num - 1]
-                            val baseOffset = itemOffset
-                            val offset = if (popupStack.isEmpty()) {
-                                baseOffset
-                            } else {
-                                val last = popupStack.last()
-                                IntOffset(
-                                    last.offset.x,
-                                    (last.offset.y - last.size.height).coerceAtLeast(0)
-                                )
-                            }
-                            popupStack.add(PopupInfo(target, offset))
-                        }
-                    }
-                )
-                HorizontalDivider()
-            }
+            // 右側: 固定の勢いバー
+            MomentumBar(
+                modifier = Modifier
+                    .width(32.dp) // 勢いバー全体の幅を指定
+                    .fillMaxHeight(),
+                posts = posts,
+                lazyListState = listState
+            )
         }
 
         popupStack.forEachIndexed { index, info ->
@@ -188,7 +207,109 @@ fun PostItem(
             }
         )
     }
+}
 
+@Composable
+private fun MomentumBar(
+    modifier: Modifier = Modifier,
+    posts: List<ReplyInfo>,
+    lazyListState: LazyListState
+) {
+    val barColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+    val indicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+    val maxBarWidthDp = 24.dp
+
+    Canvas(modifier = modifier) {
+        val canvasHeight = size.height
+        val canvasWidth = size.width
+        val maxBarWidthPx = maxBarWidthDp.toPx()
+
+        if (posts.size > 1) {
+            val postHeight = canvasHeight / posts.size
+
+            // 1. 滑らかな勢いバーの図形（Path）を作成
+            val path = Path().apply {
+                // 左上からスタート
+                moveTo(0f, 0f)
+
+                // 各投稿の勢いの点を滑らかな曲線で結ぶ
+                for (i in 0 until posts.size - 1) {
+                    val currentMomentum = posts[i].momentum
+                    val nextMomentum = posts[i + 1].momentum
+
+                    // X座標の計算を「勢いの幅」そのものに変更
+                    val currentX = maxBarWidthPx * currentMomentum
+                    val currentY = i * postHeight
+
+                    val nextX = maxBarWidthPx * nextMomentum
+                    val nextY = (i + 1) * postHeight
+
+                    val controlPointX = currentX
+                    val controlPointY = (currentY + nextY) / 2
+                    val endPointX = (currentX + nextX) / 2
+                    val endPointY = (currentY + nextY) / 2
+
+                    // 最初の点のみlineToを使い、以降はベジェ曲線でつなぐ
+                    if (i == 0) {
+                        lineTo(currentX, currentY)
+                    }
+
+                    quadraticBezierTo(
+                        x1 = controlPointX,
+                        y1 = controlPointY,
+                        x2 = endPointX,
+                        y2 = endPointY
+                    )
+                }
+
+                // パスの最後を閉じる
+                val lastX = maxBarWidthPx * posts.last().momentum
+                lineTo(lastX, canvasHeight) // 最後の勢いの点から真下へ
+                lineTo(0f, canvasHeight) // 左下へ
+                close() // パスを閉じる
+            }
+
+            // 作成したパスを描画
+            drawPath(path, color = barColor)
+
+            // 2. 現在のスクロール位置を示すインジケーターを描画
+            val firstVisible = lazyListState.firstVisibleItemIndex
+            val visibleCount = lazyListState.layoutInfo.visibleItemsInfo.size
+            if (visibleCount > 0) {
+                val indicatorTop = firstVisible * postHeight
+                val indicatorHeight = visibleCount * postHeight
+                drawRect(
+                    color = indicatorColor,
+                    topLeft = Offset(x = 0f, y = indicatorTop),
+                    size = Size(width = canvasWidth, height = indicatorHeight)
+                )
+            }
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+@Preview(showBackground = true)
+@Composable
+fun ThreadScreenPreview() {
+    ThreadScreen(
+        posts = listOf(
+            ReplyInfo(
+                name = "名無しさん",
+                email = "sage",
+                date = "2025/07/09(水) 19:40:25.769",
+                id = "test1",
+                content = "これはテスト投稿です。"
+            ),
+            ReplyInfo(
+                name = "名無し2",
+                email = "sage",
+                date = "2025/07/09(水) 19:41:00.123",
+                id = "test2",
+                content = "別のテスト投稿です。"
+            )
+        )
+    )
 }
 
 @Preview(showBackground = true)
