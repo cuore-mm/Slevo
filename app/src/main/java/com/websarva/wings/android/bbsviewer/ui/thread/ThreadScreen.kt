@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
+import com.websarva.wings.android.bbsviewer.ui.theme.idColor
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 
 data class PopupInfo(
@@ -181,14 +182,6 @@ fun ThreadScreen(
     }
 }
 
-private fun getIdColor(count: Int): Color = when {
-    count in 2..3 -> Color.Blue
-    count in 4..5 -> Color(0xFF9C27B0)
-    count in 6..7 -> Color(0xFFE91E63)
-    count >= 8 -> Color.Red
-    else -> Color.Unspecified
-}
-
 @Composable
 fun PostItem(
     modifier: Modifier = Modifier,
@@ -204,7 +197,7 @@ fun PostItem(
             .clickable(onClick = { /* クリック処理が必要な場合はここに実装 */ })
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        val idColor = getIdColor(idTotal)
+        val idColor = idColor(idTotal)
         val headerText = buildAnnotatedString {
             // postNumとname、email、dateを結合
             append("${post.name} ${post.email} ${post.date} ")
