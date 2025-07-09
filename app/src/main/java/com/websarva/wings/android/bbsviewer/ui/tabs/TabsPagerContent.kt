@@ -1,5 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.tabs
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -16,6 +18,7 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.R
 import kotlinx.coroutines.launch
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun TabsPagerContent(
     modifier: Modifier = Modifier,

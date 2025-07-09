@@ -4,10 +4,10 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -24,7 +24,7 @@ import kotlinx.serialization.Serializable
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNavGraph(
-    modifier: Modifier = Modifier,
+    parentPadding: PaddingValues,
     navController: NavHostController,
     scrollBehavior: TopAppBarScrollBehavior,
     settingsViewModel: SettingsViewModel,
@@ -32,7 +32,6 @@ fun AppNavGraph(
     tabsViewModel: TabsViewModel,
 ) {
     NavHost(
-        modifier = modifier,
         navController = navController,
         startDestination = AppRoute.Tabs,
         enterTransition = { EnterTransition.None },
@@ -43,6 +42,7 @@ fun AppNavGraph(
         //お気に入り一覧
         composable<AppRoute.BookmarkList> {
             BookmarkListScaffold(
+                parentPadding = parentPadding,
                 scrollBehavior = scrollBehavior,
                 navController = navController,
                 openDrawer = openDrawer
@@ -50,6 +50,7 @@ fun AppNavGraph(
         }
         //掲示板一覧
         addRegisteredBBSNavigation(
+            parentPadding = parentPadding,
             navController = navController,
             openDrawer = openDrawer
         )
@@ -76,6 +77,7 @@ fun AppNavGraph(
         //タブ画面
         composable<AppRoute.Tabs> {
             TabsScaffold(
+                parentPadding = parentPadding,
                 tabsViewModel = tabsViewModel,
                 navController = navController
             )

@@ -7,6 +7,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -16,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.ui.common.SelectedTopBarScreen
@@ -25,7 +29,7 @@ import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookmarkListScaffold(
-    modifier: Modifier = Modifier,
+    parentPadding: PaddingValues,
     navController: NavHostController,
     scrollBehavior: TopAppBarScrollBehavior,
     openDrawer: () -> Unit
@@ -65,7 +69,13 @@ fun BookmarkListScaffold(
     ) { innerPadding ->
 
         BookmarkScreen(
-            modifier = modifier.padding(innerPadding),
+            modifier = Modifier.padding(
+                // 左右と下は親のpadding、上は子のpaddingを使用
+                start = parentPadding.calculateStartPadding(LayoutDirection.Ltr),
+                top = innerPadding.calculateTopPadding(),
+                end = parentPadding.calculateEndPadding(LayoutDirection.Ltr),
+                bottom = parentPadding.calculateBottomPadding()
+            ),
             scrollBehavior = scrollBehavior,
             boardGroups = uiState.boardList,
             onBoardClick = { board ->
