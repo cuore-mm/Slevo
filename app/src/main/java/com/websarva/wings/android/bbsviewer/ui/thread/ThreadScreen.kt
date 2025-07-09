@@ -60,6 +60,15 @@ fun ThreadScreen(
     listState: LazyListState = rememberLazyListState()
 ) {
     val popupStack = remember { mutableStateListOf<PopupInfo>() }
+    val idCountMap = remember(posts) { posts.groupingBy { it.id }.eachCount() }
+    val idIndexList = remember(posts) {
+        val indexMap = mutableMapOf<String, Int>()
+        posts.map { reply ->
+            val idx = (indexMap[reply.id] ?: 0) + 1
+            indexMap[reply.id] = idx
+            idx
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxSize()) {
@@ -82,6 +91,8 @@ fun ThreadScreen(
                         },
                         post = post,
                         postNum = index + 1,
+                        idIndex = idIndexList[index],
+                        idTotal = idCountMap[post.id] ?: 1,
                         onReplyClick = { num ->
                             if (num in 1..posts.size) {
                                 val target = posts[num - 1]
@@ -145,6 +156,8 @@ fun ThreadScreen(
                     PostItem(
                         post = info.post,
                         postNum = posts.indexOf(info.post) + 1,
+                        idIndex = idIndexList[posts.indexOf(info.post)],
+                        idTotal = idCountMap[info.post.id] ?: 1,
                         onReplyClick = { num ->
                             if (num in 1..posts.size) {
                                 val target = posts[num - 1]
@@ -168,6 +181,8 @@ fun PostItem(
     modifier: Modifier = Modifier,
     post: ReplyInfo,
     postNum: Int,
+    idIndex: Int,
+    idTotal: Int,
     onReplyClick: ((Int) -> Unit)? = null
 ) {
     Column(
@@ -184,7 +199,8 @@ fun PostItem(
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = "${post.name} ${post.email} ${post.date} ${post.id}",
+                text = "${post.name} ${post.email} ${post.date} " +
+                    if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id,
                 modifier = Modifier.alignByBaseline(),
                 style = MaterialTheme.typography.labelMedium
             )
@@ -323,6 +339,8 @@ fun ReplyCardPreview() {
             id = "testnanjj",
             content = "ガチで終わった模様"
         ),
-        postNum = 1
+        postNum = 1,
+        idIndex = 1,
+        idTotal = 1
     )
 }
