@@ -26,19 +26,19 @@ class BookmarkBoardRepository @Inject constructor(
     }
 
     /** 新規グループを末尾に追加 */
-    suspend fun addGroupAtEnd(name: String, colorHex: String) {
+    suspend fun addGroupAtEnd(name: String, colorName: String) {
         // まず既存最大 + 1
         val nextOrder = groupDao.getMaxSortOrder() + 1
         val newGroup = BoardBookmarkGroupEntity(
             name      = name,
-            colorHex  = colorHex,
+            colorName = colorName,
             sortOrder = nextOrder
         )
         groupDao.insertGroup(newGroup)
     }
 
-    suspend fun updateGroup(groupId: Long, name: String, colorHex: String) {
-        groupDao.updateGroupInfo(groupId, name, colorHex)
+    suspend fun updateGroup(groupId: Long, name: String, colorName: String) {
+        groupDao.updateGroupInfo(groupId, name, colorName)
     }
 
     suspend fun deleteGroup(groupId: Long) {

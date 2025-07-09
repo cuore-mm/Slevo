@@ -8,15 +8,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.toColorInt
 import com.websarva.wings.android.bbsviewer.data.model.Groupable
 import com.websarva.wings.android.bbsviewer.data.model.GroupedData
+import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
 
 @Composable
 fun <G : Groupable, I> GenericGroupedListScreen(
@@ -60,11 +59,7 @@ fun <G : Groupable, I> GenericGroupedListScreen(
 
                 // --- グループごとのアイテムカード ---
                 item(key = "group_card_${groupedData.group.id}") {
-                    val groupColor = try {
-                        Color(groupedData.group.colorHex.toColorInt())
-                    } catch (e: Exception) {
-                        MaterialTheme.colorScheme.surfaceVariant // 解析失敗時のフォールバック
-                    }
+                    val groupColor = bookmarkColor(groupedData.group.colorName)
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -127,7 +122,7 @@ fun GenericGroupedListScreenPreview() {
         val color: String,
         override val sortOrder: Int = 0 // デフォルト値を設定
     ) : Groupable {
-        override val colorHex: String get() = color
+        override val colorName: String get() = color
     }
 
     // サンプルデータ

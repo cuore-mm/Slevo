@@ -24,7 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.core.graphics.toColorInt
+import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkState
@@ -61,13 +61,9 @@ fun ThreadTopBar(
                     Icons.Outlined.StarOutline
                 }
                 val iconTint = if (
-                    uiState.singleBookmarkState.isBookmarked && uiState.singleBookmarkState.selectedGroup?.colorHex != null
+                    uiState.singleBookmarkState.isBookmarked && uiState.singleBookmarkState.selectedGroup?.colorName != null
                 ) {
-                    try {
-                        Color(uiState.singleBookmarkState.selectedGroup!!.colorHex.toColorInt())
-                    } catch (e: Exception) {
-                        LocalContentColor.current
-                    }
+                    bookmarkColor(uiState.singleBookmarkState.selectedGroup!!.colorName)
                 } else {
                     LocalContentColor.current
                 }
