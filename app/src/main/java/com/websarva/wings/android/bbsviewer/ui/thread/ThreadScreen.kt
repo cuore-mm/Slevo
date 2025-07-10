@@ -231,7 +231,9 @@ fun PostItem(
         )
         ClickableText(
             text = annotatedText,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = MaterialTheme.colorScheme.onSurface
+            ),
             onClick = { offset ->
                 annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()
                     ?.let { ann ->
