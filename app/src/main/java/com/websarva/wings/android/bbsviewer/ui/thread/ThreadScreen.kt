@@ -213,13 +213,15 @@ fun PostItem(
             Text(
                 modifier = Modifier.alignByBaseline(),
                 text = postNum.toString(),
-                style = MaterialTheme.typography.labelMedium
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 modifier = Modifier.alignByBaseline(),
                 text = headerText,
-                style = MaterialTheme.typography.labelMedium
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
