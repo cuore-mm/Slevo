@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import com.websarva.wings.android.bbsviewer.ui.theme.idColor
+import com.websarva.wings.android.bbsviewer.ui.theme.replyColor
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 
 data class PopupInfo(
@@ -223,10 +224,16 @@ fun PostItem(
         }
 
         val uriHandler = LocalUriHandler.current
-        val annotatedText = buildUrlAnnotatedString(post.content) { uriHandler.openUri(it) }
+        val annotatedText = buildUrlAnnotatedString(
+            text = post.content,
+            onOpenUrl = { uriHandler.openUri(it) },
+            replyColor = replyColor()
+        )
         ClickableText(
             text = annotatedText,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = MaterialTheme.colorScheme.onSurface
+            ),
             onClick = { offset ->
                 annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()
                     ?.let { ann ->

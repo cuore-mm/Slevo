@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.util
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -17,6 +18,7 @@ private val replyRegex: Pattern = Pattern.compile(">>(\\d+)")
 fun buildUrlAnnotatedString(
     text: String,
     onOpenUrl: (String) -> Unit,
+    replyColor: Color = Color.Blue,
 ): AnnotatedString {
     return buildAnnotatedString {
         var lastIndex = 0
@@ -45,7 +47,7 @@ fun buildUrlAnnotatedString(
                     val number = replyRegex.matcher(match).run { if (find()) group(1) else null }
                     pushStringAnnotation(tag = "REPLY", annotation = number ?: "")
                     addStyle(
-                        SpanStyle(textDecoration = TextDecoration.Underline),
+                        SpanStyle(color = replyColor),
                         start = length,
                         end = length + match.length
                     )
