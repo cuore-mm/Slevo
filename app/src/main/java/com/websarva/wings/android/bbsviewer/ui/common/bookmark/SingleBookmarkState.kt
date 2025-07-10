@@ -14,5 +14,6 @@ data class SingleBookmarkState(
     val editingGroupId: Long? = null,
     val showDeleteGroupDialog: Boolean = false,
     val deleteGroupName: String = "",
-    val deleteGroupItems: List<String> = emptyList()
+    val deleteGroupItems: List<String> = emptyList(),
+    val deleteGroupIsBoard: Boolean = true
 )

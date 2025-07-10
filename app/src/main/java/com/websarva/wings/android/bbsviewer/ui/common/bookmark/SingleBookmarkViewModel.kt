@@ -210,7 +210,8 @@ class SingleBookmarkViewModel @AssistedInject constructor(
                 it.copy(
                     showDeleteGroupDialog = true,
                     deleteGroupName = groupName,
-                    deleteGroupItems = items
+                    deleteGroupItems = items,
+                    deleteGroupIsBoard = threadInfo == null
                 )
             }
         }

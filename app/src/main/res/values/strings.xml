@@ -39,5 +39,7 @@
     <string name="no_bookmarked_threads">お気に入りのスレがありません</string>
     <string name="ok">OK</string>
     <string name="dialog_confirm_delete_group">グループ「%1$s」を削除しますか？</string>
+    <string name="dialog_unbookmark_boards">以下の板がお気に入り解除されます</string>
+    <string name="dialog_unbookmark_threads">以下のスレがお気に入り解除されます</string>
     <string name="dialog_group_items">このグループに含まれる項目:</string>
 </resources>

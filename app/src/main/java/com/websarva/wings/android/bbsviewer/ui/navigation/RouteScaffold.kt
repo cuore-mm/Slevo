@@ -183,6 +183,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     DeleteGroupDialog(
                         groupName = bookmarkState.deleteGroupName,
                         itemNames = bookmarkState.deleteGroupItems,
+                        isBoard = bookmarkState.deleteGroupIsBoard,
                         onDismissRequest = {
                             (viewModel as? BoardViewModel)?.closeDeleteGroupDialog()
                                 ?: (viewModel as? ThreadViewModel)?.closeDeleteGroupDialog()

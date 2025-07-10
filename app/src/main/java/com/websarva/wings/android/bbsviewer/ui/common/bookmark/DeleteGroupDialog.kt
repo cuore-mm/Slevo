@@ -17,6 +17,7 @@ import com.websarva.wings.android.bbsviewer.R
 fun DeleteGroupDialog(
     groupName: String,
     itemNames: List<String>,
+    isBoard: Boolean,
     onDismissRequest: () -> Unit,
     onConfirm: () -> Unit,
 ) {
@@ -30,6 +31,13 @@ fun DeleteGroupDialog(
                 )
                 if (itemNames.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(
+                            if (isBoard) R.string.dialog_unbookmark_boards else R.string.dialog_unbookmark_threads
+                        ),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
                     itemNames.forEach { name ->
                         Text(text = name, style = MaterialTheme.typography.bodySmall)
                     }
