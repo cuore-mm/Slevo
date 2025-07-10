@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">BBSViewer</string>
     <string name="url">URL</string>
-    <string name="bookmark">お気に入り</string>
+    <string name="bookmark">ブックマーク</string>
     <string name="boardList">板一覧</string>
     <string name="BBSList">掲示板一覧</string>
     <string name="search">検索</string>
@@ -36,6 +36,10 @@
     <string name="drawer_open_boards">開いている板</string>
     <string name="drawer_open_threads">開いているスレッド</string>
     <string name="close">閉じる</string>
-    <string name="no_bookmarked_threads">お気に入りのスレがありません</string>
+    <string name="no_bookmarked_threads">ブックマークのスレがありません</string>
     <string name="ok">OK</string>
+    <string name="dialog_confirm_delete_group">グループ「%1$s」を削除しますか？</string>
+    <string name="dialog_unbookmark_boards">以下の板がブックマークから解除されます</string>
+    <string name="dialog_unbookmark_threads">以下のスレがブックマークから解除されます</string>
+    <string name="dialog_group_items">このグループに含まれる項目:</string>
 </resources>

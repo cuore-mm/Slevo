@@ -16,6 +16,8 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -191,6 +193,41 @@ class SingleBookmarkViewModel @AssistedInject constructor(
             deleteGroup(groupId)
             closeAddGroupDialog()
         }
+    }
+
+    fun requestDeleteGroup() {
+        val groupId = _uiState.value.editingGroupId ?: return
+        viewModelScope.launch {
+            val groupName = _uiState.value.groups.find { it.id == groupId }?.name ?: return@launch
+            val items = if (threadInfo == null) {
+                boardBookmarkRepo.observeGroupsWithBoards().first()
+                    .firstOrNull { it.group.groupId == groupId }?.boards?.map { it.name } ?: emptyList()
+            } else {
+                threadBookmarkRepo.observeSortedGroupsWithThreadBookmarks().first()
+                    .firstOrNull { it.group.groupId == groupId }?.threads?.map { it.title } ?: emptyList()
+            }
+            _uiState.update {
+                it.copy(
+                    showDeleteGroupDialog = true,
+                    deleteGroupName = groupName,
+                    deleteGroupItems = items,
+                    deleteGroupIsBoard = threadInfo == null
+                )
+            }
+        }
+    }
+
+    fun confirmDeleteGroup() {
+        val groupId = _uiState.value.editingGroupId ?: return
+        viewModelScope.launch {
+            deleteGroup(groupId)
+            _uiState.update { it.copy(showDeleteGroupDialog = false) }
+            closeAddGroupDialog()
+        }
+    }
+
+    fun closeDeleteGroupDialog() {
+        _uiState.update { it.copy(showDeleteGroupDialog = false) }
     }
 }
 

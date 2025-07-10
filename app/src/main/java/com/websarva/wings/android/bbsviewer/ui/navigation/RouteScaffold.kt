@@ -29,6 +29,7 @@ import com.websarva.wings.android.bbsviewer.ui.common.BaseUiState
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.AddGroupDialog
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkBottomSheet
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.DeleteGroupDialog
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkState
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
@@ -162,8 +163,8 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                 ?: (viewModel as? ThreadViewModel)?.confirmGroup()
                         },
                         onDelete = {
-                            (viewModel as? BoardViewModel)?.deleteGroup()
-                                ?: (viewModel as? ThreadViewModel)?.deleteGroup()
+                            (viewModel as? BoardViewModel)?.requestDeleteGroup()
+                                ?: (viewModel as? ThreadViewModel)?.requestDeleteGroup()
                         },
                         onValueChange = {
                             (viewModel as? BoardViewModel)?.setEnteredGroupName(it)
@@ -175,6 +176,22 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                 ?: (viewModel as? ThreadViewModel)?.setSelectedColor(it)
                         },
                         selectedColor = bookmarkState.selectedColor
+                    )
+                }
+
+                if (bookmarkState.showDeleteGroupDialog) {
+                    DeleteGroupDialog(
+                        groupName = bookmarkState.deleteGroupName,
+                        itemNames = bookmarkState.deleteGroupItems,
+                        isBoard = bookmarkState.deleteGroupIsBoard,
+                        onDismissRequest = {
+                            (viewModel as? BoardViewModel)?.closeDeleteGroupDialog()
+                                ?: (viewModel as? ThreadViewModel)?.closeDeleteGroupDialog()
+                        },
+                        onConfirm = {
+                            (viewModel as? BoardViewModel)?.confirmDeleteGroup()
+                                ?: (viewModel as? ThreadViewModel)?.confirmDeleteGroup()
+                        }
                     )
                 }
 
