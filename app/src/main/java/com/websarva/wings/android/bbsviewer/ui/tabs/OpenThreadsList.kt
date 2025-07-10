@@ -1,8 +1,17 @@
 package com.websarva.wings.android.bbsviewer.ui.tabs
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -22,8 +31,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
-import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
 import com.websarva.wings.android.bbsviewer.ui.theme.BookmarkColor
+import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
 
 @Composable
 fun OpenThreadsList(
@@ -39,7 +48,7 @@ fun OpenThreadsList(
                 val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
                 Row(modifier = Modifier.height(IntrinsicSize.Min)) {
                     if (color != null) {
-                        androidx.compose.foundation.layout.Box(
+                        Box(
                             modifier = Modifier
                                 .width(8.dp)
                                 .fillMaxHeight()
@@ -50,31 +59,31 @@ fun OpenThreadsList(
                         headlineContent = {
                             Column {
                                 Text(tab.title)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = tab.boardName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = tab.resCount.toString(),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = tab.boardName,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = tab.resCount.toString(),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        },
+                        trailingContent = {
+                            IconButton(onClick = { onCloseClick(tab) }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.close)
                                 )
                             }
-                        }
-                    },
-                    trailingContent = {
-                        IconButton(onClick = { onCloseClick(tab) }) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = stringResource(R.string.close)
-                            )
-                        }
-                    },
+                        },
                         modifier = Modifier
                             .weight(1f)
                             .clickable {
@@ -105,8 +114,24 @@ fun OpenThreadsList(
 @Composable
 fun OpenThreadsListPreview() {
     val sampleTabs = listOf(
-        ThreadTabInfo("1", "スレッド1", "板1", "https://example.com/board1", 1, 100, bookmarkColorName = BookmarkColor.RED.value),
-        ThreadTabInfo("2", "スレッド2", "板2", "https://example.com/board2", 2, 200, bookmarkColorName = BookmarkColor.GREEN.value),
+        ThreadTabInfo(
+            "1",
+            "スレッド1",
+            "板1",
+            "https://example.com/board1",
+            1,
+            100,
+            bookmarkColorName = BookmarkColor.RED.value
+        ),
+        ThreadTabInfo(
+            "2",
+            "スレッド2",
+            "板2",
+            "https://example.com/board2",
+            2,
+            200,
+            bookmarkColorName = BookmarkColor.GREEN.value
+        ),
         ThreadTabInfo("3", "スレッド3", "板3", "https://example.com/board3", 3, 300)
     )
     OpenThreadsList(

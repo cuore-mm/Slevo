@@ -1,8 +1,15 @@
 package com.websarva.wings.android.bbsviewer.ui.tabs
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -21,8 +28,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
-import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
 import com.websarva.wings.android.bbsviewer.ui.theme.BookmarkColor
+import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
 
 @Composable
 fun OpenBoardsList(
@@ -38,7 +45,7 @@ fun OpenBoardsList(
                 val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
                 Row(modifier = Modifier.height(IntrinsicSize.Min)) {
                     if (color != null) {
-                        androidx.compose.foundation.layout.Box(
+                        Box(
                             modifier = Modifier
                                 .width(8.dp)
                                 .fillMaxHeight()
@@ -83,8 +90,20 @@ fun OpenBoardsList(
 @Composable
 fun OpenBoardsListPreview() {
     val sampleBoards = listOf(
-        BoardTabInfo(1, "板1", "https://example.com/board1", "example.com", bookmarkColorName = BookmarkColor.RED.value),
-        BoardTabInfo(2, "板2", "https://example.com/board2", "example.com", bookmarkColorName = BookmarkColor.GREEN.value),
+        BoardTabInfo(
+            1,
+            "板1",
+            "https://example.com/board1",
+            "example.com",
+            bookmarkColorName = BookmarkColor.RED.value
+        ),
+        BoardTabInfo(
+            2,
+            "板2",
+            "https://example.com/board2",
+            "example.com",
+            bookmarkColorName = BookmarkColor.GREEN.value
+        ),
         BoardTabInfo(3, "板3", "https://example.com/board3", "example.com")
     )
     OpenBoardsList(
