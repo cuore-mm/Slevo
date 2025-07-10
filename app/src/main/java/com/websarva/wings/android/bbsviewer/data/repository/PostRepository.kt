@@ -61,6 +61,37 @@ class PostRepository @Inject constructor(
             PostResult.Error("", e.message ?: "不明なエラー")
         }
     }
+
+    suspend fun createThreadFirstPhase(
+        host: String,
+        board: String,
+        subject: String,
+        name: String,
+        mail: String,
+        message: String,
+    ): PostResult = withContext(Dispatchers.IO) {
+        try {
+            val response = remoteDataSource.createThreadFirstPhase(host, board, subject, name, mail, message)
+            handlePostResponse(response)
+        } catch (e: Exception) {
+            Log.e("PostRepository", "スレ立て初回リクエスト失敗", e)
+            PostResult.Error("", e.message ?: "不明なエラー")
+        }
+    }
+
+    suspend fun createThreadSecondPhase(
+        host: String,
+        board: String,
+        confirmationData: ConfirmationData,
+    ): PostResult = withContext(Dispatchers.IO) {
+        try {
+            val response = remoteDataSource.createThreadSecondPhase(host, board, confirmationData)
+            handlePostResponse(response)
+        } catch (e: Exception) {
+            Log.e("PostRepository", "スレ立て2回目リクエスト失敗", e)
+            PostResult.Error("", e.message ?: "不明なエラー")
+        }
+    }
 }
 
 data class ConfirmationData(

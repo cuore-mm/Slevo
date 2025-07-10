@@ -2,6 +2,7 @@ package com.websarva.wings.android.bbsviewer.ui.board
 
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
+import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.ui.common.BaseUiState
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkState
 
@@ -17,6 +18,14 @@ data class BoardUiState(
     val sortKeys: List<ThreadSortKey> = ThreadSortKey.entries,
     val isSearchActive: Boolean = false,
     val searchQuery: String = "",
+    val createDialog: Boolean = false,
+    val createFormState: CreateThreadFormState = CreateThreadFormState(),
+    val isPosting: Boolean = false,
+    val postConfirmation: ConfirmationData? = null,
+    val isConfirmationScreen: Boolean = false,
+    val showErrorWebView: Boolean = false,
+    val errorHtmlContent: String = "",
+    val postResultMessage: String? = null,
     override val isLoading: Boolean = false,
     override val showTabListSheet: Boolean = false,
 ) : BaseUiState<BoardUiState> {
@@ -38,3 +47,10 @@ enum class ThreadSortKey(val displayName: String) {
     RES_COUNT("レス数"),
     DATE_CREATED("作成日時") // スレッドキー順
 }
+
+data class CreateThreadFormState(
+    val name: String = "",
+    val mail: String = "",
+    val title: String = "",
+    val message: String = "",
+)
