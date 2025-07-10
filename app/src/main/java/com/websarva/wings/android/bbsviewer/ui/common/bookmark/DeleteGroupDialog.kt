@@ -10,6 +10,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.R
 
@@ -54,5 +55,17 @@ fun DeleteGroupDialog(
                 Text(text = stringResource(R.string.cancel))
             }
         }
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DeleteGroupDialogPreview() {
+    DeleteGroupDialog(
+        groupName = "Sample Group",
+        itemNames = listOf("Board 1", "Board 2"),
+        isBoard = true,
+        onDismissRequest = {},
+        onConfirm = {}
     )
 }
