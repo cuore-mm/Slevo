@@ -25,7 +25,8 @@ fun BoardBottomBar(
     onSortClick: () -> Unit,
     onRefreshClick: () -> Unit,
     onSearchClick: () -> Unit,
-    onTabListClick: () -> Unit
+    onTabListClick: () -> Unit,
+    onCreateThreadClick: () -> Unit,
 ) {
     BottomAppBar(
         modifier = modifier,
@@ -56,7 +57,7 @@ fun BoardBottomBar(
                         contentDescription = stringResource(R.string.refresh)
                     )
                 }
-                IconButton(onClick = { /* doSomething() */ }) {
+                IconButton(onClick = onCreateThreadClick) {
                     Icon(
                         Icons.Default.Create,
                         contentDescription = stringResource(R.string.create_thread)
@@ -81,6 +82,7 @@ fun BoardBottomBarPreview() {
         onSortClick = {},
         onRefreshClick = { /* do something */ },
         onSearchClick = { /* do something */ },
-        onTabListClick = {}
+        onTabListClick = {},
+        onCreateThreadClick = {}
     )
 }

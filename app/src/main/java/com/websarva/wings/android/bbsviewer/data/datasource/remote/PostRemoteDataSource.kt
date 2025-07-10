@@ -28,4 +28,19 @@ interface PostRemoteDataSource {
         threadKey: String,
         confirmationData: ConfirmationData
     ): Response?
+
+    suspend fun createThreadFirstPhase(
+        host: String,
+        board: String,
+        subject: String,
+        name: String,
+        mail: String,
+        message: String,
+    ): Response?
+
+    suspend fun createThreadSecondPhase(
+        host: String,
+        board: String,
+        confirmationData: ConfirmationData,
+    ): Response?
 }

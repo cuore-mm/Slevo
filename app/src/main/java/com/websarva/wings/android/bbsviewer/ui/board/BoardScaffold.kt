@@ -25,7 +25,10 @@ import com.websarva.wings.android.bbsviewer.ui.navigation.RouteScaffold
 import com.websarva.wings.android.bbsviewer.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.parseServiceName
+import com.websarva.wings.android.bbsviewer.ui.util.parseBoardUrl
 import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar
+import com.websarva.wings.android.bbsviewer.ui.board.CreateThreadDialog
+import com.websarva.wings.android.bbsviewer.ui.thread.ResponseWebViewDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -112,7 +115,8 @@ fun BoardScaffold(
                 onSortClick = { viewModel.openSortBottomSheet() },
                 onRefreshClick = { viewModel.refreshBoardData() },
                 onSearchClick = { viewModel.setSearchMode(true) },
-                onTabListClick = { viewModel.openTabListSheet() }
+                onTabListClick = { viewModel.openTabListSheet() },
+                onCreateThreadClick = { viewModel.showCreateDialog() }
             )
         },
         content = { viewModel, uiState, listState, modifier ->
@@ -157,6 +161,54 @@ fun BoardScaffold(
                     isSortAscending = uiState.isSortAscending,
                     onSortKeySelected = { viewModel.setSortKey(it) },
                     onToggleSortOrder = { viewModel.toggleSortOrder() },
+                )
+            }
+
+            if (uiState.createDialog) {
+                CreateThreadDialog(
+                    onDismissRequest = { viewModel.hideCreateDialog() },
+                    formState = uiState.createFormState,
+                    onNameChange = { viewModel.updateCreateName(it) },
+                    onMailChange = { viewModel.updateCreateMail(it) },
+                    onTitleChange = { viewModel.updateCreateTitle(it) },
+                    onMessageChange = { viewModel.updateCreateMessage(it) },
+                    onCreateClick = {
+                        parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
+                            viewModel.createThreadFirstPhase(
+                                host,
+                                boardKey,
+                                uiState.createFormState.title,
+                                uiState.createFormState.name,
+                                uiState.createFormState.mail,
+                                uiState.createFormState.message
+                            )
+                        }
+                    }
+                )
+            }
+
+            if (uiState.isConfirmationScreen) {
+                uiState.postConfirmation?.let { confirmationData ->
+                    ResponseWebViewDialog(
+                        htmlContent = confirmationData.html,
+                        onDismissRequest = { viewModel.hideConfirmationScreen() },
+                        onConfirm = {
+                            parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
+                                viewModel.createThreadSecondPhase(host, boardKey, confirmationData)
+                            }
+                        },
+                        title = "書き込み確認",
+                        confirmButtonText = "書き込む"
+                    )
+                }
+            }
+
+            if (uiState.showErrorWebView) {
+                ResponseWebViewDialog(
+                    htmlContent = uiState.errorHtmlContent,
+                    onDismissRequest = { viewModel.hideErrorWebView() },
+                    title = "応答結果",
+                    onConfirm = null
                 )
             }
         }
