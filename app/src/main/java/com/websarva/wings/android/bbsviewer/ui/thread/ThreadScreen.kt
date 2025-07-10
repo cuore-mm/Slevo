@@ -29,13 +29,18 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -44,6 +49,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
+import com.websarva.wings.android.bbsviewer.ui.theme.idColor
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 
 data class PopupInfo(
@@ -60,6 +66,15 @@ fun ThreadScreen(
     listState: LazyListState = rememberLazyListState()
 ) {
     val popupStack = remember { mutableStateListOf<PopupInfo>() }
+    val idCountMap = remember(posts) { posts.groupingBy { it.id }.eachCount() }
+    val idIndexList = remember(posts) {
+        val indexMap = mutableMapOf<String, Int>()
+        posts.map { reply ->
+            val idx = (indexMap[reply.id] ?: 0) + 1
+            indexMap[reply.id] = idx
+            idx
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxSize()) {
@@ -82,6 +97,8 @@ fun ThreadScreen(
                         },
                         post = post,
                         postNum = index + 1,
+                        idIndex = idIndexList[index],
+                        idTotal = idCountMap[post.id] ?: 1,
                         onReplyClick = { num ->
                             if (num in 1..posts.size) {
                                 val target = posts[num - 1]
@@ -145,6 +162,8 @@ fun ThreadScreen(
                     PostItem(
                         post = info.post,
                         postNum = posts.indexOf(info.post) + 1,
+                        idIndex = idIndexList[posts.indexOf(info.post)],
+                        idTotal = idCountMap[info.post.id] ?: 1,
                         onReplyClick = { num ->
                             if (num in 1..posts.size) {
                                 val target = posts[num - 1]
@@ -168,6 +187,8 @@ fun PostItem(
     modifier: Modifier = Modifier,
     post: ReplyInfo,
     postNum: Int,
+    idIndex: Int,
+    idTotal: Int,
     onReplyClick: ((Int) -> Unit)? = null
 ) {
     Column(
@@ -176,16 +197,27 @@ fun PostItem(
             .clickable(onClick = { /* クリック処理が必要な場合はここに実装 */ })
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        Row {
+        val idColor = idColor(idTotal)
+        val headerText = buildAnnotatedString {
+            // postNumとname、email、dateを結合
+            append("${post.name} ${post.email} ${post.date} ")
+
+            // ID部分にだけ色を適用
+            withStyle(style = SpanStyle(color = idColor)) {
+                append(if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id)
+            }
+        }
+
+        Row{
             Text(
-                text = postNum.toString(),
                 modifier = Modifier.alignByBaseline(),
+                text = postNum.toString(),
                 style = MaterialTheme.typography.labelMedium
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = "${post.name} ${post.email} ${post.date} ${post.id}",
                 modifier = Modifier.alignByBaseline(),
+                text = headerText,
                 style = MaterialTheme.typography.labelMedium
             )
         }
@@ -302,7 +334,7 @@ fun ThreadScreenPreview() {
                 content = "これはテスト投稿です。"
             ),
             ReplyInfo(
-                name = "名無し2",
+                name = "名無しさん",
                 email = "sage",
                 date = "2025/07/09(水) 19:41:00.123",
                 id = "test2",
@@ -323,6 +355,8 @@ fun ReplyCardPreview() {
             id = "testnanjj",
             content = "ガチで終わった模様"
         ),
-        postNum = 1
+        postNum = 1,
+        idIndex = 1,
+        idTotal = 1
     )
 }
