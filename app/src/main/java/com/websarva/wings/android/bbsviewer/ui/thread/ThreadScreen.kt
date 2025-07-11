@@ -53,6 +53,7 @@ import com.websarva.wings.android.bbsviewer.ui.theme.idColor
 import com.websarva.wings.android.bbsviewer.ui.theme.replyColor
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
+import com.websarva.wings.android.bbsviewer.ui.thread.FullScreenImageDialog
 import coil.compose.AsyncImage
 
 data class PopupInfo(
@@ -78,6 +79,7 @@ fun ThreadScreen(
             idx
         }
     }
+    var selectedImageUrl by remember { mutableStateOf<String?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxSize()) {
@@ -102,6 +104,7 @@ fun ThreadScreen(
                         postNum = index + 1,
                         idIndex = idIndexList[index],
                         idTotal = idCountMap[post.id] ?: 1,
+                        onImageClick = { selectedImageUrl = it },
                         onReplyClick = { num ->
                             if (num in 1..posts.size) {
                                 val target = posts[num - 1]
@@ -167,6 +170,7 @@ fun ThreadScreen(
                         postNum = posts.indexOf(info.post) + 1,
                         idIndex = idIndexList[posts.indexOf(info.post)],
                         idTotal = idCountMap[info.post.id] ?: 1,
+                        onImageClick = { selectedImageUrl = it },
                         onReplyClick = { num ->
                             if (num in 1..posts.size) {
                                 val target = posts[num - 1]
@@ -182,6 +186,13 @@ fun ThreadScreen(
                 }
             }
         }
+
+        selectedImageUrl?.let { url ->
+            FullScreenImageDialog(
+                imageUrl = url,
+                onDismissRequest = { selectedImageUrl = null }
+            )
+        }
     }
 }
 
@@ -192,6 +203,7 @@ fun PostItem(
     postNum: Int,
     idIndex: Int,
     idTotal: Int,
+    onImageClick: ((String) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null
 ) {
     Column(
@@ -259,6 +271,7 @@ fun PostItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 200.dp)
+                    .clickable { onImageClick?.invoke(url) }
             )
         }
     }
@@ -380,6 +393,7 @@ fun ReplyCardPreview() {
         ),
         postNum = 1,
         idIndex = 1,
-        idTotal = 1
+        idTotal = 1,
+        onImageClick = {}
     )
 }
