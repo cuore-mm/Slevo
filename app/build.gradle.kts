@@ -70,7 +70,8 @@ dependencies {
     implementation(libs.okhttp3.okhttp)
 
     // Coil
-    implementation(libs.coil.compose)
+    implementation(libs.coil3.coil.compose)
+    implementation(libs.coil.network.okhttp)
 
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 
@@ -106,6 +107,9 @@ dependencies {
 
     // compose.foundation
     implementation(libs.androidx.foundation)
+
+    // Telephoto
+    implementation(libs.zoomable.image.coil3)
 }
 
 // Allow references to generated code

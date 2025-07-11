@@ -104,11 +104,12 @@ fun ThreadScaffold(
                 onRefreshClick = { viewModel.reloadThread() }
             )
         },
-        content = { _, uiState, listState, modifier ->
+        content = { _, uiState, listState, modifier, navController ->
             ThreadScreen(
                 modifier = modifier,
                 posts = uiState.posts ?: emptyList(),
-                listState = listState
+                listState = listState,
+                navController = navController
             )
         },
         optionalSheetContent = { viewModel, uiState ->

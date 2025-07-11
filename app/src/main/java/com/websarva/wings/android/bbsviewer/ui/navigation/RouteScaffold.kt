@@ -57,7 +57,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     updateScrollPosition: (tab: TabInfo, index: Int, offset: Int) -> Unit,
     topBar: @Composable (viewModel: ViewModel, uiState: UiState, openDrawer: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) -> Unit,
     bottomBar: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit,
-    content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier) -> Unit,
+    content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier,navController: NavHostController) -> Unit,
     getScrollBehavior: @Composable () -> TopAppBarScrollBehavior,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
@@ -120,7 +120,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 topBar = { topBar(viewModel, uiState, openDrawer, scrollBehavior) },
                 bottomBar = { bottomBar(viewModel, uiState) }
             ) { innerPadding ->
-                content(viewModel, uiState, listState, Modifier.padding(innerPadding))
+                content(viewModel, uiState, listState, Modifier.padding(innerPadding), navController)
 
                 // 共通のボトムシートとダイアログ
                 if (bookmarkState.showBookmarkSheet) {

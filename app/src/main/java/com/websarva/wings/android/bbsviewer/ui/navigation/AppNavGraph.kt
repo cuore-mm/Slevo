@@ -18,7 +18,10 @@ import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsScaffold
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.thread.ThreadScaffold
+import com.websarva.wings.android.bbsviewer.ui.viewer.ImageViewerScreen
 import kotlinx.serialization.Serializable
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -87,6 +90,16 @@ fun AppNavGraph(
             viewModel = settingsViewModel,
             navController = navController
         )
+        //画像ビューア
+        composable<AppRoute.ImageViewer> { backStackEntry ->
+            val imageViewerRoute: AppRoute.ImageViewer = backStackEntry.toRoute()
+            // URLデコード処理
+            val decodedUrl = URLDecoder.decode(imageViewerRoute.imageUrl, StandardCharsets.UTF_8.toString())
+            ImageViewerScreen(
+                imageUrl = decodedUrl,
+                onNavigateUp = { navController.navigateUp() }
+            )
+        }
     }
 }
 
@@ -130,6 +143,9 @@ sealed class AppRoute {
 
     @Serializable
     data object Tabs : AppRoute()
+
+    @Serializable
+    data class ImageViewer(val imageUrl: String) : AppRoute()
 
     data object RouteName {
         const val BOOKMARK_LIST = "BookmarkList"

@@ -119,7 +119,7 @@ fun BoardScaffold(
                 onCreateThreadClick = { viewModel.showCreateDialog() }
             )
         },
-        content = { viewModel, uiState, listState, modifier ->
+        content = { viewModel, uiState, listState, modifier, navController ->
             BoardScreen(
                 modifier = modifier,
                 threads = uiState.threads ?: emptyList(),
