@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -50,6 +52,8 @@ import androidx.compose.ui.window.PopupPositionProvider
 import com.websarva.wings.android.bbsviewer.ui.theme.idColor
 import com.websarva.wings.android.bbsviewer.ui.theme.replyColor
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
+import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
+import coil.compose.AsyncImage
 
 data class PopupInfo(
     val post: ReplyInfo,
@@ -245,6 +249,18 @@ fun PostItem(
                     }
             }
         )
+
+        val imageUrls = remember(post.content) { extractImageUrls(post.content) }
+        imageUrls.forEach { url ->
+            Spacer(modifier = Modifier.height(8.dp))
+            AsyncImage(
+                model = url,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 200.dp)
+            )
+        }
     }
 }
 
