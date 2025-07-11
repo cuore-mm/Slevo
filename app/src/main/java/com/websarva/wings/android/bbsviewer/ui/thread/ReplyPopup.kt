@@ -14,7 +14,7 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.navigation.NavHostController
 
 data class PopupInfo(
-    val post: ReplyInfo,
+    val posts: List<ReplyInfo>,
     val offset: IntOffset,
     val size: IntSize = IntSize.Zero,
 )
@@ -23,6 +23,7 @@ data class PopupInfo(
 fun ReplyPopup(
     popupStack: SnapshotStateList<PopupInfo>,
     posts: List<ReplyInfo>,
+    replySourceMap: Map<Int, List<Int>>, 
     idCountMap: Map<String, Int>,
     idIndexList: List<Int>,
     navController: NavHostController,
@@ -53,24 +54,42 @@ fun ReplyPopup(
                     }
                 }
             ) {
-                PostItem(
-                    post = info.post,
-                    postNum = posts.indexOf(info.post) + 1,
-                    idIndex = idIndexList[posts.indexOf(info.post)],
-                    idTotal = idCountMap[info.post.id] ?: 1,
-                    navController = navController,
-                    onReplyClick = { num ->
-                        if (num in 1..posts.size) {
-                            val target = posts[num - 1]
-                            val base = popupStack[index]
-                            val offset = IntOffset(
-                                base.offset.x,
-                                (base.offset.y - base.size.height).coerceAtLeast(0)
+                info.posts.forEachIndexed { i, p ->
+                    PostItem(
+                        post = p,
+                        postNum = posts.indexOf(p) + 1,
+                        idIndex = idIndexList[posts.indexOf(p)],
+                        idTotal = idCountMap[p.id] ?: 1,
+                        navController = navController,
+                        replyFromNumbers = replySourceMap[posts.indexOf(p) + 1] ?: emptyList(),
+                        onReplyFromClick = { nums ->
+                            val off = IntOffset(
+                                popupStack[index].offset.x,
+                                (popupStack[index].offset.y - popupStack[index].size.height).coerceAtLeast(0)
                             )
-                            popupStack.add(PopupInfo(target, offset))
+                            val targets = nums.mapNotNull { n ->
+                                posts.getOrNull(n - 1)
+                            }
+                            if (targets.isNotEmpty()) {
+                                popupStack.add(PopupInfo(targets, off))
+                            }
+                        },
+                        onReplyClick = { num ->
+                            if (num in 1..posts.size) {
+                                val target = posts[num - 1]
+                                val base = popupStack[index]
+                                val offset = IntOffset(
+                                    base.offset.x,
+                                    (base.offset.y - base.size.height).coerceAtLeast(0)
+                                )
+                                popupStack.add(PopupInfo(listOf(target), offset))
+                            }
                         }
+                    )
+                    if (i < info.posts.size - 1) {
+                        androidx.compose.material3.HorizontalDivider()
                     }
-                )
+                }
             }
         }
     }

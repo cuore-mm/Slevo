@@ -47,6 +47,20 @@ fun ThreadScreen(
         }
     }
 
+    val replySourceMap = remember(posts) {
+        val map = mutableMapOf<Int, MutableList<Int>>()
+        val regex = Regex(">>(\\d+)")
+        posts.forEachIndexed { idx, reply ->
+            regex.findAll(reply.content).forEach { match ->
+                val num = match.groupValues[1].toIntOrNull() ?: return@forEach
+                if (num in 1..posts.size) {
+                    map.getOrPut(num) { mutableListOf() }.add(idx + 1)
+                }
+            }
+        }
+        map.mapValues { it.value.toList() }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
@@ -71,6 +85,21 @@ fun ThreadScreen(
                         idIndex = idIndexList[index],
                         idTotal = idCountMap[post.id] ?: 1,
                         navController = navController,
+                        replyFromNumbers = replySourceMap[index + 1] ?: emptyList(),
+                        onReplyFromClick = { nums ->
+                            val offset = if (popupStack.isEmpty()) {
+                                itemOffset
+                            } else {
+                                val last = popupStack.last()
+                                IntOffset(last.offset.x, (last.offset.y - last.size.height).coerceAtLeast(0))
+                            }
+                            val targets = nums.mapNotNull { num ->
+                                posts.getOrNull(num - 1)
+                            }
+                            if (targets.isNotEmpty()) {
+                                popupStack.add(PopupInfo(targets, offset))
+                            }
+                        },
                         onReplyClick = { num ->
                             if (num in 1..posts.size) {
                                 val target = posts[num - 1]
@@ -84,7 +113,7 @@ fun ThreadScreen(
                                         (last.offset.y - last.size.height).coerceAtLeast(0)
                                     )
                                 }
-                                popupStack.add(PopupInfo(target, offset))
+                                popupStack.add(PopupInfo(listOf(target), offset))
                             }
                         }
                     )
@@ -107,6 +136,7 @@ fun ThreadScreen(
         ReplyPopup(
             popupStack = popupStack,
             posts = posts,
+            replySourceMap = replySourceMap,
             idCountMap = idCountMap,
             idIndexList = idIndexList,
             navController = navController,

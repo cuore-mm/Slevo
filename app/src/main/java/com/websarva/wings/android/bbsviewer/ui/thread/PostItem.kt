@@ -34,6 +34,8 @@ fun PostItem(
     idIndex: Int,
     idTotal: Int,
     navController: NavHostController,
+    replyFromNumbers: List<Int> = emptyList(),
+    onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null
 ) {
     Column(
@@ -51,9 +53,12 @@ fun PostItem(
         }
 
         Row {
+            val replyCount = replyFromNumbers.size
             Text(
-                modifier = Modifier.alignByBaseline(),
-                text = postNum.toString(),
+                modifier = Modifier
+                    .alignByBaseline()
+                    .clickable(enabled = replyCount > 0) { onReplyFromClick?.invoke(replyFromNumbers) },
+                text = if (replyCount > 0) "$postNum ($replyCount)" else postNum.toString(),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
