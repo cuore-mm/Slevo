@@ -7,7 +7,7 @@ import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.Groupable
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
-import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
+import com.websarva.wings.android.bbsviewer.data.repository.ThreadCreateRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 @RequiresApi(Build.VERSION_CODES.O)
 class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
-    private val postRepository: PostRepository,
+    private val threadCreateRepository: ThreadCreateRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     @Assisted("viewModelKey") val viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
@@ -222,7 +222,7 @@ class BoardViewModel @AssistedInject constructor(
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isPosting = true, createDialog = false) }
-            val result = postRepository.createThreadFirstPhase(host, board, title, name, mail, message)
+            val result = threadCreateRepository.createThreadFirstPhase(host, board, title, name, mail, message)
             _uiState.update { it.copy(isPosting = false) }
             when (result) {
                 is PostResult.Success -> {
@@ -253,7 +253,7 @@ class BoardViewModel @AssistedInject constructor(
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isPosting = true, isConfirmationScreen = false) }
-            val result = postRepository.createThreadSecondPhase(host, board, confirmationData)
+            val result = threadCreateRepository.createThreadSecondPhase(host, board, confirmationData)
             _uiState.update { it.copy(isPosting = false) }
             when (result) {
                 is PostResult.Success -> {

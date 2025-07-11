@@ -13,7 +13,9 @@ import com.websarva.wings.android.bbsviewer.data.datasource.remote.PostRemoteDat
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.BbsMenuDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.BoardRemoteDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.DatRemoteDataSourceImpl
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.ThreadCreateRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.PostRemoteDataSourceImpl
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.ThreadCreateRemoteDataSourceImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -68,6 +70,13 @@ abstract class DataSourceModule {
     abstract fun bindPostRemoteDataSource(
         impl: PostRemoteDataSourceImpl
     ): PostRemoteDataSource
+
+    /** スレッド作成処理用 */
+    @Binds
+    @Singleton
+    abstract fun bindThreadCreateRemoteDataSource(
+        impl: ThreadCreateRemoteDataSourceImpl
+    ): ThreadCreateRemoteDataSource
 
     /** クッキー永続化用 */
     @Binds
