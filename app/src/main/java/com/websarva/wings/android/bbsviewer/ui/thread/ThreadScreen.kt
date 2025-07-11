@@ -301,52 +301,44 @@ private fun MomentumBar(
         if (posts.size > 1) {
             val postHeight = canvasHeight / posts.size
 
-            // 1. 滑らかな勢いバーの図形（Path）を作成
-            val path = Path().apply {
-                // 左上からスタート
-                moveTo(0f, 0f)
-
-                // 各投稿の勢いの点を滑らかな曲線で結ぶ
-                for (i in 0 until posts.size - 1) {
-                    val currentMomentum = posts[i].momentum
-                    val nextMomentum = posts[i + 1].momentum
-
-                    // X座標の計算を「勢いの幅」そのものに変更
-                    val currentX = maxBarWidthPx * currentMomentum
-                    val currentY = i * postHeight
-
-                    val nextX = maxBarWidthPx * nextMomentum
-                    val nextY = (i + 1) * postHeight
-
-                    val controlPointX = currentX
-                    val controlPointY = (currentY + nextY) / 2
-                    val endPointX = (currentX + nextX) / 2
-                    val endPointY = (currentY + nextY) / 2
-
-                    // 最初の点のみlineToを使い、以降はベジェ曲線でつなぐ
-                    if (i == 0) {
-                        lineTo(currentX, currentY)
-                    }
-
-                    quadraticBezierTo(
-                        x1 = controlPointX,
-                        y1 = controlPointY,
-                        x2 = endPointX,
-                        y2 = endPointY
-                    )
-                }
-
-                // パスの最後を閉じる
-                val lastX = maxBarWidthPx * posts.last().momentum
-                lineTo(lastX, canvasHeight) // 最後の勢いの点から真下へ
-                lineTo(0f, canvasHeight) // 左下へ
-                close() // パスを閉じる
+            // --- 勢いの移動平均を計算 ---
+            val windowSize = 10 // 前後n件の平均を取る
+            val smoothedMomentum = posts.mapIndexed { index, _ ->
+                val start = (index - windowSize / 2).coerceAtLeast(0)
+                val end = (index + windowSize / 2).coerceAtMost(posts.lastIndex)
+                val subList = posts.subList(start, end + 1)
+                subList.map { it.momentum }.average().toFloat()
             }
 
-            // 作成したパスを描画
+            // --- 移動平均を使ってPathを作成 ---
+            val path = Path().apply {
+                moveTo(0f, 0f)
+
+                val points = smoothedMomentum.mapIndexed { index, momentum ->
+                    val x = maxBarWidthPx * momentum // 平均化された勢いを幅に変換
+                    val y = index * postHeight
+                    Offset(x, y)
+                }
+
+                lineTo(points.first().x, points.first().y)
+
+                for (i in 0 until points.size - 1) {
+                    val currentPoint = points[i]
+                    val nextPoint = points[i+1]
+                    val midPoint = Offset((currentPoint.x + nextPoint.x) / 2, (currentPoint.y + nextPoint.y) / 2)
+                    quadraticTo(currentPoint.x, currentPoint.y, midPoint.x, midPoint.y)
+                }
+
+                lineTo(points.last().x, points.last().y)
+
+                lineTo(points.last().x, canvasHeight)
+                lineTo(0f, canvasHeight)
+                close()
+            }
+
             drawPath(path, color = barColor)
 
-            // 2. 現在のスクロール位置を示すインジケーターを描画
+            // --- 現在のスクロール位置を示すインジケーターを描画 ---
             val firstVisible = lazyListState.firstVisibleItemIndex
             val visibleCount = lazyListState.layoutInfo.visibleItemsInfo.size
             if (visibleCount > 0) {
