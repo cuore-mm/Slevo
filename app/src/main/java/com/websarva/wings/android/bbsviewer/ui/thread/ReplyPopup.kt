@@ -63,17 +63,15 @@ fun ReplyPopup(
                         navController = navController,
                         replyFromNumbers = replySourceMap[posts.indexOf(p) + 1] ?: emptyList(),
                         onReplyFromClick = { nums ->
-                            var off = IntOffset(
+                            val off = IntOffset(
                                 popupStack[index].offset.x,
                                 (popupStack[index].offset.y - popupStack[index].size.height).coerceAtLeast(0)
                             )
-                            nums.forEach { num ->
-                                if (num in 1..posts.size) {
-                                    val target = posts[num - 1]
-                                    popupStack.add(PopupInfo(listOf(target), off))
-                                    val last = popupStack.last()
-                                    off = IntOffset(last.offset.x, (last.offset.y - last.size.height).coerceAtLeast(0))
-                                }
+                            val targets = nums.mapNotNull { n ->
+                                posts.getOrNull(n - 1)
+                            }
+                            if (targets.isNotEmpty()) {
+                                popupStack.add(PopupInfo(targets, off))
                             }
                         },
                         onReplyClick = { num ->

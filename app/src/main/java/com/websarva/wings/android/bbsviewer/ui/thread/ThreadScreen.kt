@@ -87,19 +87,17 @@ fun ThreadScreen(
                         navController = navController,
                         replyFromNumbers = replySourceMap[index + 1] ?: emptyList(),
                         onReplyFromClick = { nums ->
-                            var off = if (popupStack.isEmpty()) {
+                            val offset = if (popupStack.isEmpty()) {
                                 itemOffset
                             } else {
                                 val last = popupStack.last()
                                 IntOffset(last.offset.x, (last.offset.y - last.size.height).coerceAtLeast(0))
                             }
-                            nums.forEach { num ->
-                                if (num in 1..posts.size) {
-                                    val target = posts[num - 1]
-                                    popupStack.add(PopupInfo(listOf(target), off))
-                                    val last = popupStack.last()
-                                    off = IntOffset(last.offset.x, (last.offset.y - last.size.height).coerceAtLeast(0))
-                                }
+                            val targets = nums.mapNotNull { num ->
+                                posts.getOrNull(num - 1)
+                            }
+                            if (targets.isNotEmpty()) {
+                                popupStack.add(PopupInfo(targets, offset))
                             }
                         },
                         onReplyClick = { num ->
