@@ -69,6 +69,9 @@ dependencies {
     //okhttp
     implementation(libs.okhttp3.okhttp)
 
+    // Coil
+    implementation(libs.coil.compose)
+
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 
     //hilt

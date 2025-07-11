@@ -62,3 +62,20 @@ fun buildUrlAnnotatedString(
         }
     }
 }
+
+private val imageExtensions = listOf("jpg", "jpeg", "png", "gif")
+
+/**
+ * テキスト中の画像URLを抽出します。
+ */
+fun extractImageUrls(text: String): List<String> {
+    val matcher = urlRegex.matcher(text)
+    val urls = mutableListOf<String>()
+    while (matcher.find()) {
+        val url = matcher.group(1) ?: continue
+        if (imageExtensions.any { url.endsWith(it, ignoreCase = true) }) {
+            urls.add(url)
+        }
+    }
+    return urls
+}
