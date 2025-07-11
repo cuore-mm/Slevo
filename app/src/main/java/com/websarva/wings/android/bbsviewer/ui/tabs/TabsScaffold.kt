@@ -19,7 +19,9 @@ fun TabsScaffold(
     tabsViewModel: TabsViewModel,
     navController: NavHostController
 ) {
-    Scaffold { innerPadding ->
+    Scaffold (
+        floatingActionButton = {}
+    ){ innerPadding ->
         TabsPagerContent(
             modifier = Modifier.padding(
                 // 左右と下は親のpadding、上は子のpaddingを使用
