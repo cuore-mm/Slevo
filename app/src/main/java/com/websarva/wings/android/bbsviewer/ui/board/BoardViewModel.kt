@@ -7,6 +7,9 @@ import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.Groupable
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
+import com.websarva.wings.android.bbsviewer.data.repository.ThreadCreateRepository
+import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
+import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModelFactory
@@ -21,6 +24,7 @@ import kotlinx.coroutines.launch
 @RequiresApi(Build.VERSION_CODES.O)
 class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
+    private val threadCreateRepository: ThreadCreateRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     @Assisted("viewModelKey") val viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
@@ -173,6 +177,104 @@ class BoardViewModel @AssistedInject constructor(
 
     fun closeInfoDialog() {
         _uiState.update { it.copy(showInfoDialog = false) }
+    }
+
+    // --- スレッド作成関連 ---
+    fun showCreateDialog() {
+        _uiState.update { it.copy(createDialog = true) }
+    }
+
+    fun hideCreateDialog() {
+        _uiState.update { it.copy(createDialog = false) }
+    }
+
+    fun updateCreateName(name: String) {
+        _uiState.update { it.copy(createFormState = it.createFormState.copy(name = name)) }
+    }
+
+    fun updateCreateMail(mail: String) {
+        _uiState.update { it.copy(createFormState = it.createFormState.copy(mail = mail)) }
+    }
+
+    fun updateCreateTitle(title: String) {
+        _uiState.update { it.copy(createFormState = it.createFormState.copy(title = title)) }
+    }
+
+    fun updateCreateMessage(message: String) {
+        _uiState.update { it.copy(createFormState = it.createFormState.copy(message = message)) }
+    }
+
+    fun hideConfirmationScreen() {
+        _uiState.update { it.copy(isConfirmationScreen = false) }
+    }
+
+    fun hideErrorWebView() {
+        _uiState.update { it.copy(showErrorWebView = false, errorHtmlContent = "") }
+    }
+
+    fun createThreadFirstPhase(
+        host: String,
+        board: String,
+        title: String,
+        name: String,
+        mail: String,
+        message: String,
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isPosting = true, createDialog = false) }
+            val result = threadCreateRepository.createThreadFirstPhase(host, board, title, name, mail, message)
+            _uiState.update { it.copy(isPosting = false) }
+            when (result) {
+                is PostResult.Success -> {
+                    _uiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
+                    refreshBoardData()
+                }
+                is PostResult.Confirm -> {
+                    _uiState.update {
+                        it.copy(
+                            postConfirmation = result.confirmationData,
+                            isConfirmationScreen = true
+                        )
+                    }
+                }
+                is PostResult.Error -> {
+                    _uiState.update {
+                        it.copy(showErrorWebView = true, errorHtmlContent = result.html)
+                    }
+                }
+            }
+        }
+    }
+
+    fun createThreadSecondPhase(
+        host: String,
+        board: String,
+        confirmationData: ConfirmationData,
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isPosting = true, isConfirmationScreen = false) }
+            val result = threadCreateRepository.createThreadSecondPhase(host, board, confirmationData)
+            _uiState.update { it.copy(isPosting = false) }
+            when (result) {
+                is PostResult.Success -> {
+                    _uiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
+                    refreshBoardData()
+                }
+                is PostResult.Error -> {
+                    _uiState.update {
+                        it.copy(showErrorWebView = true, errorHtmlContent = result.html)
+                    }
+                }
+                is PostResult.Confirm -> {
+                    _uiState.update {
+                        it.copy(
+                            postConfirmation = result.confirmationData,
+                            isConfirmationScreen = true
+                        )
+                    }
+                }
+            }
+        }
     }
 
 }
