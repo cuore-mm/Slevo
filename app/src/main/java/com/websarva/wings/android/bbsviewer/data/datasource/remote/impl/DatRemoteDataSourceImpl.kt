@@ -90,7 +90,8 @@ class DatRemoteDataSourceImpl @Inject constructor(
                 return String(newBytes, Charset.forName("Shift_JIS"))
             }
             304 -> {
-                return null
+                // キャッシュが存在すれば、その内容を返す
+                return cacheEntry?.let { String(it.bytes, Charset.forName("Shift_JIS")) }
             }
             416 -> {
                 cache.remove(datUrl)

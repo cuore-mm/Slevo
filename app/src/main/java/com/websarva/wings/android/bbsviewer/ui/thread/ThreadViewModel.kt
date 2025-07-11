@@ -58,10 +58,11 @@ class ThreadViewModel @AssistedInject constructor(
 
     override suspend fun loadData(isRefresh: Boolean) {
         _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
-        val datUrl = keyToDatUrl(uiState.value.boardInfo.url, uiState.value.threadInfo.key)
+        val boardUrl = uiState.value.boardInfo.url
+        val key = uiState.value.threadInfo.key
 
         try {
-            val threadData = datRepository.getThread(datUrl) { progress ->
+            val threadData = datRepository.getThread(boardUrl, key) { progress ->
                 _uiState.update { it.copy(loadProgress = progress) }
             }
             if (threadData != null) {
@@ -76,7 +77,10 @@ class ThreadViewModel @AssistedInject constructor(
                 }
             } else {
                 _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
-                Log.e("ThreadViewModel", "Failed to load thread data for URL: $datUrl")
+                Log.e(
+                    "ThreadViewModel",
+                    "Failed to load thread data for board: $boardUrl key: $key"
+                )
             }
         } catch (e: Exception) {
             e.printStackTrace()

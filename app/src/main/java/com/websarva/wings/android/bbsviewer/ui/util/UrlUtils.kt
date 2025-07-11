@@ -6,6 +6,11 @@ fun keyToDatUrl(boardUrl:String, key: String): String {
     return "${boardUrl}dat/${key}.dat"
 }
 
+fun keyToOysterUrl(boardUrl: String, key: String): String {
+    val prefix = if (key.length >= 4) key.substring(0, 4) else key
+    return "${boardUrl}oyster/$prefix/${key}.dat"
+}
+
 /**
  * 5ch系の掲示板URL（例: https://agree.5ch.net/operate/）から
  * host と boardName を取り出す。
