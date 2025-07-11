@@ -37,6 +37,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -49,11 +50,15 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
+import androidx.navigation.NavHostController
+import coil3.compose.AsyncImage
 import com.websarva.wings.android.bbsviewer.ui.theme.idColor
 import com.websarva.wings.android.bbsviewer.ui.theme.replyColor
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
-import coil.compose.AsyncImage
+import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 data class PopupInfo(
     val post: ReplyInfo,
@@ -61,12 +66,18 @@ data class PopupInfo(
     val size: IntSize = IntSize.Zero,
 )
 
+// URLをエンコードするためのヘルパー関数
+private fun encodeUrl(url: String): String {
+    return URLEncoder.encode(url, StandardCharsets.UTF_8.toString())
+}
+
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun ThreadScreen(
     modifier: Modifier = Modifier,
     posts: List<ReplyInfo>,
-    listState: LazyListState = rememberLazyListState()
+    listState: LazyListState = rememberLazyListState(),
+    navController: NavHostController,
 ) {
     val popupStack = remember { mutableStateListOf<PopupInfo>() }
     val idCountMap = remember(posts) { posts.groupingBy { it.id }.eachCount() }
@@ -102,6 +113,7 @@ fun ThreadScreen(
                         postNum = index + 1,
                         idIndex = idIndexList[index],
                         idTotal = idCountMap[post.id] ?: 1,
+                        navController = navController,
                         onReplyClick = { num ->
                             if (num in 1..posts.size) {
                                 val target = posts[num - 1]
@@ -167,6 +179,7 @@ fun ThreadScreen(
                         postNum = posts.indexOf(info.post) + 1,
                         idIndex = idIndexList[posts.indexOf(info.post)],
                         idTotal = idCountMap[info.post.id] ?: 1,
+                        navController = navController,
                         onReplyClick = { num ->
                             if (num in 1..posts.size) {
                                 val target = posts[num - 1]
@@ -192,6 +205,7 @@ fun PostItem(
     postNum: Int,
     idIndex: Int,
     idTotal: Int,
+    navController: NavHostController,
     onReplyClick: ((Int) -> Unit)? = null
 ) {
     Column(
@@ -259,6 +273,11 @@ fun PostItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 200.dp)
+                    .clickable { // 画像クリック時の処理
+                        navController.navigate(
+                            AppRoute.ImageViewer(imageUrl = encodeUrl(url))
+                        )
+                    }
             )
         }
     }
@@ -363,7 +382,8 @@ fun ThreadScreenPreview() {
                 id = "test2",
                 content = "別のテスト投稿です。"
             )
-        )
+        ),
+        navController = NavHostController(LocalContext.current),
     )
 }
 
@@ -380,6 +400,7 @@ fun ReplyCardPreview() {
         ),
         postNum = 1,
         idIndex = 1,
-        idTotal = 1
+        idTotal = 1,
+        navController = NavHostController(LocalContext.current),
     )
 }
