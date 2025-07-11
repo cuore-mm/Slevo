@@ -2,7 +2,7 @@ package com.websarva.wings.android.bbsviewer.ui.tabs
 
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -19,12 +19,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
-import com.websarva.wings.android.bbsviewer.ui.tabs.TabsPagerContent
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.util.parseBoardUrl
 import com.websarva.wings.android.bbsviewer.ui.util.parseThreadUrl
-import com.websarva.wings.android.bbsviewer.ui.tabs.UrlOpenDialog
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,6 +42,7 @@ fun TabsBottomSheet(
         sheetState = sheetState,
     ) {
         Scaffold(
+            modifier = Modifier.fillMaxHeight(0.8f),
             floatingActionButton = {
                 FloatingActionButton(onClick = { showUrlDialog = true }) {
                     Icon(
