@@ -2,30 +2,16 @@ package com.websarva.wings.android.bbsviewer.ui.thread
 
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.ClickableText
-import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,48 +20,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
 import androidx.navigation.NavHostController
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
-import coil3.compose.AsyncImage
-import com.websarva.wings.android.bbsviewer.ui.theme.idColor
-import com.websarva.wings.android.bbsviewer.ui.theme.replyColor
-import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
-import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
-import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
-
-data class PopupInfo(
-    val post: ReplyInfo,
-    val offset: IntOffset,
-    val size: IntSize = IntSize.Zero,
-)
-
-// URLをエンコードするためのヘルパー関数
-private fun encodeUrl(url: String): String {
-    return URLEncoder.encode(url, StandardCharsets.UTF_8.toString())
-}
 
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
@@ -146,250 +97,21 @@ fun ThreadScreen(
             // 右側: 固定の勢いバー
             MomentumBar(
                 modifier = Modifier
-                    .width(32.dp) // 勢いバー全体の幅を指定
+                    .width(32.dp)
                     .fillMaxHeight(),
                 posts = posts,
                 lazyListState = listState
             )
         }
 
-        popupStack.forEachIndexed { index, info ->
-            Popup(
-                popupPositionProvider = object : PopupPositionProvider {
-                    override fun calculatePosition(
-                        anchorBounds: IntRect,
-                        windowSize: IntSize,
-                        layoutDirection: LayoutDirection,
-                        popupContentSize: IntSize,
-                    ): IntOffset {
-                        return IntOffset(
-                            info.offset.x,
-                            (info.offset.y - popupContentSize.height).coerceAtLeast(0)
-                        )
-                    }
-                },
-                onDismissRequest = {
-                    if (popupStack.isNotEmpty()) popupStack.removeLast()
-                }
-            ) {
-                Card(
-                    modifier = Modifier.onGloballyPositioned { coords ->
-                        val size = coords.size
-                        if (size != info.size) {
-                            popupStack[index] = info.copy(size = size)
-                        }
-                    }
-                ) {
-                    PostItem(
-                        post = info.post,
-                        postNum = posts.indexOf(info.post) + 1,
-                        idIndex = idIndexList[posts.indexOf(info.post)],
-                        idTotal = idCountMap[info.post.id] ?: 1,
-                        navController = navController,
-                        onReplyClick = { num ->
-                            if (num in 1..posts.size) {
-                                val target = posts[num - 1]
-                                val base = popupStack[index]
-                                val offset = IntOffset(
-                                    base.offset.x,
-                                    (base.offset.y - base.size.height).coerceAtLeast(0)
-                                )
-                                popupStack.add(PopupInfo(target, offset))
-                            }
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun PostItem(
-    modifier: Modifier = Modifier,
-    post: ReplyInfo,
-    postNum: Int,
-    idIndex: Int,
-    idTotal: Int,
-    navController: NavHostController,
-    onReplyClick: ((Int) -> Unit)? = null
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = { /* クリック処理が必要な場合はここに実装 */ })
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    ) {
-        val idColor = idColor(idTotal)
-        val headerText = buildAnnotatedString {
-            // postNumとname、email、dateを結合
-            append("${post.name} ${post.email} ${post.date} ")
-
-            // ID部分にだけ色を適用
-            withStyle(style = SpanStyle(color = idColor)) {
-                append(if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id)
-            }
-        }
-
-        Row {
-            Text(
-                modifier = Modifier.alignByBaseline(),
-                text = postNum.toString(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                modifier = Modifier.alignByBaseline(),
-                text = headerText,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        val uriHandler = LocalUriHandler.current
-        val annotatedText = buildUrlAnnotatedString(
-            text = post.content,
-            onOpenUrl = { uriHandler.openUri(it) },
-            replyColor = replyColor()
+        ReplyPopup(
+            popupStack = popupStack,
+            posts = posts,
+            idCountMap = idCountMap,
+            idIndexList = idIndexList,
+            navController = navController,
+            onClose = { if (popupStack.isNotEmpty()) popupStack.removeLast() }
         )
-        ClickableText(
-            text = annotatedText,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = MaterialTheme.colorScheme.onSurface
-            ),
-            onClick = { offset ->
-                annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()
-                    ?.let { ann ->
-                        uriHandler.openUri(ann.item)
-                    }
-                annotatedText.getStringAnnotations("REPLY", offset, offset).firstOrNull()
-                    ?.let { ann ->
-                        ann.item.toIntOrNull()?.let { onReplyClick?.invoke(it) }
-                    }
-            }
-        )
-
-        val imageUrls = remember(post.content) { extractImageUrls(post.content) }
-        imageUrls.forEach { url ->
-            Spacer(modifier = Modifier.height(8.dp))
-            AsyncImage(
-                model = url,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 200.dp)
-                    .clickable { // 画像クリック時の処理
-                        navController.navigate(
-                            AppRoute.ImageViewer(imageUrl = encodeUrl(url))
-                        )
-                    }
-            )
-        }
-    }
-}
-
-@Composable
-private fun MomentumBar(
-    modifier: Modifier = Modifier,
-    posts: List<ReplyInfo>,
-    lazyListState: LazyListState
-) {
-    val barColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-    val indicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-    val maxBarWidthDp = 24.dp
-
-    var barHeight by remember { mutableStateOf(0) }
-    val scope = rememberCoroutineScope()
-
-    Canvas(
-        modifier = modifier
-            .onSizeChanged { barHeight = it.height }
-            .pointerInput(posts, barHeight) {
-                detectTapGestures { offset ->
-                    if (barHeight > 0 && posts.isNotEmpty()) {
-                        val postHeight = barHeight.toFloat() / posts.size
-                        val index = (offset.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
-                        scope.launch { lazyListState.animateScrollToItem(index) }
-                    }
-                }
-            }
-            .pointerInput(posts, barHeight) {
-                detectVerticalDragGestures(
-                    onDragStart = { offset ->
-                        if (barHeight > 0 && posts.isNotEmpty()) {
-                            val postHeight = barHeight.toFloat() / posts.size
-                            val index = (offset.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
-                            scope.launch { lazyListState.scrollToItem(index) }
-                        }
-                    },
-                    onVerticalDrag = { change, _ ->
-                        if (barHeight > 0 && posts.isNotEmpty()) {
-                            val postHeight = barHeight.toFloat() / posts.size
-                            val index = (change.position.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
-                            scope.launch { lazyListState.scrollToItem(index) }
-                        }
-                    }
-                )
-            }
-    ) {
-        val canvasHeight = size.height
-        val canvasWidth = size.width
-        val maxBarWidthPx = maxBarWidthDp.toPx()
-
-        if (posts.size > 1) {
-            val postHeight = canvasHeight / posts.size
-
-            // --- 勢いの移動平均を計算 ---
-            val windowSize = 10 // 前後n件の平均を取る
-            val smoothedMomentum = posts.mapIndexed { index, _ ->
-                val start = (index - windowSize / 2).coerceAtLeast(0)
-                val end = (index + windowSize / 2).coerceAtMost(posts.lastIndex)
-                val subList = posts.subList(start, end + 1)
-                subList.map { it.momentum }.average().toFloat()
-            }
-
-            // --- 移動平均を使ってPathを作成 ---
-            val path = Path().apply {
-                moveTo(0f, 0f)
-
-                val points = smoothedMomentum.mapIndexed { index, momentum ->
-                    val x = maxBarWidthPx * momentum // 平均化された勢いを幅に変換
-                    val y = index * postHeight
-                    Offset(x, y)
-                }
-
-                lineTo(points.first().x, points.first().y)
-
-                for (i in 0 until points.size - 1) {
-                    val currentPoint = points[i]
-                    val nextPoint = points[i+1]
-                    val midPoint = Offset((currentPoint.x + nextPoint.x) / 2, (currentPoint.y + nextPoint.y) / 2)
-                    quadraticTo(currentPoint.x, currentPoint.y, midPoint.x, midPoint.y)
-                }
-
-                lineTo(points.last().x, points.last().y)
-
-                lineTo(points.last().x, canvasHeight)
-                lineTo(0f, canvasHeight)
-                close()
-            }
-
-            drawPath(path, color = barColor)
-
-            // --- 現在のスクロール位置を示すインジケーターを描画 ---
-            val firstVisible = lazyListState.firstVisibleItemIndex
-            val visibleCount = lazyListState.layoutInfo.visibleItemsInfo.size
-            if (visibleCount > 0) {
-                val indicatorTop = firstVisible * postHeight
-                val indicatorHeight = visibleCount * postHeight
-                drawRect(
-                    color = indicatorColor,
-                    topLeft = Offset(x = 0f, y = indicatorTop),
-                    size = Size(width = canvasWidth, height = indicatorHeight)
-                )
-            }
-        }
     }
 }
 
@@ -414,24 +136,6 @@ fun ThreadScreenPreview() {
                 content = "別のテスト投稿です。"
             )
         ),
-        navController = NavHostController(LocalContext.current),
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ReplyCardPreview() {
-    PostItem(
-        post = ReplyInfo(
-            name = "風吹けば名無し (ｵｰﾊﾟｲW ddad-g3Sx [2001:268:98f4:c793:*])",
-            email = "sage",
-            date = "1/21(月) 15:43:45.34",
-            id = "testnanjj",
-            content = "ガチで終わった模様"
-        ),
-        postNum = 1,
-        idIndex = 1,
-        idTotal = 1,
         navController = NavHostController(LocalContext.current),
     )
 }
