@@ -42,4 +42,5 @@
     <string name="dialog_unbookmark_boards">以下の板がブックマークから解除されます</string>
     <string name="dialog_unbookmark_threads">以下のスレがブックマークから解除されます</string>
     <string name="dialog_group_items">このグループに含まれる項目:</string>
+    <string name="title">タイトル</string>
 </resources>
