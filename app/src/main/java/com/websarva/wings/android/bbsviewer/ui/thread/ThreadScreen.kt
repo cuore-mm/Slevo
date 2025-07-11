@@ -3,6 +3,8 @@ package com.websarva.wings.android.bbsviewer.ui.thread
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,10 +34,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -51,6 +55,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.navigation.NavHostController
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import coil3.compose.AsyncImage
 import com.websarva.wings.android.bbsviewer.ui.theme.idColor
 import com.websarva.wings.android.bbsviewer.ui.theme.replyColor
@@ -293,7 +299,40 @@ private fun MomentumBar(
     val indicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
     val maxBarWidthDp = 24.dp
 
-    Canvas(modifier = modifier) {
+    var barHeight by remember { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
+
+    Canvas(
+        modifier = modifier
+            .onSizeChanged { barHeight = it.height }
+            .pointerInput(posts, barHeight) {
+                detectTapGestures { offset ->
+                    if (barHeight > 0 && posts.isNotEmpty()) {
+                        val postHeight = barHeight.toFloat() / posts.size
+                        val index = (offset.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
+                        scope.launch { lazyListState.animateScrollToItem(index) }
+                    }
+                }
+            }
+            .pointerInput(posts, barHeight) {
+                detectVerticalDragGestures(
+                    onDragStart = { offset ->
+                        if (barHeight > 0 && posts.isNotEmpty()) {
+                            val postHeight = barHeight.toFloat() / posts.size
+                            val index = (offset.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
+                            scope.launch { lazyListState.scrollToItem(index) }
+                        }
+                    },
+                    onVerticalDrag = { change, _ ->
+                        if (barHeight > 0 && posts.isNotEmpty()) {
+                            val postHeight = barHeight.toFloat() / posts.size
+                            val index = (change.position.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
+                            scope.launch { lazyListState.scrollToItem(index) }
+                        }
+                    }
+                )
+            }
+    ) {
         val canvasHeight = size.height
         val canvasWidth = size.width
         val maxBarWidthPx = maxBarWidthDp.toPx()
