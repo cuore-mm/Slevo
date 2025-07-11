@@ -53,7 +53,7 @@ fun CreateThreadDialog(
                 TextField(
                     value = formState.title,
                     onValueChange = onTitleChange,
-                    label = { Text(stringResource(R.string.create_thread)) },
+                    label = { Text(stringResource(R.string.title)) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(8.dp)
