@@ -43,4 +43,7 @@
     <string name="dialog_unbookmark_threads">以下のスレがブックマークから解除されます</string>
     <string name="dialog_group_items">このグループに含まれる項目:</string>
     <string name="title">タイトル</string>
+    <string name="open_url">URLを開く</string>
+    <string name="enter_url">板またはスレッドのURLを入力してください</string>
+    <string name="open">開く</string>
 </resources>
