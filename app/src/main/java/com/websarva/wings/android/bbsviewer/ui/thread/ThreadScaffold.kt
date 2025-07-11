@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.TopAppBarState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,6 +34,7 @@ fun ThreadScaffold(
     navController: NavHostController,
     tabsViewModel: TabsViewModel,
     openDrawer: () -> Unit,
+    topBarState: TopAppBarState,
 ) {
     val openTabs by tabsViewModel.openThreadTabs.collectAsState()
 
@@ -47,6 +50,8 @@ fun ThreadScaffold(
             )
         )
     }
+
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
 
     RouteScaffold(
         route = threadRoute,
@@ -73,11 +78,7 @@ fun ThreadScaffold(
         updateScrollPosition = { tab, index, offset ->
             tabsViewModel.updateThreadScrollPosition(tab.key, tab.boardUrl, index, offset)
         },
-        getScrollBehavior = {
-            TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
-                rememberTopAppBarState()
-            )
-        },
+        scrollBehavior = scrollBehavior ,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             Column {
                 ThreadTopBar(

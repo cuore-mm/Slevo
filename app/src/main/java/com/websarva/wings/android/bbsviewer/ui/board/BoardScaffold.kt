@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.TopAppBarState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -38,6 +40,7 @@ fun BoardScaffold(
     navController: NavHostController,
     openDrawer: () -> Unit,
     tabsViewModel: TabsViewModel,
+    topBarState: TopAppBarState
 ) {
     val openBoards by tabsViewModel.openBoardTabs.collectAsState()
 
@@ -51,6 +54,8 @@ fun BoardScaffold(
             )
         )
     }
+
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
 
     RouteScaffold(
         route = boardRoute,
@@ -75,7 +80,7 @@ fun BoardScaffold(
         updateScrollPosition = { tab, index, offset ->
             tabsViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
-        getScrollBehavior = { TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState()) },
+        scrollBehavior = scrollBehavior ,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             val bookmarkState = uiState.singleBookmarkState
             val bookmarkIconColor =

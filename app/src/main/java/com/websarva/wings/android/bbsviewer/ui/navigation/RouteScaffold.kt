@@ -58,7 +58,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     topBar: @Composable (viewModel: ViewModel, uiState: UiState, openDrawer: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) -> Unit,
     bottomBar: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit,
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier,navController: NavHostController) -> Unit,
-    getScrollBehavior: @Composable () -> TopAppBarScrollBehavior,
+    scrollBehavior: TopAppBarScrollBehavior,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
     val currentTabInfo = openTabs.find(currentRoutePredicate)
@@ -115,8 +115,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         }
                 }
             }
-
-            val scrollBehavior = getScrollBehavior()
 
             Scaffold(
                 modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
