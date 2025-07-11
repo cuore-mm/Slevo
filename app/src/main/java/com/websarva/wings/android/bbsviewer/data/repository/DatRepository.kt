@@ -5,6 +5,8 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.DatRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.util.parseDat
+import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
+import com.websarva.wings.android.bbsviewer.ui.util.keyToOysterUrl
 import com.websarva.wings.android.bbsviewer.ui.thread.ReplyInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,10 +21,16 @@ class DatRepository @Inject constructor(
 ) {
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getThread(
-        datUrl: String,
+        boardUrl: String,
+        threadKey: String,
         onProgress: (Float) -> Unit = {}
     ): Pair<List<ReplyInfo>, String?>? = withContext(Dispatchers.Default) {
-        val datContent = remoteDataSource.fetchDatString(datUrl, onProgress)
+        val primaryUrl = keyToDatUrl(boardUrl, threadKey)
+        var datContent = remoteDataSource.fetchDatString(primaryUrl, onProgress)
+        val oysterUrl = if (datContent == null) keyToOysterUrl(boardUrl, threadKey) else null
+        if (datContent == null && oysterUrl != null) {
+            datContent = remoteDataSource.fetchDatString(oysterUrl, onProgress)
+        }
         if (datContent != null) {
             try {
                 val (parsedReplies, title) = parseDat(datContent)
@@ -34,7 +42,10 @@ class DatRepository @Inject constructor(
                 null
             }
         } else {
-            Log.i("DatRepository", "Failed to fetch DAT content from $datUrl")
+            Log.i(
+                "DatRepository",
+                "Failed to fetch DAT content from $primaryUrl and $oysterUrl"
+            )
             null
         }
     }
