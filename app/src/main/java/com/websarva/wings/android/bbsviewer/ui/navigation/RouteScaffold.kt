@@ -78,7 +78,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         }
 
         val bookmarkSheetState = rememberModalBottomSheetState()
-        val tabListSheetState = rememberModalBottomSheetState()
+        val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
         HorizontalPager(state = pagerState) { page ->
             val tab = openTabs[page]

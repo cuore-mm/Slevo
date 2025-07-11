@@ -41,3 +41,28 @@ fun parseServiceName(url: String): String {
         ""
     }
 }
+
+/**
+ * スレッドURLから host, boardKey, threadKey を抽出する。
+ * 対応形式: https://host/test/read.cgi/board/1234567890/
+ *            https://host/board/dat/1234567890.dat
+ */
+fun parseThreadUrl(url: String): Triple<String, String, String>? {
+    val uri = url.toUri()
+    val host = uri.host ?: return null
+    val segments = uri.pathSegments.filter { it.isNotEmpty() }
+
+    if (segments.size >= 4 && segments[0] == "test" && segments[1] == "read.cgi") {
+        val boardKey = segments[2]
+        val threadKey = segments[3].substringBefore('/')
+        return Triple(host, boardKey, threadKey)
+    }
+
+    if (segments.size >= 3 && segments[1] == "dat") {
+        val boardKey = segments[0]
+        val threadKey = segments[2].removeSuffix(".dat")
+        return Triple(host, boardKey, threadKey)
+    }
+
+    return null
+}
