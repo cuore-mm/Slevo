@@ -15,6 +15,7 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.theme.idColor
 import com.websarva.wings.android.bbsviewer.ui.theme.replyColor
+import com.websarva.wings.android.bbsviewer.ui.theme.replyCountColor
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
 import java.net.URLEncoder
@@ -54,13 +55,14 @@ fun PostItem(
 
         Row {
             val replyCount = replyFromNumbers.size
+            val postNumColor = if (replyCount > 0) replyCountColor(replyCount) else MaterialTheme.colorScheme.onSurfaceVariant
             Text(
                 modifier = Modifier
                     .alignByBaseline()
                     .clickable(enabled = replyCount > 0) { onReplyFromClick?.invoke(replyFromNumbers) },
                 text = if (replyCount > 0) "$postNum ($replyCount)" else postNum.toString(),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = postNumColor
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
