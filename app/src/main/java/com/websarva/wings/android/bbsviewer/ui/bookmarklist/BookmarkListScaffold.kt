@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.TopAppBarState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -31,11 +33,13 @@ import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 fun BookmarkListScaffold(
     parentPadding: PaddingValues,
     navController: NavHostController,
-    scrollBehavior: TopAppBarScrollBehavior,
+    topBarState: TopAppBarState,
     openDrawer: () -> Unit
 ) {
     val bookmarkViewModel: BookmarkViewModel = hiltViewModel()
     val uiState by bookmarkViewModel.uiState.collectAsState()
+
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
 
     val editSheetState = rememberModalBottomSheetState()
 

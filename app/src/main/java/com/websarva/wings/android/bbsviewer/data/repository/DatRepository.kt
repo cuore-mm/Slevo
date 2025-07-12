@@ -101,14 +101,16 @@ class DatRepository @Inject constructor(
                 val diffSeconds = ChronoUnit.SECONDS.between(previousTime, currentTime)
 
                 // 勢いの計算ロジック
-                val maxMomentumDuration = 5L  // 5秒以内なら勢い最大
-                val minMomentumDuration = 180L // 3分以上なら勢いゼロ
+                val maxMomentumDuration = 1L  // 1秒以内なら勢い最大
+                val minMomentumDuration = 30L // 30秒以上なら勢いゼロ
 
                 if (diffSeconds <= maxMomentumDuration) {
                     momentum = 1.0f
                 } else if (diffSeconds < minMomentumDuration) {
-                    // 5秒から3分の間は線形に勢いを減少させる
-                    momentum = 1.0f - (diffSeconds - maxMomentumDuration).toFloat() / (minMomentumDuration - maxMomentumDuration)
+                    // 非線形に減少させる
+                    val normalizedDiff = (diffSeconds - maxMomentumDuration).toFloat() / (minMomentumDuration - maxMomentumDuration)
+                    val remainingMomentum = 1.0f - normalizedDiff
+                    momentum = remainingMomentum * remainingMomentum // 2乗して急なカーブに
                 }
             }
             repliesWithMomentum.add(currentReply.copy(momentum = momentum))

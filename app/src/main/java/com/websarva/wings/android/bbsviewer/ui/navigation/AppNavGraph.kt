@@ -7,6 +7,7 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.TopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -29,7 +30,7 @@ import java.nio.charset.StandardCharsets
 fun AppNavGraph(
     parentPadding: PaddingValues,
     navController: NavHostController,
-    scrollBehavior: TopAppBarScrollBehavior,
+    topBarState: TopAppBarState,
     settingsViewModel: SettingsViewModel,
     openDrawer: () -> Unit,
     tabsViewModel: TabsViewModel,
@@ -46,7 +47,7 @@ fun AppNavGraph(
         composable<AppRoute.BookmarkList> {
             BookmarkListScaffold(
                 parentPadding = parentPadding,
-                scrollBehavior = scrollBehavior,
+                topBarState = topBarState,
                 navController = navController,
                 openDrawer = openDrawer
             )
@@ -64,7 +65,8 @@ fun AppNavGraph(
                 boardRoute = boardRoute,
                 navController = navController,
                 openDrawer = openDrawer,
-                tabsViewModel = tabsViewModel
+                tabsViewModel = tabsViewModel,
+                topBarState = topBarState
             )
         }
         //スレッド画面
@@ -74,7 +76,8 @@ fun AppNavGraph(
                 threadRoute = threadRoute,
                 navController = navController,
                 tabsViewModel = tabsViewModel,
-                openDrawer = openDrawer
+                openDrawer = openDrawer,
+                topBarState = topBarState
             )
         }
         //タブ画面

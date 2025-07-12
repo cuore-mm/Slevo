@@ -37,10 +37,8 @@ fun AppScaffold(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
 
-    /* ① 共有する TopAppBarState と ScrollBehavior を用意 */
+    /* ① 共有する TopAppBarState を用意 */
     val topBarState = rememberTopAppBarState()
-    val scrollBehavior = TopAppBarDefaults
-        .enterAlwaysScrollBehavior(topBarState)
 
     /* ② BottomBar の高さ(px) を取得しておく */
     val density = LocalDensity.current
@@ -79,7 +77,7 @@ fun AppScaffold(
         AppNavGraph(
             parentPadding = innerPadding,
             navController = navController,
-            scrollBehavior = scrollBehavior,
+            topBarState = topBarState,
             settingsViewModel = settingsViewModel,
             openDrawer = openDrawer,
             tabsViewModel = tabsViewModel
