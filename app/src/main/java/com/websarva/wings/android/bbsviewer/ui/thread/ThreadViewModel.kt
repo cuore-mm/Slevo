@@ -9,6 +9,7 @@ import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
+import com.websarva.wings.android.bbsviewer.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModelFactory
@@ -23,6 +24,7 @@ import kotlinx.coroutines.launch
 class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
     private val postRepository: PostRepository,
+    private val historyRepository: ThreadHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     @Assisted val viewModelKey: String,
 ) : BaseViewModel<ThreadUiState>() {
@@ -75,6 +77,10 @@ class ThreadViewModel @AssistedInject constructor(
                         threadInfo = it.threadInfo.copy(title = title ?: it.threadInfo.title)
                     )
                 }
+                historyRepository.recordHistory(
+                    uiState.value.boardInfo,
+                    uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title)
+                )
             } else {
                 _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
                 Log.e(

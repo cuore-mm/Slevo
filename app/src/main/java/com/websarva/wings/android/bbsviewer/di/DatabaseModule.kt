@@ -15,6 +15,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDa
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBookmarkGroupDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenBoardTabDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenThreadTabDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadHistoryDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -62,6 +63,25 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS thread_histories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    threadKey TEXT NOT NULL,
+                    boardUrl TEXT NOT NULL,
+                    boardId INTEGER NOT NULL,
+                    boardName TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    resCount INTEGER NOT NULL,
+                    lastAccess INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+        }
+    }
+
     /**
      * Room の AppDatabase インスタンスをシングルトンとして提供
      *
@@ -81,7 +101,7 @@ object DatabaseModule {
         )
             // マイグレーション未定義時は既存データを破棄し再生成
             .fallbackToDestructiveMigration(false)
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .addCallback(callback)
             .build()
     }
@@ -153,4 +173,8 @@ object DatabaseModule {
     @Provides
     fun provideOpenThreadTabDao(db: AppDatabase): OpenThreadTabDao =
         db.openThreadTabDao()
+
+    @Provides
+    fun provideThreadHistoryDao(db: AppDatabase): ThreadHistoryDao =
+        db.threadHistoryDao()
 }
