@@ -11,6 +11,8 @@ import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModelFactory
 import com.websarva.wings.android.bbsviewer.data.repository.TabsRepository
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
+import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
+import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +33,7 @@ class TabsViewModel @Inject constructor(
     private val repository: TabsRepository,
     private val bookmarkBoardRepo: BookmarkBoardRepository,
     private val threadBookmarkRepo: ThreadBookmarkRepository,
+    private val boardRepository: BoardRepository,
 ) : ViewModel() {
     // 開いているスレッドタブ一覧と、各タブに紐づく ViewModel を保持
     private val _openThreadTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
@@ -143,6 +146,17 @@ class TabsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch { repository.saveOpenBoardTabs(_openBoardTabs.value) }
+    }
+
+    suspend fun resolveBoardInfo(boardId: Long, boardUrl: String, boardName: String): BoardInfo {
+        if (boardId != 0L) return BoardInfo(boardId, boardName, boardUrl)
+
+        bookmarkBoardRepo.findBoardByUrl(boardUrl)?.let { entity ->
+            return BoardInfo(entity.boardId, entity.name, entity.url)
+        }
+
+        val name = boardRepository.fetchBoardName("${boardUrl}SETTING.TXT")
+        return BoardInfo(0L, name ?: boardName, boardUrl)
     }
 
     /**

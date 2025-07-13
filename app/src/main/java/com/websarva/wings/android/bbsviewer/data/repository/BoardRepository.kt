@@ -21,4 +21,11 @@ class BoardRepository @Inject constructor(
         val text = remote.fetchSubjectTxt(subjectUrl, forceRefresh) ?: return null
         return parseSubjectTxt(text)
     }
+
+    suspend fun fetchBoardName(settingUrl: String): String? {
+        val text = remote.fetchSettingTxt(settingUrl) ?: return null
+        return text.lines()
+            .firstOrNull { it.startsWith("BBS_TITLE_ORIG=") }
+            ?.substringAfter("=")
+    }
 }
