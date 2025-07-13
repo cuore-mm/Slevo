@@ -15,6 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.websarva.wings.android.bbsviewer.ui.board.BoardScaffold
 import com.websarva.wings.android.bbsviewer.ui.bookmarklist.BookmarkListScaffold
+import com.websarva.wings.android.bbsviewer.ui.history.HistoryListScaffold
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsScaffold
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
@@ -50,6 +51,14 @@ fun AppNavGraph(
                 topBarState = topBarState,
                 navController = navController,
                 openDrawer = openDrawer
+            )
+        }
+        //履歴一覧
+        composable<AppRoute.HistoryList> {
+            HistoryListScaffold(
+                navController = navController,
+                topBarState = topBarState,
+                parentPadding = parentPadding
             )
         }
         //掲示板一覧
@@ -112,6 +121,9 @@ sealed class AppRoute {
     data object BookmarkList : AppRoute()
 
     @Serializable
+    data object HistoryList : AppRoute()
+
+    @Serializable
     data object BbsServiceGroup : AppRoute()
 
     @Serializable
@@ -160,5 +172,6 @@ sealed class AppRoute {
         const val THREAD = "Thread"
         const val SETTINGS = "Settings"
         const val TABS = "Tabs"
+        const val HISTORY_LIST = "HistoryList"
     }
 }
