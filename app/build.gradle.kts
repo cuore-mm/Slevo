@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -10,6 +12,13 @@ plugins {
     kotlin("plugin.serialization") version "2.1.0"
 
     id("com.google.devtools.ksp")
+}
+
+// local.propertiesからAPIキーを読み込む
+val properties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    properties.load(localPropertiesFile.inputStream())
 }
 
 android {
@@ -25,8 +34,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // imgbb API key. Replace with your actual key in local.properties or CI secrets
-        buildConfigField("String", "IMGBB_API_KEY", "\"YOUR_IMGBB_API_KEY\"")
+        val apiKey = properties.getProperty("imgbb.api.key") ?: "YOUR_IMGBB_API_KEY"
+        buildConfigField("String", "IMGBB_API_KEY", "\"$apiKey\"")
     }
 
     buildTypes {
