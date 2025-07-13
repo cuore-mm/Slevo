@@ -17,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
@@ -127,12 +128,14 @@ fun ThreadScaffold(
         },
         optionalSheetContent = { viewModel, uiState ->
             if (uiState.postDialog) {
+                val context = LocalContext.current
                 PostDialog(
                     onDismissRequest = { viewModel.hidePostDialog() },
                     postFormState = uiState.postFormState,
                     onNameChange = { viewModel.updatePostName(it) },
                     onMailChange = { viewModel.updatePostMail(it) },
                     onMessageChange = { viewModel.updatePostMessage(it) },
+                    onImageSelect = { uri -> viewModel.uploadImage(context, uri) },
                     onPostClick = {
                         parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                             viewModel.postFirstPhase(
