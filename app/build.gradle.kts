@@ -24,6 +24,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // imgbb API key. Replace with your actual key in local.properties or CI secrets
+        buildConfigField("String", "IMGBB_API_KEY", "\"YOUR_IMGBB_API_KEY\"")
     }
 
     buildTypes {
@@ -44,6 +47,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
