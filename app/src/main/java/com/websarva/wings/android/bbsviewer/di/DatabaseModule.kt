@@ -15,6 +15,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDa
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBookmarkGroupDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenBoardTabDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenThreadTabDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadHistoryDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -62,6 +63,73 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS thread_histories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    threadKey TEXT NOT NULL,
+                    boardUrl TEXT NOT NULL,
+                    boardId INTEGER NOT NULL,
+                    boardName TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    resCount INTEGER NOT NULL,
+                    lastAccess INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+        }
+    }
+
+    private val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS thread_histories_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    threadKey TEXT NOT NULL,
+                    boardUrl TEXT NOT NULL,
+                    boardId INTEGER NOT NULL,
+                    boardName TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    resCount INTEGER NOT NULL,
+                    UNIQUE(threadKey, boardUrl)
+                )
+                """.trimIndent()
+            )
+
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS thread_history_accesses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    threadHistoryId INTEGER NOT NULL,
+                    accessedAt INTEGER NOT NULL,
+                    FOREIGN KEY(threadHistoryId) REFERENCES thread_histories_new(id) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+
+            database.execSQL(
+                """
+                INSERT INTO thread_histories_new (id, threadKey, boardUrl, boardId, boardName, title, resCount)
+                SELECT id, threadKey, boardUrl, boardId, boardName, title, resCount
+                FROM thread_histories
+                """.trimIndent()
+            )
+
+            database.execSQL(
+                """
+                INSERT INTO thread_history_accesses (threadHistoryId, accessedAt)
+                SELECT id, lastAccess FROM thread_histories
+                """.trimIndent()
+            )
+
+            database.execSQL("DROP TABLE thread_histories")
+            database.execSQL("ALTER TABLE thread_histories_new RENAME TO thread_histories")
+        }
+    }
+
     /**
      * Room の AppDatabase インスタンスをシングルトンとして提供
      *
@@ -81,7 +149,7 @@ object DatabaseModule {
         )
             // マイグレーション未定義時は既存データを破棄し再生成
             .fallbackToDestructiveMigration(false)
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .addCallback(callback)
             .build()
     }
@@ -153,4 +221,8 @@ object DatabaseModule {
     @Provides
     fun provideOpenThreadTabDao(db: AppDatabase): OpenThreadTabDao =
         db.openThreadTabDao()
+
+    @Provides
+    fun provideThreadHistoryDao(db: AppDatabase): ThreadHistoryDao =
+        db.threadHistoryDao()
 }

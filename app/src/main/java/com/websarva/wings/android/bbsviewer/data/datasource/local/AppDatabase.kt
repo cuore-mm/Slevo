@@ -12,6 +12,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDa
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBookmarkGroupDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenBoardTabDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenThreadTabDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadHistoryDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardCategoryCrossRef
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
@@ -22,6 +23,8 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.Categor
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenBoardTabEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenThreadTabEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadHistoryEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadHistoryAccessEntity
 
 @Database(
     entities = [
@@ -34,9 +37,11 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenThr
         BookmarkThreadEntity::class,
         ThreadBookmarkGroupEntity::class,
         OpenBoardTabEntity::class,
-        OpenThreadTabEntity::class
+        OpenThreadTabEntity::class,
+        ThreadHistoryEntity::class,
+        ThreadHistoryAccessEntity::class
     ],
-    version = 2,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -50,4 +55,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun threadBookmarkGroupDao(): ThreadBookmarkGroupDao
     abstract fun openBoardTabDao(): OpenBoardTabDao
     abstract fun openThreadTabDao(): OpenThreadTabDao
+    abstract fun threadHistoryDao(): ThreadHistoryDao
 }
