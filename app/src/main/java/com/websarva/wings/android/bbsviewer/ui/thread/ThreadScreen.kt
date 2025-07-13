@@ -23,9 +23,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.navigation.NavHostController
 
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
@@ -35,6 +41,7 @@ fun ThreadScreen(
     posts: List<ReplyInfo>,
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
+    onBottomRefresh: () -> Unit = {},
 ) {
     val popupStack = remember { mutableStateListOf<PopupInfo>() }
     val idCountMap = remember(posts) { posts.groupingBy { it.id }.eachCount() }
@@ -61,10 +68,41 @@ fun ThreadScreen(
         map.mapValues { it.value.toList() }
     }
 
+    val density = LocalDensity.current
+    val refreshThresholdPx = with(density) { 80.dp.toPx() }
+    var overscroll by remember { mutableStateOf(0f) }
+    val nestedScrollConnection = remember(listState) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                if (!listState.canScrollForward && available.y < 0f) {
+                    overscroll -= available.y
+                    if (overscroll >= refreshThresholdPx) {
+                        onBottomRefresh()
+                        overscroll = 0f
+                    }
+                } else if (available.y > 0f) {
+                    overscroll = 0f
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                overscroll = 0f
+                return Velocity.Zero
+            }
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .nestedScroll(nestedScrollConnection),
                 state = listState,
             ) {
                 if (posts.isNotEmpty()) {
@@ -167,5 +205,6 @@ fun ThreadScreenPreview() {
             )
         ),
         navController = NavHostController(LocalContext.current),
+        onBottomRefresh = {}
     )
 }

@@ -105,7 +105,7 @@ fun ThreadScaffold(
                 onRefreshClick = { viewModel.reloadThread() }
             )
         },
-        content = { _, uiState, listState, modifier, navController ->
+        content = { viewModel, uiState, listState, modifier, navController ->
             LaunchedEffect(uiState.threadInfo.title, uiState.posts?.size) {
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
                 if (uiState.threadInfo.title.isNotEmpty() && uiState.posts != null) {
@@ -122,7 +122,8 @@ fun ThreadScaffold(
                 modifier = modifier,
                 posts = uiState.posts ?: emptyList(),
                 listState = listState,
-                navController = navController
+                navController = navController,
+                onBottomRefresh = { viewModel.reloadThread() }
             )
         },
         optionalSheetContent = { viewModel, uiState ->
