@@ -24,6 +24,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadB
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenBoardTabEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenThreadTabEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadHistoryEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadHistoryAccessEntity
 
 @Database(
     entities = [
@@ -37,9 +38,10 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadH
         ThreadBookmarkGroupEntity::class,
         OpenBoardTabEntity::class,
         OpenThreadTabEntity::class,
-        ThreadHistoryEntity::class
+        ThreadHistoryEntity::class,
+        ThreadHistoryAccessEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

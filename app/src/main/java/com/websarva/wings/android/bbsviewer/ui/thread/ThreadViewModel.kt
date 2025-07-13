@@ -79,7 +79,8 @@ class ThreadViewModel @AssistedInject constructor(
                 }
                 historyRepository.recordHistory(
                     uiState.value.boardInfo,
-                    uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title)
+                    uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
+                    posts.size
                 )
             } else {
                 _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }

@@ -1,9 +1,13 @@
 package com.websarva.wings.android.bbsviewer.data.datasource.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "thread_histories")
+@Entity(
+    tableName = "thread_histories",
+    indices = [Index(value = ["threadKey", "boardUrl"], unique = true)]
+)
 data class ThreadHistoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val threadKey: String,
@@ -11,6 +15,5 @@ data class ThreadHistoryEntity(
     val boardId: Long,
     val boardName: String,
     val title: String,
-    val resCount: Int = 0,
-    val lastAccess: Long
+    val resCount: Int = 0
 )
