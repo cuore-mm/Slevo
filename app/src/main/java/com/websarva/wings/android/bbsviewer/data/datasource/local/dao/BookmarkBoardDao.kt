@@ -1,6 +1,7 @@
 package com.websarva.wings.android.bbsviewer.data.datasource.local.dao
 
 import androidx.room.*
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardWithBookmarkAndGroup
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkWithGroup
@@ -77,4 +78,8 @@ interface BookmarkBoardDao {
     @Transaction
     @Query("SELECT * FROM boards WHERE url = :boardUrl LIMIT 1")
     fun getBoardWithBookmarkAndGroupByUrlFlow(boardUrl: String): Flow<BoardWithBookmarkAndGroup?>
+
+    /** boardUrl から BoardEntity を取得 */
+    @Query("SELECT * FROM boards WHERE url = :boardUrl LIMIT 1")
+    suspend fun findBoardByUrl(boardUrl: String): BoardEntity?
 }

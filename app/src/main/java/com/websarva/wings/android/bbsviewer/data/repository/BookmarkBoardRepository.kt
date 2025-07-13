@@ -3,6 +3,7 @@ package com.websarva.wings.android.bbsviewer.data.repository
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardBookmarkGroupDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardBookmarkGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardWithBookmarkAndGroup
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithBoards
@@ -67,4 +68,7 @@ class BookmarkBoardRepository @Inject constructor(
     fun getBoardWithBookmarkAndGroupByUrlFlow(boardUrl: String): Flow<BoardWithBookmarkAndGroup?> {
         return boardDao.getBoardWithBookmarkAndGroupByUrlFlow(boardUrl)
     }
+
+    suspend fun findBoardByUrl(boardUrl: String): BoardEntity? =
+        boardDao.findBoardByUrl(boardUrl)
 }

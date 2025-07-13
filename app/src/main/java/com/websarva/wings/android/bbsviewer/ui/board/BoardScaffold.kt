@@ -45,12 +45,17 @@ fun BoardScaffold(
     val openBoards by tabsViewModel.openBoardTabs.collectAsState()
 
     LaunchedEffect(boardRoute) {
+        val info = tabsViewModel.resolveBoardInfo(
+            boardId = boardRoute.boardId,
+            boardUrl = boardRoute.boardUrl,
+            boardName = boardRoute.boardName
+        )
         tabsViewModel.openBoardTab(
             BoardTabInfo(
-                boardId = boardRoute.boardId,
-                boardName = boardRoute.boardName,
-                boardUrl = boardRoute.boardUrl,
-                serviceName = parseServiceName(boardRoute.boardUrl)
+                boardId = info.boardId,
+                boardName = info.name,
+                boardUrl = info.url,
+                serviceName = parseServiceName(info.url)
             )
         )
     }
