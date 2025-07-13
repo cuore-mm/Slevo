@@ -72,7 +72,7 @@ fun TabsBottomSheet(
                                     boardUrl = boardUrl,
                                     boardName = board,
                                     boardId = 0L,
-                                    threadTitle = ""
+                                    threadTitle = url
                                 )
                             ) { launchSingleTop = true }
                         } else {
@@ -81,7 +81,7 @@ fun TabsBottomSheet(
                                 navController.navigate(
                                     AppRoute.Board(
                                         boardId = 0L,
-                                        boardName = board,
+                                        boardName = boardUrl,
                                         boardUrl = boardUrl
                                     )
                                 ) { launchSingleTop = true }
