@@ -43,6 +43,15 @@ interface ThreadHistoryDao {
     )
     suspend fun getLastAccess(threadId: Long): Long?
 
+    @Query(
+        "SELECT * FROM thread_history_accesses WHERE threadHistoryId = :threadId " +
+            "ORDER BY accessedAt DESC LIMIT 1"
+    )
+    suspend fun getLastAccessEntity(threadId: Long): ThreadHistoryAccessEntity?
+
+    @Update
+    suspend fun updateAccess(access: ThreadHistoryAccessEntity)
+
     @Query("DELETE FROM thread_histories WHERE threadKey = :threadKey AND boardUrl = :boardUrl")
     suspend fun delete(threadKey: String, boardUrl: String)
 }

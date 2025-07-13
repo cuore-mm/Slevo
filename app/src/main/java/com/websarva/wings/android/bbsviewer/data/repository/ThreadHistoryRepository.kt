@@ -39,10 +39,19 @@ class ThreadHistoryRepository @Inject constructor(
         }
 
         val now = System.currentTimeMillis()
-        val lastAccess = dao.getLastAccess(id)
-        val day1 = now / 86_400_000L
-        val day2 = lastAccess?.div(86_400_000L)
-        if (lastAccess == null || day1 != day2) {
+        val last = dao.getLastAccessEntity(id)
+        val dayNow = now / 86_400_000L
+        val dayLast = last?.accessedAt?.div(86_400_000L)
+        if (last == null) {
+            dao.insertAccess(
+                ThreadHistoryAccessEntity(
+                    threadHistoryId = id,
+                    accessedAt = now
+                )
+            )
+        } else if (dayNow == dayLast) {
+            dao.updateAccess(last.copy(accessedAt = now))
+        } else {
             dao.insertAccess(
                 ThreadHistoryAccessEntity(
                     threadHistoryId = id,
