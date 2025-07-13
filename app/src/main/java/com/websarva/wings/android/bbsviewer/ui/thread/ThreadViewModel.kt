@@ -1,6 +1,8 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.Groupable
@@ -58,6 +60,7 @@ class ThreadViewModel @AssistedInject constructor(
         initialize() // BaseViewModelの初期化処理を呼び出す
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override suspend fun loadData(isRefresh: Boolean) {
         _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
         val boardUrl = uiState.value.boardInfo.url

@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
+import android.util.Log
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Star
@@ -50,6 +51,7 @@ fun ThreadTopBar(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+            Log.d("ThreadTopBar", "Thread title: ${uiState.threadInfo.title}")
         },
         modifier = modifier,
         scrollBehavior = scrollBehavior,

@@ -175,6 +175,23 @@ class TabsViewModel @Inject constructor(
     }
 
     /**
+     * スレッドタブの情報を更新する
+     */
+    fun updateThreadTabInfo(key: String, boardUrl: String, title: String, resCount: Int) {
+        _openThreadTabs.update { currentTabs ->
+            currentTabs.map { tab ->
+                if (tab.key == key && tab.boardUrl == boardUrl) {
+                    tab.copy(title = title, resCount = resCount)
+                } else {
+                    tab
+                }
+            }
+        }
+        // データベースにも保存する
+        viewModelScope.launch { repository.saveOpenThreadTabs(_openThreadTabs.value) }
+    }
+
+    /**
      * スレッドタブのスクロール位置を保存する。
      */
     fun updateThreadScrollPosition(

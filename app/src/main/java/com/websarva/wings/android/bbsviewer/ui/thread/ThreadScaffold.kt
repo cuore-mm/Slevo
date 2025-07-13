@@ -106,6 +106,18 @@ fun ThreadScaffold(
             )
         },
         content = { _, uiState, listState, modifier, navController ->
+            LaunchedEffect(uiState.threadInfo.title, uiState.posts?.size) {
+                // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
+                if (uiState.threadInfo.title.isNotEmpty() && uiState.posts != null) {
+                    tabsViewModel.updateThreadTabInfo(
+                        key = threadRoute.threadKey,
+                        boardUrl = threadRoute.boardUrl,
+                        title = uiState.threadInfo.title,
+                        resCount = uiState.posts.size
+                    )
+                }
+            }
+
             ThreadScreen(
                 modifier = modifier,
                 posts = uiState.posts ?: emptyList(),
