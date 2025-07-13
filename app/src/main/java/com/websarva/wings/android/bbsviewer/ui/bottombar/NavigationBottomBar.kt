@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -43,6 +44,12 @@ fun NavigationBottomBar(
             name = stringResource(R.string.bookmark),
             icon = Icons.Default.Star,
             parentRoute = AppRoute.BookmarkList
+        ),
+        TopLevelRoute(
+            route = AppRoute.HistoryList,
+            name = stringResource(R.string.history),
+            icon = Icons.Default.History,
+            parentRoute = AppRoute.HistoryList
         ),
         TopLevelRoute(
             route = AppRoute.ServiceList,
