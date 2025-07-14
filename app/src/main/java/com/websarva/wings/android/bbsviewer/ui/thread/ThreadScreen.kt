@@ -7,12 +7,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -23,9 +27,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.Icon
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.draw.rotate
 import androidx.navigation.NavHostController
 
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
@@ -35,6 +49,8 @@ fun ThreadScreen(
     posts: List<ReplyInfo>,
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
+    isRefreshing: Boolean = false,
+    onBottomRefresh: () -> Unit = {},
 ) {
     val popupStack = remember { mutableStateListOf<PopupInfo>() }
     val idCountMap = remember(posts) { posts.groupingBy { it.id }.eachCount() }
@@ -61,10 +77,44 @@ fun ThreadScreen(
         map.mapValues { it.value.toList() }
     }
 
+    val density = LocalDensity.current
+    val refreshThresholdPx = with(density) { 80.dp.toPx() }
+    var overscroll by remember { mutableStateOf(0f) }
+    var triggerRefresh by remember { mutableStateOf(false) }
+    val nestedScrollConnection = remember(listState) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                if (!listState.canScrollForward && available.y < 0f) {
+                    overscroll -= available.y
+                    triggerRefresh = overscroll >= refreshThresholdPx
+                } else if (available.y > 0f) {
+                    overscroll = 0f
+                    triggerRefresh = false
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                if (triggerRefresh) {
+                    onBottomRefresh()
+                }
+                overscroll = 0f
+                triggerRefresh = false
+                return Velocity.Zero
+            }
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .nestedScroll(nestedScrollConnection),
                 state = listState,
             ) {
                 if (posts.isNotEmpty()) {
@@ -142,6 +192,28 @@ fun ThreadScreen(
             navController = navController,
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeLast() }
         )
+
+        val arrowRotation by animateFloatAsState(
+            targetValue = if (triggerRefresh) 180f else (overscroll / refreshThresholdPx).coerceIn(0f, 1f) * 180f,
+            label = "arrowRotation"
+        )
+
+        if (isRefreshing) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp)
+            )
+        } else if (overscroll > 0f) {
+            Icon(
+                imageVector = Icons.Filled.ArrowUpward,
+                contentDescription = null,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp)
+                    .rotate(arrowRotation)
+            )
+        }
     }
 }
 
@@ -167,5 +239,7 @@ fun ThreadScreenPreview() {
             )
         ),
         navController = NavHostController(LocalContext.current),
+        isRefreshing = false,
+        onBottomRefresh = {}
     )
 }
