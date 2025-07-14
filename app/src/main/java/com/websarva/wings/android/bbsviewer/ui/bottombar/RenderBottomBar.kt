@@ -50,6 +50,24 @@ fun RenderBottomBar(
         }
 
         currentDestination.isInRoute(
+            AppRoute.RouteName.HISTORY_LIST
+        ) -> {
+            NavigationBottomBar(
+                modifier = modifier,
+                currentDestination = currentDestination,
+                onClick = { route ->
+                    navController.navigate(route) {
+                        popUpTo(navController.graph.startDestinationId) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            )
+        }
+
+        currentDestination.isInRoute(
             AppRoute.RouteName.BBS_SERVICE_GROUP,
             AppRoute.RouteName.TABS
         ) -> {

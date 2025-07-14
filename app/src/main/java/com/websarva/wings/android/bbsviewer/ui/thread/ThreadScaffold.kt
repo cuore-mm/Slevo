@@ -40,13 +40,18 @@ fun ThreadScaffold(
     val openTabs by tabsViewModel.openThreadTabs.collectAsState()
 
     LaunchedEffect(threadRoute) {
+        val info = tabsViewModel.resolveBoardInfo(
+            boardId = threadRoute.boardId,
+            boardUrl = threadRoute.boardUrl,
+            boardName = threadRoute.boardName
+        )
         tabsViewModel.openThreadTab(
             ThreadTabInfo(
                 key = threadRoute.threadKey,
                 title = threadRoute.threadTitle,
-                boardName = threadRoute.boardName,
-                boardUrl = threadRoute.boardUrl,
-                boardId = threadRoute.boardId,
+                boardName = info.name,
+                boardUrl = info.url,
+                boardId = info.boardId,
                 resCount = threadRoute.resCount
             )
         )
@@ -106,7 +111,7 @@ fun ThreadScaffold(
                 onRefreshClick = { viewModel.reloadThread() }
             )
         },
-        content = { _, uiState, listState, modifier, navController ->
+        content = { viewModel, uiState, listState, modifier, navController ->
             LaunchedEffect(uiState.threadInfo.title, uiState.posts?.size) {
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
                 if (uiState.threadInfo.title.isNotEmpty() && uiState.posts != null) {
@@ -123,7 +128,9 @@ fun ThreadScaffold(
                 modifier = modifier,
                 posts = uiState.posts ?: emptyList(),
                 listState = listState,
-                navController = navController
+                navController = navController,
+                isRefreshing = uiState.isLoading,
+                onBottomRefresh = { viewModel.reloadThread() }
             )
         },
         optionalSheetContent = { viewModel, uiState ->

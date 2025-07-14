@@ -110,4 +110,24 @@ class BoardRemoteDataSourceImpl @Inject constructor(
                 null
             }
         }
+
+    override suspend fun fetchSettingTxt(url: String): String? =
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", userAgent)
+                .build()
+
+            try {
+                val response = client.newCall(request).execute()
+                if (!response.isSuccessful) return@withContext null
+                response.body?.bytes()?.toString(Charset.forName("Shift_JIS"))
+            } catch (e: IOException) {
+                Log.e("BoardRemoteDataSource", "IOException for $url: ${e.message}", e)
+                null
+            } catch (e: Exception) {
+                Log.e("BoardRemoteDataSource", "Exception for $url: ${e.message}", e)
+                null
+            }
+        }
 }
