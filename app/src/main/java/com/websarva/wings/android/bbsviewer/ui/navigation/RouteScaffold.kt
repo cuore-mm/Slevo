@@ -100,7 +100,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
             val isActive = pagerState.currentPage == page
-            LaunchedEffect(isActive, tab) {
+            LaunchedEffect(isActive, getKey(tab)) {
                 if (isActive) {
                     initializeViewModel(viewModel, tab)
                 }
