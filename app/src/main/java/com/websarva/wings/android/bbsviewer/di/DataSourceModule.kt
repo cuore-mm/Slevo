@@ -16,6 +16,8 @@ import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.DatRemot
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.ThreadCreateRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.PostRemoteDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.ThreadCreateRemoteDataSourceImpl
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.ImageUploadRemoteDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.ImageUploadRemoteDataSourceImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -77,6 +79,13 @@ abstract class DataSourceModule {
     abstract fun bindThreadCreateRemoteDataSource(
         impl: ThreadCreateRemoteDataSourceImpl
     ): ThreadCreateRemoteDataSource
+
+    /** 画像アップロード用 */
+    @Binds
+    @Singleton
+    abstract fun bindImageUploadRemoteDataSource(
+        impl: ImageUploadRemoteDataSourceImpl
+    ): ImageUploadRemoteDataSource
 
     /** クッキー永続化用 */
     @Binds

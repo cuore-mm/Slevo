@@ -4,6 +4,8 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.viewModelScope
+import android.content.Context
+import android.net.Uri
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.Groupable
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
@@ -12,6 +14,7 @@ import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.bbsviewer.data.repository.ImageUploadRepository
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModelFactory
@@ -22,10 +25,12 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
     private val postRepository: PostRepository,
+    private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     @Assisted val viewModelKey: String,
@@ -231,6 +236,23 @@ class ThreadViewModel @AssistedInject constructor(
                             postConfirmation = result.confirmationData,
                             isConfirmationScreen = true
                         )
+                    }
+                }
+            }
+        }
+    }
+
+    fun uploadImage(context: android.content.Context, uri: android.net.Uri) {
+        viewModelScope.launch {
+            val bytes = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            }
+            bytes?.let {
+                val url = imageUploadRepository.uploadImage(it)
+                if (url != null) {
+                    val msg = uiState.value.postFormState.message
+                    _uiState.update { current ->
+                        current.copy(postFormState = current.postFormState.copy(message = msg + "\n" + url))
                     }
                 }
             }

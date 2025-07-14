@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -12,6 +14,13 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// local.propertiesからAPIキーを読み込む
+val properties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    properties.load(localPropertiesFile.inputStream())
+}
+
 android {
     namespace = "com.websarva.wings.android.bbsviewer"
     compileSdk = 35
@@ -24,6 +33,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val apiKey = properties.getProperty("imgbb.api.key") ?: "YOUR_IMGBB_API_KEY"
+        buildConfigField("String", "IMGBB_API_KEY", "\"$apiKey\"")
     }
 
     buildTypes {
@@ -44,6 +56,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
