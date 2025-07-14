@@ -58,8 +58,9 @@ class BoardViewModel @AssistedInject constructor(
 
         _uiState.update { it.copy(isLoading = true) }
         try {
+            val normalizedUrl = boardUrl.trimEnd('/')
             val threads =
-                repository.getThreadList("$boardUrl/subject.txt", forceRefresh = isRefresh)
+                repository.getThreadList("$normalizedUrl/subject.txt", forceRefresh = isRefresh)
             if (threads != null) {
                 originalThreads = threads
                 applyFiltersAndSort()
