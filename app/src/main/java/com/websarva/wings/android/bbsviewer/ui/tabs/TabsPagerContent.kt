@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -12,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
@@ -29,7 +31,9 @@ fun TabsPagerContent(
     val openThreadTabs by tabsViewModel.openThreadTabs.collectAsState()
     val openBoardTabs by tabsViewModel.openBoardTabs.collectAsState()
 
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
+    val pagerState = rememberSaveable(saver = PagerState.Saver) {
+        PagerState(initialPage = 0, pageCount = { 2 })
+    }
     val scope = rememberCoroutineScope()
 
     Column(modifier = modifier) {
