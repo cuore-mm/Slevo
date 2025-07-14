@@ -58,6 +58,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     topBar: @Composable (viewModel: ViewModel, uiState: UiState, openDrawer: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) -> Unit,
     bottomBar: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit,
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier,navController: NavHostController) -> Unit,
+    navigateToTab: (TabInfo) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
@@ -74,6 +75,15 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         LaunchedEffect(initialPage) {
             if (pagerState.currentPage != initialPage) {
                 pagerState.scrollToPage(initialPage)
+            }
+        }
+
+        LaunchedEffect(pagerState.currentPage, openTabs) {
+            val index = pagerState.currentPage
+            openTabs.getOrNull(index)?.let { tab ->
+                if (!currentRoutePredicate(tab)) {
+                    navigateToTab(tab)
+                }
             }
         }
 

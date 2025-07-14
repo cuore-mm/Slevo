@@ -82,6 +82,21 @@ fun ThreadScaffold(
         updateScrollPosition = { tab, index, offset ->
             tabsViewModel.updateThreadScrollPosition(tab.key, tab.boardUrl, index, offset)
         },
+        navigateToTab = { tab ->
+            navController.navigate(
+                AppRoute.Thread(
+                    threadKey = tab.key,
+                    boardUrl = tab.boardUrl,
+                    boardName = tab.boardName,
+                    boardId = tab.boardId,
+                    threadTitle = tab.title,
+                    resCount = tab.resCount
+                )
+            ) {
+                launchSingleTop = true
+                restoreState = true
+            }
+        },
         scrollBehavior = scrollBehavior,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             Column {

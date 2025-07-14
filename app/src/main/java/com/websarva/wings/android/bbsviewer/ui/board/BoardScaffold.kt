@@ -85,6 +85,18 @@ fun BoardScaffold(
         updateScrollPosition = { tab, index, offset ->
             tabsViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
+        navigateToTab = { tab ->
+            navController.navigate(
+                AppRoute.Board(
+                    boardId = tab.boardId,
+                    boardName = tab.boardName,
+                    boardUrl = tab.boardUrl
+                )
+            ) {
+                launchSingleTop = true
+                restoreState = true
+            }
+        },
         scrollBehavior = scrollBehavior ,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             val bookmarkState = uiState.singleBookmarkState
