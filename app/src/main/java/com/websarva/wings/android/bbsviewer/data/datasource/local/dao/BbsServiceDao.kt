@@ -39,6 +39,10 @@ interface BbsServiceDao {
 
     @Query("DELETE FROM services WHERE serviceId = :id")
     suspend fun deleteById(id: Long)
+
+    /** ドメイン名からサービスを取得 */
+    @Query("SELECT * FROM services WHERE domain = :domain LIMIT 1")
+    suspend fun findByDomain(domain: String): BbsServiceEntity?
 }
 
 /**
