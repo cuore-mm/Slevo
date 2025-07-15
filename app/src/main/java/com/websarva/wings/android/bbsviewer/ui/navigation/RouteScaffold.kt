@@ -17,7 +17,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,9 +63,14 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     scrollBehavior: TopAppBarScrollBehavior,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
+    var rememberedTabInfo by remember(route) { mutableStateOf<TabInfo?>(null) }
     val currentTabInfo = openTabs.find(currentRoutePredicate)
-
     if (currentTabInfo != null) {
+        rememberedTabInfo = currentTabInfo
+    }
+    val activeTabInfo = currentTabInfo ?: rememberedTabInfo?.takeIf { openTabs.contains(it) }
+
+    if (activeTabInfo != null) {
         val initialPage = remember(route, openTabs.size) {
             openTabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
         }
