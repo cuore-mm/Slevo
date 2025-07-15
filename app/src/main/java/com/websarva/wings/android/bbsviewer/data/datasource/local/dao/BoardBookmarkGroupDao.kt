@@ -31,6 +31,9 @@ interface BoardBookmarkGroupDao {
     @Query("UPDATE `groups` SET name = :name, colorName = :colorName WHERE groupId = :groupId")
     suspend fun updateGroupInfo(groupId: Long, name: String, colorName: String)
 
+    @Query("SELECT * FROM `groups` WHERE name = :name LIMIT 1")
+    suspend fun findByName(name: String): BoardBookmarkGroupEntity?
+
     @Query("DELETE FROM `groups` WHERE groupId = :groupId")
     suspend fun deleteGroupById(groupId: Long)
 
