@@ -20,6 +20,7 @@ fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
             val dateAndId = parts[2]
             // IDを抽出する（様々なフォーマットに対応）
             val id = extractId(dateAndId)
+            val beInfo = extractBeInfo(dateAndId)
             val contentHtml = parts[3] // HTMLとして取得
             val content = cleanContent(contentHtml) // HTMLデコードと<br>変換
 
@@ -35,8 +36,13 @@ fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
                 ReplyInfo(
                     name = name,
                     email = email,
-                    date = dateAndId.replace(Regex("\\s+ID:.*$"), "").trim(), // IDの部分を除去
+                    date = dateAndId
+                        .replace(Regex("\\s+ID:[^\\s]+"), "")
+                        .replace(Regex("\\s+BE:[^\\s]+"), "")
+                        .trim(),
                     id = id ?: "",
+                    beLoginId = beInfo?.first ?: "",
+                    beRank = beInfo?.second ?: "",
                     content = content
                 )
             )
@@ -61,14 +67,24 @@ private fun extractId(dateAndId: String): String? {
     return idMatch?.groupValues?.get(1)
 }
 
+private fun extractBeInfo(dateAndId: String): Pair<String, String>? {
+    val match = Regex("BE:(\\d+)-([^\\s]+)").find(dateAndId)
+    return match?.let { it.groupValues[1] to it.groupValues[2] }
+}
+
 // content内の <br> を改行に置き換え、HTMLエンティティをデコードする関数
 private fun cleanContent(contentHtml: String): String {
     // ユニークなプレースホルダを定義
     val newlinePlaceholder = "[[[NEWLINE_PLACEHOLDER]]]"
 
     // 1. <br> タグをプレースホルダに変換
+    val replacedIcons = contentHtml.replace(
+        Regex("<img[^>]*src=\"(sssp://[^\"]+)\"[^>]*>", RegexOption.IGNORE_CASE)
+    ) { matchResult ->
+        matchResult.groupValues[1].replace("sssp://", "http://")
+    }
     val textWithPlaceholders =
-        contentHtml.replace(Regex(" <br\\s*/?> ", RegexOption.IGNORE_CASE), newlinePlaceholder)
+        replacedIcons.replace(Regex(" <br\\s*/?> ", RegexOption.IGNORE_CASE), newlinePlaceholder)
 
     // 2. HTMLエンティティをデコード (この時プレースホルダはそのままのはず)
     val decodedContent =
@@ -76,6 +92,7 @@ private fun cleanContent(contentHtml: String): String {
 
     // 3. プレースホルダを実際の改行コード \n に戻す
     var finalContent = decodedContent.replace(newlinePlaceholder, "\n")
+    finalContent = finalContent.replace("sssp://", "http://")
 
     // 4. 必要最小限のトリミング (主にfromHtmlが追加する可能性のある先頭/末尾の不要な空白)
     //    改行コード自体を消さないように注意

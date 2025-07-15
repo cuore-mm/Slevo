@@ -80,6 +80,9 @@ fun PostItem(
                     append(if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id)
                 }
             }
+            if (post.beRank.isNotBlank()) {
+                append(" ?${post.beRank}")
+            }
         }
 
         Row {
@@ -203,6 +206,8 @@ fun ReplyCardPreview() {
             email = "sage",
             date = "1/21(月) 15:43:45.34",
             id = "testnanjj",
+            beLoginId = "12345",
+            beRank = "PLT(2000)",
             content = "ガチで終わった模様"
         ),
         postNum = 1,
