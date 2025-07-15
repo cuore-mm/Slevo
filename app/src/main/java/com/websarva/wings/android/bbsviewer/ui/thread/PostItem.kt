@@ -34,8 +34,10 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Card
+import androidx.compose.material3.Button
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -160,23 +162,32 @@ fun PostItem(
         }
     }
 
-        DropdownMenu(
-            expanded = menuExpanded,
-            onDismissRequest = { menuExpanded = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text("$postNum") },
-                onClick = {},
-                enabled = false
-            )
-            DropdownMenuItem(
-                text = { Text("コピー") },
-                onClick = { menuExpanded = false }
-            )
-            DropdownMenuItem(
-                text = { Text("NG") },
-                onClick = { menuExpanded = false }
-            )
+        if (menuExpanded) {
+            Dialog(onDismissRequest = { menuExpanded = false }) {
+                Card(shape = MaterialTheme.shapes.medium) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "$postNum",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = { menuExpanded = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("コピー")
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = { menuExpanded = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("NG")
+                        }
+                    }
+                }
+            }
         }
     }
 }
