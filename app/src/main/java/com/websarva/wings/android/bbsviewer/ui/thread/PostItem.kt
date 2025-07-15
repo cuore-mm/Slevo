@@ -2,7 +2,12 @@ package com.websarva.wings.android.bbsviewer.ui.thread
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -25,8 +30,10 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 
 
@@ -106,20 +113,38 @@ fun PostItem(
         )
 
         val imageUrls = remember(post.content) { extractImageUrls(post.content) }
-        imageUrls.forEach { url ->
+        if (imageUrls.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
-            AsyncImage(
-                model = url,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 200.dp)
-                    .clickable {
-                        navController.navigate(
-                            AppRoute.ImageViewer(imageUrl = URLEncoder.encode(url, StandardCharsets.UTF_8.toString()))
-                        )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                imageUrls.chunked(3).forEach { rowItems ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        rowItems.forEach { url ->
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f) // Row内の各要素の幅を均等に
+                                    .aspectRatio(1f)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable {
+                                        navController.navigate(
+                                            AppRoute.ImageViewer(imageUrl = URLEncoder.encode(url, StandardCharsets.UTF_8.toString()))
+                                        )
+                                    }
+                            ) {
+                                AsyncImage(
+                                    model = url,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                        // 行のアイテムが3つ未満の場合、残りをSpacerで埋めてレイアウトを維持
+                        repeat(3 - rowItems.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
-            )
+                }
+            }
         }
     }
 }
