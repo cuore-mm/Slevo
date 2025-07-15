@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.R
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
+import com.websarva.wings.android.bbsviewer.ui.common.PostDialog
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.navigation.RouteScaffold
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
