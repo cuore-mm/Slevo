@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -123,6 +124,7 @@ fun PostItem(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
+                    Log.d("PostItem", "post beIconUrl: ${post.beIconUrl}")
                 }
                 ClickableText(
                     text = annotatedText,

@@ -80,15 +80,25 @@ private fun cleanContent(contentHtml: String): Pair<String, String> {
 
     var beIconUrl: String? = null
 
-    // 1. <br> タグとBEアイコンを処理
-    val removedIcon = contentHtml.replace(
+    // 1. BEアイコンを抽出して除去
+    var withoutIcon = contentHtml.replace(
         Regex("<img[^>]*src=\"(sssp://[^\"]+)\"[^>]*>", RegexOption.IGNORE_CASE)
     ) { matchResult ->
         beIconUrl = matchResult.groupValues[1].replace("sssp://", "http://")
         ""
     }
+    withoutIcon = withoutIcon.replace(
+        Regex("sssp://\\S+", RegexOption.IGNORE_CASE)
+    ) { matchResult ->
+        if (beIconUrl == null) {
+            beIconUrl = matchResult.value.replace("sssp://", "http://")
+        }
+        ""
+    }
+
+    // 2. <br> タグをプレースホルダに変換
     val textWithPlaceholders =
-        removedIcon.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), newlinePlaceholder)
+        withoutIcon.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), newlinePlaceholder)
 
     // 2. HTMLエンティティをデコード (この時プレースホルダはそのままのはず)
     val decodedContent =
@@ -96,7 +106,6 @@ private fun cleanContent(contentHtml: String): Pair<String, String> {
 
     // 3. プレースホルダを実際の改行コード \n に戻す
     var finalContent = decodedContent.replace(newlinePlaceholder, "\n")
-    finalContent = finalContent.replace("sssp://", "http://")
 
     // 4. 必要最小限のトリミング (主にfromHtmlが追加する可能性のある先頭/末尾の不要な空白)
     //    改行コード自体を消さないように注意
