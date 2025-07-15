@@ -1,15 +1,21 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.SpanStyle
@@ -30,6 +36,10 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Card
+import androidx.compose.material3.Button
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -49,12 +59,18 @@ fun PostItem(
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = { /* クリック処理が必要な場合はここに実装 */ })
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    ) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    Box {
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = { /* クリック処理が必要な場合はここに実装 */ },
+                    onLongClick = { menuExpanded = true }
+                )
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
         val idColor = idColor(idTotal)
         val headerText = buildAnnotatedString {
             append("${post.name} ${post.email} ${post.date}")
@@ -141,6 +157,35 @@ fun PostItem(
                         // 行のアイテムが3つ未満の場合、残りをSpacerで埋めてレイアウトを維持
                         repeat(3 - rowItems.size) {
                             Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+        if (menuExpanded) {
+            Dialog(onDismissRequest = { menuExpanded = false }) {
+                Card(shape = MaterialTheme.shapes.medium) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "$postNum",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = { menuExpanded = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("コピー")
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = { menuExpanded = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("NG")
                         }
                     }
                 }
