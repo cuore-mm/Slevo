@@ -228,6 +228,9 @@ fun ThreadScreenPreview() {
                 email = "sage",
                 date = "2025/07/09(水) 19:40:25.769",
                 id = "test1",
+                beLoginId = "12345",
+                beRank = "DIA(20000)",
+                beIconUrl = "http://img.2ch.net/ico/hikky2.gif",
                 content = "これはテスト投稿です。"
             ),
             ReplyInfo(
