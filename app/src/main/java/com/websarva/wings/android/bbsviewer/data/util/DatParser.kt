@@ -82,7 +82,7 @@ private fun cleanContent(contentHtml: String): Pair<String, String> {
 
     // 1. <br> タグとBEアイコンを処理
     val removedIcon = contentHtml.replace(
-        Regex("<img[^>]*src=\"(sssp://[^\"]+)\"[^>]*>", RegexOption.IGNORE_CASE)
+        Regex("<img[^>]*src=['\"]?(sssp://[^'\" >]+)['\"]?[^>]*>", RegexOption.IGNORE_CASE)
     ) { matchResult ->
         beIconUrl = matchResult.groupValues[1].replace("sssp://", "http://")
         ""
