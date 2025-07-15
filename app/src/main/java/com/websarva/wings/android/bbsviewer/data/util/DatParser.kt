@@ -22,7 +22,7 @@ fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
             val id = extractId(dateAndId)
             val beInfo = extractBeInfo(dateAndId)
             val contentHtml = parts[3] // HTMLとして取得
-            val content = cleanContent(contentHtml) // HTMLデコードと<br>変換
+            val (content, beIconUrl) = cleanContent(contentHtml) // HTMLデコードと<br>変換
 
             // 最初の行の場合、スレッドタイトルがある可能性がある
             if (index == 0) {
@@ -43,6 +43,7 @@ fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
                     id = id ?: "",
                     beLoginId = beInfo?.first ?: "",
                     beRank = beInfo?.second ?: "",
+                    beIconUrl = beIconUrl,
                     content = content
                 )
             )
@@ -73,18 +74,21 @@ private fun extractBeInfo(dateAndId: String): Pair<String, String>? {
 }
 
 // content内の <br> を改行に置き換え、HTMLエンティティをデコードする関数
-private fun cleanContent(contentHtml: String): String {
+private fun cleanContent(contentHtml: String): Pair<String, String> {
     // ユニークなプレースホルダを定義
     val newlinePlaceholder = "[[[NEWLINE_PLACEHOLDER]]]"
 
-    // 1. <br> タグをプレースホルダに変換
-    val replacedIcons = contentHtml.replace(
+    var beIconUrl: String? = null
+
+    // 1. <br> タグとBEアイコンを処理
+    val removedIcon = contentHtml.replace(
         Regex("<img[^>]*src=\"(sssp://[^\"]+)\"[^>]*>", RegexOption.IGNORE_CASE)
     ) { matchResult ->
-        matchResult.groupValues[1].replace("sssp://", "http://")
+        beIconUrl = matchResult.groupValues[1].replace("sssp://", "http://")
+        ""
     }
     val textWithPlaceholders =
-        replacedIcons.replace(Regex(" <br\\s*/?> ", RegexOption.IGNORE_CASE), newlinePlaceholder)
+        removedIcon.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), newlinePlaceholder)
 
     // 2. HTMLエンティティをデコード (この時プレースホルダはそのままのはず)
     val decodedContent =
@@ -98,5 +102,5 @@ private fun cleanContent(contentHtml: String): String {
     //    改行コード自体を消さないように注意
     finalContent = finalContent.trim() // Javaの Character.isWhitespace と同様の挙動
 
-    return finalContent
+    return Pair(finalContent, beIconUrl ?: "")
 }

@@ -42,6 +42,7 @@ androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "roomRunt
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "roomRuntime" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coilComposeVersion" }
 coil3-coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilComposeVersion" }
+coil3-coil-gif = { module = "io.coil-kt.coil3:coil-gif", version.ref = "coilComposeVersion" }
 com-squareup-retrofit2-retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "squareupRetrofitVersion" }
 converter-scalars = { module = "com.squareup.retrofit2:converter-scalars", version.ref = "squareupRetrofitVersion" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hiltAndroid" }

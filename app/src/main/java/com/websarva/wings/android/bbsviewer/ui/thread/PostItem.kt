@@ -114,22 +114,33 @@ fun PostItem(
             threadColor = threadUrlColor(),
             urlColor = urlColor()
         )
-        ClickableText(
-            text = annotatedText,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = MaterialTheme.colorScheme.onSurface
-            ),
-            onClick = { offset ->
-                annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()
-                    ?.let { ann ->
-                        uriHandler.openUri(ann.item)
+
+            Row(verticalAlignment = Alignment.Top) {
+                if (post.beIconUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = post.beIconUrl,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+                ClickableText(
+                    text = annotatedText,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    onClick = { offset ->
+                        annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()
+                            ?.let { ann ->
+                                uriHandler.openUri(ann.item)
+                            }
+                        annotatedText.getStringAnnotations("REPLY", offset, offset).firstOrNull()
+                            ?.let { ann ->
+                                ann.item.toIntOrNull()?.let { onReplyClick?.invoke(it) }
+                            }
                     }
-                annotatedText.getStringAnnotations("REPLY", offset, offset).firstOrNull()
-                    ?.let { ann ->
-                        ann.item.toIntOrNull()?.let { onReplyClick?.invoke(it) }
-                    }
+                )
             }
-        )
 
         val imageUrls = remember(post.content) { extractImageUrls(post.content) }
         if (imageUrls.isNotEmpty()) {
@@ -208,6 +219,7 @@ fun ReplyCardPreview() {
             id = "testnanjj",
             beLoginId = "12345",
             beRank = "PLT(2000)",
+            beIconUrl = "https://img.5ch.net/ico/1fu.gif",
             content = "ガチで終わった模様"
         ),
         postNum = 1,
