@@ -1,6 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.navigation
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -67,16 +68,15 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     val currentTabInfo = rememberedTabInfoState.value
 
     if (currentTabInfo != null) {
-        val initialPage = remember(route, openTabs.size) {
-            openTabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
-        }
+        // pagerStateの生成を安定させます。
+        val pagerState = rememberPagerState(pageCount = { openTabs.size })
+        Log.d("RouteScaffold", "pagerState initialized with ${openTabs.size} tabs, pagerState: ${pagerState}")
 
-        val pagerState =
-            rememberPagerState(initialPage = initialPage, pageCount = { openTabs.size })
-
-        LaunchedEffect(initialPage) {
-            if (pagerState.currentPage != initialPage) {
-                pagerState.scrollToPage(initialPage)
+        // ページ移動のロジックはLaunchedEffectに集約します。
+        LaunchedEffect(route, openTabs) {
+            val targetPage = openTabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
+            if (pagerState.currentPage != targetPage) {
+                pagerState.scrollToPage(targetPage)
             }
         }
 
@@ -216,5 +216,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
+        Log.d("RouteScaffold", "No current tab found for route: $route")
     }
 }
