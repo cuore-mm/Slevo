@@ -36,7 +36,7 @@ fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
                     name = name,
                     email = email,
                     date = dateAndId.replace(Regex("\\s+ID:.*$"), "").trim(), // IDの部分を除去
-                    id = id ?: "???", // ID抽出に失敗した場合のデフォルト値
+                    id = id ?: "",
                     content = content
                 )
             )
