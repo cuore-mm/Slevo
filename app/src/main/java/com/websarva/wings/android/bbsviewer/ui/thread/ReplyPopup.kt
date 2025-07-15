@@ -59,7 +59,7 @@ fun ReplyPopup(
                         post = p,
                         postNum = posts.indexOf(p) + 1,
                         idIndex = idIndexList[posts.indexOf(p)],
-                        idTotal = idCountMap[p.id] ?: 1,
+                        idTotal = if (p.id.isBlank()) 1 else idCountMap[p.id] ?: 1,
                         navController = navController,
                         replyFromNumbers = replySourceMap[posts.indexOf(p) + 1] ?: emptyList(),
                         onReplyFromClick = { nums ->

@@ -50,9 +50,12 @@ fun PostItem(
     ) {
         val idColor = idColor(idTotal)
         val headerText = buildAnnotatedString {
-            append("${post.name} ${post.email} ${post.date} ")
-            withStyle(style = SpanStyle(color = idColor)) {
-                append(if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id)
+            append("${post.name} ${post.email} ${post.date}")
+            if (post.id.isNotBlank()) {
+                append(" ")
+                withStyle(style = SpanStyle(color = idColor)) {
+                    append(if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id)
+                }
             }
         }
 

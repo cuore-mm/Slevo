@@ -133,7 +133,7 @@ fun ThreadScreen(
                         post = post,
                         postNum = index + 1,
                         idIndex = idIndexList[index],
-                        idTotal = idCountMap[post.id] ?: 1,
+                        idTotal = if (post.id.isBlank()) 1 else idCountMap[post.id] ?: 1,
                         navController = navController,
                         replyFromNumbers = replySourceMap[index + 1] ?: emptyList(),
                         onReplyFromClick = { nums ->
