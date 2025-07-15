@@ -34,6 +34,9 @@ interface ThreadBookmarkGroupDao {
     @Query("SELECT * FROM thread_bookmark_groups WHERE groupId = :groupId LIMIT 1")
     suspend fun getGroupById(groupId: Long): ThreadBookmarkGroupEntity?
 
+    @Query("SELECT * FROM thread_bookmark_groups WHERE name = :name LIMIT 1")
+    suspend fun findByName(name: String): ThreadBookmarkGroupEntity?
+
     // グループとそのグループに属するスレッドブックマークをまとめて取得し、グループの表示順でソート
     @Transaction // 複数のテーブルにまたがるクエリのためトランザクション化
     @Query("SELECT * FROM thread_bookmark_groups ORDER BY sortOrder ASC")
