@@ -10,6 +10,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -37,6 +38,17 @@ fun ThreadScaffold(
 ) {
     val openTabs by tabsViewModel.openThreadTabs.collectAsState()
 
+    val initialPage = remember(threadRoute, openTabs.size) {
+        openTabs.indexOfFirst { it.key == threadRoute.threadKey && it.boardUrl == threadRoute.boardUrl }.coerceAtLeast(0)
+    }
+    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { openTabs.size })
+
+    LaunchedEffect(initialPage) {
+        if (pagerState.currentPage != initialPage) {
+            pagerState.scrollToPage(initialPage)
+        }
+    }
+
     LaunchedEffect(threadRoute) {
         val info = tabsViewModel.resolveBoardInfo(
             boardId = threadRoute.boardId,
@@ -61,6 +73,7 @@ fun ThreadScaffold(
         route = threadRoute,
         tabsViewModel = tabsViewModel,
         navController = navController,
+        pagerState = pagerState,
         openDrawer = openDrawer,
         openTabs = openTabs,
         currentRoutePredicate = { it.key == threadRoute.threadKey && it.boardUrl == threadRoute.boardUrl },

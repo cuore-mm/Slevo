@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -46,6 +45,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     route: AppRoute,
     tabsViewModel: TabsViewModel,
     navController: NavHostController,
+    pagerState: androidx.compose.foundation.pager.PagerState,
     openDrawer: () -> Unit,
     openTabs: List<TabInfo>,
     currentRoutePredicate: (TabInfo) -> Boolean,
@@ -64,19 +64,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     val currentTabInfo = openTabs.find(currentRoutePredicate)
 
     if (currentTabInfo != null) {
-        val initialPage = remember(route, openTabs.size) {
-            openTabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
-        }
-
-        val pagerState =
-            rememberPagerState(initialPage = initialPage, pageCount = { openTabs.size })
-
-        LaunchedEffect(initialPage) {
-            if (pagerState.currentPage != initialPage) {
-                pagerState.scrollToPage(initialPage)
-            }
-        }
-
         val bookmarkSheetState = rememberModalBottomSheetState()
         val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 

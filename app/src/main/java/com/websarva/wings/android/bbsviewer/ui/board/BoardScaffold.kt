@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.TopAppBarState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -44,6 +45,17 @@ fun BoardScaffold(
 ) {
     val openBoards by tabsViewModel.openBoardTabs.collectAsState()
 
+    val initialPage = remember(boardRoute, openBoards.size) {
+        openBoards.indexOfFirst { it.boardUrl == boardRoute.boardUrl }.coerceAtLeast(0)
+    }
+    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { openBoards.size })
+
+    LaunchedEffect(initialPage) {
+        if (pagerState.currentPage != initialPage) {
+            pagerState.scrollToPage(initialPage)
+        }
+    }
+
     LaunchedEffect(boardRoute) {
         val info = tabsViewModel.resolveBoardInfo(
             boardId = boardRoute.boardId,
@@ -66,6 +78,7 @@ fun BoardScaffold(
         route = boardRoute,
         tabsViewModel = tabsViewModel,
         navController = navController,
+        pagerState = pagerState,
         openDrawer = openDrawer,
         openTabs = openBoards,
         currentRoutePredicate = { it.boardUrl == boardRoute.boardUrl },
