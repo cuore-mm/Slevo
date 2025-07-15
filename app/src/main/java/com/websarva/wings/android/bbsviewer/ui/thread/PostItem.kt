@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -64,12 +65,10 @@ fun PostItem(
         Column(
             modifier = modifier
                 .fillMaxWidth()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onLongPress = { menuExpanded = true },
-                        onTap = { /* クリック処理が必要な場合はここに実装 */ }
-                    )
-                }
+                .combinedClickable(
+                    onClick = { /* クリック処理が必要な場合はここに実装 */ },
+                    onLongClick = { menuExpanded = true }
+                )
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
         val idColor = idColor(idTotal)
