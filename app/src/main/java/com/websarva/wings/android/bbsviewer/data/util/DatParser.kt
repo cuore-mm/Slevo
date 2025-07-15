@@ -91,7 +91,7 @@ private fun cleanContent(contentHtml: String): Pair<String, String> {
         Regex("sssp://\\S+", RegexOption.IGNORE_CASE)
     ) { matchResult ->
         if (beIconUrl == null) {
-            beIconUrl = matchResult.value.replace("sssp://", "http://")
+            beIconUrl = matchResult.value.replace("sssp://", "https://")
         }
         ""
     }
