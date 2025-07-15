@@ -27,9 +27,6 @@ fun HomeTopAppBarScreen(
         title = { Text(title) },
         modifier = modifier,
         scrollBehavior = scrollBehavior,
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            containerColor = MaterialTheme.colorScheme.primary
-        )
     )
 }
 
