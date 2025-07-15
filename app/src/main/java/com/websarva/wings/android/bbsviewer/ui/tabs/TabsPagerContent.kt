@@ -26,10 +26,7 @@ fun TabsPagerContent(
     navController: NavHostController,
     closeDrawer: () -> Unit
 ) {
-    val openThreadTabs by tabsViewModel.openThreadTabs.collectAsState()
-    val openBoardTabs by tabsViewModel.openBoardTabs.collectAsState()
-    val isRefreshing by tabsViewModel.isThreadsRefreshing.collectAsState()
-    val newResCounts by tabsViewModel.newResCounts.collectAsState()
+    val uiState by tabsViewModel.uiState.collectAsState()
 
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
     val scope = rememberCoroutineScope()
@@ -50,19 +47,19 @@ fun TabsPagerContent(
         HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
             when (page) {
                 0 -> OpenBoardsList(
-                    openTabs = openBoardTabs,
+                    openTabs = uiState.openBoardTabs,
                     onCloseClick = { tabsViewModel.closeBoardTab(it) },
                     navController = navController,
                     closeDrawer = closeDrawer
                 )
                 else -> OpenThreadsList(
-                    openTabs = openThreadTabs,
+                    openTabs = uiState.openThreadTabs,
                     onCloseClick = { tabsViewModel.closeThreadTab(it) },
                     navController = navController,
                     closeDrawer = closeDrawer,
-                    isRefreshing = isRefreshing,
+                    isRefreshing = uiState.isRefreshing,
                     onRefresh = { tabsViewModel.refreshOpenThreads() },
-                    newResCounts = newResCounts,
+                    newResCounts = uiState.newResCounts,
                     onItemClick = { tabsViewModel.clearNewResCount(it.key, it.boardUrl) }
                 )
             }

@@ -42,7 +42,7 @@ fun BoardScaffold(
     tabsViewModel: TabsViewModel,
     topBarState: TopAppBarState
 ) {
-    val openBoards by tabsViewModel.openBoardTabs.collectAsState()
+    val tabsUiState by tabsViewModel.uiState.collectAsState()
 
     LaunchedEffect(boardRoute) {
         val info = tabsViewModel.resolveBoardInfo(
@@ -67,7 +67,7 @@ fun BoardScaffold(
         tabsViewModel = tabsViewModel,
         navController = navController,
         openDrawer = openDrawer,
-        openTabs = openBoards,
+        openTabs = tabsUiState.openBoardTabs,
         currentRoutePredicate = { it.boardUrl == boardRoute.boardUrl },
         getViewModel = { tab -> tabsViewModel.getOrCreateBoardViewModel(tab.boardUrl) },
         getKey = { it.boardUrl },

@@ -36,7 +36,7 @@ fun ThreadScaffold(
     openDrawer: () -> Unit,
     topBarState: TopAppBarState,
 ) {
-    val openTabs by tabsViewModel.openThreadTabs.collectAsState()
+    val tabsUiState by tabsViewModel.uiState.collectAsState()
 
     LaunchedEffect(threadRoute) {
         val info = tabsViewModel.resolveBoardInfo(
@@ -63,7 +63,7 @@ fun ThreadScaffold(
         tabsViewModel = tabsViewModel,
         navController = navController,
         openDrawer = openDrawer,
-        openTabs = openTabs,
+        openTabs = tabsUiState.openThreadTabs,
         currentRoutePredicate = { it.key == threadRoute.threadKey && it.boardUrl == threadRoute.boardUrl },
         getViewModel = { tab -> tabsViewModel.getOrCreateThreadViewModel(tab.key + tab.boardUrl) },
         getKey = { it.key + it.boardUrl },

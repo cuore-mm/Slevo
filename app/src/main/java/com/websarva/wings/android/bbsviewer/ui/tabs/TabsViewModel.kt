@@ -14,6 +14,7 @@ import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkReposi
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
+import com.websarva.wings.android.bbsviewer.ui.tabs.TabsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,21 +38,9 @@ class TabsViewModel @Inject constructor(
     private val boardRepository: BoardRepository,
     private val datRepository: DatRepository,
 ) : ViewModel() {
-    // 開いているスレッドタブ一覧と、各タブに紐づく ViewModel を保持
-    private val _openThreadTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
-    val openThreadTabs: StateFlow<List<ThreadTabInfo>> = _openThreadTabs.asStateFlow()
-
-    // リロード中状態
-    private val _isThreadsRefreshing = MutableStateFlow(false)
-    val isThreadsRefreshing: StateFlow<Boolean> = _isThreadsRefreshing.asStateFlow()
-
-    // 新着レス数マップ (key + boardUrl -> count)
-    private val _newResCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
-    val newResCounts: StateFlow<Map<String, Int>> = _newResCounts.asStateFlow()
-
-    // 開いている板タブ一覧
-    private val _openBoardTabs = MutableStateFlow<List<BoardTabInfo>>(emptyList())
-    val openBoardTabs: StateFlow<List<BoardTabInfo>> = _openBoardTabs.asStateFlow()
+    // 画面用のUIステートのみを保持
+    private val _uiState = MutableStateFlow(TabsUiState())
+    val uiState: StateFlow<TabsUiState> = _uiState.asStateFlow()
 
     // boardUrl をキーに BoardViewModel をキャッシュ
     private val boardViewModelMap: MutableMap<String, BoardViewModel> = mutableMapOf()
@@ -71,7 +60,14 @@ class TabsViewModel @Inject constructor(
                     g.boards.forEach { b -> colorMap[b.boardId] = color }
                 }
                 tabs.map { it.copy(bookmarkColorName = colorMap[it.boardId]) }
-            }.collect { _openBoardTabs.value = it }
+            }.collect { boards ->
+                _uiState.update { current ->
+                    current.copy(
+                        openBoardTabs = boards,
+                        boardLoaded = true
+                    )
+                }
+            }
         }
         viewModelScope.launch {
             combine(
@@ -86,7 +82,14 @@ class TabsViewModel @Inject constructor(
                     }
                 }
                 tabs.map { it.copy(bookmarkColorName = colorMap[it.key + it.boardUrl]) }
-            }.collect { _openThreadTabs.value = it }
+            }.collect { threads ->
+                _uiState.update { current ->
+                    current.copy(
+                        openThreadTabs = threads,
+                        threadLoaded = true
+                    )
+                }
+            }
         }
     }
 
@@ -116,12 +119,10 @@ class TabsViewModel @Inject constructor(
      * スレッドタブを開く。既に同じキーのタブが存在する場合は情報のみ更新する。
      */
     fun openThreadTab(tabInfo: ThreadTabInfo) {
-        _openThreadTabs.update { currentTabs ->
-            val tabIndex =
-                currentTabs.indexOfFirst { it.key == tabInfo.key && it.boardUrl == tabInfo.boardUrl }
-
-            if (tabIndex != -1) {
-                // 既存タブの情報を更新し、スクロール位置はそのまま維持する
+        _uiState.update { state ->
+            val currentTabs = state.openThreadTabs
+            val tabIndex = currentTabs.indexOfFirst { it.key == tabInfo.key && it.boardUrl == tabInfo.boardUrl }
+            val updated = if (tabIndex != -1) {
                 currentTabs.toMutableList().apply {
                     this[tabIndex] = this[tabIndex].copy(
                         title = tabInfo.title,
@@ -131,20 +132,21 @@ class TabsViewModel @Inject constructor(
                     )
                 }
             } else {
-                // 新規タブとして追加
                 currentTabs + tabInfo
             }
+            state.copy(openThreadTabs = updated)
         }
-        viewModelScope.launch { repository.saveOpenThreadTabs(_openThreadTabs.value) }
+        viewModelScope.launch { repository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
     }
 
     /**
      * 板タブを開く。すでに存在する場合は最新情報で上書きする。
      */
     fun openBoardTab(boardTabInfo: BoardTabInfo) {
-        _openBoardTabs.update { currentBoards ->
+        _uiState.update { state ->
+            val currentBoards = state.openBoardTabs
             val index = currentBoards.indexOfFirst { it.boardUrl == boardTabInfo.boardUrl }
-            if (index != -1) {
+            val updated = if (index != -1) {
                 currentBoards.toMutableList().apply {
                     this[index] = boardTabInfo.copy(
                         firstVisibleItemIndex = this[index].firstVisibleItemIndex,
@@ -154,8 +156,9 @@ class TabsViewModel @Inject constructor(
             } else {
                 currentBoards + boardTabInfo
             }
+            state.copy(openBoardTabs = updated)
         }
-        viewModelScope.launch { repository.saveOpenBoardTabs(_openBoardTabs.value) }
+        viewModelScope.launch { repository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
     }
 
     suspend fun resolveBoardInfo(boardId: Long, boardUrl: String, boardName: String): BoardInfo {
@@ -180,10 +183,12 @@ class TabsViewModel @Inject constructor(
         viewModelToDestroy?.release()
 
         threadViewModelMap.remove(mapKey)
-        _openThreadTabs.update { current ->
-            current.filterNot { it.key == tab.key && it.boardUrl == tab.boardUrl }
+        _uiState.update { state ->
+            state.copy(
+                openThreadTabs = state.openThreadTabs.filterNot { it.key == tab.key && it.boardUrl == tab.boardUrl }
+            )
         }
-        viewModelScope.launch { repository.saveOpenThreadTabs(_openThreadTabs.value) }
+        viewModelScope.launch { repository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
     }
 
     /**
@@ -192,28 +197,27 @@ class TabsViewModel @Inject constructor(
     @RequiresApi(Build.VERSION_CODES.O)
     fun closeBoardTab(tab: BoardTabInfo) {
         boardViewModelMap.remove(tab.boardUrl)?.release()
-        _openBoardTabs.update { current ->
-            current.filterNot { it.boardUrl == tab.boardUrl }
+        _uiState.update { state ->
+            state.copy(openBoardTabs = state.openBoardTabs.filterNot { it.boardUrl == tab.boardUrl })
         }
-        viewModelScope.launch { repository.saveOpenBoardTabs(_openBoardTabs.value) }
+        viewModelScope.launch { repository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
     }
 
     /**
      * スレッドタブの情報を更新する
      */
     fun updateThreadTabInfo(key: String, boardUrl: String, title: String, resCount: Int) {
-        _openThreadTabs.update { currentTabs ->
-            currentTabs.map { tab ->
+        _uiState.update { state ->
+            val updated = state.openThreadTabs.map { tab ->
                 if (tab.key == key && tab.boardUrl == boardUrl) {
                     tab.copy(title = title, resCount = resCount)
                 } else {
                     tab
                 }
             }
+            state.copy(openThreadTabs = updated, newResCounts = state.newResCounts - (key + boardUrl))
         }
-        // データベースにも保存する
-        viewModelScope.launch { repository.saveOpenThreadTabs(_openThreadTabs.value) }
-        _newResCounts.update { it - (key + boardUrl) }
+        viewModelScope.launch { repository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
     }
 
     /**
@@ -226,8 +230,8 @@ class TabsViewModel @Inject constructor(
         scrollOffset: Int
     ) {
 //        Log.i("TabsViewModel", "Updating scroll position for tabKey: $tabKey, boardUrl: $boardUrl, index: $index, offset: $offset")
-        _openThreadTabs.update { currentTabs ->
-            currentTabs.map { tab ->
+        _uiState.update { state ->
+            val updated = state.openThreadTabs.map { tab ->
                 if (tab.key == tabKey && tab.boardUrl == boardUrl) {
                     tab.copy(
                         firstVisibleItemIndex = firstVisibleIndex,
@@ -237,8 +241,9 @@ class TabsViewModel @Inject constructor(
                     tab
                 }
             }
+            state.copy(openThreadTabs = updated)
         }
-        viewModelScope.launch { repository.saveOpenThreadTabs(_openThreadTabs.value) }
+        viewModelScope.launch { repository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
     }
 
     /**
@@ -249,8 +254,8 @@ class TabsViewModel @Inject constructor(
         firstVisibleIndex: Int,
         scrollOffset: Int
     ) {
-        _openBoardTabs.update { currentTabs ->
-            currentTabs.map { tab ->
+        _uiState.update { state ->
+            val updated = state.openBoardTabs.map { tab ->
                 if (tab.boardUrl == boardUrl) {
                     tab.copy(
                         firstVisibleItemIndex = firstVisibleIndex,
@@ -260,20 +265,21 @@ class TabsViewModel @Inject constructor(
                     tab
                 }
             }
+            state.copy(openBoardTabs = updated)
         }
-        viewModelScope.launch { repository.saveOpenBoardTabs(_openBoardTabs.value) }
+        viewModelScope.launch { repository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
     }
 
     fun clearNewResCount(threadKey: String, boardUrl: String) {
         val key = threadKey + boardUrl
-        _newResCounts.update { it - key }
+        _uiState.update { it.copy(newResCounts = it.newResCounts - key) }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun refreshOpenThreads() {
         viewModelScope.launch {
-            _isThreadsRefreshing.value = true
-            val currentTabs = _openThreadTabs.value
+            _uiState.update { it.copy(isRefreshing = true) }
+            val currentTabs = _uiState.value.openThreadTabs
             val resultMap = mutableMapOf<String, Int>()
             currentTabs.forEach { tab ->
                 val res = datRepository.getThread(tab.boardUrl, tab.key)
@@ -283,8 +289,9 @@ class TabsViewModel @Inject constructor(
                     resultMap[tab.key + tab.boardUrl] = diff
                 }
             }
-            _newResCounts.value = resultMap
-            _isThreadsRefreshing.value = false
+            _uiState.update { state ->
+                state.copy(newResCounts = resultMap, isRefreshing = false)
+            }
         }
     }
 
@@ -292,7 +299,7 @@ class TabsViewModel @Inject constructor(
      * 指定キーのタブ情報を取得する。
      */
     fun getTabInfo(tabKey: String, boardUrl: String): ThreadTabInfo? {
-        return _openThreadTabs.value.find { it.key == tabKey && it.boardUrl == boardUrl }
+        return _uiState.value.openThreadTabs.find { it.key == tabKey && it.boardUrl == boardUrl }
     }
 
     /**
