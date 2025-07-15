@@ -42,9 +42,6 @@ class TabsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(TabsUiState())
     val uiState: StateFlow<TabsUiState> = _uiState.asStateFlow()
 
-    private var boardLoaded = false
-    private var threadLoaded = false
-
     // boardUrl をキーに BoardViewModel をキャッシュ
     private val boardViewModelMap: MutableMap<String, BoardViewModel> = mutableMapOf()
 
@@ -64,11 +61,10 @@ class TabsViewModel @Inject constructor(
                 }
                 tabs.map { it.copy(bookmarkColorName = colorMap[it.boardId]) }
             }.collect { boards ->
-                boardLoaded = true
                 _uiState.update { current ->
                     current.copy(
                         openBoardTabs = boards,
-                        isLoading = !(boardLoaded && threadLoaded)
+                        boardLoaded = true
                     )
                 }
             }
@@ -87,11 +83,10 @@ class TabsViewModel @Inject constructor(
                 }
                 tabs.map { it.copy(bookmarkColorName = colorMap[it.key + it.boardUrl]) }
             }.collect { threads ->
-                threadLoaded = true
                 _uiState.update { current ->
                     current.copy(
                         openThreadTabs = threads,
-                        isLoading = !(boardLoaded && threadLoaded)
+                        threadLoaded = true
                     )
                 }
             }
