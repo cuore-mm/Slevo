@@ -1,6 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -115,10 +116,11 @@ fun ThreadScaffold(
                 if (uiState.threadInfo.title.isNotEmpty() && uiState.posts != null && uiState.threadInfo.key.isNotEmpty()) {
                     tabsViewModel.updateThreadTabInfo(
                         key = uiState.threadInfo.key,
-                        boardUrl = uiState.threadInfo.url,
+                        boardUrl = uiState.boardInfo.url,
                         title = uiState.threadInfo.title,
                         resCount = uiState.posts.size
                     )
+                    Log.d("ThreadScaffold", "Updated thread tab info: ${uiState.threadInfo.title}, posts size: ${uiState.posts.size}")
                 }
             }
 

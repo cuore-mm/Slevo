@@ -24,9 +24,11 @@ import kotlinx.coroutines.launch
 class SingleBookmarkViewModel @AssistedInject constructor(
     private val boardBookmarkRepo: BookmarkBoardRepository,
     private val threadBookmarkRepo: ThreadBookmarkRepository,
-    @Assisted private val boardInfo: BoardInfo,
+    @Assisted boardInfo: BoardInfo,
     @Assisted private val threadInfo: ThreadInfo? // スレッド画面の場合のみ渡される
 ) : ViewModel() {
+
+    private var boardInfo: BoardInfo = boardInfo
 
     private val _uiState = MutableStateFlow(SingleBookmarkState())
     val uiState: StateFlow<SingleBookmarkState> = _uiState.asStateFlow()
@@ -98,7 +100,8 @@ class SingleBookmarkViewModel @AssistedInject constructor(
     fun saveBookmark(groupId: Long) {
         viewModelScope.launch {
             if (threadInfo == null) { // Board
-                boardBookmarkRepo.upsertBookmark(BookmarkBoardEntity(boardInfo.boardId, groupId))
+                val id = boardBookmarkRepo.upsertBookmark(boardInfo, groupId)
+                boardInfo = boardInfo.copy(boardId = id)
             } else { // Thread
                 threadBookmarkRepo.insertBookmark(
                     BookmarkThreadEntity(
