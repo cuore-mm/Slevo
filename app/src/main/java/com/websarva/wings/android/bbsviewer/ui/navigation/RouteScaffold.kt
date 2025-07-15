@@ -17,7 +17,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,15 +63,20 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     scrollBehavior: TopAppBarScrollBehavior,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
-    val currentTabInfo = openTabs.find(currentRoutePredicate)
+    var cachedTabs by remember { mutableStateOf(openTabs) }
+    if (openTabs.isNotEmpty()) {
+        cachedTabs = openTabs
+    }
+    val tabs = if (openTabs.isNotEmpty()) openTabs else cachedTabs
+    val currentTabInfo = tabs.find(currentRoutePredicate)
 
     if (currentTabInfo != null) {
-        val initialPage = remember(route, openTabs.size) {
-            openTabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
+        val initialPage = remember(route, tabs.size) {
+            tabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
         }
 
         val pagerState =
-            rememberPagerState(initialPage = initialPage, pageCount = { openTabs.size })
+            rememberPagerState(initialPage = initialPage, pageCount = { tabs.size })
 
         LaunchedEffect(initialPage) {
             if (pagerState.currentPage != initialPage) {
@@ -82,9 +89,9 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
         HorizontalPager(
             state = pagerState,
-            key = { page -> getKey(openTabs[page]) }
+            key = { page -> getKey(tabs[page]) }
         ) { page ->
-            val tab = openTabs[page]
+            val tab = tabs[page]
             val viewModel = getViewModel(tab)
             val uiState by viewModel.uiState.collectAsState()
             val bookmarkState = (uiState as? BoardUiState)?.singleBookmarkState

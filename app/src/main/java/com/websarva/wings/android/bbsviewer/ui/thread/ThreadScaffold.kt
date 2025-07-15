@@ -1,6 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -116,11 +117,12 @@ fun ThreadScaffold(
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
                 if (uiState.threadInfo.title.isNotEmpty() && uiState.posts != null) {
                     tabsViewModel.updateThreadTabInfo(
-                        key = threadRoute.threadKey,
-                        boardUrl = threadRoute.boardUrl,
+                        key = uiState.threadInfo.key,
+                        boardUrl = uiState.boardInfo.url,
                         title = uiState.threadInfo.title,
                         resCount = uiState.posts.size
                     )
+                    Log.d("ThreadScaffold", "Updated thread tab info: ${uiState.threadInfo.title}, posts size: ${uiState.posts.size}")
                 }
             }
 
