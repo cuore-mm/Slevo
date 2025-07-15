@@ -26,6 +26,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.ui.common.SelectedTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.BookmarkBottomSheet
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.AddGroupDialog
+import com.websarva.wings.android.bbsviewer.ui.common.bookmark.DeleteGroupDialog
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -138,8 +140,37 @@ fun BookmarkListScaffold(
                 selectedGroupId = uiState.selectedGroupId,
                 onGroupSelected = { bookmarkViewModel.applyGroupToSelection(it) },
                 onUnbookmarkRequested = { bookmarkViewModel.unbookmarkSelection() },
-                onAddGroup = { },
-                onGroupLongClick = {}
+                onAddGroup = {
+                    val isBoard = uiState.selectedBoards.isNotEmpty()
+                    bookmarkViewModel.openAddGroupDialog(isBoard)
+                },
+                onGroupLongClick = { group ->
+                    val isBoard = uiState.selectedBoards.isNotEmpty()
+                    bookmarkViewModel.openEditGroupDialog(group, isBoard)
+                }
+            )
+        }
+
+        if (uiState.showAddGroupDialog) {
+            AddGroupDialog(
+                onDismissRequest = { bookmarkViewModel.closeAddGroupDialog() },
+                isEdit = uiState.editingGroupId != null,
+                onConfirm = { bookmarkViewModel.confirmGroup() },
+                onDelete = { bookmarkViewModel.requestDeleteGroup() },
+                onValueChange = { bookmarkViewModel.setEnteredGroupName(it) },
+                enteredValue = uiState.enteredGroupName,
+                onColorSelected = { bookmarkViewModel.setSelectedColor(it) },
+                selectedColor = uiState.selectedColor
+            )
+        }
+
+        if (uiState.showDeleteGroupDialog) {
+            DeleteGroupDialog(
+                groupName = uiState.deleteGroupName,
+                itemNames = uiState.deleteGroupItems,
+                isBoard = uiState.deleteGroupIsBoard,
+                onDismissRequest = { bookmarkViewModel.closeDeleteGroupDialog() },
+                onConfirm = { bookmarkViewModel.confirmDeleteGroup() }
             )
         }
     }
