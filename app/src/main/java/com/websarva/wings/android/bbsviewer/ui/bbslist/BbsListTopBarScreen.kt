@@ -32,22 +32,14 @@ fun BbsListTopBarScreen(
                 style = MaterialTheme.typography.titleMedium
             )
         },
-        navigationIcon = { // 左端にボタンを追加
-            IconButton(onClick = onNavigationClick) {
-                Icon(
-                    imageVector = Icons.Default.Menu,
-                    contentDescription = stringResource(R.string.open_tablist)
-                )
-            }
-        },
-        actions = {
-            IconButton(onClick = onSearchClick) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = stringResource(R.string.search)
-                )
-            }
-        },
+//        actions = {
+//            IconButton(onClick = onSearchClick) {
+//                Icon(
+//                    imageVector = Icons.Default.Search,
+//                    contentDescription = stringResource(R.string.search)
+//                )
+//            }
+//        },
         modifier = modifier
     )
 }

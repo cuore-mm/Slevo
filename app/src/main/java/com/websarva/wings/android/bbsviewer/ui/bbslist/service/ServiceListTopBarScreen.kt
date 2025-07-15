@@ -33,14 +33,6 @@ fun ServiceListTopBarScreen(
         ),
         scrollBehavior = scrollBehavior,
         title = {},
-        navigationIcon = { // 左端にボタンを追加
-            IconButton(onClick = onNavigationClick) {
-                Icon(
-                    imageVector = Icons.Default.Menu,
-                    contentDescription = stringResource(R.string.open_tablist)
-                )
-            }
-        },
         actions = {
             IconButton(onClick = onAddClick) {
                 Icon(
@@ -48,12 +40,12 @@ fun ServiceListTopBarScreen(
                     contentDescription = stringResource(R.string.add_board)
                 )
             }
-            IconButton(onClick = onSearchClick) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = stringResource(R.string.search)
-                )
-            }
+//            IconButton(onClick = onSearchClick) {
+//                Icon(
+//                    imageVector = Icons.Default.Search,
+//                    contentDescription = stringResource(R.string.search)
+//                )
+//            }
         },
         modifier = modifier
     )
