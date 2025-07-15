@@ -12,6 +12,7 @@ import com.websarva.wings.android.bbsviewer.data.repository.TabsRepository
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
+import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,10 +35,19 @@ class TabsViewModel @Inject constructor(
     private val bookmarkBoardRepo: BookmarkBoardRepository,
     private val threadBookmarkRepo: ThreadBookmarkRepository,
     private val boardRepository: BoardRepository,
+    private val datRepository: DatRepository,
 ) : ViewModel() {
     // 開いているスレッドタブ一覧と、各タブに紐づく ViewModel を保持
     private val _openThreadTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
     val openThreadTabs: StateFlow<List<ThreadTabInfo>> = _openThreadTabs.asStateFlow()
+
+    // リロード中状態
+    private val _isThreadsRefreshing = MutableStateFlow(false)
+    val isThreadsRefreshing: StateFlow<Boolean> = _isThreadsRefreshing.asStateFlow()
+
+    // 新着レス数マップ (key + boardUrl -> count)
+    private val _newResCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val newResCounts: StateFlow<Map<String, Int>> = _newResCounts.asStateFlow()
 
     // 開いている板タブ一覧
     private val _openBoardTabs = MutableStateFlow<List<BoardTabInfo>>(emptyList())
@@ -203,6 +213,7 @@ class TabsViewModel @Inject constructor(
         }
         // データベースにも保存する
         viewModelScope.launch { repository.saveOpenThreadTabs(_openThreadTabs.value) }
+        _newResCounts.update { it - (key + boardUrl) }
     }
 
     /**
@@ -251,6 +262,30 @@ class TabsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch { repository.saveOpenBoardTabs(_openBoardTabs.value) }
+    }
+
+    fun clearNewResCount(threadKey: String, boardUrl: String) {
+        val key = threadKey + boardUrl
+        _newResCounts.update { it - key }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun refreshOpenThreads() {
+        viewModelScope.launch {
+            _isThreadsRefreshing.value = true
+            val currentTabs = _openThreadTabs.value
+            val resultMap = mutableMapOf<String, Int>()
+            currentTabs.forEach { tab ->
+                val res = datRepository.getThread(tab.boardUrl, tab.key)
+                val size = res?.first?.size ?: tab.resCount
+                val diff = size - tab.resCount
+                if (diff > 0) {
+                    resultMap[tab.key + tab.boardUrl] = diff
+                }
+            }
+            _newResCounts.value = resultMap
+            _isThreadsRefreshing.value = false
+        }
     }
 
     /**
