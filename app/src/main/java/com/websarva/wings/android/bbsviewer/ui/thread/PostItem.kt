@@ -80,6 +80,9 @@ fun PostItem(
                     append(if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id)
                 }
             }
+            if (post.beRank.isNotBlank()) {
+                append(" ?${post.beRank}")
+            }
         }
 
         Row {
@@ -111,22 +114,33 @@ fun PostItem(
             threadColor = threadUrlColor(),
             urlColor = urlColor()
         )
-        ClickableText(
-            text = annotatedText,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = MaterialTheme.colorScheme.onSurface
-            ),
-            onClick = { offset ->
-                annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()
-                    ?.let { ann ->
-                        uriHandler.openUri(ann.item)
-                    }
-                annotatedText.getStringAnnotations("REPLY", offset, offset).firstOrNull()
-                    ?.let { ann ->
-                        ann.item.toIntOrNull()?.let { onReplyClick?.invoke(it) }
-                    }
+
+        Row(verticalAlignment = Alignment.Top) {
+            if (post.beIconUrl.isNotBlank()) {
+                AsyncImage(
+                    model = post.beIconUrl,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
             }
-        )
+            ClickableText(
+                text = annotatedText,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                onClick = { offset ->
+                    annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()
+                        ?.let { ann ->
+                            uriHandler.openUri(ann.item)
+                        }
+                    annotatedText.getStringAnnotations("REPLY", offset, offset).firstOrNull()
+                        ?.let { ann ->
+                            ann.item.toIntOrNull()?.let { onReplyClick?.invoke(it) }
+                        }
+                }
+            )
+        }
 
         val imageUrls = remember(post.content) { extractImageUrls(post.content) }
         if (imageUrls.isNotEmpty()) {
@@ -203,6 +217,9 @@ fun ReplyCardPreview() {
             email = "sage",
             date = "1/21(月) 15:43:45.34",
             id = "testnanjj",
+            beLoginId = "12345",
+            beRank = "PLT(2000)",
+            beIconUrl = "http://img.2ch.net/ico/hikky2.gif",
             content = "ガチで終わった模様"
         ),
         postNum = 1,

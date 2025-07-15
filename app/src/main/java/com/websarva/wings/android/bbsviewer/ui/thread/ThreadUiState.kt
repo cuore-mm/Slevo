@@ -39,6 +39,9 @@ data class ReplyInfo(
     val email: String,
     val date: String,
     val id: String,
+    val beLoginId: String = "",
+    val beRank: String = "",
+    val beIconUrl: String = "",
     val content: String,
     val momentum: Float = 0.0f
 )
