@@ -1,6 +1,12 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
 import androidx.compose.material3.Card
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
@@ -54,12 +60,18 @@ fun ReplyPopup(
                     }
                 }
             ) {
-                info.posts.forEachIndexed { i, p ->
-                    PostItem(
-                        post = p,
-                        postNum = posts.indexOf(p) + 1,
-                        idIndex = idIndexList[posts.indexOf(p)],
-                        idTotal = if (p.id.isBlank()) 1 else idCountMap[p.id] ?: 1,
+                val maxHeight = (LocalConfiguration.current.screenHeightDp.dp / 2)
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = maxHeight)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    info.posts.forEachIndexed { i, p ->
+                        PostItem(
+                            post = p,
+                            postNum = posts.indexOf(p) + 1,
+                            idIndex = idIndexList[posts.indexOf(p)],
+                            idTotal = if (p.id.isBlank()) 1 else idCountMap[p.id] ?: 1,
                         navController = navController,
                         replyFromNumbers = replySourceMap[posts.indexOf(p) + 1] ?: emptyList(),
                         onReplyFromClick = { nums ->
@@ -86,8 +98,9 @@ fun ReplyPopup(
                             }
                         }
                     )
-                    if (i < info.posts.size - 1) {
-                        androidx.compose.material3.HorizontalDivider()
+                        if (i < info.posts.size - 1) {
+                            androidx.compose.material3.HorizontalDivider()
+                        }
                     }
                 }
             }
