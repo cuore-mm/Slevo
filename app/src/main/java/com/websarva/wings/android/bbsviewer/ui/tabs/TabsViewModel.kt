@@ -53,6 +53,13 @@ class TabsViewModel @Inject constructor(
     private val _openBoardTabs = MutableStateFlow<List<BoardTabInfo>>(emptyList())
     val openBoardTabs: StateFlow<List<BoardTabInfo>> = _openBoardTabs.asStateFlow()
 
+    // 読み込み中状態
+    private val _isTabsLoading = MutableStateFlow(true)
+    val isTabsLoading: StateFlow<Boolean> = _isTabsLoading.asStateFlow()
+
+    private var boardLoaded = false
+    private var threadLoaded = false
+
     // boardUrl をキーに BoardViewModel をキャッシュ
     private val boardViewModelMap: MutableMap<String, BoardViewModel> = mutableMapOf()
 
@@ -71,7 +78,13 @@ class TabsViewModel @Inject constructor(
                     g.boards.forEach { b -> colorMap[b.boardId] = color }
                 }
                 tabs.map { it.copy(bookmarkColorName = colorMap[it.boardId]) }
-            }.collect { _openBoardTabs.value = it }
+            }.collect {
+                _openBoardTabs.value = it
+                if (!boardLoaded) {
+                    boardLoaded = true
+                    if (threadLoaded) _isTabsLoading.value = false
+                }
+            }
         }
         viewModelScope.launch {
             combine(
@@ -86,7 +99,13 @@ class TabsViewModel @Inject constructor(
                     }
                 }
                 tabs.map { it.copy(bookmarkColorName = colorMap[it.key + it.boardUrl]) }
-            }.collect { _openThreadTabs.value = it }
+            }.collect {
+                _openThreadTabs.value = it
+                if (!threadLoaded) {
+                    threadLoaded = true
+                    if (boardLoaded) _isTabsLoading.value = false
+                }
+            }
         }
     }
 

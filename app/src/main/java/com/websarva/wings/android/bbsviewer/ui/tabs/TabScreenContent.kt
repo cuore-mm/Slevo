@@ -4,11 +4,17 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -29,6 +35,7 @@ fun TabScreenContent(
     closeDrawer: () -> Unit
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
+    val isLoading by tabsViewModel.isTabsLoading.collectAsState()
 
     Scaffold(
         modifier = modifier,
@@ -41,11 +48,18 @@ fun TabScreenContent(
             }
         }
     ) { innerPadding ->
-        TabsPagerContent(
-            tabsViewModel = tabsViewModel,
-            navController = navController,
-            closeDrawer = closeDrawer
-        )
+        if (isLoading) {
+            Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            TabsPagerContent(
+                modifier = Modifier.padding(innerPadding),
+                tabsViewModel = tabsViewModel,
+                navController = navController,
+                closeDrawer = closeDrawer
+            )
+        }
 
         if (showUrlDialog) {
             UrlOpenDialog(
