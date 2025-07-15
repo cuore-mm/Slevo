@@ -21,7 +21,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,16 +38,25 @@ import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.theme.BookmarkColor
 import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OpenThreadsList(
     modifier: Modifier = Modifier,
     openTabs: List<ThreadTabInfo>,
     onCloseClick: (ThreadTabInfo) -> Unit = {},
     navController: NavHostController,
-    closeDrawer: () -> Unit
+    closeDrawer: () -> Unit,
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
+    newResCounts: Map<String, Int> = emptyMap(),
+    onItemClick: (ThreadTabInfo) -> Unit = {}
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
-        LazyColumn(modifier = Modifier.weight(1f)) {
+    PullToRefreshBox(
+        modifier = modifier,
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+    ) {
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
             items(openTabs, key = { it.key + it.boardUrl }) { tab ->
                 val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
                 Row(modifier = Modifier.height(IntrinsicSize.Min)) {
@@ -63,6 +73,7 @@ fun OpenThreadsList(
                             .fillMaxWidth()
                             .clickable {
                                 closeDrawer()
+                                onItemClick(tab)
                                 navController.navigate(
                                     AppRoute.Thread(
                                         threadKey = tab.key,
@@ -104,11 +115,21 @@ fun OpenThreadsList(
                             }
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        IconButton(onClick = { onCloseClick(tab) }) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = stringResource(R.string.close)
-                            )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            IconButton(onClick = { onCloseClick(tab) }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.close)
+                                )
+                            }
+                            val diff = newResCounts[tab.key + tab.boardUrl] ?: 0
+                            if (diff > 0) {
+                                Text(
+                                    text = "+$diff",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
                         }
                     }
                 }
@@ -146,6 +167,10 @@ fun OpenThreadsListPreview() {
         openTabs = sampleTabs,
         onCloseClick = {},
         navController = rememberNavController(),
-        closeDrawer = {}
+        closeDrawer = {},
+        isRefreshing = false,
+        onRefresh = {},
+        newResCounts = emptyMap(),
+        onItemClick = {}
     )
 }
