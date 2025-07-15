@@ -60,7 +60,7 @@ fun ReplyPopup(
                     }
                 }
             ) {
-                val maxHeight = (LocalConfiguration.current.screenHeightDp.dp / 2)
+                val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.75f
                 Column(
                     modifier = Modifier
                         .heightIn(max = maxHeight)
