@@ -61,15 +61,20 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     scrollBehavior: TopAppBarScrollBehavior,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
-    val currentTabInfo = openTabs.find(currentRoutePredicate)
+    val initialPage = remember(route, openTabs.size) {
+        openTabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
+    }
 
-    if (currentTabInfo != null) {
-        val initialPage = remember(route, openTabs.size) {
-            openTabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
+    val pagerState =
+        if (openTabs.isNotEmpty()) {
+            rememberPagerState(initialPage = initialPage, pageCount = { openTabs.size })
+        } else {
+            rememberPagerState(initialPage = 0, pageCount = { 1 })
         }
 
-        val pagerState =
-            rememberPagerState(initialPage = initialPage, pageCount = { openTabs.size })
+    val currentTabInfo = openTabs.find(currentRoutePredicate)
+
+    if (currentTabInfo != null && openTabs.isNotEmpty()) {
 
         LaunchedEffect(initialPage) {
             if (pagerState.currentPage != initialPage) {
