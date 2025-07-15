@@ -16,6 +16,9 @@ import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.theme.idColor
 import com.websarva.wings.android.bbsviewer.ui.theme.replyColor
 import com.websarva.wings.android.bbsviewer.ui.theme.replyCountColor
+import com.websarva.wings.android.bbsviewer.ui.theme.imageUrlColor
+import com.websarva.wings.android.bbsviewer.ui.theme.threadUrlColor
+import com.websarva.wings.android.bbsviewer.ui.theme.urlColor
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
 import java.net.URLEncoder
@@ -77,7 +80,10 @@ fun PostItem(
         val annotatedText = buildUrlAnnotatedString(
             text = post.content,
             onOpenUrl = { uriHandler.openUri(it) },
-            replyColor = replyColor()
+            replyColor = replyColor(),
+            imageColor = imageUrlColor(),
+            threadColor = threadUrlColor(),
+            urlColor = urlColor()
         )
         ClickableText(
             text = annotatedText,

@@ -19,6 +19,9 @@ fun buildUrlAnnotatedString(
     text: String,
     onOpenUrl: (String) -> Unit,
     replyColor: Color = Color.Blue,
+    imageColor: Color = Color(0xFFFFA726),
+    threadColor: Color = Color(0xFF66BB6A),
+    urlColor: Color = Color.Blue,
 ): AnnotatedString {
     return buildAnnotatedString {
         var lastIndex = 0
@@ -33,9 +36,14 @@ fun buildUrlAnnotatedString(
             val match = text.substring(start, end)
             when {
                 urlRegex.matcher(match).matches() -> {
+                    val color = when {
+                        imageExtensions.any { match.endsWith(it, ignoreCase = true) } -> imageColor
+                        parseThreadUrl(match) != null -> threadColor
+                        else -> urlColor
+                    }
                     pushStringAnnotation(tag = "URL", annotation = match)
                     addStyle(
-                        SpanStyle(textDecoration = TextDecoration.Underline),
+                        SpanStyle(color = color, textDecoration = TextDecoration.Underline),
                         start = length,
                         end = length + match.length
                     )
