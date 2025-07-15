@@ -12,6 +12,7 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.bbsviewer.R
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,33 +27,26 @@ fun BookmarkTopBar(
     TopAppBar(
         scrollBehavior = scrollBehavior,
         title = {},
-        navigationIcon = {
-            IconButton(onClick = onNavigationClick) {
-                Icon(
-                    imageVector = Icons.Default.Menu,
-                    contentDescription = stringResource(R.string.open_tablist)
-                )
-            }
-        },
-        actions = {
-            IconButton(onClick = onAddClick) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(R.string.add_board)
-                )
-            }
-            IconButton(onClick = onSearchClick) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = stringResource(R.string.search)
-                )
-            }
-        },
+//        actions = {
+//            IconButton(onClick = onAddClick) {
+//                Icon(
+//                    imageVector = Icons.Default.Add,
+//                    contentDescription = stringResource(R.string.add_board)
+//                )
+//            }
+//            IconButton(onClick = onSearchClick) {
+//                Icon(
+//                    imageVector = Icons.Default.Search,
+//                    contentDescription = stringResource(R.string.search)
+//                )
+//            }
+//        },
         modifier = modifier
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Preview(showBackground = true)
 @Composable
 fun BookmarkTopBarPreview() {
     BookmarkTopBar(
