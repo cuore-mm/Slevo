@@ -43,11 +43,11 @@ fun BookmarkSelectBottomBar(
                     label = stringResource(R.string.edit),
                     onClick = onEdit
                 )
-                BottomBarItem(
-                    icon = Icons.Default.OpenInBrowser,
-                    label = "開く",
-                    onClick = onOpen
-                )
+//                BottomBarItem(
+//                    icon = Icons.Default.OpenInBrowser,
+//                    label = "開く",
+//                    onClick = onOpen
+//                )
             }
         }
     )
@@ -71,11 +71,11 @@ fun BbsSelectBottomBar(
                     label = "削除",
                     onClick = onDelete
                 )
-                BottomBarItem(
-                    icon = Icons.Default.OpenInBrowser,
-                    label = "開く",
-                    onClick = onOpen
-                )
+//                BottomBarItem(
+//                    icon = Icons.Default.OpenInBrowser,
+//                    label = "開く",
+//                    onClick = onOpen
+//                )
             }
         }
     )
