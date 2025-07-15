@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -177,6 +178,7 @@ fun BoardScaffold(
             }
 
             if (uiState.createDialog) {
+                val context = LocalContext.current
                 PostDialog(
                     onDismissRequest = { viewModel.hideCreateDialog() },
                     name = uiState.createFormState.name,
@@ -199,7 +201,9 @@ fun BoardScaffold(
                     },
                     confirmButtonText = stringResource(R.string.create_thread),
                     title = uiState.createFormState.title,
-                    onTitleChange = { viewModel.updateCreateTitle(it) }
+                    onTitleChange = { viewModel.updateCreateTitle(it) },
+                    showImageSelector = true,
+                    onImageSelect = { uri -> viewModel.uploadImage(context, uri) }
                 )
             }
 
