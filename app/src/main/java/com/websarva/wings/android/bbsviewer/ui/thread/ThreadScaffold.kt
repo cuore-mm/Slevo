@@ -10,9 +10,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.TopAppBarState
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -85,7 +83,7 @@ fun ThreadScaffold(
         updateScrollPosition = { tab, index, offset ->
             tabsViewModel.updateThreadScrollPosition(tab.key, tab.boardUrl, index, offset)
         },
-        scrollBehavior = scrollBehavior ,
+        scrollBehavior = scrollBehavior,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             Column {
                 ThreadTopBar(
@@ -113,9 +111,9 @@ fun ThreadScaffold(
             )
         },
         content = { viewModel, uiState, listState, modifier, navController ->
-            LaunchedEffect(uiState.threadInfo.title, uiState.posts?.size) {
+            LaunchedEffect(uiState.threadInfo) {
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
-                if (uiState.threadInfo.title.isNotEmpty() && uiState.posts != null) {
+                if (uiState.threadInfo.title.isNotEmpty() && uiState.posts != null && uiState.threadInfo.key.isNotEmpty()) {
                     tabsViewModel.updateThreadTabInfo(
                         key = uiState.threadInfo.key,
                         boardUrl = uiState.boardInfo.url,
