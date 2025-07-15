@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Tab
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -36,7 +37,7 @@ fun NavigationBottomBar(
         TopLevelRoute(
             route = AppRoute.Tabs,
             name = stringResource(R.string.tabs),
-            icon = Icons.Default.Menu,
+            icon = Icons.Default.Tab,
             parentRoute = AppRoute.Tabs
         ),
         TopLevelRoute(

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -57,7 +58,7 @@ fun ThreadBottomBar(
                 }
                 IconButton(onClick = onTabListClick) {
                     Icon(
-                        Icons.Default.Menu,
+                        Icons.Default.CropSquare,
                         contentDescription = stringResource(R.string.open_tablist)
                     )
                 }

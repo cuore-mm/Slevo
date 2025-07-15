@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
@@ -65,7 +66,7 @@ fun BoardBottomBar(
                 }
                 IconButton(onClick = onTabListClick) {
                     Icon(
-                        Icons.Default.Menu,
+                        Icons.Default.CropSquare,
                         contentDescription = stringResource(R.string.open_tablist)
                     )
                 }
