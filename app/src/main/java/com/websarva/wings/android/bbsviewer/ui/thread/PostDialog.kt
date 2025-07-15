@@ -1,5 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,8 +16,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,14 +36,12 @@ fun PostDialog(
     confirmButtonText: String,
     title: String? = null,
     onTitleChange: ((String) -> Unit)? = null,
-    showImageSelector: Boolean = false,
     onImageSelect: ((android.net.Uri) -> Unit)? = null,
 ) {
-    val launcher = if (showImageSelector) {
+    val launcher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             if (uri != null) onImageSelect?.invoke(uri)
         }
-    } else null
 
     Dialog(onDismissRequest = onDismissRequest) {
         // ダイアログの内容をCardで包むことで見た目を整える
@@ -93,16 +91,15 @@ fun PostDialog(
                         .padding(8.dp)
                 )
 
-                if (showImageSelector && launcher != null) {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        IconButton(onClick = { launcher.launch("image/*") }) {
-                            Icon(
-                                Icons.Filled.Image,
-                                contentDescription = stringResource(id = R.string.select_image)
-                            )
-                        }
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    IconButton(onClick = { launcher.launch("image/*") }) {
+                        Icon(
+                            Icons.Filled.Image,
+                            contentDescription = stringResource(id = R.string.select_image)
+                        )
                     }
                 }
+
                 Button(
                     onClick = { onPostClick() },
                     modifier = Modifier
@@ -128,8 +125,7 @@ fun PostDialogPreview() {
         onMailChange = { /* メール変更処理 */ },
         onMessageChange = { /* メッセージ変更処理 */ },
         onPostClick = { /* 投稿処理 */ },
-        confirmButtonText = "投稿",
-        showImageSelector = true,
+        confirmButtonText = "書き込み",
         onImageSelect = { }
     )
 }

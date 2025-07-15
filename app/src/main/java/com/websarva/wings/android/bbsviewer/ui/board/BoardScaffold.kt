@@ -202,7 +202,6 @@ fun BoardScaffold(
                     confirmButtonText = stringResource(R.string.create_thread),
                     title = uiState.createFormState.title,
                     onTitleChange = { viewModel.updateCreateTitle(it) },
-                    showImageSelector = true,
                     onImageSelect = { uri -> viewModel.uploadImage(context, uri) }
                 )
             }

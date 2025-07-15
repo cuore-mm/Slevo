@@ -159,7 +159,6 @@ fun ThreadScaffold(
                         }
                     },
                     confirmButtonText = stringResource(R.string.post),
-                    showImageSelector = true,
                     onImageSelect = { uri -> viewModel.uploadImage(context, uri) }
                 )
             }
