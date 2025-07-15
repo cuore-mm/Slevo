@@ -13,6 +13,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -54,18 +55,18 @@ fun PostDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                 ) {
-                    TextField(
+                    OutlinedTextField(
                         value = name,
                         onValueChange = { onNameChange(it) },
-                        label = { Text("name") },
+                        placeholder = { Text("name") },
                         modifier = Modifier
                             .weight(1f)
                             .padding(8.dp)
                     )
-                    TextField(
+                    OutlinedTextField(
                         value = mail,
                         onValueChange = { onMailChange(it) },
-                        label = { Text(stringResource(R.string.e_mail)) },
+                        placeholder = { Text(stringResource(R.string.e_mail)) },
                         modifier = Modifier
                             .weight(1f)
                             .padding(8.dp)
@@ -73,19 +74,19 @@ fun PostDialog(
                 }
 
                 if (title != null && onTitleChange != null) {
-                    TextField(
+                    OutlinedTextField(
                         value = title,
                         onValueChange = onTitleChange,
-                        label = { Text(stringResource(R.string.title)) },
+                        placeholder = { Text(stringResource(R.string.title)) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(8.dp)
                     )
                 }
-                TextField(
+                OutlinedTextField(
                     value = message,
                     onValueChange = { onMessageChange(it) },
-                    label = { Text(stringResource(R.string.post_message)) },
+                    placeholder = { Text(stringResource(R.string.post_message)) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(8.dp)
