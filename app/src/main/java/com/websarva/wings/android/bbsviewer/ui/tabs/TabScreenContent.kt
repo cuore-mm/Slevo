@@ -35,7 +35,7 @@ fun TabScreenContent(
     closeDrawer: () -> Unit
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
-    val isLoading by tabsViewModel.isTabsLoading.collectAsState()
+    val uiState by tabsViewModel.uiState.collectAsState()
 
     Scaffold(
         modifier = modifier,
@@ -48,7 +48,7 @@ fun TabScreenContent(
             }
         }
     ) { innerPadding ->
-        if (isLoading) {
+        if (uiState.isLoading) {
             Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }

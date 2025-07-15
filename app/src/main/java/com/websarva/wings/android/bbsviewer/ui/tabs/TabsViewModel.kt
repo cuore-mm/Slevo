@@ -14,6 +14,7 @@ import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkReposi
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
+import com.websarva.wings.android.bbsviewer.ui.tabs.TabsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,23 +40,22 @@ class TabsViewModel @Inject constructor(
 ) : ViewModel() {
     // 開いているスレッドタブ一覧と、各タブに紐づく ViewModel を保持
     private val _openThreadTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
-    val openThreadTabs: StateFlow<List<ThreadTabInfo>> = _openThreadTabs.asStateFlow()
 
     // リロード中状態
     private val _isThreadsRefreshing = MutableStateFlow(false)
-    val isThreadsRefreshing: StateFlow<Boolean> = _isThreadsRefreshing.asStateFlow()
 
     // 新着レス数マップ (key + boardUrl -> count)
     private val _newResCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
-    val newResCounts: StateFlow<Map<String, Int>> = _newResCounts.asStateFlow()
 
     // 開いている板タブ一覧
     private val _openBoardTabs = MutableStateFlow<List<BoardTabInfo>>(emptyList())
-    val openBoardTabs: StateFlow<List<BoardTabInfo>> = _openBoardTabs.asStateFlow()
 
     // 読み込み中状態
-    private val _isTabsLoading = MutableStateFlow(true)
-    val isTabsLoading: StateFlow<Boolean> = _isTabsLoading.asStateFlow()
+    private val _isLoading = MutableStateFlow(true)
+
+    // 画面用のUIステート
+    private val _uiState = MutableStateFlow(TabsUiState())
+    val uiState: StateFlow<TabsUiState> = _uiState.asStateFlow()
 
     private var boardLoaded = false
     private var threadLoaded = false
@@ -82,7 +82,7 @@ class TabsViewModel @Inject constructor(
                 _openBoardTabs.value = it
                 if (!boardLoaded) {
                     boardLoaded = true
-                    if (threadLoaded) _isTabsLoading.value = false
+                    if (threadLoaded) _isLoading.value = false
                 }
             }
         }
@@ -103,9 +103,27 @@ class TabsViewModel @Inject constructor(
                 _openThreadTabs.value = it
                 if (!threadLoaded) {
                     threadLoaded = true
-                    if (boardLoaded) _isTabsLoading.value = false
+                    if (boardLoaded) _isLoading.value = false
                 }
             }
+        }
+        // UIステートの結合
+        viewModelScope.launch {
+            combine(
+                _openThreadTabs,
+                _openBoardTabs,
+                _isLoading,
+                _isThreadsRefreshing,
+                _newResCounts
+            ) { threadTabs, boardTabs, loading, refreshing, counts ->
+                TabsUiState(
+                    openThreadTabs = threadTabs,
+                    openBoardTabs = boardTabs,
+                    isLoading = loading,
+                    isRefreshing = refreshing,
+                    newResCounts = counts
+                )
+            }.collect { _uiState.value = it }
         }
     }
 
