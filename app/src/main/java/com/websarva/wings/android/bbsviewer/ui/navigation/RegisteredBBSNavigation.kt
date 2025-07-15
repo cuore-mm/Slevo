@@ -231,6 +231,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                         bottom = parentPadding.calculateBottomPadding()
                     ),
                     boards = uiState.boards,
+                    isLoading = uiState.isLoading,
                     onBoardClick = { board ->
                         navController.navigate(
                             AppRoute.Board(

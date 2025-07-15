@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
@@ -25,6 +26,7 @@ import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 fun CategorisedBoardListScreen(
     modifier: Modifier = Modifier,
     boards:  List<BoardInfo>,
+    isLoading: Boolean,
     onBoardClick: (BoardInfo) -> Unit
 ) {
     // 2つずつのリストに変換。最後の要素が単数の場合は null 埋め。
@@ -32,36 +34,42 @@ fun CategorisedBoardListScreen(
         Pair(row.getOrNull(0), row.getOrNull(1))
     }
 
-    LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(8.dp),
-    ) {
-        itemsIndexed(rows) { index, (left, right) ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min) // 縦線をセルいっぱいに伸ばすため
+    Box(modifier = modifier) {
+        if (isLoading) {
+            CircularProgressIndicator(Modifier.align(Alignment.Center))
+        } else {
+            LazyColumn(
+                modifier = Modifier.matchParentSize(),
+                contentPadding = PaddingValues(8.dp),
             ) {
-                // 左セル
-                CategorisedBoardItem(
-                    board = left,
-                    modifier = Modifier.weight(1f),
-                    onClick = onBoardClick
-                )
+                itemsIndexed(rows) { index, (left, right) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min) // 縦線をセルいっぱいに伸ばすため
+                    ) {
+                        // 左セル
+                        CategorisedBoardItem(
+                            board = left,
+                            modifier = Modifier.weight(1f),
+                            onClick = onBoardClick
+                        )
 
-                // 真ん中の縦線
-                VerticalDivider()
+                        // 真ん中の縦線
+                        VerticalDivider()
 
-                // 右セル
-                CategorisedBoardItem(
-                    board = right,
-                    modifier = Modifier.weight(1f),
-                    onClick = onBoardClick
-                )
-            }
-            // 各行の下の横線
-            if (index < rows.lastIndex) {
-                HorizontalDivider()
+                        // 右セル
+                        CategorisedBoardItem(
+                            board = right,
+                            modifier = Modifier.weight(1f),
+                            onClick = onBoardClick
+                        )
+                    }
+                    // 各行の下の横線
+                    if (index < rows.lastIndex) {
+                        HorizontalDivider()
+                    }
+                }
             }
         }
     }
