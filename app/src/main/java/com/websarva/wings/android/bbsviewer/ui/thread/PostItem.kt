@@ -81,7 +81,7 @@ fun PostItem(
                 }
             }
             if (post.beRank.isNotBlank()) {
-                append(" ?${post.beRank}")
+                append(" ${post.beRank}")
             }
         }
 
