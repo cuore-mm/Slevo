@@ -84,6 +84,7 @@ dependencies {
 
     // Coil
     implementation(libs.coil3.coil.compose)
+    implementation(libs.coil3.coil.gif)
     implementation(libs.coil.network.okhttp)
 
     implementation(libs.androidx.lifecycle.viewmodel.compose)
