@@ -1,6 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -10,6 +11,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.SpanStyle
@@ -30,6 +34,8 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -49,12 +55,18 @@ fun PostItem(
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = { /* クリック処理が必要な場合はここに実装 */ })
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    ) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    Box {
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = { /* クリック処理が必要な場合はここに実装 */ },
+                    onLongClick = { menuExpanded = true }
+                )
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
         val idColor = idColor(idTotal)
         val headerText = buildAnnotatedString {
             append("${post.name} ${post.email} ${post.date}")
@@ -145,6 +157,26 @@ fun PostItem(
                     }
                 }
             }
+        }
+    }
+
+        DropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("$postNum") },
+                onClick = {},
+                enabled = false
+            )
+            DropdownMenuItem(
+                text = { Text("コピー") },
+                onClick = { menuExpanded = false }
+            )
+            DropdownMenuItem(
+                text = { Text("NG") },
+                onClick = { menuExpanded = false }
+            )
         }
     }
 }
