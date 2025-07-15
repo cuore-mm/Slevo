@@ -3,11 +3,14 @@ package com.websarva.wings.android.bbsviewer.ui.board
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.viewModelScope
+import android.content.Context
+import android.net.Uri
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.Groupable
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadCreateRepository
+import com.websarva.wings.android.bbsviewer.data.repository.ImageUploadRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
@@ -20,11 +23,13 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @RequiresApi(Build.VERSION_CODES.O)
 class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
     private val threadCreateRepository: ThreadCreateRepository,
+    private val imageUploadRepository: ImageUploadRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     @Assisted("viewModelKey") val viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
@@ -272,6 +277,23 @@ class BoardViewModel @AssistedInject constructor(
                             postConfirmation = result.confirmationData,
                             isConfirmationScreen = true
                         )
+                    }
+                }
+            }
+        }
+    }
+
+    fun uploadImage(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            val bytes = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            }
+            bytes?.let {
+                val url = imageUploadRepository.uploadImage(it)
+                if (url != null) {
+                    val msg = uiState.value.createFormState.message
+                    _uiState.update { current ->
+                        current.copy(createFormState = current.createFormState.copy(message = msg + "\n" + url))
                     }
                 }
             }

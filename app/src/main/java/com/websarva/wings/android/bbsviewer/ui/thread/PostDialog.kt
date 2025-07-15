@@ -1,5 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,9 +16,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -27,16 +26,22 @@ import com.websarva.wings.android.bbsviewer.R
 @Composable
 fun PostDialog(
     onDismissRequest: () -> Unit,
-    postFormState: PostFormState,
+    name: String,
+    mail: String,
+    message: String,
     onNameChange: (String) -> Unit,
     onMailChange: (String) -> Unit,
     onMessageChange: (String) -> Unit,
-    onImageSelect: (android.net.Uri) -> Unit,
-    onPostClick: () -> Unit
+    onPostClick: () -> Unit,
+    confirmButtonText: String,
+    title: String? = null,
+    onTitleChange: ((String) -> Unit)? = null,
+    onImageSelect: ((android.net.Uri) -> Unit)? = null,
 ) {
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) onImageSelect(uri)
-    }
+    val launcher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) onImageSelect?.invoke(uri)
+        }
 
     Dialog(onDismissRequest = onDismissRequest) {
         // ダイアログの内容をCardで包むことで見た目を整える
@@ -50,7 +55,7 @@ fun PostDialog(
                         .fillMaxWidth()
                 ) {
                     TextField(
-                        value = postFormState.name,
+                        value = name,
                         onValueChange = { onNameChange(it) },
                         label = { Text("name") },
                         modifier = Modifier
@@ -58,7 +63,7 @@ fun PostDialog(
                             .padding(8.dp)
                     )
                     TextField(
-                        value = postFormState.mail,
+                        value = mail,
                         onValueChange = { onMailChange(it) },
                         label = { Text(stringResource(R.string.e_mail)) },
                         modifier = Modifier
@@ -66,26 +71,42 @@ fun PostDialog(
                             .padding(8.dp)
                     )
                 }
+
+                if (title != null && onTitleChange != null) {
+                    TextField(
+                        value = title,
+                        onValueChange = onTitleChange,
+                        label = { Text(stringResource(R.string.title)) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                    )
+                }
                 TextField(
-                    value = postFormState.message,
+                    value = message,
                     onValueChange = { onMessageChange(it) },
                     label = { Text(stringResource(R.string.post_message)) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(8.dp)
                 )
+
                 Row(modifier = Modifier.fillMaxWidth()) {
                     IconButton(onClick = { launcher.launch("image/*") }) {
-                        Icon(Icons.Filled.Image, contentDescription = stringResource(id = R.string.select_image))
+                        Icon(
+                            Icons.Filled.Image,
+                            contentDescription = stringResource(id = R.string.select_image)
+                        )
                     }
                 }
+
                 Button(
                     onClick = { onPostClick() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(8.dp)
                 ) {
-                    Text(text = stringResource(R.string.post))
+                    Text(text = confirmButtonText)
                 }
             }
         }
@@ -97,11 +118,14 @@ fun PostDialog(
 fun PostDialogPreview() {
     PostDialog(
         onDismissRequest = { /* ダイアログを閉じる処理 */ },
-        postFormState = PostFormState(),
+        name = "",
+        mail = "",
+        message = "",
         onNameChange = { /* 名前変更処理 */ },
         onMailChange = { /* メール変更処理 */ },
         onMessageChange = { /* メッセージ変更処理 */ },
-        onImageSelect = { },
-        onPostClick = { /* 投稿処理 */ }
+        onPostClick = { /* 投稿処理 */ },
+        confirmButtonText = "書き込み",
+        onImageSelect = { }
     )
 }

@@ -16,9 +16,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
@@ -29,7 +32,7 @@ import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.parseServiceName
 import com.websarva.wings.android.bbsviewer.ui.util.parseBoardUrl
 import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar
-import com.websarva.wings.android.bbsviewer.ui.board.CreateThreadDialog
+import com.websarva.wings.android.bbsviewer.ui.thread.PostDialog
 import com.websarva.wings.android.bbsviewer.ui.thread.ResponseWebViewDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -175,14 +178,16 @@ fun BoardScaffold(
             }
 
             if (uiState.createDialog) {
-                CreateThreadDialog(
+                val context = LocalContext.current
+                PostDialog(
                     onDismissRequest = { viewModel.hideCreateDialog() },
-                    formState = uiState.createFormState,
+                    name = uiState.createFormState.name,
+                    mail = uiState.createFormState.mail,
+                    message = uiState.createFormState.message,
                     onNameChange = { viewModel.updateCreateName(it) },
                     onMailChange = { viewModel.updateCreateMail(it) },
-                    onTitleChange = { viewModel.updateCreateTitle(it) },
                     onMessageChange = { viewModel.updateCreateMessage(it) },
-                    onCreateClick = {
+                    onPostClick = {
                         parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                             viewModel.createThreadFirstPhase(
                                 host,
@@ -193,7 +198,11 @@ fun BoardScaffold(
                                 uiState.createFormState.message
                             )
                         }
-                    }
+                    },
+                    confirmButtonText = stringResource(R.string.create_thread),
+                    title = uiState.createFormState.title,
+                    onTitleChange = { viewModel.updateCreateTitle(it) },
+                    onImageSelect = { uri -> viewModel.uploadImage(context, uri) }
                 )
             }
 
