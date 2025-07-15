@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenBoardTabEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -17,4 +18,12 @@ interface OpenBoardTabDao {
 
     @Query("DELETE FROM open_board_tabs")
     suspend fun deleteAll()
+
+    @Transaction
+    suspend fun replaceAll(tabs: List<OpenBoardTabEntity>) {
+        deleteAll()
+        if (tabs.isNotEmpty()) {
+            insertAll(tabs)
+        }
+    }
 }

@@ -33,8 +33,7 @@ class TabsRepository @Inject constructor(
         }
 
     suspend fun saveOpenBoardTabs(tabs: List<BoardTabInfo>) = withContext(Dispatchers.IO) {
-        boardDao.deleteAll()
-        boardDao.insertAll(
+        boardDao.replaceAll(
             tabs.mapIndexed { index, info ->
                 OpenBoardTabEntity(
                     boardUrl = info.boardUrl,
@@ -66,8 +65,7 @@ class TabsRepository @Inject constructor(
         }
 
     suspend fun saveOpenThreadTabs(tabs: List<ThreadTabInfo>) = withContext(Dispatchers.IO) {
-        threadDao.deleteAll()
-        threadDao.insertAll(
+        threadDao.replaceAll(
             tabs.mapIndexed { index, info ->
                 OpenThreadTabEntity(
                     threadKey = info.key,
