@@ -88,7 +88,8 @@ fun PostDialog(
                     placeholder = { Text(stringResource(R.string.post_message)) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(8.dp)
+                        .padding(8.dp),
+                    minLines = 3,
                 )
 
                 Row(modifier = Modifier.fillMaxWidth()) {
