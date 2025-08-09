@@ -24,11 +24,12 @@ fun TabsPagerContent(
     modifier: Modifier = Modifier,
     tabsViewModel: TabsViewModel,
     navController: NavHostController,
-    closeDrawer: () -> Unit
+    closeDrawer: () -> Unit,
+    initialPage: Int = 0
 ) {
     val uiState by tabsViewModel.uiState.collectAsState()
 
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
+    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 2 })
     val scope = rememberCoroutineScope()
 
     Column(modifier = modifier) {

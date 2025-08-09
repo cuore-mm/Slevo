@@ -19,6 +19,7 @@ fun TabsBottomSheet(
     tabsViewModel: TabsViewModel,
     navController: NavHostController,
     onDismissRequest: () -> Unit,
+    initialPage: Int = 0,
 ) {
     ModalBottomSheet(
         modifier = modifier,
@@ -29,7 +30,8 @@ fun TabsBottomSheet(
             modifier = Modifier.fillMaxHeight(0.8f),
             tabsViewModel = tabsViewModel,
             navController = navController,
-            closeDrawer = onDismissRequest // ボトムシートを閉じる
+            closeDrawer = onDismissRequest, // ボトムシートを閉じる
+            initialPage = initialPage
         )
     }
 }
