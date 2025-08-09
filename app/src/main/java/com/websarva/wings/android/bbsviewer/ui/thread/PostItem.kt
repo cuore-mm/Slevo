@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.ClickableText
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,11 +26,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -63,6 +60,8 @@ fun PostItem(
     onReplyClick: ((Int) -> Unit)? = null
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    var idMenuExpanded by remember { mutableStateOf(false) }
+    val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
 
     Box {
         Column(
@@ -75,18 +74,6 @@ fun PostItem(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             val idColor = idColor(idTotal)
-            val headerText = buildAnnotatedString {
-                append("${post.name} ${post.email} ${post.date}")
-                if (post.id.isNotBlank()) {
-                    append(" ")
-                    withStyle(style = SpanStyle(color = idColor)) {
-                        append(if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id)
-                    }
-                }
-                if (post.beRank.isNotBlank()) {
-                    append(" ${post.beRank}")
-                }
-            }
 
             Row {
                 val replyCount = replyFromNumbers.size
@@ -107,10 +94,33 @@ fun PostItem(
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     modifier = Modifier.alignByBaseline(),
-                    text = headerText,
+                    text = "${post.name} ${post.email} ${post.date}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (post.id.isNotBlank()) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        modifier = Modifier
+                            .alignByBaseline()
+                            .combinedClickable(
+                                onClick = {},
+                                onLongClick = { idMenuExpanded = true }
+                            ),
+                        text = idText,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = idColor
+                    )
+                }
+                if (post.beRank.isNotBlank()) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        modifier = Modifier.alignByBaseline(),
+                        text = post.beRank,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             val uriHandler = LocalUriHandler.current
@@ -197,6 +207,18 @@ fun PostItem(
                 onCopyClick = { menuExpanded = false },
                 onNgClick = { menuExpanded = false },
                 onDismiss = { menuExpanded = false }
+            )
+        }
+        if (idMenuExpanded) {
+            val clipboardManager = LocalClipboardManager.current
+            IdMenuDialog(
+                idText = idText,
+                onCopyClick = {
+                    clipboardManager.setText(AnnotatedString(post.id))
+                    idMenuExpanded = false
+                },
+                onNgClick = { idMenuExpanded = false },
+                onDismiss = { idMenuExpanded = false }
             )
         }
     }
