@@ -1,6 +1,5 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -36,7 +35,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
@@ -194,31 +192,12 @@ fun PostItem(
         }
 
         if (menuExpanded) {
-            Dialog(onDismissRequest = { menuExpanded = false }) {
-                Card(shape = MaterialTheme.shapes.medium) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "$postNum",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Button(
-                            onClick = { menuExpanded = false },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("コピー")
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Button(
-                            onClick = { menuExpanded = false },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("NG")
-                        }
-                    }
-                }
-            }
+            PostMenuDialog(
+                postNum = postNum,
+                onCopyClick = { menuExpanded = false },
+                onNgClick = { menuExpanded = false },
+                onDismiss = { menuExpanded = false }
+            )
         }
     }
 }
