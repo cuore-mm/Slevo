@@ -16,6 +16,10 @@ class ThreadHistoryRepository @Inject constructor(
     fun observeHistories(): Flow<List<ThreadHistoryDao.HistoryWithLastAccess>> =
         dao.observeHistories()
 
+    suspend fun getHistoryMap(boardUrl: String): Map<String, Int> {
+        return dao.findByBoard(boardUrl).associate { it.threadKey to it.resCount }
+    }
+
     suspend fun recordHistory(
         boardInfo: BoardInfo,
         threadInfo: ThreadInfo,

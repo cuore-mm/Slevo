@@ -16,6 +16,11 @@ interface ThreadHistoryDao {
         @Embedded val history: ThreadHistoryEntity,
         val lastAccess: Long?
     )
+    data class HistorySimple(
+        val threadKey: String,
+        val resCount: Int,
+    )
+
 
     @Transaction
     @Query(
@@ -27,6 +32,9 @@ interface ThreadHistoryDao {
 
     @Query("SELECT * FROM thread_histories WHERE threadKey = :threadKey AND boardUrl = :boardUrl LIMIT 1")
     suspend fun find(threadKey: String, boardUrl: String): ThreadHistoryEntity?
+    @Query("SELECT threadKey, resCount FROM thread_histories WHERE boardUrl = :boardUrl")
+    suspend fun findByBoard(boardUrl: String): List<HistorySimple>
+
 
     @Insert
     suspend fun insert(history: ThreadHistoryEntity): Long
