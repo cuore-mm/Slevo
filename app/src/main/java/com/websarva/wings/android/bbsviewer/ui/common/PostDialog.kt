@@ -5,6 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -49,6 +50,7 @@ fun PostDialog(
         // ダイアログの内容をCardで包むことで見た目を整える
         Card(
             shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.imePadding()
         ) {
             Column {
                 // 画像ボタンより上をスクロール可能にする
