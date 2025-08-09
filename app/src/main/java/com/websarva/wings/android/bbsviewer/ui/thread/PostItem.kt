@@ -6,6 +6,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -92,34 +93,33 @@ fun PostItem(
                     color = postNumColor
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(
+                FlowRow(
                     modifier = Modifier.alignByBaseline(),
-                    text = "${post.name} ${post.email} ${post.date}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (post.id.isNotBlank()) {
-                    Spacer(modifier = Modifier.width(4.dp))
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Text(
-                        modifier = Modifier
-                            .alignByBaseline()
-                            .combinedClickable(
-                                onClick = {},
-                                onLongClick = { idMenuExpanded = true }
-                            ),
-                        text = idText,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = idColor
-                    )
-                }
-                if (post.beRank.isNotBlank()) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        modifier = Modifier.alignByBaseline(),
-                        text = post.beRank,
+                        text = "${post.name} ${post.email} ${post.date}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (post.id.isNotBlank()) {
+                        Text(
+                            modifier = Modifier.combinedClickable(
+                                onClick = {},
+                                onLongClick = { idMenuExpanded = true }
+                            ),
+                            text = idText,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = idColor
+                        )
+                    }
+                    if (post.beRank.isNotBlank()) {
+                        Text(
+                            text = post.beRank,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
