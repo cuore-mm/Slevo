@@ -83,6 +83,7 @@ fun ThreadCard(
     ) {
         Text(
             text = threadInfo.title,
+            color = if (threadInfo.isVisited) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
         )
         Spacer(modifier = Modifier.padding(4.dp))
         Row {
@@ -91,6 +92,14 @@ fun ThreadCard(
                 style = MaterialTheme.typography.labelMedium
             )
             Spacer(modifier = Modifier.weight(1f))
+            if (threadInfo.newResCount > 0) {
+                Text(
+                    text = threadInfo.newResCount.toString(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
             Text(
                 text = momentumFormatter.format(threadInfo.momentum),
                 style = MaterialTheme.typography.labelMedium,
@@ -115,7 +124,9 @@ fun ThreadCardPreview() {
             key = "key",
             resCount = 10,
             date = ThreadDate(2023, 1, 1, 1, 1, "月"),
-            momentum = 1235.4
+            momentum = 1235.4,
+            isVisited = true,
+            newResCount = 3,
         ),
         onClick = {}
     )

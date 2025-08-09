@@ -11,6 +11,7 @@ import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadCreateRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ImageUploadRepository
+import com.websarva.wings.android.bbsviewer.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
@@ -30,6 +31,7 @@ class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
     private val threadCreateRepository: ThreadCreateRepository,
     private val imageUploadRepository: ImageUploadRepository,
+    private val historyRepository: ThreadHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     @Assisted("viewModelKey") val viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
@@ -67,7 +69,17 @@ class BoardViewModel @AssistedInject constructor(
             val threads =
                 repository.getThreadList("$normalizedUrl/subject.txt", forceRefresh = isRefresh)
             if (threads != null) {
-                originalThreads = threads
+                val historyMap = historyRepository.getHistoryMap(boardUrl)
+                val merged = threads.map { thread ->
+                    val oldRes = historyMap[thread.key]
+                    if (oldRes != null) {
+                        val diff = (thread.resCount - oldRes).coerceAtLeast(0)
+                        thread.copy(isVisited = true, newResCount = diff)
+                    } else {
+                        thread
+                    }
+                }
+                originalThreads = merged
                 applyFiltersAndSort()
             }
         } catch (e: Exception) {
