@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.Button
@@ -48,50 +50,59 @@ fun PostDialog(
         Card(
             shape = MaterialTheme.shapes.medium,
         ) {
-            Column(
-            ) {
-                Row(
+            Column {
+                // 画像ボタンより上をスクロール可能にする
+                val scrollState = rememberScrollState()
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .verticalScroll(scrollState)
                 ) {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { onNameChange(it) },
-                        placeholder = { Text("name") },
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(8.dp)
-                    )
-                    OutlinedTextField(
-                        value = mail,
-                        onValueChange = { onMailChange(it) },
-                        placeholder = { Text(stringResource(R.string.e_mail)) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(8.dp)
-                    )
-                }
-
-                if (title != null && onTitleChange != null) {
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = onTitleChange,
-                        placeholder = { Text(stringResource(R.string.title)) },
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = { onNameChange(it) },
+                            placeholder = { Text("name") },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(8.dp)
+                        )
+                        OutlinedTextField(
+                            value = mail,
+                            onValueChange = { onMailChange(it) },
+                            placeholder = { Text(stringResource(R.string.e_mail)) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(8.dp)
+                        )
+                    }
+
+                    if (title != null && onTitleChange != null) {
+                        OutlinedTextField(
+                            value = title,
+                            onValueChange = onTitleChange,
+                            placeholder = { Text(stringResource(R.string.title)) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)
+                        )
+                    }
+                    OutlinedTextField(
+                        value = message,
+                        onValueChange = { onMessageChange(it) },
+                        placeholder = { Text(stringResource(R.string.post_message)) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        minLines = 3,
                     )
                 }
-                OutlinedTextField(
-                    value = message,
-                    onValueChange = { onMessageChange(it) },
-                    placeholder = { Text(stringResource(R.string.post_message)) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    minLines = 3,
-                )
 
+                // 非スクロール領域（常に表示）
                 Row(modifier = Modifier.fillMaxWidth()) {
                     IconButton(onClick = { launcher.launch("image/*") }) {
                         Icon(
