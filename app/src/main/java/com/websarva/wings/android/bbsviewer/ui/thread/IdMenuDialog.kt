@@ -56,7 +56,7 @@ fun IdMenuDialog(
 @Composable
 fun IdMenuDialogPreview() {
     IdMenuDialog(
-        idText = "ID:abcd",
+        idText = "abcd",
         onCopyClick = {},
         onNgClick = {},
         onDismiss = {}

@@ -212,7 +212,7 @@ fun PostItem(
         if (idMenuExpanded) {
             val clipboardManager = LocalClipboardManager.current
             IdMenuDialog(
-                idText = idText,
+                idText = post.id,
                 onCopyClick = {
                     clipboardManager.setText(AnnotatedString(post.id))
                     idMenuExpanded = false
