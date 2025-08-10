@@ -112,6 +112,8 @@ fun PostDialog(
                     if (imageUrls.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(8.dp))
                         ImageThumbnailGrid(
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp),
                             imageUrls = imageUrls,
                             onImageClick = { url -> onImageUrlClick?.invoke(url) }
                         )
