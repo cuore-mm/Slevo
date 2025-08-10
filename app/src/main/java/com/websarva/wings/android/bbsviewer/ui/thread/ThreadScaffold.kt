@@ -28,6 +28,8 @@ import com.websarva.wings.android.bbsviewer.ui.navigation.RouteScaffold
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.bbsviewer.ui.util.parseBoardUrl
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.websarva.wings.android.bbsviewer.ui.thread.NgIdViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -40,6 +42,8 @@ fun ThreadScaffold(
     topBarState: TopAppBarState,
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
+    val ngViewModel: NgIdViewModel = hiltViewModel()
+    val boardList by ngViewModel.boards.collectAsState()
 
     LaunchedEffect(threadRoute) {
         val info = tabsViewModel.resolveBoardInfo(
@@ -130,6 +134,8 @@ fun ThreadScaffold(
             ThreadScreen(
                 modifier = modifier,
                 posts = uiState.posts ?: emptyList(),
+                boardName = uiState.boardInfo.name,
+                boardList = boardList,
                 listState = listState,
                 navController = navController,
                 isRefreshing = uiState.isLoading,

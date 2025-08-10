@@ -110,6 +110,9 @@ class BookmarkBoardRepository @Inject constructor(
         return boardDao.getBoardWithBookmarkAndGroupByUrlFlow(boardUrl)
     }
 
+    fun observeAllBoards(): Flow<List<BoardEntity>> =
+        boardEntityDao.getAllBoards()
+
     suspend fun findBoardByUrl(boardUrl: String): BoardEntity? =
         boardDao.findBoardByUrl(boardUrl)
 }

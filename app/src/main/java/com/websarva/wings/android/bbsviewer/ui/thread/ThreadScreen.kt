@@ -41,12 +41,15 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.draw.rotate
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
 
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun ThreadScreen(
     modifier: Modifier = Modifier,
     posts: List<ReplyInfo>,
+    boardName: String,
+    boardList: List<BoardEntity>,
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
     isRefreshing: Boolean = false,
@@ -135,6 +138,8 @@ fun ThreadScreen(
                         idIndex = idIndexList[index],
                         idTotal = if (post.id.isBlank()) 1 else idCountMap[post.id] ?: 1,
                         navController = navController,
+                        boardName = boardName,
+                        boardList = boardList,
                         replyFromNumbers = replySourceMap[index + 1] ?: emptyList(),
                         onReplyFromClick = { nums ->
                             val offset = if (popupStack.isEmpty()) {
@@ -190,6 +195,8 @@ fun ThreadScreen(
             idCountMap = idCountMap,
             idIndexList = idIndexList,
             navController = navController,
+            boardName = boardName,
+            boardList = boardList,
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeLast() }
         )
 
@@ -218,6 +225,7 @@ fun ThreadScreen(
 }
 
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+
 @Preview(showBackground = true)
 @Composable
 fun ThreadScreenPreview() {
@@ -231,16 +239,18 @@ fun ThreadScreenPreview() {
                 beLoginId = "12345",
                 beRank = "DIA(20000)",
                 beIconUrl = "http://img.2ch.net/ico/hikky2.gif",
-                content = "これはテスト投稿です。"
+                content = "これはテスト投稿です。",
             ),
             ReplyInfo(
                 name = "名無しさん",
                 email = "sage",
                 date = "2025/07/09(水) 19:41:00.123",
                 id = "test2",
-                content = "別のテスト投稿です。"
+                content = "別のテスト投稿です。",
             )
         ),
+        boardName = "板1",
+        boardList = listOf(BoardEntity(1, 1, "https://example.com/board1", "板1")),
         navController = NavHostController(LocalContext.current),
         isRefreshing = false,
         onBottomRefresh = {}

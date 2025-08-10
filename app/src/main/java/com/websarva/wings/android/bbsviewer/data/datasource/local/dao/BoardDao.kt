@@ -28,6 +28,9 @@ interface BoardDao {
     @Query("SELECT * FROM boards WHERE serviceId = :serviceId")
     fun getBoardsForService(serviceId: Long): Flow<List<BoardEntity>>
 
+    @Query("SELECT * FROM boards")
+    fun getAllBoards(): Flow<List<BoardEntity>>
+
     @Transaction
     @Query("SELECT * FROM boards WHERE boardId = :boardId")
     fun getBoardWithCategories(boardId: Long): Flow<BoardWithCategories>

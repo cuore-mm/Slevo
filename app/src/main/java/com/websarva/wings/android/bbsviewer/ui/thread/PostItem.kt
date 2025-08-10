@@ -35,6 +35,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.theme.idColor
 import com.websarva.wings.android.bbsviewer.ui.theme.imageUrlColor
@@ -56,6 +57,8 @@ fun PostItem(
     idIndex: Int,
     idTotal: Int,
     navController: NavHostController,
+    boardName: String,
+    boardList: List<BoardEntity>,
     replyFromNumbers: List<Int> = emptyList(),
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null
@@ -228,6 +231,8 @@ fun PostItem(
         if (ngDialogExpanded) {
             NgIdDialog(
                 idText = post.id,
+                boardText = boardName,
+                boards = boardList,
                 onConfirm = { _, _, _ -> ngDialogExpanded = false },
                 onDismiss = { ngDialogExpanded = false }
             )
@@ -253,5 +258,7 @@ fun ReplyCardPreview() {
         idIndex = 1,
         idTotal = 1,
         navController = NavHostController(LocalContext.current),
+        boardName = "板1",
+        boardList = listOf(BoardEntity(1, 1, "https://example.com/board1", "板1")),
     )
 }

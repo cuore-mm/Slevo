@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
 
 data class PopupInfo(
     val posts: List<ReplyInfo>,
@@ -29,10 +30,12 @@ data class PopupInfo(
 fun ReplyPopup(
     popupStack: SnapshotStateList<PopupInfo>,
     posts: List<ReplyInfo>,
-    replySourceMap: Map<Int, List<Int>>, 
+    replySourceMap: Map<Int, List<Int>>,
     idCountMap: Map<String, Int>,
     idIndexList: List<Int>,
     navController: NavHostController,
+    boardName: String,
+    boardList: List<BoardEntity>,
     onClose: () -> Unit
 ) {
     popupStack.forEachIndexed { index, info ->
@@ -73,6 +76,8 @@ fun ReplyPopup(
                             idIndex = idIndexList[posts.indexOf(p)],
                             idTotal = if (p.id.isBlank()) 1 else idCountMap[p.id] ?: 1,
                         navController = navController,
+                        boardName = boardName,
+                        boardList = boardList,
                         replyFromNumbers = replySourceMap[posts.indexOf(p) + 1] ?: emptyList(),
                         onReplyFromClick = { nums ->
                             val off = IntOffset(
