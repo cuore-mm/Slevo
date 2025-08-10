@@ -130,8 +130,15 @@ fun PostDialog(
                     }
                 }
 
+                val isPostButtonEnabled = if (title != null && onTitleChange != null) {
+                    title.isNotBlank() && message.isNotBlank()
+                } else {
+                    message.isNotBlank()
+                }
+
                 Button(
                     onClick = { onPostClick() },
+                    enabled = isPostButtonEnabled,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(8.dp)
