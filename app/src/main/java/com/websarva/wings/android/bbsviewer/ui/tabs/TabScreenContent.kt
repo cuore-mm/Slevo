@@ -33,7 +33,8 @@ fun TabScreenContent(
     tabsViewModel: TabsViewModel,
     navController: NavHostController,
     closeDrawer: () -> Unit,
-    initialPage: Int = 0
+    initialPage: Int = 0,
+    onPageChanged: (Int) -> Unit = {}
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
     val uiState by tabsViewModel.uiState.collectAsState()
@@ -59,7 +60,8 @@ fun TabScreenContent(
                 tabsViewModel = tabsViewModel,
                 navController = navController,
                 closeDrawer = closeDrawer,
-                initialPage = initialPage
+                initialPage = initialPage,
+                onPageChanged = onPageChanged
             )
         }
 

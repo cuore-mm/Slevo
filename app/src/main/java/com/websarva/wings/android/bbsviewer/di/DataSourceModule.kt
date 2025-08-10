@@ -3,9 +3,11 @@ package com.websarva.wings.android.bbsviewer.di
 import com.websarva.wings.android.bbsviewer.data.datasource.local.BbsLocalDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.CookieLocalDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.SettingsLocalDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.local.TabsLocalDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.BbsLocalDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.CookieLocalDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.SettingsLocalDataSourceImpl
+import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.TabsLocalDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BbsMenuDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BoardRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.DatRemoteDataSource
@@ -93,5 +95,12 @@ abstract class DataSourceModule {
     abstract fun bindCookieLocalDataSource(
         impl: CookieLocalDataSourceImpl
     ): CookieLocalDataSource
+
+    /** タブ状態保存用 */
+    @Binds
+    @Singleton
+    abstract fun bindTabsLocalDataSource(
+        impl: TabsLocalDataSourceImpl
+    ): TabsLocalDataSource
 }
 
