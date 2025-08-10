@@ -6,9 +6,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -29,6 +30,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -75,28 +77,34 @@ fun PostDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .padding(8.dp),
                     ) {
                         val focusManager = LocalFocusManager.current
                         OutlinedTextField(
                             value = name,
                             onValueChange = { onNameChange(it) },
-                            placeholder = { Text(namePlaceholder) },
+                            placeholder = {
+                                Text(
+                                    text = namePlaceholder,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
                             modifier = Modifier
-                                .weight(1f)
-                                .padding(8.dp),
+                                .weight(1f),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(
                                 onNext = { focusManager.moveFocus(FocusDirection.Next) }
                             )
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
                         OutlinedTextField(
                             value = mail,
                             onValueChange = { onMailChange(it) },
                             placeholder = { Text(stringResource(R.string.e_mail)) },
                             modifier = Modifier
-                                .weight(1f)
-                                .padding(8.dp),
+                                .weight(1f),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(
@@ -175,7 +183,7 @@ fun PostDialogPreview() {
         name = "",
         mail = "",
         message = "",
-        namePlaceholder = "name",
+        namePlaceholder = "それでも動く名無し",
         onNameChange = { /* 名前変更処理 */ },
         onMailChange = { /* メール変更処理 */ },
         onMessageChange = { /* メッセージ変更処理 */ },
