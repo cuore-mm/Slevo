@@ -132,6 +132,7 @@ fun ThreadScaffold(
                 posts = uiState.posts ?: emptyList(),
                 listState = listState,
                 navController = navController,
+                boardName = uiState.boardInfo.name,
                 isRefreshing = uiState.isLoading,
                 onBottomRefresh = { viewModel.reloadThread() }
             )

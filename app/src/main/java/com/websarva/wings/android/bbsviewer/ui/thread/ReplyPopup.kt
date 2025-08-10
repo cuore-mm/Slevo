@@ -29,10 +29,11 @@ data class PopupInfo(
 fun ReplyPopup(
     popupStack: SnapshotStateList<PopupInfo>,
     posts: List<ReplyInfo>,
-    replySourceMap: Map<Int, List<Int>>, 
+    replySourceMap: Map<Int, List<Int>>,
     idCountMap: Map<String, Int>,
     idIndexList: List<Int>,
     navController: NavHostController,
+    boardName: String,
     onClose: () -> Unit
 ) {
     popupStack.forEachIndexed { index, info ->
@@ -73,6 +74,7 @@ fun ReplyPopup(
                             idIndex = idIndexList[posts.indexOf(p)],
                             idTotal = if (p.id.isBlank()) 1 else idCountMap[p.id] ?: 1,
                         navController = navController,
+                        boardName = boardName,
                         replyFromNumbers = replySourceMap[posts.indexOf(p) + 1] ?: emptyList(),
                         onReplyFromClick = { nums ->
                             val off = IntOffset(

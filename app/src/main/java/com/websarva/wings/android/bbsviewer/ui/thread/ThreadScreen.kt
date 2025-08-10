@@ -49,6 +49,7 @@ fun ThreadScreen(
     posts: List<ReplyInfo>,
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
+    boardName: String,
     isRefreshing: Boolean = false,
     onBottomRefresh: () -> Unit = {},
 ) {
@@ -135,6 +136,7 @@ fun ThreadScreen(
                         idIndex = idIndexList[index],
                         idTotal = if (post.id.isBlank()) 1 else idCountMap[post.id] ?: 1,
                         navController = navController,
+                        boardName = boardName,
                         replyFromNumbers = replySourceMap[index + 1] ?: emptyList(),
                         onReplyFromClick = { nums ->
                             val offset = if (popupStack.isEmpty()) {
@@ -190,6 +192,7 @@ fun ThreadScreen(
             idCountMap = idCountMap,
             idIndexList = idIndexList,
             navController = navController,
+            boardName = boardName,
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeLast() }
         )
 
@@ -242,6 +245,7 @@ fun ThreadScreenPreview() {
             )
         ),
         navController = NavHostController(LocalContext.current),
+        boardName = "board",
         isRefreshing = false,
         onBottomRefresh = {}
     )
