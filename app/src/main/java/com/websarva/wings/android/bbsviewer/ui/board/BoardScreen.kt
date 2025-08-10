@@ -2,7 +2,6 @@ package com.websarva.wings.android.bbsviewer.ui.board
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,10 +19,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.data.model.ThreadDate
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
@@ -83,10 +82,13 @@ fun ThreadCard(
     ) {
         Text(
             text = threadInfo.title,
-            color = if (threadInfo.isVisited) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            color = if (threadInfo.isVisited)
+                MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
         )
         Spacer(modifier = Modifier.padding(4.dp))
-        Row {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
                 text = threadInfo.date.run { "$year/$month/$day $hour:%02d".format(minute) },
                 style = MaterialTheme.typography.labelMedium
@@ -94,7 +96,7 @@ fun ThreadCard(
             Spacer(modifier = Modifier.weight(1f))
             if (threadInfo.newResCount > 0) {
                 Text(
-                    text = threadInfo.newResCount.toString(),
+                    text = "+${threadInfo.newResCount}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
