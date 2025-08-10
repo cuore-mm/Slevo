@@ -91,6 +91,11 @@ class TabsViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            repository.observeLastTabPage().collect { page ->
+                _uiState.update { current -> current.copy(lastTabPage = page) }
+            }
+        }
     }
 
     /**
@@ -159,6 +164,10 @@ class TabsViewModel @Inject constructor(
             state.copy(openBoardTabs = updated)
         }
         viewModelScope.launch { repository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
+    }
+
+    fun setLastTabPage(page: Int) {
+        viewModelScope.launch { repository.setLastTabPage(page) }
     }
 
     suspend fun resolveBoardInfo(boardId: Long, boardUrl: String, boardName: String): BoardInfo {

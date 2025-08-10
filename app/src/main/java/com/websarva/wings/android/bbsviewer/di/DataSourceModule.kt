@@ -3,9 +3,11 @@ package com.websarva.wings.android.bbsviewer.di
 import com.websarva.wings.android.bbsviewer.data.datasource.local.BbsLocalDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.CookieLocalDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.SettingsLocalDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.local.TabsPreferenceLocalDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.BbsLocalDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.CookieLocalDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.SettingsLocalDataSourceImpl
+import com.websarva.wings.android.bbsviewer.data.datasource.local.impl.TabsPreferenceLocalDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BbsMenuDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BoardRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.DatRemoteDataSource
@@ -51,6 +53,13 @@ abstract class DataSourceModule {
     abstract fun bindSettingsLocalDataSource(
         impl: SettingsLocalDataSourceImpl
     ): SettingsLocalDataSource
+
+    /** タブ表示ページ保存用 */
+    @Binds
+    @Singleton
+    abstract fun bindTabsPreferenceLocalDataSource(
+        impl: TabsPreferenceLocalDataSourceImpl
+    ): TabsPreferenceLocalDataSource
 
     /** スレッド一覧取得用 */
     @Binds

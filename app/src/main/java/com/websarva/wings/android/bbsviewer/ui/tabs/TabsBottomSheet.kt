@@ -31,7 +31,8 @@ fun TabsBottomSheet(
             tabsViewModel = tabsViewModel,
             navController = navController,
             closeDrawer = onDismissRequest, // ボトムシートを閉じる
-            initialPage = initialPage
+            initialPage = initialPage,
+            saveCurrentPage = false
         )
     }
 }

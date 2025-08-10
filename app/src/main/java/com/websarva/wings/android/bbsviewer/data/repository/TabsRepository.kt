@@ -1,6 +1,7 @@
 package com.websarva.wings.android.bbsviewer.data.repository
 
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenBoardTabDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.TabsPreferenceLocalDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenThreadTabDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenBoardTabEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenThreadTabEntity
@@ -16,7 +17,8 @@ import javax.inject.Singleton
 @Singleton
 class TabsRepository @Inject constructor(
     private val boardDao: OpenBoardTabDao,
-    private val threadDao: OpenThreadTabDao
+    private val threadDao: OpenThreadTabDao,
+    private val tabsPrefs: TabsPreferenceLocalDataSource
 ) {
     fun observeOpenBoardTabs(): Flow<List<BoardTabInfo>> =
         boardDao.observeOpenBoardTabs().map { list ->
@@ -83,4 +85,8 @@ class TabsRepository @Inject constructor(
             }
         )
     }
+
+    fun observeLastTabPage(): Flow<Int> = tabsPrefs.observeLastTabPage()
+
+    suspend fun setLastTabPage(page: Int) = tabsPrefs.setLastTabPage(page)
 }
