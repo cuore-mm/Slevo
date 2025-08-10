@@ -97,7 +97,11 @@ fun NgIdDialog(
     }
 
     if (showBoardDialog) {
+        val viewModel: NgIdViewModel = hiltViewModel()
+        val boards by viewModel.boards.collectAsState()
+
         BoardListDialog(
+            boards = boards,
             onDismiss = { showBoardDialog = false },
             onSelect = { info ->
                 board = info.name
@@ -109,12 +113,10 @@ fun NgIdDialog(
 
 @Composable
 fun BoardListDialog(
+    boards: List<BoardInfo>,
     onDismiss: () -> Unit,
     onSelect: (BoardInfo) -> Unit,
 ) {
-    val viewModel: NgIdViewModel = hiltViewModel()
-    val boards by viewModel.boards.collectAsState()
-
     Dialog(onDismissRequest = onDismiss) {
         Card(shape = MaterialTheme.shapes.medium) {
             LazyColumn {
@@ -137,5 +139,18 @@ fun NgIdDialogPreview() {
         idText = "abcd",
         onConfirm = { _, _, _ -> },
         onDismiss = {}
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BoardListDialogPreview() {
+    BoardListDialog(
+        boards = listOf(
+            BoardInfo(1L, "board1", "https://example.com/board1"),
+            BoardInfo(2L, "board2", "https://example.com/board2"),
+        ),
+        onDismiss = {},
+        onSelect = {},
     )
 }
