@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -38,6 +39,17 @@ fun BoardScreen(
     onRefresh: () -> Unit,
     listState: LazyListState = rememberLazyListState()
 ) {
+    val (momentumMean, momentumStd) = remember(threads) {
+        val values = threads.map { it.momentum }
+        val mean = values.average()
+        val std = if (values.size > 1) {
+            kotlin.math.sqrt(values.sumOf { (it - mean) * (it - mean) } / values.size)
+        } else {
+            0.0
+        }
+        mean to std
+    }
+
     PullToRefreshBox(
         modifier = modifier,
         isRefreshing = isRefreshing,
@@ -58,7 +70,9 @@ fun BoardScreen(
             itemsIndexed(threads) { index, thread ->
                 ThreadCard(
                     threadInfo = thread,
-                    onClick = onClick
+                    onClick = onClick,
+                    momentumMean = momentumMean,
+                    momentumStd = momentumStd
                 )
                 // 各アイテムの下に区切り線を表示
                 HorizontalDivider()
@@ -70,9 +84,22 @@ fun BoardScreen(
 @Composable
 fun ThreadCard(
     threadInfo: ThreadInfo,
-    onClick: (ThreadInfo) -> Unit
+    onClick: (ThreadInfo) -> Unit,
+    momentumMean: Double,
+    momentumStd: Double,
 ) {
     val momentumFormatter = remember { DecimalFormat("0.0") }
+    val intensity = if (momentumStd > 0) {
+        ((threadInfo.momentum - momentumMean) / momentumStd).toFloat()
+    } else {
+        0f
+    }
+    val colorFraction = intensity.coerceAtLeast(0f).coerceAtMost(3f) / 3f
+    val momentumColor = lerp(
+        MaterialTheme.colorScheme.onSurface,
+        MaterialTheme.colorScheme.error,
+        colorFraction
+    )
 
     Column(
         modifier = Modifier
@@ -105,7 +132,7 @@ fun ThreadCard(
             Text(
                 text = momentumFormatter.format(threadInfo.momentum),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.secondary,
+                color = momentumColor,
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
@@ -130,7 +157,9 @@ fun ThreadCardPreview() {
             isVisited = true,
             newResCount = 3,
         ),
-        onClick = {}
+        onClick = {},
+        momentumMean = 1000.0,
+        momentumStd = 100.0,
     )
 }
 
