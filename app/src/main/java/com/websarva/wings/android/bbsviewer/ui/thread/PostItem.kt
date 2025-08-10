@@ -62,6 +62,7 @@ fun PostItem(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     var idMenuExpanded by remember { mutableStateOf(false) }
+    var ngDialogExpanded by remember { mutableStateOf(false) }
     val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
 
     Box {
@@ -217,8 +218,18 @@ fun PostItem(
                     clipboardManager.setText(AnnotatedString(post.id))
                     idMenuExpanded = false
                 },
-                onNgClick = { idMenuExpanded = false },
+                onNgClick = {
+                    idMenuExpanded = false
+                    ngDialogExpanded = true
+                },
                 onDismiss = { idMenuExpanded = false }
+            )
+        }
+        if (ngDialogExpanded) {
+            NgIdDialog(
+                idText = post.id,
+                onConfirm = { _, _, _ -> ngDialogExpanded = false },
+                onDismiss = { ngDialogExpanded = false }
             )
         }
     }
