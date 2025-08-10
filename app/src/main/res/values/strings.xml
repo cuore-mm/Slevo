@@ -51,4 +51,5 @@
     <string name="no_history">履歴がありません</string>
     <string name="copy">コピー</string>
     <string name="ng_registration">NG登録</string>
+    <string name="name">name</string>
 </resources>

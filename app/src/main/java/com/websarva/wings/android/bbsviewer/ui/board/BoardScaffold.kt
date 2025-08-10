@@ -183,6 +183,7 @@ fun BoardScaffold(
                     name = uiState.createFormState.name,
                     mail = uiState.createFormState.mail,
                     message = uiState.createFormState.message,
+                    namePlaceholder = uiState.boardInfo.noname.ifBlank { stringResource(R.string.name) },
                     onNameChange = { viewModel.updateCreateName(it) },
                     onMailChange = { viewModel.updateCreateMail(it) },
                     onMessageChange = { viewModel.updateCreateMessage(it) },

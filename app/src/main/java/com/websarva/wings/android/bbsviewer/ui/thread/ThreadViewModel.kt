@@ -11,6 +11,7 @@ import com.websarva.wings.android.bbsviewer.data.model.Groupable
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
+import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadHistoryRepository
@@ -29,6 +30,7 @@ import kotlinx.coroutines.withContext
 
 class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
+    private val boardRepository: BoardRepository,
     private val postRepository: PostRepository,
     private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
@@ -51,6 +53,14 @@ class ThreadViewModel @AssistedInject constructor(
             url = boardInfo.url
         )
         _uiState.update { it.copy(boardInfo = boardInfo, threadInfo = threadInfo) }
+
+        viewModelScope.launch {
+            boardRepository.fetchBoardNoname("${boardInfo.url}SETTING.TXT")?.let { noname ->
+                _uiState.update { state ->
+                    state.copy(boardInfo = state.boardInfo.copy(noname = noname))
+                }
+            }
+        }
 
         // Factoryを使ってBookmarkStateViewModelを生成
         singleBookmarkViewModel = singleBookmarkViewModelFactory.create(boardInfo, threadInfo)

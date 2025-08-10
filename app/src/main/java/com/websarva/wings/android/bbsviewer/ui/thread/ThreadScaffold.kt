@@ -146,6 +146,7 @@ fun ThreadScaffold(
                     name = uiState.postFormState.name,
                     mail = uiState.postFormState.mail,
                     message = uiState.postFormState.message,
+                    namePlaceholder = uiState.boardInfo.noname.ifBlank { "name" },
                     onNameChange = { viewModel.updatePostName(it) },
                     onMailChange = { viewModel.updatePostMail(it) },
                     onMessageChange = { viewModel.updatePostMessage(it) },

@@ -49,6 +49,14 @@ class BoardViewModel @AssistedInject constructor(
         val serviceName = parseServiceName(boardInfo.url)
         _uiState.update { it.copy(boardInfo = boardInfo, serviceName = serviceName) }
 
+        viewModelScope.launch {
+            repository.fetchBoardNoname("${boardInfo.url}SETTING.TXT")?.let { noname ->
+                _uiState.update { state ->
+                    state.copy(boardInfo = state.boardInfo.copy(noname = noname))
+                }
+            }
+        }
+
         // BookmarkStateViewModelのUI状態を監視し、自身のUI状態にマージする
         viewModelScope.launch {
             singleBookmarkViewModel?.uiState?.collect { bkState ->
