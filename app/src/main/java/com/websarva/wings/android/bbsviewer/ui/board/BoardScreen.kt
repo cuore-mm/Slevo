@@ -29,6 +29,8 @@ import com.websarva.wings.android.bbsviewer.data.model.ThreadDate
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import java.text.DecimalFormat
 
+private const val THREAD_KEY_THRESHOLD = 5_000_000_000L
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BoardScreen(
@@ -40,8 +42,10 @@ fun BoardScreen(
     listState: LazyListState = rememberLazyListState()
 ) {
     val (momentumMean, momentumStd) = remember(threads) {
-        val values = threads.map { it.momentum }
-        val mean = values.average()
+        val values = threads.filter {
+            it.key.toLongOrNull()?.let { key -> key < THREAD_KEY_THRESHOLD } ?: false
+        }.map { it.momentum }
+        val mean = if (values.isNotEmpty()) values.average() else 0.0
         val std = if (values.size > 1) {
             kotlin.math.sqrt(values.sumOf { (it - mean) * (it - mean) } / values.size)
         } else {
@@ -89,7 +93,8 @@ fun ThreadCard(
     momentumStd: Double,
 ) {
     val momentumFormatter = remember { DecimalFormat("0.0") }
-    val intensity = if (momentumStd > 0) {
+    val showInfo = threadInfo.key.toLongOrNull()?.let { it < THREAD_KEY_THRESHOLD } ?: true
+    val intensity = if (momentumStd > 0 && showInfo) {
         ((threadInfo.momentum - momentumMean) / momentumStd).toFloat()
     } else {
         0f
@@ -116,10 +121,12 @@ fun ThreadCard(
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = threadInfo.date.run { "$year/$month/$day $hour:%02d".format(minute) },
-                style = MaterialTheme.typography.labelMedium
-            )
+            if (showInfo) {
+                Text(
+                    text = threadInfo.date.run { "$year/$month/$day $hour:%02d".format(minute) },
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
             Spacer(modifier = Modifier.weight(1f))
             if (threadInfo.newResCount > 0) {
                 Text(
@@ -129,12 +136,14 @@ fun ThreadCard(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
-            Text(
-                text = momentumFormatter.format(threadInfo.momentum),
-                style = MaterialTheme.typography.labelMedium,
-                color = momentumColor,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
+            if (showInfo) {
+                Text(
+                    text = momentumFormatter.format(threadInfo.momentum),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = momentumColor,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
             Text(
                 text = threadInfo.resCount.toString().padStart(4),
                 style = MaterialTheme.typography.labelMedium,

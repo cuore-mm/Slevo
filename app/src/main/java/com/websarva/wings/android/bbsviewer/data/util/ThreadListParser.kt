@@ -11,6 +11,8 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlin.math.max
 
+private const val THREAD_KEY_THRESHOLD = 5_000_000_000L
+
 object ThreadListParser {
     @RequiresApi(Build.VERSION_CODES.O)
     fun parseSubjectTxt(text: String): List<ThreadInfo> {
@@ -26,9 +28,9 @@ object ThreadListParser {
                     val (key, titleHtml, resCountStr) = match.destructured
                     val title = HtmlCompat.fromHtml(titleHtml, HtmlCompat.FROM_HTML_MODE_LEGACY).toString()
                     val resCount = resCountStr.toIntOrNull() ?: 0
-                    val threadEpochSeconds = key.toLongOrNull() ?: 0
+                    val threadEpochSeconds = key.toLongOrNull() ?: 0L
 
-                    val momentum = if (threadEpochSeconds > 0 && resCount > 0) {
+                    val momentum = if (threadEpochSeconds in 1 until THREAD_KEY_THRESHOLD && resCount > 0) {
                         val elapsedTimeSeconds = max(1, currentUnixTime - threadEpochSeconds) // 経過時間（秒）、最低1秒
                         val elapsedTimeDays = elapsedTimeSeconds / 86400.0 // 経過時間（日）
                         if (elapsedTimeDays > 0) {
@@ -40,13 +42,19 @@ object ThreadListParser {
                         0.0
                     }
 
+                    val date = if (threadEpochSeconds in 1 until THREAD_KEY_THRESHOLD) {
+                        calculateThreadDate(key)
+                    } else {
+                        ThreadDate(0, 0, 0, 0, 0, "")
+                    }
+
                     threads.add(
                         ThreadInfo(
                             title = title,
                             key = key,
                             resCount = resCount,
-                            date = calculateThreadDate(key),
-                            momentum = momentum // <--- 勢いをセット
+                            date = date,
+                            momentum = momentum
                         )
                     )
                 }
