@@ -11,11 +11,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.bbsviewer.R
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -24,12 +27,18 @@ fun TabsPagerContent(
     modifier: Modifier = Modifier,
     tabsViewModel: TabsViewModel,
     navController: NavHostController,
-    closeDrawer: () -> Unit
+    closeDrawer: () -> Unit,
+    initialPage: Int = 0,
+    onPageChanged: (Int) -> Unit = {}
 ) {
     val uiState by tabsViewModel.uiState.collectAsState()
 
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
+    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 2 })
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }.collect { onPageChanged(it) }
+    }
 
     Column(modifier = modifier) {
         TabRow(selectedTabIndex = pagerState.currentPage) {
