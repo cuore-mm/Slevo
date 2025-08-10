@@ -19,7 +19,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -47,6 +49,9 @@ class TabsViewModel @Inject constructor(
 
     // threadKey + boardUrl をキーに ThreadViewModel をキャッシュ
     private val threadViewModelMap: MutableMap<String, ThreadViewModel> = mutableMapOf()
+
+    val lastSelectedPage = repository.observeLastSelectedPage()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
     init {
         viewModelScope.launch {
@@ -137,6 +142,10 @@ class TabsViewModel @Inject constructor(
             state.copy(openThreadTabs = updated)
         }
         viewModelScope.launch { repository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
+    }
+
+    fun setLastSelectedPage(page: Int) {
+        viewModelScope.launch { repository.setLastSelectedPage(page) }
     }
 
     /**
