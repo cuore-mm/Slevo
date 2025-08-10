@@ -56,6 +56,7 @@ fun PostItem(
     idIndex: Int,
     idTotal: Int,
     navController: NavHostController,
+    boardName: String,
     replyFromNumbers: List<Int> = emptyList(),
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null
@@ -228,6 +229,7 @@ fun PostItem(
         if (ngDialogExpanded) {
             NgIdDialog(
                 idText = post.id,
+                boardText = boardName,
                 onConfirm = { _, _, _ -> ngDialogExpanded = false },
                 onDismiss = { ngDialogExpanded = false }
             )
@@ -253,5 +255,6 @@ fun ReplyCardPreview() {
         idIndex = 1,
         idTotal = 1,
         navController = NavHostController(LocalContext.current),
+        boardName = "board",
     )
 }
