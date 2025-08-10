@@ -40,7 +40,7 @@ fun ImageThumbnailGrid(
                         AsyncImage(
                             model = url,
                             contentDescription = null,
-                            contentScale = ContentScale.Crop,
+                            contentScale = ContentScale.Fit,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
