@@ -10,8 +10,7 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlin.math.max
-
-private const val THREAD_KEY_THRESHOLD = 5_000_000_000L
+import com.websarva.wings.android.bbsviewer.data.model.THREAD_KEY_THRESHOLD
 
 object ThreadListParser {
     @RequiresApi(Build.VERSION_CODES.O)

@@ -28,8 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.data.model.ThreadDate
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import java.text.DecimalFormat
-
-private const val THREAD_KEY_THRESHOLD = 5_000_000_000L
+import com.websarva.wings.android.bbsviewer.data.model.THREAD_KEY_THRESHOLD
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
