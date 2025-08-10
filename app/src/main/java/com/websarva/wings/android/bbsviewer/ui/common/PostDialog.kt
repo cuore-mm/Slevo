@@ -41,6 +41,7 @@ fun PostDialog(
     name: String,
     mail: String,
     message: String,
+    namePlaceholder: String,
     onNameChange: (String) -> Unit,
     onMailChange: (String) -> Unit,
     onMessageChange: (String) -> Unit,
@@ -79,7 +80,7 @@ fun PostDialog(
                         OutlinedTextField(
                             value = name,
                             onValueChange = { onNameChange(it) },
-                            placeholder = { Text("name") },
+                            placeholder = { Text(namePlaceholder) },
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(8.dp),
@@ -174,6 +175,7 @@ fun PostDialogPreview() {
         name = "",
         mail = "",
         message = "",
+        namePlaceholder = "name",
         onNameChange = { /* 名前変更処理 */ },
         onMailChange = { /* メール変更処理 */ },
         onMessageChange = { /* メッセージ変更処理 */ },
