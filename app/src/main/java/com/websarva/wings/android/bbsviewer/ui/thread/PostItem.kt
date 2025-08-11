@@ -53,12 +53,14 @@ fun PostItem(
     idIndex: Int,
     idTotal: Int,
     navController: NavHostController,
+    boardName: String,
     replyFromNumbers: List<Int> = emptyList(),
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     var idMenuExpanded by remember { mutableStateOf(false) }
+    var ngDialogExpanded by remember { mutableStateOf(false) }
     val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
 
     Box {
@@ -192,8 +194,19 @@ fun PostItem(
                     clipboardManager.setText(AnnotatedString(post.id))
                     idMenuExpanded = false
                 },
-                onNgClick = { idMenuExpanded = false },
+                onNgClick = {
+                    idMenuExpanded = false
+                    ngDialogExpanded = true
+                },
                 onDismiss = { idMenuExpanded = false }
+            )
+        }
+        if (ngDialogExpanded) {
+            NgIdDialog(
+                idText = post.id,
+                boardText = boardName,
+                onConfirm = { _, _, _ -> ngDialogExpanded = false },
+                onDismiss = { ngDialogExpanded = false }
             )
         }
     }
@@ -217,5 +230,6 @@ fun ReplyCardPreview() {
         idIndex = 1,
         idTotal = 1,
         navController = NavHostController(LocalContext.current),
+        boardName = "board",
     )
 }

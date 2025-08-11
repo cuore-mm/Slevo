@@ -51,5 +51,10 @@
     <string name="no_history">履歴がありません</string>
     <string name="copy">コピー</string>
     <string name="ng_registration">NG登録</string>
+    <string name="ng_setting">NG設定</string>
+    <string name="string_literal">文字列</string>
+    <string name="regular_expression">正規表現</string>
+    <string name="target_board">対象の板</string>
+    <string name="id_label">ID</string>
     <string name="name">name</string>
 </resources>

@@ -34,4 +34,7 @@ interface BoardDao {
 
     @Query("SELECT * FROM boards WHERE boardId IN (:ids)")
     fun getBoardsByIds(ids: List<Long>): Flow<List<BoardEntity>>
+
+    @Query("SELECT * FROM boards")
+    fun getAllBoards(): Flow<List<BoardEntity>>
 }
