@@ -18,6 +18,7 @@ import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModelFactory
 import com.websarva.wings.android.bbsviewer.ui.util.parseServiceName
+import com.websarva.wings.android.bbsviewer.data.model.THREAD_KEY_THRESHOLD
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -48,6 +49,14 @@ class BoardViewModel @AssistedInject constructor(
 
         val serviceName = parseServiceName(boardInfo.url)
         _uiState.update { it.copy(boardInfo = boardInfo, serviceName = serviceName) }
+
+        viewModelScope.launch {
+            repository.fetchBoardNoname("${boardInfo.url}SETTING.TXT")?.let { noname ->
+                _uiState.update { state ->
+                    state.copy(boardInfo = state.boardInfo.copy(noname = noname))
+                }
+            }
+        }
 
         // BookmarkStateViewModelのUI状態を監視し、自身のUI状態にマージする
         viewModelScope.launch {
@@ -146,12 +155,19 @@ class BoardViewModel @AssistedInject constructor(
             } else {
                 allThreads
             }
+
+            // スレッドキーが閾値以上のものを常に末尾に回す
+            val (normalThreads, largeKeyThreads) = filteredList.partition { thread ->
+                thread.key.toLongOrNull()?.let { it < THREAD_KEY_THRESHOLD } ?: true
+            }
+
             // 2. ソート
             val sortedList = applySort(
-                filteredList,
+                normalThreads,
                 _uiState.value.currentSortKey,
                 _uiState.value.isSortAscending
-            )
+            ) + largeKeyThreads
+
             _uiState.update { it.copy(threads = sortedList) }
         }
     }

@@ -28,6 +28,8 @@ import com.websarva.wings.android.bbsviewer.ui.navigation.RouteScaffold
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.bbsviewer.ui.util.parseBoardUrl
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -145,6 +147,7 @@ fun ThreadScaffold(
                     name = uiState.postFormState.name,
                     mail = uiState.postFormState.mail,
                     message = uiState.postFormState.message,
+                    namePlaceholder = uiState.boardInfo.noname.ifBlank { "name" },
                     onNameChange = { viewModel.updatePostName(it) },
                     onMailChange = { viewModel.updatePostMail(it) },
                     onMessageChange = { viewModel.updatePostMessage(it) },
@@ -161,7 +164,17 @@ fun ThreadScaffold(
                         }
                     },
                     confirmButtonText = stringResource(R.string.post),
-                    onImageSelect = { uri -> viewModel.uploadImage(context, uri) }
+                    onImageSelect = { uri -> viewModel.uploadImage(context, uri) },
+                    onImageUrlClick = { url ->
+                        navController.navigate(
+                            AppRoute.ImageViewer(
+                                imageUrl = URLEncoder.encode(
+                                    url,
+                                    StandardCharsets.UTF_8.toString()
+                                )
+                            )
+                        )
+                    }
                 )
             }
 

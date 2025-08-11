@@ -4,10 +4,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Image
@@ -19,12 +24,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.websarva.wings.android.bbsviewer.R
+import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
 
 @Composable
 fun PostDialog(
@@ -32,6 +43,7 @@ fun PostDialog(
     name: String,
     mail: String,
     message: String,
+    namePlaceholder: String,
     onNameChange: (String) -> Unit,
     onMailChange: (String) -> Unit,
     onMessageChange: (String) -> Unit,
@@ -40,6 +52,7 @@ fun PostDialog(
     title: String? = null,
     onTitleChange: ((String) -> Unit)? = null,
     onImageSelect: ((android.net.Uri) -> Unit)? = null,
+    onImageUrlClick: ((String) -> Unit)? = null,
 ) {
     val launcher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -64,22 +77,39 @@ fun PostDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .padding(8.dp),
                     ) {
+                        val focusManager = LocalFocusManager.current
                         OutlinedTextField(
                             value = name,
                             onValueChange = { onNameChange(it) },
-                            placeholder = { Text("name") },
+                            placeholder = {
+                                Text(
+                                    text = namePlaceholder,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
                             modifier = Modifier
-                                .weight(1f)
-                                .padding(8.dp)
+                                .weight(1f),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(
+                                onNext = { focusManager.moveFocus(FocusDirection.Next) }
+                            )
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
                         OutlinedTextField(
                             value = mail,
                             onValueChange = { onMailChange(it) },
                             placeholder = { Text(stringResource(R.string.e_mail)) },
                             modifier = Modifier
-                                .weight(1f)
-                                .padding(8.dp)
+                                .weight(1f),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(
+                                onNext = { focusManager.moveFocus(FocusDirection.Next) }
+                            )
                         )
                     }
 
@@ -102,6 +132,17 @@ fun PostDialog(
                             .padding(8.dp),
                         minLines = 3,
                     )
+
+                    val imageUrls = remember(message) { extractImageUrls(message) }
+                    if (imageUrls.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        ImageThumbnailGrid(
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp),
+                            imageUrls = imageUrls,
+                            onImageClick = { url -> onImageUrlClick?.invoke(url) }
+                        )
+                    }
                 }
 
                 // 非スクロール領域（常に表示）
@@ -114,8 +155,15 @@ fun PostDialog(
                     }
                 }
 
+                val isPostButtonEnabled = if (title != null && onTitleChange != null) {
+                    title.isNotBlank() && message.isNotBlank()
+                } else {
+                    message.isNotBlank()
+                }
+
                 Button(
                     onClick = { onPostClick() },
+                    enabled = isPostButtonEnabled,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(8.dp)
@@ -135,6 +183,7 @@ fun PostDialogPreview() {
         name = "",
         mail = "",
         message = "",
+        namePlaceholder = "それでも動く名無し",
         onNameChange = { /* 名前変更処理 */ },
         onMailChange = { /* メール変更処理 */ },
         onMessageChange = { /* メッセージ変更処理 */ },

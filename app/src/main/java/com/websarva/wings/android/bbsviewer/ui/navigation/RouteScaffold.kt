@@ -204,11 +204,16 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 }
 
                 if (uiState.showTabListSheet) {
+                    val initialPage = when (route) {
+                        is AppRoute.Thread -> 1
+                        else -> 0
+                    }
                     TabsBottomSheet(
                         sheetState = tabListSheetState,
                         tabsViewModel = tabsViewModel,
                         navController = navController,
                         onDismissRequest = { viewModel.closeTabListSheet() },
+                        initialPage = initialPage,
                     )
                 }
 

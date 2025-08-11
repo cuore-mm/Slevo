@@ -28,4 +28,11 @@ class BoardRepository @Inject constructor(
             .firstOrNull { it.startsWith("BBS_TITLE_ORIG=") }
             ?.substringAfter("=")
     }
+
+    suspend fun fetchBoardNoname(settingUrl: String): String? {
+        val text = remote.fetchSettingTxt(settingUrl) ?: return null
+        return text.lines()
+            .firstOrNull { it.startsWith("BBS_NONAME_NAME=") }
+            ?.substringAfter("=")
+    }
 }

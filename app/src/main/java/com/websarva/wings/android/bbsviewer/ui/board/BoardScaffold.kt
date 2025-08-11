@@ -31,6 +31,8 @@ import com.websarva.wings.android.bbsviewer.ui.util.parseBoardUrl
 import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.bbsviewer.ui.common.PostDialog
 import com.websarva.wings.android.bbsviewer.ui.thread.ResponseWebViewDialog
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -181,6 +183,7 @@ fun BoardScaffold(
                     name = uiState.createFormState.name,
                     mail = uiState.createFormState.mail,
                     message = uiState.createFormState.message,
+                    namePlaceholder = uiState.boardInfo.noname.ifBlank { stringResource(R.string.name) },
                     onNameChange = { viewModel.updateCreateName(it) },
                     onMailChange = { viewModel.updateCreateMail(it) },
                     onMessageChange = { viewModel.updateCreateMessage(it) },
@@ -199,7 +202,17 @@ fun BoardScaffold(
                     confirmButtonText = stringResource(R.string.create_thread),
                     title = uiState.createFormState.title,
                     onTitleChange = { viewModel.updateCreateTitle(it) },
-                    onImageSelect = { uri -> viewModel.uploadImage(context, uri) }
+                    onImageSelect = { uri -> viewModel.uploadImage(context, uri) },
+                    onImageUrlClick = { url ->
+                        navController.navigate(
+                            AppRoute.ImageViewer(
+                                imageUrl = URLEncoder.encode(
+                                    url,
+                                    StandardCharsets.UTF_8.toString()
+                                )
+                            )
+                        )
+                    }
                 )
             }
 

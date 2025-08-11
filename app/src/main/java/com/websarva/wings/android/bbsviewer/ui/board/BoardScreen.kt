@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.data.model.ThreadDate
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import java.text.DecimalFormat
+import com.websarva.wings.android.bbsviewer.data.model.THREAD_KEY_THRESHOLD
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +40,19 @@ fun BoardScreen(
     onRefresh: () -> Unit,
     listState: LazyListState = rememberLazyListState()
 ) {
+    val (momentumMean, momentumStd) = remember(threads) {
+        val values = threads.filter {
+            it.key.toLongOrNull()?.let { key -> key < THREAD_KEY_THRESHOLD } ?: false
+        }.map { it.momentum }
+        val mean = if (values.isNotEmpty()) values.average() else 0.0
+        val std = if (values.size > 1) {
+            kotlin.math.sqrt(values.sumOf { (it - mean) * (it - mean) } / values.size)
+        } else {
+            0.0
+        }
+        mean to std
+    }
+
     PullToRefreshBox(
         modifier = modifier,
         isRefreshing = isRefreshing,
@@ -58,7 +73,9 @@ fun BoardScreen(
             itemsIndexed(threads) { index, thread ->
                 ThreadCard(
                     threadInfo = thread,
-                    onClick = onClick
+                    onClick = onClick,
+                    momentumMean = momentumMean,
+                    momentumStd = momentumStd
                 )
                 // 各アイテムの下に区切り線を表示
                 HorizontalDivider()
@@ -70,9 +87,23 @@ fun BoardScreen(
 @Composable
 fun ThreadCard(
     threadInfo: ThreadInfo,
-    onClick: (ThreadInfo) -> Unit
+    onClick: (ThreadInfo) -> Unit,
+    momentumMean: Double,
+    momentumStd: Double,
 ) {
     val momentumFormatter = remember { DecimalFormat("0.0") }
+    val showInfo = threadInfo.key.toLongOrNull()?.let { it < THREAD_KEY_THRESHOLD } ?: true
+    val intensity = if (momentumStd > 0 && showInfo) {
+        ((threadInfo.momentum - momentumMean) / momentumStd).toFloat()
+    } else {
+        0f
+    }
+    val colorFraction = intensity.coerceAtLeast(0f).coerceAtMost(3f) / 3f
+    val momentumColor = lerp(
+        MaterialTheme.colorScheme.onSurface,
+        MaterialTheme.colorScheme.error,
+        colorFraction
+    )
 
     Column(
         modifier = Modifier
@@ -89,10 +120,12 @@ fun ThreadCard(
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = threadInfo.date.run { "$year/$month/$day $hour:%02d".format(minute) },
-                style = MaterialTheme.typography.labelMedium
-            )
+            if (showInfo) {
+                Text(
+                    text = threadInfo.date.run { "$year/$month/$day $hour:%02d".format(minute) },
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
             Spacer(modifier = Modifier.weight(1f))
             if (threadInfo.newResCount > 0) {
                 Text(
@@ -102,12 +135,14 @@ fun ThreadCard(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
-            Text(
-                text = momentumFormatter.format(threadInfo.momentum),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.secondary,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
+            if (showInfo) {
+                Text(
+                    text = momentumFormatter.format(threadInfo.momentum),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = momentumColor,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
             Text(
                 text = threadInfo.resCount.toString().padStart(4),
                 style = MaterialTheme.typography.labelMedium,
@@ -130,7 +165,9 @@ fun ThreadCardPreview() {
             isVisited = true,
             newResCount = 3,
         ),
-        onClick = {}
+        onClick = {},
+        momentumMean = 1000.0,
+        momentumStd = 100.0,
     )
 }
 

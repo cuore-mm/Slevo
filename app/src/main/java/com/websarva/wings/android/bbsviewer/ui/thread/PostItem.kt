@@ -1,6 +1,5 @@
 package com.websarva.wings.android.bbsviewer.ui.thread
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,8 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -26,7 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -44,6 +40,7 @@ import com.websarva.wings.android.bbsviewer.ui.theme.threadUrlColor
 import com.websarva.wings.android.bbsviewer.ui.theme.urlColor
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
+import com.websarva.wings.android.bbsviewer.ui.common.ImageThumbnailGrid
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -165,41 +162,19 @@ fun PostItem(
             val imageUrls = remember(post.content) { extractImageUrls(post.content) }
             if (imageUrls.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    imageUrls.chunked(3).forEach { rowItems ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            rowItems.forEach { url ->
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f) // Row内の各要素の幅を均等に
-                                        .aspectRatio(1f)
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                                        .clickable {
-                                            navController.navigate(
-                                                AppRoute.ImageViewer(
-                                                    imageUrl = URLEncoder.encode(
-                                                        url,
-                                                        StandardCharsets.UTF_8.toString()
-                                                    )
-                                                )
-                                            )
-                                        }
-                                ) {
-                                    AsyncImage(
-                                        model = url,
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
-                            }
-                            // 行のアイテムが3つ未満の場合、残りをSpacerで埋めてレイアウトを維持
-                            repeat(3 - rowItems.size) {
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
-                        }
+                ImageThumbnailGrid(
+                    imageUrls = imageUrls,
+                    onImageClick = { url ->
+                        navController.navigate(
+                            AppRoute.ImageViewer(
+                                imageUrl = URLEncoder.encode(
+                                    url,
+                                    StandardCharsets.UTF_8.toString()
+                                )
+                            )
+                        )
                     }
-                }
+                )
             }
         }
 
