@@ -19,21 +19,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.websarva.wings.android.bbsviewer.R
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.ui.common.PostDialog
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.navigation.RouteScaffold
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.tabs.ThreadTabInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.components.ThreadBottomBar
+import com.websarva.wings.android.bbsviewer.ui.thread.components.ThreadTopBar
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.bbsviewer.ui.util.parseBoardUrl
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import com.websarva.wings.android.bbsviewer.ui.thread.components.ThreadTopBar
-import com.websarva.wings.android.bbsviewer.ui.thread.components.ThreadBottomBar
-import com.websarva.wings.android.bbsviewer.ui.thread.dialog.ResponseWebViewDialog
-import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -129,17 +128,18 @@ fun ThreadScaffold(
                         title = uiState.threadInfo.title,
                         resCount = uiState.posts.size
                     )
-                    Log.d("ThreadScaffold", "Updated thread tab info: ${uiState.threadInfo.title}, posts size: ${uiState.posts.size}")
+                    Log.d(
+                        "ThreadScaffold",
+                        "Updated thread tab info: ${uiState.threadInfo.title}, posts size: ${uiState.posts.size}"
+                    )
                 }
             }
 
             ThreadScreen(
                 modifier = modifier,
-                posts = uiState.posts ?: emptyList(),
+                uiState = uiState,
                 listState = listState,
                 navController = navController,
-                boardName = uiState.boardInfo.name,
-                isRefreshing = uiState.isLoading,
                 onBottomRefresh = { viewModel.reloadThread() }
             )
         },

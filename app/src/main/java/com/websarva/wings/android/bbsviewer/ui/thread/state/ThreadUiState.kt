@@ -21,7 +21,11 @@ data class ThreadUiState(
     override val showTabListSheet: Boolean = false,
     val showErrorWebView: Boolean = false,
     val errorHtmlContent: String = "",
-    val postResultMessage: String? = null
+    val postResultMessage: String? = null,
+    // UI描画用の派生情報（ViewModelで算出）
+    val idCountMap: Map<String, Int> = emptyMap(),
+    val idIndexList: List<Int> = emptyList(),
+    val replySourceMap: Map<Int, List<Int>> = emptyMap(),
 ) : BaseUiState<ThreadUiState> {
     override fun copyState(
         isLoading: Boolean,

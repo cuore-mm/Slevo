@@ -1,7 +1,7 @@
 package com.websarva.wings.android.bbsviewer.data.util
 
 import androidx.core.text.HtmlCompat
-import com.websarva.wings.android.bbsviewer.ui.thread.ReplyInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 
 fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
     // <>で分割する単純な方法を使用
