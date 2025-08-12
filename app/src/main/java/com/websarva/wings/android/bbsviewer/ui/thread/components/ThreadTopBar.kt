@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.thread
+package com.websarva.wings.android.bbsviewer.ui.thread.components
 
 import android.util.Log
 import androidx.compose.material.icons.Icons
@@ -29,6 +29,8 @@ import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkState
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.ThreadInfoDialog
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

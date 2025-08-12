@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.thread
+package com.websarva.wings.android.bbsviewer.ui.thread.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

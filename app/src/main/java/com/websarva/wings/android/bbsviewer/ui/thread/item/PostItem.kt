@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.thread
+package com.websarva.wings.android.bbsviewer.ui.thread.item
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -43,6 +43,10 @@ import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
 import com.websarva.wings.android.bbsviewer.ui.common.ImageThumbnailGrid
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.PostMenuDialog
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.IdMenuDialog
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.NgIdDialog
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 
 
 @Composable

@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.thread
+package com.websarva.wings.android.bbsviewer.ui.thread.viewmodel
 
 import android.os.Build
 import android.util.Log
@@ -20,6 +20,7 @@ import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModelFactory
 import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject

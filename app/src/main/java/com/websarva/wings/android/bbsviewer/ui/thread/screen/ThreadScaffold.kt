@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.thread
+package com.websarva.wings.android.bbsviewer.ui.thread.screen
 
 import android.os.Build
 import android.util.Log
@@ -30,6 +30,10 @@ import com.websarva.wings.android.bbsviewer.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.bbsviewer.ui.util.parseBoardUrl
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import com.websarva.wings.android.bbsviewer.ui.thread.components.ThreadTopBar
+import com.websarva.wings.android.bbsviewer.ui.thread.components.ThreadBottomBar
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.ResponseWebViewDialog
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)

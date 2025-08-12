@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.thread
+package com.websarva.wings.android.bbsviewer.ui.thread.dialog
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer

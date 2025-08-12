@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.thread
+package com.websarva.wings.android.bbsviewer.ui.thread.state
 
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo

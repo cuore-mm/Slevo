@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.thread
+package com.websarva.wings.android.bbsviewer.ui.thread.dialog
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.viewmodel.NgIdViewModel
 
 @Composable
 fun NgIdDialog(

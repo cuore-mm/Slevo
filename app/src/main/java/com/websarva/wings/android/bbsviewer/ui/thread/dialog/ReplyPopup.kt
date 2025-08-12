@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.thread
+package com.websarva.wings.android.bbsviewer.ui.thread.dialog
 
 import androidx.compose.material3.Card
 import androidx.compose.foundation.layout.Column
@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.bbsviewer.ui.thread.item.PostItem
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 
 data class PopupInfo(
     val posts: List<ReplyInfo>,

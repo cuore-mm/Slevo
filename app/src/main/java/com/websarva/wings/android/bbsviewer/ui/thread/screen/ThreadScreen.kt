@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.thread
+package com.websarva.wings.android.bbsviewer.ui.thread.screen
 
 import android.os.Build
 import androidx.annotation.RequiresApi
@@ -41,6 +41,11 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.draw.rotate
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.item.PostItem
+import com.websarva.wings.android.bbsviewer.ui.thread.components.MomentumBar
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.PopupInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.ReplyPopup
 
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
