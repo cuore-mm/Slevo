@@ -20,6 +20,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,7 +46,7 @@ fun NgIdDialogRoute(
     val boards = viewModel.boards.collectAsState().value
 
     // 初期値反映
-    androidx.compose.runtime.LaunchedEffect(idText, boardText) {
+    LaunchedEffect(idText, boardText) {
         viewModel.initialize(idText, boardText)
     }
 
@@ -104,7 +105,7 @@ fun NgIdDialog(
                     onClick = onOpenBoardDialog,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (uiState.board.isNotEmpty()) uiState.board else stringResource(R.string.board))
+                    Text(uiState.board.ifEmpty { stringResource(R.string.board) })
                 }
                 Spacer(Modifier.height(16.dp))
                 Row(
