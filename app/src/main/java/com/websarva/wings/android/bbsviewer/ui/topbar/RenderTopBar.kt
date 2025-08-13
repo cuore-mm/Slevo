@@ -22,8 +22,8 @@ import com.websarva.wings.android.bbsviewer.ui.common.SelectedTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.bbslist.service.ServiceListViewModel
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
-import com.websarva.wings.android.bbsviewer.ui.thread.ThreadTopBar
-import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
+import com.websarva.wings.android.bbsviewer.ui.thread.components.ThreadTopBar
+import com.websarva.wings.android.bbsviewer.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 
 @RequiresApi(Build.VERSION_CODES.O)

@@ -35,8 +35,8 @@ import com.websarva.wings.android.bbsviewer.ui.common.bookmark.DeleteGroupDialog
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkState
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
-import com.websarva.wings.android.bbsviewer.ui.thread.ThreadUiState
-import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.bbsviewer.ui.thread.viewmodel.ThreadViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce

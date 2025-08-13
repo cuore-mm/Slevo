@@ -1,11 +1,11 @@
-package com.websarva.wings.android.bbsviewer.ui.thread
+package com.websarva.wings.android.bbsviewer.ui.thread.screen
 
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,7 +19,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -41,42 +40,24 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.draw.rotate
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.item.PostItem
+import com.websarva.wings.android.bbsviewer.ui.thread.components.MomentumBar
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.PopupInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.ReplyPopup
 
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun ThreadScreen(
     modifier: Modifier = Modifier,
-    posts: List<ReplyInfo>,
+    uiState: ThreadUiState,
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
-    boardName: String,
-    isRefreshing: Boolean = false,
     onBottomRefresh: () -> Unit = {},
 ) {
-    val popupStack = remember { mutableStateListOf<PopupInfo>() }
-    val idCountMap = remember(posts) { posts.groupingBy { it.id }.eachCount() }
-    val idIndexList = remember(posts) {
-        val indexMap = mutableMapOf<String, Int>()
-        posts.map { reply ->
-            val idx = (indexMap[reply.id] ?: 0) + 1
-            indexMap[reply.id] = idx
-            idx
-        }
-    }
-
-    val replySourceMap = remember(posts) {
-        val map = mutableMapOf<Int, MutableList<Int>>()
-        val regex = Regex(">>(\\d+)")
-        posts.forEachIndexed { idx, reply ->
-            regex.findAll(reply.content).forEach { match ->
-                val num = match.groupValues[1].toIntOrNull() ?: return@forEach
-                if (num in 1..posts.size) {
-                    map.getOrPut(num) { mutableListOf() }.add(idx + 1)
-                }
-            }
-        }
-        map.mapValues { it.value.toList() }
-    }
+    val posts = uiState.posts ?: emptyList()
+    val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
 
     val density = LocalDensity.current
     val refreshThresholdPx = with(density) { 80.dp.toPx() }
@@ -133,11 +114,11 @@ fun ThreadScreen(
                         },
                         post = post,
                         postNum = index + 1,
-                        idIndex = idIndexList[index],
-                        idTotal = if (post.id.isBlank()) 1 else idCountMap[post.id] ?: 1,
+                        idIndex = uiState.idIndexList.getOrElse(index) { 1 },
+                        idTotal = if (post.id.isBlank()) 1 else uiState.idCountMap[post.id] ?: 1,
                         navController = navController,
-                        boardName = boardName,
-                        replyFromNumbers = replySourceMap[index + 1] ?: emptyList(),
+                        boardName = uiState.boardInfo.name,
+                        replyFromNumbers = uiState.replySourceMap[index + 1] ?: emptyList(),
                         onReplyFromClick = { nums ->
                             val offset = if (popupStack.isEmpty()) {
                                 itemOffset
@@ -188,11 +169,11 @@ fun ThreadScreen(
         ReplyPopup(
             popupStack = popupStack,
             posts = posts,
-            replySourceMap = replySourceMap,
-            idCountMap = idCountMap,
-            idIndexList = idIndexList,
+            replySourceMap = uiState.replySourceMap,
+            idCountMap = uiState.idCountMap,
+            idIndexList = uiState.idIndexList,
             navController = navController,
-            boardName = boardName,
+            boardName = uiState.boardInfo.name,
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeLast() }
         )
 
@@ -201,7 +182,7 @@ fun ThreadScreen(
             label = "arrowRotation"
         )
 
-        if (isRefreshing) {
+        if (uiState.isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -224,29 +205,35 @@ fun ThreadScreen(
 @Preview(showBackground = true)
 @Composable
 fun ThreadScreenPreview() {
-    ThreadScreen(
-        posts = listOf(
-            ReplyInfo(
-                name = "名無しさん",
-                email = "sage",
-                date = "2025/07/09(水) 19:40:25.769",
-                id = "test1",
-                beLoginId = "12345",
-                beRank = "DIA(20000)",
-                beIconUrl = "http://img.2ch.net/ico/hikky2.gif",
-                content = "これはテスト投稿です。"
-            ),
-            ReplyInfo(
-                name = "名無しさん",
-                email = "sage",
-                date = "2025/07/09(水) 19:41:00.123",
-                id = "test2",
-                content = "別のテスト投稿です。"
-            )
+    val previewPosts = listOf(
+        ReplyInfo(
+            name = "名無しさん",
+            email = "sage",
+            date = "2025/07/09(水) 19:40:25.769",
+            id = "test1",
+            beLoginId = "12345",
+            beRank = "DIA(20000)",
+            beIconUrl = "http://img.2ch.net/ico/hikky2.gif",
+            content = "これはテスト投稿です。"
         ),
+        ReplyInfo(
+            name = "名無しさん",
+            email = "sage",
+            date = "2025/07/09(水) 19:41:00.123",
+            id = "test2",
+            content = "別のテスト投稿です。"
+        )
+    )
+    val uiState = ThreadUiState(
+        posts = previewPosts,
+        boardInfo = com.websarva.wings.android.bbsviewer.data.model.BoardInfo(0L, "board", "https://example.com/"),
+        idCountMap = previewPosts.groupingBy { it.id }.eachCount(),
+        idIndexList = previewPosts.mapIndexed { i, _ -> i + 1 },
+        replySourceMap = emptyMap()
+    )
+    ThreadScreen(
+        uiState = uiState,
         navController = NavHostController(LocalContext.current),
-        boardName = "board",
-        isRefreshing = false,
         onBottomRefresh = {}
     )
 }

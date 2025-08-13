@@ -1,25 +1,24 @@
-package com.websarva.wings.android.bbsviewer.ui.thread
+package com.websarva.wings.android.bbsviewer.ui.thread.viewmodel
 
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.viewModelScope
-import android.content.Context
-import android.net.Uri
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.Groupable
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
+import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
-import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
+import com.websarva.wings.android.bbsviewer.data.repository.ImageUploadRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadHistoryRepository
-import com.websarva.wings.android.bbsviewer.data.repository.ImageUploadRepository
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModelFactory
-import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -87,12 +86,16 @@ class ThreadViewModel @AssistedInject constructor(
             }
             if (threadData != null) {
                 val (posts, title) = threadData
+                val derived = deriveReplyMaps(posts)
                 _uiState.update {
                     it.copy(
                         posts = posts,
                         isLoading = false,
                         loadProgress = 1f,
-                        threadInfo = it.threadInfo.copy(title = title ?: it.threadInfo.title)
+                        threadInfo = it.threadInfo.copy(title = title ?: it.threadInfo.title),
+                        idCountMap = derived.first,
+                        idIndexList = derived.second,
+                        replySourceMap = derived.third,
                     )
                 }
                 historyRepository.recordHistory(
@@ -111,6 +114,32 @@ class ThreadViewModel @AssistedInject constructor(
             e.printStackTrace()
             _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
         }
+    }
+
+    private fun deriveReplyMaps(posts: List<ReplyInfo>): Triple<Map<String, Int>, List<Int>, Map<Int, List<Int>>> {
+        val idCountMap = posts.groupingBy { it.id }.eachCount()
+        val idIndexList = run {
+            val indexMap = mutableMapOf<String, Int>()
+            posts.map { reply ->
+                val idx = (indexMap[reply.id] ?: 0) + 1
+                indexMap[reply.id] = idx
+                idx
+            }
+        }
+        val replySourceMap = run {
+            val map = mutableMapOf<Int, MutableList<Int>>()
+            val regex = Regex(">>(\\d+)")
+            posts.forEachIndexed { idx, reply ->
+                regex.findAll(reply.content).forEach { match ->
+                    val num = match.groupValues[1].toIntOrNull() ?: return@forEach
+                    if (num in 1..posts.size) {
+                        map.getOrPut(num) { mutableListOf() }.add(idx + 1)
+                    }
+                }
+            }
+            map.mapValues { it.value.toList() }
+        }
+        return Triple(idCountMap, idIndexList, replySourceMap)
     }
 
     fun reloadThread() {
@@ -181,12 +210,13 @@ class ThreadViewModel @AssistedInject constructor(
 
             _uiState.update { it.copy(isPosting = false) }
 
-            when(result) {
+            when (result) {
                 is PostResult.Success -> {
                     // 成功メッセージ表示など
                     _uiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
                     reloadThread() // スレッドをリロード
                 }
+
                 is PostResult.Confirm -> {
                     _uiState.update {
                         it.copy(
@@ -195,6 +225,7 @@ class ThreadViewModel @AssistedInject constructor(
                         )
                     }
                 }
+
                 is PostResult.Error -> {
                     _uiState.update {
                         it.copy(
@@ -225,12 +256,13 @@ class ThreadViewModel @AssistedInject constructor(
 
             _uiState.update { it.copy(isPosting = false) }
 
-            when(result) {
+            when (result) {
                 is PostResult.Success -> {
                     // 成功メッセージ表示など
                     _uiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
                     reloadThread()
                 }
+
                 is PostResult.Error -> {
                     _uiState.update {
                         it.copy(
@@ -239,6 +271,7 @@ class ThreadViewModel @AssistedInject constructor(
                         )
                     }
                 }
+
                 is PostResult.Confirm -> {
                     // 2回目でConfirmが返ることは基本ないが念のため
                     _uiState.update {

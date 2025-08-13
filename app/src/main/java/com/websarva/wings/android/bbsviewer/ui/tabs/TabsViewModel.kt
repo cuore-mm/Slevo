@@ -4,8 +4,8 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModel
-import com.websarva.wings.android.bbsviewer.ui.thread.ThreadViewModelFactory
+import com.websarva.wings.android.bbsviewer.ui.thread.viewmodel.ThreadViewModel
+import com.websarva.wings.android.bbsviewer.ui.thread.viewmodel.ThreadViewModelFactory
 import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModel
 import com.websarva.wings.android.bbsviewer.ui.board.BoardViewModelFactory
 import com.websarva.wings.android.bbsviewer.data.repository.TabsRepository

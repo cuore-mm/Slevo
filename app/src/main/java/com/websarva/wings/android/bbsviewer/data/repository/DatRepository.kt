@@ -5,9 +5,9 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.DatRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.util.parseDat
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.bbsviewer.ui.util.keyToDatUrl
 import com.websarva.wings.android.bbsviewer.ui.util.keyToOysterUrl
-import com.websarva.wings.android.bbsviewer.ui.thread.ReplyInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
@@ -15,6 +15,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
+import kotlin.collections.first
 
 class DatRepository @Inject constructor(
     private val remoteDataSource: DatRemoteDataSource

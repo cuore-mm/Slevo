@@ -30,7 +30,7 @@ import com.websarva.wings.android.bbsviewer.ui.util.parseServiceName
 import com.websarva.wings.android.bbsviewer.ui.util.parseBoardUrl
 import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.bbsviewer.ui.common.PostDialog
-import com.websarva.wings.android.bbsviewer.ui.thread.ResponseWebViewDialog
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.ResponseWebViewDialog
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 

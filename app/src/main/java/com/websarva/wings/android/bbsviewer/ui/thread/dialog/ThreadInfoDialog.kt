@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.ui.thread
+package com.websarva.wings.android.bbsviewer.ui.thread.dialog
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +23,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
 
 @Composable
 fun ThreadInfoDialog(

@@ -19,7 +19,7 @@ import com.websarva.wings.android.bbsviewer.ui.history.HistoryListScaffold
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsScaffold
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
-import com.websarva.wings.android.bbsviewer.ui.thread.ThreadScaffold
+import com.websarva.wings.android.bbsviewer.ui.thread.screen.ThreadScaffold
 import com.websarva.wings.android.bbsviewer.ui.viewer.ImageViewerScreen
 import kotlinx.serialization.Serializable
 import java.net.URLDecoder
