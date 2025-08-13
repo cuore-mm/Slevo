@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.thread.dialog
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,46 +9,71 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Card
-import androidx.compose.ui.window.Dialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.state.NgIdUiState
 import com.websarva.wings.android.bbsviewer.ui.thread.viewmodel.NgIdViewModel
 
 @Composable
-fun NgIdDialog(
+fun NgIdDialogRoute(
     idText: String,
     boardText: String = "",
     onConfirm: (String, Boolean, String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    viewModel: NgIdViewModel = hiltViewModel(),
 ) {
-    var text by remember { mutableStateOf(idText) }
-    var board by remember { mutableStateOf(boardText) }
-    var isRegex by remember { mutableStateOf(false) }
-    var showBoardDialog by remember { mutableStateOf(false) }
+    val uiState = viewModel.uiState.collectAsState().value
+    val boards = viewModel.boards.collectAsState().value
 
+    // 初期値反映
+    androidx.compose.runtime.LaunchedEffect(idText, boardText) {
+        viewModel.initialize(idText, boardText)
+    }
+
+    NgIdDialog(
+        uiState = uiState,
+        onDismiss = onDismiss,
+        onConfirmClick = { onConfirm(uiState.text, uiState.isRegex, uiState.board) },
+        onTextChange = { viewModel.setText(it) },
+        onRegexChange = { viewModel.setRegex(it) },
+        onOpenBoardDialog = { viewModel.setShowBoardDialog(true) },
+        onCloseBoardDialog = { viewModel.setShowBoardDialog(false) },
+        onSelectBoard = { viewModel.setBoard(it.name) },
+        boards = boards,
+    )
+}
+
+@Composable
+fun NgIdDialog(
+    uiState: NgIdUiState,
+    onDismiss: () -> Unit,
+    onConfirmClick: () -> Unit,
+    onTextChange: (String) -> Unit,
+    onRegexChange: (Boolean) -> Unit,
+    onOpenBoardDialog: () -> Unit,
+    onCloseBoardDialog: () -> Unit,
+    onSelectBoard: (BoardInfo) -> Unit,
+    boards: List<BoardInfo>,
+) {
     Dialog(onDismissRequest = onDismiss) {
         Card(shape = MaterialTheme.shapes.medium) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -58,16 +84,16 @@ fun NgIdDialog(
                 )
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = !isRegex, onClick = { isRegex = false })
+                    RadioButton(selected = !uiState.isRegex, onClick = { onRegexChange(false) })
                     Text(text = stringResource(R.string.string_literal))
                     Spacer(Modifier.width(8.dp))
-                    RadioButton(selected = isRegex, onClick = { isRegex = true })
+                    RadioButton(selected = uiState.isRegex, onClick = { onRegexChange(true) })
                     Text(text = stringResource(R.string.regular_expression))
                 }
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
+                    value = uiState.text,
+                    onValueChange = onTextChange,
                     label = { Text(stringResource(R.string.id_label)) },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -75,10 +101,10 @@ fun NgIdDialog(
                 Text(text = stringResource(R.string.target_board))
                 Spacer(Modifier.height(4.dp))
                 OutlinedButton(
-                    onClick = { showBoardDialog = true },
+                    onClick = onOpenBoardDialog,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (board.isNotEmpty()) board else stringResource(R.string.board))
+                    Text(if (uiState.board.isNotEmpty()) uiState.board else stringResource(R.string.board))
                 }
                 Spacer(Modifier.height(16.dp))
                 Row(
@@ -89,24 +115,20 @@ fun NgIdDialog(
                         Text(text = stringResource(R.string.cancel))
                     }
                     Spacer(Modifier.width(8.dp))
-                    TextButton(onClick = { onConfirm(text, isRegex, board) }) {
+                    TextButton(onClick = onConfirmClick) {
                         Text(text = stringResource(R.string.save))
                     }
                 }
             }
         }
     }
-
-    if (showBoardDialog) {
-        val viewModel: NgIdViewModel = hiltViewModel()
-        val boards by viewModel.boards.collectAsState()
-
+    if (uiState.showBoardDialog) {
         BoardListDialog(
             boards = boards,
-            onDismiss = { showBoardDialog = false },
-            onSelect = { info ->
-                board = info.name
-                showBoardDialog = false
+            onDismiss = onCloseBoardDialog,
+            onSelect = {
+                onSelectBoard(it)
+                onCloseBoardDialog()
             }
         )
     }
@@ -137,9 +159,15 @@ fun BoardListDialog(
 @Composable
 fun NgIdDialogPreview() {
     NgIdDialog(
-        idText = "abcd",
-        onConfirm = { _, _, _ -> },
-        onDismiss = {}
+        uiState = NgIdUiState(text = "abcd"),
+        onDismiss = {},
+        onConfirmClick = {},
+        onTextChange = {},
+        onRegexChange = {},
+        onOpenBoardDialog = {},
+        onCloseBoardDialog = {},
+        onSelectBoard = {},
+        boards = emptyList(),
     )
 }
 

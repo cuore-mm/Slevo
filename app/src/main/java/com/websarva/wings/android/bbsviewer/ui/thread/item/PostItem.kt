@@ -45,7 +45,7 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.PostMenuDialog
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.IdMenuDialog
-import com.websarva.wings.android.bbsviewer.ui.thread.dialog.NgIdDialog
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.NgIdDialogRoute
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 
 
@@ -206,7 +206,7 @@ fun PostItem(
             )
         }
         if (ngDialogExpanded) {
-            NgIdDialog(
+            NgIdDialogRoute(
                 idText = post.id,
                 boardText = boardName,
                 onConfirm = { _, _, _ -> ngDialogExpanded = false },
