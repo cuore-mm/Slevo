@@ -16,11 +16,17 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -141,10 +147,32 @@ fun BoardListDialog(
     onDismiss: () -> Unit,
     onSelect: (BoardInfo) -> Unit,
 ) {
+    var query by remember { mutableStateOf("") }
+    val filteredBoards = boards.filter {
+        it.name.contains(query, ignoreCase = true) || it.url.contains(query, ignoreCase = true)
+    }
     Dialog(onDismissRequest = onDismiss) {
         Card(shape = MaterialTheme.shapes.medium) {
             LazyColumn {
-                items(boards, key = { it.boardId }) { info ->
+                item {
+                    TextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        placeholder = { Text(stringResource(R.string.search_board_hint)) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        singleLine = true
+                    )
+                }
+                item {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.all_boards)) },
+                        modifier = Modifier.clickable { onSelect(BoardInfo(0L, "", "")) }
+                    )
+                    Divider()
+                }
+                items(filteredBoards, key = { it.boardId }) { info ->
                     ListItem(
                         headlineContent = { Text(info.name) },
                         supportingContent = { Text(info.url) },
