@@ -182,7 +182,7 @@ class TabsViewModel @Inject constructor(
         }
 
         val name = boardRepository.fetchBoardName("${boardUrl}SETTING.TXT") ?: boardName
-        val id = bookmarkBoardRepo.ensureBoard(BoardInfo(0L, name, boardUrl))
+        val id = boardRepository.ensureBoard(BoardInfo(0L, name, boardUrl))
         return BoardInfo(id, name, boardUrl)
     }
 

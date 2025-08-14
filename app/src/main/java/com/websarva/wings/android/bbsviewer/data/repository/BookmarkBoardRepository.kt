@@ -2,16 +2,13 @@ package com.websarva.wings.android.bbsviewer.data.repository
 
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardBookmarkGroupDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BbsServiceDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardWithBookmarkAndGroup
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithBoards
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
-import com.websarva.wings.android.bbsviewer.ui.util.parseServiceName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -22,8 +19,8 @@ import javax.inject.Singleton
 class BookmarkBoardRepository @Inject constructor(
     private val boardDao: BookmarkBoardDao,
     private val groupDao: BoardBookmarkGroupDao,
-    private val serviceDao: BbsServiceDao,
     private val boardEntityDao: BoardDao,
+    private val boardRepository: BoardRepository,
 ) {
 
     fun observeGroups(): Flow<List<BoardBookmarkGroupEntity>> =
@@ -71,26 +68,7 @@ class BookmarkBoardRepository @Inject constructor(
      * @return 登録に使用した boardId
      */
     suspend fun upsertBookmark(boardInfo: BoardInfo, groupId: Long): Long = withContext(Dispatchers.IO) {
-        var bId = boardInfo.boardId
-        if (bId == 0L) {
-            // URL からサービス名を取得し、存在しなければサービスも登録
-            val serviceName = parseServiceName(boardInfo.url)
-            val service = serviceDao.findByDomain(serviceName) ?: run {
-                val svc = BbsServiceEntity(domain = serviceName, displayName = serviceName, menuUrl = null)
-                val id = serviceDao.upsert(svc)
-                svc.copy(serviceId = id)
-            }
-
-            val insertedId = boardEntityDao.insertBoard(
-                BoardEntity(
-                    serviceId = service.serviceId,
-                    url = boardInfo.url,
-                    name = boardInfo.name
-                )
-            )
-            bId = if (insertedId != -1L) insertedId else boardEntityDao.findBoardIdByUrl(boardInfo.url)
-        }
-
+        val bId = boardRepository.ensureBoard(boardInfo)
         boardDao.upsertBookmark(BookmarkBoardEntity(bId, groupId))
         bId
     }
@@ -112,31 +90,6 @@ class BookmarkBoardRepository @Inject constructor(
 
     suspend fun findBoardByUrl(boardUrl: String): BoardEntity? =
         boardDao.findBoardByUrl(boardUrl)
-
-    /**
-     * 指定した板を boards テーブルに登録し、その ID を返す。
-     * 既に存在する場合はその ID を返すだけで、お気に入りには追加しない。
-     */
-    suspend fun ensureBoard(boardInfo: BoardInfo): Long = withContext(Dispatchers.IO) {
-        var bId = boardInfo.boardId
-        if (bId == 0L) {
-            val serviceName = parseServiceName(boardInfo.url)
-            val service = serviceDao.findByDomain(serviceName) ?: run {
-                val svc = BbsServiceEntity(domain = serviceName, displayName = serviceName, menuUrl = null)
-                val id = serviceDao.upsert(svc)
-                svc.copy(serviceId = id)
-            }
-            val insertedId = boardEntityDao.insertBoard(
-                BoardEntity(
-                    serviceId = service.serviceId,
-                    url = boardInfo.url,
-                    name = boardInfo.name
-                )
-            )
-            bId = if (insertedId != -1L) insertedId else boardEntityDao.findBoardIdByUrl(boardInfo.url)
-        }
-        bId
-    }
 
     fun observeAllBoards(): Flow<List<BoardEntity>> =
         boardEntityDao.getAllBoards()
