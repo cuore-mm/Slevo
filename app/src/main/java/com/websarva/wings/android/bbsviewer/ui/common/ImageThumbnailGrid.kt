@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.common
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -84,6 +85,7 @@ fun ImageThumbnailGrid(
     }
 }
 
+@SuppressLint("DefaultLocale")
 private fun formatBytes(bytes: Long): String {
     val kb = bytes / 1024.0
     val mb = kb / 1024.0
