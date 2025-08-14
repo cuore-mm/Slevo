@@ -23,10 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +45,7 @@ fun NgIdDialogRoute(
     viewModel: NgIdViewModel = hiltViewModel(),
 ) {
     val uiState = viewModel.uiState.collectAsState().value
-    val boards = viewModel.boards.collectAsState().value
+    val boards = viewModel.filteredBoards.collectAsState().value
 
     // 初期値反映
     LaunchedEffect(idText, boardText) {
@@ -65,6 +61,7 @@ fun NgIdDialogRoute(
         onOpenBoardDialog = { viewModel.setShowBoardDialog(true) },
         onCloseBoardDialog = { viewModel.setShowBoardDialog(false) },
         onSelectBoard = { viewModel.setBoard(it.name) },
+        onQueryChange = { viewModel.setBoardQuery(it) },
         boards = boards,
     )
 }
@@ -79,6 +76,7 @@ fun NgIdDialog(
     onOpenBoardDialog: () -> Unit,
     onCloseBoardDialog: () -> Unit,
     onSelectBoard: (BoardInfo) -> Unit,
+    onQueryChange: (String) -> Unit,
     boards: List<BoardInfo>,
 ) {
     Dialog(onDismissRequest = onDismiss) {
@@ -132,11 +130,13 @@ fun NgIdDialog(
     if (uiState.showBoardDialog) {
         BoardListDialog(
             boards = boards,
+            query = uiState.boardQuery,
+            onQueryChange = onQueryChange,
             onDismiss = onCloseBoardDialog,
             onSelect = {
                 onSelectBoard(it)
                 onCloseBoardDialog()
-            }
+            },
         )
     }
 }
@@ -144,25 +144,23 @@ fun NgIdDialog(
 @Composable
 fun BoardListDialog(
     boards: List<BoardInfo>,
+    query: String,
+    onQueryChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onSelect: (BoardInfo) -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
-    val filteredBoards = boards.filter {
-        it.name.contains(query, ignoreCase = true) || it.url.contains(query, ignoreCase = true)
-    }
     Dialog(onDismissRequest = onDismiss) {
         Card(shape = MaterialTheme.shapes.medium) {
             LazyColumn {
                 item {
                     TextField(
                         value = query,
-                        onValueChange = { query = it },
+                        onValueChange = onQueryChange,
                         placeholder = { Text(stringResource(R.string.search_board_hint)) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp),
-                        singleLine = true
+                        singleLine = true,
                     )
                 }
                 item {
@@ -172,7 +170,7 @@ fun BoardListDialog(
                     )
                     Divider()
                 }
-                items(filteredBoards, key = { it.boardId }) { info ->
+                items(boards, key = { it.boardId }) { info ->
                     ListItem(
                         headlineContent = { Text(info.name) },
                         supportingContent = { Text(info.url) },
@@ -196,6 +194,7 @@ fun NgIdDialogPreview() {
         onOpenBoardDialog = {},
         onCloseBoardDialog = {},
         onSelectBoard = {},
+        onQueryChange = {},
         boards = emptyList(),
     )
 }
@@ -208,6 +207,8 @@ fun BoardListDialogPreview() {
             BoardInfo(1L, "board1", "https://example.com/board1"),
             BoardInfo(2L, "board2", "https://example.com/board2"),
         ),
+        query = "",
+        onQueryChange = {},
         onDismiss = {},
         onSelect = {},
     )
