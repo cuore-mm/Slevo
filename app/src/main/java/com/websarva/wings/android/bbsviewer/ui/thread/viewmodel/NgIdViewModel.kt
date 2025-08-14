@@ -41,15 +41,17 @@ class NgIdViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun initialize(text: String, board: String) {
-        _uiState.update { it.copy(text = text, board = board) }
+        _uiState.update { it.copy(text = text, board = board, isAllBoards = false) }
     }
 
     fun setText(text: String) {
         _uiState.update { it.copy(text = text) }
     }
 
-    fun setBoard(board: String) {
-        _uiState.update { it.copy(board = board) }
+    fun setBoard(info: BoardInfo) {
+        _uiState.update {
+            it.copy(board = info.name, isAllBoards = info.boardId == 0L)
+        }
     }
 
     fun setBoardQuery(query: String) {

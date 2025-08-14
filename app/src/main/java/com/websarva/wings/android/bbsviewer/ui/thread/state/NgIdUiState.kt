@@ -4,6 +4,7 @@ data class NgIdUiState(
     val text: String = "",
     val board: String = "",
     val boardQuery: String = "",
+    val isAllBoards: Boolean = false,
     val isRegex: Boolean = false,
     val showBoardDialog: Boolean = false,
 )

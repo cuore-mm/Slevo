@@ -60,7 +60,7 @@ fun NgIdDialogRoute(
         onRegexChange = { viewModel.setRegex(it) },
         onOpenBoardDialog = { viewModel.setShowBoardDialog(true) },
         onCloseBoardDialog = { viewModel.setShowBoardDialog(false) },
-        onSelectBoard = { viewModel.setBoard(it.name) },
+        onSelectBoard = { viewModel.setBoard(it) },
         onQueryChange = { viewModel.setBoardQuery(it) },
         boards = boards,
     )
@@ -109,7 +109,13 @@ fun NgIdDialog(
                     onClick = onOpenBoardDialog,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(uiState.board.ifEmpty { stringResource(R.string.board) })
+                    Text(
+                        if (uiState.isAllBoards) {
+                            stringResource(R.string.all_boards)
+                        } else {
+                            uiState.board.ifEmpty { stringResource(R.string.board) }
+                        }
+                    )
                 }
                 Spacer(Modifier.height(16.dp))
                 Row(
@@ -193,7 +199,7 @@ fun NgIdDialogPreview() {
         onRegexChange = {},
         onOpenBoardDialog = {},
         onCloseBoardDialog = {},
-        onSelectBoard = {},
+        onSelectBoard = { _ -> },
         onQueryChange = {},
         boards = emptyList(),
     )
