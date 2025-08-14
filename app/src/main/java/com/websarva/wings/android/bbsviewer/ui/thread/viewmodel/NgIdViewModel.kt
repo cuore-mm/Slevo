@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
+import com.websarva.wings.android.bbsviewer.data.repository.NgIdRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -13,12 +14,14 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.websarva.wings.android.bbsviewer.ui.thread.state.NgIdUiState
 
 @HiltViewModel
 class NgIdViewModel @Inject constructor(
-    repository: BookmarkBoardRepository
+    repository: BookmarkBoardRepository,
+    private val ngIdRepository: NgIdRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(NgIdUiState())
     val uiState: StateFlow<NgIdUiState> = _uiState.asStateFlow()
@@ -40,8 +43,15 @@ class NgIdViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun initialize(text: String, board: String) {
-        _uiState.update { it.copy(text = text, board = board, isAllBoards = false) }
+    fun initialize(text: String, boardName: String, boardId: Long?) {
+        _uiState.update {
+            it.copy(
+                text = text,
+                boardName = boardName,
+                boardId = boardId,
+                isAllBoards = boardId == null
+            )
+        }
     }
 
     fun setText(text: String) {
@@ -50,7 +60,11 @@ class NgIdViewModel @Inject constructor(
 
     fun setBoard(info: BoardInfo) {
         _uiState.update {
-            it.copy(board = info.name, isAllBoards = info.boardId == 0L)
+            it.copy(
+                boardName = info.name,
+                boardId = info.boardId.takeIf { id -> id != 0L },
+                isAllBoards = info.boardId == 0L
+            )
         }
     }
 
@@ -64,5 +78,16 @@ class NgIdViewModel @Inject constructor(
 
     fun setShowBoardDialog(show: Boolean) {
         _uiState.update { it.copy(showBoardDialog = show) }
+    }
+
+    fun saveNgId() {
+        val state = _uiState.value
+        viewModelScope.launch {
+            ngIdRepository.addNgId(
+                state.text,
+                state.isRegex,
+                if (state.isAllBoards) null else state.boardId
+            )
+        }
     }
 }
