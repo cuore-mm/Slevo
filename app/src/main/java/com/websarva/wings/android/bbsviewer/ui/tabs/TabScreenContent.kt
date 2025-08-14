@@ -80,7 +80,7 @@ fun TabScreenContent(
                                 threadKey = key,
                                 boardUrl = boardUrl,
                                 boardName = board,
-                                boardId = 0L,
+                                boardId = null,
                                 threadTitle = url
                             )
                         ) { launchSingleTop = true }
@@ -89,7 +89,7 @@ fun TabScreenContent(
                             val boardUrl = "https://$host/$board/"
                             navController.navigate(
                                 AppRoute.Board(
-                                    boardId = 0L,
+                                    boardId = null,
                                     boardName = boardUrl,
                                     boardUrl = boardUrl
                                 )
