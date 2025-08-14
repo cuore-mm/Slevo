@@ -3,9 +3,11 @@ package com.websarva.wings.android.bbsviewer.data.datasource.remote.impl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.ImageDownloadRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.model.ImageDownloadState
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.ByteArrayOutputStream
@@ -30,6 +32,9 @@ class ImageDownloadRemoteDataSourceImpl @Inject constructor(
             }
             emit(ImageDownloadState.Success(output.toByteArray()))
         }
-    }.catch { e -> emit(ImageDownloadState.Error(e)) }
+    }
+        // Ensure network + streaming runs off the main thread
+        .flowOn(Dispatchers.IO)
+        .catch { e -> emit(ImageDownloadState.Error(e)) }
 }
 

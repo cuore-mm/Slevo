@@ -1,6 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.common
 
 import android.graphics.BitmapFactory
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.model.ImageDownloadState
@@ -27,6 +28,7 @@ class ImageThumbnailViewModel @Inject constructor(
             }
             viewModelScope.launch {
                 repository.downloadImage(url).collect { state ->
+                    Log.d("ImageThumbnailViewModel", "State for $url: $state")
                     when (state) {
                         is ImageDownloadState.Progress -> {
                             _uiState.update { current ->
