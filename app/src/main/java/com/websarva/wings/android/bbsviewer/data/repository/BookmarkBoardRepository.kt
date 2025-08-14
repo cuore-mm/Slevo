@@ -113,6 +113,31 @@ class BookmarkBoardRepository @Inject constructor(
     suspend fun findBoardByUrl(boardUrl: String): BoardEntity? =
         boardDao.findBoardByUrl(boardUrl)
 
+    /**
+     * 指定した板を boards テーブルに登録し、その ID を返す。
+     * 既に存在する場合はその ID を返すだけで、お気に入りには追加しない。
+     */
+    suspend fun ensureBoard(boardInfo: BoardInfo): Long = withContext(Dispatchers.IO) {
+        var bId = boardInfo.boardId
+        if (bId == 0L) {
+            val serviceName = parseServiceName(boardInfo.url)
+            val service = serviceDao.findByDomain(serviceName) ?: run {
+                val svc = BbsServiceEntity(domain = serviceName, displayName = serviceName, menuUrl = null)
+                val id = serviceDao.upsert(svc)
+                svc.copy(serviceId = id)
+            }
+            val insertedId = boardEntityDao.insertBoard(
+                BoardEntity(
+                    serviceId = service.serviceId,
+                    url = boardInfo.url,
+                    name = boardInfo.name
+                )
+            )
+            bId = if (insertedId != -1L) insertedId else boardEntityDao.findBoardIdByUrl(boardInfo.url)
+        }
+        bId
+    }
+
     fun observeAllBoards(): Flow<List<BoardEntity>> =
         boardEntityDao.getAllBoards()
 }

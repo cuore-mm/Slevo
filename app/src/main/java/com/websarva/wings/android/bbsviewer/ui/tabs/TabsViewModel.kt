@@ -170,15 +170,20 @@ class TabsViewModel @Inject constructor(
         viewModelScope.launch { repository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
     }
 
-    suspend fun resolveBoardInfo(boardId: Long, boardUrl: String, boardName: String): BoardInfo {
-        if (boardId != 0L) return BoardInfo(boardId, boardName, boardUrl)
+    suspend fun resolveBoardInfo(
+        boardId: Long?,
+        boardUrl: String,
+        boardName: String
+    ): BoardInfo {
+        boardId?.takeIf { it != 0L }?.let { return BoardInfo(it, boardName, boardUrl) }
 
         bookmarkBoardRepo.findBoardByUrl(boardUrl)?.let { entity ->
             return BoardInfo(entity.boardId, entity.name, entity.url)
         }
 
-        val name = boardRepository.fetchBoardName("${boardUrl}SETTING.TXT")
-        return BoardInfo(0L, name ?: boardName, boardUrl)
+        val name = boardRepository.fetchBoardName("${boardUrl}SETTING.TXT") ?: boardName
+        val id = bookmarkBoardRepo.ensureBoard(BoardInfo(0L, name, boardUrl))
+        return BoardInfo(id, name, boardUrl)
     }
 
     /**
