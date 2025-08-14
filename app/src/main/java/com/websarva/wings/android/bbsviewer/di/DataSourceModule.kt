@@ -12,14 +12,16 @@ import com.websarva.wings.android.bbsviewer.data.datasource.remote.BbsMenuDataSo
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BoardRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.DatRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.PostRemoteDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.ThreadCreateRemoteDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.ImageUploadRemoteDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.ImageDownloadRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.BbsMenuDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.BoardRemoteDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.DatRemoteDataSourceImpl
-import com.websarva.wings.android.bbsviewer.data.datasource.remote.ThreadCreateRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.PostRemoteDataSourceImpl
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.ThreadCreateRemoteDataSourceImpl
-import com.websarva.wings.android.bbsviewer.data.datasource.remote.ImageUploadRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.ImageUploadRemoteDataSourceImpl
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.impl.ImageDownloadRemoteDataSourceImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -37,70 +39,77 @@ abstract class DataSourceModule {
     @Binds
     @Singleton
     abstract fun bindBbsMenuDataSource(
-        impl: BbsMenuDataSourceImpl
+        impl: BbsMenuDataSourceImpl,
     ): BbsMenuDataSource
 
     /** ローカル DB 操作用 */
     @Binds
     @Singleton
     abstract fun bindBbsLocalDataSource(
-        impl: BbsLocalDataSourceImpl
+        impl: BbsLocalDataSourceImpl,
     ): BbsLocalDataSource
 
     /** 設定保存用 */
     @Binds
     @Singleton
     abstract fun bindSettingsLocalDataSource(
-        impl: SettingsLocalDataSourceImpl
+        impl: SettingsLocalDataSourceImpl,
     ): SettingsLocalDataSource
 
     /** スレッド一覧取得用 */
     @Binds
     @Singleton
     abstract fun bindBoardRemoteDataSource(
-        impl: BoardRemoteDataSourceImpl
+        impl: BoardRemoteDataSourceImpl,
     ): BoardRemoteDataSource
 
     /** DATファイル取得用 */
     @Binds
     @Singleton
     abstract fun bindDatRemoteDataSource(
-        impl: DatRemoteDataSourceImpl
+        impl: DatRemoteDataSourceImpl,
     ): DatRemoteDataSource
 
     /** 投稿処理用 */
     @Binds
     @Singleton
     abstract fun bindPostRemoteDataSource(
-        impl: PostRemoteDataSourceImpl
+        impl: PostRemoteDataSourceImpl,
     ): PostRemoteDataSource
 
     /** スレッド作成処理用 */
     @Binds
     @Singleton
     abstract fun bindThreadCreateRemoteDataSource(
-        impl: ThreadCreateRemoteDataSourceImpl
+        impl: ThreadCreateRemoteDataSourceImpl,
     ): ThreadCreateRemoteDataSource
 
     /** 画像アップロード用 */
     @Binds
     @Singleton
     abstract fun bindImageUploadRemoteDataSource(
-        impl: ImageUploadRemoteDataSourceImpl
+        impl: ImageUploadRemoteDataSourceImpl,
     ): ImageUploadRemoteDataSource
+
+    /** 画像ダウンロード用 */
+    @Binds
+    @Singleton
+    abstract fun bindImageDownloadRemoteDataSource(
+        impl: ImageDownloadRemoteDataSourceImpl,
+    ): ImageDownloadRemoteDataSource
 
     /** クッキー永続化用 */
     @Binds
     @Singleton
     abstract fun bindCookieLocalDataSource(
-        impl: CookieLocalDataSourceImpl
+        impl: CookieLocalDataSourceImpl,
     ): CookieLocalDataSource
 
     /** タブ状態保存用 */
     @Binds
     @Singleton
     abstract fun bindTabsLocalDataSource(
-        impl: TabsLocalDataSourceImpl
+        impl: TabsLocalDataSourceImpl,
     ): TabsLocalDataSource
 }
 
