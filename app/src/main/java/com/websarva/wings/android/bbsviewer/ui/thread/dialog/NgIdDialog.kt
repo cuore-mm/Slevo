@@ -16,7 +16,9 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,28 +39,32 @@ import com.websarva.wings.android.bbsviewer.ui.thread.viewmodel.NgIdViewModel
 @Composable
 fun NgIdDialogRoute(
     idText: String,
-    boardText: String = "",
-    onConfirm: (String, Boolean, String) -> Unit,
+    boardName: String = "",
+    boardId: Long? = null,
     onDismiss: () -> Unit,
     viewModel: NgIdViewModel = hiltViewModel(),
 ) {
     val uiState = viewModel.uiState.collectAsState().value
-    val boards = viewModel.boards.collectAsState().value
+    val boards = viewModel.filteredBoards.collectAsState().value
 
     // 初期値反映
-    LaunchedEffect(idText, boardText) {
-        viewModel.initialize(idText, boardText)
+    LaunchedEffect(idText, boardName, boardId) {
+        viewModel.initialize(idText, boardName, boardId)
     }
 
     NgIdDialog(
         uiState = uiState,
         onDismiss = onDismiss,
-        onConfirmClick = { onConfirm(uiState.text, uiState.isRegex, uiState.board) },
+        onConfirmClick = {
+            viewModel.saveNgId()
+            onDismiss()
+        },
         onTextChange = { viewModel.setText(it) },
         onRegexChange = { viewModel.setRegex(it) },
         onOpenBoardDialog = { viewModel.setShowBoardDialog(true) },
         onCloseBoardDialog = { viewModel.setShowBoardDialog(false) },
-        onSelectBoard = { viewModel.setBoard(it.name) },
+        onSelectBoard = { viewModel.setBoard(it) },
+        onQueryChange = { viewModel.setBoardQuery(it) },
         boards = boards,
     )
 }
@@ -73,6 +79,7 @@ fun NgIdDialog(
     onOpenBoardDialog: () -> Unit,
     onCloseBoardDialog: () -> Unit,
     onSelectBoard: (BoardInfo) -> Unit,
+    onQueryChange: (String) -> Unit,
     boards: List<BoardInfo>,
 ) {
     Dialog(onDismissRequest = onDismiss) {
@@ -105,7 +112,13 @@ fun NgIdDialog(
                     onClick = onOpenBoardDialog,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(uiState.board.ifEmpty { stringResource(R.string.board) })
+                    Text(
+                        if (uiState.isAllBoards) {
+                            stringResource(R.string.all_boards)
+                        } else {
+                            uiState.boardName.ifEmpty { stringResource(R.string.board) }
+                        }
+                    )
                 }
                 Spacer(Modifier.height(16.dp))
                 Row(
@@ -126,11 +139,13 @@ fun NgIdDialog(
     if (uiState.showBoardDialog) {
         BoardListDialog(
             boards = boards,
+            query = uiState.boardQuery,
+            onQueryChange = onQueryChange,
             onDismiss = onCloseBoardDialog,
             onSelect = {
                 onSelectBoard(it)
                 onCloseBoardDialog()
-            }
+            },
         )
     }
 }
@@ -138,12 +153,32 @@ fun NgIdDialog(
 @Composable
 fun BoardListDialog(
     boards: List<BoardInfo>,
+    query: String,
+    onQueryChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onSelect: (BoardInfo) -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(shape = MaterialTheme.shapes.medium) {
             LazyColumn {
+                item {
+                    TextField(
+                        value = query,
+                        onValueChange = onQueryChange,
+                        placeholder = { Text(stringResource(R.string.search_board_hint)) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        singleLine = true,
+                    )
+                }
+                item {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.all_boards)) },
+                        modifier = Modifier.clickable { onSelect(BoardInfo(0L, "", "")) }
+                    )
+                    Divider()
+                }
                 items(boards, key = { it.boardId }) { info ->
                     ListItem(
                         headlineContent = { Text(info.name) },
@@ -167,7 +202,8 @@ fun NgIdDialogPreview() {
         onRegexChange = {},
         onOpenBoardDialog = {},
         onCloseBoardDialog = {},
-        onSelectBoard = {},
+        onSelectBoard = { _ -> },
+        onQueryChange = {},
         boards = emptyList(),
     )
 }
@@ -180,6 +216,8 @@ fun BoardListDialogPreview() {
             BoardInfo(1L, "board1", "https://example.com/board1"),
             BoardInfo(2L, "board2", "https://example.com/board2"),
         ),
+        query = "",
+        onQueryChange = {},
         onDismiss = {},
         onSelect = {},
     )
