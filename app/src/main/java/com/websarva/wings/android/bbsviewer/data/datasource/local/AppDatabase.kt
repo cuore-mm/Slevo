@@ -13,6 +13,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBook
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenBoardTabDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenThreadTabDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadHistoryDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.NgIdDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardCategoryCrossRef
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
@@ -25,6 +26,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenBoa
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenThreadTabEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadHistoryEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadHistoryAccessEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.NgIdEntity
 
 @Database(
     entities = [
@@ -39,9 +41,10 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadH
         OpenBoardTabEntity::class,
         OpenThreadTabEntity::class,
         ThreadHistoryEntity::class,
-        ThreadHistoryAccessEntity::class
+        ThreadHistoryAccessEntity::class,
+        NgIdEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -56,4 +59,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun openBoardTabDao(): OpenBoardTabDao
     abstract fun openThreadTabDao(): OpenThreadTabDao
     abstract fun threadHistoryDao(): ThreadHistoryDao
+    abstract fun ngIdDao(): NgIdDao
 }

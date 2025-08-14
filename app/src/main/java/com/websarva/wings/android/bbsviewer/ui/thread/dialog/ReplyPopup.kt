@@ -36,6 +36,7 @@ fun ReplyPopup(
     idIndexList: List<Int>,
     navController: NavHostController,
     boardName: String,
+    boardId: Long,
     onClose: () -> Unit
 ) {
     popupStack.forEachIndexed { index, info ->
@@ -77,6 +78,7 @@ fun ReplyPopup(
                             idTotal = if (p.id.isBlank()) 1 else idCountMap[p.id] ?: 1,
                         navController = navController,
                         boardName = boardName,
+                        boardId = boardId,
                         replyFromNumbers = replySourceMap[posts.indexOf(p) + 1] ?: emptyList(),
                         onReplyFromClick = { nums ->
                             val off = IntOffset(

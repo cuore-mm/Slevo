@@ -118,6 +118,7 @@ fun ThreadScreen(
                         idTotal = if (post.id.isBlank()) 1 else uiState.idCountMap[post.id] ?: 1,
                         navController = navController,
                         boardName = uiState.boardInfo.name,
+                        boardId = uiState.boardInfo.boardId,
                         replyFromNumbers = uiState.replySourceMap[index + 1] ?: emptyList(),
                         onReplyFromClick = { nums ->
                             val offset = if (popupStack.isEmpty()) {
@@ -174,6 +175,7 @@ fun ThreadScreen(
             idIndexList = uiState.idIndexList,
             navController = navController,
             boardName = uiState.boardInfo.name,
+            boardId = uiState.boardInfo.boardId,
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeLast() }
         )
 

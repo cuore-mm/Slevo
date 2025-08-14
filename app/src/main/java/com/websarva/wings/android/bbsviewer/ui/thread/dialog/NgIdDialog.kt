@@ -39,8 +39,8 @@ import com.websarva.wings.android.bbsviewer.ui.thread.viewmodel.NgIdViewModel
 @Composable
 fun NgIdDialogRoute(
     idText: String,
-    boardText: String = "",
-    onConfirm: (String, Boolean, String) -> Unit,
+    boardName: String = "",
+    boardId: Long? = null,
     onDismiss: () -> Unit,
     viewModel: NgIdViewModel = hiltViewModel(),
 ) {
@@ -48,14 +48,17 @@ fun NgIdDialogRoute(
     val boards = viewModel.filteredBoards.collectAsState().value
 
     // 初期値反映
-    LaunchedEffect(idText, boardText) {
-        viewModel.initialize(idText, boardText)
+    LaunchedEffect(idText, boardName, boardId) {
+        viewModel.initialize(idText, boardName, boardId)
     }
 
     NgIdDialog(
         uiState = uiState,
         onDismiss = onDismiss,
-        onConfirmClick = { onConfirm(uiState.text, uiState.isRegex, uiState.board) },
+        onConfirmClick = {
+            viewModel.saveNgId()
+            onDismiss()
+        },
         onTextChange = { viewModel.setText(it) },
         onRegexChange = { viewModel.setRegex(it) },
         onOpenBoardDialog = { viewModel.setShowBoardDialog(true) },
@@ -113,7 +116,7 @@ fun NgIdDialog(
                         if (uiState.isAllBoards) {
                             stringResource(R.string.all_boards)
                         } else {
-                            uiState.board.ifEmpty { stringResource(R.string.board) }
+                            uiState.boardName.ifEmpty { stringResource(R.string.board) }
                         }
                     )
                 }

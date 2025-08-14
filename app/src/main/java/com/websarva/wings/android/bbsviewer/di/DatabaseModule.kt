@@ -16,6 +16,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBook
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenBoardTabDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenThreadTabDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadHistoryDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.NgIdDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -130,6 +131,25 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS ng_ids (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    pattern TEXT NOT NULL,
+                    isRegex INTEGER NOT NULL,
+                    boardId INTEGER,
+                    FOREIGN KEY(boardId) REFERENCES boards(boardId) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_ng_ids_boardId ON ng_ids(boardId)"
+            )
+        }
+    }
+
     /**
      * Room の AppDatabase インスタンスをシングルトンとして提供
      *
@@ -149,7 +169,7 @@ object DatabaseModule {
         )
             // マイグレーション未定義時は既存データを破棄し再生成
             .fallbackToDestructiveMigration(false)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .addCallback(callback)
             .build()
     }
@@ -225,4 +245,8 @@ object DatabaseModule {
     @Provides
     fun provideThreadHistoryDao(db: AppDatabase): ThreadHistoryDao =
         db.threadHistoryDao()
+
+    @Provides
+    fun provideNgIdDao(db: AppDatabase): NgIdDao =
+        db.ngIdDao()
 }
