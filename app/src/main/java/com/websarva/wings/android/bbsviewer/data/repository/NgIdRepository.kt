@@ -4,6 +4,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.NgIdDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.NgIdEntity
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
 
 @Singleton
 class NgIdRepository @Inject constructor(
@@ -12,4 +13,6 @@ class NgIdRepository @Inject constructor(
     suspend fun addNgId(pattern: String, isRegex: Boolean, boardId: Long?) {
         dao.insert(NgIdEntity(pattern = pattern, isRegex = isRegex, boardId = boardId))
     }
+
+    fun observeAll(): Flow<List<NgIdEntity>> = dao.getAll()
 }

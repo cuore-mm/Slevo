@@ -11,6 +11,7 @@ import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ImageUploadRepository
+import com.websarva.wings.android.bbsviewer.data.repository.NgIdRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadHistoryRepository
@@ -19,6 +20,7 @@ import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkVie
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModelFactory
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.NgIdEntity
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -33,12 +35,15 @@ class ThreadViewModel @AssistedInject constructor(
     private val postRepository: PostRepository,
     private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
+    private val ngIdRepository: NgIdRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     @Assisted val viewModelKey: String,
 ) : BaseViewModel<ThreadUiState>() {
 
     override val _uiState = MutableStateFlow(ThreadUiState())
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
+    private var allPosts: List<ReplyInfo> = emptyList()
+    private var ngIds: List<NgIdEntity> = emptyList()
 
     //画面遷移した最初に行う初期処理
     fun initializeThread(
@@ -71,6 +76,13 @@ class ThreadViewModel @AssistedInject constructor(
             }
         }
 
+        viewModelScope.launch {
+            ngIdRepository.observeAll().collect { ids ->
+                ngIds = ids
+                applyNgIdFilter()
+            }
+        }
+
         initialize() // BaseViewModelの初期化処理を呼び出す
     }
 
@@ -86,18 +98,15 @@ class ThreadViewModel @AssistedInject constructor(
             }
             if (threadData != null) {
                 val (posts, title) = threadData
-                val derived = deriveReplyMaps(posts)
+                allPosts = posts
                 _uiState.update {
                     it.copy(
-                        posts = posts,
                         isLoading = false,
                         loadProgress = 1f,
-                        threadInfo = it.threadInfo.copy(title = title ?: it.threadInfo.title),
-                        idCountMap = derived.first,
-                        idIndexList = derived.second,
-                        replySourceMap = derived.third,
+                        threadInfo = it.threadInfo.copy(title = title ?: it.threadInfo.title)
                     )
                 }
+                applyNgIdFilter()
                 historyRepository.recordHistory(
                     uiState.value.boardInfo,
                     uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
@@ -140,6 +149,25 @@ class ThreadViewModel @AssistedInject constructor(
             map.mapValues { it.value.toList() }
         }
         return Triple(idCountMap, idIndexList, replySourceMap)
+    }
+
+    private fun applyNgIdFilter() {
+        val boardId = uiState.value.boardInfo.boardId
+        val filtered = allPosts.filterNot { reply ->
+            ngIds.any { ng ->
+                (ng.boardId == null || ng.boardId == boardId) &&
+                    (if (ng.isRegex) Regex(ng.pattern).containsMatchIn(reply.id) else reply.id == ng.pattern)
+            }
+        }
+        val derived = deriveReplyMaps(filtered)
+        _uiState.update {
+            it.copy(
+                posts = filtered,
+                idCountMap = derived.first,
+                idIndexList = derived.second,
+                replySourceMap = derived.third
+            )
+        }
     }
 
     fun reloadThread() {
