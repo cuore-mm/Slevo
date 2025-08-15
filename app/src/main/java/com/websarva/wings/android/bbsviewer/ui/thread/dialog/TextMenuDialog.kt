@@ -13,37 +13,37 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.bbsviewer.R
 
 @Composable
-fun IdMenuDialog(
-    idText: String,
+fun TextMenuDialog(
+    text: String,
     onCopyClick: () -> Unit,
     onNgClick: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(shape = MaterialTheme.shapes.medium) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = idText,
+                    text = text,
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
                 )
                 Spacer(Modifier.height(8.dp))
                 Button(
                     onClick = onCopyClick,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(text = stringResource(R.string.copy))
                 }
                 Spacer(Modifier.height(8.dp))
                 Button(
                     onClick = onNgClick,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(text = stringResource(R.string.ng_registration))
                 }
@@ -54,11 +54,11 @@ fun IdMenuDialog(
 
 @Preview(showBackground = true)
 @Composable
-fun IdMenuDialogPreview() {
-    IdMenuDialog(
-        idText = "abcd",
+fun TextMenuDialogPreview() {
+    TextMenuDialog(
+        text = "abcd",
         onCopyClick = {},
         onNgClick = {},
-        onDismiss = {}
+        onDismiss = {},
     )
 }

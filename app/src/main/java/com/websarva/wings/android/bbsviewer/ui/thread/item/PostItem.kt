@@ -43,9 +43,10 @@ import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
 import com.websarva.wings.android.bbsviewer.ui.common.ImageThumbnailGrid
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.PostMenuDialog
-import com.websarva.wings.android.bbsviewer.ui.thread.dialog.IdMenuDialog
-import com.websarva.wings.android.bbsviewer.ui.thread.dialog.NgIdDialogRoute
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.TextMenuDialog
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 
 
@@ -64,8 +65,8 @@ fun PostItem(
     onReplyClick: ((Int) -> Unit)? = null
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    var idMenuExpanded by remember { mutableStateOf(false) }
-    var ngDialogExpanded by remember { mutableStateOf(false) }
+    var textMenuData by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    var ngDialogData by remember { mutableStateOf<Pair<String, Int>?>(null) }
     val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
 
     Box {
@@ -102,7 +103,20 @@ fun PostItem(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "${post.name} ${post.email} ${post.date}",
+                        modifier = Modifier.combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                if (post.name.isNotBlank()) {
+                                    textMenuData = post.name to R.string.name_label
+                                }
+                            }
+                        ),
+                        text = post.name,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${post.email} ${post.date}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -110,7 +124,9 @@ fun PostItem(
                         Text(
                             modifier = Modifier.combinedClickable(
                                 onClick = {},
-                                onLongClick = { idMenuExpanded = true }
+                                onLongClick = {
+                                    textMenuData = idText to R.string.id_label
+                                }
                             ),
                             text = idText,
                             style = MaterialTheme.typography.labelMedium,
@@ -191,28 +207,39 @@ fun PostItem(
                 onDismiss = { menuExpanded = false }
             )
         }
-        if (idMenuExpanded) {
+        textMenuData?.let { (text, labelResId) ->
             val clipboardManager = LocalClipboardManager.current
-            IdMenuDialog(
-                idText = post.id,
+            TextMenuDialog(
+                text = text,
                 onCopyClick = {
-                    clipboardManager.setText(AnnotatedString(post.id))
-                    idMenuExpanded = false
+                    clipboardManager.setText(AnnotatedString(text))
+                    textMenuData = null
                 },
                 onNgClick = {
-                    idMenuExpanded = false
-                    ngDialogExpanded = true
+                    textMenuData = null
+                    ngDialogData = text to labelResId
                 },
-                onDismiss = { idMenuExpanded = false }
+                onDismiss = { textMenuData = null }
             )
         }
-        if (ngDialogExpanded) {
-            NgIdDialogRoute(
-                idText = post.id,
-                boardName = boardName,
-                boardId = boardId.takeIf { it != 0L },
-                onDismiss = { ngDialogExpanded = false }
-            )
+        ngDialogData?.let { (text, labelResId) ->
+            if (labelResId == R.string.id_label) {
+                NgDialogRoute(
+                    text = text,
+                    boardName = boardName,
+                    boardId = boardId.takeIf { it != 0L },
+                    onDismiss = { ngDialogData = null }
+                )
+            } else {
+                NgDialogRoute(
+                    text = text,
+                    labelResId = labelResId,
+                    boardName = boardName,
+                    boardId = boardId.takeIf { it != 0L },
+                    onDismiss = { ngDialogData = null },
+                    onConfirm = {},
+                )
+            }
         }
     }
 }
