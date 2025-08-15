@@ -66,26 +66,30 @@ fun MomentumBar(
 
         if (posts.size > 1) {
             val postHeight = canvasHeight / posts.size
-            val windowSize = 10
+            val windowSize = 1
             val smoothedMomentum = posts.mapIndexed { index, _ ->
                 val start = (index - windowSize / 2).coerceAtLeast(0)
                 val end = (index + windowSize / 2).coerceAtMost(posts.lastIndex)
                 val subList = posts.subList(start, end + 1)
                 subList.map { it.momentum }.average().toFloat()
             }
+            val maxFractionOfBar = 0.5f      // ← ここを 0.5 に。可変にしたければ引数化してもOK
+            val minFractionOfBar = 0.0f      // 必要なら最小太さも下駄履かせられる
+
+            val points = smoothedMomentum.mapIndexed { index, m ->
+                val used = minFractionOfBar + (maxFractionOfBar - minFractionOfBar) * m
+                val x = maxBarWidthPx * used            // ← 幅を 0..(0.5*maxBarWidthPx) に制限
+                val y = index * postHeight
+                Offset(x, y)
+            }
             val path = Path().apply {
                 moveTo(0f, 0f)
-                val points = smoothedMomentum.mapIndexed { index, momentum ->
-                    val x = maxBarWidthPx * momentum
-                    val y = index * postHeight
-                    Offset(x, y)
-                }
                 lineTo(points.first().x, points.first().y)
                 for (i in 0 until points.size - 1) {
-                    val currentPoint = points[i]
-                    val nextPoint = points[i+1]
-                    val midPoint = Offset((currentPoint.x + nextPoint.x) / 2, (currentPoint.y + nextPoint.y) / 2)
-                    quadraticTo(currentPoint.x, currentPoint.y, midPoint.x, midPoint.y)
+                    val p = points[i]
+                    val q = points[i + 1]
+                    val mid = Offset((p.x + q.x) / 2f, (p.y + q.y) / 2f)
+                    quadraticTo(p.x, p.y, mid.x, mid.y)
                 }
                 lineTo(points.last().x, points.last().y)
                 lineTo(points.last().x, canvasHeight)

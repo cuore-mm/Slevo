@@ -13,9 +13,7 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
-import java.time.temporal.ChronoUnit
 import javax.inject.Inject
-import kotlin.collections.first
 
 class DatRepository @Inject constructor(
     private val remoteDataSource: DatRemoteDataSource
@@ -83,39 +81,91 @@ class DatRepository @Inject constructor(
      * 投稿リストを受け取り、各投稿の勢いを計算して返す
      */
     @RequiresApi(Build.VERSION_CODES.O)
-    private fun calculateMomentum(replies: List<ReplyInfo>): List<ReplyInfo> {
-        if (replies.size < 2) return replies
+    private fun calculateMomentum(
+        replies: List<ReplyInfo>,
+        // --- 調整パラメータ ---
+        targetCountInWindow: Int = 12,  // 窓内に入れたい目標件数（実況なら12〜16、過疎なら8〜12）
+        minWindowMin: Int = 3,          // Wの下限
+        maxWindowMin: Int = 20,         // Wの上限
+        lowQuantile: Float = 0.10f,     // 正規化の下端（p10）
+        highQuantile: Float = 0.95f,    // 正規化の上端（p95）
+        useLogCompression: Boolean = true, // 非線形圧縮にlog1pを使う（falseならsqrt）
+        emaHalfLifeSec: Int = 0         // 遅れを最小にしたいのでデフォ0（必要なら60〜120）
+    ): List<ReplyInfo> {
+        if (replies.isEmpty()) return replies
 
-        val repliesWithMomentum = mutableListOf<ReplyInfo>()
-        // 最初の投稿は比較対象がないため勢い0
-        repliesWithMomentum.add(replies.first().copy(momentum = 0.0f))
-
-        for (i in 1 until replies.size) {
-            val previousReply = replies[i - 1]
-            val currentReply = replies[i]
-
-            val previousTime = parseDateString(previousReply.date)
-            val currentTime = parseDateString(currentReply.date)
-            var momentum = 0.0f
-
-            if (previousTime != null && currentTime != null) {
-                val diffSeconds = ChronoUnit.SECONDS.between(previousTime, currentTime)
-
-                // 勢いの計算ロジック
-                val maxMomentumDuration = 1L  // 1秒以内なら勢い最大
-                val minMomentumDuration = 30L // 30秒以上なら勢いゼロ
-
-                if (diffSeconds <= maxMomentumDuration) {
-                    momentum = 1.0f
-                } else if (diffSeconds < minMomentumDuration) {
-                    // 非線形に減少させる
-                    val normalizedDiff = (diffSeconds - maxMomentumDuration).toFloat() / (minMomentumDuration - maxMomentumDuration)
-                    val remainingMomentum = 1.0f - normalizedDiff
-                    momentum = remainingMomentum * remainingMomentum // 2乗して急なカーブに
-                }
-            }
-            repliesWithMomentum.add(currentReply.copy(momentum = momentum))
+        // 1) epochMillis 化（単調性を保証）
+        val zone = java.time.ZoneId.of("Asia/Tokyo")
+        val t = LongArray(replies.size)
+        var last = 0L
+        replies.forEachIndexed { i, r ->
+            val ms = parseDateString(r.date)?.atZone(zone)?.toInstant()?.toEpochMilli() ?: last
+            t[i] = if (i == 0) ms else maxOf(ms, last + 1) // 逆行補正
+            last = t[i]
         }
-        return repliesWithMomentum
+
+        // 2) スレ平均密度から可変 W を決める（窓内の期待件数 ≒ targetCountInWindow）
+        val spanMs = (t.last() - t.first()).coerceAtLeast(1L)
+        val avgRatePerMin = (replies.size - 1).coerceAtLeast(1) * 60_000f / spanMs.toFloat()
+        val autoWmin = (targetCountInWindow / avgRatePerMin).let {
+            it.coerceIn(
+                minWindowMin.toFloat(),
+                maxWindowMin.toFloat()
+            )
+        }.toInt()
+
+        val windowMs = autoWmin * 60_000L
+
+        // 3) 片側（過去W分）の件数を二ポインタで O(n)
+        val count = IntArray(t.size)
+        var left = 0
+        for (i in t.indices) {
+            val ti = t[i]
+            while (left < t.size && t[left] <= ti - windowMs) left++
+            count[i] = i - left + 1
+        }
+
+        // 4) 任意の時間ベースEMA（遅れを抑えたいのでデフォ0）
+        val series = FloatArray(count.size)
+        if (emaHalfLifeSec > 0) {
+            val tau = emaHalfLifeSec * 1000.0 / kotlin.math.ln(2.0) // ms
+            series[0] = count[0].toFloat()
+            for (i in 1 until count.size) {
+                val dt = (t[i] - t[i - 1]).coerceAtLeast(1L).toDouble()
+                val alpha = (1.0 - kotlin.math.exp(-dt / tau)).toFloat()
+                series[i] = series[i - 1] + alpha * (count[i] - series[i - 1])
+            }
+        } else {
+            for (i in count.indices) series[i] = count[i].toFloat()
+        }
+
+        // 5) rate[件/分]
+        val rate = FloatArray(series.size) { i -> series[i] / autoWmin.toFloat() }
+
+        // 6) 分位スケーリング（スレ内の分布で基準を自動化）
+        val tmp = rate.copyOf().sorted()
+        fun q(p: Float): Float {
+            if (tmp.isEmpty()) return 0f
+            val idx = ((tmp.lastIndex) * p).toInt().coerceIn(0, tmp.lastIndex)
+            return tmp[idx]
+        }
+
+        val qLow = q(lowQuantile)
+        val qHigh = maxOf(q(highQuantile), qLow + 1e-3f)
+
+        // 7) 0..1 正規化 + 非線形圧縮
+        val norm = FloatArray(rate.size) { i ->
+            val x = ((rate[i] - qLow) / (qHigh - qLow)).coerceIn(0f, 1f)
+            if (useLogCompression) {
+                // log1p で弱い所も残しつつ山の伸び過ぎを抑える
+                val y = kotlin.math.ln(1f + 3f * x) / kotlin.math.ln(4f) // 係数3は好みで 2〜4
+                y.coerceIn(0f, 1f)
+            } else {
+                kotlin.math.sqrt(x)
+            }
+        }
+
+        // 8) momentum 反映
+        return List(replies.size) { i -> replies[i].copy(momentum = norm[i]) }
     }
 }
