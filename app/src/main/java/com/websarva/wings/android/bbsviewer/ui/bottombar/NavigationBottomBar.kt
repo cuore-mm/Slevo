@@ -59,7 +59,7 @@ fun NavigationBottomBar(
             parentRoute = AppRoute.BbsServiceGroup
         ),
         TopLevelRoute(
-            route = AppRoute.Settings,
+            route = AppRoute.SettingsHome,
             name = stringResource(R.string.settings),
             icon = Icons.Default.Settings,
             parentRoute = AppRoute.Settings
