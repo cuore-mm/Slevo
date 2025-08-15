@@ -35,6 +35,9 @@ interface ThreadHistoryDao {
     @Query("SELECT threadKey, resCount FROM thread_histories WHERE boardUrl = :boardUrl")
     suspend fun findByBoard(boardUrl: String): List<HistorySimple>
 
+    @Query("SELECT threadKey, resCount FROM thread_histories WHERE boardUrl = :boardUrl")
+    fun observeByBoard(boardUrl: String): Flow<List<HistorySimple>>
+
 
     @Insert
     suspend fun insert(history: ThreadHistoryEntity): Long
