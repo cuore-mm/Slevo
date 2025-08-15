@@ -43,6 +43,7 @@ class ThreadViewModel @AssistedInject constructor(
     override val _uiState = MutableStateFlow(ThreadUiState())
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
     private var ngIdList: List<NgIdEntity> = emptyList()
+    private var compiledNg: List<Pair<Long?, Regex>> = emptyList()
 
     //画面遷移した最初に行う初期処理
     fun initializeThread(
@@ -78,6 +79,17 @@ class ThreadViewModel @AssistedInject constructor(
         viewModelScope.launch {
             ngIdRepository.observeNgIds().collect { list ->
                 ngIdList = list
+                compiledNg = list.mapNotNull { ng ->
+                    runCatching {
+                        val rx = if (ng.isRegex) {
+                            Regex(ng.pattern)
+                        } else {
+                            // 通常文字列は正規表現メタ文字をエスケープした上で「部分一致」判定に統一
+                            Regex(Regex.escape(ng.pattern))
+                        }
+                        ng.boardId to rx
+                    }.getOrNull()
+                }
                 updateNgPostNumbers()
             }
         }
@@ -158,13 +170,11 @@ class ThreadViewModel @AssistedInject constructor(
         val posts = uiState.value.posts ?: return
         val boardId = uiState.value.boardInfo.boardId
         val ngNumbers = posts.mapIndexedNotNull { idx, post ->
-            val isNg = ngIdList.any { ng ->
-                (ng.boardId == null || ng.boardId == boardId) &&
-                    try {
-                        if (ng.isRegex) Regex(ng.pattern).matches(post.id) else post.id == ng.pattern
-                    } catch (e: Exception) {
-                        false
-                    }
+            val target = post.id
+            val isNg = compiledNg.any { (bId, rx) ->
+                (bId == null || bId == boardId) && runCatching {
+                    rx.containsMatchIn(target)
+                }.getOrDefault(false)
             }
             if (isNg) idx + 1 else null
         }.toSet()
