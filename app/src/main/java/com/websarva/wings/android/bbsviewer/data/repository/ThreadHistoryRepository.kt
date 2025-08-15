@@ -6,6 +6,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadH
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,6 +16,11 @@ class ThreadHistoryRepository @Inject constructor(
 ) {
     fun observeHistories(): Flow<List<ThreadHistoryDao.HistoryWithLastAccess>> =
         dao.observeHistories()
+
+    fun observeHistoryMap(boardUrl: String): Flow<Map<String, Int>> =
+        dao.observeByBoard(boardUrl).map { list ->
+            list.associate { it.threadKey to it.resCount }
+        }
 
     suspend fun getHistoryMap(boardUrl: String): Map<String, Int> {
         return dao.findByBoard(boardUrl).associate { it.threadKey to it.resCount }

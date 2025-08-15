@@ -39,6 +39,7 @@ class BoardViewModel @AssistedInject constructor(
 
     // 元のスレッドリストを保持
     private var originalThreads: List<ThreadInfo>? = null
+    private var baseThreads: List<ThreadInfo> = emptyList()
 
     override val _uiState = MutableStateFlow(BoardUiState())
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
@@ -65,6 +66,12 @@ class BoardViewModel @AssistedInject constructor(
             }
         }
 
+        viewModelScope.launch {
+            historyRepository.observeHistoryMap(boardInfo.url).collect { map ->
+                mergeHistory(map)
+            }
+        }
+
         initialize() // BaseViewModelの初期化処理を呼び出す
     }
 
@@ -78,18 +85,9 @@ class BoardViewModel @AssistedInject constructor(
             val threads =
                 repository.getThreadList("$normalizedUrl/subject.txt", forceRefresh = isRefresh)
             if (threads != null) {
+                baseThreads = threads
                 val historyMap = historyRepository.getHistoryMap(boardUrl)
-                val merged = threads.map { thread ->
-                    val oldRes = historyMap[thread.key]
-                    if (oldRes != null) {
-                        val diff = (thread.resCount - oldRes).coerceAtLeast(0)
-                        thread.copy(isVisited = true, newResCount = diff)
-                    } else {
-                        thread
-                    }
-                }
-                originalThreads = merged
-                applyFiltersAndSort()
+                mergeHistory(historyMap)
             }
         } catch (e: Exception) {
             // Handle error
@@ -194,6 +192,21 @@ class BoardViewModel @AssistedInject constructor(
             ThreadSortKey.DATE_CREATED -> list.sortedBy { it.key.toLongOrNull() ?: 0L }
         }
         return if (ascending) sortedList else sortedList.reversed()
+    }
+
+    private fun mergeHistory(historyMap: Map<String, Int>) {
+        if (baseThreads.isEmpty()) return
+        val merged = baseThreads.map { thread ->
+            val oldRes = historyMap[thread.key]
+            if (oldRes != null) {
+                val diff = (thread.resCount - oldRes).coerceAtLeast(0)
+                thread.copy(isVisited = true, newResCount = diff)
+            } else {
+                thread
+            }
+        }
+        originalThreads = merged
+        applyFiltersAndSort()
     }
 
     // Sort BottomSheet 関連
