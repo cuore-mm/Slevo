@@ -48,12 +48,12 @@ fun BoardTopBarScreen(
                     tint = bookmarkIconColor
                 )
             }
-            IconButton(onClick = onInfoClick) {
-                Icon(
-                    imageVector = Icons.Outlined.Info,
-                    contentDescription = stringResource(R.string.infomation)
-                )
-            }
+//            IconButton(onClick = onInfoClick) {
+//                Icon(
+//                    imageVector = Icons.Outlined.Info,
+//                    contentDescription = stringResource(R.string.infomation)
+//                )
+//            }
         },
         scrollBehavior = scrollBehavior
     )

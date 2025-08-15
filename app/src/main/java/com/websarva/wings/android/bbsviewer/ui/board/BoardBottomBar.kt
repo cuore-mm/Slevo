@@ -46,10 +46,10 @@ fun BoardBottomBar(
                 IconButton(onClick = onSearchClick) {
                     Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
                 }
-                IconButton(onClick = { /* doSomething() */ }) {
+                IconButton(onClick = onTabListClick) {
                     Icon(
-                        Icons.Default.Home,
-                        contentDescription = stringResource(R.string.home)
+                        Icons.Default.CropSquare,
+                        contentDescription = stringResource(R.string.open_tablist)
                     )
                 }
                 IconButton(onClick = onRefreshClick) {
@@ -62,12 +62,6 @@ fun BoardBottomBar(
                     Icon(
                         Icons.Default.Create,
                         contentDescription = stringResource(R.string.create_thread)
-                    )
-                }
-                IconButton(onClick = onTabListClick) {
-                    Icon(
-                        Icons.Default.CropSquare,
-                        contentDescription = stringResource(R.string.open_tablist)
                     )
                 }
             }
