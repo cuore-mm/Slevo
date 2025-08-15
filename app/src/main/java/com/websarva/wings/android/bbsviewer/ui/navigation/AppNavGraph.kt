@@ -6,7 +6,6 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.TopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
@@ -68,7 +67,12 @@ fun AppNavGraph(
             openDrawer = openDrawer
         )
         //スレッド一覧
-        composable<AppRoute.Board> { backStackEntry ->
+        composable<AppRoute.Board>(
+            enterTransition = { defaultEnterTransition() },
+            exitTransition = { defaultExitTransition() },
+            popEnterTransition = { defaultPopEnterTransition() },
+            popExitTransition = { defaultPopExitTransition() }
+        ) { backStackEntry ->
             val boardRoute: AppRoute.Board = backStackEntry.toRoute()
             BoardScaffold(
                 boardRoute = boardRoute,
@@ -79,7 +83,12 @@ fun AppNavGraph(
             )
         }
         //スレッド画面
-        composable<AppRoute.Thread> { backStackEntry ->
+        composable<AppRoute.Thread>(
+            enterTransition = { defaultEnterTransition() },
+            exitTransition = { defaultExitTransition() },
+            popEnterTransition = { defaultPopEnterTransition() },
+            popExitTransition = { defaultPopExitTransition() }
+        ) { backStackEntry ->
             val threadRoute: AppRoute.Thread = backStackEntry.toRoute()
             ThreadScaffold(
                 threadRoute = threadRoute,
@@ -106,7 +115,8 @@ fun AppNavGraph(
         composable<AppRoute.ImageViewer> { backStackEntry ->
             val imageViewerRoute: AppRoute.ImageViewer = backStackEntry.toRoute()
             // URLデコード処理
-            val decodedUrl = URLDecoder.decode(imageViewerRoute.imageUrl, StandardCharsets.UTF_8.toString())
+            val decodedUrl =
+                URLDecoder.decode(imageViewerRoute.imageUrl, StandardCharsets.UTF_8.toString())
             ImageViewerScreen(
                 imageUrl = decodedUrl,
                 onNavigateUp = { navController.navigateUp() }
@@ -189,5 +199,5 @@ sealed class AppRoute {
         const val SETTINGS_NG = "SettingsNg"
         const val TABS = "Tabs"
         const val HISTORY_LIST = "HistoryList"
-      }
-  }
+    }
+}

@@ -15,7 +15,13 @@ fun NavGraphBuilder.addSettingsRoute(
     navController: NavHostController,
     viewModel: SettingsViewModel
 ) {
-    navigation<AppRoute.Settings>(startDestination = AppRoute.SettingsHome) {
+    navigation<AppRoute.Settings>(
+        startDestination = AppRoute.SettingsHome,
+        enterTransition = { defaultEnterTransition() },
+        exitTransition = { defaultExitTransition() },
+        popEnterTransition = { defaultPopEnterTransition() },
+        popExitTransition = { defaultPopExitTransition() }
+    ) {
         composable<AppRoute.SettingsHome> {
             SettingsScreen(
                 onGeneralClick = { navController.navigate(AppRoute.SettingsGeneral) },
