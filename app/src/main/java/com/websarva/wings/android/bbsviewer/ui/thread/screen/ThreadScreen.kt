@@ -58,6 +58,7 @@ fun ThreadScreen(
 ) {
     val posts = uiState.posts ?: emptyList()
     val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
+    val ngNumbers = uiState.ngPostNumbers
 
     val density = LocalDensity.current
     val refreshThresholdPx = with(density) { 80.dp.toPx() }
@@ -106,52 +107,55 @@ fun ThreadScreen(
                 }
 
                 itemsIndexed(posts) { index, post ->
-                    var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
-                    PostItem(
-                        modifier = Modifier.onGloballyPositioned { coords ->
-                            val pos = coords.positionInWindow()
-                            itemOffset = IntOffset(pos.x.toInt(), pos.y.toInt())
-                        },
-                        post = post,
-                        postNum = index + 1,
-                        idIndex = uiState.idIndexList.getOrElse(index) { 1 },
-                        idTotal = if (post.id.isBlank()) 1 else uiState.idCountMap[post.id] ?: 1,
-                        navController = navController,
-                        boardName = uiState.boardInfo.name,
-                        boardId = uiState.boardInfo.boardId,
-                        replyFromNumbers = uiState.replySourceMap[index + 1] ?: emptyList(),
-                        onReplyFromClick = { nums ->
-                            val offset = if (popupStack.isEmpty()) {
-                                itemOffset
-                            } else {
-                                val last = popupStack.last()
-                                IntOffset(last.offset.x, (last.offset.y - last.size.height).coerceAtLeast(0))
-                            }
-                            val targets = nums.mapNotNull { num ->
-                                posts.getOrNull(num - 1)
-                            }
-                            if (targets.isNotEmpty()) {
-                                popupStack.add(PopupInfo(targets, offset))
-                            }
-                        },
-                        onReplyClick = { num ->
-                            if (num in 1..posts.size) {
-                                val target = posts[num - 1]
-                                val baseOffset = itemOffset
+                    val postNum = index + 1
+                    if (postNum !in ngNumbers) {
+                        var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
+                        PostItem(
+                            modifier = Modifier.onGloballyPositioned { coords ->
+                                val pos = coords.positionInWindow()
+                                itemOffset = IntOffset(pos.x.toInt(), pos.y.toInt())
+                            },
+                            post = post,
+                            postNum = postNum,
+                            idIndex = uiState.idIndexList.getOrElse(index) { 1 },
+                            idTotal = if (post.id.isBlank()) 1 else uiState.idCountMap[post.id] ?: 1,
+                            navController = navController,
+                            boardName = uiState.boardInfo.name,
+                            boardId = uiState.boardInfo.boardId,
+                            replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
+                            onReplyFromClick = { nums ->
                                 val offset = if (popupStack.isEmpty()) {
-                                    baseOffset
+                                    itemOffset
                                 } else {
                                     val last = popupStack.last()
-                                    IntOffset(
-                                        last.offset.x,
-                                        (last.offset.y - last.size.height).coerceAtLeast(0)
-                                    )
+                                    IntOffset(last.offset.x, (last.offset.y - last.size.height).coerceAtLeast(0))
                                 }
-                                popupStack.add(PopupInfo(listOf(target), offset))
+                                val targets = nums.filterNot { it in ngNumbers }.mapNotNull { num ->
+                                    posts.getOrNull(num - 1)
+                                }
+                                if (targets.isNotEmpty()) {
+                                    popupStack.add(PopupInfo(targets, offset))
+                                }
+                            },
+                            onReplyClick = { num ->
+                                if (num in 1..posts.size && num !in ngNumbers) {
+                                    val target = posts[num - 1]
+                                    val baseOffset = itemOffset
+                                    val offset = if (popupStack.isEmpty()) {
+                                        baseOffset
+                                    } else {
+                                        val last = popupStack.last()
+                                        IntOffset(
+                                            last.offset.x,
+                                            (last.offset.y - last.size.height).coerceAtLeast(0)
+                                        )
+                                    }
+                                    popupStack.add(PopupInfo(listOf(target), offset))
+                                }
                             }
-                        }
-                    )
-                    HorizontalDivider()
+                        )
+                        HorizontalDivider()
+                    }
                 }
             }
             // 中央の区切り線
@@ -173,6 +177,7 @@ fun ThreadScreen(
             replySourceMap = uiState.replySourceMap,
             idCountMap = uiState.idCountMap,
             idIndexList = uiState.idIndexList,
+            ngPostNumbers = ngNumbers,
             navController = navController,
             boardName = uiState.boardInfo.name,
             boardId = uiState.boardInfo.boardId,

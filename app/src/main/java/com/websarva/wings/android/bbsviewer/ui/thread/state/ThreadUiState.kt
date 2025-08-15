@@ -26,6 +26,7 @@ data class ThreadUiState(
     val idCountMap: Map<String, Int> = emptyMap(),
     val idIndexList: List<Int> = emptyList(),
     val replySourceMap: Map<Int, List<Int>> = emptyMap(),
+    val ngPostNumbers: Set<Int> = emptySet(),
 ) : BaseUiState<ThreadUiState> {
     override fun copyState(
         isLoading: Boolean,
