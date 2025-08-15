@@ -37,26 +37,29 @@ import com.websarva.wings.android.bbsviewer.ui.thread.state.NgIdUiState
 import com.websarva.wings.android.bbsviewer.ui.thread.viewmodel.NgIdViewModel
 
 @Composable
-fun NgIdDialogRoute(
-    idText: String,
+fun NgDialogRoute(
+    text: String,
+    labelResId: Int = R.string.id_label,
     boardName: String = "",
     boardId: Long? = null,
     onDismiss: () -> Unit,
     viewModel: NgIdViewModel = hiltViewModel(),
+    onConfirm: () -> Unit = { viewModel.saveNgId() },
 ) {
     val uiState = viewModel.uiState.collectAsState().value
     val boards = viewModel.filteredBoards.collectAsState().value
 
     // 初期値反映
-    LaunchedEffect(idText, boardName, boardId) {
-        viewModel.initialize(idText, boardName, boardId)
+    LaunchedEffect(text, boardName, boardId) {
+        viewModel.initialize(text, boardName, boardId)
     }
 
-    NgIdDialog(
+    NgDialog(
         uiState = uiState,
+        labelResId = labelResId,
         onDismiss = onDismiss,
         onConfirmClick = {
-            viewModel.saveNgId()
+            onConfirm()
             onDismiss()
         },
         onTextChange = { viewModel.setText(it) },
@@ -70,8 +73,9 @@ fun NgIdDialogRoute(
 }
 
 @Composable
-fun NgIdDialog(
+fun NgDialog(
     uiState: NgIdUiState,
+    labelResId: Int,
     onDismiss: () -> Unit,
     onConfirmClick: () -> Unit,
     onTextChange: (String) -> Unit,
@@ -102,8 +106,8 @@ fun NgIdDialog(
                 OutlinedTextField(
                     value = uiState.text,
                     onValueChange = onTextChange,
-                    label = { Text(stringResource(R.string.id_label)) },
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text(stringResource(labelResId)) },
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(text = stringResource(R.string.target_board))
@@ -193,9 +197,10 @@ fun BoardListDialog(
 
 @Preview(showBackground = true)
 @Composable
-fun NgIdDialogPreview() {
-    NgIdDialog(
+fun NgDialogPreview() {
+    NgDialog(
         uiState = NgIdUiState(text = "abcd"),
+        labelResId = R.string.id_label,
         onDismiss = {},
         onConfirmClick = {},
         onTextChange = {},
