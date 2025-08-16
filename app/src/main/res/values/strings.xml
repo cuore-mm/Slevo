@@ -52,6 +52,9 @@
     <string name="copy">コピー</string>
     <string name="ng_registration">NG登録</string>
     <string name="ng_setting">NG設定</string>
+    <string name="add_to_ng_id">NGIDに追加</string>
+    <string name="add_to_ng_name">NGNameに追加</string>
+    <string name="add_to_ng_word">NGWordに追加</string>
     <string name="string_literal">文字列</string>
     <string name="regular_expression">正規表現</string>
     <string name="target_board">対象の板</string>

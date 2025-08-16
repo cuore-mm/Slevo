@@ -47,6 +47,7 @@ import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.PostMenuDialog
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.TextMenuDialog
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.NgDialogRoute
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.NgSelectDialog
 import com.websarva.wings.android.bbsviewer.data.model.NgType
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 
@@ -68,6 +69,7 @@ fun PostItem(
     var menuExpanded by remember { mutableStateOf(false) }
     var textMenuData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
     var ngDialogData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
+    var showNgSelectDialog by remember { mutableStateOf(false) }
     val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
 
     Box {
@@ -204,8 +206,28 @@ fun PostItem(
             PostMenuDialog(
                 postNum = postNum,
                 onCopyClick = { menuExpanded = false },
-                onNgClick = { menuExpanded = false },
+                onNgClick = {
+                    menuExpanded = false
+                    showNgSelectDialog = true
+                },
                 onDismiss = { menuExpanded = false }
+            )
+        }
+        if (showNgSelectDialog) {
+            NgSelectDialog(
+                onNgIdClick = {
+                    showNgSelectDialog = false
+                    ngDialogData = post.id to NgType.USER_ID
+                },
+                onNgNameClick = {
+                    showNgSelectDialog = false
+                    ngDialogData = post.name to NgType.USER_NAME
+                },
+                onNgWordClick = {
+                    showNgSelectDialog = false
+                    ngDialogData = post.content to NgType.WORD
+                },
+                onDismiss = { showNgSelectDialog = false }
             )
         }
         textMenuData?.let { (text, type) ->
