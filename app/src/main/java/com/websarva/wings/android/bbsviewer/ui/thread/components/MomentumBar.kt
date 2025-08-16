@@ -5,7 +5,12 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -13,8 +18,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
+import kotlinx.coroutines.launch
 
 @Composable
 fun MomentumBar(
@@ -37,7 +42,7 @@ fun MomentumBar(
                     if (barHeight > 0 && posts.isNotEmpty()) {
                         val postHeight = barHeight.toFloat() / posts.size
                         val index = (offset.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
-                        scope.launch { lazyListState.animateScrollToItem(index) }
+                        scope.launch { lazyListState.scrollToItem(index) }
                     }
                 }
             }
@@ -53,7 +58,8 @@ fun MomentumBar(
                     onVerticalDrag = { change, _ ->
                         if (barHeight > 0 && posts.isNotEmpty()) {
                             val postHeight = barHeight.toFloat() / posts.size
-                            val index = (change.position.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
+                            val index = (change.position.y / postHeight).toInt()
+                                .coerceIn(0, posts.lastIndex)
                             scope.launch { lazyListState.scrollToItem(index) }
                         }
                     }
