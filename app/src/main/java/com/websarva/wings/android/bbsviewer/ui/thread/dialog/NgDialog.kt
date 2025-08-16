@@ -33,36 +33,36 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
-import com.websarva.wings.android.bbsviewer.ui.thread.state.NgIdUiState
-import com.websarva.wings.android.bbsviewer.ui.thread.viewmodel.NgIdViewModel
+import com.websarva.wings.android.bbsviewer.data.model.NgType
+import com.websarva.wings.android.bbsviewer.ui.thread.state.NgUiState
+import com.websarva.wings.android.bbsviewer.ui.thread.viewmodel.NgViewModel
 
 @Composable
 fun NgDialogRoute(
     text: String,
-    labelResId: Int = R.string.id_label,
+    type: NgType = NgType.USER_ID,
     boardName: String = "",
     boardId: Long? = null,
     onDismiss: () -> Unit,
-    viewModel: NgIdViewModel = hiltViewModel(),
-    onConfirm: () -> Unit = { viewModel.saveNgId() },
+    viewModel: NgViewModel = hiltViewModel(),
+    onConfirm: () -> Unit = { viewModel.saveNg() },
 ) {
     val uiState = viewModel.uiState.collectAsState().value
     val boards = viewModel.filteredBoards.collectAsState().value
 
-    // 初期値反映
-    LaunchedEffect(text, boardName, boardId) {
-        viewModel.initialize(text, boardName, boardId)
+    LaunchedEffect(text, boardName, boardId, type) {
+        viewModel.initialize(text, boardName, boardId, type)
     }
 
     NgDialog(
         uiState = uiState,
-        labelResId = labelResId,
         onDismiss = onDismiss,
         onConfirmClick = {
             onConfirm()
             onDismiss()
         },
         onTextChange = { viewModel.setText(it) },
+        onTypeChange = { viewModel.setType(it) },
         onRegexChange = { viewModel.setRegex(it) },
         onOpenBoardDialog = { viewModel.setShowBoardDialog(true) },
         onCloseBoardDialog = { viewModel.setShowBoardDialog(false) },
@@ -74,11 +74,11 @@ fun NgDialogRoute(
 
 @Composable
 fun NgDialog(
-    uiState: NgIdUiState,
-    labelResId: Int,
+    uiState: NgUiState,
     onDismiss: () -> Unit,
     onConfirmClick: () -> Unit,
     onTextChange: (String) -> Unit,
+    onTypeChange: (NgType) -> Unit,
     onRegexChange: (Boolean) -> Unit,
     onOpenBoardDialog: () -> Unit,
     onCloseBoardDialog: () -> Unit,
@@ -86,14 +86,29 @@ fun NgDialog(
     onQueryChange: (String) -> Unit,
     boards: List<BoardInfo>,
 ) {
+    val labelResId = when (uiState.type) {
+        NgType.USER_ID -> R.string.id_label
+        NgType.USER_NAME -> R.string.name_label
+        NgType.WORD -> R.string.word_label
+        NgType.THREAD_TITLE -> R.string.thread_title_label
+    }
+
     Dialog(onDismissRequest = onDismiss) {
         Card(shape = MaterialTheme.shapes.medium) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = stringResource(R.string.ng_setting),
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
                 )
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = uiState.type == NgType.USER_ID, onClick = { onTypeChange(NgType.USER_ID) })
+                    Text(text = stringResource(R.string.id_label))
+                    Spacer(Modifier.width(8.dp))
+                    RadioButton(selected = uiState.type == NgType.USER_NAME, onClick = { onTypeChange(NgType.USER_NAME) })
+                    Text(text = stringResource(R.string.name_label))
+                }
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = !uiState.isRegex, onClick = { onRegexChange(false) })
@@ -114,20 +129,20 @@ fun NgDialog(
                 Spacer(Modifier.height(4.dp))
                 OutlinedButton(
                     onClick = onOpenBoardDialog,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
                         if (uiState.isAllBoards) {
                             stringResource(R.string.all_boards)
                         } else {
                             uiState.boardName.ifEmpty { stringResource(R.string.board) }
-                        }
+                        },
                     )
                 }
                 Spacer(Modifier.height(16.dp))
                 Row(
                     horizontalArrangement = Arrangement.End,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     TextButton(onClick = onDismiss) {
                         Text(text = stringResource(R.string.cancel))
@@ -179,7 +194,7 @@ fun BoardListDialog(
                 item {
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.all_boards)) },
-                        modifier = Modifier.clickable { onSelect(BoardInfo(0L, "", "")) }
+                        modifier = Modifier.clickable { onSelect(BoardInfo(0L, "", "")) },
                     )
                     Divider()
                 }
@@ -187,7 +202,7 @@ fun BoardListDialog(
                     ListItem(
                         headlineContent = { Text(info.name) },
                         supportingContent = { Text(info.url) },
-                        modifier = Modifier.clickable { onSelect(info) }
+                        modifier = Modifier.clickable { onSelect(info) },
                     )
                 }
             }
@@ -199,11 +214,11 @@ fun BoardListDialog(
 @Composable
 fun NgDialogPreview() {
     NgDialog(
-        uiState = NgIdUiState(text = "abcd"),
-        labelResId = R.string.id_label,
+        uiState = NgUiState(text = "abcd"),
         onDismiss = {},
         onConfirmClick = {},
         onTextChange = {},
+        onTypeChange = {},
         onRegexChange = {},
         onOpenBoardDialog = {},
         onCloseBoardDialog = {},

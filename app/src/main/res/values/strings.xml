@@ -58,6 +58,8 @@
     <string name="id_label">ID</string>
     <string name="name">name</string>
     <string name="name_label">名前</string>
+    <string name="word_label">ワード</string>
+    <string name="thread_title_label">スレタイ</string>
     <string name="all_boards">すべての板</string>
     <string name="search_board_hint">板名またはURLで検索</string>
 </resources>
