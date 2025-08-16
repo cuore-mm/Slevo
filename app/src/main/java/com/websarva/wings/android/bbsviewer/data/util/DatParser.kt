@@ -2,6 +2,7 @@ package com.websarva.wings.android.bbsviewer.data.util
 
 import androidx.core.text.HtmlCompat
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.bbsviewer.ui.util.parseThreadUrl
 
 fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
     // <>で分割する単純な方法を使用
@@ -44,12 +45,29 @@ fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
                     beLoginId = beInfo?.first ?: "",
                     beRank = beInfo?.second ?: "",
                     beIconUrl = beIconUrl,
-                    content = content
+                    content = content,
+                    urlFlags = calcUrlFlags(content)
                 )
             )
         }
     }
     return Pair(replies, threadTitle)
+}
+
+private val urlRegex = Regex("(https?://[\\w\\-._~:/?#\\[\\]@!$&'()*+,;=%]+)")
+private val imageExtensions = listOf("jpg", "jpeg", "png", "gif")
+
+private fun calcUrlFlags(text: String): Int {
+    var flags = 0
+    urlRegex.findAll(text).forEach { match ->
+        val url = match.groupValues[1]
+        flags = flags or when {
+            imageExtensions.any { url.endsWith(it, ignoreCase = true) } -> ReplyInfo.HAS_IMAGE_URL
+            parseThreadUrl(url) != null -> ReplyInfo.HAS_THREAD_URL
+            else -> ReplyInfo.HAS_OTHER_URL
+        }
+    }
+    return flags
 }
 
 // 不要なHTMLタグを除去する関数
