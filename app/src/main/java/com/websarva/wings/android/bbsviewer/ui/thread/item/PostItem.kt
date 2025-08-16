@@ -47,6 +47,7 @@ import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.PostMenuDialog
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.TextMenuDialog
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.NgDialogRoute
+import com.websarva.wings.android.bbsviewer.data.model.NgType
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 
 
@@ -65,8 +66,8 @@ fun PostItem(
     onReplyClick: ((Int) -> Unit)? = null
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    var textMenuData by remember { mutableStateOf<Pair<String, Int>?>(null) }
-    var ngDialogData by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    var textMenuData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
+    var ngDialogData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
     val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
 
     Box {
@@ -107,7 +108,7 @@ fun PostItem(
                             onClick = {},
                             onLongClick = {
                                 if (post.name.isNotBlank()) {
-                                    textMenuData = post.name to R.string.name_label
+                                    textMenuData = post.name to NgType.USER_NAME
                                 }
                             }
                         ),
@@ -125,7 +126,7 @@ fun PostItem(
                             modifier = Modifier.combinedClickable(
                                 onClick = {},
                                 onLongClick = {
-                                    textMenuData = idText to R.string.id_label
+                                    textMenuData = idText to NgType.USER_ID
                                 }
                             ),
                             text = idText,
@@ -207,7 +208,7 @@ fun PostItem(
                 onDismiss = { menuExpanded = false }
             )
         }
-        textMenuData?.let { (text, labelResId) ->
+        textMenuData?.let { (text, type) ->
             val clipboardManager = LocalClipboardManager.current
             TextMenuDialog(
                 text = text,
@@ -217,29 +218,19 @@ fun PostItem(
                 },
                 onNgClick = {
                     textMenuData = null
-                    ngDialogData = text to labelResId
+                    ngDialogData = text to type
                 },
                 onDismiss = { textMenuData = null }
             )
         }
-        ngDialogData?.let { (text, labelResId) ->
-            if (labelResId == R.string.id_label) {
-                NgDialogRoute(
-                    text = text,
-                    boardName = boardName,
-                    boardId = boardId.takeIf { it != 0L },
-                    onDismiss = { ngDialogData = null }
-                )
-            } else {
-                NgDialogRoute(
-                    text = text,
-                    labelResId = labelResId,
-                    boardName = boardName,
-                    boardId = boardId.takeIf { it != 0L },
-                    onDismiss = { ngDialogData = null },
-                    onConfirm = {},
-                )
-            }
+        ngDialogData?.let { (text, type) ->
+            NgDialogRoute(
+                text = text,
+                type = type,
+                boardName = boardName,
+                boardId = boardId.takeIf { it != 0L },
+                onDismiss = { ngDialogData = null }
+            )
         }
     }
 }

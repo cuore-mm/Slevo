@@ -14,8 +14,9 @@ import com.websarva.wings.android.bbsviewer.data.repository.ImageUploadRepositor
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadHistoryRepository
-import com.websarva.wings.android.bbsviewer.data.repository.NgIdRepository
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.NgIdEntity
+import com.websarva.wings.android.bbsviewer.data.repository.NgRepository
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.NgEntity
+import com.websarva.wings.android.bbsviewer.data.model.NgType
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModelFactory
@@ -36,14 +37,14 @@ class ThreadViewModel @AssistedInject constructor(
     private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
-    private val ngIdRepository: NgIdRepository,
+    private val ngRepository: NgRepository,
     @Assisted val viewModelKey: String,
 ) : BaseViewModel<ThreadUiState>() {
 
     override val _uiState = MutableStateFlow(ThreadUiState())
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
-    private var ngIdList: List<NgIdEntity> = emptyList()
-    private var compiledNg: List<Pair<Long?, Regex>> = emptyList()
+    private var ngList: List<NgEntity> = emptyList()
+    private var compiledNg: List<Triple<Long?, Regex, NgType>> = emptyList()
 
     //画面遷移した最初に行う初期処理
     fun initializeThread(
@@ -77,8 +78,8 @@ class ThreadViewModel @AssistedInject constructor(
         }
 
         viewModelScope.launch {
-            ngIdRepository.observeNgIds().collect { list ->
-                ngIdList = list
+            ngRepository.observeNgs().collect { list ->
+                ngList = list
                 compiledNg = list.mapNotNull { ng ->
                     runCatching {
                         val rx = if (ng.isRegex) {
@@ -87,7 +88,7 @@ class ThreadViewModel @AssistedInject constructor(
                             // 通常文字列は正規表現メタ文字をエスケープした上で「部分一致」判定に統一
                             Regex(Regex.escape(ng.pattern))
                         }
-                        ng.boardId to rx
+                        Triple(ng.boardId, rx, ng.type)
                     }.getOrNull()
                 }
                 updateNgPostNumbers()
@@ -170,9 +171,13 @@ class ThreadViewModel @AssistedInject constructor(
         val posts = uiState.value.posts ?: return
         val boardId = uiState.value.boardInfo.boardId
         val ngNumbers = posts.mapIndexedNotNull { idx, post ->
-            val target = post.id
-            val isNg = compiledNg.any { (bId, rx) ->
+            val isNg = compiledNg.any { (bId, rx, type) ->
                 (bId == null || bId == boardId) && runCatching {
+                    val target = when (type) {
+                        NgType.USER_ID -> post.id
+                        NgType.USER_NAME -> post.name
+                        else -> ""
+                    }
                     rx.containsMatchIn(target)
                 }.getOrDefault(false)
             }
@@ -180,7 +185,6 @@ class ThreadViewModel @AssistedInject constructor(
         }.toSet()
         _uiState.update { it.copy(ngPostNumbers = ngNumbers) }
     }
-
     fun reloadThread() {
         initialize(force = true) // 強制的に初期化処理を再実行
     }
