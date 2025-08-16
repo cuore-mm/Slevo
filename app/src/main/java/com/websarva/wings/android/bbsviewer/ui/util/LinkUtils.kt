@@ -1,10 +1,15 @@
 package com.websarva.wings.android.bbsviewer.ui.util
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
+import com.websarva.wings.android.bbsviewer.ui.theme.imageUrlColor
+import com.websarva.wings.android.bbsviewer.ui.theme.replyColor
+import com.websarva.wings.android.bbsviewer.ui.theme.threadUrlColor
+import com.websarva.wings.android.bbsviewer.ui.theme.urlColor
 import java.util.regex.Pattern
 
 private val urlRegex: Pattern =
@@ -15,13 +20,14 @@ private val replyRegex: Pattern = Pattern.compile(">>(\\d+)")
  * 入力されたテキストからURLと返信アンカー（>>1など）を検出し、
  * それぞれクリック可能な注釈（Annotation）を付けたAnnotatedStringを生成します。
  */
+@Composable
 fun buildUrlAnnotatedString(
     text: String,
     onOpenUrl: (String) -> Unit,
-    replyColor: Color = Color.Blue,
-    imageColor: Color = Color(0xFFFFA726),
-    threadColor: Color = Color(0xFF66BB6A),
-    urlColor: Color = Color.Blue,
+    replyColor: Color = replyColor(),
+    imageColor: Color = imageUrlColor(),
+    threadColor: Color = threadUrlColor(),
+    urlColor: Color = urlColor(),
 ): AnnotatedString {
     return buildAnnotatedString {
         var lastIndex = 0
