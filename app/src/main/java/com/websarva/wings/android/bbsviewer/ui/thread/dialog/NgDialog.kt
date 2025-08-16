@@ -40,7 +40,7 @@ import com.websarva.wings.android.bbsviewer.ui.thread.viewmodel.NgViewModel
 @Composable
 fun NgDialogRoute(
     text: String,
-    type: NgType = NgType.USER_ID,
+    type: NgType,
     boardName: String = "",
     boardId: Long? = null,
     onDismiss: () -> Unit,
@@ -62,7 +62,6 @@ fun NgDialogRoute(
             onDismiss()
         },
         onTextChange = { viewModel.setText(it) },
-        onTypeChange = { viewModel.setType(it) },
         onRegexChange = { viewModel.setRegex(it) },
         onOpenBoardDialog = { viewModel.setShowBoardDialog(true) },
         onCloseBoardDialog = { viewModel.setShowBoardDialog(false) },
@@ -78,7 +77,6 @@ fun NgDialog(
     onDismiss: () -> Unit,
     onConfirmClick: () -> Unit,
     onTextChange: (String) -> Unit,
-    onTypeChange: (NgType) -> Unit,
     onRegexChange: (Boolean) -> Unit,
     onOpenBoardDialog: () -> Unit,
     onCloseBoardDialog: () -> Unit,
@@ -101,14 +99,6 @@ fun NgDialog(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.align(Alignment.CenterHorizontally),
                 )
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = uiState.type == NgType.USER_ID, onClick = { onTypeChange(NgType.USER_ID) })
-                    Text(text = stringResource(R.string.id_label))
-                    Spacer(Modifier.width(8.dp))
-                    RadioButton(selected = uiState.type == NgType.USER_NAME, onClick = { onTypeChange(NgType.USER_NAME) })
-                    Text(text = stringResource(R.string.name_label))
-                }
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = !uiState.isRegex, onClick = { onRegexChange(false) })
@@ -218,7 +208,6 @@ fun NgDialogPreview() {
         onDismiss = {},
         onConfirmClick = {},
         onTextChange = {},
-        onTypeChange = {},
         onRegexChange = {},
         onOpenBoardDialog = {},
         onCloseBoardDialog = {},

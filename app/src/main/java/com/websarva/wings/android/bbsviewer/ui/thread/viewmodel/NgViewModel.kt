@@ -60,10 +60,6 @@ class NgViewModel @Inject constructor(
         _uiState.update { it.copy(text = text) }
     }
 
-    fun setType(type: NgType) {
-        _uiState.update { it.copy(type = type) }
-    }
-
     fun setBoard(info: BoardInfo) {
         _uiState.update {
             it.copy(
