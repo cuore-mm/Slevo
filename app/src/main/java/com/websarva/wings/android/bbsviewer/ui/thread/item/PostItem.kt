@@ -33,11 +33,7 @@ import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.theme.idColor
-import com.websarva.wings.android.bbsviewer.ui.theme.imageUrlColor
-import com.websarva.wings.android.bbsviewer.ui.theme.replyColor
 import com.websarva.wings.android.bbsviewer.ui.theme.replyCountColor
-import com.websarva.wings.android.bbsviewer.ui.theme.threadUrlColor
-import com.websarva.wings.android.bbsviewer.ui.theme.urlColor
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
 import com.websarva.wings.android.bbsviewer.ui.common.ImageThumbnailGrid
@@ -149,11 +145,7 @@ fun PostItem(
             val uriHandler = LocalUriHandler.current
             val annotatedText = buildUrlAnnotatedString(
                 text = post.content,
-                onOpenUrl = { uriHandler.openUri(it) },
-                replyColor = replyColor(),
-                imageColor = imageUrlColor(),
-                threadColor = threadUrlColor(),
-                urlColor = urlColor()
+                onOpenUrl = { uriHandler.openUri(it) }
             )
 
             Column(horizontalAlignment = Alignment.Start) {
