@@ -4,9 +4,10 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.websarva.wings.android.bbsviewer.data.model.NgType
 
 @Entity(
-    tableName = "ng_ids",
+    tableName = "ng_entries",
     foreignKeys = [
         ForeignKey(
             entity = BoardEntity::class,
@@ -17,9 +18,10 @@ import androidx.room.PrimaryKey
     ],
     indices = [Index("boardId")]
 )
-data class NgIdEntity(
+data class NgEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val pattern: String,
     val isRegex: Boolean,
-    val boardId: Long?
+    val boardId: Long?,
+    val type: NgType,
 )

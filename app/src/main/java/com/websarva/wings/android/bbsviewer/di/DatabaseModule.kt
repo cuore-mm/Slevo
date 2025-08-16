@@ -16,7 +16,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBook
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenBoardTabDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenThreadTabDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadHistoryDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.NgIdDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.NgDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -150,6 +150,27 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS ng_entries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    pattern TEXT NOT NULL,
+                    isRegex INTEGER NOT NULL,
+                    boardId INTEGER,
+                    type TEXT NOT NULL,
+                    FOREIGN KEY(boardId) REFERENCES boards(boardId) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            database.execSQL(
+                "INSERT INTO ng_entries (id, pattern, isRegex, boardId, type) SELECT id, pattern, isRegex, boardId, 'USER_ID' FROM ng_ids"
+            )
+            database.execSQL("DROP TABLE ng_ids")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_ng_entries_boardId ON ng_entries(boardId)")
+        }
+    }
     /**
      * Room の AppDatabase インスタンスをシングルトンとして提供
      *
@@ -169,7 +190,7 @@ object DatabaseModule {
         )
             // マイグレーション未定義時は既存データを破棄し再生成
             .fallbackToDestructiveMigration(false)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
             .addCallback(callback)
             .build()
     }
@@ -247,6 +268,6 @@ object DatabaseModule {
         db.threadHistoryDao()
 
     @Provides
-    fun provideNgIdDao(db: AppDatabase): NgIdDao =
-        db.ngIdDao()
+    fun provideNgDao(db: AppDatabase): NgDao =
+        db.ngDao()
 }
