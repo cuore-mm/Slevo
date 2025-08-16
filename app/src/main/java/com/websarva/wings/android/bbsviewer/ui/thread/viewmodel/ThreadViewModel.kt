@@ -176,6 +176,7 @@ class ThreadViewModel @AssistedInject constructor(
                     val target = when (type) {
                         NgType.USER_ID -> post.id
                         NgType.USER_NAME -> post.name
+                        NgType.WORD -> post.content
                         else -> ""
                     }
                     rx.containsMatchIn(target)
