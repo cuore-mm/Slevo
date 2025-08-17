@@ -77,12 +77,12 @@ fun ThreadTopBar(
                     tint = iconTint
                 )
             }
-            IconButton(onClick = { dialogVisible = true }) {
-                Icon(
-                    imageVector = Icons.Outlined.Info,
-                    contentDescription = ""
-                )
-            }
+//            IconButton(onClick = { dialogVisible = true }) {
+//                Icon(
+//                    imageVector = Icons.Outlined.Info,
+//                    contentDescription = ""
+//                )
+//            }
         }
     )
 
