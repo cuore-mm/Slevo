@@ -48,6 +48,30 @@ class SettingsNgViewModel @Inject constructor(
     fun endEdit() {
         _uiState.update { it.copy(editingNg = null) }
     }
+
+    fun toggleSelectMode(enabled: Boolean) {
+        _uiState.update { state ->
+            state.copy(
+                selectMode = enabled,
+                selected = if (enabled) state.selected else emptySet()
+            )
+        }
+    }
+
+    fun toggleSelect(id: Long) {
+        _uiState.update { state ->
+            val next = state.selected.toMutableSet().apply { if (!add(id)) remove(id) }
+            state.copy(selected = next)
+        }
+    }
+
+    fun removeSelected() {
+        viewModelScope.launch {
+            val ids = _uiState.value.selected.toList()
+            repository.remove(ids)
+            _uiState.update { it.copy(selectMode = false, selected = emptySet()) }
+        }
+    }
 }
 
 data class SettingsNgUiState(
@@ -55,5 +79,7 @@ data class SettingsNgUiState(
     val selectedTab: NgType = NgType.USER_ID,
     val editingNg: NgEntity? = null,
     val boardNames: Map<Long, String> = emptyMap(),
+    val selectMode: Boolean = false,
+    val selected: Set<Long> = emptySet(),
 )
 
