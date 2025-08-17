@@ -49,11 +49,17 @@ class BbsBoardViewModel @Inject constructor(
     }
 
     /**
-     * サービスID＋カテゴリID から板一覧を取得し、UIに反映
+     * サービスIDとカテゴリIDから板一覧を取得し、UIに反映。
+     * カテゴリIDが0の場合はサービスに属する全板を取得する。
      */
     private fun loadBoardInfo() {
         viewModelScope.launch {
-            repository.getBoardsForCategory(serviceId, categoryId)
+            val flow = if (categoryId == 0L) {
+                repository.getBoards(serviceId)
+            } else {
+                repository.getBoardsForCategory(serviceId, categoryId)
+            }
+            flow
                 .onStart {
                     _uiState.update { it.copy(isLoading = true, errorMessage = null) }
                 }
