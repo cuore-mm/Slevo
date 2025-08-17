@@ -97,4 +97,10 @@ class BbsServiceRepository @Inject constructor(
      */
     fun getBoardsForCategory(serviceId: Long, categoryId: Long): Flow<List<BoardEntity>> =
         local.observeBoardsForCategory(serviceId, categoryId)
+
+    /**
+     * 指定サービスに属するすべての板を取得
+     */
+    fun getBoards(serviceId: Long): Flow<List<BoardEntity>> =
+        local.observeBoards(serviceId)
 }

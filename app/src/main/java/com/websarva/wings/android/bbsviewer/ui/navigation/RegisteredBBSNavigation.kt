@@ -112,13 +112,26 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                     ),
                     uiState = uiState,
                     onClick = { service ->
-                        navController.navigate(
-                            AppRoute.BoardCategoryList(
-                                serviceId = service.serviceId,
-                                serviceName = service.name
-                            )
-                        ) {
-                            launchSingleTop = true
+                        if (service.menuUrl != null) {
+                            navController.navigate(
+                                AppRoute.BoardCategoryList(
+                                    serviceId = service.serviceId,
+                                    serviceName = service.name
+                                )
+                            ) {
+                                launchSingleTop = true
+                            }
+                        } else {
+                            navController.navigate(
+                                AppRoute.BoardListByCategory(
+                                    serviceId = service.serviceId,
+                                    categoryId = 0L,
+                                    serviceName = service.name,
+                                    categoryName = ""
+                                )
+                            ) {
+                                launchSingleTop = true
+                            }
                         }
                     },
                     onLongClick = { serviceId ->
@@ -216,9 +229,13 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
             Scaffold(
                 topBar = {
                     BbsListTopBarScreen(
-                        title = "${uiState.serviceName} > ${uiState.categoryName}",
+                        title = if (uiState.categoryName.isNotBlank()) {
+                            "${uiState.serviceName} > ${uiState.categoryName}"
+                        } else {
+                            uiState.serviceName
+                        },
                         onNavigationClick = openDrawer,
-                        onSearchClick = {}
+                        onSearchClick = {},
                     )
                 },
             ) { innerPadding ->
