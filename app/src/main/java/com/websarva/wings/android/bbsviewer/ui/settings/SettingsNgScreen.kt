@@ -1,5 +1,6 @@
 package com.websarva.wings.android.bbsviewer.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.model.NgType
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.bbsviewer.ui.topbar.SmallTopAppBarScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,9 +73,21 @@ fun SettingsNgScreen(
                 items(filtered, key = { it.id }) { ng ->
                     ListItem(
                         headlineContent = { Text(ng.pattern) },
+                        modifier = Modifier.clickable { viewModel.startEdit(ng) },
                     )
                     HorizontalDivider()
                 }
+            }
+            uiState.editingNg?.let { ng ->
+                NgDialogRoute(
+                    id = ng.id,
+                    text = ng.pattern,
+                    type = ng.type,
+                    boardName = ng.boardId?.let { uiState.boardNames[it] } ?: "",
+                    boardId = ng.boardId,
+                    isRegex = ng.isRegex,
+                    onDismiss = { viewModel.endEdit() },
+                )
             }
         }
     }

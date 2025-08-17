@@ -39,10 +39,12 @@ import com.websarva.wings.android.bbsviewer.ui.thread.viewmodel.NgViewModel
 
 @Composable
 fun NgDialogRoute(
+    id: Long? = null,
     text: String,
     type: NgType,
     boardName: String = "",
     boardId: Long? = null,
+    isRegex: Boolean = false,
     onDismiss: () -> Unit,
     viewModel: NgViewModel = hiltViewModel(),
     onConfirm: () -> Unit = { viewModel.saveNg() },
@@ -50,8 +52,8 @@ fun NgDialogRoute(
     val uiState = viewModel.uiState.collectAsState().value
     val boards = viewModel.filteredBoards.collectAsState().value
 
-    LaunchedEffect(text, boardName, boardId, type) {
-        viewModel.initialize(text, boardName, boardId, type)
+    LaunchedEffect(id, text, boardName, boardId, type, isRegex) {
+        viewModel.initialize(id, text, boardName, boardId, type, isRegex)
     }
 
     NgDialog(
