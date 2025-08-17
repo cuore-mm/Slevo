@@ -10,4 +10,5 @@ data class ThreadInfo(
     val momentum: Double = 0.0,
     val isVisited: Boolean = false,
     val newResCount: Int = 0,
+    val isNew: Boolean = false,
 )
