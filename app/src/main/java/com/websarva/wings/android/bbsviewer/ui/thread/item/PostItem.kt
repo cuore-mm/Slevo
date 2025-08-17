@@ -2,10 +2,9 @@ package com.websarva.wings.android.bbsviewer.ui.thread.item
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,7 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -97,49 +100,73 @@ fun PostItem(
                     color = postNumColor
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                FlowRow(
-                    modifier = Modifier.alignByBaseline(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+                val headerText = remember(
+                    post.name,
+                    post.email,
+                    post.date,
+                    post.id,
+                    post.beRank,
+                    idText,
+                    idColor
                 ) {
-                    Text(
-                        modifier = Modifier.combinedClickable(
-                            onClick = {},
-                            onLongClick = {
-                                if (post.name.isNotBlank()) {
-                                    textMenuData = post.name to NgType.USER_NAME
+                    buildAnnotatedString {
+                        val segments = buildList {
+                            if (post.name.isNotBlank()) add(post.name to "NAME")
+                            add("${post.email} ${post.date}" to null)
+                            if (post.id.isNotBlank()) add(idText to "ID")
+                            if (post.beRank.isNotBlank()) add(post.beRank to null)
+                        }
+                        segments.forEachIndexed { index, (segment, tag) ->
+                            val start = length
+                            append(segment)
+                            when (tag) {
+                                "NAME" -> addStringAnnotation(
+                                    tag = "NAME",
+                                    annotation = post.name,
+                                    start = start,
+                                    end = length
+                                )
+                                "ID" -> {
+                                    addStringAnnotation(
+                                        tag = "ID",
+                                        annotation = idText,
+                                        start = start,
+                                        end = length
+                                    )
+                                    addStyle(SpanStyle(color = idColor), start, length)
                                 }
                             }
-                        ),
-                        text = post.name,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "${post.email} ${post.date}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (post.id.isNotBlank()) {
-                        Text(
-                            modifier = Modifier.combinedClickable(
-                                onClick = {},
-                                onLongClick = {
-                                    textMenuData = idText to NgType.USER_ID
-                                }
-                            ),
-                            text = idText,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = idColor
-                        )
-                    }
-                    if (post.beRank.isNotBlank()) {
-                        Text(
-                            text = post.beRank,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                            if (index != segments.lastIndex) append(" ")
+                        }
                     }
                 }
+                Text(
+                    modifier = Modifier
+                        .alignByBaseline()
+                        .pointerInput(headerText) {
+                            detectTapGestures(
+                                onLongPress = { pos ->
+                                    headerLayout?.let { layout ->
+                                        val offset = layout.getOffsetForPosition(pos)
+                                        headerText.getStringAnnotations("NAME", offset, offset)
+                                            .firstOrNull()?.let {
+                                                textMenuData = post.name to NgType.USER_NAME
+                                            }
+                                        headerText.getStringAnnotations("ID", offset, offset)
+                                            .firstOrNull()?.let {
+                                                textMenuData = idText to NgType.USER_ID
+                                            }
+                                    }
+                                }
+                            )
+                        },
+                    text = headerText,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    onTextLayout = { headerLayout = it }
+                )
             }
 
             val uriHandler = LocalUriHandler.current
