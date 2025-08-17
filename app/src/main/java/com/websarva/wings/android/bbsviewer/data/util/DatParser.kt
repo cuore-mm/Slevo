@@ -116,7 +116,7 @@ private fun cleanContent(contentHtml: String): Pair<String, String> {
 
     // 2. <br> タグをプレースホルダに変換
     val textWithPlaceholders =
-        withoutIcon.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), newlinePlaceholder)
+        withoutIcon.replace(Regex("\\s?<br\\s*/?>\\s?", RegexOption.IGNORE_CASE), newlinePlaceholder)
 
     // 2. HTMLエンティティをデコード (この時プレースホルダはそのままのはず)
     val decodedContent =
