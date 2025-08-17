@@ -103,11 +103,11 @@ fun PostItem(
                 Spacer(modifier = Modifier.width(4.dp))
                 val headerText = buildAnnotatedString {
                     var first = true
-                    fun appendLineIfNeeded() {
-                        if (!first) append("\n") else first = false
+                    fun appendSpaceIfNeeded() {
+                        if (!first) append(" ") else first = false
                     }
                     if (post.name.isNotBlank()) {
-                        appendLineIfNeeded()
+                        appendSpaceIfNeeded()
                         pushStringAnnotation(tag = "NAME", annotation = post.name)
                         withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
                             append(post.name)
@@ -116,13 +116,13 @@ fun PostItem(
                     }
                     val emailDate = listOf(post.email, post.date).filter { it.isNotBlank() }.joinToString(" ")
                     if (emailDate.isNotBlank()) {
-                        appendLineIfNeeded()
+                        appendSpaceIfNeeded()
                         withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
                             append(emailDate)
                         }
                     }
                     if (post.id.isNotBlank()) {
-                        appendLineIfNeeded()
+                        appendSpaceIfNeeded()
                         pushStringAnnotation(tag = "ID", annotation = idText)
                         withStyle(SpanStyle(color = idColor)) {
                             append(idText)
@@ -130,7 +130,7 @@ fun PostItem(
                         pop()
                     }
                     if (post.beRank.isNotBlank()) {
-                        appendLineIfNeeded()
+                        appendSpaceIfNeeded()
                         withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
                             append(post.beRank)
                         }
