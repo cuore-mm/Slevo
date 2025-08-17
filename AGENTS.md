@@ -42,3 +42,4 @@
 
 ## 設計・責務分離の指針
 - ViewModel、UiState、Repository、Datasourceなどのファイルに分けて、責務の分離を意識してコーディングしてください。
+- 特に、画面状態や表示に関するデータは必ずUiStateとして分離し、ViewModelで管理することを徹底してください。
