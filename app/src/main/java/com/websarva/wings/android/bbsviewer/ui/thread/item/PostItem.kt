@@ -175,7 +175,13 @@ fun PostItem(
                 )
             }
 
-            val imageUrls = remember(post.content) { extractImageUrls(post.content) }
+            val imageUrls = remember(post.content, post.urlFlags) {
+                if (post.urlFlags and ReplyInfo.HAS_IMAGE_URL != 0) {
+                    extractImageUrls(post.content)
+                } else {
+                    emptyList()
+                }
+            }
             if (imageUrls.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 ImageThumbnailGrid(
