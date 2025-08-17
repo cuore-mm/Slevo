@@ -27,6 +27,7 @@ fun ThreadBottomBar(
     onPostClick: () -> Unit,
     onTabListClick: () -> Unit,
     onRefreshClick: () -> Unit,
+    onSearchClick: () -> Unit,
 ) {
     BottomAppBar(
         modifier = modifier,
@@ -35,7 +36,7 @@ fun ThreadBottomBar(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                IconButton(onClick = { /* doSomething() */ }) {
+                IconButton(onClick = onSearchClick) {
                     Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
                 }
                 IconButton(onClick = { /* doSomething() */ }) {
@@ -74,6 +75,7 @@ fun ThreadBottomBarPreview() {
     ThreadBottomBar(
         onPostClick = {},
         onTabListClick = {},
-        onRefreshClick = {}
+        onRefreshClick = {},
+        onSearchClick = {},
     )
 }

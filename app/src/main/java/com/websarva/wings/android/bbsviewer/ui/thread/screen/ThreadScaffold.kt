@@ -31,6 +31,7 @@ import com.websarva.wings.android.bbsviewer.ui.thread.components.ThreadBottomBar
 import com.websarva.wings.android.bbsviewer.ui.thread.components.ThreadTopBar
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.bbsviewer.ui.util.parseBoardUrl
+import com.websarva.wings.android.bbsviewer.ui.topbar.SearchTopAppBar
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -94,12 +95,21 @@ fun ThreadScaffold(
         scrollBehavior = scrollBehavior,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             Column {
-                ThreadTopBar(
-                    onBookmarkClick = { viewModel.openBookmarkSheet() },
-                    uiState = uiState,
-                    onNavigationClick = drawer,
-                    scrollBehavior = scrollBehavior
-                )
+                if (uiState.isSearchMode) {
+                    SearchTopAppBar(
+                        searchQuery = uiState.searchQuery,
+                        onQueryChange = { viewModel.updateSearchQuery(it) },
+                        onCloseSearch = { viewModel.closeSearch() },
+                        scrollBehavior = scrollBehavior
+                    )
+                } else {
+                    ThreadTopBar(
+                        onBookmarkClick = { viewModel.openBookmarkSheet() },
+                        uiState = uiState,
+                        onNavigationClick = drawer,
+                        scrollBehavior = scrollBehavior
+                    )
+                }
                 if (uiState.isLoading) {
                     LinearProgressIndicator(
                         progress = { uiState.loadProgress },
@@ -115,7 +125,8 @@ fun ThreadScaffold(
                     .height(56.dp),
                 onPostClick = { viewModel.showPostDialog() },
                 onTabListClick = { viewModel.openTabListSheet() },
-                onRefreshClick = { viewModel.reloadThread() }
+                onRefreshClick = { viewModel.reloadThread() },
+                onSearchClick = { viewModel.startSearch() },
             )
         },
         content = { viewModel, uiState, listState, modifier, navController ->
