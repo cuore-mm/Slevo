@@ -121,6 +121,14 @@ fun ThreadCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (showInfo) {
+                if (threadInfo.isNew) {
+                    Text(
+                        text = "new",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
                 Text(
                     text = threadInfo.date.run { "$year/$month/$day $hour:%02d".format(minute) },
                     style = MaterialTheme.typography.labelMedium

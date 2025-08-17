@@ -40,11 +40,13 @@ class BoardViewModel @AssistedInject constructor(
     // 元のスレッドリストを保持
     private var originalThreads: List<ThreadInfo>? = null
     private var baseThreads: List<ThreadInfo> = emptyList()
+    private var previousThreadKeys: Set<String>? = null
 
     override val _uiState = MutableStateFlow(BoardUiState())
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
 
     fun initializeBoard(boardInfo: BoardInfo) {
+        previousThreadKeys = null
         // Factoryを使ってBookmarkStateViewModelを生成
         singleBookmarkViewModel = singleBookmarkViewModelFactory.create(boardInfo, null)
 
@@ -85,7 +87,10 @@ class BoardViewModel @AssistedInject constructor(
             val threads =
                 repository.getThreadList("$normalizedUrl/subject.txt", forceRefresh = isRefresh)
             if (threads != null) {
-                baseThreads = threads
+                val currentKeys = threads.map { it.key }.toSet()
+                val newKeys = previousThreadKeys?.let { currentKeys - it } ?: emptySet()
+                baseThreads = threads.map { t -> t.copy(isNew = t.key in newKeys) }
+                previousThreadKeys = currentKeys
                 val historyMap = historyRepository.getHistoryMap(boardUrl)
                 mergeHistory(historyMap)
             }
@@ -166,7 +171,8 @@ class BoardViewModel @AssistedInject constructor(
                 _uiState.value.isSortAscending
             ) + largeKeyThreads
 
-            _uiState.update { it.copy(threads = sortedList) }
+            val (newThreads, existingThreads) = sortedList.partition { it.isNew }
+            _uiState.update { it.copy(threads = newThreads + existingThreads) }
         }
     }
 
