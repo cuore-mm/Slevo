@@ -83,6 +83,7 @@ fun SettingsNgScreen(
                     id = ng.id,
                     text = ng.pattern,
                     type = ng.type,
+                    boardName = ng.boardId?.let { uiState.boardNames[it] } ?: "",
                     boardId = ng.boardId,
                     isRegex = ng.isRegex,
                     onDismiss = { viewModel.endEdit() },
