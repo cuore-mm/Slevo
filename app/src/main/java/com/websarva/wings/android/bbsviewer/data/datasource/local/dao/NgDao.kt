@@ -14,4 +14,7 @@ interface NgDao {
 
     @Query("SELECT * FROM ng_entries")
     fun getAll(): Flow<List<NgEntity>>
+
+    @Query("DELETE FROM ng_entries WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<Long>)
 }

@@ -1,14 +1,24 @@
 package com.websarva.wings.android.bbsviewer.ui.settings
 
-import androidx.compose.foundation.clickable
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -22,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.model.NgType
+import com.websarva.wings.android.bbsviewer.ui.bottombar.BbsSelectBottomBar
+import com.websarva.wings.android.bbsviewer.ui.common.SelectedTopBarScreen
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.bbsviewer.ui.topbar.SmallTopAppBarScreen
 
@@ -42,10 +54,37 @@ fun SettingsNgScreen(
 
     Scaffold(
         topBar = {
-            SmallTopAppBarScreen(
-                title = "NG",
-                onNavigateUp = onNavigateUp,
-            )
+            Box {
+                AnimatedVisibility(
+                    visible = !uiState.selectMode,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    SmallTopAppBarScreen(
+                        title = "NG",
+                        onNavigateUp = onNavigateUp,
+                    )
+                }
+                AnimatedVisibility(
+                    visible = uiState.selectMode,
+                    enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
+                ) {
+                    SelectedTopBarScreen(
+                        onBack = { viewModel.toggleSelectMode(false) },
+                        selectedCount = uiState.selected.size
+                    )
+                }
+            }
+        },
+        bottomBar = {
+            if (uiState.selectMode) {
+                BbsSelectBottomBar(
+                    modifier = Modifier.navigationBarsPadding(),
+                    onDelete = { viewModel.removeSelected() },
+                    onOpen = {}
+                )
+            }
         }
     ) { innerPadding ->
         Column(
@@ -71,9 +110,32 @@ fun SettingsNgScreen(
             val filtered = uiState.ngs.filter { it.type == uiState.selectedTab }
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(filtered, key = { it.id }) { ng ->
+                    val isSelected = ng.id in uiState.selected
                     ListItem(
                         headlineContent = { Text(ng.pattern) },
-                        modifier = Modifier.clickable { viewModel.startEdit(ng) },
+                        modifier = Modifier
+                            .combinedClickable(
+                                onClick = {
+                                    if (uiState.selectMode) {
+                                        viewModel.toggleSelect(ng.id)
+                                    } else {
+                                        viewModel.startEdit(ng)
+                                    }
+                                },
+                                onLongClick = {
+                                    if (!uiState.selectMode) {
+                                        viewModel.toggleSelectMode(true)
+                                        viewModel.toggleSelect(ng.id)
+                                    }
+                                }
+                            ),
+                        colors = ListItemDefaults.colors(
+                            containerColor = if (isSelected) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            }
+                        )
                     )
                     HorizontalDivider()
                 }
@@ -88,6 +150,9 @@ fun SettingsNgScreen(
                     isRegex = ng.isRegex,
                     onDismiss = { viewModel.endEdit() },
                 )
+            }
+            BackHandler(enabled = uiState.selectMode) {
+                viewModel.toggleSelectMode(false)
             }
         }
     }

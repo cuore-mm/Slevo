@@ -30,4 +30,6 @@ class NgRepository @Inject constructor(
     }
 
     fun observeNgs(): Flow<List<NgEntity>> = dao.getAll()
+
+    suspend fun remove(ids: List<Long>) = dao.deleteByIds(ids)
 }
