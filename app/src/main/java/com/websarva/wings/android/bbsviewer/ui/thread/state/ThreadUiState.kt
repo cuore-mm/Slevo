@@ -27,6 +27,8 @@ data class ThreadUiState(
     val idIndexList: List<Int> = emptyList(),
     val replySourceMap: Map<Int, List<Int>> = emptyMap(),
     val ngPostNumbers: Set<Int> = emptySet(),
+    val searchQuery: String = "",
+    val isSearchMode: Boolean = false,
 ) : BaseUiState<ThreadUiState> {
     override fun copyState(
         isLoading: Boolean,
