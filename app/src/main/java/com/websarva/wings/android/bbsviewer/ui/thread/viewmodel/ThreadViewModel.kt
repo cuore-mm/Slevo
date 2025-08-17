@@ -21,6 +21,7 @@ import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkViewModelFactory
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -111,6 +112,7 @@ class ThreadViewModel @AssistedInject constructor(
             if (threadData != null) {
                 val (posts, title) = threadData
                 val derived = deriveReplyMaps(posts)
+                val tree = deriveTreeOrder(posts)
                 _uiState.update {
                     it.copy(
                         posts = posts,
@@ -120,6 +122,8 @@ class ThreadViewModel @AssistedInject constructor(
                         idCountMap = derived.first,
                         idIndexList = derived.second,
                         replySourceMap = derived.third,
+                        treeOrder = tree.first,
+                        treeDepthMap = tree.second,
                     )
                 }
                 updateNgPostNumbers()
@@ -167,6 +171,34 @@ class ThreadViewModel @AssistedInject constructor(
         return Triple(idCountMap, idIndexList, replySourceMap)
     }
 
+    private fun deriveTreeOrder(posts: List<ReplyInfo>): Pair<List<Int>, Map<Int, Int>> {
+        val children = mutableMapOf<Int, MutableList<Int>>()
+        val parent = IntArray(posts.size + 1)
+        val depthMap = mutableMapOf<Int, Int>()
+        val regex = Regex("^>>(\\d+)")
+        posts.forEachIndexed { idx, reply ->
+            val current = idx + 1
+            val match = regex.find(reply.content)
+            val p = match?.groupValues?.get(1)?.toIntOrNull()
+            if (p != null && p in 1 until current) {
+                parent[current] = p
+                children.getOrPut(p) { mutableListOf() }.add(current)
+            }
+        }
+        val order = mutableListOf<Int>()
+        fun dfs(num: Int, depth: Int) {
+            order.add(num)
+            depthMap[num] = depth
+            children[num]?.forEach { child -> dfs(child, depth + 1) }
+        }
+        for (i in 1..posts.size) {
+            if (parent[i] == 0) {
+                dfs(i, 0)
+            }
+        }
+        return order to depthMap
+    }
+
     private fun updateNgPostNumbers() {
         val posts = uiState.value.posts ?: return
         val boardId = uiState.value.boardInfo.boardId
@@ -188,6 +220,17 @@ class ThreadViewModel @AssistedInject constructor(
     }
     fun reloadThread() {
         initialize(force = true) // 強制的に初期化処理を再実行
+    }
+
+    fun toggleSortType() {
+        _uiState.update { state ->
+            val next = if (state.sortType == ThreadSortType.NUMBER) {
+                ThreadSortType.TREE
+            } else {
+                ThreadSortType.NUMBER
+            }
+            state.copy(sortType = next)
+        }
     }
 
 

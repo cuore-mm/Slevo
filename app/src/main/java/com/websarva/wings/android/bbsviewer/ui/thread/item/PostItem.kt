@@ -62,6 +62,7 @@ fun PostItem(
     navController: NavHostController,
     boardName: String,
     boardId: Long,
+    indentLevel: Int = 0,
     replyFromNumbers: List<Int> = emptyList(),
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null
@@ -76,6 +77,7 @@ fun PostItem(
         Column(
             modifier = modifier
                 .fillMaxWidth()
+                .padding(start = 16.dp * indentLevel)
                 .combinedClickable(
                     onClick = { /* クリック処理が必要な場合はここに実装 */ },
                     onLongClick = { menuExpanded = true }

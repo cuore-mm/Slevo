@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.CropSquare
+import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.BottomAppBar
@@ -20,6 +22,8 @@ import com.websarva.wings.android.bbsviewer.R
 @Composable
 fun ThreadBottomBar(
     modifier: Modifier = Modifier,
+    isTreeSort: Boolean,
+    onSortClick: () -> Unit,
     onPostClick: () -> Unit,
     onTabListClick: () -> Unit,
     onRefreshClick: () -> Unit,
@@ -32,6 +36,14 @@ fun ThreadBottomBar(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
+                IconButton(onClick = onSortClick) {
+                    Icon(
+                        if (isTreeSort) Icons.Default.AccountTree else Icons.Default.FormatListNumbered,
+                        contentDescription = stringResource(
+                            if (isTreeSort) R.string.tree_order else R.string.number_order
+                        )
+                    )
+                }
                 IconButton(onClick = onSearchClick) {
                     Icon(
                         Icons.Default.Search,
@@ -66,6 +78,8 @@ fun ThreadBottomBar(
 @Composable
 fun ThreadBottomBarPreview() {
     ThreadBottomBar(
+        isTreeSort = false,
+        onSortClick = {},
         onPostClick = {},
         onTabListClick = {},
         onRefreshClick = {},

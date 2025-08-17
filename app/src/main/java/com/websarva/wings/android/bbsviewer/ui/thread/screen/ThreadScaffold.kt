@@ -28,6 +28,7 @@ import com.websarva.wings.android.bbsviewer.ui.navigation.RouteScaffold
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
 import com.websarva.wings.android.bbsviewer.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.bbsviewer.ui.thread.components.ThreadBottomBar
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.bbsviewer.ui.thread.components.ThreadTopBar
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.bbsviewer.ui.util.parseBoardUrl
@@ -118,11 +119,13 @@ fun ThreadScaffold(
                 }
             }
         },
-        bottomBar = { viewModel, _ ->
+        bottomBar = { viewModel, uiState ->
             ThreadBottomBar(
                 modifier = Modifier
                     .navigationBarsPadding()
                     .height(56.dp),
+                isTreeSort = uiState.sortType == ThreadSortType.TREE,
+                onSortClick = { viewModel.toggleSortType() },
                 onPostClick = { viewModel.showPostDialog() },
                 onTabListClick = { viewModel.openTabListSheet() },
                 onRefreshClick = { viewModel.reloadThread() },

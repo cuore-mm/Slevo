@@ -6,6 +6,11 @@ import com.websarva.wings.android.bbsviewer.data.repository.ConfirmationData
 import com.websarva.wings.android.bbsviewer.ui.common.BaseUiState
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkState
 
+enum class ThreadSortType {
+    NUMBER,
+    TREE
+}
+
 data class ThreadUiState(
     val threadInfo: ThreadInfo = ThreadInfo(),
     val posts: List<ReplyInfo>? = null,
@@ -29,6 +34,9 @@ data class ThreadUiState(
     val ngPostNumbers: Set<Int> = emptySet(),
     val searchQuery: String = "",
     val isSearchMode: Boolean = false,
+    val sortType: ThreadSortType = ThreadSortType.NUMBER,
+    val treeOrder: List<Int> = emptyList(),
+    val treeDepthMap: Map<Int, Int> = emptyMap(),
 ) : BaseUiState<ThreadUiState> {
     override fun copyState(
         isLoading: Boolean,

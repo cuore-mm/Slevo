@@ -44,6 +44,7 @@ import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.bbsviewer.ui.thread.item.PostItem
 import com.websarva.wings.android.bbsviewer.ui.thread.components.MomentumBar
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.PopupInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.ReplyPopup
 
@@ -57,13 +58,20 @@ fun ThreadScreen(
     onBottomRefresh: () -> Unit = {},
 ) {
     val posts = uiState.posts ?: emptyList()
-    val postsWithIndex = posts.withIndex().toList()
-    val filteredPosts = if (uiState.searchQuery.isNotBlank()) {
-        postsWithIndex.filter { it.value.content.contains(uiState.searchQuery, ignoreCase = true) }
+    val order = if (uiState.sortType == ThreadSortType.TREE) {
+        uiState.treeOrder
     } else {
-        postsWithIndex
+        (1..posts.size).toList()
     }
-    val displayPosts = filteredPosts.map { it.value }
+    val orderedPosts = order.mapNotNull { num ->
+        posts.getOrNull(num - 1)?.let { num to it }
+    }
+    val filteredPosts = if (uiState.searchQuery.isNotBlank()) {
+        orderedPosts.filter { it.second.content.contains(uiState.searchQuery, ignoreCase = true) }
+    } else {
+        orderedPosts
+    }
+    val displayPosts = filteredPosts.map { it.second }
     val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
     val ngNumbers = uiState.ngPostNumbers
 
@@ -113,11 +121,9 @@ fun ThreadScreen(
                     }
                 }
 
-                items(filteredPosts) { indexedPost ->
-                    val index = indexedPost.index
-                    val post = indexedPost.value
-                    val postNum = index + 1
+                items(filteredPosts) { (postNum, post) ->
                     if (postNum !in ngNumbers) {
+                        val index = postNum - 1
                         var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
                         PostItem(
                             modifier = Modifier.onGloballyPositioned { coords ->
@@ -131,6 +137,7 @@ fun ThreadScreen(
                             navController = navController,
                             boardName = uiState.boardInfo.name,
                             boardId = uiState.boardInfo.boardId,
+                            indentLevel = if (uiState.sortType == ThreadSortType.TREE) uiState.treeDepthMap[postNum] ?: 0 else 0,
                             replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
                             onReplyFromClick = { nums ->
                                 val offset = if (popupStack.isEmpty()) {
