@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.VerticalDivider
@@ -57,6 +57,13 @@ fun ThreadScreen(
     onBottomRefresh: () -> Unit = {},
 ) {
     val posts = uiState.posts ?: emptyList()
+    val postsWithIndex = posts.withIndex().toList()
+    val filteredPosts = if (uiState.searchQuery.isNotBlank()) {
+        postsWithIndex.filter { it.value.content.contains(uiState.searchQuery, ignoreCase = true) }
+    } else {
+        postsWithIndex
+    }
+    val displayPosts = filteredPosts.map { it.value }
     val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
     val ngNumbers = uiState.ngPostNumbers
 
@@ -100,13 +107,15 @@ fun ThreadScreen(
                     .nestedScroll(nestedScrollConnection),
                 state = listState,
             ) {
-                if (posts.isNotEmpty()) {
+                if (filteredPosts.isNotEmpty()) {
                     item {
                         HorizontalDivider()
                     }
                 }
 
-                itemsIndexed(posts) { index, post ->
+                items(filteredPosts) { indexedPost ->
+                    val index = indexedPost.index
+                    val post = indexedPost.value
                     val postNum = index + 1
                     if (postNum !in ngNumbers) {
                         var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
@@ -166,23 +175,23 @@ fun ThreadScreen(
                 modifier = Modifier
                     .width(32.dp)
                     .fillMaxHeight(),
-                posts = posts,
+                posts = displayPosts,
                 lazyListState = listState
             )
         }
 
-        ReplyPopup(
-            popupStack = popupStack,
-            posts = posts,
-            replySourceMap = uiState.replySourceMap,
-            idCountMap = uiState.idCountMap,
-            idIndexList = uiState.idIndexList,
-            ngPostNumbers = ngNumbers,
-            navController = navController,
-            boardName = uiState.boardInfo.name,
-            boardId = uiState.boardInfo.boardId,
-            onClose = { if (popupStack.isNotEmpty()) popupStack.removeLast() }
-        )
+            ReplyPopup(
+                popupStack = popupStack,
+                posts = posts,
+                replySourceMap = uiState.replySourceMap,
+                idCountMap = uiState.idCountMap,
+                idIndexList = uiState.idIndexList,
+                ngPostNumbers = ngNumbers,
+                navController = navController,
+                boardName = uiState.boardInfo.name,
+                boardId = uiState.boardInfo.boardId,
+                onClose = { if (popupStack.isNotEmpty()) popupStack.removeLast() }
+            )
 
         val arrowRotation by animateFloatAsState(
             targetValue = if (triggerRefresh) 180f else (overscroll / refreshThresholdPx).coerceIn(0f, 1f) * 180f,

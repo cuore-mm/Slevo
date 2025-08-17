@@ -238,6 +238,18 @@ class ThreadViewModel @AssistedInject constructor(
         _uiState.update { it.copy(showErrorWebView = false, errorHtmlContent = "") }
     }
 
+    fun startSearch() {
+        _uiState.update { it.copy(isSearchMode = true) }
+    }
+
+    fun closeSearch() {
+        _uiState.update { it.copy(isSearchMode = false, searchQuery = "") }
+    }
+
+    fun updateSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+    }
+
     // 初回投稿処理
     fun postFirstPhase(
         host: String,
