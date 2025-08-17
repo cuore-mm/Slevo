@@ -24,6 +24,8 @@ import com.websarva.wings.android.bbsviewer.ui.theme.imageUrlColor
 import com.websarva.wings.android.bbsviewer.ui.theme.threadUrlColor
 import com.websarva.wings.android.bbsviewer.ui.theme.urlColor
 import kotlinx.coroutines.launch
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.foundation.lazy.rememberLazyListState
 
 @Composable
 fun MomentumBar(
@@ -126,22 +128,49 @@ fun MomentumBar(
                 }
             }
 
-            val dotRadius = 2.dp.toPx()
-            val dotSpacing = dotRadius * 2f + 2.dp.toPx()
+            val dotRadius = 3.dp.toPx()
+            val dotSpacing = dotRadius * 1.3f // 重なりを減らすため間隔を広げる
+            val rightMarginPx = 4.dp.toPx() // 右端の余白
             posts.forEachIndexed { index, post ->
                 if (post.urlFlags != 0) {
                     val y = index * postHeight + postHeight / 2f
-                    val colors = buildList<Color> {
-                        if (post.urlFlags and ReplyInfo.HAS_IMAGE_URL != 0) add(imageColor)
-                        if (post.urlFlags and ReplyInfo.HAS_THREAD_URL != 0) add(threadColor)
-                        if (post.urlFlags and ReplyInfo.HAS_OTHER_URL != 0) add(otherColor)
+                    val colors = buildList {
+                        if (post.urlFlags and ReplyInfo.HAS_IMAGE_URL != 0) add(imageColor.copy(alpha = 0.6f))
+                        if (post.urlFlags and ReplyInfo.HAS_THREAD_URL != 0) add(threadColor.copy(alpha = 0.6f))
+                        if (post.urlFlags and ReplyInfo.HAS_OTHER_URL != 0) add(otherColor.copy(alpha = 0.6f))
                     }
                     colors.forEachIndexed { i, color ->
-                        val x = canvasWidth - dotRadius - i * dotSpacing
+                        val x = canvasWidth - dotRadius - rightMarginPx - i * dotSpacing
                         drawCircle(color = color, radius = dotRadius, center = Offset(x, y))
                     }
                 }
             }
         }
     }
+}
+
+@Preview(showBackground = true, widthDp = 60, heightDp = 400)
+@Composable
+fun MomentumBarPreview() {
+    val dummyPosts = List(30) { i ->
+        val urlFlags = when (i % 5) {
+            0 -> ReplyInfo.HAS_IMAGE_URL
+            1 -> ReplyInfo.HAS_THREAD_URL
+            2 -> ReplyInfo.HAS_OTHER_URL
+            3 -> ReplyInfo.HAS_IMAGE_URL or ReplyInfo.HAS_THREAD_URL // 画像+スレ
+            4 -> ReplyInfo.HAS_IMAGE_URL or ReplyInfo.HAS_THREAD_URL or ReplyInfo.HAS_OTHER_URL // 全部
+            else -> 0
+        }
+        ReplyInfo(
+            name = "User$i",
+            email = "user$i@example.com",
+            date = "2025/08/17",
+            id = "$i",
+            content = "Sample post $i",
+            momentum = (i % 10) / 10f,
+            urlFlags = urlFlags
+        )
+    }
+    val listState = rememberLazyListState()
+    MomentumBar(posts = dummyPosts, lazyListState = listState)
 }
