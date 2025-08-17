@@ -31,10 +31,19 @@ class SettingsNgViewModel @Inject constructor(
     fun selectTab(type: NgType) {
         _uiState.update { it.copy(selectedTab = type) }
     }
+
+    fun startEdit(ng: NgEntity) {
+        _uiState.update { it.copy(editingNg = ng) }
+    }
+
+    fun endEdit() {
+        _uiState.update { it.copy(editingNg = null) }
+    }
 }
 
 data class SettingsNgUiState(
     val ngs: List<NgEntity> = emptyList(),
-    val selectedTab: NgType = NgType.USER_ID
+    val selectedTab: NgType = NgType.USER_ID,
+    val editingNg: NgEntity? = null,
 )
 

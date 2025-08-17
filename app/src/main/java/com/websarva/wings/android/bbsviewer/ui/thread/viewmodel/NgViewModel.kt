@@ -44,14 +44,23 @@ class NgViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun initialize(text: String, boardName: String, boardId: Long?, type: NgType) {
+    fun initialize(
+        id: Long?,
+        text: String,
+        boardName: String,
+        boardId: Long?,
+        type: NgType,
+        isRegex: Boolean,
+    ) {
         _uiState.update {
             it.copy(
+                id = id,
                 text = text,
                 boardName = boardName,
                 boardId = boardId,
                 isAllBoards = boardId == null,
                 type = type,
+                isRegex = isRegex,
             )
         }
     }
@@ -90,6 +99,7 @@ class NgViewModel @Inject constructor(
                 state.isRegex,
                 state.type,
                 if (state.isAllBoards) null else state.boardId,
+                state.id,
             )
         }
     }

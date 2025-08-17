@@ -11,8 +11,22 @@ import kotlinx.coroutines.flow.Flow
 class NgRepository @Inject constructor(
     private val dao: NgDao
 ) {
-    suspend fun addNg(pattern: String, isRegex: Boolean, type: NgType, boardId: Long?) {
-        dao.insert(NgEntity(pattern = pattern, isRegex = isRegex, boardId = boardId, type = type))
+    suspend fun addNg(
+        pattern: String,
+        isRegex: Boolean,
+        type: NgType,
+        boardId: Long?,
+        id: Long? = null,
+    ) {
+        dao.insert(
+            NgEntity(
+                id = id ?: 0L,
+                pattern = pattern,
+                isRegex = isRegex,
+                boardId = boardId,
+                type = type,
+            )
+        )
     }
 
     fun observeNgs(): Flow<List<NgEntity>> = dao.getAll()
