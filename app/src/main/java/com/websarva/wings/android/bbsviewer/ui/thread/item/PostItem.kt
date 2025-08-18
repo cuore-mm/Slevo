@@ -33,6 +33,8 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
@@ -63,6 +65,7 @@ fun PostItem(
     navController: NavHostController,
     boardName: String,
     boardId: Long,
+    indentLevel: Int = 0,
     replyFromNumbers: List<Int> = emptyList(),
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null
@@ -73,9 +76,25 @@ fun PostItem(
     var showNgSelectDialog by remember { mutableStateOf(false) }
     val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
 
-    Box {
+    val boundaryColor = MaterialTheme.colorScheme.outlineVariant
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp * indentLevel)
+            .drawBehind {
+                if (indentLevel > 0) {
+                    val strokeWidth = 1.dp.toPx()
+                    drawLine(
+                        color = boundaryColor,
+                        start = Offset(0f, 0f),
+                        end = Offset(0f, size.height),
+                        strokeWidth = strokeWidth
+                    )
+                }
+            }
+    ) {
         Column(
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxWidth()
                 .combinedClickable(
                     onClick = { /* クリック処理が必要な場合はここに実装 */ },
