@@ -38,6 +38,7 @@ import coil3.compose.AsyncImage
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.theme.idColor
 import com.websarva.wings.android.bbsviewer.ui.theme.replyCountColor
+import java.time.LocalDate
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
 import com.websarva.wings.android.bbsviewer.ui.common.ImageThumbnailGrid
@@ -114,7 +115,14 @@ fun PostItem(
                         }
                         pop()
                     }
-                    val emailDate = listOf(post.email, post.date).filter { it.isNotBlank() }.joinToString(" ")
+                    val currentYearPrefix = "${LocalDate.now().year}/"
+                    val displayDate =
+                        if (post.date.startsWith(currentYearPrefix)) {
+                            post.date.removePrefix(currentYearPrefix)
+                        } else {
+                            post.date
+                        }
+                    val emailDate = listOf(post.email, displayDate).filter { it.isNotBlank() }.joinToString(" ")
                     if (emailDate.isNotBlank()) {
                         appendSpaceIfNeeded()
                         withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {

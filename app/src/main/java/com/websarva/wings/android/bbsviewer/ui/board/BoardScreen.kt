@@ -35,6 +35,7 @@ import com.websarva.wings.android.bbsviewer.data.model.ThreadDate
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import java.text.DecimalFormat
 import com.websarva.wings.android.bbsviewer.data.model.THREAD_KEY_THRESHOLD
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,8 +139,17 @@ fun ThreadCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                 }
+                val dateText = threadInfo.date.run {
+                    val currentYear = LocalDate.now().year
+                    val datePart = if (year == currentYear) {
+                        "$month/$day"
+                    } else {
+                        "$year/$month/$day"
+                    }
+                    "$datePart $hour:%02d".format(minute)
+                }
                 Text(
-                    text = threadInfo.date.run { "$year/$month/$day $hour:%02d".format(minute) },
+                    text = dateText,
                     modifier = Modifier.alignByBaseline(),
                     style = MaterialTheme.typography.labelMedium
                 )
