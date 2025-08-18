@@ -2,6 +2,7 @@ package com.websarva.wings.android.bbsviewer.ui.thread.item
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,8 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.ClickableText
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +21,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -33,26 +34,23 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
+import com.websarva.wings.android.bbsviewer.data.model.NgType
+import com.websarva.wings.android.bbsviewer.ui.common.ImageThumbnailGrid
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.theme.idColor
 import com.websarva.wings.android.bbsviewer.ui.theme.replyCountColor
-import java.time.LocalDate
-import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
-import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
-import com.websarva.wings.android.bbsviewer.ui.common.ImageThumbnailGrid
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
-import com.websarva.wings.android.bbsviewer.R
-import com.websarva.wings.android.bbsviewer.ui.thread.dialog.PostMenuDialog
-import com.websarva.wings.android.bbsviewer.ui.thread.dialog.TextMenuDialog
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.NgSelectDialog
-import com.websarva.wings.android.bbsviewer.data.model.NgType
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.PostMenuDialog
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.TextMenuDialog
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
+import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.time.LocalDate
 
 
 @Composable
@@ -141,7 +139,8 @@ fun PostItem(
                         } else {
                             post.date
                         }
-                    val emailDate = listOf(post.email, displayDate).filter { it.isNotBlank() }.joinToString(" ")
+                    val emailDate =
+                        listOf(post.email, displayDate).filter { it.isNotBlank() }.joinToString(" ")
                     if (emailDate.isNotBlank()) {
                         appendSpaceIfNeeded()
                         withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
@@ -172,12 +171,14 @@ fun PostItem(
                                 onLongPress = { offset ->
                                     headerLayout?.let { layout ->
                                         val pos = layout.getOffsetForPosition(offset)
-                                        headerText.getStringAnnotations("NAME", pos, pos).firstOrNull()?.let {
-                                            textMenuData = it.item to NgType.USER_NAME
-                                        }
-                                        headerText.getStringAnnotations("ID", pos, pos).firstOrNull()?.let {
-                                            textMenuData = it.item to NgType.USER_ID
-                                        }
+                                        headerText.getStringAnnotations("NAME", pos, pos)
+                                            .firstOrNull()?.let {
+                                                textMenuData = it.item to NgType.USER_NAME
+                                            }
+                                        headerText.getStringAnnotations("ID", pos, pos)
+                                            .firstOrNull()?.let {
+                                                textMenuData = it.item to NgType.USER_ID
+                                            }
                                     }
                                 }
                             )
@@ -194,6 +195,7 @@ fun PostItem(
                 text = post.content,
                 onOpenUrl = { uriHandler.openUri(it) }
             )
+            var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
 
             Column(horizontalAlignment = Alignment.Start) {
                 if (post.beIconUrl.isNotBlank()) {
@@ -204,21 +206,31 @@ fun PostItem(
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                ClickableText(
+                Text(
+                    modifier = Modifier
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = { offset ->
+                                    contentLayout?.let { layout ->
+                                        val pos = layout.getOffsetForPosition(offset)
+                                        annotatedText.getStringAnnotations("URL", pos, pos)
+                                            .firstOrNull()?.let { ann ->
+                                                uriHandler.openUri(ann.item)
+                                            }
+                                        annotatedText.getStringAnnotations("REPLY", pos, pos)
+                                            .firstOrNull()?.let { ann ->
+                                                ann.item.toIntOrNull()
+                                                    ?.let { onReplyClick?.invoke(it) }
+                                            }
+                                    }
+                                }
+                            )
+                        },
                     text = annotatedText,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = MaterialTheme.colorScheme.onSurface
                     ),
-                    onClick = { offset ->
-                        annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()
-                            ?.let { ann ->
-                                uriHandler.openUri(ann.item)
-                            }
-                        annotatedText.getStringAnnotations("REPLY", offset, offset).firstOrNull()
-                            ?.let { ann ->
-                                ann.item.toIntOrNull()?.let { onReplyClick?.invoke(it) }
-                            }
-                    }
+                    onTextLayout = { contentLayout = it }
                 )
             }
 
