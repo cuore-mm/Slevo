@@ -116,14 +116,24 @@ fun ThreadScreen(
                 state = listState,
             ) {
                 if (filteredPosts.isNotEmpty()) {
+                    val firstIndent = if (uiState.sortType == ThreadSortType.TREE) {
+                        uiState.treeDepthMap[filteredPosts.first().first] ?: 0
+                    } else {
+                        0
+                    }
                     item {
-                        HorizontalDivider()
+                        HorizontalDivider(modifier = Modifier.padding(start = 16.dp * firstIndent))
                     }
                 }
 
                 items(filteredPosts) { (postNum, post) ->
                     if (postNum !in ngNumbers) {
                         val index = postNum - 1
+                        val indent = if (uiState.sortType == ThreadSortType.TREE) {
+                            uiState.treeDepthMap[postNum] ?: 0
+                        } else {
+                            0
+                        }
                         var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
                         PostItem(
                             modifier = Modifier.onGloballyPositioned { coords ->
@@ -137,7 +147,7 @@ fun ThreadScreen(
                             navController = navController,
                             boardName = uiState.boardInfo.name,
                             boardId = uiState.boardInfo.boardId,
-                            indentLevel = if (uiState.sortType == ThreadSortType.TREE) uiState.treeDepthMap[postNum] ?: 0 else 0,
+                            indentLevel = indent,
                             replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
                             onReplyFromClick = { nums ->
                                 val offset = if (popupStack.isEmpty()) {
@@ -170,7 +180,7 @@ fun ThreadScreen(
                                 }
                             }
                         )
-                        HorizontalDivider()
+                        HorizontalDivider(modifier = Modifier.padding(start = 16.dp * indent))
                     }
                 }
             }
