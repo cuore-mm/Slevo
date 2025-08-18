@@ -65,4 +65,5 @@
     <string name="thread_title_label">スレタイ</string>
     <string name="all_boards">すべての板</string>
     <string name="search_board_hint">板名またはURLで検索</string>
+    <string name="new_label">new</string>\
 </resources>
