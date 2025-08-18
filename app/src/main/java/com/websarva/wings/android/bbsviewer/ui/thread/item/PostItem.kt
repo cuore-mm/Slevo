@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -194,6 +193,7 @@ fun PostItem(
                 text = post.content,
                 onOpenUrl = { uriHandler.openUri(it) }
             )
+            var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
 
             Column(horizontalAlignment = Alignment.Start) {
                 if (post.beIconUrl.isNotBlank()) {
@@ -204,21 +204,30 @@ fun PostItem(
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                ClickableText(
+                Text(
+                    modifier = Modifier
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = { offset ->
+                                    contentLayout?.let { layout ->
+                                        val pos = layout.getOffsetForPosition(offset)
+                                        annotatedText.getStringAnnotations("URL", pos, pos)
+                                            .firstOrNull()?.let { ann ->
+                                                uriHandler.openUri(ann.item)
+                                            }
+                                        annotatedText.getStringAnnotations("REPLY", pos, pos)
+                                            .firstOrNull()?.let { ann ->
+                                                ann.item.toIntOrNull()?.let { onReplyClick?.invoke(it) }
+                                            }
+                                    }
+                                }
+                            )
+                        },
                     text = annotatedText,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = MaterialTheme.colorScheme.onSurface
                     ),
-                    onClick = { offset ->
-                        annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()
-                            ?.let { ann ->
-                                uriHandler.openUri(ann.item)
-                            }
-                        annotatedText.getStringAnnotations("REPLY", offset, offset).firstOrNull()
-                            ?.let { ann ->
-                                ann.item.toIntOrNull()?.let { onReplyClick?.invoke(it) }
-                            }
-                    }
+                    onTextLayout = { contentLayout = it }
                 )
             }
 
