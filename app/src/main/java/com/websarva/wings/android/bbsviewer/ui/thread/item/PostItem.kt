@@ -2,7 +2,10 @@ package com.websarva.wings.android.bbsviewer.ui.thread.item
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -73,10 +76,8 @@ fun PostItem(
     var textMenuData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
     var ngDialogData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
     var showNgSelectDialog by remember { mutableStateOf(false) }
-    var isColumnPressed by remember { mutableStateOf(false) }
-    var isHeaderPressed by remember { mutableStateOf(false) }
-    var isContentPressed by remember { mutableStateOf(false) }
-    val isPressed = isColumnPressed || isHeaderPressed || isContentPressed
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
     val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
 
     val boundaryColor = MaterialTheme.colorScheme.outlineVariant
@@ -103,16 +104,12 @@ fun PostItem(
                     if (isPressed) MaterialTheme.colorScheme.surfaceVariant
                     else Color.Transparent
                 )
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onPress = {
-                            isColumnPressed = true
-                            tryAwaitRelease()
-                            isColumnPressed = false
-                        },
-                        onLongPress = { menuExpanded = true }
-                    )
-                }
+                .combinedClickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = {},
+                    onLongClick = { menuExpanded = true }
+                )
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             val idColor = idColor(idTotal)
@@ -183,11 +180,6 @@ fun PostItem(
                         .alignByBaseline()
                         .pointerInput(Unit) {
                             detectTapGestures(
-                                onPress = {
-                                    isHeaderPressed = true
-                                    tryAwaitRelease()
-                                    isHeaderPressed = false
-                                },
                                 onLongPress = { offset ->
                                     headerLayout?.let { layout ->
                                         val pos = layout.getOffsetForPosition(offset)
@@ -235,11 +227,6 @@ fun PostItem(
                     modifier = Modifier
                         .pointerInput(Unit) {
                             detectTapGestures(
-                                onPress = {
-                                    isContentPressed = true
-                                    tryAwaitRelease()
-                                    isContentPressed = false
-                                },
                                 onTap = { offset ->
                                     contentLayout?.let { layout ->
                                         val pos = layout.getOffsetForPosition(offset)
