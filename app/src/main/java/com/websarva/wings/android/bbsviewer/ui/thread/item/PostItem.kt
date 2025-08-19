@@ -2,10 +2,7 @@ package com.websarva.wings.android.bbsviewer.ui.thread.item
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -76,8 +73,7 @@ fun PostItem(
     var textMenuData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
     var ngDialogData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
     var showNgSelectDialog by remember { mutableStateOf(false) }
-    val columnInteractionSource = remember { MutableInteractionSource() }
-    val isColumnPressed by columnInteractionSource.collectIsPressedAsState()
+    var isColumnPressed by remember { mutableStateOf(false) }
     var isHeaderPressed by remember { mutableStateOf(false) }
     var isContentPressed by remember { mutableStateOf(false) }
     val isPressed = isColumnPressed || isHeaderPressed || isContentPressed
@@ -107,12 +103,16 @@ fun PostItem(
                     if (isPressed) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)
                     else Color.Transparent
                 )
-                .combinedClickable(
-                    interactionSource = columnInteractionSource,
-                    indication = null,
-                    onClick = { /* クリック処理が必要な場合はここに実装 */ },
-                    onLongClick = { menuExpanded = true }
-                )
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onPress = {
+                            isColumnPressed = true
+                            tryAwaitRelease()
+                            isColumnPressed = false
+                        },
+                        onLongPress = { menuExpanded = true }
+                    )
+                }
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             val idColor = idColor(idTotal)
