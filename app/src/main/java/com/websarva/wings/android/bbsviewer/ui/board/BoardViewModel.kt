@@ -23,6 +23,8 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,6 +44,7 @@ class BoardViewModel @AssistedInject constructor(
     private var originalThreads: List<ThreadInfo>? = null
     private var baseThreads: List<ThreadInfo> = emptyList()
     private var currentHistoryMap: Map<String, Int> = emptyMap()
+    private var isObservingThreads: Boolean = false
 
     override val _uiState = MutableStateFlow(BoardUiState())
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
@@ -61,18 +64,6 @@ class BoardViewModel @AssistedInject constructor(
                 _uiState.update { state ->
                     state.copy(boardInfo = state.boardInfo.copy(noname = noname))
                 }
-            }
-
-            // 履歴とスレ一覧をまとめて監視し、単一パスでUIを更新する
-            kotlinx.coroutines.flow.combine(
-                repository.observeThreads(ensuredId),
-                historyRepository.observeHistoryMap(boardInfo.url)
-            ) { threads, historyMap ->
-                threads to historyMap
-            }.collect { (threads, historyMap) ->
-                baseThreads = threads
-                currentHistoryMap = historyMap
-                mergeHistory(historyMap)
             }
         }
 
@@ -97,11 +88,32 @@ class BoardViewModel @AssistedInject constructor(
 
         _uiState.update { it.copy(isLoading = true) }
         val refreshStartAt = System.currentTimeMillis()
+        val normalizedUrl = boardUrl.trimEnd('/')
         try {
-            val normalizedUrl = boardUrl.trimEnd('/')
             repository.refreshThreadList(boardInfo.boardId, "$normalizedUrl/subject.txt", refreshStartAt, isRefresh)
+        } catch (_: Exception) {
+            // ignore
         } finally {
             _uiState.update { it.copy(isLoading = false, resetScroll = true) }
+        }
+        if (!isObservingThreads) {
+            startObservingThreads(boardInfo.boardId)
+        }
+    }
+
+    private fun startObservingThreads(boardId: Long) {
+        isObservingThreads = true
+        viewModelScope.launch {
+            combine(
+                repository.observeThreads(boardId),
+                historyRepository.observeHistoryMap(uiState.value.boardInfo.url)
+            ) { threads, historyMap ->
+                threads to historyMap
+            }.collect { (threads, historyMap) ->
+                baseThreads = threads
+                currentHistoryMap = historyMap
+                mergeHistory(historyMap)
+            }
         }
     }
 
