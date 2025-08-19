@@ -63,18 +63,16 @@ class BoardViewModel @AssistedInject constructor(
                 }
             }
 
-            launch {
-                historyRepository.observeHistoryMap(boardInfo.url).collect { map ->
-                    currentHistoryMap = map
-                    mergeHistory(map)
-                }
-            }
-
-            launch {
-                repository.observeThreads(ensuredId).collect { threads ->
-                    baseThreads = threads
-                    mergeHistory(currentHistoryMap)
-                }
+            // 履歴とスレ一覧をまとめて監視し、単一パスでUIを更新する
+            kotlinx.coroutines.flow.combine(
+                repository.observeThreads(ensuredId),
+                historyRepository.observeHistoryMap(boardInfo.url)
+            ) { threads, historyMap ->
+                threads to historyMap
+            }.collect { (threads, historyMap) ->
+                baseThreads = threads
+                currentHistoryMap = historyMap
+                mergeHistory(historyMap)
             }
         }
 
