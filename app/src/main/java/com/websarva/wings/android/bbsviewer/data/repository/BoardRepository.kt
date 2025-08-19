@@ -42,16 +42,21 @@ class BoardRepository @Inject constructor(
     fun observeThreads(boardId: Long): Flow<List<ThreadInfo>> {
         val baselineFlow = boardVisitDao.observeBaseline(boardId)
         val threadsFlow = threadSummaryDao.observeThreadSummaries(boardId)
-        return threadsFlow.combine(baselineFlow) { summaries, baseline ->
+        val metaFlow = fetchMetaDao.observe(boardId)
+        return combine(threadsFlow, baselineFlow, metaFlow) { summaries, baseline, meta ->
             val base = baseline ?: 0L
+            val currentUnixTime = (meta?.lastFetchedAt ?: 0L) / 1000
             summaries.map { summary ->
                 val date = if (summary.threadId.toLongOrNull()?.let { it < com.websarva.wings.android.bbsviewer.data.model.THREAD_KEY_THRESHOLD } == true) {
                     calculateThreadDate(summary.threadId)
                 } else {
                     com.websarva.wings.android.bbsviewer.data.model.ThreadDate(0, 0, 0, 0, 0, "")
                 }
-                val momentum = if (summary.threadId.toLongOrNull()?.let { it < com.websarva.wings.android.bbsviewer.data.model.THREAD_KEY_THRESHOLD } == true && summary.resCount > 0) {
-                    val currentUnixTime = System.currentTimeMillis() / 1000
+                val momentum = if (
+                    summary.threadId.toLongOrNull()?.let { it < com.websarva.wings.android.bbsviewer.data.model.THREAD_KEY_THRESHOLD } == true &&
+                    summary.resCount > 0 &&
+                    currentUnixTime > 0
+                ) {
                     val elapsed = (currentUnixTime - (summary.threadId.toLong()))
                     val days = elapsed / 86400.0
                     if (days > 0) summary.resCount / days else 0.0
