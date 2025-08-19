@@ -2,6 +2,7 @@ package com.websarva.wings.android.bbsviewer.data.datasource.remote.impl
 
 import android.util.Log
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BoardRemoteDataSource
+import com.websarva.wings.android.bbsviewer.data.datasource.remote.SubjectFetchResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.CacheControl
@@ -19,93 +20,43 @@ class BoardRemoteDataSourceImpl @Inject constructor(
     @Named("UserAgent") private val userAgent: String
 ) : BoardRemoteDataSource {
 
-    override suspend fun fetchSubjectTxt(url: String, forceRefresh: Boolean): String? =
+    override suspend fun fetchSubjectTxt(url: String, etag: String?, lastModified: String?): SubjectFetchResult? =
         withContext(Dispatchers.IO) {
             val requestBuilder = Request.Builder()
                 .url(url)
                 .header("User-Agent", userAgent)
+                .cacheControl(CacheControl.FORCE_NETWORK)
 
-            if (forceRefresh) {
-                requestBuilder.cacheControl(CacheControl.Builder().noCache().build())
+            if (etag != null) {
+                requestBuilder.header("If-None-Match", etag)
+            }
+            if (lastModified != null) {
+                requestBuilder.header("If-Modified-Since", lastModified)
             }
 
             val request = requestBuilder.build()
 
             try {
                 val response = client.newCall(request).execute()
-
-                // 詳細ログ（開発中に役立ちます）
-                val networkResponse = response.networkResponse
-                val cacheResponse = response.cacheResponse
-                Log.d("BoardRemoteDataSource", "URL: $url, forceRefresh: $forceRefresh")
-                Log.d("BoardRemoteDataSource", "Final Response Code: ${response.code}")
-                if (networkResponse != null) {
-                    Log.d(
-                        "BoardRemoteDataSource",
-                        "Network Response: code=${networkResponse.code}, headers=${networkResponse.headers}"
-                    )
-                } else {
-                    Log.d(
-                        "BoardRemoteDataSource",
-                        "Network Response: null (no network call or not applicable)"
-                    )
-                }
-                if (cacheResponse != null) {
-                    Log.d(
-                        "BoardRemoteDataSource",
-                        "Cache Response: code=${cacheResponse.code}, headers=${cacheResponse.headers}"
-                    )
-                } else {
-                    Log.d(
-                        "BoardRemoteDataSource",
-                        "Cache Response: null (no cache hit or not applicable)"
-                    )
-                }
-                Log.d("BoardRemoteDataSource", "Response Headers (final): ${response.headers}")
-
-
-                // ネットワークレスポンスが304であれば、内容に変更なしと判断
-                if (networkResponse?.code == 304) {
-                    Log.i(
-                        "BoardRemoteDataSource",
-                        "Network returned 304 for $url. Content not modified."
-                    )
-                    return@withContext null // データ更新なし
-                }
-
+                val newEtag = response.header("ETag")
+                val newLastModified = response.header("Last-Modified")
                 return@withContext when (response.code) {
-                    200 -> response.use {
-                        Log.i("BoardRemoteDataSource", "Received 200 for $url. Processing body.")
-                        it.body?.bytes()?.toString(Charset.forName("Shift_JIS"))
-                            ?: run {
-                                Log.e(
-                                    "BoardRemoteDataSource",
-                                    "Response body was null for 200 response on $url"
-                                )
-                                null
-                            }
+                    200 -> {
+                        val body = response.body?.bytes()?.toString(Charset.forName("Shift_JIS"))
+                        SubjectFetchResult(body, newEtag, newLastModified, 200)
                     }
-                    // OkHttpがキャッシュヒットし、かつネットワーク検証なしで response.code が直接304を返す可能性は低いが念のため
                     304 -> {
-                        Log.i(
-                            "BoardRemoteDataSource",
-                            "Final response.code was 304 for $url. Content not modified."
-                        )
-                        null
+                        SubjectFetchResult(null, newEtag, newLastModified, 304)
                     }
-
                     else -> {
-                        Log.e(
-                            "BoardRemoteDataSource",
-                            "Unexpected final response code ${response.code} for $url"
-                        )
+                        Log.e("BoardRemoteDataSource", "Unexpected response code ${response.code} for $url")
                         null
                     }
                 }
             } catch (e: IOException) {
                 Log.e("BoardRemoteDataSource", "IOException for $url: ${e.message}", e)
                 null
-            } catch (e: Exception) { // その他の予期せぬ例外
+            } catch (e: Exception) {
                 Log.e("BoardRemoteDataSource", "Exception for $url: ${e.message}", e)
                 null
             }

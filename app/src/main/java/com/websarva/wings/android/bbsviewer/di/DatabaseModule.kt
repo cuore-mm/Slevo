@@ -17,6 +17,9 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenBoardT
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenThreadTabDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadHistoryDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.NgDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadSummaryDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardVisitDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardFetchMetaDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -171,6 +174,49 @@ object DatabaseModule {
             database.execSQL("CREATE INDEX IF NOT EXISTS index_ng_entries_boardId ON ng_entries(boardId)")
         }
     }
+
+    private val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS thread_summaries (
+                    boardId INTEGER NOT NULL,
+                    threadId TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    resCount INTEGER NOT NULL,
+                    firstSeenAt INTEGER NOT NULL,
+                    isArchived INTEGER NOT NULL,
+                    subjectRank INTEGER NOT NULL,
+                    PRIMARY KEY(boardId, threadId),
+                    FOREIGN KEY(boardId) REFERENCES boards(boardId) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_thread_summaries_boardId_isArchived_subjectRank ON thread_summaries(boardId, isArchived, subjectRank)"
+            )
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS board_visits (
+                    boardId INTEGER NOT NULL PRIMARY KEY,
+                    baselineAt INTEGER NOT NULL,
+                    FOREIGN KEY(boardId) REFERENCES boards(boardId) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS board_fetch_meta (
+                    boardId INTEGER NOT NULL PRIMARY KEY,
+                    etag TEXT,
+                    lastModified TEXT,
+                    lastFetchedAt INTEGER,
+                    FOREIGN KEY(boardId) REFERENCES boards(boardId) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+        }
+    }
     /**
      * Room の AppDatabase インスタンスをシングルトンとして提供
      *
@@ -190,7 +236,7 @@ object DatabaseModule {
         )
             // マイグレーション未定義時は既存データを破棄し再生成
             .fallbackToDestructiveMigration(false)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
             .addCallback(callback)
             .build()
     }
@@ -270,4 +316,16 @@ object DatabaseModule {
     @Provides
     fun provideNgDao(db: AppDatabase): NgDao =
         db.ngDao()
+
+    @Provides
+    fun provideThreadSummaryDao(db: AppDatabase): ThreadSummaryDao =
+        db.threadSummaryDao()
+
+    @Provides
+    fun provideBoardVisitDao(db: AppDatabase): BoardVisitDao =
+        db.boardVisitDao()
+
+    @Provides
+    fun provideBoardFetchMetaDao(db: AppDatabase): BoardFetchMetaDao =
+        db.boardFetchMetaDao()
 }

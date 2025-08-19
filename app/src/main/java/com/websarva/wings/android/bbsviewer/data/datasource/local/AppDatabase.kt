@@ -10,11 +10,14 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardBookmarkGroupDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBookmarkGroupDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenBoardTabDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenThreadTabDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadHistoryDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.NgDao
+    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBookmarkGroupDao
+    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenBoardTabDao
+    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenThreadTabDao
+    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadHistoryDao
+    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.NgDao
+    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadSummaryDao
+    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardVisitDao
+    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardFetchMetaDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardCategoryCrossRef
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
@@ -28,6 +31,9 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenThr
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadHistoryEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadHistoryAccessEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.NgEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadSummaryEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardVisitEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardFetchMetaEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.NgTypeConverter
 
 @TypeConverters(NgTypeConverter::class)
@@ -45,9 +51,12 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.NgTypeConverte
         OpenThreadTabEntity::class,
         ThreadHistoryEntity::class,
         ThreadHistoryAccessEntity::class,
-        NgEntity::class
+        NgEntity::class,
+        ThreadSummaryEntity::class,
+        BoardVisitEntity::class,
+        BoardFetchMetaEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -63,4 +72,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun openThreadTabDao(): OpenThreadTabDao
     abstract fun threadHistoryDao(): ThreadHistoryDao
     abstract fun ngDao(): NgDao
+    abstract fun threadSummaryDao(): ThreadSummaryDao
+    abstract fun boardVisitDao(): BoardVisitDao
+    abstract fun boardFetchMetaDao(): BoardFetchMetaDao
 }

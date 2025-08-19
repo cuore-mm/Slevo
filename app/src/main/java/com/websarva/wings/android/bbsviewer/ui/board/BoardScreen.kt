@@ -126,7 +126,7 @@ fun ThreadCard(
         Spacer(modifier = Modifier.padding(4.dp))
         Row{
             if (showInfo) {
-                if (threadInfo.isNew) {
+                if (threadInfo.isNew && !threadInfo.isVisited) {
                     Text(
                         text = stringResource(R.string.new_label),
                         modifier = Modifier

@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.runBlocking
 
 @RequiresApi(Build.VERSION_CODES.O)
 class BoardViewModel @AssistedInject constructor(
@@ -40,37 +41,46 @@ class BoardViewModel @AssistedInject constructor(
     // 元のスレッドリストを保持
     private var originalThreads: List<ThreadInfo>? = null
     private var baseThreads: List<ThreadInfo> = emptyList()
-    private var previousThreadKeys: Set<String>? = null
+    private var currentHistoryMap: Map<String, Int> = emptyMap()
 
     override val _uiState = MutableStateFlow(BoardUiState())
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
 
     fun initializeBoard(boardInfo: BoardInfo) {
-        previousThreadKeys = null
-        // Factoryを使ってBookmarkStateViewModelを生成
         singleBookmarkViewModel = singleBookmarkViewModelFactory.create(boardInfo, null)
 
         val serviceName = parseServiceName(boardInfo.url)
         _uiState.update { it.copy(boardInfo = boardInfo, serviceName = serviceName) }
 
         viewModelScope.launch {
+            val ensuredId = repository.ensureBoard(boardInfo)
+            val ensuredInfo = boardInfo.copy(boardId = ensuredId)
+            _uiState.update { it.copy(boardInfo = ensuredInfo) }
+
             repository.fetchBoardNoname("${boardInfo.url}SETTING.TXT")?.let { noname ->
                 _uiState.update { state ->
                     state.copy(boardInfo = state.boardInfo.copy(noname = noname))
                 }
             }
-        }
 
-        // BookmarkStateViewModelのUI状態を監視し、自身のUI状態にマージする
-        viewModelScope.launch {
-            singleBookmarkViewModel?.uiState?.collect { bkState ->
-                _uiState.update { it.copy(singleBookmarkState = bkState) }
+            launch {
+                historyRepository.observeHistoryMap(boardInfo.url).collect { map ->
+                    currentHistoryMap = map
+                    mergeHistory(map)
+                }
+            }
+
+            launch {
+                repository.observeThreads(ensuredId).collect { threads ->
+                    baseThreads = threads
+                    mergeHistory(currentHistoryMap)
+                }
             }
         }
 
         viewModelScope.launch {
-            historyRepository.observeHistoryMap(boardInfo.url).collect { map ->
-                mergeHistory(map)
+            singleBookmarkViewModel?.uiState?.collect { bkState ->
+                _uiState.update { it.copy(singleBookmarkState = bkState) }
             }
         }
 
@@ -78,32 +88,32 @@ class BoardViewModel @AssistedInject constructor(
     }
 
     override suspend fun loadData(isRefresh: Boolean) {
-        val boardUrl = uiState.value.boardInfo.url
+        var boardInfo = uiState.value.boardInfo
+        val boardUrl = boardInfo.url
         if (boardUrl.isBlank()) return
+        if (boardInfo.boardId == 0L) {
+            val id = repository.ensureBoard(boardInfo)
+            boardInfo = boardInfo.copy(boardId = id)
+            _uiState.update { it.copy(boardInfo = boardInfo) }
+        }
 
         _uiState.update { it.copy(isLoading = true) }
+        val refreshStartAt = System.currentTimeMillis()
         try {
             val normalizedUrl = boardUrl.trimEnd('/')
-            val threads =
-                repository.getThreadList("$normalizedUrl/subject.txt", forceRefresh = isRefresh)
-            if (threads != null) {
-                val currentKeys = threads.map { it.key }.toSet()
-                val newKeys = previousThreadKeys?.let { currentKeys - it } ?: emptySet()
-                baseThreads = threads.map { t -> t.copy(isNew = t.key in newKeys) }
-                previousThreadKeys = currentKeys
-                val historyMap = historyRepository.getHistoryMap(boardUrl)
-                mergeHistory(historyMap)
-            }
-        } catch (e: Exception) {
-            // Handle error
+            repository.refreshThreadList(boardInfo.boardId, "$normalizedUrl/subject.txt", refreshStartAt, isRefresh)
         } finally {
-            _uiState.update { it.copy(isLoading = false) }
+            _uiState.update { it.copy(isLoading = false, resetScroll = true) }
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun refreshBoardData() { // Pull-to-refresh 用のメソッド
         initialize(force = true) // 強制的に初期化処理を再実行
+    }
+
+    fun consumeResetScroll() {
+        _uiState.update { it.copy(resetScroll = false) }
     }
 
     // --- お気に入り関連の処理はBookmarkStateViewModelに委譲 ---
@@ -206,7 +216,7 @@ class BoardViewModel @AssistedInject constructor(
             val oldRes = historyMap[thread.key]
             if (oldRes != null) {
                 val diff = (thread.resCount - oldRes).coerceAtLeast(0)
-                thread.copy(isVisited = true, newResCount = diff)
+                thread.copy(isVisited = true, newResCount = diff, isNew = false)
             } else {
                 thread
             }
@@ -347,6 +357,13 @@ class BoardViewModel @AssistedInject constructor(
         }
     }
 
+    override fun onCleared() {
+        val boardId = _uiState.value.boardInfo.boardId
+        if (boardId != 0L) {
+            runBlocking { repository.updateBaseline(boardId, System.currentTimeMillis()) }
+        }
+        super.onCleared()
+    }
 }
 
 
