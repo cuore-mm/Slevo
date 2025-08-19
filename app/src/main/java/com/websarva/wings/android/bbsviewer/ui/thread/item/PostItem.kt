@@ -1,7 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.thread.item
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -72,6 +73,10 @@ fun PostItem(
     var textMenuData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
     var ngDialogData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
     var showNgSelectDialog by remember { mutableStateOf(false) }
+    var isColumnPressed by remember { mutableStateOf(false) }
+    var isHeaderPressed by remember { mutableStateOf(false) }
+    var isContentPressed by remember { mutableStateOf(false) }
+    val isPressed = isColumnPressed || isHeaderPressed || isContentPressed
     val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
 
     val boundaryColor = MaterialTheme.colorScheme.outlineVariant
@@ -94,10 +99,20 @@ fun PostItem(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(
-                    onClick = { /* クリック処理が必要な場合はここに実装 */ },
-                    onLongClick = { menuExpanded = true }
+                .background(
+                    if (isPressed) MaterialTheme.colorScheme.surfaceVariant
+                    else Color.Transparent
                 )
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onPress = {
+                            isColumnPressed = true
+                            tryAwaitRelease()
+                            isColumnPressed = false
+                        },
+                        onLongPress = { menuExpanded = true }
+                    )
+                }
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             val idColor = idColor(idTotal)
@@ -168,18 +183,28 @@ fun PostItem(
                         .alignByBaseline()
                         .pointerInput(Unit) {
                             detectTapGestures(
+                                onPress = {
+                                    isHeaderPressed = true
+                                    tryAwaitRelease()
+                                    isHeaderPressed = false
+                                },
                                 onLongPress = { offset ->
                                     headerLayout?.let { layout ->
                                         val pos = layout.getOffsetForPosition(offset)
-                                        headerText.getStringAnnotations("NAME", pos, pos)
-                                            .firstOrNull()?.let {
-                                                textMenuData = it.item to NgType.USER_NAME
-                                            }
-                                        headerText.getStringAnnotations("ID", pos, pos)
-                                            .firstOrNull()?.let {
-                                                textMenuData = it.item to NgType.USER_ID
-                                            }
-                                    }
+                                        val nameAnn =
+                                            headerText.getStringAnnotations("NAME", pos, pos)
+                                                .firstOrNull()
+                                        val idAnn =
+                                            headerText.getStringAnnotations("ID", pos, pos)
+                                                .firstOrNull()
+                                        when {
+                                            nameAnn != null ->
+                                                textMenuData = nameAnn.item to NgType.USER_NAME
+                                            idAnn != null ->
+                                                textMenuData = idAnn.item to NgType.USER_ID
+                                            else -> menuExpanded = true
+                                        }
+                                    } ?: run { menuExpanded = true }
                                 }
                             )
                         },
@@ -210,6 +235,11 @@ fun PostItem(
                     modifier = Modifier
                         .pointerInput(Unit) {
                             detectTapGestures(
+                                onPress = {
+                                    isContentPressed = true
+                                    tryAwaitRelease()
+                                    isContentPressed = false
+                                },
                                 onTap = { offset ->
                                     contentLayout?.let { layout ->
                                         val pos = layout.getOffsetForPosition(offset)
@@ -223,6 +253,9 @@ fun PostItem(
                                                     ?.let { onReplyClick?.invoke(it) }
                                             }
                                     }
+                                },
+                                onLongPress = {
+                                    menuExpanded = true
                                 }
                             )
                         },
