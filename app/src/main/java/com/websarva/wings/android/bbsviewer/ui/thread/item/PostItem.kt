@@ -100,7 +100,7 @@ fun PostItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    if (isPressed) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)
+                    if (isPressed) MaterialTheme.colorScheme.surfaceVariant
                     else Color.Transparent
                 )
                 .pointerInput(Unit) {
