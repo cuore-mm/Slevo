@@ -212,7 +212,7 @@ class BoardViewModel @AssistedInject constructor(
             val oldRes = historyMap[thread.key]
             if (oldRes != null) {
                 val diff = (thread.resCount - oldRes).coerceAtLeast(0)
-                thread.copy(isVisited = true, newResCount = diff)
+                thread.copy(isVisited = true, newResCount = diff, isNew = false)
             } else {
                 thread
             }
