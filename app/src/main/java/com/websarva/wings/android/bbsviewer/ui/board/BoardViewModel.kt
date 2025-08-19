@@ -103,13 +103,17 @@ class BoardViewModel @AssistedInject constructor(
             val normalizedUrl = boardUrl.trimEnd('/')
             repository.refreshThreadList(boardInfo.boardId, "$normalizedUrl/subject.txt", refreshStartAt, isRefresh)
         } finally {
-            _uiState.update { it.copy(isLoading = false) }
+            _uiState.update { it.copy(isLoading = false, resetScroll = true) }
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun refreshBoardData() { // Pull-to-refresh 用のメソッド
         initialize(force = true) // 強制的に初期化処理を再実行
+    }
+
+    fun consumeResetScroll() {
+        _uiState.update { it.copy(resetScroll = false) }
     }
 
     // --- お気に入り関連の処理はBookmarkStateViewModelに委譲 ---
