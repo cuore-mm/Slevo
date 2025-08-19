@@ -171,15 +171,20 @@ fun PostItem(
                                 onLongPress = { offset ->
                                     headerLayout?.let { layout ->
                                         val pos = layout.getOffsetForPosition(offset)
-                                        headerText.getStringAnnotations("NAME", pos, pos)
-                                            .firstOrNull()?.let {
-                                                textMenuData = it.item to NgType.USER_NAME
-                                            }
-                                        headerText.getStringAnnotations("ID", pos, pos)
-                                            .firstOrNull()?.let {
-                                                textMenuData = it.item to NgType.USER_ID
-                                            }
-                                    }
+                                        val nameAnn =
+                                            headerText.getStringAnnotations("NAME", pos, pos)
+                                                .firstOrNull()
+                                        val idAnn =
+                                            headerText.getStringAnnotations("ID", pos, pos)
+                                                .firstOrNull()
+                                        when {
+                                            nameAnn != null ->
+                                                textMenuData = nameAnn.item to NgType.USER_NAME
+                                            idAnn != null ->
+                                                textMenuData = idAnn.item to NgType.USER_ID
+                                            else -> menuExpanded = true
+                                        }
+                                    } ?: run { menuExpanded = true }
                                 }
                             )
                         },
@@ -223,6 +228,9 @@ fun PostItem(
                                                     ?.let { onReplyClick?.invoke(it) }
                                             }
                                     }
+                                },
+                                onLongPress = {
+                                    menuExpanded = true
                                 }
                             )
                         },
