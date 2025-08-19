@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
 import com.websarva.wings.android.bbsviewer.data.model.NgType
+import kotlinx.coroutines.delay
 import com.websarva.wings.android.bbsviewer.ui.common.ImageThumbnailGrid
 import com.websarva.wings.android.bbsviewer.ui.navigation.AppRoute
 import com.websarva.wings.android.bbsviewer.ui.theme.idColor
@@ -106,9 +107,12 @@ fun PostItem(
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onPress = {
-                            isColumnPressed = true
-                            tryAwaitRelease()
-                            isColumnPressed = false
+                            val released = tryAwaitRelease()
+                            if (released) {
+                                isColumnPressed = true
+                                delay(100)
+                                isColumnPressed = false
+                            }
                         },
                         onLongPress = { menuExpanded = true }
                     )
@@ -184,9 +188,12 @@ fun PostItem(
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
-                                    isHeaderPressed = true
-                                    tryAwaitRelease()
-                                    isHeaderPressed = false
+                                    val released = tryAwaitRelease()
+                                    if (released) {
+                                        isHeaderPressed = true
+                                        delay(100)
+                                        isHeaderPressed = false
+                                    }
                                 },
                                 onLongPress = { offset ->
                                     headerLayout?.let { layout ->
@@ -236,9 +243,12 @@ fun PostItem(
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
-                                    isContentPressed = true
-                                    tryAwaitRelease()
-                                    isContentPressed = false
+                                    val released = tryAwaitRelease()
+                                    if (released) {
+                                        isContentPressed = true
+                                        delay(100)
+                                        isContentPressed = false
+                                    }
                                 },
                                 onTap = { offset ->
                                     contentLayout?.let { layout ->
