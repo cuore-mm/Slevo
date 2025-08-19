@@ -132,6 +132,13 @@ fun BoardScaffold(
             )
         },
         content = { viewModel, uiState, listState, modifier, navController ->
+            LaunchedEffect(uiState.resetScroll) {
+                if (uiState.resetScroll) {
+                    listState.scrollToItem(0)
+                    tabsViewModel.updateBoardScrollPosition(uiState.boardInfo.url, 0, 0)
+                    viewModel.consumeResetScroll()
+                }
+            }
             BoardScreen(
                 modifier = modifier,
                 threads = uiState.threads ?: emptyList(),
