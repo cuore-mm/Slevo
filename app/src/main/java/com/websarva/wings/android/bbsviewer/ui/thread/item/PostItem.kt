@@ -3,6 +3,9 @@ package com.websarva.wings.android.bbsviewer.ui.thread.item
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -163,11 +167,24 @@ fun PostItem(
                     }
                 }
                 var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+                val headerInteraction = remember { MutableInteractionSource() }
                 Text(
                     modifier = Modifier
                         .alignByBaseline()
+                        .indication(headerInteraction, LocalIndication.current)
                         .pointerInput(Unit) {
                             detectTapGestures(
+                                onPress = { offset ->
+                                    val press = PressInteraction.Press(offset)
+                                    headerInteraction.emit(press)
+                                    val released = tryAwaitRelease()
+                                    val end = if (released) {
+                                        PressInteraction.Release(press)
+                                    } else {
+                                        PressInteraction.Cancel(press)
+                                    }
+                                    headerInteraction.emit(end)
+                                },
                                 onLongPress = { offset ->
                                     headerLayout?.let { layout ->
                                         val pos = layout.getOffsetForPosition(offset)
@@ -201,6 +218,7 @@ fun PostItem(
                 onOpenUrl = { uriHandler.openUri(it) }
             )
             var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+            val contentInteraction = remember { MutableInteractionSource() }
 
             Column(horizontalAlignment = Alignment.Start) {
                 if (post.beIconUrl.isNotBlank()) {
@@ -213,8 +231,20 @@ fun PostItem(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     modifier = Modifier
+                        .indication(contentInteraction, LocalIndication.current)
                         .pointerInput(Unit) {
                             detectTapGestures(
+                                onPress = { offset ->
+                                    val press = PressInteraction.Press(offset)
+                                    contentInteraction.emit(press)
+                                    val released = tryAwaitRelease()
+                                    val end = if (released) {
+                                        PressInteraction.Release(press)
+                                    } else {
+                                        PressInteraction.Cancel(press)
+                                    }
+                                    contentInteraction.emit(end)
+                                },
                                 onTap = { offset ->
                                     contentLayout?.let { layout ->
                                         val pos = layout.getOffsetForPosition(offset)
