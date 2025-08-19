@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.runBlocking
 
 @RequiresApi(Build.VERSION_CODES.O)
 class BoardViewModel @AssistedInject constructor(
@@ -84,7 +83,7 @@ class BoardViewModel @AssistedInject constructor(
             }
         }
 
-        initialize() // BaseViewModelの初期化処理を呼び出す
+        initialize(force = true) // 板表示時に手動更新扱いで取得
     }
 
     override suspend fun loadData(isRefresh: Boolean) {
@@ -353,13 +352,6 @@ class BoardViewModel @AssistedInject constructor(
         }
     }
 
-    override fun onCleared() {
-        val boardId = _uiState.value.boardInfo.boardId
-        if (boardId != 0L) {
-            runBlocking { repository.updateBaseline(boardId, System.currentTimeMillis()) }
-        }
-        super.onCleared()
-    }
 }
 
 
