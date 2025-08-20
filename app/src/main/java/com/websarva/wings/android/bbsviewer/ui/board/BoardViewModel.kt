@@ -95,6 +95,7 @@ class BoardViewModel @AssistedInject constructor(
             // ignore
         } finally {
             _uiState.update { it.copy(isLoading = false, resetScroll = true) }
+            mergeHistory(currentHistoryMap)
         }
         if (!isObservingThreads) {
             startObservingThreads(boardInfo.boardId)
@@ -112,7 +113,9 @@ class BoardViewModel @AssistedInject constructor(
             }.collect { (threads, historyMap) ->
                 baseThreads = threads
                 currentHistoryMap = historyMap
-                mergeHistory(historyMap)
+                if (!_uiState.value.isLoading) {
+                    mergeHistory(historyMap)
+                }
             }
         }
     }
