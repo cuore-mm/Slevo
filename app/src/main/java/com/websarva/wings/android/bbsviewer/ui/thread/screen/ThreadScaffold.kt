@@ -3,12 +3,9 @@ package com.websarva.wings.android.bbsviewer.ui.thread.screen
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarState
 import androidx.compose.runtime.Composable
@@ -95,28 +92,20 @@ fun ThreadScaffold(
         },
         scrollBehavior = scrollBehavior,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
-            Column {
-                if (uiState.isSearchMode) {
-                    SearchTopAppBar(
-                        searchQuery = uiState.searchQuery,
-                        onQueryChange = { viewModel.updateSearchQuery(it) },
-                        onCloseSearch = { viewModel.closeSearch() },
-                        scrollBehavior = scrollBehavior
-                    )
-                } else {
-                    ThreadTopBar(
-                        onBookmarkClick = { viewModel.openBookmarkSheet() },
-                        uiState = uiState,
-                        onNavigationClick = drawer,
-                        scrollBehavior = scrollBehavior
-                    )
-                }
-                if (uiState.isLoading) {
-                    LinearProgressIndicator(
-                        progress = { uiState.loadProgress },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+            if (uiState.isSearchMode) {
+                SearchTopAppBar(
+                    searchQuery = uiState.searchQuery,
+                    onQueryChange = { viewModel.updateSearchQuery(it) },
+                    onCloseSearch = { viewModel.closeSearch() },
+                    scrollBehavior = scrollBehavior
+                )
+            } else {
+                ThreadTopBar(
+                    onBookmarkClick = { viewModel.openBookmarkSheet() },
+                    uiState = uiState,
+                    onNavigationClick = drawer,
+                    scrollBehavior = scrollBehavior
+                )
             }
         },
         bottomBar = { viewModel, uiState ->

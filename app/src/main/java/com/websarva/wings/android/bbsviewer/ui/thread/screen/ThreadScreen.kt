@@ -2,51 +2,55 @@ package com.websarva.wings.android.bbsviewer.ui.thread.screen
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.VerticalDivider
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
-import androidx.compose.material3.Icon
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
-import com.websarva.wings.android.bbsviewer.ui.thread.item.PostItem
 import com.websarva.wings.android.bbsviewer.ui.thread.components.MomentumBar
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.PopupInfo
+import com.websarva.wings.android.bbsviewer.ui.thread.dialog.ReplyPopup
+import com.websarva.wings.android.bbsviewer.ui.thread.item.PostItem
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
-import com.websarva.wings.android.bbsviewer.ui.thread.dialog.ReplyPopup
 import kotlin.math.min
 
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
@@ -79,7 +83,7 @@ fun ThreadScreen(
 
     val density = LocalDensity.current
     val refreshThresholdPx = with(density) { 80.dp.toPx() }
-    var overscroll by remember { mutableStateOf(0f) }
+    var overscroll by remember { mutableFloatStateOf(0f) }
     var triggerRefresh by remember { mutableStateOf(false) }
     val nestedScrollConnection = remember(listState) {
         object : NestedScrollConnection {
@@ -164,7 +168,10 @@ fun ThreadScreen(
                                 itemOffset
                             } else {
                                 val last = popupStack.last()
-                                IntOffset(last.offset.x, (last.offset.y - last.size.height).coerceAtLeast(0))
+                                IntOffset(
+                                    last.offset.x,
+                                    (last.offset.y - last.size.height).coerceAtLeast(0)
+                                )
                             }
                             val targets = nums.filterNot { it in ngNumbers }.mapNotNull { num ->
                                 posts.getOrNull(num - 1)
@@ -190,7 +197,14 @@ fun ThreadScreen(
                             }
                         }
                     )
-                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp * min(indent, nextIndent)))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(
+                            start = 16.dp * min(
+                                indent,
+                                nextIndent
+                            )
+                        )
+                    )
                 }
             }
             // 中央の区切り線
@@ -206,21 +220,36 @@ fun ThreadScreen(
             )
         }
 
-            ReplyPopup(
-                popupStack = popupStack,
-                posts = posts,
-                replySourceMap = uiState.replySourceMap,
-                idCountMap = uiState.idCountMap,
-                idIndexList = uiState.idIndexList,
-                ngPostNumbers = ngNumbers,
-                navController = navController,
-                boardName = uiState.boardInfo.name,
-                boardId = uiState.boardInfo.boardId,
-                onClose = { if (popupStack.isNotEmpty()) popupStack.removeLast() }
+        ReplyPopup(
+            popupStack = popupStack,
+            posts = posts,
+            replySourceMap = uiState.replySourceMap,
+            idCountMap = uiState.idCountMap,
+            idIndexList = uiState.idIndexList,
+            ngPostNumbers = ngNumbers,
+            navController = navController,
+            boardName = uiState.boardInfo.name,
+            boardId = uiState.boardInfo.boardId,
+            onClose = { if (popupStack.isNotEmpty()) popupStack.removeLast() }
+        )
+
+        if (uiState.isLoading) {
+            LinearProgressIndicator(
+                progress = { uiState.loadProgress },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth(),
+                color = ProgressIndicatorDefaults.linearColor,
+                trackColor = ProgressIndicatorDefaults.linearTrackColor,
+                strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
             )
+        }
 
         val arrowRotation by animateFloatAsState(
-            targetValue = if (triggerRefresh) 180f else (overscroll / refreshThresholdPx).coerceIn(0f, 1f) * 180f,
+            targetValue = if (triggerRefresh) 180f else (overscroll / refreshThresholdPx).coerceIn(
+                0f,
+                1f
+            ) * 180f,
             label = "arrowRotation"
         )
 
@@ -268,7 +297,11 @@ fun ThreadScreenPreview() {
     )
     val uiState = ThreadUiState(
         posts = previewPosts,
-        boardInfo = com.websarva.wings.android.bbsviewer.data.model.BoardInfo(0L, "board", "https://example.com/"),
+        boardInfo = com.websarva.wings.android.bbsviewer.data.model.BoardInfo(
+            0L,
+            "board",
+            "https://example.com/"
+        ),
         idCountMap = previewPosts.groupingBy { it.id }.eachCount(),
         idIndexList = previewPosts.mapIndexed { i, _ -> i + 1 },
         replySourceMap = emptyMap()
