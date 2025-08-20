@@ -34,6 +34,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -83,6 +84,7 @@ fun PostItem(
     var isColumnPressed by remember { mutableStateOf(false) }
     var isHeaderPressed by remember { mutableStateOf(false) }
     var isContentPressed by remember { mutableStateOf(false) }
+    var pressedHeaderPart by remember { mutableStateOf<String?>(null) }
     val isPressed = isColumnPressed || isHeaderPressed || isContentPressed
     val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
     val scope = rememberCoroutineScope()
@@ -153,7 +155,12 @@ fun PostItem(
                     if (post.name.isNotBlank()) {
                         appendSpaceIfNeeded()
                         pushStringAnnotation(tag = "NAME", annotation = post.name)
-                        withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
+                        withStyle(
+                            SpanStyle(
+                                color = if (pressedHeaderPart == "NAME") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                textDecoration = if (pressedHeaderPart == "NAME") TextDecoration.Underline else TextDecoration.None
+                            )
+                        ) {
                             append(post.name)
                         }
                         pop()
@@ -176,7 +183,12 @@ fun PostItem(
                     if (post.id.isNotBlank()) {
                         appendSpaceIfNeeded()
                         pushStringAnnotation(tag = "ID", annotation = idText)
-                        withStyle(SpanStyle(color = idColor)) {
+                        withStyle(
+                            SpanStyle(
+                                color = if (pressedHeaderPart == "ID") MaterialTheme.colorScheme.primary else idColor,
+                                textDecoration = if (pressedHeaderPart == "ID") TextDecoration.Underline else TextDecoration.None
+                            )
+                        ) {
                             append(idText)
                         }
                         pop()
@@ -194,8 +206,37 @@ fun PostItem(
                         .alignByBaseline()
                         .pointerInput(Unit) {
                             detectTapGestures(
-                                onPress = {
-                                    handlePressFeedback(
+                                onPress = { offset ->
+                                    headerLayout?.let { layout ->
+                                        val pos = layout.getOffsetForPosition(offset)
+                                        val nameAnn = headerText.getStringAnnotations("NAME", pos, pos).firstOrNull()
+                                        val idAnn = headerText.getStringAnnotations("ID", pos, pos).firstOrNull()
+                                        when {
+                                            nameAnn != null ->
+                                                handlePressFeedback(
+                                                    scope = scope,
+                                                    feedbackDelayMillis = 0L,
+                                                    onFeedbackStart = { pressedHeaderPart = "NAME" },
+                                                    onFeedbackEnd = { pressedHeaderPart = null },
+                                                    awaitRelease = { awaitRelease() }
+                                                )
+                                            idAnn != null ->
+                                                handlePressFeedback(
+                                                    scope = scope,
+                                                    feedbackDelayMillis = 0L,
+                                                    onFeedbackStart = { pressedHeaderPart = "ID" },
+                                                    onFeedbackEnd = { pressedHeaderPart = null },
+                                                    awaitRelease = { awaitRelease() }
+                                                )
+                                            else ->
+                                                handlePressFeedback(
+                                                    scope = scope,
+                                                    onFeedbackStart = { isContentPressed = true },
+                                                    onFeedbackEnd = { isContentPressed = false },
+                                                    awaitRelease = { awaitRelease() }
+                                                )
+                                        }
+                                    } ?: handlePressFeedback(
                                         scope = scope,
                                         onFeedbackStart = { isContentPressed = true },
                                         onFeedbackEnd = { isContentPressed = false },
