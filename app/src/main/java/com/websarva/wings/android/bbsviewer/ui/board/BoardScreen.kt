@@ -3,6 +3,7 @@ package com.websarva.wings.android.bbsviewer.ui.board
 import android.R.attr.onClick
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,8 +18,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -45,6 +48,7 @@ fun BoardScreen(
     onClick: (ThreadInfo) -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
+    loadProgress: Float,
     listState: LazyListState = rememberLazyListState()
 ) {
     val (momentumMean, momentumStd) = remember(threads) {
@@ -65,11 +69,12 @@ fun BoardScreen(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize(),
-            state = listState,
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize(),
+                state = listState,
+            ) {
             // リスト全体の先頭に区切り線を追加
             if (threads.isNotEmpty()) { // リストが空でない場合のみ線を表示
                 item {
@@ -91,7 +96,19 @@ fun BoardScreen(
                 HorizontalDivider()
             }
         }
+        if (isRefreshing) {
+            LinearProgressIndicator(
+                progress = { loadProgress },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth(),
+                color = ProgressIndicatorDefaults.linearColor,
+                trackColor = ProgressIndicatorDefaults.linearTrackColor,
+                strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+            )
+        }
     }
+}
 }
 
 @Composable

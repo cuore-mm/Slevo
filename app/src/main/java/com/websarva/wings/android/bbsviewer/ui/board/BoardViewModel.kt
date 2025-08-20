@@ -86,15 +86,22 @@ class BoardViewModel @AssistedInject constructor(
             _uiState.update { it.copy(boardInfo = boardInfo) }
         }
 
-        _uiState.update { it.copy(isLoading = true) }
+        _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
         val refreshStartAt = System.currentTimeMillis()
         val normalizedUrl = boardUrl.trimEnd('/')
         try {
-            repository.refreshThreadList(boardInfo.boardId, "$normalizedUrl/subject.txt", refreshStartAt, isRefresh)
+            repository.refreshThreadList(
+                boardInfo.boardId,
+                "$normalizedUrl/subject.txt",
+                refreshStartAt,
+                isRefresh
+            ) { progress ->
+                _uiState.update { state -> state.copy(loadProgress = progress) }
+            }
         } catch (_: Exception) {
             // ignore
         } finally {
-            _uiState.update { it.copy(isLoading = false, resetScroll = true) }
+            _uiState.update { it.copy(isLoading = false, loadProgress = 1f, resetScroll = true) }
             mergeHistory(currentHistoryMap)
         }
         if (!isObservingThreads) {

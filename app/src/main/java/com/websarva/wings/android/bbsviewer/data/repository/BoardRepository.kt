@@ -86,10 +86,12 @@ class BoardRepository @Inject constructor(
         boardId: Long,
         subjectUrl: String,
         refreshStartAt: Long,
-        isManual: Boolean
+        isManual: Boolean,
+        onProgress: (Float) -> Unit = {},
     ): Boolean = withContext(Dispatchers.IO) {
         val meta = fetchMetaDao.get(boardId)
-        val result = remote.fetchSubjectTxt(subjectUrl, meta?.etag, meta?.lastModified) ?: return@withContext false
+        val result = remote.fetchSubjectTxt(subjectUrl, meta?.etag, meta?.lastModified, onProgress)
+            ?: return@withContext false
         val now = System.currentTimeMillis()
         when (result.statusCode) {
             304 -> {

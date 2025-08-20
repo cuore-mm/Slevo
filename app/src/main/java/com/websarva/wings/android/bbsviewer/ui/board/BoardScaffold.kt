@@ -158,6 +158,7 @@ fun BoardScaffold(
                 },
                 isRefreshing = uiState.isLoading,
                 onRefresh = { viewModel.refreshBoardData() },
+                loadProgress = uiState.loadProgress,
                 listState = listState
             )
             if (uiState.showInfoDialog) {
