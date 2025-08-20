@@ -9,6 +9,7 @@ import androidx.navigation.compose.navigation
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsGeneralScreen
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsNgScreen
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsScreen
+import com.websarva.wings.android.bbsviewer.ui.settings.SettingsThreadScreen
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
 
 fun NavGraphBuilder.addSettingsRoute(
@@ -25,6 +26,7 @@ fun NavGraphBuilder.addSettingsRoute(
         composable<AppRoute.SettingsHome> {
             SettingsScreen(
                 onGeneralClick = { navController.navigate(AppRoute.SettingsGeneral) },
+                onThreadClick = { navController.navigate(AppRoute.SettingsThread) },
                 onNgClick = { navController.navigate(AppRoute.SettingsNg) }
             )
         }
@@ -38,6 +40,11 @@ fun NavGraphBuilder.addSettingsRoute(
         }
         composable<AppRoute.SettingsNg> {
             SettingsNgScreen(
+                onNavigateUp = { navController.navigateUp() }
+            )
+        }
+        composable<AppRoute.SettingsThread> {
+            SettingsThreadScreen(
                 onNavigateUp = { navController.navigateUp() }
             )
         }

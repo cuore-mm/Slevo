@@ -180,6 +180,9 @@ sealed class AppRoute {
     data object SettingsNg : AppRoute()
 
     @Serializable
+    data object SettingsThread : AppRoute()
+
+    @Serializable
     data object Tabs : AppRoute()
 
     @Serializable
@@ -197,6 +200,7 @@ sealed class AppRoute {
         const val SETTINGS_HOME = "SettingsHome"
         const val SETTINGS_GENERAL = "SettingsGeneral"
         const val SETTINGS_NG = "SettingsNg"
+        const val SETTINGS_THREAD = "SettingsThread"
         const val TABS = "Tabs"
         const val HISTORY_LIST = "HistoryList"
     }

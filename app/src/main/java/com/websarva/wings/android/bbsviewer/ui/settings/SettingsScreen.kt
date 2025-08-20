@@ -17,6 +17,7 @@ import com.websarva.wings.android.bbsviewer.ui.topbar.HomeTopAppBarScreen
 @Composable
 fun SettingsScreen(
     onGeneralClick: () -> Unit,
+    onThreadClick: () -> Unit,
     onNgClick: () -> Unit,
 ) {
     Scaffold(
@@ -37,6 +38,13 @@ fun SettingsScreen(
                 ListItem(
                     modifier = Modifier.clickable(onClick = onGeneralClick),
                     headlineContent = { Text("全般") }
+                )
+                HorizontalDivider()
+            }
+            item {
+                ListItem(
+                    modifier = Modifier.clickable(onClick = onThreadClick),
+                    headlineContent = { Text("スレッド") }
                 )
                 HorizontalDivider()
             }
