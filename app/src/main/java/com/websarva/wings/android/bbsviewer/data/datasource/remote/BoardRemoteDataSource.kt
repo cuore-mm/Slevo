@@ -8,7 +8,12 @@ data class SubjectFetchResult(
 )
 
 interface BoardRemoteDataSource {
-    suspend fun fetchSubjectTxt(url: String, etag: String?, lastModified: String?): SubjectFetchResult?
+    suspend fun fetchSubjectTxt(
+        url: String,
+        etag: String?,
+        lastModified: String?,
+        onProgress: (Float) -> Unit = {},
+    ): SubjectFetchResult?
 
     suspend fun fetchSettingTxt(url: String): String?
 }

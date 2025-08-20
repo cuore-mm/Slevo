@@ -27,6 +27,7 @@ data class BoardUiState(
     val errorHtmlContent: String = "",
     val postResultMessage: String? = null,
     val resetScroll: Boolean = false,
+    val loadProgress: Float = 0f,
     override val isLoading: Boolean = false,
     override val showTabListSheet: Boolean = false,
 ) : BaseUiState<BoardUiState> {
