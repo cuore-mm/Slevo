@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -49,10 +51,15 @@ import com.websarva.wings.android.bbsviewer.ui.thread.dialog.TextMenuDialog
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.bbsviewer.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.bbsviewer.ui.util.extractImageUrls
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.LocalDate
 
+private const val PressFeedbackDelayMillis = 80L
 
 @Composable
 fun PostItem(
@@ -78,6 +85,7 @@ fun PostItem(
     var isContentPressed by remember { mutableStateOf(false) }
     val isPressed = isColumnPressed || isHeaderPressed || isContentPressed
     val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
+    val scope = rememberCoroutineScope()
 
     val boundaryColor = MaterialTheme.colorScheme.outlineVariant
     Box(
@@ -106,9 +114,12 @@ fun PostItem(
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onPress = {
-                            isColumnPressed = true
-                            tryAwaitRelease()
-                            isColumnPressed = false
+                            handlePressFeedback(
+                                scope = scope,
+                                onFeedbackStart = { isContentPressed = true },
+                                onFeedbackEnd = { isContentPressed = false },
+                                awaitRelease = { awaitRelease() }
+                            )
                         },
                         onLongPress = { menuExpanded = true }
                     )
@@ -184,9 +195,12 @@ fun PostItem(
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
-                                    isHeaderPressed = true
-                                    tryAwaitRelease()
-                                    isHeaderPressed = false
+                                    handlePressFeedback(
+                                        scope = scope,
+                                        onFeedbackStart = { isContentPressed = true },
+                                        onFeedbackEnd = { isContentPressed = false },
+                                        awaitRelease = { awaitRelease() }
+                                    )
                                 },
                                 onLongPress = { offset ->
                                     headerLayout?.let { layout ->
@@ -221,6 +235,7 @@ fun PostItem(
                 onOpenUrl = { uriHandler.openUri(it) }
             )
             var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+            val viewConfiguration = LocalViewConfiguration.current
 
             Column(horizontalAlignment = Alignment.Start) {
                 if (post.beIconUrl.isNotBlank()) {
@@ -236,9 +251,12 @@ fun PostItem(
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
-                                    isContentPressed = true
-                                    tryAwaitRelease()
-                                    isContentPressed = false
+                                    handlePressFeedback(
+                                        scope = scope,
+                                        onFeedbackStart = { isContentPressed = true },
+                                        onFeedbackEnd = { isContentPressed = false },
+                                        awaitRelease = { awaitRelease() }
+                                    )
                                 },
                                 onTap = { offset ->
                                     contentLayout?.let { layout ->
@@ -344,6 +362,26 @@ fun PostItem(
                 onDismiss = { ngDialogData = null }
             )
         }
+    }
+}
+
+suspend fun handlePressFeedback(
+    scope: CoroutineScope,
+    feedbackDelayMillis: Long = PressFeedbackDelayMillis,
+    onFeedbackStart: () -> Unit,
+    onFeedbackEnd: () -> Unit,
+    awaitRelease: suspend () -> Unit
+) {
+    var job: Job? = null
+    try {
+        job = scope.launch {
+            delay(feedbackDelayMillis)
+            onFeedbackStart()
+        }
+        awaitRelease()
+    } finally {
+        job?.cancel()
+        onFeedbackEnd()
     }
 }
 
