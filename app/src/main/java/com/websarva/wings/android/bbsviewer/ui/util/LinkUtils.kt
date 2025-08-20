@@ -3,6 +3,9 @@ package com.websarva.wings.android.bbsviewer.ui.util
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.LinkInteractionListener
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
@@ -20,10 +23,11 @@ private val replyRegex: Pattern = Pattern.compile(">>(\\d+)")
  * 入力されたテキストからURLと返信アンカー（>>1など）を検出し、
  * それぞれクリック可能な注釈（Annotation）を付けたAnnotatedStringを生成します。
  */
+@OptIn(ExperimentalTextApi::class)
 @Composable
 fun buildUrlAnnotatedString(
     text: String,
-    onOpenUrl: (String) -> Unit,
+    onReplyClick: ((Int) -> Unit)? = null,
     replyColor: Color = replyColor(),
     imageColor: Color = imageUrlColor(),
     threadColor: Color = threadUrlColor(),
@@ -47,7 +51,7 @@ fun buildUrlAnnotatedString(
                         parseThreadUrl(match) != null -> threadColor
                         else -> urlColor
                     }
-                    pushStringAnnotation(tag = "URL", annotation = match)
+                    pushLink(LinkAnnotation.Url(match))
                     addStyle(
                         SpanStyle(color = color, textDecoration = TextDecoration.Underline),
                         start = length,
@@ -59,7 +63,15 @@ fun buildUrlAnnotatedString(
 
                 replyRegex.matcher(match).matches() -> {
                     val number = replyRegex.matcher(match).run { if (find()) group(1) else null }
-                    pushStringAnnotation(tag = "REPLY", annotation = number ?: "")
+                    val tag = number ?: ""
+                    pushLink(
+                        LinkAnnotation.Clickable(
+                            tag = tag,
+                            linkInteractionListener = LinkInteractionListener {
+                                tag.toIntOrNull()?.let { onReplyClick?.invoke(it) }
+                            }
+                        )
+                    )
                     addStyle(
                         SpanStyle(color = replyColor),
                         start = length,
