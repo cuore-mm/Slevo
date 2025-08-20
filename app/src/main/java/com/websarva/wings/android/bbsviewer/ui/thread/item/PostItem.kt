@@ -32,9 +32,12 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.LinkInteractionListener
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -79,6 +82,8 @@ fun PostItem(
     val columnInteraction = remember { MutableInteractionSource() }
     val headerInteraction = remember { MutableInteractionSource() }
     val contentInteraction = remember { MutableInteractionSource() }
+    var headerPressOffset by remember { mutableStateOf<Offset?>(null) }
+    var headerTextLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val isColumnPressed by columnInteraction.collectIsPressedAsState()
     val isHeaderPressed by headerInteraction.collectIsPressedAsState()
     val isContentPressed by contentInteraction.collectIsPressedAsState()
@@ -173,6 +178,7 @@ fun PostItem(
                     }
                     if (post.id.isNotBlank()) {
                         appendSpaceIfNeeded()
+                        pushStringAnnotation(tag = "USER_ID", annotation = idText)
                         pushLink(
                             LinkAnnotation.Clickable(
                                 tag = "ID",
@@ -185,6 +191,7 @@ fun PostItem(
                             append(idText)
                         }
                         pop()
+                        pop()
                     }
                     if (post.beRank.isNotBlank()) {
                         appendSpaceIfNeeded()
@@ -196,15 +203,42 @@ fun PostItem(
                 Text(
                     modifier = Modifier
                         .alignByBaseline()
+                        .pointerInput(Unit) {
+                            detectTapGestures(onPress = {
+                                headerPressOffset = it
+                                tryAwaitRelease()
+                            })
+                        }
                         .combinedClickable(
                             interactionSource = headerInteraction,
                             indication = null,
                             onClick = {},
-                            onLongClick = { menuExpanded = true }
+                            onLongClick = {
+                                val layout = headerTextLayout
+                                val offset = headerPressOffset
+                                if (layout != null && offset != null) {
+                                    val position = layout.getOffsetForPosition(offset)
+                                    val hasId = headerText
+                                        .getStringAnnotations(
+                                            tag = "USER_ID",
+                                            start = position,
+                                            end = position
+                                        )
+                                        .isNotEmpty()
+                                    if (hasId) {
+                                        textMenuData = idText to NgType.USER_ID
+                                    } else {
+                                        menuExpanded = true
+                                    }
+                                } else {
+                                    menuExpanded = true
+                                }
+                            }
                         ),
                     text = headerText,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    onTextLayout = { headerTextLayout = it }
                 )
             }
 
