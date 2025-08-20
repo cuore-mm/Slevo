@@ -26,8 +26,10 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.AnnotatedString
@@ -88,6 +90,7 @@ fun PostItem(
     val isPressed = isColumnPressed || isHeaderPressed || isContentPressed
     val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
 
     val boundaryColor = MaterialTheme.colorScheme.outlineVariant
     Box(
@@ -123,7 +126,10 @@ fun PostItem(
                                 awaitRelease = { awaitRelease() }
                             )
                         },
-                        onLongPress = { menuExpanded = true }
+                        onLongPress = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            menuExpanded = true
+                        }
                     )
                 }
                 .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -244,6 +250,7 @@ fun PostItem(
                                     )
                                 },
                                 onLongPress = { offset ->
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     headerLayout?.let { layout ->
                                         val pos = layout.getOffsetForPosition(offset)
                                         val nameAnn =
@@ -314,6 +321,7 @@ fun PostItem(
                                     }
                                 },
                                 onLongPress = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     menuExpanded = true
                                 }
                             )
