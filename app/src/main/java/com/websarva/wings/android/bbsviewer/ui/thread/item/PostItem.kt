@@ -26,6 +26,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -34,6 +36,7 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.LinkInteractionListener
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -55,6 +58,7 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.LocalDate
 
+private const val USER_ID_TAG = "USER_ID"
 
 @OptIn(ExperimentalTextApi::class)
 @Composable
@@ -173,6 +177,7 @@ fun PostItem(
                     }
                     if (post.id.isNotBlank()) {
                         appendSpaceIfNeeded()
+                        pushStringAnnotation(tag = USER_ID_TAG, annotation = post.id)
                         pushLink(
                             LinkAnnotation.Clickable(
                                 tag = "ID",
@@ -185,6 +190,7 @@ fun PostItem(
                             append(idText)
                         }
                         pop()
+                        pop()
                     }
                     if (post.beRank.isNotBlank()) {
                         appendSpaceIfNeeded()
@@ -193,16 +199,49 @@ fun PostItem(
                         }
                     }
                 }
+                var headerDownPosition by remember { mutableStateOf<Offset?>(null) }
+                var headerTextLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
                 Text(
                     modifier = Modifier
                         .alignByBaseline()
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    event.changes.forEach { pointer ->
+                                        if (pointer.changedToDownIgnoreConsumed()) {
+                                            headerDownPosition = pointer.position
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         .combinedClickable(
                             interactionSource = headerInteraction,
                             indication = null,
                             onClick = {},
-                            onLongClick = { menuExpanded = true }
+                            onLongClick = {
+                                val layout = headerTextLayoutResult
+                                val position = headerDownPosition
+                                if (layout != null && position != null) {
+                                    val offset = layout.getOffsetForPosition(position)
+                                    val annotations = headerText.getStringAnnotations(
+                                        USER_ID_TAG,
+                                        offset,
+                                        offset
+                                    )
+                                    if (annotations.isNotEmpty()) {
+                                        textMenuData = idText to NgType.USER_ID
+                                    } else {
+                                        menuExpanded = true
+                                    }
+                                } else {
+                                    menuExpanded = true
+                                }
+                            }
                         ),
                     text = headerText,
+                    onTextLayout = { headerTextLayoutResult = it },
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
