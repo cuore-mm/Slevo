@@ -77,7 +77,10 @@ fun BoardScreen(
                 }
             }
 
-            itemsIndexed(threads) { index, thread ->
+            itemsIndexed(
+                items = threads,
+                key = { _, item -> item.key }
+            ) { index, thread ->
                 ThreadCard(
                     threadInfo = thread,
                     onClick = onClick,

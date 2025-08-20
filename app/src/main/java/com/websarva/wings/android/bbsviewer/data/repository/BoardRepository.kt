@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.withContext
 import androidx.room.withTransaction
+import kotlinx.coroutines.flow.distinctUntilChanged
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -41,8 +42,11 @@ class BoardRepository @Inject constructor(
     @RequiresApi(Build.VERSION_CODES.O)
     fun observeThreads(boardId: Long): Flow<List<ThreadInfo>> {
         val baselineFlow = boardVisitDao.observeBaseline(boardId)
+            .distinctUntilChanged()
         val threadsFlow = threadSummaryDao.observeThreadSummaries(boardId)
+            .distinctUntilChanged()
         val metaFlow = fetchMetaDao.observe(boardId)
+            .distinctUntilChanged()
         return combine(threadsFlow, baselineFlow, metaFlow) { summaries, baseline, meta ->
             val base = baseline ?: 0L
             val currentUnixTime = (meta?.lastFetchedAt ?: 0L) / 1000
