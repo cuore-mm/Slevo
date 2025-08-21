@@ -341,9 +341,20 @@ fun PostItem(
                                             }
                                     }
                                 },
-                                onLongPress = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    menuExpanded = true
+                                onLongPress = { offset ->
+                                    contentLayout?.let { layout ->
+                                        val pos = layout.getOffsetForPosition(offset)
+                                        val urlAnn =
+                                            annotatedText.getStringAnnotations("URL", pos, pos)
+                                                .firstOrNull()
+                                        if (urlAnn == null) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            menuExpanded = true
+                                        }
+                                    } ?: run {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        menuExpanded = true
+                                    }
                                 }
                             )
                         },
