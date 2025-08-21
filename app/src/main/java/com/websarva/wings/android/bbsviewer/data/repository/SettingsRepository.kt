@@ -14,4 +14,10 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setDarkMode(enabled: Boolean) =
         local.setDarkMode(enabled)
+
+    fun observeIsTreeSort(): Flow<Boolean> =
+        local.observeIsTreeSort()
+
+    suspend fun setTreeSort(enabled: Boolean) =
+        local.setTreeSort(enabled)
 }
