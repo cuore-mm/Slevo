@@ -337,13 +337,14 @@ fun PostItem(
                 Spacer(modifier = Modifier.height(8.dp))
                 ImageThumbnailGrid(
                     imageUrls = imageUrls,
-                    onImageClick = { url ->
+                    onImageClick = { url, bytes ->
                         navController.navigate(
                             AppRoute.ImageViewer(
                                 imageUrl = URLEncoder.encode(
                                     url,
                                     StandardCharsets.UTF_8.toString()
-                                )
+                                ),
+                                imageBytes = bytes
                             )
                         )
                     }

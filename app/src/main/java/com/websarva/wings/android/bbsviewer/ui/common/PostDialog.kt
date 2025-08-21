@@ -140,7 +140,7 @@ fun PostDialog(
                             modifier = Modifier
                                 .padding(horizontal = 8.dp),
                             imageUrls = imageUrls,
-                            onImageClick = { url -> onImageUrlClick?.invoke(url) }
+                            onImageClick = { url, _ -> onImageUrlClick?.invoke(url) }
                         )
                     }
                 }

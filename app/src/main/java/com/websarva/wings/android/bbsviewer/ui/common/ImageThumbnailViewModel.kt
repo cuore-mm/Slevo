@@ -49,6 +49,7 @@ class ImageThumbnailViewModel @Inject constructor(
                                 current.copy(
                                     items = current.items + (url to item.copy(
                                         bitmap = bitmap,
+                                        bytes = state.bytes,
                                         isLoading = false
                                     ))
                                 )

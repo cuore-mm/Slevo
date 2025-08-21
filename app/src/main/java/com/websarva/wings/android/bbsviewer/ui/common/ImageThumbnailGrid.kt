@@ -29,7 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 fun ImageThumbnailGrid(
     imageUrls: List<String>,
     modifier: Modifier = Modifier,
-    onImageClick: (String) -> Unit,
+    onImageClick: (String, ByteArray?) -> Unit,
     viewModel: ImageThumbnailViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(imageUrls) {
@@ -47,7 +47,7 @@ fun ImageThumbnailGrid(
                             .weight(1f)
                             .aspectRatio(1f)
                             .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable { onImageClick(url) }
+                            .clickable { onImageClick(url, itemState?.bytes) }
                     ) {
                         itemState?.bitmap?.let { bmp ->
                             Image(

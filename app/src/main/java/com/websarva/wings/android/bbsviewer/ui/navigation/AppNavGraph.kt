@@ -115,10 +115,12 @@ fun AppNavGraph(
         composable<AppRoute.ImageViewer> { backStackEntry ->
             val imageViewerRoute: AppRoute.ImageViewer = backStackEntry.toRoute()
             // URLデコード処理
-            val decodedUrl =
-                URLDecoder.decode(imageViewerRoute.imageUrl, StandardCharsets.UTF_8.toString())
+            val decodedUrl = imageViewerRoute.imageUrl?.let {
+                URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
+            }
             ImageViewerScreen(
                 imageUrl = decodedUrl,
+                imageBytes = imageViewerRoute.imageBytes,
                 onNavigateUp = { navController.navigateUp() }
             )
         }
@@ -183,7 +185,10 @@ sealed class AppRoute {
     data object Tabs : AppRoute()
 
     @Serializable
-    data class ImageViewer(val imageUrl: String) : AppRoute()
+    data class ImageViewer(
+        val imageUrl: String? = null,
+        val imageBytes: ByteArray? = null
+    ) : AppRoute()
 
     data object RouteName {
         const val BOOKMARK_LIST = "BookmarkList"

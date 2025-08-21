@@ -1,6 +1,5 @@
 package com.websarva.wings.android.bbsviewer.ui.viewer
 
-import android.util.Log
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -11,8 +10,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import android.graphics.BitmapFactory
 import me.saket.telephoto.zoomable.OverzoomEffect
 import me.saket.telephoto.zoomable.ZoomSpec
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
@@ -22,7 +24,8 @@ import me.saket.telephoto.zoomable.rememberZoomableState
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImageViewerScreen(
-    imageUrl: String,
+    imageUrl: String? = null,
+    imageBytes: ByteArray? = null,
     onNavigateUp: () -> Unit
 ) {
     Scaffold(
@@ -52,9 +55,12 @@ fun ImageViewerScreen(
             )
         )
         val imageState = rememberZoomableImageState(zoomableState)
+        val imageBitmap = remember(imageBytes) {
+            imageBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size).asImageBitmap() }
+        }
 
         ZoomableAsyncImage(
-            model = imageUrl,
+            model = imageBitmap ?: imageUrl,
             contentDescription = null,
             state = imageState,
             modifier = Modifier
