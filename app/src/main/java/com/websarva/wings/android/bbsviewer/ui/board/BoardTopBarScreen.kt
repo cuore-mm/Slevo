@@ -1,13 +1,13 @@
 package com.websarva.wings.android.bbsviewer.ui.board
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarOutline
-import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -42,11 +42,29 @@ fun BoardTopBarScreen(
         },
         actions = {
             IconButton(onClick = onBookmarkClick) {
-                Icon(
-                    imageVector = if (isBookmarked) Icons.Filled.Star else Icons.Default.StarOutline,
-                    contentDescription = stringResource(R.string.bookmark),
-                    tint = bookmarkIconColor
-                )
+                if (isBookmarked) {
+                    // ブックマークされている場合：アイコンを重ねて表示
+                    Box {
+                        // ① 背景（内側の色）となる塗りつぶしアイコン
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = null, // contentDescriptionは前景のアイコンに設定
+                            tint = bookmarkIconColor
+                        )
+                        // ② 前景（縁取り）となるアイコン
+                        Icon(
+                            imageVector = Icons.Outlined.StarOutline,
+                            contentDescription = stringResource(R.string.bookmark),
+                        )
+                    }
+                } else {
+                    // ブックマークされていない場合：縁取りアイコンのみを表示
+                    Icon(
+                        imageVector = Icons.Outlined.StarOutline,
+                        contentDescription = stringResource(R.string.bookmark),
+                        tint = LocalContentColor.current
+                    )
+                }
             }
 //            IconButton(onClick = onInfoClick) {
 //                Icon(

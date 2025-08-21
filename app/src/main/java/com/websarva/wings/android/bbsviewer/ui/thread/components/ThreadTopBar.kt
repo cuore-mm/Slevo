@@ -1,10 +1,9 @@
 package com.websarva.wings.android.bbsviewer.ui.thread.components
 
 import android.util.Log
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -20,15 +19,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
 import com.websarva.wings.android.bbsviewer.ui.common.bookmark.SingleBookmarkState
+import com.websarva.wings.android.bbsviewer.ui.theme.bookmarkColor
 import com.websarva.wings.android.bbsviewer.ui.thread.dialog.ThreadInfoDialog
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
 
@@ -59,23 +57,35 @@ fun ThreadTopBar(
         scrollBehavior = scrollBehavior,
         actions = {
             IconButton(onClick = onBookmarkClick) {
-                val iconImage = if (uiState.singleBookmarkState.isBookmarked) {
-                    Icons.Filled.Star
+                if (uiState.singleBookmarkState.isBookmarked) {
+                    // ブックマークされている場合：アイコンを重ねて表示
+                    Box {
+                        // ① 背景（内側の色）となる塗りつぶしアイコン
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = null, // contentDescriptionは前景のアイコンに設定
+                            tint = if (uiState.singleBookmarkState.selectedGroup?.colorName != null) {
+                                // 動的に内側の色を指定
+                                bookmarkColor(uiState.singleBookmarkState.selectedGroup.colorName)
+                            } else {
+                                // 色が指定されていない場合のデフォルトの塗りつぶし色
+                                LocalContentColor.current
+                            }
+                        )
+                        // ② 前景（縁取り）となるアイコン
+                        Icon(
+                            imageVector = Icons.Outlined.StarOutline,
+                            contentDescription = stringResource(R.string.bookmark),
+                        )
+                    }
                 } else {
-                    Icons.Outlined.StarOutline
+                    // ブックマークされていない場合：縁取りアイコンのみを表示
+                    Icon(
+                        imageVector = Icons.Outlined.StarOutline,
+                        contentDescription = stringResource(R.string.bookmark),
+                        tint = LocalContentColor.current
+                    )
                 }
-                val iconTint = if (
-                    uiState.singleBookmarkState.isBookmarked && uiState.singleBookmarkState.selectedGroup?.colorName != null
-                ) {
-                    bookmarkColor(uiState.singleBookmarkState.selectedGroup!!.colorName)
-                } else {
-                    LocalContentColor.current
-                }
-                Icon(
-                    imageVector = iconImage,
-                    contentDescription = stringResource(R.string.bookmark),
-                    tint = iconTint
-                )
             }
 //            IconButton(onClick = { dialogVisible = true }) {
 //                Icon(
