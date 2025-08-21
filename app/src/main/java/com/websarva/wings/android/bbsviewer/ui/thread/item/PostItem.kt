@@ -31,7 +31,6 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -86,6 +85,7 @@ fun PostItem(
     var isColumnPressed by remember { mutableStateOf(false) }
     var isHeaderPressed by remember { mutableStateOf(false) }
     var isContentPressed by remember { mutableStateOf(false) }
+    var pressedUrl by remember { mutableStateOf<String?>(null) }
     var pressedHeaderPart by remember { mutableStateOf<String?>(null) }
     val isPressed = isColumnPressed || isHeaderPressed || isContentPressed
     val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
@@ -280,10 +280,10 @@ fun PostItem(
             val uriHandler = LocalUriHandler.current
             val annotatedText = buildUrlAnnotatedString(
                 text = post.content,
-                onOpenUrl = { uriHandler.openUri(it) }
+                onOpenUrl = { uriHandler.openUri(it) },
+                pressedUrl = pressedUrl
             )
             var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
-            val viewConfiguration = LocalViewConfiguration.current
 
             Column(horizontalAlignment = Alignment.Start) {
                 if (post.beIconUrl.isNotBlank()) {
@@ -298,8 +298,29 @@ fun PostItem(
                     modifier = Modifier
                         .pointerInput(Unit) {
                             detectTapGestures(
-                                onPress = {
-                                    handlePressFeedback(
+                                onPress = { offset ->
+                                    contentLayout?.let { layout ->
+                                        val pos = layout.getOffsetForPosition(offset)
+                                        val urlAnn =
+                                            annotatedText.getStringAnnotations("URL", pos, pos)
+                                                .firstOrNull()
+                                        if (urlAnn != null) {
+                                            handlePressFeedback(
+                                                scope = scope,
+                                                feedbackDelayMillis = 0L,
+                                                onFeedbackStart = { pressedUrl = urlAnn.item },
+                                                onFeedbackEnd = { pressedUrl = null },
+                                                awaitRelease = { awaitRelease() }
+                                            )
+                                        } else {
+                                            handlePressFeedback(
+                                                scope = scope,
+                                                onFeedbackStart = { isContentPressed = true },
+                                                onFeedbackEnd = { isContentPressed = false },
+                                                awaitRelease = { awaitRelease() }
+                                            )
+                                        }
+                                    } ?: handlePressFeedback(
                                         scope = scope,
                                         onFeedbackStart = { isContentPressed = true },
                                         onFeedbackEnd = { isContentPressed = false },
@@ -320,9 +341,20 @@ fun PostItem(
                                             }
                                     }
                                 },
-                                onLongPress = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    menuExpanded = true
+                                onLongPress = { offset ->
+                                    contentLayout?.let { layout ->
+                                        val pos = layout.getOffsetForPosition(offset)
+                                        val urlAnn =
+                                            annotatedText.getStringAnnotations("URL", pos, pos)
+                                                .firstOrNull()
+                                        if (urlAnn == null) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            menuExpanded = true
+                                        }
+                                    } ?: run {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        menuExpanded = true
+                                    }
                                 }
                             )
                         },
