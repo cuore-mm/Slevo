@@ -45,11 +45,14 @@ class BoardViewModel @AssistedInject constructor(
     private var baseThreads: List<ThreadInfo> = emptyList()
     private var currentHistoryMap: Map<String, Int> = emptyMap()
     private var isObservingThreads: Boolean = false
+    private var initializedUrl: String? = null
 
     override val _uiState = MutableStateFlow(BoardUiState())
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
 
     fun initializeBoard(boardInfo: BoardInfo) {
+        if (initializedUrl == boardInfo.url) return
+        initializedUrl = boardInfo.url
         singleBookmarkViewModel = singleBookmarkViewModelFactory.create(boardInfo, null)
 
         val serviceName = parseServiceName(boardInfo.url)

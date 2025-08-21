@@ -49,6 +49,7 @@ class ThreadViewModel @AssistedInject constructor(
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
     private var ngList: List<NgEntity> = emptyList()
     private var compiledNg: List<Triple<Long?, Regex, NgType>> = emptyList()
+    private var initializedKey: String? = null
 
     //画面遷移した最初に行う初期処理
     fun initializeThread(
@@ -56,6 +57,9 @@ class ThreadViewModel @AssistedInject constructor(
         boardInfo: BoardInfo,
         threadTitle: String
     ) {
+        val initKey = "$threadKey|${boardInfo.url}"
+        if (initializedKey == initKey) return
+        initializedKey = initKey
         val threadInfo = ThreadInfo(
             key = threadKey,
             title = threadTitle,
