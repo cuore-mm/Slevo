@@ -13,8 +13,9 @@ import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ImageUploadRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
-import com.websarva.wings.android.bbsviewer.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.bbsviewer.data.repository.NgRepository
+import com.websarva.wings.android.bbsviewer.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.bbsviewer.data.repository.SettingsRepository
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.bbsviewer.data.model.NgType
 import com.websarva.wings.android.bbsviewer.ui.common.BaseViewModel
@@ -27,6 +28,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -39,6 +41,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val historyRepository: ThreadHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     private val ngRepository: NgRepository,
+    private val settingsRepository: SettingsRepository,
     @Assisted val viewModelKey: String,
 ) : BaseViewModel<ThreadUiState>() {
 
@@ -46,6 +49,7 @@ class ThreadViewModel @AssistedInject constructor(
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
     private var ngList: List<NgEntity> = emptyList()
     private var compiledNg: List<Triple<Long?, Regex, NgType>> = emptyList()
+    private var initializedKey: String? = null
 
     //画面遷移した最初に行う初期処理
     fun initializeThread(
@@ -53,6 +57,9 @@ class ThreadViewModel @AssistedInject constructor(
         boardInfo: BoardInfo,
         threadTitle: String
     ) {
+        val initKey = "$threadKey|${boardInfo.url}"
+        if (initializedKey == initKey) return
+        initializedKey = initKey
         val threadInfo = ThreadInfo(
             key = threadKey,
             title = threadTitle,
@@ -96,7 +103,13 @@ class ThreadViewModel @AssistedInject constructor(
             }
         }
 
-        initialize() // BaseViewModelの初期化処理を呼び出す
+        viewModelScope.launch {
+            val isTree = settingsRepository.observeIsTreeSort().first()
+            _uiState.update { state ->
+                state.copy(sortType = if (isTree) ThreadSortType.TREE else ThreadSortType.NUMBER)
+            }
+            initialize() // BaseViewModelの初期化処理を呼び出す
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
