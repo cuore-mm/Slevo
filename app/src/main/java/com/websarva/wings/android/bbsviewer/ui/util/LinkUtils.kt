@@ -1,6 +1,7 @@
 package com.websarva.wings.android.bbsviewer.ui.util
 
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -28,6 +29,8 @@ fun buildUrlAnnotatedString(
     imageColor: Color = imageUrlColor(),
     threadColor: Color = threadUrlColor(),
     urlColor: Color = urlColor(),
+    pressedUrl: String? = null,
+    pressedColor: Color = MaterialTheme.colorScheme.primary,
 ): AnnotatedString {
     return buildAnnotatedString {
         var lastIndex = 0
@@ -43,6 +46,7 @@ fun buildUrlAnnotatedString(
             when {
                 urlRegex.matcher(match).matches() -> {
                     val color = when {
+                        match == pressedUrl -> pressedColor
                         imageExtensions.any { match.endsWith(it, ignoreCase = true) } -> imageColor
                         parseThreadUrl(match) != null -> threadColor
                         else -> urlColor
