@@ -86,6 +86,7 @@ fun PostItem(
     var isHeaderPressed by remember { mutableStateOf(false) }
     var isContentPressed by remember { mutableStateOf(false) }
     var pressedUrl by remember { mutableStateOf<String?>(null) }
+    var pressedReply by remember { mutableStateOf<String?>(null) }
     var pressedHeaderPart by remember { mutableStateOf<String?>(null) }
     val isPressed = isColumnPressed || isHeaderPressed || isContentPressed
     val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
@@ -281,7 +282,8 @@ fun PostItem(
             val annotatedText = buildUrlAnnotatedString(
                 text = post.content,
                 onOpenUrl = { uriHandler.openUri(it) },
-                pressedUrl = pressedUrl
+                pressedUrl = pressedUrl,
+                pressedReply = pressedReply
             )
             var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
 
@@ -304,21 +306,38 @@ fun PostItem(
                                         val urlAnn =
                                             annotatedText.getStringAnnotations("URL", pos, pos)
                                                 .firstOrNull()
-                                        if (urlAnn != null) {
-                                            handlePressFeedback(
-                                                scope = scope,
-                                                feedbackDelayMillis = 0L,
-                                                onFeedbackStart = { pressedUrl = urlAnn.item },
-                                                onFeedbackEnd = { pressedUrl = null },
-                                                awaitRelease = { awaitRelease() }
-                                            )
-                                        } else {
-                                            handlePressFeedback(
-                                                scope = scope,
-                                                onFeedbackStart = { isContentPressed = true },
-                                                onFeedbackEnd = { isContentPressed = false },
-                                                awaitRelease = { awaitRelease() }
-                                            )
+                                        val replyAnn =
+                                            annotatedText.getStringAnnotations("REPLY", pos, pos)
+                                                .firstOrNull()
+                                        when {
+                                            urlAnn != null -> {
+                                                handlePressFeedback(
+                                                    scope = scope,
+                                                    feedbackDelayMillis = 0L,
+                                                    onFeedbackStart = { pressedUrl = urlAnn.item },
+                                                    onFeedbackEnd = { pressedUrl = null },
+                                                    awaitRelease = { awaitRelease() }
+                                                )
+                                            }
+
+                                            replyAnn != null -> {
+                                                handlePressFeedback(
+                                                    scope = scope,
+                                                    feedbackDelayMillis = 0L,
+                                                    onFeedbackStart = { pressedReply = replyAnn.item },
+                                                    onFeedbackEnd = { pressedReply = null },
+                                                    awaitRelease = { awaitRelease() }
+                                                )
+                                            }
+
+                                            else -> {
+                                                handlePressFeedback(
+                                                    scope = scope,
+                                                    onFeedbackStart = { isContentPressed = true },
+                                                    onFeedbackEnd = { isContentPressed = false },
+                                                    awaitRelease = { awaitRelease() }
+                                                )
+                                            }
                                         }
                                     } ?: handlePressFeedback(
                                         scope = scope,
@@ -347,7 +366,10 @@ fun PostItem(
                                         val urlAnn =
                                             annotatedText.getStringAnnotations("URL", pos, pos)
                                                 .firstOrNull()
-                                        if (urlAnn == null) {
+                                        val replyAnn =
+                                            annotatedText.getStringAnnotations("REPLY", pos, pos)
+                                                .firstOrNull()
+                                        if (urlAnn == null && replyAnn == null) {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             menuExpanded = true
                                         }
