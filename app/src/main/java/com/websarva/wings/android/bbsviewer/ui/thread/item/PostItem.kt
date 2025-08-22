@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -75,6 +77,7 @@ fun PostItem(
     boardId: Long,
     indentLevel: Int = 0,
     replyFromNumbers: List<Int> = emptyList(),
+    isMyPost: Boolean = false,
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null
 ) {
@@ -109,15 +112,29 @@ fun PostItem(
                 }
             }
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    if (isPressed) MaterialTheme.colorScheme.surfaceVariant
-                    else Color.Transparent
+                .height(IntrinsicSize.Min)
+        ) {
+            if (isMyPost) {
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.primary)
                 )
-                .pointerInput(Unit) {
-                    detectTapGestures(
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .background(
+                        if (isPressed) MaterialTheme.colorScheme.surfaceVariant
+                        else Color.Transparent
+                    )
+                    .pointerInput(Unit) {
+                        detectTapGestures(
                         onPress = {
                             handlePressFeedback(
                                 scope = scope,
@@ -389,6 +406,7 @@ fun PostItem(
                     }
                 )
             }
+        }
         }
 
         if (menuExpanded) {

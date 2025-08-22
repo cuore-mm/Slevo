@@ -27,6 +27,7 @@ data class ThreadUiState(
     val showErrorWebView: Boolean = false,
     val errorHtmlContent: String = "",
     val postResultMessage: String? = null,
+    val myPostNumbers: Set<Int> = emptySet(),
     // UI描画用の派生情報（ViewModelで算出）
     val idCountMap: Map<String, Int> = emptyMap(),
     val idIndexList: List<Int> = emptyList(),

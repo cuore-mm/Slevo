@@ -9,7 +9,7 @@ import javax.inject.Inject
 
 // 書き込み結果の表現
 sealed class PostResult {
-    object Success : PostResult() // 書き込み成功
+    data class Success(val resNum: Int? = null) : PostResult() // 書き込み成功（レス番号付き）
     data class Confirm(val confirmationData: ConfirmationData) : PostResult() // 書き込み確認画面
     data class Error(val html: String, val message: String) : PostResult() // その他のエラー（WebView表示用）
 }
@@ -26,7 +26,11 @@ class PostRepository @Inject constructor(
             if (!it.isSuccessful) {
                 return PostResult.Error(html, "サーバーエラー: ${it.code}")
             }
-            PostParser.parseWriteResponse(html)
+            val resNum = it.header("x-resnum")?.toIntOrNull()
+            when (val result = PostParser.parseWriteResponse(html)) {
+                is PostResult.Success -> PostResult.Success(resNum)
+                else -> result
+            }
         }
     }
 

@@ -325,7 +325,12 @@ class ThreadViewModel @AssistedInject constructor(
             when (result) {
                 is PostResult.Success -> {
                     // 成功メッセージ表示など
-                    _uiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
+                    _uiState.update {
+                        it.copy(
+                            postResultMessage = "書き込みに成功しました。",
+                            myPostNumbers = result.resNum?.let { n -> it.myPostNumbers + n } ?: it.myPostNumbers
+                        )
+                    }
                     reloadThread() // スレッドをリロード
                 }
 
@@ -371,7 +376,12 @@ class ThreadViewModel @AssistedInject constructor(
             when (result) {
                 is PostResult.Success -> {
                     // 成功メッセージ表示など
-                    _uiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
+                    _uiState.update {
+                        it.copy(
+                            postResultMessage = "書き込みに成功しました。",
+                            myPostNumbers = result.resNum?.let { n -> it.myPostNumbers + n } ?: it.myPostNumbers
+                        )
+                    }
                     reloadThread()
                 }
 
