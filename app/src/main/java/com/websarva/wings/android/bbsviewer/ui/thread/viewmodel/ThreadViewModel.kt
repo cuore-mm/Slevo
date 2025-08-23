@@ -28,6 +28,7 @@ import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -63,6 +64,8 @@ class ThreadViewModel @AssistedInject constructor(
     private var compiledNg: List<Triple<Long?, Regex, NgType>> = emptyList()
     private var initializedKey: String? = null
     private var pendingPost: PendingPost? = null
+    private var observedThreadHistoryId: Long? = null
+    private var postHistoryCollectJob: Job? = null
 
     //画面遷移した最初に行う初期処理
     fun initializeThread(
@@ -158,6 +161,15 @@ class ThreadViewModel @AssistedInject constructor(
                     uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
                     posts.size
                 )
+                if (observedThreadHistoryId != historyId) {
+                    observedThreadHistoryId = historyId
+                    postHistoryCollectJob?.cancel()
+                    postHistoryCollectJob = viewModelScope.launch {
+                        postHistoryRepository.observeMyPostNumbers(historyId).collect { nums ->
+                            _uiState.update { it.copy(myPostNumbers = nums) }
+                        }
+                    }
+                }
                 pendingPost?.let { pending ->
                     val resNumber = pending.resNum ?: posts.size
                     if (resNumber in 1..posts.size) {
@@ -369,8 +381,7 @@ class ThreadViewModel @AssistedInject constructor(
                     // 成功メッセージ表示など
                     _uiState.update {
                         it.copy(
-                            postResultMessage = "書き込みに成功しました。",
-                            myPostNumbers = result.resNum?.let { n -> it.myPostNumbers + n } ?: it.myPostNumbers
+                            postResultMessage = "書き込みに成功しました。"
                         )
                     }
                     pendingPost = PendingPost(result.resNum, message, name, mail)
@@ -421,8 +432,7 @@ class ThreadViewModel @AssistedInject constructor(
                     // 成功メッセージ表示など
                     _uiState.update {
                         it.copy(
-                            postResultMessage = "書き込みに成功しました。",
-                            myPostNumbers = result.resNum?.let { n -> it.myPostNumbers + n } ?: it.myPostNumbers
+                            postResultMessage = "書き込みに成功しました。"
                         )
                     }
                     val form = uiState.value.postFormState
