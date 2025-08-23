@@ -29,7 +29,7 @@ import androidx.room.PrimaryKey
 data class PostHistoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val content: String,
-    val date: String,
+    val date: Long,
     val threadHistoryId: Long,
     val boardId: Long,
     val resNum: Int,

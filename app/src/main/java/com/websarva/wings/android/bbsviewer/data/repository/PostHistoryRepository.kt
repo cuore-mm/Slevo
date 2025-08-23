@@ -11,7 +11,7 @@ class PostHistoryRepository @Inject constructor(
 ) {
     suspend fun recordPost(
         content: String,
-        date: String,
+        date: Long,
         threadHistoryId: Long,
         boardId: Long,
         resNum: Int,

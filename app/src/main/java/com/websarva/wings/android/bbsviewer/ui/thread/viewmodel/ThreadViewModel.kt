@@ -33,6 +33,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 private data class PendingPost(
     val resNum: Int?,
@@ -161,7 +164,7 @@ class ThreadViewModel @AssistedInject constructor(
                         val p = posts[resNumber - 1]
                         postHistoryRepository.recordPost(
                             content = pending.content,
-                            date = p.date,
+                            date = parseDateToUnix(p.date),
                             threadHistoryId = historyId,
                             boardId = uiState.value.boardInfo.boardId,
                             resNum = resNumber,
@@ -237,6 +240,18 @@ class ThreadViewModel @AssistedInject constructor(
             }
         }
         return order to depthMap
+    }
+
+    private fun parseDateToUnix(dateString: String): Long {
+        val sanitized = dateString
+            .replace(Regex("\\([^)]*\\)"), "")
+            .replace(Regex("\\.\\d+"), "")
+            .trim()
+        return try {
+            DATE_FORMAT.parse(sanitized)?.time ?: System.currentTimeMillis()
+        } catch (e: Exception) {
+            System.currentTimeMillis()
+        }
     }
 
     private fun updateNgPostNumbers() {
@@ -458,6 +473,11 @@ class ThreadViewModel @AssistedInject constructor(
         _uiState.update { it.copy(postResultMessage = null) }
     }
 
+    companion object {
+        private val DATE_FORMAT = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Tokyo")
+        }
+    }
 }
 
 @AssistedFactory

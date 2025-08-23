@@ -59,7 +59,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.NgTypeConverte
         BoardFetchMetaEntity::class,
         PostHistoryEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
