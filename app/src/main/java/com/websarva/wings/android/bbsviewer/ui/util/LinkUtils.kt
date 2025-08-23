@@ -30,6 +30,7 @@ fun buildUrlAnnotatedString(
     threadColor: Color = threadUrlColor(),
     urlColor: Color = urlColor(),
     pressedUrl: String? = null,
+    pressedReply: String? = null,
     pressedColor: Color = MaterialTheme.colorScheme.primary,
 ): AnnotatedString {
     return buildAnnotatedString {
@@ -63,9 +64,11 @@ fun buildUrlAnnotatedString(
 
                 replyRegex.matcher(match).matches() -> {
                     val number = replyRegex.matcher(match).run { if (find()) group(1) else null }
+                    val color = if (number == pressedReply) pressedColor else replyColor
+                    val decoration = if (number == pressedReply) TextDecoration.Underline else TextDecoration.None
                     pushStringAnnotation(tag = "REPLY", annotation = number ?: "")
                     addStyle(
-                        SpanStyle(color = replyColor),
+                        SpanStyle(color = color, textDecoration = decoration),
                         start = length,
                         end = length + match.length
                     )
