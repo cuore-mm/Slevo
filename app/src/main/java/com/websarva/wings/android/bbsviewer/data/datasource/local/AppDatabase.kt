@@ -17,7 +17,8 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDa
     import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.NgDao
     import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadSummaryDao
     import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardVisitDao
-    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardFetchMetaDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardFetchMetaDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.PostHistoryDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardCategoryCrossRef
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
@@ -34,6 +35,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.NgEntit
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadSummaryEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardVisitEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardFetchMetaEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.PostHistoryEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.NgTypeConverter
 
 @TypeConverters(NgTypeConverter::class)
@@ -54,9 +56,10 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.NgTypeConverte
         NgEntity::class,
         ThreadSummaryEntity::class,
         BoardVisitEntity::class,
-        BoardFetchMetaEntity::class
+        BoardFetchMetaEntity::class,
+        PostHistoryEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -75,4 +78,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun threadSummaryDao(): ThreadSummaryDao
     abstract fun boardVisitDao(): BoardVisitDao
     abstract fun boardFetchMetaDao(): BoardFetchMetaDao
+    abstract fun postHistoryDao(): PostHistoryDao
 }

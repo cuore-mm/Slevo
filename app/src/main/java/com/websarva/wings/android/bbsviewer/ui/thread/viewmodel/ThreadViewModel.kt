@@ -14,6 +14,7 @@ import com.websarva.wings.android.bbsviewer.data.repository.ImageUploadRepositor
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.data.repository.NgRepository
+import com.websarva.wings.android.bbsviewer.data.repository.PostHistoryRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.bbsviewer.data.repository.SettingsRepository
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.NgEntity
@@ -33,12 +34,20 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private data class PendingPost(
+    val resNum: Int?,
+    val content: String,
+    val name: String,
+    val email: String,
+)
+
 class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
     private val boardRepository: BoardRepository,
     private val postRepository: PostRepository,
     private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
+    private val postHistoryRepository: PostHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
@@ -50,6 +59,7 @@ class ThreadViewModel @AssistedInject constructor(
     private var ngList: List<NgEntity> = emptyList()
     private var compiledNg: List<Triple<Long?, Regex, NgType>> = emptyList()
     private var initializedKey: String? = null
+    private var pendingPost: PendingPost? = null
 
     //画面遷移した最初に行う初期処理
     fun initializeThread(
@@ -140,11 +150,28 @@ class ThreadViewModel @AssistedInject constructor(
                     )
                 }
                 updateNgPostNumbers()
-                historyRepository.recordHistory(
+                val historyId = historyRepository.recordHistory(
                     uiState.value.boardInfo,
                     uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
                     posts.size
                 )
+                pendingPost?.let { pending ->
+                    val resNumber = pending.resNum ?: posts.size
+                    if (resNumber in 1..posts.size) {
+                        val p = posts[resNumber - 1]
+                        postHistoryRepository.recordPost(
+                            content = pending.content,
+                            date = p.date,
+                            threadHistoryId = historyId,
+                            boardId = uiState.value.boardInfo.boardId,
+                            resNum = resNumber,
+                            name = pending.name,
+                            email = pending.email,
+                            postId = p.id
+                        )
+                    }
+                    pendingPost = null
+                }
             } else {
                 _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
                 Log.e(
@@ -331,6 +358,7 @@ class ThreadViewModel @AssistedInject constructor(
                             myPostNumbers = result.resNum?.let { n -> it.myPostNumbers + n } ?: it.myPostNumbers
                         )
                     }
+                    pendingPost = PendingPost(result.resNum, message, name, mail)
                     reloadThread() // スレッドをリロード
                 }
 
@@ -382,6 +410,8 @@ class ThreadViewModel @AssistedInject constructor(
                             myPostNumbers = result.resNum?.let { n -> it.myPostNumbers + n } ?: it.myPostNumbers
                         )
                     }
+                    val form = uiState.value.postFormState
+                    pendingPost = PendingPost(result.resNum, form.message, form.name, form.mail)
                     reloadThread()
                 }
 

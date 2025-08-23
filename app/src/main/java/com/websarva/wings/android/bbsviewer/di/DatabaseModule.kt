@@ -20,6 +20,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.NgDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadSummaryDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardVisitDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardFetchMetaDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.PostHistoryDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -217,6 +218,30 @@ object DatabaseModule {
             )
         }
     }
+
+    private val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS post_histories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    content TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    threadHistoryId INTEGER NOT NULL,
+                    boardId INTEGER NOT NULL,
+                    resNum INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    postId TEXT NOT NULL,
+                    FOREIGN KEY(threadHistoryId) REFERENCES thread_histories(id) ON DELETE CASCADE,
+                    FOREIGN KEY(boardId) REFERENCES boards(boardId) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_post_histories_threadHistoryId ON post_histories(threadHistoryId)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_post_histories_boardId ON post_histories(boardId)")
+        }
+    }
     /**
      * Room の AppDatabase インスタンスをシングルトンとして提供
      *
@@ -236,7 +261,7 @@ object DatabaseModule {
         )
             // マイグレーション未定義時は既存データを破棄し再生成
             .fallbackToDestructiveMigration(false)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
             .addCallback(callback)
             .build()
     }
@@ -328,4 +353,8 @@ object DatabaseModule {
     @Provides
     fun provideBoardFetchMetaDao(db: AppDatabase): BoardFetchMetaDao =
         db.boardFetchMetaDao()
+
+    @Provides
+    fun providePostHistoryDao(db: AppDatabase): PostHistoryDao =
+        db.postHistoryDao()
 }
