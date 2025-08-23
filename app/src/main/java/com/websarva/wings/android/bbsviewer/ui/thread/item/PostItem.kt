@@ -76,7 +76,8 @@ fun PostItem(
     indentLevel: Int = 0,
     replyFromNumbers: List<Int> = emptyList(),
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
-    onReplyClick: ((Int) -> Unit)? = null
+    onReplyClick: ((Int) -> Unit)? = null,
+    onIdClick: ((String) -> Unit)? = null,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     var textMenuData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
@@ -249,6 +250,15 @@ fun PostItem(
                                         onFeedbackEnd = { isContentPressed = false },
                                         awaitRelease = { awaitRelease() }
                                     )
+                                },
+                                onTap = { offset ->
+                                    headerLayout?.let { layout ->
+                                        val pos = layout.getOffsetForPosition(offset)
+                                        headerText.getStringAnnotations("ID", pos, pos)
+                                            .firstOrNull()?.let { ann ->
+                                                onIdClick?.invoke(post.id)
+                                            }
+                                    }
                                 },
                                 onLongPress = { offset ->
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)

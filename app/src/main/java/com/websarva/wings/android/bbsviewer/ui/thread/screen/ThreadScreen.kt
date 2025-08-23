@@ -195,6 +195,24 @@ fun ThreadScreen(
                                 }
                                 popupStack.add(PopupInfo(listOf(target), offset))
                             }
+                        },
+                        onIdClick = { id ->
+                            val offset = if (popupStack.isEmpty()) {
+                                itemOffset
+                            } else {
+                                val last = popupStack.last()
+                                IntOffset(
+                                    last.offset.x,
+                                    (last.offset.y - last.size.height).coerceAtLeast(0)
+                                )
+                            }
+                            val targets = posts.mapIndexedNotNull { idx, p ->
+                                val num = idx + 1
+                                if (p.id == id && num !in ngNumbers) p else null
+                            }
+                            if (targets.isNotEmpty()) {
+                                popupStack.add(PopupInfo(targets, offset))
+                            }
                         }
                     )
                     HorizontalDivider(
