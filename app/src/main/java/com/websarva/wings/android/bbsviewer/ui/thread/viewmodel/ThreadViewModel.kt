@@ -14,6 +14,7 @@ import com.websarva.wings.android.bbsviewer.data.repository.ImageUploadRepositor
 import com.websarva.wings.android.bbsviewer.data.repository.PostRepository
 import com.websarva.wings.android.bbsviewer.data.repository.PostResult
 import com.websarva.wings.android.bbsviewer.data.repository.NgRepository
+import com.websarva.wings.android.bbsviewer.data.repository.PostHistoryRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.bbsviewer.data.repository.SettingsRepository
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.NgEntity
@@ -27,11 +28,22 @@ import com.websarva.wings.android.bbsviewer.ui.thread.state.ThreadUiState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
+
+private data class PendingPost(
+    val resNum: Int?,
+    val content: String,
+    val name: String,
+    val email: String,
+)
 
 class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
@@ -39,6 +51,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val postRepository: PostRepository,
     private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
+    private val postHistoryRepository: PostHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
@@ -50,6 +63,9 @@ class ThreadViewModel @AssistedInject constructor(
     private var ngList: List<NgEntity> = emptyList()
     private var compiledNg: List<Triple<Long?, Regex, NgType>> = emptyList()
     private var initializedKey: String? = null
+    private var pendingPost: PendingPost? = null
+    private var observedThreadHistoryId: Long? = null
+    private var postHistoryCollectJob: Job? = null
 
     //画面遷移した最初に行う初期処理
     fun initializeThread(
@@ -140,11 +156,37 @@ class ThreadViewModel @AssistedInject constructor(
                     )
                 }
                 updateNgPostNumbers()
-                historyRepository.recordHistory(
+                val historyId = historyRepository.recordHistory(
                     uiState.value.boardInfo,
                     uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
                     posts.size
                 )
+                if (observedThreadHistoryId != historyId) {
+                    observedThreadHistoryId = historyId
+                    postHistoryCollectJob?.cancel()
+                    postHistoryCollectJob = viewModelScope.launch {
+                        postHistoryRepository.observeMyPostNumbers(historyId).collect { nums ->
+                            _uiState.update { it.copy(myPostNumbers = nums) }
+                        }
+                    }
+                }
+                pendingPost?.let { pending ->
+                    val resNumber = pending.resNum ?: posts.size
+                    if (resNumber in 1..posts.size) {
+                        val p = posts[resNumber - 1]
+                        postHistoryRepository.recordPost(
+                            content = pending.content,
+                            date = parseDateToUnix(p.date),
+                            threadHistoryId = historyId,
+                            boardId = uiState.value.boardInfo.boardId,
+                            resNum = resNumber,
+                            name = pending.name,
+                            email = pending.email,
+                            postId = p.id
+                        )
+                    }
+                    pendingPost = null
+                }
             } else {
                 _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
                 Log.e(
@@ -210,6 +252,18 @@ class ThreadViewModel @AssistedInject constructor(
             }
         }
         return order to depthMap
+    }
+
+    private fun parseDateToUnix(dateString: String): Long {
+        val sanitized = dateString
+            .replace(Regex("\\([^)]*\\)"), "")
+            .replace(Regex("\\.\\d+"), "")
+            .trim()
+        return try {
+            DATE_FORMAT.parse(sanitized)?.time ?: System.currentTimeMillis()
+        } catch (e: Exception) {
+            System.currentTimeMillis()
+        }
     }
 
     private fun updateNgPostNumbers() {
@@ -325,7 +379,12 @@ class ThreadViewModel @AssistedInject constructor(
             when (result) {
                 is PostResult.Success -> {
                     // 成功メッセージ表示など
-                    _uiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
+                    _uiState.update {
+                        it.copy(
+                            postResultMessage = "書き込みに成功しました。"
+                        )
+                    }
+                    pendingPost = PendingPost(result.resNum, message, name, mail)
                     reloadThread() // スレッドをリロード
                 }
 
@@ -371,7 +430,13 @@ class ThreadViewModel @AssistedInject constructor(
             when (result) {
                 is PostResult.Success -> {
                     // 成功メッセージ表示など
-                    _uiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
+                    _uiState.update {
+                        it.copy(
+                            postResultMessage = "書き込みに成功しました。"
+                        )
+                    }
+                    val form = uiState.value.postFormState
+                    pendingPost = PendingPost(result.resNum, form.message, form.name, form.mail)
                     reloadThread()
                 }
 
@@ -418,6 +483,11 @@ class ThreadViewModel @AssistedInject constructor(
         _uiState.update { it.copy(postResultMessage = null) }
     }
 
+    companion object {
+        private val DATE_FORMAT = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Tokyo")
+        }
+    }
 }
 
 @AssistedFactory

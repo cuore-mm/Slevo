@@ -42,6 +42,7 @@ fun ReplyPopup(
     idCountMap: Map<String, Int>,
     idIndexList: List<Int>,
     ngPostNumbers: Set<Int>,
+    myPostNumbers: Set<Int>,
     navController: NavHostController,
     boardName: String,
     boardId: Long,
@@ -90,6 +91,7 @@ fun ReplyPopup(
                             navController = navController,
                             boardName = boardName,
                             boardId = boardId,
+                            isMyPost = postNum in myPostNumbers,
                             replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers } ?: emptyList(),
                             onReplyFromClick = { nums ->
                                 val off = IntOffset(

@@ -163,6 +163,7 @@ fun ThreadScreen(
                         boardId = uiState.boardInfo.boardId,
                         indentLevel = indent,
                         replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
+                        isMyPost = postNum in uiState.myPostNumbers,
                         onReplyFromClick = { nums ->
                             val offset = if (popupStack.isEmpty()) {
                                 itemOffset
@@ -245,6 +246,7 @@ fun ThreadScreen(
             idCountMap = uiState.idCountMap,
             idIndexList = uiState.idIndexList,
             ngPostNumbers = ngNumbers,
+            myPostNumbers = uiState.myPostNumbers,
             navController = navController,
             boardName = uiState.boardInfo.name,
             boardId = uiState.boardInfo.boardId,

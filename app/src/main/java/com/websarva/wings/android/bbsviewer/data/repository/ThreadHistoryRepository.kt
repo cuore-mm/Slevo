@@ -30,7 +30,7 @@ class ThreadHistoryRepository @Inject constructor(
         boardInfo: BoardInfo,
         threadInfo: ThreadInfo,
         resCount: Int
-    ) {
+    ): Long {
         val existing = dao.find(threadInfo.key, boardInfo.url)
         val history = ThreadHistoryEntity(
             id = existing?.id ?: 0,
@@ -69,5 +69,6 @@ class ThreadHistoryRepository @Inject constructor(
                 )
             )
         }
+        return id
     }
 }

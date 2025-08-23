@@ -15,9 +15,9 @@ object PostParser {
 
         return when {
             // 成功
-            title.contains("書きこみました") || xTag == "true" -> PostResult.Success
+            title.contains("書きこみました") || xTag == "true" -> PostResult.Success()
             // 成功（警告あり）
-            xTag == "false" -> PostResult.Success
+            xTag == "false" -> PostResult.Success()
             // 確認
             title.contains("書き込み確認") || xTag == "cookie" -> {
                 val hiddenParams = extractHiddenParams(doc)

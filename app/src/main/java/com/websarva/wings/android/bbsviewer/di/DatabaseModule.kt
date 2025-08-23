@@ -20,12 +20,16 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.NgDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadSummaryDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardVisitDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardFetchMetaDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.PostHistoryDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Hilt モジュール：Room データベースおよび DAO を提供する
@@ -217,6 +221,86 @@ object DatabaseModule {
             )
         }
     }
+
+    private val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS post_histories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    content TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    threadHistoryId INTEGER NOT NULL,
+                    boardId INTEGER NOT NULL,
+                    resNum INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    postId TEXT NOT NULL,
+                    FOREIGN KEY(threadHistoryId) REFERENCES thread_histories(id) ON DELETE CASCADE,
+                    FOREIGN KEY(boardId) REFERENCES boards(boardId) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_post_histories_threadHistoryId ON post_histories(threadHistoryId)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_post_histories_boardId ON post_histories(boardId)")
+        }
+    }
+
+    private val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            val sdf = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN).apply {
+                timeZone = TimeZone.getTimeZone("Asia/Tokyo")
+            }
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS post_histories_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    content TEXT NOT NULL,
+                    date INTEGER NOT NULL,
+                    threadHistoryId INTEGER NOT NULL,
+                    boardId INTEGER NOT NULL,
+                    resNum INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    postId TEXT NOT NULL,
+                    FOREIGN KEY(threadHistoryId) REFERENCES thread_histories(id) ON DELETE CASCADE,
+                    FOREIGN KEY(boardId) REFERENCES boards(boardId) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            val cursor = database.query("SELECT id, content, date, threadHistoryId, boardId, resNum, name, email, postId FROM post_histories")
+            while (cursor.moveToNext()) {
+                val id = cursor.getLong(0)
+                val content = cursor.getString(1)
+                val dateStr = cursor.getString(2)
+                val threadHistoryId = cursor.getLong(3)
+                val boardId = cursor.getLong(4)
+                val resNum = cursor.getInt(5)
+                val name = cursor.getString(6)
+                val email = cursor.getString(7)
+                val postId = cursor.getString(8)
+                val sanitized = dateStr
+                    .replace(Regex("""\([^)]*\)"""), "")
+                    .replace(Regex("""\.\d+"""), "")
+                    .trim()
+                val timestamp = try {
+                    sdf.parse(sanitized)?.time ?: System.currentTimeMillis()
+                } catch (e: Exception) {
+                    System.currentTimeMillis()
+                }
+                database.execSQL(
+                    "INSERT INTO post_histories_new(id, content, date, threadHistoryId, boardId, resNum, name, email, postId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    arrayOf(id, content, timestamp, threadHistoryId, boardId, resNum, name, email, postId)
+                )
+            }
+            cursor.close()
+            database.execSQL("DROP TABLE post_histories")
+            database.execSQL("ALTER TABLE post_histories_new RENAME TO post_histories")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_post_histories_threadHistoryId ON post_histories(threadHistoryId)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_post_histories_boardId ON post_histories(boardId)")
+        }
+    }
+
     /**
      * Room の AppDatabase インスタンスをシングルトンとして提供
      *
@@ -236,7 +320,7 @@ object DatabaseModule {
         )
             // マイグレーション未定義時は既存データを破棄し再生成
             .fallbackToDestructiveMigration(false)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
             .addCallback(callback)
             .build()
     }
@@ -328,4 +412,8 @@ object DatabaseModule {
     @Provides
     fun provideBoardFetchMetaDao(db: AppDatabase): BoardFetchMetaDao =
         db.boardFetchMetaDao()
+
+    @Provides
+    fun providePostHistoryDao(db: AppDatabase): PostHistoryDao =
+        db.postHistoryDao()
 }
