@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.bottombar
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tab
@@ -42,6 +43,12 @@ fun NavigationBottomBar(
             name = stringResource(R.string.bookmark),
             icon = Icons.Default.Star,
             parentRoute = AppRoute.BookmarkList
+        ),
+        TopLevelRoute(
+            route = AppRoute.ServiceList,
+            name = stringResource(R.string.boardList),
+            icon = Icons.AutoMirrored.Filled.List,
+            parentRoute = AppRoute.BbsServiceGroup
         ),
         TopLevelRoute(
             route = AppRoute.More,

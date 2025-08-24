@@ -54,7 +54,12 @@ fun AppNavGraph(
             )
         }
         //履歴一覧
-        composable<AppRoute.HistoryList> {
+        composable<AppRoute.HistoryList>(
+            enterTransition = { defaultEnterTransition() },
+            exitTransition = { defaultExitTransition() },
+            popEnterTransition = { defaultPopEnterTransition() },
+            popExitTransition = { defaultPopExitTransition() }
+        ) {
             HistoryListScaffold(
                 navController = navController,
                 topBarState = topBarState,

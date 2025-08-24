@@ -23,24 +23,12 @@ fun MoreScreen(
     onSettingsClick: () -> Unit,
 ) {
     Scaffold(
-        topBar = {
-            HomeTopAppBarScreen(
-                title = stringResource(R.string.more)
-            )
-        }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            item {
-                ListItem(
-                    modifier = Modifier.clickable(onClick = onBoardListClick),
-                    headlineContent = { Text(stringResource(R.string.boardList)) }
-                )
-                HorizontalDivider()
-            }
             item {
                 ListItem(
                     modifier = Modifier.clickable(onClick = onHistoryClick),
