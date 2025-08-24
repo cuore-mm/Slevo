@@ -2,10 +2,10 @@ package com.websarva.wings.android.bbsviewer.data.repository
 
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkThreadDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBookmarkGroupDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithThreadBookmarks
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadBookmarkGroupEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadBookmarkWithGroup
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BookmarkThreadEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.GroupWithThreadBookmarks
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.ThreadBookmarkGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.ThreadBookmarkWithGroup
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton

@@ -26,12 +26,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.R
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardBookmarkGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BoardBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithBoards
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithThreadBookmarks
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadBookmarkGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BookmarkThreadEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.GroupWithBoards
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.GroupWithThreadBookmarks
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.ThreadBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.model.GroupedData
 import com.websarva.wings.android.bbsviewer.ui.theme.BookmarkColor
 import kotlinx.coroutines.launch

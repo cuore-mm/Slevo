@@ -4,7 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardFetchMetaEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.cache.BoardFetchMetaEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao

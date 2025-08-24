@@ -1,8 +1,9 @@
-package com.websarva.wings.android.bbsviewer.data.datasource.local.entity
+package com.websarva.wings.android.bbsviewer.data.datasource.local.entity.cache
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
 
 @Entity(
     tableName = "thread_summaries",

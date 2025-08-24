@@ -22,21 +22,20 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.PostHistor
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardCategoryCrossRef
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardBookmarkGroupEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BoardBookmarkGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BookmarkBoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.CategoryEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadBookmarkGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.ThreadBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenBoardTabEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenThreadTabEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadHistoryEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadHistoryAccessEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.history.ThreadHistoryEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.history.ThreadHistoryAccessEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.NgEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadSummaryEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardVisitEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardFetchMetaEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.PostHistoryEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.NgTypeConverter
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.cache.ThreadSummaryEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.cache.BoardVisitEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.cache.BoardFetchMetaEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.history.PostHistoryEntity
 
 @TypeConverters(NgTypeConverter::class)
 @Database(

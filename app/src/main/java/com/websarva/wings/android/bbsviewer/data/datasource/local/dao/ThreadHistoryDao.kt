@@ -6,8 +6,8 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadHistoryAccessEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadHistoryEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.history.ThreadHistoryAccessEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.history.ThreadHistoryEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao

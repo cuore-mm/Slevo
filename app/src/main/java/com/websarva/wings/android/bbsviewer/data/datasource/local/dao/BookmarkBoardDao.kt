@@ -2,9 +2,9 @@ package com.websarva.wings.android.bbsviewer.data.datasource.local.dao
 
 import androidx.room.*
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardWithBookmarkAndGroup
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkWithGroup
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BoardWithBookmarkAndGroup
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BookmarkBoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BookmarkWithGroup
 import kotlinx.coroutines.flow.Flow
 
 @Dao

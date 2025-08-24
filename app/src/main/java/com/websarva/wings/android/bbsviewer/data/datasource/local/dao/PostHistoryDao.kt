@@ -4,7 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.PostHistoryEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.history.PostHistoryEntity
 
 @Dao
 interface PostHistoryDao {

@@ -6,8 +6,8 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithThreadBookmarks
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadBookmarkGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.GroupWithThreadBookmarks
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.ThreadBookmarkGroupEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao

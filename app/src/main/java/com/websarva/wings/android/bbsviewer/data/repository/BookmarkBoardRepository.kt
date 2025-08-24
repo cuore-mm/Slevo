@@ -3,11 +3,11 @@ package com.websarva.wings.android.bbsviewer.data.repository
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardBookmarkGroupDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardBookmarkGroupEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BoardBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardWithBookmarkAndGroup
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithBoards
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BoardWithBookmarkAndGroup
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BookmarkBoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.GroupWithBoards
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow

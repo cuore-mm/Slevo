@@ -1,11 +1,12 @@
-package com.websarva.wings.android.bbsviewer.data.datasource.local.entity
+package com.websarva.wings.android.bbsviewer.data.datasource.local.entity.cache
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
 
 @Entity(
-    tableName = "board_visits",
+    tableName = "board_fetch_meta",
     foreignKeys = [
         ForeignKey(
             entity = BoardEntity::class,
@@ -15,7 +16,9 @@ import androidx.room.PrimaryKey
         )
     ]
 )
-data class BoardVisitEntity(
+data class BoardFetchMetaEntity(
     @PrimaryKey val boardId: Long,
-    val baselineAt: Long
+    val etag: String?,
+    val lastModified: String?,
+    val lastFetchedAt: Long?
 )

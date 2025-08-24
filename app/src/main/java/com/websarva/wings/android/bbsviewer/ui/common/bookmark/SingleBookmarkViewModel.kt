@@ -2,8 +2,7 @@ package com.websarva.wings.android.bbsviewer.ui.common.bookmark
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
 import com.websarva.wings.android.bbsviewer.data.model.Groupable
 import com.websarva.wings.android.bbsviewer.data.model.ThreadInfo
@@ -17,7 +16,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 

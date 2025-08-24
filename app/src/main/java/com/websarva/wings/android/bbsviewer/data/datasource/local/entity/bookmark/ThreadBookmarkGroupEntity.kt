@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.data.datasource.local.entity
+package com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark
 
 import androidx.room.Embedded
 import androidx.room.Entity

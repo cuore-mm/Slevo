@@ -2,10 +2,10 @@ package com.websarva.wings.android.bbsviewer.ui.bookmarklist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithBoards
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.GroupWithThreadBookmarks
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkBoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BookmarkThreadEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.GroupWithBoards
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.GroupWithThreadBookmarks
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BookmarkBoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.model.Groupable
 import com.websarva.wings.android.bbsviewer.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkRepository

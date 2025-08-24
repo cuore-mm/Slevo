@@ -10,9 +10,9 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardVisit
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardFetchMetaDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.ThreadSummaryEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardVisitEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardFetchMetaEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.cache.ThreadSummaryEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.cache.BoardVisitEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.cache.BoardFetchMetaEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.AppDatabase
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BoardRemoteDataSource
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo

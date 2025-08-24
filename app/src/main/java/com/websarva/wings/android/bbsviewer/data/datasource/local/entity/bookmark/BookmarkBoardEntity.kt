@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.data.datasource.local.entity
+package com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark
 
 import androidx.room.Embedded
 import androidx.room.Entity
@@ -6,6 +6,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
 
 @Entity(
     tableName = "bookmark_boards",

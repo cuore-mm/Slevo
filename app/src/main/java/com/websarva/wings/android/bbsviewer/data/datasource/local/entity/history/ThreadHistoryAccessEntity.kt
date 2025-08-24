@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.data.datasource.local.entity
+package com.websarva.wings.android.bbsviewer.data.datasource.local.entity.history
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
