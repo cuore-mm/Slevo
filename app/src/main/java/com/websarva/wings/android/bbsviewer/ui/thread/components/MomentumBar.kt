@@ -21,6 +21,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.bbsviewer.ui.theme.imageUrlColor
+import com.websarva.wings.android.bbsviewer.ui.theme.replyCountColor
 import com.websarva.wings.android.bbsviewer.ui.theme.threadUrlColor
 import com.websarva.wings.android.bbsviewer.ui.theme.urlColor
 import kotlinx.coroutines.launch
@@ -31,7 +32,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 fun MomentumBar(
     modifier: Modifier = Modifier,
     posts: List<ReplyInfo>,
-    lazyListState: LazyListState
+    lazyListState: LazyListState,
+    replyCounts: List<Int> = emptyList()
 ) {
     val barColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
     val indicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
@@ -40,6 +42,9 @@ fun MomentumBar(
     val imageColor = imageUrlColor()
     val threadColor = threadUrlColor()
     val otherColor = urlColor()
+    val highlightColors = replyCounts.map { count ->
+        if (count >= 5) replyCountColor(count) else Color.Unspecified
+    }
 
     var barHeight by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
@@ -125,6 +130,21 @@ fun MomentumBar(
                         topLeft = Offset(x = 0f, y = indicatorTop),
                         size = Size(width = canvasWidth, height = indicatorHeight)
                     )
+                }
+            }
+
+            val triangleWidth = 6.dp.toPx()
+            highlightColors.forEachIndexed { index, color ->
+                if (color != Color.Unspecified) {
+                    val top = index * postHeight
+                    val bottom = top + postHeight
+                    val path = Path().apply {
+                        moveTo(0f, top)
+                        lineTo(triangleWidth, (top + bottom) / 2f)
+                        lineTo(0f, bottom)
+                        close()
+                    }
+                    drawPath(path, color = color)
                 }
             }
 

@@ -78,6 +78,7 @@ fun ThreadScreen(
     }
     val visiblePosts = filteredPosts.filterNot { it.first in uiState.ngPostNumbers }
     val displayPosts = visiblePosts.map { it.second }
+    val replyCountList = visiblePosts.map { (num, _) -> uiState.replySourceMap[num]?.size ?: 0 }
     val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
     val ngNumbers = uiState.ngPostNumbers
 
@@ -234,7 +235,8 @@ fun ThreadScreen(
                     .width(32.dp)
                     .fillMaxHeight(),
                 posts = displayPosts,
-                lazyListState = listState
+                lazyListState = listState,
+                replyCounts = replyCountList
             )
         }
 
