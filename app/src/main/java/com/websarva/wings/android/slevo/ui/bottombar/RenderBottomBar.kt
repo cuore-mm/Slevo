@@ -21,6 +21,24 @@ fun RenderBottomBar(
     val currentDestination = navBackStackEntry?.destination
     when {
         currentDestination.isInRoute(
+            AppRoute.RouteName.MORE
+        ) -> {
+            NavigationBottomBar(
+                modifier = modifier,
+                currentDestination = currentDestination,
+                onClick = { route ->
+                    navController.navigate(route) {
+                        popUpTo(navController.graph.startDestinationId) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            )
+        }
+
+        currentDestination.isInRoute(
             AppRoute.RouteName.BOOKMARK_LIST
         ) -> {
             val viewModel: BookmarkViewModel = hiltViewModel(navBackStackEntry!!)
