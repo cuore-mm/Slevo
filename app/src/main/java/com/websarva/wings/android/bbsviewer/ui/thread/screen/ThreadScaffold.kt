@@ -104,6 +104,7 @@ fun ThreadScaffold(
                     onBookmarkClick = { viewModel.openBookmarkSheet() },
                     uiState = uiState,
                     onNavigationClick = drawer,
+                    scrollBehavior = scrollBehavior
                 )
             }
         },
