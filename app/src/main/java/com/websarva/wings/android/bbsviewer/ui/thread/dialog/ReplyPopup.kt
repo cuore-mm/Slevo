@@ -182,6 +182,7 @@ fun ReplyPopupPreview() {
         navController = navController,
         boardName = "test",
         boardId = 1L,
-        onClose = { popupStack.clear() }
+        onClose = {},
+        myPostNumbers = emptySet()
     )
 }
