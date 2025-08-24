@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -14,23 +15,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.bbsviewer.ui.theme.imageUrlColor
+import com.websarva.wings.android.bbsviewer.ui.theme.replyCountColor
 import com.websarva.wings.android.bbsviewer.ui.theme.threadUrlColor
 import com.websarva.wings.android.bbsviewer.ui.theme.urlColor
+import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 import kotlinx.coroutines.launch
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.foundation.lazy.rememberLazyListState
 
 @Composable
 fun MomentumBar(
     modifier: Modifier = Modifier,
     posts: List<ReplyInfo>,
+    replyCounts: List<Int>,
     lazyListState: LazyListState
 ) {
     val barColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
@@ -40,6 +42,9 @@ fun MomentumBar(
     val imageColor = imageUrlColor()
     val threadColor = threadUrlColor()
     val otherColor = urlColor()
+    val replyColors = replyCounts.map { count ->
+        if (count >= 5) replyCountColor(count) else Color.Unspecified
+    }
 
     var barHeight by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
@@ -135,14 +140,42 @@ fun MomentumBar(
                 if (post.urlFlags != 0) {
                     val y = index * postHeight + postHeight / 2f
                     val colors = buildList {
-                        if (post.urlFlags and ReplyInfo.HAS_IMAGE_URL != 0) add(imageColor.copy(alpha = 0.6f))
-                        if (post.urlFlags and ReplyInfo.HAS_THREAD_URL != 0) add(threadColor.copy(alpha = 0.6f))
-                        if (post.urlFlags and ReplyInfo.HAS_OTHER_URL != 0) add(otherColor.copy(alpha = 0.6f))
+                        if (post.urlFlags and ReplyInfo.HAS_IMAGE_URL != 0) add(
+                            imageColor.copy(
+                                alpha = 0.6f
+                            )
+                        )
+                        if (post.urlFlags and ReplyInfo.HAS_THREAD_URL != 0) add(
+                            threadColor.copy(
+                                alpha = 0.6f
+                            )
+                        )
+                        if (post.urlFlags and ReplyInfo.HAS_OTHER_URL != 0) add(
+                            otherColor.copy(
+                                alpha = 0.6f
+                            )
+                        )
                     }
                     colors.forEachIndexed { i, color ->
                         val x = canvasWidth - dotRadius - rightMarginPx - i * dotSpacing
                         drawCircle(color = color, radius = dotRadius, center = Offset(x, y))
                     }
+                }
+            }
+
+            val triangleMaxHeight = 8.dp.toPx()
+            replyColors.forEachIndexed { index, color ->
+                if (color != Color.Unspecified) {
+                    val yCenter = index * postHeight + postHeight / 2f
+                    val triangleHeight = triangleMaxHeight
+                    val triangleWidth = triangleHeight / 2f
+                    val path = Path().apply {
+                        moveTo(0f, yCenter - triangleHeight / 2f)
+                        lineTo(triangleWidth, yCenter)
+                        lineTo(0f, yCenter + triangleHeight / 2f)
+                        close()
+                    }
+                    drawPath(path = path, color = color)
                 }
             }
         }
@@ -172,5 +205,6 @@ fun MomentumBarPreview() {
         )
     }
     val listState = rememberLazyListState()
-    MomentumBar(posts = dummyPosts, lazyListState = listState)
+    val counts = List(dummyPosts.size) { index -> if (index % 7 == 0) 5 else 0 }
+    MomentumBar(posts = dummyPosts, replyCounts = counts, lazyListState = listState)
 }
