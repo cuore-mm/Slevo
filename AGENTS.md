@@ -2,7 +2,7 @@
 
 ## Project Structure & Modules
 - Module: `app` (Android application).
-- Source: `app/src/main/java/com/websarva/wings/android/bbsviewer/...`
+- Source: `app/src/main/java/com/websarva/wings/android/slevo/...`
 - UI: Jetpack Compose under `ui/*` with MVVM (`ViewModel`s) and Hilt DI (`di/*`).
 - Data: Room + repositories and data sources under `data/*` (local/remote/models/utils).
 - Tests: `app/src/test` (unit) and `app/src/androidTest` (instrumented).
@@ -15,7 +15,7 @@
 - Run instrumented tests: `./gradlew :app:connectedDebugAndroidTest`
 - Android Lint: `./gradlew :app:lintDebug`
 - Resolve all dependencies (CI/cache warm-up): `./gradlew resolveAllDependencies`
-- Example run via adb: `adb shell am start -n com.websarva.wings.android.bbsviewer/.MainActivity`
+- Example run via adb: `adb shell am start -n com.websarva.wings.android.slevo/.MainActivity`
 
 ## Coding Style & Naming
 - Language: Kotlin with official style; use Android Studio formatter.

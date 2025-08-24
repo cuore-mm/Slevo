@@ -22,11 +22,11 @@ if (localPropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.websarva.wings.android.bbsviewer"
+    namespace = "com.websarva.wings.android.slevo"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.websarva.wings.android.bbsviewer"
+        applicationId = "com.websarva.wings.android.slevo"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

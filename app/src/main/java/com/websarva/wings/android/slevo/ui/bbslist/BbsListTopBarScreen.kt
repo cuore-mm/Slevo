@@ -1,0 +1,48 @@
+package com.websarva.wings.android.slevo.ui.bbslist
+
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BbsListTopBarScreen(
+    modifier: Modifier = Modifier,
+    title: String,
+    onNavigationClick: () -> Unit,
+    onSearchClick: () -> Unit, // 検索処理のためのコールバック
+) {
+    TopAppBar(
+        title = {
+            Text(
+                text = title,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+//        actions = {
+//            IconButton(onClick = onSearchClick) {
+//                Icon(
+//                    imageVector = Icons.Default.Search,
+//                    contentDescription = stringResource(R.string.search)
+//                )
+//            }
+//        },
+        modifier = modifier
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BbsListTopBarScreenPreview() {
+    BbsListTopBarScreen(
+        title = "カテゴリ",
+        onNavigationClick = { /* doSomething() */ },
+        onSearchClick = { /* doSomething() */ }
+    )
+}

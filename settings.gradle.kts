@@ -19,6 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "BBSViewer"
+rootProject.name = "Slevo"
 include(":app")
- 

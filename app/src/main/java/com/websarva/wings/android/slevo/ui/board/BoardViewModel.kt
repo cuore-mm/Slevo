@@ -1,0 +1,398 @@
+package com.websarva.wings.android.slevo.ui.board
+
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.lifecycle.viewModelScope
+import android.content.Context
+import android.net.Uri
+import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.Groupable
+import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.repository.BoardRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadCreateRepository
+import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.slevo.data.repository.ConfirmationData
+import com.websarva.wings.android.slevo.data.repository.PostResult
+import com.websarva.wings.android.slevo.ui.common.BaseViewModel
+import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
+import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
+import com.websarva.wings.android.slevo.ui.util.parseServiceName
+import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.runBlocking
+
+@RequiresApi(Build.VERSION_CODES.O)
+class BoardViewModel @AssistedInject constructor(
+    private val repository: BoardRepository,
+    private val threadCreateRepository: ThreadCreateRepository,
+    private val imageUploadRepository: ImageUploadRepository,
+    private val historyRepository: ThreadHistoryRepository,
+    private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
+    @Assisted("viewModelKey") val viewModelKey: String
+) : BaseViewModel<BoardUiState>() {
+
+    // 元のスレッドリストを保持
+    private var originalThreads: List<ThreadInfo>? = null
+    private var baseThreads: List<ThreadInfo> = emptyList()
+    private var currentHistoryMap: Map<String, Int> = emptyMap()
+    private var isObservingThreads: Boolean = false
+    private var initializedUrl: String? = null
+
+    override val _uiState = MutableStateFlow(BoardUiState())
+    private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
+
+    fun initializeBoard(boardInfo: BoardInfo) {
+        if (initializedUrl == boardInfo.url) return
+        initializedUrl = boardInfo.url
+        singleBookmarkViewModel = singleBookmarkViewModelFactory.create(boardInfo, null)
+
+        val serviceName = parseServiceName(boardInfo.url)
+        _uiState.update { it.copy(boardInfo = boardInfo, serviceName = serviceName) }
+
+        viewModelScope.launch {
+            val ensuredId = repository.ensureBoard(boardInfo)
+            val ensuredInfo = boardInfo.copy(boardId = ensuredId)
+            _uiState.update { it.copy(boardInfo = ensuredInfo) }
+
+            repository.fetchBoardNoname("${boardInfo.url}SETTING.TXT")?.let { noname ->
+                _uiState.update { state ->
+                    state.copy(boardInfo = state.boardInfo.copy(noname = noname))
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            singleBookmarkViewModel?.uiState?.collect { bkState ->
+                _uiState.update { it.copy(singleBookmarkState = bkState) }
+            }
+        }
+
+        initialize() // BaseViewModelの初期化処理を呼び出す
+    }
+
+    override suspend fun loadData(isRefresh: Boolean) {
+        var boardInfo = uiState.value.boardInfo
+        val boardUrl = boardInfo.url
+        if (boardUrl.isBlank()) return
+        if (boardInfo.boardId == 0L) {
+            val id = repository.ensureBoard(boardInfo)
+            boardInfo = boardInfo.copy(boardId = id)
+            _uiState.update { it.copy(boardInfo = boardInfo) }
+        }
+
+        _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
+        val refreshStartAt = System.currentTimeMillis()
+        val normalizedUrl = boardUrl.trimEnd('/')
+        try {
+            repository.refreshThreadList(
+                boardInfo.boardId,
+                "$normalizedUrl/subject.txt",
+                refreshStartAt,
+                isRefresh
+            ) { progress ->
+                _uiState.update { state -> state.copy(loadProgress = progress) }
+            }
+        } catch (_: Exception) {
+            // ignore
+        } finally {
+            _uiState.update { it.copy(isLoading = false, loadProgress = 1f, resetScroll = true) }
+            mergeHistory(currentHistoryMap)
+        }
+        if (!isObservingThreads) {
+            startObservingThreads(boardInfo.boardId)
+        }
+    }
+
+    private fun startObservingThreads(boardId: Long) {
+        isObservingThreads = true
+        viewModelScope.launch {
+            combine(
+                repository.observeThreads(boardId),
+                historyRepository.observeHistoryMap(uiState.value.boardInfo.url)
+            ) { threads, historyMap ->
+                threads to historyMap
+            }.collect { (threads, historyMap) ->
+                baseThreads = threads
+                currentHistoryMap = historyMap
+                if (!_uiState.value.isLoading) {
+                    mergeHistory(historyMap)
+                }
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun refreshBoardData() { // Pull-to-refresh 用のメソッド
+        initialize(force = true) // 強制的に初期化処理を再実行
+    }
+
+    fun consumeResetScroll() {
+        _uiState.update { it.copy(resetScroll = false) }
+    }
+
+    // --- お気に入り関連の処理はBookmarkStateViewModelに委譲 ---
+    fun saveBookmark(groupId: Long) = singleBookmarkViewModel?.saveBookmark(groupId)
+    fun unbookmarkBoard() = singleBookmarkViewModel?.unbookmark()
+    fun openAddGroupDialog() = singleBookmarkViewModel?.openAddGroupDialog()
+    fun openEditGroupDialog(group: Groupable) = singleBookmarkViewModel?.openEditGroupDialog(group)
+    fun closeAddGroupDialog() = singleBookmarkViewModel?.closeAddGroupDialog()
+    fun setEnteredGroupName(name: String) = singleBookmarkViewModel?.setEnteredGroupName(name)
+    fun setSelectedColor(color: String) = singleBookmarkViewModel?.setSelectedColor(color)
+    fun confirmGroup() = singleBookmarkViewModel?.confirmGroup()
+    fun requestDeleteGroup() = singleBookmarkViewModel?.requestDeleteGroup()
+    fun confirmDeleteGroup() = singleBookmarkViewModel?.confirmDeleteGroup()
+    fun closeDeleteGroupDialog() = singleBookmarkViewModel?.closeDeleteGroupDialog()
+    fun openBookmarkSheet() = singleBookmarkViewModel?.openBookmarkSheet()
+    fun closeBookmarkSheet() = singleBookmarkViewModel?.closeBookmarkSheet()
+
+    fun setSortKey(sortKey: ThreadSortKey) {
+        _uiState.update { it.copy(currentSortKey = sortKey) }
+        applyFiltersAndSort()
+    }
+
+    fun toggleSortOrder() {
+        if (_uiState.value.currentSortKey != ThreadSortKey.DEFAULT) {
+            _uiState.update { it.copy(isSortAscending = !it.isSortAscending) }
+            applyFiltersAndSort()
+        }
+    }
+
+    // 検索クエリの更新
+    fun setSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        applyFiltersAndSort()
+    }
+
+    // 検索モードの切り替え
+    fun setSearchMode(isActive: Boolean) {
+        _uiState.update { it.copy(isSearchActive = isActive) }
+        if (!isActive) {
+            // 検索モード終了時にクエリをクリアし、フィルタもリセット
+            setSearchQuery("")
+        }
+    }
+
+    private fun applyFiltersAndSort() {
+        originalThreads?.let { allThreads ->
+            // 1. フィルタリング
+            val filteredList = if (_uiState.value.searchQuery.isNotBlank()) {
+                allThreads.filter {
+                    it.title.contains(_uiState.value.searchQuery, ignoreCase = true)
+                }
+            } else {
+                allThreads
+            }
+
+            // スレッドキーが閾値以上のものを常に末尾に回す
+            val (normalThreads, largeKeyThreads) = filteredList.partition { thread ->
+                thread.key.toLongOrNull()?.let { it < THREAD_KEY_THRESHOLD } ?: true
+            }
+
+            // 2. ソート
+            val sortedList = applySort(
+                normalThreads,
+                _uiState.value.currentSortKey,
+                _uiState.value.isSortAscending
+            ) + largeKeyThreads
+
+            val (newThreads, existingThreads) = sortedList.partition { it.isNew }
+            _uiState.update { it.copy(threads = newThreads + existingThreads) }
+        }
+    }
+
+
+    private fun applySort(
+        list: List<ThreadInfo>,
+        sortKey: ThreadSortKey,
+        ascending: Boolean
+    ): List<ThreadInfo> {
+        if (sortKey == ThreadSortKey.DEFAULT && _uiState.value.searchQuery.isBlank()) {
+            // 検索もしていないデフォルトの場合は originalThreads の順序をそのまま使うが、
+            // この関数に渡される list は既にフィルタリングされた可能性のあるリスト。
+            // ここでは渡された list をソートせずに返すことで「フィルタ後のデフォルト順」とする。
+            // 厳密な「サーバーから返ってきた順」は originalThreads を直接使う必要があるが、
+            // フィルタリングと組み合わせる場合はこれで良い。
+            return list
+        }
+        // 検索時、またはデフォルト以外のソートキーの場合はソートを行う
+        val sortedList = when (sortKey) {
+            ThreadSortKey.DEFAULT -> list // フィルタ適用済みの場合、この時点での順序を維持
+            ThreadSortKey.MOMENTUM -> list.sortedBy { it.momentum }
+            ThreadSortKey.RES_COUNT -> list.sortedBy { it.resCount }
+            ThreadSortKey.DATE_CREATED -> list.sortedBy { it.key.toLongOrNull() ?: 0L }
+        }
+        return if (ascending) sortedList else sortedList.reversed()
+    }
+
+    private fun mergeHistory(historyMap: Map<String, Int>) {
+        if (baseThreads.isEmpty()) return
+        val merged = baseThreads.map { thread ->
+            val oldRes = historyMap[thread.key]
+            if (oldRes != null) {
+                val diff = (thread.resCount - oldRes).coerceAtLeast(0)
+                thread.copy(isVisited = true, newResCount = diff, isNew = false)
+            } else {
+                thread
+            }
+        }
+        originalThreads = merged
+        applyFiltersAndSort()
+    }
+
+    // Sort BottomSheet 関連
+    fun openSortBottomSheet() {
+        _uiState.update { it.copy(showSortSheet = true) }
+    }
+
+    fun closeSortBottomSheet() {
+        _uiState.update { it.copy(showSortSheet = false) }
+    }
+
+    fun openInfoDialog() {
+        _uiState.update { it.copy(showInfoDialog = true) }
+    }
+
+    fun closeInfoDialog() {
+        _uiState.update { it.copy(showInfoDialog = false) }
+    }
+
+    // --- スレッド作成関連 ---
+    fun showCreateDialog() {
+        _uiState.update { it.copy(createDialog = true) }
+    }
+
+    fun hideCreateDialog() {
+        _uiState.update { it.copy(createDialog = false) }
+    }
+
+    fun updateCreateName(name: String) {
+        _uiState.update { it.copy(createFormState = it.createFormState.copy(name = name)) }
+    }
+
+    fun updateCreateMail(mail: String) {
+        _uiState.update { it.copy(createFormState = it.createFormState.copy(mail = mail)) }
+    }
+
+    fun updateCreateTitle(title: String) {
+        _uiState.update { it.copy(createFormState = it.createFormState.copy(title = title)) }
+    }
+
+    fun updateCreateMessage(message: String) {
+        _uiState.update { it.copy(createFormState = it.createFormState.copy(message = message)) }
+    }
+
+    fun hideConfirmationScreen() {
+        _uiState.update { it.copy(isConfirmationScreen = false) }
+    }
+
+    fun hideErrorWebView() {
+        _uiState.update { it.copy(showErrorWebView = false, errorHtmlContent = "") }
+    }
+
+    fun createThreadFirstPhase(
+        host: String,
+        board: String,
+        title: String,
+        name: String,
+        mail: String,
+        message: String,
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isPosting = true, createDialog = false) }
+            val result = threadCreateRepository.createThreadFirstPhase(host, board, title, name, mail, message)
+            _uiState.update { it.copy(isPosting = false) }
+            when (result) {
+                is PostResult.Success -> {
+                    _uiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
+                    refreshBoardData()
+                }
+                is PostResult.Confirm -> {
+                    _uiState.update {
+                        it.copy(
+                            postConfirmation = result.confirmationData,
+                            isConfirmationScreen = true
+                        )
+                    }
+                }
+                is PostResult.Error -> {
+                    _uiState.update {
+                        it.copy(showErrorWebView = true, errorHtmlContent = result.html)
+                    }
+                }
+            }
+        }
+    }
+
+    fun createThreadSecondPhase(
+        host: String,
+        board: String,
+        confirmationData: ConfirmationData,
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isPosting = true, isConfirmationScreen = false) }
+            val result = threadCreateRepository.createThreadSecondPhase(host, board, confirmationData)
+            _uiState.update { it.copy(isPosting = false) }
+            when (result) {
+                is PostResult.Success -> {
+                    _uiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
+                    refreshBoardData()
+                }
+                is PostResult.Error -> {
+                    _uiState.update {
+                        it.copy(showErrorWebView = true, errorHtmlContent = result.html)
+                    }
+                }
+                is PostResult.Confirm -> {
+                    _uiState.update {
+                        it.copy(
+                            postConfirmation = result.confirmationData,
+                            isConfirmationScreen = true
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun uploadImage(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            val bytes = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            }
+            bytes?.let {
+                val url = imageUploadRepository.uploadImage(it)
+                if (url != null) {
+                    val msg = uiState.value.createFormState.message
+                    _uiState.update { current ->
+                        current.copy(createFormState = current.createFormState.copy(message = msg + "\n" + url))
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        val boardId = _uiState.value.boardInfo.boardId
+        if (boardId != 0L) {
+            runBlocking { repository.updateBaseline(boardId, System.currentTimeMillis()) }
+        }
+        super.onCleared()
+    }
+}
+
+
+@AssistedFactory
+interface BoardViewModelFactory {
+    fun create(
+        @Assisted("viewModelKey") viewModelKey: String
+    ): BoardViewModel
+}
+
