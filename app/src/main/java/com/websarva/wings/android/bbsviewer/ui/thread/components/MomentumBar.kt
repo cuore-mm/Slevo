@@ -21,16 +21,19 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.bbsviewer.ui.theme.imageUrlColor
+import com.websarva.wings.android.bbsviewer.ui.theme.replyCountColor
 import com.websarva.wings.android.bbsviewer.ui.theme.threadUrlColor
 import com.websarva.wings.android.bbsviewer.ui.theme.urlColor
 import kotlinx.coroutines.launch
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.foundation.lazy.rememberLazyListState
+import kotlin.math.min
 
 @Composable
 fun MomentumBar(
     modifier: Modifier = Modifier,
     posts: List<ReplyInfo>,
+    replyCounts: List<Int>,
     lazyListState: LazyListState
 ) {
     val barColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
@@ -40,6 +43,9 @@ fun MomentumBar(
     val imageColor = imageUrlColor()
     val threadColor = threadUrlColor()
     val otherColor = urlColor()
+    val replyColors = replyCounts.map { count ->
+        if (count >= 5) replyCountColor(count) else Color.Unspecified
+    }
 
     var barHeight by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
@@ -145,6 +151,22 @@ fun MomentumBar(
                     }
                 }
             }
+
+            val triangleMaxHeight = 12.dp.toPx()
+            replyColors.forEachIndexed { index, color ->
+                if (color != Color.Unspecified) {
+                    val yCenter = index * postHeight + postHeight / 2f
+                    val triangleHeight = min(postHeight * 0.8f, triangleMaxHeight)
+                    val triangleWidth = triangleHeight / 2f
+                    val path = Path().apply {
+                        moveTo(0f, yCenter - triangleHeight / 2f)
+                        lineTo(triangleWidth, yCenter)
+                        lineTo(0f, yCenter + triangleHeight / 2f)
+                        close()
+                    }
+                    drawPath(path = path, color = color)
+                }
+            }
         }
     }
 }
@@ -172,5 +194,6 @@ fun MomentumBarPreview() {
         )
     }
     val listState = rememberLazyListState()
-    MomentumBar(posts = dummyPosts, lazyListState = listState)
+    val counts = List(dummyPosts.size) { index -> if (index % 7 == 0) 5 else 0 }
+    MomentumBar(posts = dummyPosts, replyCounts = counts, lazyListState = listState)
 }
