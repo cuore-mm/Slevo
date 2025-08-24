@@ -7,8 +7,8 @@ import com.websarva.wings.android.bbsviewer.data.datasource.remote.BbsMenuDataSo
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.CategoryEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryWithBoardCount
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ServiceWithBoardCount
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.CategoryWithBoardCount
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.ServiceWithBoardCount
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first

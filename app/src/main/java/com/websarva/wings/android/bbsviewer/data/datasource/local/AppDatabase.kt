@@ -3,22 +3,22 @@ package com.websarva.wings.android.bbsviewer.data.datasource.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkThreadDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BbsServiceDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardCategoryCrossRefDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardBookmarkGroupDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDao
-    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadBookmarkGroupDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bookmark.BookmarkThreadDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.BbsServiceDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.BoardCategoryCrossRefDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.BoardDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bookmark.BoardBookmarkGroupDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bookmark.BookmarkBoardDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.CategoryDao
+    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bookmark.ThreadBookmarkGroupDao
     import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenBoardTabDao
     import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.OpenThreadTabDao
-    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadHistoryDao
+    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.history.ThreadHistoryDao
     import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.NgDao
-    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadSummaryDao
-    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardVisitDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardFetchMetaDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.PostHistoryDao
+    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.cache.ThreadSummaryDao
+    import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.cache.BoardVisitDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.cache.BoardFetchMetaDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.history.PostHistoryDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardCategoryCrossRef
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardEntity

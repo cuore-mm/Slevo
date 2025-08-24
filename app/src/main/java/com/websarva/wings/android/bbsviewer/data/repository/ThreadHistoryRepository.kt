@@ -1,6 +1,6 @@
 package com.websarva.wings.android.bbsviewer.data.repository
 
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadHistoryDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.history.ThreadHistoryDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.history.ThreadHistoryAccessEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.history.ThreadHistoryEntity
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo

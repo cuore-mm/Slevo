@@ -1,7 +1,7 @@
 package com.websarva.wings.android.bbsviewer.data.datasource.local
 
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryWithBoardCount
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ServiceWithBoardCount
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.CategoryWithBoardCount
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.ServiceWithBoardCount
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.CategoryEntity

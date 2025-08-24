@@ -3,7 +3,7 @@ package com.websarva.wings.android.bbsviewer.ui.history
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.bbsviewer.data.repository.ThreadHistoryRepository
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadHistoryDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.history.ThreadHistoryDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

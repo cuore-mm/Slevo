@@ -1,4 +1,4 @@
-package com.websarva.wings.android.bbsviewer.data.datasource.local.dao
+package com.websarva.wings.android.bbsviewer.data.datasource.local.dao.history
 
 import androidx.room.Dao
 import androidx.room.Embedded

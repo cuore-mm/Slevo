@@ -3,11 +3,11 @@ package com.websarva.wings.android.bbsviewer.data.repository
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BbsServiceDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ThreadSummaryDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardVisitDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardFetchMetaDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.BbsServiceDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.BoardDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.cache.ThreadSummaryDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.cache.BoardVisitDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.cache.BoardFetchMetaDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.cache.ThreadSummaryEntity

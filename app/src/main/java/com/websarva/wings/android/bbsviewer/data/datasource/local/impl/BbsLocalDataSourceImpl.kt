@@ -1,10 +1,10 @@
 package com.websarva.wings.android.bbsviewer.data.datasource.local.impl
 
 import com.websarva.wings.android.bbsviewer.data.datasource.local.BbsLocalDataSource
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BbsServiceDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardCategoryCrossRefDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.BbsServiceDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.BoardCategoryCrossRefDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.BoardDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.CategoryDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BbsServiceEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardCategoryCrossRef
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardEntity

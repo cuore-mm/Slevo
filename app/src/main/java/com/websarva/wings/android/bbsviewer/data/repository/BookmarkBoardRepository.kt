@@ -1,8 +1,8 @@
 package com.websarva.wings.android.bbsviewer.data.repository
 
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardBookmarkGroupDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bookmark.BoardBookmarkGroupDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bookmark.BookmarkBoardDao
+import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.bbs.BoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BoardBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BoardWithBookmarkAndGroup
