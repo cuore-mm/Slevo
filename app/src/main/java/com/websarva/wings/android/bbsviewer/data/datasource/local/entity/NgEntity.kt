@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.model.NgType
 
 @Entity(

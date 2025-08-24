@@ -5,7 +5,7 @@ import androidx.room.Entity
 import androidx.room.Junction
 import androidx.room.PrimaryKey
 import androidx.room.Relation
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.model.Groupable
 
 @Entity(tableName = "groups")

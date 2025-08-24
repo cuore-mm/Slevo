@@ -4,7 +4,7 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardBookm
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BookmarkBoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BoardBookmarkGroupEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BoardWithBookmarkAndGroup
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BookmarkBoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.GroupWithBoards

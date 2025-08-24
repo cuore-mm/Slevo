@@ -27,7 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.bbsviewer.R
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BoardBookmarkGroupEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BookmarkThreadEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.GroupWithBoards
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.GroupWithThreadBookmarks

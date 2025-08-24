@@ -5,10 +5,10 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BbsService
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardCategoryCrossRefDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardCategoryCrossRef
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.CategoryEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BbsServiceEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardCategoryCrossRef
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.CategoryEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import javax.inject.Inject

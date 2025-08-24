@@ -4,9 +4,9 @@ import android.util.Log
 import androidx.core.net.toUri
 import com.websarva.wings.android.bbsviewer.data.datasource.local.BbsLocalDataSource
 import com.websarva.wings.android.bbsviewer.data.datasource.remote.BbsMenuDataSource
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.CategoryEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BbsServiceEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.CategoryEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryWithBoardCount
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.ServiceWithBoardCount
 import kotlinx.coroutines.Dispatchers

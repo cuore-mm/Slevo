@@ -19,13 +19,13 @@ import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.CategoryDa
     import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardVisitDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.BoardFetchMetaDao
 import com.websarva.wings.android.bbsviewer.data.datasource.local.dao.PostHistoryDao
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BbsServiceEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardCategoryCrossRef
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BbsServiceEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardCategoryCrossRef
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BoardBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BookmarkBoardEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.BookmarkThreadEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.CategoryEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.CategoryEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bookmark.ThreadBookmarkGroupEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenBoardTabEntity
 import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.OpenThreadTabEntity

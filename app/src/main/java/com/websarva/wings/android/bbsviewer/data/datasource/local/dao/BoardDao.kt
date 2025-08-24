@@ -5,8 +5,8 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardEntity
-import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.BoardWithCategories
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardEntity
+import com.websarva.wings.android.bbsviewer.data.datasource.local.entity.bbs.BoardWithCategories
 import kotlinx.coroutines.flow.Flow
 
 /**
