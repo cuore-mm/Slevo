@@ -70,6 +70,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation("androidx.appcompat:appcompat:1.7.0")
     implementation(libs.androidx.navigation.compose)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -124,6 +125,9 @@ dependencies {
 
     // Telephoto
     implementation(libs.zoomable.image.coil3)
+
+    // Open Source Licenses
+    implementation("com.google.android.gms:play-services-oss-licenses:17.0.1")
 }
 
 // Allow references to generated code
