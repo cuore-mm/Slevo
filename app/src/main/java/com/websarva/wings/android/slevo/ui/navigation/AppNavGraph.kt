@@ -15,6 +15,7 @@ import androidx.navigation.toRoute
 import com.websarva.wings.android.slevo.ui.board.BoardScaffold
 import com.websarva.wings.android.slevo.ui.bookmarklist.BookmarkListScaffold
 import com.websarva.wings.android.slevo.ui.history.HistoryListScaffold
+import com.websarva.wings.android.slevo.ui.more.MoreScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabsScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -53,7 +54,12 @@ fun AppNavGraph(
             )
         }
         //履歴一覧
-        composable<AppRoute.HistoryList> {
+        composable<AppRoute.HistoryList>(
+            enterTransition = { defaultEnterTransition() },
+            exitTransition = { defaultExitTransition() },
+            popEnterTransition = { defaultPopEnterTransition() },
+            popExitTransition = { defaultPopExitTransition() }
+        ) {
             HistoryListScaffold(
                 navController = navController,
                 topBarState = topBarState,
@@ -111,6 +117,14 @@ fun AppNavGraph(
             viewModel = settingsViewModel,
             navController = navController
         )
+        //その他
+        composable<AppRoute.More> {
+            MoreScreen(
+                onBoardListClick = { navController.navigate(AppRoute.ServiceList) },
+                onHistoryClick = { navController.navigate(AppRoute.HistoryList) },
+                onSettingsClick = { navController.navigate(AppRoute.SettingsHome) }
+            )
+        }
         //画像ビューア
         composable<AppRoute.ImageViewer> { backStackEntry ->
             val imageViewerRoute: AppRoute.ImageViewer = backStackEntry.toRoute()
@@ -186,6 +200,9 @@ sealed class AppRoute {
     data object Tabs : AppRoute()
 
     @Serializable
+    data object More : AppRoute()
+
+    @Serializable
     data class ImageViewer(val imageUrl: String) : AppRoute()
 
     data object RouteName {
@@ -202,6 +219,7 @@ sealed class AppRoute {
         const val SETTINGS_NG = "SettingsNg"
         const val SETTINGS_THREAD = "SettingsThread"
         const val TABS = "Tabs"
+        const val MORE = "More"
         const val HISTORY_LIST = "HistoryList"
     }
 }
