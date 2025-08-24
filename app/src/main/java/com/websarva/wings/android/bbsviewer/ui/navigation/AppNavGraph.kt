@@ -11,10 +11,12 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.navigation
 import androidx.navigation.toRoute
 import com.websarva.wings.android.bbsviewer.ui.board.BoardScaffold
 import com.websarva.wings.android.bbsviewer.ui.bookmarklist.BookmarkListScaffold
 import com.websarva.wings.android.bbsviewer.ui.history.HistoryListScaffold
+import com.websarva.wings.android.bbsviewer.ui.more.MoreScreen
 import com.websarva.wings.android.bbsviewer.ui.settings.SettingsViewModel
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsScaffold
 import com.websarva.wings.android.bbsviewer.ui.tabs.TabsViewModel
@@ -52,20 +54,47 @@ fun AppNavGraph(
                 openDrawer = openDrawer
             )
         }
-        //履歴一覧
-        composable<AppRoute.HistoryList> {
-            HistoryListScaffold(
+        //その他
+        navigation<AppRoute.Others>(
+            startDestination = AppRoute.OthersHome,
+            enterTransition = { defaultEnterTransition() },
+            exitTransition = { defaultExitTransition() },
+            popEnterTransition = { defaultPopEnterTransition() },
+            popExitTransition = { defaultPopExitTransition() }
+        ) {
+            composable<AppRoute.OthersHome> {
+                MoreScreen(
+                    onBoardListClick = {
+                        navController.navigate(AppRoute.ServiceList) { launchSingleTop = true }
+                    },
+                    onHistoryClick = {
+                        navController.navigate(AppRoute.HistoryList) { launchSingleTop = true }
+                    },
+                    onSettingsClick = {
+                        navController.navigate(AppRoute.SettingsHome) { launchSingleTop = true }
+                    }
+                )
+            }
+            //履歴一覧
+            composable<AppRoute.HistoryList> {
+                HistoryListScaffold(
+                    navController = navController,
+                    topBarState = topBarState,
+                    parentPadding = parentPadding
+                )
+            }
+            //掲示板一覧
+            addRegisteredBBSNavigation(
+                parentPadding = parentPadding,
                 navController = navController,
-                topBarState = topBarState,
-                parentPadding = parentPadding
+                openDrawer = openDrawer
+            )
+            //設定画面
+            addSettingsRoute(
+                viewModel = settingsViewModel,
+                navController = navController
             )
         }
-        //掲示板一覧
-        addRegisteredBBSNavigation(
-            parentPadding = parentPadding,
-            navController = navController,
-            openDrawer = openDrawer
-        )
         //スレッド一覧
         composable<AppRoute.Board>(
             enterTransition = { defaultEnterTransition() },
@@ -106,11 +135,6 @@ fun AppNavGraph(
                 navController = navController
             )
         }
-        //設定画面
-        addSettingsRoute(
-            viewModel = settingsViewModel,
-            navController = navController
-        )
         //画像ビューア
         composable<AppRoute.ImageViewer> { backStackEntry ->
             val imageViewerRoute: AppRoute.ImageViewer = backStackEntry.toRoute()
@@ -186,6 +210,12 @@ sealed class AppRoute {
     data object Tabs : AppRoute()
 
     @Serializable
+    data object Others : AppRoute()
+
+    @Serializable
+    data object OthersHome : AppRoute()
+
+    @Serializable
     data class ImageViewer(val imageUrl: String) : AppRoute()
 
     data object RouteName {
@@ -203,5 +233,7 @@ sealed class AppRoute {
         const val SETTINGS_THREAD = "SettingsThread"
         const val TABS = "Tabs"
         const val HISTORY_LIST = "HistoryList"
+        const val OTHERS = "Others"
+        const val OTHERS_HOME = "OthersHome"
     }
 }

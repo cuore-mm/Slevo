@@ -3,11 +3,8 @@ package com.websarva.wings.android.bbsviewer.ui.bottombar
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Tab
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,22 +44,10 @@ fun NavigationBottomBar(
             parentRoute = AppRoute.BookmarkList
         ),
         TopLevelRoute(
-            route = AppRoute.HistoryList,
-            name = stringResource(R.string.history),
-            icon = Icons.Default.History,
-            parentRoute = AppRoute.HistoryList
-        ),
-        TopLevelRoute(
-            route = AppRoute.ServiceList,
-            name = stringResource(R.string.boardList),
-            icon = Icons.AutoMirrored.Filled.List,
-            parentRoute = AppRoute.BbsServiceGroup
-        ),
-        TopLevelRoute(
-            route = AppRoute.SettingsHome,
-            name = stringResource(R.string.settings),
-            icon = Icons.Default.Settings,
-            parentRoute = AppRoute.Settings
+            route = AppRoute.OthersHome,
+            name = stringResource(R.string.more),
+            icon = Icons.Default.Menu,
+            parentRoute = AppRoute.Others
         ),
     )
     NavigationBar(modifier = modifier) {

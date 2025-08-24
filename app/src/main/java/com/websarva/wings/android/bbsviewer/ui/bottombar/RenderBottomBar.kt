@@ -16,12 +16,12 @@ import com.websarva.wings.android.bbsviewer.ui.util.isInRoute
 fun RenderBottomBar(
     modifier: Modifier = Modifier,
     navController: NavHostController,
-    navBackStackEntry: NavBackStackEntry?
+    navBackStackEntry: NavBackStackEntry?,
 ) {
     val currentDestination = navBackStackEntry?.destination
     when {
         currentDestination.isInRoute(
-            AppRoute.RouteName.BOOKMARK_LIST
+            AppRoute.RouteName.BOOKMARK_LIST,
         ) -> {
             val viewModel: BookmarkViewModel = hiltViewModel(navBackStackEntry!!)
             val uiState by viewModel.uiState.collectAsState()
@@ -50,26 +50,7 @@ fun RenderBottomBar(
         }
 
         currentDestination.isInRoute(
-            AppRoute.RouteName.HISTORY_LIST
-        ) -> {
-            NavigationBottomBar(
-                modifier = modifier,
-                currentDestination = currentDestination,
-                onClick = { route ->
-                    navController.navigate(route) {
-                        popUpTo(navController.graph.startDestinationId) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                }
-            )
-        }
-
-        currentDestination.isInRoute(
             AppRoute.RouteName.BBS_SERVICE_GROUP,
-            AppRoute.RouteName.TABS
         ) -> {
             val viewModel: ServiceListViewModel = hiltViewModel(navBackStackEntry!!)
             val uiState by viewModel.uiState.collectAsState()
@@ -97,6 +78,26 @@ fun RenderBottomBar(
             }
         }
 
+        currentDestination.isInRoute(
+            AppRoute.RouteName.OTHERS,
+            AppRoute.RouteName.TABS,
+        ) -> {
+            NavigationBottomBar(
+                modifier = modifier,
+                currentDestination = currentDestination,
+                onClick = { route ->
+                    navController.navigate(route) {
+                        popUpTo(navController.graph.startDestinationId) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            )
+        }
+
         else -> {}
     }
 }
+
