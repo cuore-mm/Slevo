@@ -14,7 +14,6 @@ import com.websarva.wings.android.bbsviewer.data.repository.ThreadBookmarkReposi
 import com.websarva.wings.android.bbsviewer.data.repository.BoardRepository
 import com.websarva.wings.android.bbsviewer.data.repository.DatRepository
 import com.websarva.wings.android.bbsviewer.data.model.BoardInfo
-import com.websarva.wings.android.bbsviewer.ui.tabs.TabsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,7 +33,7 @@ import javax.inject.Inject
 class TabsViewModel @Inject constructor(
     private val threadViewModelFactory: ThreadViewModelFactory,
     private val boardViewModelFactory: BoardViewModelFactory,
-    private val repository: TabsRepository,
+    private val tabsRepository: TabsRepository,
     private val bookmarkBoardRepo: BookmarkBoardRepository,
     private val threadBookmarkRepo: ThreadBookmarkRepository,
     private val boardRepository: BoardRepository,
@@ -50,13 +49,13 @@ class TabsViewModel @Inject constructor(
     // threadKey + boardUrl をキーに ThreadViewModel をキャッシュ
     private val threadViewModelMap: MutableMap<String, ThreadViewModel> = mutableMapOf()
 
-    val lastSelectedPage = repository.observeLastSelectedPage()
+    val lastSelectedPage = tabsRepository.observeLastSelectedPage()
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
     init {
         viewModelScope.launch {
             combine(
-                repository.observeOpenBoardTabs(),
+                tabsRepository.observeOpenBoardTabs(),
                 bookmarkBoardRepo.observeGroupsWithBoards()
             ) { tabs, groups ->
                 val colorMap = mutableMapOf<Long, String>()
@@ -76,7 +75,7 @@ class TabsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             combine(
-                repository.observeOpenThreadTabs(),
+                tabsRepository.observeOpenThreadTabs(),
                 threadBookmarkRepo.observeSortedGroupsWithThreadBookmarks()
             ) { tabs, groups ->
                 val colorMap = mutableMapOf<String, String>()
@@ -141,11 +140,11 @@ class TabsViewModel @Inject constructor(
             }
             state.copy(openThreadTabs = updated)
         }
-        viewModelScope.launch { repository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
+        viewModelScope.launch { tabsRepository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
     }
 
     fun setLastSelectedPage(page: Int) {
-        viewModelScope.launch { repository.setLastSelectedPage(page) }
+        viewModelScope.launch { tabsRepository.setLastSelectedPage(page) }
     }
 
     /**
@@ -167,9 +166,15 @@ class TabsViewModel @Inject constructor(
             }
             state.copy(openBoardTabs = updated)
         }
-        viewModelScope.launch { repository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
+        viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
     }
 
+    /**
+     * 指定された板ID・URL・板名からBoardInfoを解決する。
+     * - boardIdが有効ならそれを優先。
+     * - ブックマークからURL一致の板情報を検索。
+     * - それ以外は板名を取得・登録してIDを確定。
+     */
     suspend fun resolveBoardInfo(
         boardId: Long?,
         boardUrl: String,
@@ -202,7 +207,7 @@ class TabsViewModel @Inject constructor(
                 openThreadTabs = state.openThreadTabs.filterNot { it.key == tab.key && it.boardUrl == tab.boardUrl }
             )
         }
-        viewModelScope.launch { repository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
+        viewModelScope.launch { tabsRepository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
     }
 
     /**
@@ -214,7 +219,7 @@ class TabsViewModel @Inject constructor(
         _uiState.update { state ->
             state.copy(openBoardTabs = state.openBoardTabs.filterNot { it.boardUrl == tab.boardUrl })
         }
-        viewModelScope.launch { repository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
+        viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
     }
 
     /**
@@ -231,7 +236,7 @@ class TabsViewModel @Inject constructor(
             }
             state.copy(openThreadTabs = updated, newResCounts = state.newResCounts - (key + boardUrl))
         }
-        viewModelScope.launch { repository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
+        viewModelScope.launch { tabsRepository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
     }
 
     /**
@@ -257,7 +262,7 @@ class TabsViewModel @Inject constructor(
             }
             state.copy(openThreadTabs = updated)
         }
-        viewModelScope.launch { repository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
+        viewModelScope.launch { tabsRepository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
     }
 
     /**
@@ -281,7 +286,7 @@ class TabsViewModel @Inject constructor(
             }
             state.copy(openBoardTabs = updated)
         }
-        viewModelScope.launch { repository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
+        viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
     }
 
     fun clearNewResCount(threadKey: String, boardUrl: String) {

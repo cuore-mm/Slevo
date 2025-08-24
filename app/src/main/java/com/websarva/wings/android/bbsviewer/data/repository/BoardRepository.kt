@@ -39,6 +39,10 @@ class BoardRepository @Inject constructor(
     private val fetchMetaDao: BoardFetchMetaDao,
     private val db: AppDatabase,
 ) {
+    /**
+     * 指定した板IDのスレッド一覧を監視するFlowを返す。
+     * スレッド情報・基準時刻・メタ情報を組み合わせてThreadInfoリストを生成。
+     */
     @RequiresApi(Build.VERSION_CODES.O)
     fun observeThreads(boardId: Long): Flow<List<ThreadInfo>> {
         val baselineFlow = boardVisitDao.observeBaseline(boardId)
@@ -77,10 +81,25 @@ class BoardRepository @Inject constructor(
         }
     }
 
+    /**
+     * 板の既読基準時刻を更新する。
+     * @param boardId 板ID
+     * @param baselineAt 新しい基準時刻
+     */
     suspend fun updateBaseline(boardId: Long, baselineAt: Long) {
         boardVisitDao.upsert(BoardVisitEntity(boardId, baselineAt))
     }
 
+    /**
+     * subject.txtを取得し、スレッド一覧をDBに反映する。
+     * ETag/Last-Modifiedによる差分取得対応。
+     * @param boardId 板ID
+     * @param subjectUrl subject.txtのURL
+     * @param refreshStartAt 取得開始時刻
+     * @param isManual 手動更新かどうか
+     * @param onProgress 進捗コールバック
+     * @return 成功時true
+     */
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun refreshThreadList(
         boardId: Long,
@@ -145,6 +164,11 @@ class BoardRepository @Inject constructor(
         }
     }
 
+    /**
+     * setting.txtから板名(BBS_TITLE)を取得する。
+     * @param settingUrl setting.txtのURL
+     * @return 板名
+     */
     suspend fun fetchBoardName(settingUrl: String): String? {
         val text = remote.fetchSettingTxt(settingUrl) ?: return null
         Log.d("BoardRepository", "Fetched setting text: $text")
@@ -153,6 +177,11 @@ class BoardRepository @Inject constructor(
             ?.substringAfter("=")
     }
 
+    /**
+     * setting.txtから名無し名(BBS_NONAME_NAME)を取得する。
+     * @param settingUrl setting.txtのURL
+     * @return 名無し名
+     */
     suspend fun fetchBoardNoname(settingUrl: String): String? {
         val text = remote.fetchSettingTxt(settingUrl) ?: return null
         return text.lines()
@@ -161,18 +190,24 @@ class BoardRepository @Inject constructor(
     }
 
     /**
-     * 指定した板を boards テーブルに登録し、その ID を返す。
-     * 既に存在する場合はその ID を返すのみ。
+     * 指定した板情報をDBに登録し、そのIDを返す。
+     * 既存の場合はIDのみ返す。
+     * @param boardInfo 板情報
+     * @return 板ID
      */
     suspend fun ensureBoard(boardInfo: BoardInfo): Long = withContext(Dispatchers.IO) {
+        // 既存の板IDが0でなければそのまま返す
         var bId = boardInfo.boardId
         if (bId == 0L) {
+            // サービス名をURLから抽出
             val serviceName = parseServiceName(boardInfo.url)
+            // サービス情報がDBに存在しなければ新規登録
             val service = serviceDao.findByDomain(serviceName) ?: run {
                 val svc = BbsServiceEntity(domain = serviceName, displayName = serviceName, menuUrl = null)
                 val id = serviceDao.upsert(svc)
                 svc.copy(serviceId = id)
             }
+            // 板情報をDBに登録（既存の場合はIDのみ取得）
             val insertedId = boardDao.insertBoard(
                 BoardEntity(
                     serviceId = service.serviceId,
@@ -180,8 +215,10 @@ class BoardRepository @Inject constructor(
                     name = boardInfo.name
                 )
             )
+            // 挿入成功ならそのID、失敗ならURLで再検索
             bId = if (insertedId != -1L) insertedId else boardDao.findBoardIdByUrl(boardInfo.url)
         }
+        // 板IDを返す
         bId
     }
 }
