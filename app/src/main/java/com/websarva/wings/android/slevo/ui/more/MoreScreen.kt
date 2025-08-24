@@ -21,6 +21,7 @@ fun MoreScreen(
     onBoardListClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onAboutClick: () -> Unit,
 ) {
     Scaffold(
     ) { innerPadding ->
@@ -40,6 +41,13 @@ fun MoreScreen(
                 ListItem(
                     modifier = Modifier.clickable(onClick = onSettingsClick),
                     headlineContent = { Text(stringResource(R.string.settings)) }
+                )
+                HorizontalDivider()
+            }
+            item {
+                ListItem(
+                    modifier = Modifier.clickable(onClick = onAboutClick),
+                    headlineContent = { Text(stringResource(R.string.about_app)) }
                 )
             }
         }

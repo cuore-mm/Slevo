@@ -70,4 +70,9 @@
     <string name="new_label">new</string>
 
     <string name="default_thread_sort_order">レスのデフォルトの並び順</string>
+    <string name="about_app">このアプリについて</string>
+    <string name="open_source_licenses">オープンソースライセンス</string>
+    <string name="version_label">バージョン %1$s</string>
+    <string name="github">GitHub</string>
+    <string name="github_url">https://github.com/tsu-nera/Slevo</string>
 </resources>
