@@ -17,6 +17,7 @@ import com.websarva.wings.android.slevo.ui.bookmarklist.BookmarkListScaffold
 import com.websarva.wings.android.slevo.ui.history.HistoryListScaffold
 import com.websarva.wings.android.slevo.ui.more.MoreScreen
 import com.websarva.wings.android.slevo.ui.about.AboutScreen
+import com.websarva.wings.android.slevo.ui.about.OpenSourceLicenseScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabsScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -135,6 +136,18 @@ fun AppNavGraph(
             popExitTransition = { defaultPopExitTransition() }
         ) {
             AboutScreen(
+                onNavigateUp = { navController.navigateUp() },
+                onOpenSourceLicenseClick = { navController.navigate(AppRoute.OpenSourceLicense) }
+            )
+        }
+        //オープンソースライセンス
+        composable<AppRoute.OpenSourceLicense>(
+            enterTransition = { defaultEnterTransition() },
+            exitTransition = { defaultExitTransition() },
+            popEnterTransition = { defaultPopEnterTransition() },
+            popExitTransition = { defaultPopExitTransition() }
+        ) {
+            OpenSourceLicenseScreen(
                 onNavigateUp = { navController.navigateUp() }
             )
         }
@@ -221,6 +234,9 @@ sealed class AppRoute {
     @Serializable
     data object About : AppRoute()
 
+    @Serializable
+    data object OpenSourceLicense : AppRoute()
+
     data object RouteName {
         const val BOOKMARK_LIST = "BookmarkList"
         const val BBS_SERVICE_GROUP = "BbsServiceGroup"
@@ -238,5 +254,6 @@ sealed class AppRoute {
         const val MORE = "More"
         const val HISTORY_LIST = "HistoryList"
         const val ABOUT = "About"
+        const val OPEN_SOURCE_LICENSE = "OpenSourceLicense"
     }
 }
