@@ -10,6 +10,7 @@ import com.websarva.wings.android.slevo.ui.util.keyToDatUrl
 import com.websarva.wings.android.slevo.ui.util.keyToOysterUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -37,14 +38,11 @@ class DatRepository @Inject constructor(
                 val repliesWithMomentum = calculateMomentum(parsedReplies)
                 Pair(repliesWithMomentum, title)
             } catch (e: Exception) {
-                Log.i("DatRepository", "Failed to parse DAT content: ${e.message}")
+                Timber.i("Failed to parse DAT content: ${e.message}")
                 null
             }
         } else {
-            Log.i(
-                "DatRepository",
-                "Failed to fetch DAT content from $primaryUrl and $oysterUrl"
-            )
+            Timber.i("Failed to fetch DAT content from $primaryUrl and $oysterUrl")
             null
         }
     }
@@ -73,7 +71,7 @@ class DatRepository @Inject constructor(
             }
         }
         // すべてのパターンで失敗した場合
-        Log.w("DatRepository", "Failed to parse date string: $dateStr")
+        Timber.w("Failed to parse date string: $dateStr")
         return null
     }
 

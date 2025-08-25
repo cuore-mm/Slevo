@@ -248,7 +248,6 @@ class TabsViewModel @Inject constructor(
         firstVisibleIndex: Int,
         scrollOffset: Int
     ) {
-//        Log.i("TabsViewModel", "Updating scroll position for tabKey: $tabKey, boardUrl: $boardUrl, index: $index, offset: $offset")
         _uiState.update { state ->
             val updated = state.openThreadTabs.map { tab ->
                 if (tab.key == tabKey && tab.boardUrl == boardUrl) {

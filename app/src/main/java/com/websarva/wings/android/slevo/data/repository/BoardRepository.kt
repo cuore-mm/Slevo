@@ -171,7 +171,6 @@ class BoardRepository @Inject constructor(
      */
     suspend fun fetchBoardName(settingUrl: String): String? {
         val text = remote.fetchSettingTxt(settingUrl) ?: return null
-        Log.d("BoardRepository", "Fetched setting text: $text")
         return text.lines()
             .firstOrNull { it.startsWith("BBS_TITLE=") }
             ?.substringAfter("=")

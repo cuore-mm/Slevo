@@ -130,6 +130,9 @@ dependencies {
 
     // AboutLibraries
     implementation(libs.aboutlibraries.compose.m3)
+
+    // Timber
+    implementation(libs.timber)
 }
 
 // Allow references to generated code

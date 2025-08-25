@@ -28,6 +28,7 @@ okhttpBom = "4.12.0"
 navigationCompose = "2.8.9"
 roomRuntime = "2.7.0"
 squareupRetrofitVersion = "2.9.0"
+timber = "5.0.1"
 zoomableImageCoil3 = "0.16.0"
 
 [libraries]
@@ -74,6 +75,7 @@ okhttp-bom = { module = "com.squareup.okhttp3:okhttp-bom", version.ref = "okhttp
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 okhttp3-logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "loggingInterceptor" }
 okhttp3-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
 zoomable-image-coil3 = { module = "me.saket.telephoto:zoomable-image-coil3", version.ref = "zoomableImageCoil3" }
 
 [plugins]
