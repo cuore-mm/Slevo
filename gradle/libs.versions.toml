@@ -1,4 +1,5 @@
 [versions]
+aboutlibrariesComposeM3 = "12.2.4"
 agp = "8.12.0"
 coilComposeVersion = "3.2.0"
 datastorePreferences = "1.1.5"
@@ -30,6 +31,7 @@ squareupRetrofitVersion = "2.9.0"
 zoomableImageCoil3 = "0.16.0"
 
 [libraries]
+aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutlibrariesComposeM3" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
 androidx-foundation = { module = "androidx.compose.foundation:foundation", version.ref = "foundation" }

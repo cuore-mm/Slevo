@@ -12,6 +12,9 @@ plugins {
     kotlin("plugin.serialization") version "2.1.0"
 
     id("com.google.devtools.ksp")
+
+    // AboutLibraries
+    id("com.mikepenz.aboutlibraries.plugin")
 }
 
 // local.propertiesからAPIキーを読み込む
@@ -124,6 +127,9 @@ dependencies {
 
     // Telephoto
     implementation(libs.zoomable.image.coil3)
+
+    // AboutLibraries
+    implementation(libs.aboutlibraries.compose.m3)
 }
 
 // Allow references to generated code
