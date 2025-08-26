@@ -16,6 +16,8 @@ import com.websarva.wings.android.slevo.ui.board.BoardScaffold
 import com.websarva.wings.android.slevo.ui.bookmarklist.BookmarkListScaffold
 import com.websarva.wings.android.slevo.ui.history.HistoryListScaffold
 import com.websarva.wings.android.slevo.ui.more.MoreScreen
+import com.websarva.wings.android.slevo.ui.about.AboutScreen
+import com.websarva.wings.android.slevo.ui.about.OpenSourceLicenseScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabsScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -122,7 +124,31 @@ fun AppNavGraph(
             MoreScreen(
                 onBoardListClick = { navController.navigate(AppRoute.ServiceList) },
                 onHistoryClick = { navController.navigate(AppRoute.HistoryList) },
-                onSettingsClick = { navController.navigate(AppRoute.SettingsHome) }
+                onSettingsClick = { navController.navigate(AppRoute.SettingsHome) },
+                onAboutClick = { navController.navigate(AppRoute.About) }
+            )
+        }
+        //このアプリについて
+        composable<AppRoute.About>(
+            enterTransition = { defaultEnterTransition() },
+            exitTransition = { defaultExitTransition() },
+            popEnterTransition = { defaultPopEnterTransition() },
+            popExitTransition = { defaultPopExitTransition() }
+        ) {
+            AboutScreen(
+                onNavigateUp = { navController.navigateUp() },
+                onOpenSourceLicenseClick = { navController.navigate(AppRoute.OpenSourceLicense) }
+            )
+        }
+        //オープンソースライセンス
+        composable<AppRoute.OpenSourceLicense>(
+            enterTransition = { defaultEnterTransition() },
+            exitTransition = { defaultExitTransition() },
+            popEnterTransition = { defaultPopEnterTransition() },
+            popExitTransition = { defaultPopExitTransition() }
+        ) {
+            OpenSourceLicenseScreen(
+                onNavigateUp = { navController.navigateUp() }
             )
         }
         //画像ビューア
@@ -205,6 +231,12 @@ sealed class AppRoute {
     @Serializable
     data class ImageViewer(val imageUrl: String) : AppRoute()
 
+    @Serializable
+    data object About : AppRoute()
+
+    @Serializable
+    data object OpenSourceLicense : AppRoute()
+
     data object RouteName {
         const val BOOKMARK_LIST = "BookmarkList"
         const val BBS_SERVICE_GROUP = "BbsServiceGroup"
@@ -221,5 +253,7 @@ sealed class AppRoute {
         const val TABS = "Tabs"
         const val MORE = "More"
         const val HISTORY_LIST = "HistoryList"
+        const val ABOUT = "About"
+        const val OPEN_SOURCE_LICENSE = "OpenSourceLicense"
     }
 }

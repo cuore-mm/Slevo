@@ -131,10 +131,6 @@ fun ThreadScaffold(
                         title = uiState.threadInfo.title,
                         resCount = uiState.posts.size
                     )
-                    Log.d(
-                        "ThreadScaffold",
-                        "Updated thread tab info: ${uiState.threadInfo.title}, posts size: ${uiState.posts.size}"
-                    )
                 }
             }
 

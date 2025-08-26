@@ -51,7 +51,6 @@ fun ThreadTopBar(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            Log.d("ThreadTopBar", "Thread title: ${uiState.threadInfo.title}")
         },
         modifier = modifier,
         scrollBehavior = scrollBehavior,

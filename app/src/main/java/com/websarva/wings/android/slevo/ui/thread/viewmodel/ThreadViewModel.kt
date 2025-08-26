@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -189,10 +190,7 @@ class ThreadViewModel @AssistedInject constructor(
                 }
             } else {
                 _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
-                Log.e(
-                    "ThreadViewModel",
-                    "Failed to load thread data for board: $boardUrl key: $key"
-                )
+                Timber.e("Failed to load thread data for board: $boardUrl key: $key")
             }
         } catch (e: Exception) {
             e.printStackTrace()

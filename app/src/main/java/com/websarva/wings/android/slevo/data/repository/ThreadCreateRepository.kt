@@ -1,10 +1,10 @@
 package com.websarva.wings.android.slevo.data.repository
 
-import android.util.Log
 import com.websarva.wings.android.slevo.data.datasource.remote.ThreadCreateRemoteDataSource
 import com.websarva.wings.android.slevo.data.util.PostParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import javax.inject.Inject
 
 class ThreadCreateRepository @Inject constructor(
@@ -32,10 +32,11 @@ class ThreadCreateRepository @Inject constructor(
         message: String,
     ): PostResult = withContext(Dispatchers.IO) {
         try {
-            val response = remoteDataSource.createThreadFirstPhase(host, board, subject, name, mail, message)
+            val response =
+                remoteDataSource.createThreadFirstPhase(host, board, subject, name, mail, message)
             handlePostResponse(response)
         } catch (e: Exception) {
-            Log.e("ThreadCreateRepository", "スレ立て初回リクエスト失敗", e)
+            Timber.e(e, "スレ立て初回リクエスト失敗")
             PostResult.Error("", e.message ?: "不明なエラー")
         }
     }
@@ -49,7 +50,7 @@ class ThreadCreateRepository @Inject constructor(
             val response = remoteDataSource.createThreadSecondPhase(host, board, confirmationData)
             handlePostResponse(response)
         } catch (e: Exception) {
-            Log.e("ThreadCreateRepository", "スレ立て2回目リクエスト失敗", e)
+            Timber.e(e, "スレ立て2回目リクエスト失敗")
             PostResult.Error("", e.message ?: "不明なエラー")
         }
     }

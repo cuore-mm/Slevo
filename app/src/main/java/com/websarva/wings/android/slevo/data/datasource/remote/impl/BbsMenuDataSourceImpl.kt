@@ -14,6 +14,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 
 /**
  * BBS メニューを取得する DataSource の実装。
@@ -48,7 +49,7 @@ class BbsMenuDataSourceImpl @Inject constructor(
                 val body = response.body?.string() ?: return@withContext null
                 return@withContext parseMenuResponse(body)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to fetch menu from $menuUrl", e)
+                Timber.e(e, "Failed to fetch menu from $menuUrl")
                 null
             }
         }
@@ -132,7 +133,7 @@ class BbsMenuDataSourceImpl @Inject constructor(
 
             return contents.ifEmpty { null }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse bbsmenu HTML", e)
+            Timber.e(e, "Failed to parse bbsmenu HTML")
             return null
         }
     }

@@ -12,6 +12,9 @@ plugins {
     kotlin("plugin.serialization") version "2.1.0"
 
     id("com.google.devtools.ksp")
+
+    // AboutLibraries
+    id("com.mikepenz.aboutlibraries.plugin")
 }
 
 // local.propertiesからAPIキーを読み込む
@@ -30,7 +33,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -40,13 +43,19 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
+        debug {
+            isMinifyEnabled = false
+            applicationIdSuffix = ".debug"
+        }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -124,6 +133,12 @@ dependencies {
 
     // Telephoto
     implementation(libs.zoomable.image.coil3)
+
+    // AboutLibraries
+    implementation(libs.aboutlibraries.compose.m3)
+
+    // Timber
+    implementation(libs.timber)
 }
 
 // Allow references to generated code

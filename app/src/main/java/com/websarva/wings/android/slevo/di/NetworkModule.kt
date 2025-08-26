@@ -6,6 +6,7 @@ import com.squareup.moshi.FromJson
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.ToJson
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import com.websarva.wings.android.slevo.BuildConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -15,6 +16,7 @@ import okhttp3.Cache
 import okhttp3.Cookie
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+import timber.log.Timber
 import java.io.File
 import javax.inject.Named
 import javax.inject.Singleton
@@ -41,9 +43,13 @@ object NetworkModule {
         cookieJar: PersistentCookieJar
     ): OkHttpClient {
         val logging = HttpLoggingInterceptor { message ->
-            android.util.Log.d("OkHttp", message)
+            Timber.tag("OkHttp").d(message)
         }.apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BODY
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
 
         // キャッシュディレクトリとサイズを設定

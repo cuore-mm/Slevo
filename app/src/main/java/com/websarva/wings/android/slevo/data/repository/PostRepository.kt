@@ -5,6 +5,7 @@ import com.websarva.wings.android.slevo.data.datasource.remote.PostRemoteDataSou
 import com.websarva.wings.android.slevo.data.util.PostParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import javax.inject.Inject
 
 // 書き込み結果の表現
@@ -46,7 +47,7 @@ class PostRepository @Inject constructor(
             val response = remoteDataSource.postFirstPhase(host, board, threadKey, name, mail, message)
             handlePostResponse(response)
         } catch (e: Exception) {
-            Log.e("PostRepository", "初回投稿リクエスト失敗", e)
+            Timber.e(e, "初回投稿リクエスト失敗")
             PostResult.Error("", e.message ?: "不明なエラー")
         }
     }
@@ -61,7 +62,7 @@ class PostRepository @Inject constructor(
             val response = remoteDataSource.postSecondPhase(host, board, threadKey, confirmationData)
             handlePostResponse(response)
         } catch (e: Exception) {
-            Log.e("PostRepository", "2回目投稿リクエスト失敗", e)
+            Timber.e(e, "2回目投稿リクエスト失敗")
             PostResult.Error("", e.message ?: "不明なエラー")
         }
     }

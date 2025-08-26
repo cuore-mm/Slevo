@@ -13,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.ui.topbar.HomeTopAppBarScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -21,6 +20,7 @@ fun MoreScreen(
     onBoardListClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onAboutClick: () -> Unit,
 ) {
     Scaffold(
     ) { innerPadding ->
@@ -40,6 +40,13 @@ fun MoreScreen(
                 ListItem(
                     modifier = Modifier.clickable(onClick = onSettingsClick),
                     headlineContent = { Text(stringResource(R.string.settings)) }
+                )
+                HorizontalDivider()
+            }
+            item {
+                ListItem(
+                    modifier = Modifier.clickable(onClick = onAboutClick),
+                    headlineContent = { Text(stringResource(R.string.about_this_app)) }
                 )
             }
         }

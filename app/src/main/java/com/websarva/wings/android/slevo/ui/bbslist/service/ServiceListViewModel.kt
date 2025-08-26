@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -76,7 +77,7 @@ class ServiceListViewModel @Inject constructor(
             try {
                 repository.addOrUpdateService(menuUrl)
             } catch (e: Exception) {
-                Log.e(TAG, "サービス追加/更新に失敗: $menuUrl", e)
+                Timber.e(e, "サービス追加/更新に失敗: $menuUrl")
                 _uiState.update { it.copy(errorMessage = "サービス追加に失敗しました") }
             } finally {
                 _uiState.update { it.copy(isLoading = false) }

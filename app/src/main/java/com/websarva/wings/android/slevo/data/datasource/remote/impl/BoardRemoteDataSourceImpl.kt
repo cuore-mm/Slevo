@@ -9,6 +9,7 @@ import okhttp3.CacheControl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.ResponseBody
+import timber.log.Timber
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.charset.Charset
@@ -58,21 +59,21 @@ class BoardRemoteDataSourceImpl @Inject constructor(
                         }
                         else -> {
                             onProgress(1f)
-                            Log.e("BoardRemoteDataSource", "Unexpected response code ${response.code} for $url")
+                            Timber.e("Unexpected response code ${response.code} for $url")
                             null
                         }
                     }
                 }
             } catch (e: IOException) {
                 onProgress(1f)
-                Log.e("BoardRemoteDataSource", "IOException for $url: ${e.message}", e)
+                Timber.e(e, "IOException for $url: ${e.message}")
                 null
             } catch (e: Exception) {
                 onProgress(1f)
-                Log.e("BoardRemoteDataSource", "Exception for $url: ${e.message}", e)
+                Timber.e(e, "Exception for $url: ${e.message}")
                 null
             }
-        }
+    }
 
     override suspend fun fetchSettingTxt(url: String): String? =
         withContext(Dispatchers.IO) {
@@ -86,10 +87,10 @@ class BoardRemoteDataSourceImpl @Inject constructor(
                 if (!response.isSuccessful) return@withContext null
                 response.body?.bytes()?.toString(Charset.forName("Shift_JIS"))
             } catch (e: IOException) {
-                Log.e("BoardRemoteDataSource", "IOException for $url: ${e.message}", e)
+                Timber.e(e, "IOException for $url: ${e.message}")
                 null
             } catch (e: Exception) {
-                Log.e("BoardRemoteDataSource", "Exception for $url: ${e.message}", e)
+                Timber.e(e, "Exception for $url: ${e.message}")
                 null
             }
         }
