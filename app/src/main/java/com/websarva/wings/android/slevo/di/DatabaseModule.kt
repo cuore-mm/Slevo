@@ -2,34 +2,29 @@ package com.websarva.wings.android.slevo.di
 
 import android.content.Context
 import androidx.room.Room
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
-import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.BookmarkThreadDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.NgDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenBoardTabDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenThreadTabDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.BbsServiceDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.BoardCategoryCrossRefDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.BoardDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.CategoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.BoardBookmarkGroupDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.BookmarkBoardDao
-import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.CategoryDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.BookmarkThreadDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.ThreadBookmarkGroupDao
-import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenBoardTabDao
-import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenThreadTabDao
-import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
-import com.websarva.wings.android.slevo.data.datasource.local.dao.NgDao
-import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.ThreadSummaryDao
-import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardVisitDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardFetchMetaDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardVisitDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.ThreadSummaryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostHistoryDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
-import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.TimeZone
 
 /**
  * Hilt モジュール：Room データベースおよび DAO を提供する
@@ -116,7 +111,7 @@ object DatabaseModule {
 
     @Provides
     fun provideBoardGroupDao(db: AppDatabase): BoardBookmarkGroupDao =
-               db.boardGroupDao()
+        db.boardGroupDao()
 
     @Provides
     fun provideThreadBookmarkGroupDao(db: AppDatabase): ThreadBookmarkGroupDao =
