@@ -1,7 +1,6 @@
 package com.websarva.wings.android.slevo.data.repository
 
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import com.websarva.wings.android.slevo.data.datasource.remote.DatRemoteDataSource
 import com.websarva.wings.android.slevo.data.util.parseDat
