@@ -32,8 +32,8 @@ android {
         applicationId = "com.websarva.wings.android.slevo"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -53,6 +53,17 @@ android {
         debug {
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
+        }
+    }
+
+    applicationVariants.all {
+        val variant = this
+        if (variant.buildType.name == "release") {
+            variant.outputs.all {
+                val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+                val fileName = "Slevo-${variant.versionName}.apk"
+                output.outputFileName = fileName
+            }
         }
     }
 
@@ -107,6 +118,7 @@ dependencies {
     implementation(libs.moshi)
     implementation(libs.moshi.kotlin)
     implementation(libs.moshi.adapters)
+    ksp(libs.moshi.kotlin.codegen)
 
     // JSON serialization library, works with the Kotlin serialization plugin
     implementation(libs.kotlinx.serialization.json)
