@@ -51,6 +51,7 @@ import com.websarva.wings.android.slevo.ui.thread.item.PostItem
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.slevo.ui.util.consumeAllPointerEvents
 import kotlin.math.min
 
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
@@ -151,10 +152,12 @@ fun ThreadScreen(
                     }
                     var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
                     PostItem(
-                        modifier = Modifier.onGloballyPositioned { coords ->
-                            val pos = coords.positionInWindow()
-                            itemOffset = IntOffset(pos.x.toInt(), pos.y.toInt())
-                        },
+                        modifier = Modifier
+                            .onGloballyPositioned { coords ->
+                                val pos = coords.positionInWindow()
+                                itemOffset = IntOffset(pos.x.toInt(), pos.y.toInt())
+                            }
+                            .let { if (popupStack.isEmpty()) it else it.consumeAllPointerEvents() },
                         post = post,
                         postNum = postNum,
                         idIndex = uiState.idIndexList.getOrElse(index) { 1 },

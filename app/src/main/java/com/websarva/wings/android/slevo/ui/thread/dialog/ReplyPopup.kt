@@ -27,6 +27,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.ui.thread.item.PostItem
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.slevo.ui.util.consumeAllPointerEvents
 
 data class PopupInfo(
     val posts: List<ReplyInfo>,
@@ -55,6 +56,7 @@ fun ReplyPopup(
 
     val lastIndex = popupStack.lastIndex
     popupStack.forEachIndexed { index, info ->
+        val isTop = index == lastIndex
         Popup(
             popupPositionProvider = object : PopupPositionProvider {
                 override fun calculatePosition(
@@ -76,10 +78,11 @@ fun ReplyPopup(
                     .onGloballyPositioned { coords ->
                         val size = coords.size
                         if (size != info.size) {
-                        popupStack[index] = info.copy(size = size)
+                            popupStack[index] = info.copy(size = size)
+                        }
                     }
-                }
                     .border(width = 2.dp, color = MaterialTheme.colorScheme.primary)
+                    .let { if (isTop) it else it.consumeAllPointerEvents() }
             ) {
                 val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.75f
                 Column(
