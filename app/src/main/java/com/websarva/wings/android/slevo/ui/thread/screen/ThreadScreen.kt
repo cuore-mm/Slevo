@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -46,6 +47,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
+import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.dialog.ReplyPopup
 import com.websarva.wings.android.slevo.ui.thread.item.PostItem
@@ -64,6 +66,7 @@ fun ThreadScreen(
     uiState: ThreadUiState,
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
+    firstNewResNo: Int? = null,
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
 ) {
@@ -185,44 +188,28 @@ fun ThreadScreen(
                         0
                     }
                     var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
-                    PostItem(
-                        modifier = Modifier.onGloballyPositioned { coords ->
-                            val pos = coords.positionInWindow()
-                            itemOffset = IntOffset(pos.x.toInt(), pos.y.toInt())
-                        },
-                        post = post,
-                        postNum = postNum,
-                        idIndex = uiState.idIndexList.getOrElse(index) { 1 },
-                        idTotal = if (post.id.isBlank()) 1 else uiState.idCountMap[post.id] ?: 1,
-                        navController = navController,
-                        boardName = uiState.boardInfo.name,
-                        boardId = uiState.boardInfo.boardId,
-                        indentLevel = indent,
-                        replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
-                        isMyPost = postNum in uiState.myPostNumbers,
-                        onReplyFromClick = { nums ->
-                            val offset = if (popupStack.isEmpty()) {
-                                itemOffset
-                            } else {
-                                val last = popupStack.last()
-                                IntOffset(
-                                    last.offset.x,
-                                    (last.offset.y - last.size.height).coerceAtLeast(0)
-                                )
-                            }
-                            val targets = nums.filterNot { it in ngNumbers }.mapNotNull { num ->
-                                posts.getOrNull(num - 1)
-                            }
-                            if (targets.isNotEmpty()) {
-                                popupStack.add(PopupInfo(targets, offset))
-                            }
-                        },
-                        onReplyClick = { num ->
-                            if (num in 1..posts.size && num !in ngNumbers) {
-                                val target = posts[num - 1]
-                                val baseOffset = itemOffset
+                    Column {
+                        if (firstNewResNo != null && postNum == firstNewResNo) {
+                            NewArrivalBar()
+                        }
+                        PostItem(
+                            modifier = Modifier.onGloballyPositioned { coords ->
+                                val pos = coords.positionInWindow()
+                                itemOffset = IntOffset(pos.x.toInt(), pos.y.toInt())
+                            },
+                            post = post,
+                            postNum = postNum,
+                            idIndex = uiState.idIndexList.getOrElse(index) { 1 },
+                            idTotal = if (post.id.isBlank()) 1 else uiState.idCountMap[post.id] ?: 1,
+                            navController = navController,
+                            boardName = uiState.boardInfo.name,
+                            boardId = uiState.boardInfo.boardId,
+                            indentLevel = indent,
+                            replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
+                            isMyPost = postNum in uiState.myPostNumbers,
+                            onReplyFromClick = { nums ->
                                 val offset = if (popupStack.isEmpty()) {
-                                    baseOffset
+                                    itemOffset
                                 } else {
                                     val last = popupStack.last()
                                     IntOffset(
@@ -230,36 +217,57 @@ fun ThreadScreen(
                                         (last.offset.y - last.size.height).coerceAtLeast(0)
                                     )
                                 }
-                                popupStack.add(PopupInfo(listOf(target), offset))
+                                val targets = nums.filterNot { it in ngNumbers }.mapNotNull { num ->
+                                    posts.getOrNull(num - 1)
+                                }
+                                if (targets.isNotEmpty()) {
+                                    popupStack.add(PopupInfo(targets, offset))
+                                }
+                            },
+                            onReplyClick = { num ->
+                                if (num in 1..posts.size && num !in ngNumbers) {
+                                    val target = posts[num - 1]
+                                    val baseOffset = itemOffset
+                                    val offset = if (popupStack.isEmpty()) {
+                                        baseOffset
+                                    } else {
+                                        val last = popupStack.last()
+                                        IntOffset(
+                                            last.offset.x,
+                                            (last.offset.y - last.size.height).coerceAtLeast(0)
+                                        )
+                                    }
+                                    popupStack.add(PopupInfo(listOf(target), offset))
+                                }
+                            },
+                            onIdClick = { id ->
+                                val offset = if (popupStack.isEmpty()) {
+                                    itemOffset
+                                } else {
+                                    val last = popupStack.last()
+                                    IntOffset(
+                                        last.offset.x,
+                                        (last.offset.y - last.size.height).coerceAtLeast(0)
+                                    )
+                                }
+                                val targets = posts.mapIndexedNotNull { idx, p ->
+                                    val num = idx + 1
+                                    if (p.id == id && num !in ngNumbers) p else null
+                                }
+                                if (targets.isNotEmpty()) {
+                                    popupStack.add(PopupInfo(targets, offset))
+                                }
                             }
-                        },
-                        onIdClick = { id ->
-                            val offset = if (popupStack.isEmpty()) {
-                                itemOffset
-                            } else {
-                                val last = popupStack.last()
-                                IntOffset(
-                                    last.offset.x,
-                                    (last.offset.y - last.size.height).coerceAtLeast(0)
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(
+                                start = 16.dp * min(
+                                    indent,
+                                    nextIndent
                                 )
-                            }
-                            val targets = posts.mapIndexedNotNull { idx, p ->
-                                val num = idx + 1
-                                if (p.id == id && num !in ngNumbers) p else null
-                            }
-                            if (targets.isNotEmpty()) {
-                                popupStack.add(PopupInfo(targets, offset))
-                            }
-                        }
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(
-                            start = 16.dp * min(
-                                indent,
-                                nextIndent
                             )
                         )
-                    )
+                    }
                 }
             }
             // 中央の区切り線
