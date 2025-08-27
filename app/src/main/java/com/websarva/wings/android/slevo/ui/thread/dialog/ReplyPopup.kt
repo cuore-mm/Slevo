@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
@@ -55,6 +56,7 @@ fun ReplyPopup(
 
     val lastIndex = popupStack.lastIndex
     popupStack.forEachIndexed { index, info ->
+        val isTop = index == lastIndex
         Popup(
             popupPositionProvider = object : PopupPositionProvider {
                 override fun calculatePosition(
@@ -76,10 +78,24 @@ fun ReplyPopup(
                     .onGloballyPositioned { coords ->
                         val size = coords.size
                         if (size != info.size) {
-                        popupStack[index] = info.copy(size = size)
+                            popupStack[index] = info.copy(size = size)
+                        }
                     }
-                }
                     .border(width = 2.dp, color = MaterialTheme.colorScheme.primary)
+                    .then(
+                        if (!isTop) {
+                            Modifier.pointerInput(Unit) {
+                                awaitPointerEventScope {
+                                    while (true) {
+                                        val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                        event.changes.forEach { it.consume() }
+                                    }
+                                }
+                            }
+                        } else {
+                            Modifier
+                        }
+                    )
             ) {
                 val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.75f
                 Column(
