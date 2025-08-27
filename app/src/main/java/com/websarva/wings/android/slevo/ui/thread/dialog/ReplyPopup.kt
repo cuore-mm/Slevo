@@ -60,7 +60,9 @@ fun ReplyPopup(
 ) {
     val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
     while (visibilityStates.size < popupStack.size) {
-        visibilityStates.add(MutableTransitionState(true))
+        visibilityStates.add(
+            MutableTransitionState(false).apply { targetState = true }
+        )
     }
     while (visibilityStates.size > popupStack.size) {
         visibilityStates.removeLast()
