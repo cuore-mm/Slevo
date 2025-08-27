@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.dialog
 
 import android.annotation.SuppressLint
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.border
 import androidx.compose.material3.Card
 import androidx.compose.foundation.layout.Column
@@ -48,6 +49,11 @@ fun ReplyPopup(
     boardId: Long,
     onClose: () -> Unit
 ) {
+    BackHandler(enabled = popupStack.isNotEmpty()) {
+        onClose()
+    }
+
+    val lastIndex = popupStack.lastIndex
     popupStack.forEachIndexed { index, info ->
         Popup(
             popupPositionProvider = object : PopupPositionProvider {
@@ -63,13 +69,13 @@ fun ReplyPopup(
                     )
                 }
             },
-            onDismissRequest = onClose
+            onDismissRequest = if (index == lastIndex) onClose else ({})
         ) {
             Card(
                 modifier = Modifier
                     .onGloballyPositioned { coords ->
-                    val size = coords.size
-                    if (size != info.size) {
+                        val size = coords.size
+                        if (size != info.size) {
                         popupStack[index] = info.copy(size = size)
                     }
                 }
