@@ -1,13 +1,16 @@
 package com.websarva.wings.android.slevo.ui.thread.dialog
 
 import android.annotation.SuppressLint
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.material3.Card
 import androidx.compose.foundation.layout.Column
@@ -43,6 +46,10 @@ data class PopupInfo(
     val size: IntSize = IntSize.Zero,
 )
 
+// アニメーションの速度（ミリ秒）
+private const val POPUP_ANIMATION_DURATION = 300
+
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 fun ReplyPopup(
@@ -109,8 +116,8 @@ fun ReplyPopup(
         ) {
             AnimatedVisibility(
                 visibleState = visibleState,
-                enter = fadeIn() + scaleIn(),
-                exit = fadeOut() + scaleOut()
+                enter = fadeIn(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)) + scaleIn(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)),
+                exit = fadeOut(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)) + scaleOut(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION))
             ) {
                 Card(
                     modifier = Modifier
@@ -203,6 +210,7 @@ fun ReplyPopup(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @SuppressLint("UnrememberedMutableState")
 @Preview(showBackground = true)
 @Composable
