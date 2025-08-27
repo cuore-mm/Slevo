@@ -23,6 +23,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +53,9 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import kotlin.math.min
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
@@ -61,6 +65,7 @@ fun ThreadScreen(
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
     onBottomRefresh: () -> Unit = {},
+    onLastRead: (Int) -> Unit = {},
 ) {
     val posts = uiState.posts ?: emptyList()
     val order = if (uiState.sortType == ThreadSortType.TREE) {
@@ -81,6 +86,32 @@ fun ThreadScreen(
     val replyCounts = visiblePosts.map { (num, _) -> uiState.replySourceMap[num]?.size ?: 0 }
     val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
     val ngNumbers = uiState.ngPostNumbers
+
+    LaunchedEffect(listState, visiblePosts, uiState.sortType) {
+        snapshotFlow { listState.isScrollInProgress }
+            .collect { scrolling ->
+                if (!scrolling) {
+                    delay(500)
+                    if (!listState.isScrollInProgress) {
+                        val layoutInfo = listState.layoutInfo
+                        val half = layoutInfo.viewportEndOffset / 2
+                        val lastRead = layoutInfo.visibleItemsInfo
+                            .filter { it.offset < half }
+                            .mapNotNull { info ->
+                                val idx = info.index - 1
+                                if (idx in visiblePosts.indices) {
+                                    val num = visiblePosts[idx].first
+                                    if (uiState.sortType != ThreadSortType.TREE || (uiState.treeDepthMap[num]
+                                            ?: 0) == 0
+                                    ) num else null
+                                } else null
+                            }
+                            .maxOrNull()
+                        lastRead?.let { onLastRead(it) }
+                    }
+                }
+            }
+    }
 
     val density = LocalDensity.current
     val refreshThresholdPx = with(density) { 80.dp.toPx() }

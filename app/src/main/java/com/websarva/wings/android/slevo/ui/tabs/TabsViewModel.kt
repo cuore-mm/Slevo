@@ -265,6 +265,23 @@ class TabsViewModel @Inject constructor(
     }
 
     /**
+     * 最後に読んだレス番号を保存する。
+     */
+    fun updateThreadLastRead(tabKey: String, boardUrl: String, lastReadResNo: Int) {
+        _uiState.update { state ->
+            val updated = state.openThreadTabs.map { tab ->
+                if (tab.key == tabKey && tab.boardUrl == boardUrl && lastReadResNo > tab.lastReadResNo) {
+                    tab.copy(lastReadResNo = lastReadResNo)
+                } else {
+                    tab
+                }
+            }
+            state.copy(openThreadTabs = updated)
+        }
+        viewModelScope.launch { tabsRepository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
+    }
+
+    /**
      * 板タブのスクロール位置を保存する。
      */
     fun updateBoardScrollPosition(

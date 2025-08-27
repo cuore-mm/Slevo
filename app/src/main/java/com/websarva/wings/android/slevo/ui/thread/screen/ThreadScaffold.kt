@@ -139,7 +139,14 @@ fun ThreadScaffold(
                 uiState = uiState,
                 listState = listState,
                 navController = navController,
-                onBottomRefresh = { viewModel.reloadThread() }
+                onBottomRefresh = { viewModel.reloadThread() },
+                onLastRead = { resNum ->
+                    tabsViewModel.updateThreadLastRead(
+                        uiState.threadInfo.key,
+                        uiState.boardInfo.url,
+                        resNum
+                    )
+                }
             )
         },
         optionalSheetContent = { viewModel, uiState ->
