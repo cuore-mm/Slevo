@@ -229,11 +229,12 @@ class TabsViewModel @Inject constructor(
         _uiState.update { state ->
             val updated = state.openThreadTabs.map { tab ->
                 if (tab.key == key && tab.boardUrl == boardUrl) {
-                    val newFirst = if (tab.firstNewResNo <= tab.lastReadResNo) {
+                    val candidate = if (tab.firstNewResNo == null || tab.firstNewResNo <= tab.lastReadResNo) {
                         tab.lastReadResNo + 1
                     } else {
                         tab.firstNewResNo
                     }
+                    val newFirst = if (candidate > resCount) null else candidate
                     tab.copy(title = title, resCount = resCount, firstNewResNo = newFirst)
                 } else {
                     tab
@@ -276,7 +277,13 @@ class TabsViewModel @Inject constructor(
         _uiState.update { state ->
             val updated = state.openThreadTabs.map { tab ->
                 if (tab.key == tabKey && tab.boardUrl == boardUrl && lastReadResNo > tab.lastReadResNo) {
-                    tab.copy(lastReadResNo = lastReadResNo)
+                    val candidate = if (tab.firstNewResNo == null || tab.firstNewResNo <= lastReadResNo) {
+                        lastReadResNo + 1
+                    } else {
+                        tab.firstNewResNo
+                    }
+                    val newFirst = if (candidate > tab.resCount) null else candidate
+                    tab.copy(lastReadResNo = lastReadResNo, firstNewResNo = newFirst)
                 } else {
                     tab
                 }
@@ -328,11 +335,12 @@ class TabsViewModel @Inject constructor(
                 if (diff > 0) {
                     resultMap[tab.key + tab.boardUrl] = diff
                 }
-                val newFirst = if (tab.firstNewResNo <= tab.lastReadResNo) {
+                val candidate = if (tab.firstNewResNo == null || tab.firstNewResNo <= tab.lastReadResNo) {
                     tab.lastReadResNo + 1
                 } else {
                     tab.firstNewResNo
                 }
+                val newFirst = if (candidate > size) null else candidate
                 tab.copy(resCount = size, firstNewResNo = newFirst)
             }
             _uiState.update { state ->
