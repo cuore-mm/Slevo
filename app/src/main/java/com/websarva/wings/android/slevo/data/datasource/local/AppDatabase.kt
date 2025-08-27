@@ -58,7 +58,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.history.Pos
         BoardFetchMetaEntity::class,
         PostHistoryEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -84,6 +84,14 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE open_thread_tabs ADD COLUMN lastReadResNo INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
+        val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE open_thread_tabs ADD COLUMN firstNewResNo INTEGER NOT NULL DEFAULT 0"
                 )
             }
         }

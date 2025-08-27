@@ -62,6 +62,7 @@ class TabsRepository @Inject constructor(
                     boardId = entity.boardId,
                     resCount = entity.resCount,
                     lastReadResNo = entity.lastReadResNo,
+                    firstNewResNo = entity.firstNewResNo,
                     firstVisibleItemIndex = entity.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = entity.firstVisibleItemScrollOffset
                 )
@@ -80,6 +81,7 @@ class TabsRepository @Inject constructor(
                     title = info.title,
                     resCount = info.resCount,
                     lastReadResNo = info.lastReadResNo,
+                    firstNewResNo = info.firstNewResNo,
                     sortOrder = index,
                     firstVisibleItemIndex = info.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = info.firstVisibleItemScrollOffset
