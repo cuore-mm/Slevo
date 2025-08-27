@@ -4,21 +4,21 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModelFactory
+import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.repository.BoardRepository
+import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
+import com.websarva.wings.android.slevo.data.repository.DatRepository
+import com.websarva.wings.android.slevo.data.repository.TabsRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.ui.board.BoardViewModel
 import com.websarva.wings.android.slevo.ui.board.BoardViewModelFactory
-import com.websarva.wings.android.slevo.data.repository.TabsRepository
-import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
-import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
-import com.websarva.wings.android.slevo.data.repository.BoardRepository
-import com.websarva.wings.android.slevo.data.repository.DatRepository
-import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModelFactory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -125,7 +125,8 @@ class TabsViewModel @Inject constructor(
     fun openThreadTab(tabInfo: ThreadTabInfo) {
         _uiState.update { state ->
             val currentTabs = state.openThreadTabs
-            val tabIndex = currentTabs.indexOfFirst { it.key == tabInfo.key && it.boardUrl == tabInfo.boardUrl }
+            val tabIndex =
+                currentTabs.indexOfFirst { it.key == tabInfo.key && it.boardUrl == tabInfo.boardUrl }
             val updated = if (tabIndex != -1) {
                 currentTabs.toMutableList().apply {
                     this[tabIndex] = this[tabIndex].copy(
@@ -229,18 +230,23 @@ class TabsViewModel @Inject constructor(
         _uiState.update { state ->
             val updated = state.openThreadTabs.map { tab ->
                 if (tab.key == key && tab.boardUrl == boardUrl) {
-                    val candidate = if (tab.firstNewResNo == null || tab.firstNewResNo <= tab.lastReadResNo) {
+                    val candidate = if (tab.lastReadResNo == 0) {
+                        null
+                    } else if (tab.firstNewResNo == null || tab.firstNewResNo <= tab.lastReadResNo) {
                         tab.lastReadResNo + 1
                     } else {
                         tab.firstNewResNo
                     }
-                    val newFirst = if (candidate > resCount) null else candidate
+                    val newFirst = candidate?.let { if (it > resCount) null else candidate }
                     tab.copy(title = title, resCount = resCount, firstNewResNo = newFirst)
                 } else {
                     tab
                 }
             }
-            state.copy(openThreadTabs = updated, newResCounts = state.newResCounts - (key + boardUrl))
+            state.copy(
+                openThreadTabs = updated,
+                newResCounts = state.newResCounts - (key + boardUrl)
+            )
         }
         viewModelScope.launch { tabsRepository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
     }
@@ -277,12 +283,13 @@ class TabsViewModel @Inject constructor(
         _uiState.update { state ->
             val updated = state.openThreadTabs.map { tab ->
                 if (tab.key == tabKey && tab.boardUrl == boardUrl && lastReadResNo > tab.lastReadResNo) {
-                    val candidate = if (tab.firstNewResNo == null || tab.firstNewResNo <= lastReadResNo) {
-                        lastReadResNo + 1
-                    } else {
-                        tab.firstNewResNo
-                    }
-                    val newFirst = if (candidate > tab.resCount) null else candidate
+                    val candidate =
+                        if (tab.firstNewResNo == null || tab.firstNewResNo <= lastReadResNo) {
+                            lastReadResNo + 1
+                        } else {
+                            tab.firstNewResNo
+                        }
+                    val newFirst = if (candidate > tab.resCount) null else tab.firstNewResNo
                     tab.copy(lastReadResNo = lastReadResNo, firstNewResNo = newFirst)
                 } else {
                     tab
@@ -335,11 +342,12 @@ class TabsViewModel @Inject constructor(
                 if (diff > 0) {
                     resultMap[tab.key + tab.boardUrl] = diff
                 }
-                val candidate = if (tab.firstNewResNo == null || tab.firstNewResNo <= tab.lastReadResNo) {
-                    tab.lastReadResNo + 1
-                } else {
-                    tab.firstNewResNo
-                }
+                val candidate =
+                    if (tab.firstNewResNo == null || tab.firstNewResNo <= tab.lastReadResNo) {
+                        tab.lastReadResNo + 1
+                    } else {
+                        tab.firstNewResNo
+                    }
                 val newFirst = if (candidate > size) null else candidate
                 tab.copy(resCount = size, firstNewResNo = newFirst)
             }
