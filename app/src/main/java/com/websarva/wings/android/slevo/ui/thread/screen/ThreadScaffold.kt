@@ -139,11 +139,15 @@ fun ThreadScaffold(
                 }
             }
 
+            val firstNewResNo = tabsUiState.openThreadTabs.find {
+                it.key == uiState.threadInfo.key && it.boardUrl == uiState.boardInfo.url
+            }?.firstNewResNo
             ThreadScreen(
                 modifier = modifier,
                 uiState = uiState,
                 listState = listState,
                 navController = navController,
+                firstNewResNo = firstNewResNo,
                 onBottomRefresh = { viewModel.reloadThread() },
                 onLastRead = { resNum ->
                     tabsViewModel.updateThreadLastRead(

@@ -68,6 +68,7 @@
     <string name="all_boards">すべての板</string>
     <string name="search_board_hint">板名またはURLで検索</string>
     <string name="new_label">new</string>
+    <string name="new_responses">新着</string>
 
     <string name="default_thread_sort_order">レスのデフォルトの並び順</string>
 
