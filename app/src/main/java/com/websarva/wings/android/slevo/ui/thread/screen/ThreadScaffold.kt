@@ -122,9 +122,10 @@ fun ThreadScaffold(
             )
         },
         content = { viewModel, uiState, listState, modifier, navController ->
-            LaunchedEffect(uiState.threadInfo.key, uiState.posts?.size) {
+            LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
                 if (
+                    !uiState.isLoading &&
                     uiState.threadInfo.title.isNotEmpty() &&
                     uiState.posts != null &&
                     uiState.threadInfo.key.isNotEmpty()

@@ -229,8 +229,8 @@ class TabsViewModel @Inject constructor(
         _uiState.update { state ->
             val updated = state.openThreadTabs.map { tab ->
                 if (tab.key == key && tab.boardUrl == boardUrl) {
-                    val newFirst = if (resCount > tab.resCount) {
-                        if (tab.firstNewResNo <= tab.lastReadResNo) tab.lastReadResNo + 1 else tab.firstNewResNo
+                    val newFirst = if (tab.firstNewResNo <= tab.lastReadResNo) {
+                        tab.lastReadResNo + 1
                     } else {
                         tab.firstNewResNo
                     }
@@ -328,8 +328,8 @@ class TabsViewModel @Inject constructor(
                 if (diff > 0) {
                     resultMap[tab.key + tab.boardUrl] = diff
                 }
-                val newFirst = if (diff > 0) {
-                    if (tab.firstNewResNo <= tab.lastReadResNo) tab.lastReadResNo + 1 else tab.firstNewResNo
+                val newFirst = if (tab.firstNewResNo <= tab.lastReadResNo) {
+                    tab.lastReadResNo + 1
                 } else {
                     tab.firstNewResNo
                 }
