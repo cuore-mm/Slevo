@@ -87,27 +87,17 @@ fun ThreadScreen(
     val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
     val ngNumbers = uiState.ngPostNumbers
 
-    LaunchedEffect(listState, visiblePosts, uiState.sortType) {
+    LaunchedEffect(listState, posts) {
         snapshotFlow { listState.isScrollInProgress }
             .collect { scrolling ->
                 if (!scrolling) {
                     delay(500)
-                    if (!listState.isScrollInProgress) {
-                        val layoutInfo = listState.layoutInfo
-                        val half = layoutInfo.viewportEndOffset / 2
-                        val lastRead = layoutInfo.visibleItemsInfo
-                            .filter { it.offset < half }
-                            .mapNotNull { info ->
-                                val idx = info.index - 1
-                                if (idx in visiblePosts.indices) {
-                                    val num = visiblePosts[idx].first
-                                    if (uiState.sortType != ThreadSortType.TREE || (uiState.treeDepthMap[num]
-                                            ?: 0) == 0
-                                    ) num else null
-                                } else null
-                            }
-                            .maxOrNull()
-                        lastRead?.let { onLastRead(it) }
+                    if (
+                        !listState.isScrollInProgress &&
+                        !listState.canScrollForward &&
+                        posts.isNotEmpty()
+                    ) {
+                        onLastRead(posts.size)
                     }
                 }
             }
