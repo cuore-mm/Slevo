@@ -7,6 +7,7 @@ data class ThreadTabInfo(
     val boardUrl: String,
     val boardId: Long,
     val resCount: Int = 0,
+    val lastReadResNo: Int = 0,
     val firstVisibleItemIndex: Int = 0, // スクロール位置（インデックス）
     val firstVisibleItemScrollOffset: Int = 0, // スクロール位置（オフセット）
     val bookmarkColorName: String? = null
