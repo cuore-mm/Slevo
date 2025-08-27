@@ -2,6 +2,12 @@ package com.websarva.wings.android.slevo.ui.thread.dialog
 
 import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.border
 import androidx.compose.material3.Card
 import androidx.compose.foundation.layout.Column
@@ -13,6 +19,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
@@ -50,13 +58,29 @@ fun ReplyPopup(
     boardId: Long,
     onClose: () -> Unit
 ) {
+    val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
+    while (visibilityStates.size < popupStack.size) {
+        visibilityStates.add(MutableTransitionState(true))
+    }
+    while (visibilityStates.size > popupStack.size) {
+        visibilityStates.removeLast()
+    }
+
     BackHandler(enabled = popupStack.isNotEmpty()) {
-        onClose()
+        visibilityStates.lastOrNull()?.let { it.targetState = false }
     }
 
     val lastIndex = popupStack.lastIndex
     popupStack.forEachIndexed { index, info ->
         val isTop = index == lastIndex
+        val state = visibilityStates[index]
+
+        LaunchedEffect(state.currentState) {
+            if (!state.currentState) {
+                onClose()
+            }
+        }
+
         Popup(
             popupPositionProvider = object : PopupPositionProvider {
                 override fun calculatePosition(
@@ -71,32 +95,39 @@ fun ReplyPopup(
                     )
                 }
             },
-            onDismissRequest = if (index == lastIndex) onClose else ({})
+            onDismissRequest = if (isTop) {
+                { state.targetState = false }
+            } else ({})
         ) {
-            Card(
-                modifier = Modifier
-                    .onGloballyPositioned { coords ->
-                        val size = coords.size
-                        if (size != info.size) {
-                            popupStack[index] = info.copy(size = size)
+            AnimatedVisibility(
+                visibleState = state,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut()
+            ) {
+                Card(
+                    modifier = Modifier
+                        .onGloballyPositioned { coords ->
+                            val size = coords.size
+                            if (size != info.size) {
+                                popupStack[index] = info.copy(size = size)
+                            }
                         }
-                    }
-                    .border(width = 2.dp, color = MaterialTheme.colorScheme.primary)
-                    .then(
-                        if (!isTop) {
-                            Modifier.pointerInput(Unit) {
-                                awaitPointerEventScope {
-                                    while (true) {
-                                        val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
-                                        event.changes.forEach { it.consume() }
+                        .border(width = 2.dp, color = MaterialTheme.colorScheme.primary)
+                        .then(
+                            if (!isTop) {
+                                Modifier.pointerInput(Unit) {
+                                    awaitPointerEventScope {
+                                        while (true) {
+                                            val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                            event.changes.forEach { it.consume() }
+                                        }
                                     }
                                 }
+                            } else {
+                                Modifier
                             }
-                        } else {
-                            Modifier
-                        }
-                    )
-            ) {
+                        )
+                ) {
                 val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.75f
                 Column(
                     modifier = Modifier
@@ -161,6 +192,8 @@ fun ReplyPopup(
             }
         }
     }
+}
+
 }
 
 @SuppressLint("UnrememberedMutableState")
