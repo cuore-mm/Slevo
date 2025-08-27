@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.ui.thread.item.PostItem
@@ -49,6 +50,7 @@ fun ReplyPopup(
     onClose: () -> Unit
 ) {
     popupStack.forEachIndexed { index, info ->
+        val isTopMost = index == popupStack.lastIndex
         Popup(
             popupPositionProvider = object : PopupPositionProvider {
                 override fun calculatePosition(
@@ -63,7 +65,11 @@ fun ReplyPopup(
                     )
                 }
             },
-            onDismissRequest = onClose
+            onDismissRequest = { if (isTopMost) onClose() },
+            properties = PopupProperties(
+                dismissOnClickOutside = isTopMost,
+                dismissOnBackPress = isTopMost,
+            ),
         ) {
             Card(
                 modifier = Modifier
