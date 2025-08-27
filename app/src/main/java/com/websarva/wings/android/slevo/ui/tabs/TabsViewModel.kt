@@ -229,7 +229,13 @@ class TabsViewModel @Inject constructor(
         _uiState.update { state ->
             val updated = state.openThreadTabs.map { tab ->
                 if (tab.key == key && tab.boardUrl == boardUrl) {
-                    tab.copy(title = title, resCount = resCount)
+                    val diff = resCount - tab.resCount
+                    val firstNew = if (diff > 0 && tab.firstNewResNo <= tab.lastReadResNo) {
+                        tab.lastReadResNo + 1
+                    } else {
+                        tab.firstNewResNo
+                    }
+                    tab.copy(title = title, resCount = resCount, firstNewResNo = firstNew)
                 } else {
                     tab
                 }
@@ -316,17 +322,30 @@ class TabsViewModel @Inject constructor(
             _uiState.update { it.copy(isRefreshing = true) }
             val currentTabs = _uiState.value.openThreadTabs
             val resultMap = mutableMapOf<String, Int>()
-            currentTabs.forEach { tab ->
+            val updatedTabs = currentTabs.map { tab ->
                 val res = datRepository.getThread(tab.boardUrl, tab.key)
                 val size = res?.first?.size ?: tab.resCount
                 val diff = size - tab.resCount
                 if (diff > 0) {
                     resultMap[tab.key + tab.boardUrl] = diff
+                    val firstNew = if (tab.firstNewResNo <= tab.lastReadResNo) {
+                        tab.lastReadResNo + 1
+                    } else {
+                        tab.firstNewResNo
+                    }
+                    tab.copy(firstNewResNo = firstNew)
+                } else {
+                    tab
                 }
             }
             _uiState.update { state ->
-                state.copy(newResCounts = resultMap, isRefreshing = false)
+                state.copy(
+                    openThreadTabs = updatedTabs,
+                    newResCounts = resultMap,
+                    isRefreshing = false
+                )
             }
+            tabsRepository.saveOpenThreadTabs(updatedTabs)
         }
     }
 
