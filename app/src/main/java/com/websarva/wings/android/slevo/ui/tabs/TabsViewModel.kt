@@ -283,14 +283,7 @@ class TabsViewModel @Inject constructor(
         _uiState.update { state ->
             val updated = state.openThreadTabs.map { tab ->
                 if (tab.key == tabKey && tab.boardUrl == boardUrl && lastReadResNo > tab.lastReadResNo) {
-                    val candidate =
-                        if (tab.firstNewResNo == null || tab.firstNewResNo <= lastReadResNo) {
-                            lastReadResNo + 1
-                        } else {
-                            tab.firstNewResNo
-                        }
-                    val newFirst = if (candidate > tab.resCount) null else tab.firstNewResNo
-                    tab.copy(lastReadResNo = lastReadResNo, firstNewResNo = newFirst)
+                    tab.copy(lastReadResNo = lastReadResNo)
                 } else {
                     tab
                 }
