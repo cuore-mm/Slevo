@@ -59,6 +59,13 @@ import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 
+private data class DisplayPost(
+    val num: Int,
+    val post: ReplyInfo,
+    val isDuplicate: Boolean,
+    val isNewSection: Boolean,
+)
+
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun ThreadScreen(
@@ -71,24 +78,46 @@ fun ThreadScreen(
     onLastRead: (Int) -> Unit = {},
 ) {
     val posts = uiState.posts ?: emptyList()
-    val order = if (uiState.sortType == ThreadSortType.TREE) {
-        uiState.treeOrder
+    val displayOrder: List<DisplayPost> = if (uiState.sortType == ThreadSortType.TREE && firstNewResNo != null) {
+        val regex = Regex("^>>(\\d+)")
+        val oldOrder = uiState.treeOrder.filter { it < firstNewResNo }
+        val newNums = uiState.treeOrder.filter { it >= firstNewResNo }
+        val list = mutableListOf<DisplayPost>()
+        oldOrder.forEach { num ->
+            posts.getOrNull(num - 1)?.let {
+                list.add(DisplayPost(num, it, isDuplicate = false, isNewSection = false))
+            }
+        }
+        newNums.forEach { num ->
+            val post = posts.getOrNull(num - 1) ?: return@forEach
+            val parentNum = regex.find(post.content)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            if (parentNum != null && parentNum < firstNewResNo) {
+                posts.getOrNull(parentNum - 1)?.let { parent ->
+                    list.add(DisplayPost(parentNum, parent, isDuplicate = true, isNewSection = true))
+                }
+            }
+            list.add(DisplayPost(num, post, isDuplicate = false, isNewSection = true))
+        }
+        list
     } else {
-        (1..posts.size).toList()
-    }
-    val orderedPosts = order.mapNotNull { num ->
-        posts.getOrNull(num - 1)?.let { num to it }
+        val order = if (uiState.sortType == ThreadSortType.TREE) uiState.treeOrder else (1..posts.size).toList()
+        order.mapNotNull { num ->
+            posts.getOrNull(num - 1)?.let {
+                DisplayPost(num, it, isDuplicate = false, isNewSection = false)
+            }
+        }
     }
     val filteredPosts = if (uiState.searchQuery.isNotBlank()) {
-        orderedPosts.filter { it.second.content.contains(uiState.searchQuery, ignoreCase = true) }
+        displayOrder.filter { it.post.content.contains(uiState.searchQuery, ignoreCase = true) }
     } else {
-        orderedPosts
+        displayOrder
     }
-    val visiblePosts = filteredPosts.filterNot { it.first in uiState.ngPostNumbers }
-    val displayPosts = visiblePosts.map { it.second }
-    val replyCounts = visiblePosts.map { (num, _) -> uiState.replySourceMap[num]?.size ?: 0 }
+    val visiblePosts = filteredPosts.filterNot { it.num in uiState.ngPostNumbers }
+    val displayPosts = visiblePosts.map { it.post }
+    val replyCounts = visiblePosts.map { uiState.replySourceMap[it.num]?.size ?: 0 }
     val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
     val ngNumbers = uiState.ngPostNumbers
+    val boundaryIndex = if (firstNewResNo != null) visiblePosts.indexOfFirst { it.isNewSection } else -1
 
     LaunchedEffect(listState, visiblePosts, uiState.sortType) {
         snapshotFlow { listState.isScrollInProgress }
@@ -106,7 +135,7 @@ fun ThreadScreen(
                                 .mapNotNull { info ->
                                     val idx = info.index - 1
                                     if (idx in visiblePosts.indices) {
-                                        val num = visiblePosts[idx].first
+                                        val num = visiblePosts[idx].num
                                         if (uiState.sortType != ThreadSortType.TREE || (uiState.treeDepthMap[num]
                                                 ?: 0) == 0
                                         ) num else null
@@ -163,7 +192,7 @@ fun ThreadScreen(
             ) {
                 if (visiblePosts.isNotEmpty()) {
                     val firstIndent = if (uiState.sortType == ThreadSortType.TREE) {
-                        uiState.treeDepthMap[visiblePosts.first().first] ?: 0
+                        uiState.treeDepthMap[visiblePosts.first().num] ?: 0
                     } else {
                         0
                     }
@@ -172,7 +201,9 @@ fun ThreadScreen(
                     }
                 }
 
-                itemsIndexed(visiblePosts) { idx, (postNum, post) ->
+                itemsIndexed(visiblePosts) { idx, item ->
+                    val postNum = item.num
+                    val post = item.post
                     val index = postNum - 1
                     val indent = if (uiState.sortType == ThreadSortType.TREE) {
                         uiState.treeDepthMap[postNum] ?: 0
@@ -181,7 +212,7 @@ fun ThreadScreen(
                     }
                     val nextIndent = if (idx + 1 < visiblePosts.size) {
                         if (uiState.sortType == ThreadSortType.TREE) {
-                            uiState.treeDepthMap[visiblePosts[idx + 1].first] ?: 0
+                            uiState.treeDepthMap[visiblePosts[idx + 1].num] ?: 0
                         } else {
                             0
                         }
@@ -190,7 +221,7 @@ fun ThreadScreen(
                     }
                     var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
                     Column {
-                        if (firstNewResNo != null && postNum == firstNewResNo) {
+                        if (boundaryIndex != -1 && idx == boundaryIndex) {
                             NewArrivalBar()
                         }
                         PostItem(
@@ -208,6 +239,7 @@ fun ThreadScreen(
                             indentLevel = indent,
                             replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
                             isMyPost = postNum in uiState.myPostNumbers,
+                            isDimmed = item.isDuplicate,
                             onReplyFromClick = { nums ->
                                 val offset = if (popupStack.isEmpty()) {
                                     itemOffset

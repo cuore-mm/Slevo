@@ -24,6 +24,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -78,6 +79,7 @@ fun PostItem(
     indentLevel: Int = 0,
     replyFromNumbers: List<Int> = emptyList(),
     isMyPost: Boolean = false,
+    isDimmed: Boolean = false,
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null,
     onIdClick: ((String) -> Unit)? = null,
@@ -102,6 +104,7 @@ fun PostItem(
         modifier = modifier
             .fillMaxWidth()
             .padding(start = 16.dp * indentLevel)
+            .alpha(if (isDimmed) 0.6f else 1f)
             .drawBehind {
                 if (indentLevel > 0) {
                     val strokeWidth = 1.dp.toPx()
