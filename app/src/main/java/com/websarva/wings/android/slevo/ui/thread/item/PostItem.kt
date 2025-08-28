@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
@@ -78,6 +79,7 @@ fun PostItem(
     indentLevel: Int = 0,
     replyFromNumbers: List<Int> = emptyList(),
     isMyPost: Boolean = false,
+    isGhost: Boolean = false,
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null,
     onIdClick: ((String) -> Unit)? = null,
@@ -100,6 +102,7 @@ fun PostItem(
     val boundaryColor = MaterialTheme.colorScheme.outlineVariant
     Box(
         modifier = modifier
+            .alpha(if (isGhost) 0.5f else 1f)
             .fillMaxWidth()
             .padding(start = 16.dp * indentLevel)
             .drawBehind {

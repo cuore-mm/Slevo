@@ -154,6 +154,7 @@ class ThreadViewModel @AssistedInject constructor(
                         replySourceMap = derived.third,
                         treeOrder = tree.first,
                         treeDepthMap = tree.second,
+                        treeParentMap = tree.third,
                     )
                 }
                 updateNgPostNumbers()
@@ -224,7 +225,7 @@ class ThreadViewModel @AssistedInject constructor(
         return Triple(idCountMap, idIndexList, replySourceMap)
     }
 
-    private fun deriveTreeOrder(posts: List<ReplyInfo>): Pair<List<Int>, Map<Int, Int>> {
+    private fun deriveTreeOrder(posts: List<ReplyInfo>): Triple<List<Int>, Map<Int, Int>, Map<Int, Int>> {
         val children = mutableMapOf<Int, MutableList<Int>>()
         val parent = IntArray(posts.size + 1)
         val depthMap = mutableMapOf<Int, Int>()
@@ -249,7 +250,13 @@ class ThreadViewModel @AssistedInject constructor(
                 dfs(i, 0)
             }
         }
-        return order to depthMap
+        val parentMap = mutableMapOf<Int, Int>()
+        for (i in 1 until parent.size) {
+            if (parent[i] != 0) {
+                parentMap[i] = parent[i]
+            }
+        }
+        return Triple(order, depthMap, parentMap)
     }
 
     private fun parseDateToUnix(dateString: String): Long {

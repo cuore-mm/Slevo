@@ -38,6 +38,7 @@ data class ThreadUiState(
     val sortType: ThreadSortType = ThreadSortType.NUMBER,
     val treeOrder: List<Int> = emptyList(),
     val treeDepthMap: Map<Int, Int> = emptyMap(),
+    val treeParentMap: Map<Int, Int> = emptyMap(),
 ) : BaseUiState<ThreadUiState> {
     override fun copyState(
         isLoading: Boolean,

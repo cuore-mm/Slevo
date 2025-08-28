@@ -71,22 +71,40 @@ fun ThreadScreen(
     onLastRead: (Int) -> Unit = {},
 ) {
     val posts = uiState.posts ?: emptyList()
-    val order = if (uiState.sortType == ThreadSortType.TREE) {
-        uiState.treeOrder
+    val orderWithGhost = if (uiState.sortType == ThreadSortType.TREE) {
+        if (firstNewResNo != null) {
+            val base = uiState.treeOrder
+            val parentMap = uiState.treeParentMap
+            val list = mutableListOf<Pair<Int, Boolean>>()
+            base.filter { it < firstNewResNo }.forEach { list.add(it to false) }
+            base.filter { it >= firstNewResNo }.forEach { num ->
+                val p = parentMap[num]
+                if (p != null && p < firstNewResNo) {
+                    list.add(p to true)
+                }
+                list.add(num to false)
+            }
+            list
+        } else {
+            uiState.treeOrder.map { it to false }
+        }
     } else {
-        (1..posts.size).toList()
+        (1..posts.size).map { it to false }
     }
-    val orderedPosts = order.mapNotNull { num ->
-        posts.getOrNull(num - 1)?.let { num to it }
+    val orderedPosts = orderWithGhost.mapNotNull { (num, ghost) ->
+        posts.getOrNull(num - 1)?.let { Triple(num, it, ghost) }
     }
     val filteredPosts = if (uiState.searchQuery.isNotBlank()) {
-        orderedPosts.filter { it.second.content.contains(uiState.searchQuery, ignoreCase = true) }
+        orderedPosts.filter { it.second.content.contains(uiState.searchQuery, ignoreCase = true) || it.third }
     } else {
         orderedPosts
     }
     val visiblePosts = filteredPosts.filterNot { it.first in uiState.ngPostNumbers }
     val displayPosts = visiblePosts.map { it.second }
-    val replyCounts = visiblePosts.map { (num, _) -> uiState.replySourceMap[num]?.size ?: 0 }
+    val replyCounts = visiblePosts.map { (num, _, _) -> uiState.replySourceMap[num]?.size ?: 0 }
+    val newArrivalIndex = if (firstNewResNo != null) {
+        visiblePosts.indexOfFirst { (num, _, ghost) -> num >= firstNewResNo || ghost }.takeIf { it >= 0 }
+    } else null
     val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
     val ngNumbers = uiState.ngPostNumbers
 
@@ -172,7 +190,7 @@ fun ThreadScreen(
                     }
                 }
 
-                itemsIndexed(visiblePosts) { idx, (postNum, post) ->
+                itemsIndexed(visiblePosts) { idx, (postNum, post, ghost) ->
                     val index = postNum - 1
                     val indent = if (uiState.sortType == ThreadSortType.TREE) {
                         uiState.treeDepthMap[postNum] ?: 0
@@ -190,7 +208,7 @@ fun ThreadScreen(
                     }
                     var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
                     Column {
-                        if (firstNewResNo != null && postNum == firstNewResNo) {
+                        if (newArrivalIndex != null && idx == newArrivalIndex) {
                             NewArrivalBar()
                         }
                         PostItem(
@@ -208,6 +226,7 @@ fun ThreadScreen(
                             indentLevel = indent,
                             replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
                             isMyPost = postNum in uiState.myPostNumbers,
+                            isGhost = ghost,
                             onReplyFromClick = { nums ->
                                 val offset = if (popupStack.isEmpty()) {
                                     itemOffset
