@@ -124,7 +124,7 @@ fun ThreadScreen(
     val refreshThresholdPx = with(density) { 80.dp.toPx() }
     var overscroll by remember { mutableFloatStateOf(0f) }
     var triggerRefresh by remember { mutableStateOf(false) }
-    val nestedScrollConnection = remember(listState) {
+    val nestedScrollConnection = remember(listState, posts.size) {
         object : NestedScrollConnection {
             override fun onPostScroll(
                 consumed: Offset,
@@ -143,6 +143,7 @@ fun ThreadScreen(
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
                 if (triggerRefresh) {
+                    onLastRead(posts.size)
                     onBottomRefresh()
                 }
                 overscroll = 0f
