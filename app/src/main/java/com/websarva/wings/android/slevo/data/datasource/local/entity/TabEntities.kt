@@ -25,6 +25,7 @@ data class OpenThreadTabEntity(
     val boardName: String,
     val title: String,
     val resCount: Int = 0,
+    val prevResCount: Int = 0,
     val lastReadResNo: Int = 0,
     val firstNewResNo: Int? = null,
     val sortOrder: Int,
