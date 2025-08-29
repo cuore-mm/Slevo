@@ -349,7 +349,6 @@ class TabsViewModel @Inject constructor(
                 val newFirst = if (candidate > size) null else candidate
                 tab.copy(
                     resCount = size,
-                    prevResCount = tab.resCount,
                     firstNewResNo = newFirst
                 )
             }
