@@ -222,7 +222,10 @@ fun ThreadScreen(
                     }
                 }
 
-                itemsIndexed(visiblePosts) { idx, display ->
+                itemsIndexed(
+                    items = visiblePosts,
+                    key = { _, display -> display.num }
+                ) { idx, display ->
                     val postNum = display.num
                     val post = display.post
                     val index = postNum - 1
@@ -240,7 +243,9 @@ fun ThreadScreen(
                     } else {
                         0
                     }
-                    var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
+                    // 再構成を発生させない座標ホルダ（クリック時のみ参照）
+                    data class OffsetHolder(var value: IntOffset)
+                    val itemOffsetHolder = remember { OffsetHolder(IntOffset.Zero) }
                     Column {
                         if (firstAfterIndex != -1 && idx == firstAfterIndex) {
                             NewArrivalBar()
@@ -248,7 +253,7 @@ fun ThreadScreen(
                         PostItem(
                             modifier = Modifier.onGloballyPositioned { coords ->
                                 val pos = coords.positionInWindow()
-                                itemOffset = IntOffset(pos.x.toInt(), pos.y.toInt())
+                                itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
                             },
                             post = post,
                             postNum = postNum,
@@ -263,7 +268,7 @@ fun ThreadScreen(
                             dimmed = display.dimmed,
                             onReplyFromClick = { nums ->
                                 val offset = if (popupStack.isEmpty()) {
-                                    itemOffset
+                                    itemOffsetHolder.value
                                 } else {
                                     val last = popupStack.last()
                                     IntOffset(
@@ -281,7 +286,7 @@ fun ThreadScreen(
                             onReplyClick = { num ->
                                 if (num in 1..posts.size && num !in ngNumbers) {
                                     val target = posts[num - 1]
-                                    val baseOffset = itemOffset
+                                    val baseOffset = itemOffsetHolder.value
                                     val offset = if (popupStack.isEmpty()) {
                                         baseOffset
                                     } else {
@@ -296,7 +301,7 @@ fun ThreadScreen(
                             },
                             onIdClick = { id ->
                                 val offset = if (popupStack.isEmpty()) {
-                                    itemOffset
+                                    itemOffsetHolder.value
                                 } else {
                                     val last = popupStack.last()
                                     IntOffset(
