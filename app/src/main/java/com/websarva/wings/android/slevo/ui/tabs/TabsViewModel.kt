@@ -238,7 +238,12 @@ class TabsViewModel @Inject constructor(
                         tab.firstNewResNo
                     }
                     val newFirst = candidate?.let { if (it > resCount) null else candidate }
-                    tab.copy(title = title, resCount = resCount, firstNewResNo = newFirst)
+                    tab.copy(
+                        title = title,
+                        resCount = resCount,
+                        prevResCount = tab.resCount,
+                        firstNewResNo = newFirst
+                    )
                 } else {
                     tab
                 }
@@ -342,7 +347,10 @@ class TabsViewModel @Inject constructor(
                         tab.firstNewResNo
                     }
                 val newFirst = if (candidate > size) null else candidate
-                tab.copy(resCount = size, firstNewResNo = newFirst)
+                tab.copy(
+                    resCount = size,
+                    firstNewResNo = newFirst
+                )
             }
             _uiState.update { state ->
                 state.copy(
