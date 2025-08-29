@@ -95,8 +95,8 @@ fun ThreadScreen(
             stack.add(num)
         }
         val before = mutableListOf<DisplayPost>()
-        val after = mutableListOf<DisplayPost>()
-        val insertedParents = mutableSetOf<Int>()
+        val groupedAfter = mutableListOf<Pair<Int, List<DisplayPost>>>()
+        val childrenMap = mutableMapOf<Int, MutableList<DisplayPost>>()
         order.forEach { num ->
             val parent = parentMap[num] ?: 0
             val post = posts.getOrNull(num - 1) ?: return@forEach
@@ -106,19 +106,21 @@ fun ThreadScreen(
                 val parentOld = parent in 1 until firstNewResNo
                 if (parentOld && num <= prevResCount) {
                     before.add(DisplayPost(num, post, false, false))
+                } else if (parentOld) {
+                    childrenMap.getOrPut(parent) { mutableListOf() }
+                        .add(DisplayPost(num, post, false, true))
                 } else {
-                    if (parentOld) {
-                        if (insertedParents.add(parent)) {
-                            posts.getOrNull(parent - 1)?.let { p ->
-                                after.add(DisplayPost(parent, p, true, true))
-                            }
-                        }
-                    }
-                    after.add(DisplayPost(num, post, false, true))
+                    groupedAfter.add(num to listOf(DisplayPost(num, post, false, true)))
                 }
             }
         }
-        before + after
+        childrenMap.entries.forEach { (parent, children) ->
+            val parentPost = posts.getOrNull(parent - 1) ?: return@forEach
+            val sortedChildren = children.sortedBy { it.num }
+            val block = listOf(DisplayPost(parent, parentPost, true, true)) + sortedChildren
+            groupedAfter.add(sortedChildren.first().num to block)
+        }
+        before + groupedAfter.sortedBy { it.first }.flatMap { it.second }
     } else {
         order.mapNotNull { num ->
             posts.getOrNull(num - 1)?.let { post ->
