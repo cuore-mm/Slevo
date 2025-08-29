@@ -59,6 +59,13 @@ import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 
+private data class DisplayPost(
+    val num: Int,
+    val post: ReplyInfo,
+    val dimmed: Boolean,
+    val isAfter: Boolean
+)
+
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun ThreadScreen(
@@ -67,6 +74,7 @@ fun ThreadScreen(
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
     firstNewResNo: Int? = null,
+    prevResCount: Int = 0,
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
 ) {
@@ -76,17 +84,59 @@ fun ThreadScreen(
     } else {
         (1..posts.size).toList()
     }
-    val orderedPosts = order.mapNotNull { num ->
-        posts.getOrNull(num - 1)?.let { num to it }
+
+    val orderedPosts = if (uiState.sortType == ThreadSortType.TREE && firstNewResNo != null) {
+        val parentMap = mutableMapOf<Int, Int>()
+        val stack = mutableListOf<Int>()
+        order.forEach { num ->
+            val depth = uiState.treeDepthMap[num] ?: 0
+            while (stack.size > depth) stack.removeLast()
+            parentMap[num] = stack.lastOrNull() ?: 0
+            stack.add(num)
+        }
+        val before = mutableListOf<DisplayPost>()
+        val after = mutableListOf<DisplayPost>()
+        val insertedParents = mutableSetOf<Int>()
+        order.forEach { num ->
+            val parent = parentMap[num] ?: 0
+            val post = posts.getOrNull(num - 1) ?: return@forEach
+            if (num < firstNewResNo) {
+                before.add(DisplayPost(num, post, false, false))
+            } else {
+                val parentOld = parent in 1 until firstNewResNo
+                if (parentOld && num <= prevResCount) {
+                    before.add(DisplayPost(num, post, false, false))
+                } else {
+                    if (parentOld) {
+                        if (insertedParents.add(parent)) {
+                            posts.getOrNull(parent - 1)?.let { p ->
+                                after.add(DisplayPost(parent, p, true, true))
+                            }
+                        }
+                    }
+                    after.add(DisplayPost(num, post, false, true))
+                }
+            }
+        }
+        before + after
+    } else {
+        order.mapNotNull { num ->
+            posts.getOrNull(num - 1)?.let { post ->
+                val isAfter = firstNewResNo != null && num >= firstNewResNo
+                DisplayPost(num, post, false, isAfter)
+            }
+        }
     }
+
     val filteredPosts = if (uiState.searchQuery.isNotBlank()) {
-        orderedPosts.filter { it.second.content.contains(uiState.searchQuery, ignoreCase = true) }
+        orderedPosts.filter { it.post.content.contains(uiState.searchQuery, ignoreCase = true) }
     } else {
         orderedPosts
     }
-    val visiblePosts = filteredPosts.filterNot { it.first in uiState.ngPostNumbers }
-    val displayPosts = visiblePosts.map { it.second }
-    val replyCounts = visiblePosts.map { (num, _) -> uiState.replySourceMap[num]?.size ?: 0 }
+    val visiblePosts = filteredPosts.filterNot { it.num in uiState.ngPostNumbers }
+    val displayPosts = visiblePosts.map { it.post }
+    val replyCounts = visiblePosts.map { p -> uiState.replySourceMap[p.num]?.size ?: 0 }
+    val firstAfterIndex = visiblePosts.indexOfFirst { it.isAfter }
     val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
     val ngNumbers = uiState.ngPostNumbers
 
@@ -106,7 +156,7 @@ fun ThreadScreen(
                                 .mapNotNull { info ->
                                     val idx = info.index - 1
                                     if (idx in visiblePosts.indices) {
-                                        val num = visiblePosts[idx].first
+                                        val num = visiblePosts[idx].num
                                         if (uiState.sortType != ThreadSortType.TREE || (uiState.treeDepthMap[num]
                                                 ?: 0) == 0
                                         ) num else null
@@ -163,7 +213,7 @@ fun ThreadScreen(
             ) {
                 if (visiblePosts.isNotEmpty()) {
                     val firstIndent = if (uiState.sortType == ThreadSortType.TREE) {
-                        uiState.treeDepthMap[visiblePosts.first().first] ?: 0
+                        uiState.treeDepthMap[visiblePosts.first().num] ?: 0
                     } else {
                         0
                     }
@@ -172,7 +222,12 @@ fun ThreadScreen(
                     }
                 }
 
-                itemsIndexed(visiblePosts) { idx, (postNum, post) ->
+                itemsIndexed(
+                    items = visiblePosts,
+                    key = { _, display -> display.num }
+                ) { idx, display ->
+                    val postNum = display.num
+                    val post = display.post
                     val index = postNum - 1
                     val indent = if (uiState.sortType == ThreadSortType.TREE) {
                         uiState.treeDepthMap[postNum] ?: 0
@@ -181,22 +236,24 @@ fun ThreadScreen(
                     }
                     val nextIndent = if (idx + 1 < visiblePosts.size) {
                         if (uiState.sortType == ThreadSortType.TREE) {
-                            uiState.treeDepthMap[visiblePosts[idx + 1].first] ?: 0
+                            uiState.treeDepthMap[visiblePosts[idx + 1].num] ?: 0
                         } else {
                             0
                         }
                     } else {
                         0
                     }
-                    var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
+                    // 再構成を発生させない座標ホルダ（クリック時のみ参照）
+                    data class OffsetHolder(var value: IntOffset)
+                    val itemOffsetHolder = remember { OffsetHolder(IntOffset.Zero) }
                     Column {
-                        if (firstNewResNo != null && postNum == firstNewResNo) {
+                        if (firstAfterIndex != -1 && idx == firstAfterIndex) {
                             NewArrivalBar()
                         }
                         PostItem(
                             modifier = Modifier.onGloballyPositioned { coords ->
                                 val pos = coords.positionInWindow()
-                                itemOffset = IntOffset(pos.x.toInt(), pos.y.toInt())
+                                itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
                             },
                             post = post,
                             postNum = postNum,
@@ -208,9 +265,10 @@ fun ThreadScreen(
                             indentLevel = indent,
                             replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
                             isMyPost = postNum in uiState.myPostNumbers,
+                            dimmed = display.dimmed,
                             onReplyFromClick = { nums ->
                                 val offset = if (popupStack.isEmpty()) {
-                                    itemOffset
+                                    itemOffsetHolder.value
                                 } else {
                                     val last = popupStack.last()
                                     IntOffset(
@@ -228,7 +286,7 @@ fun ThreadScreen(
                             onReplyClick = { num ->
                                 if (num in 1..posts.size && num !in ngNumbers) {
                                     val target = posts[num - 1]
-                                    val baseOffset = itemOffset
+                                    val baseOffset = itemOffsetHolder.value
                                     val offset = if (popupStack.isEmpty()) {
                                         baseOffset
                                     } else {
@@ -243,7 +301,7 @@ fun ThreadScreen(
                             },
                             onIdClick = { id ->
                                 val offset = if (popupStack.isEmpty()) {
-                                    itemOffset
+                                    itemOffsetHolder.value
                                 } else {
                                     val last = popupStack.last()
                                     IntOffset(
