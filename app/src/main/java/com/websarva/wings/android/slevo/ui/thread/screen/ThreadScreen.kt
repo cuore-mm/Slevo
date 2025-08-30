@@ -54,17 +54,11 @@ import com.websarva.wings.android.slevo.ui.thread.item.PostItem
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.slevo.ui.thread.state.toDisplayState
 import kotlin.math.min
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
-
-private data class DisplayPost(
-    val num: Int,
-    val post: ReplyInfo,
-    val dimmed: Boolean,
-    val isAfter: Boolean
-)
 
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
@@ -79,64 +73,11 @@ fun ThreadScreen(
     onLastRead: (Int) -> Unit = {},
 ) {
     val posts = uiState.posts ?: emptyList()
-    val order = if (uiState.sortType == ThreadSortType.TREE) {
-        uiState.treeOrder
-    } else {
-        (1..posts.size).toList()
-    }
-
-    val orderedPosts = if (uiState.sortType == ThreadSortType.TREE && firstNewResNo != null) {
-        val parentMap = mutableMapOf<Int, Int>()
-        val stack = mutableListOf<Int>()
-        order.forEach { num ->
-            val depth = uiState.treeDepthMap[num] ?: 0
-            while (stack.size > depth) stack.removeLast()
-            parentMap[num] = stack.lastOrNull() ?: 0
-            stack.add(num)
-        }
-        val before = mutableListOf<DisplayPost>()
-        val after = mutableListOf<DisplayPost>()
-        val insertedParents = mutableSetOf<Int>()
-        order.forEach { num ->
-            val parent = parentMap[num] ?: 0
-            val post = posts.getOrNull(num - 1) ?: return@forEach
-            if (num < firstNewResNo) {
-                before.add(DisplayPost(num, post, false, false))
-            } else {
-                val parentOld = parent in 1 until firstNewResNo
-                if (parentOld && num <= prevResCount) {
-                    before.add(DisplayPost(num, post, false, false))
-                } else {
-                    if (parentOld) {
-                        if (insertedParents.add(parent)) {
-                            posts.getOrNull(parent - 1)?.let { p ->
-                                after.add(DisplayPost(parent, p, true, true))
-                            }
-                        }
-                    }
-                    after.add(DisplayPost(num, post, false, true))
-                }
-            }
-        }
-        before + after
-    } else {
-        order.mapNotNull { num ->
-            posts.getOrNull(num - 1)?.let { post ->
-                val isAfter = firstNewResNo != null && num >= firstNewResNo
-                DisplayPost(num, post, false, isAfter)
-            }
-        }
-    }
-
-    val filteredPosts = if (uiState.searchQuery.isNotBlank()) {
-        orderedPosts.filter { it.post.content.contains(uiState.searchQuery, ignoreCase = true) }
-    } else {
-        orderedPosts
-    }
-    val visiblePosts = filteredPosts.filterNot { it.num in uiState.ngPostNumbers }
-    val displayPosts = visiblePosts.map { it.post }
-    val replyCounts = visiblePosts.map { p -> uiState.replySourceMap[p.num]?.size ?: 0 }
-    val firstAfterIndex = visiblePosts.indexOfFirst { it.isAfter }
+    val displayState = uiState.toDisplayState(firstNewResNo, prevResCount)
+    val visiblePosts = displayState.visiblePosts
+    val displayPosts = displayState.displayPosts
+    val replyCounts = displayState.replyCounts
+    val firstAfterIndex = displayState.firstAfterIndex
     val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
     val ngNumbers = uiState.ngPostNumbers
 
