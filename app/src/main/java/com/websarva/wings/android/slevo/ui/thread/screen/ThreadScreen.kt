@@ -95,8 +95,8 @@ fun ThreadScreen(
             stack.add(num)
         }
         val before = mutableListOf<DisplayPost>()
-        val after = mutableListOf<DisplayPost>()
-        val insertedParents = mutableSetOf<Int>()
+        val afterOthers = mutableListOf<DisplayPost>()
+        val parentChildren = mutableMapOf<Int, MutableList<DisplayPost>>()
         order.forEach { num ->
             val parent = parentMap[num] ?: 0
             val post = posts.getOrNull(num - 1) ?: return@forEach
@@ -108,16 +108,29 @@ fun ThreadScreen(
                     before.add(DisplayPost(num, post, false, false))
                 } else {
                     if (parentOld) {
-                        if (insertedParents.add(parent)) {
-                            posts.getOrNull(parent - 1)?.let { p ->
-                                after.add(DisplayPost(parent, p, true, true))
-                            }
-                        }
+                        parentChildren.getOrPut(parent) { mutableListOf() }
+                            .add(DisplayPost(num, post, false, true))
+                    } else {
+                        afterOthers.add(DisplayPost(num, post, false, true))
                     }
-                    after.add(DisplayPost(num, post, false, true))
                 }
             }
         }
+        val afterItems = mutableListOf<Pair<Int, List<DisplayPost>>>()
+        parentChildren.forEach { (parent, children) ->
+            posts.getOrNull(parent - 1)?.let { p ->
+                val sortedChildren = children.sortedBy { it.num }
+                val minNum = sortedChildren.firstOrNull()?.num ?: return@let
+                val group = mutableListOf<DisplayPost>()
+                group.add(DisplayPost(parent, p, true, true))
+                group.addAll(sortedChildren)
+                afterItems.add(minNum to group)
+            }
+        }
+        afterOthers.forEach { dp ->
+            afterItems.add(dp.num to listOf(dp))
+        }
+        val after = afterItems.sortedBy { it.first }.flatMap { it.second }
         before + after
     } else {
         order.mapNotNull { num ->
