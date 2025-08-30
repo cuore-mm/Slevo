@@ -94,26 +94,53 @@ fun ThreadScreen(
             parentMap[num] = stack.lastOrNull() ?: 0
             stack.add(num)
         }
+
+        fun findOldRoot(num: Int): Int? {
+            var current = parentMap[num] ?: 0
+            while (current > 0) {
+                if (current < firstNewResNo) return current
+                current = parentMap[current] ?: 0
+            }
+            return null
+        }
+
+        val groups = mutableMapOf<Int, MutableList<Int>>()
+        order.forEach { num ->
+            if (num > prevResCount && num >= firstNewResNo) {
+                findOldRoot(num)?.let { root ->
+                    groups.getOrPut(root) { mutableListOf() }.add(num)
+                }
+            }
+        }
+
         val before = mutableListOf<DisplayPost>()
         val after = mutableListOf<DisplayPost>()
         val insertedParents = mutableSetOf<Int>()
+        val skipped = mutableSetOf<Int>()
         order.forEach { num ->
+            if (skipped.contains(num)) return@forEach
             val parent = parentMap[num] ?: 0
             val post = posts.getOrNull(num - 1) ?: return@forEach
             if (num < firstNewResNo) {
                 before.add(DisplayPost(num, post, false, false))
+            } else if (parent in 1 until firstNewResNo && num <= prevResCount) {
+                before.add(DisplayPost(num, post, false, false))
             } else {
-                val parentOld = parent in 1 until firstNewResNo
-                if (parentOld && num <= prevResCount) {
-                    before.add(DisplayPost(num, post, false, false))
-                } else {
-                    if (parentOld) {
-                        if (insertedParents.add(parent)) {
-                            posts.getOrNull(parent - 1)?.let { p ->
-                                after.add(DisplayPost(parent, p, true, true))
+                val root = findOldRoot(num)
+                if (root != null) {
+                    if (insertedParents.add(root)) {
+                        posts.getOrNull(root - 1)?.let { p ->
+                            after.add(DisplayPost(root, p, true, true))
+                        }
+                        val children = groups[root] ?: emptyList()
+                        children.forEach { child ->
+                            posts.getOrNull(child - 1)?.let { p ->
+                                after.add(DisplayPost(child, p, false, true))
                             }
+                            skipped.add(child)
                         }
                     }
+                } else {
                     after.add(DisplayPost(num, post, false, true))
                 }
             }
