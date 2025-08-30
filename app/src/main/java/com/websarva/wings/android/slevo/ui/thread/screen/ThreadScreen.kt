@@ -96,25 +96,43 @@ fun ThreadScreen(
         }
         val before = mutableListOf<DisplayPost>()
         val after = mutableListOf<DisplayPost>()
-        val insertedParents = mutableSetOf<Int>()
-        order.forEach { num ->
+        val handledParents = mutableSetOf<Int>()
+        var i = 0
+        while (i < order.size) {
+            val num = order[i]
             val parent = parentMap[num] ?: 0
-            val post = posts.getOrNull(num - 1) ?: return@forEach
+            val post = posts.getOrNull(num - 1)
+            if (post == null) {
+                i++
+                continue
+            }
             if (num < firstNewResNo) {
                 before.add(DisplayPost(num, post, false, false))
+                i++
             } else {
                 val parentOld = parent in 1 until firstNewResNo
                 if (parentOld && num <= prevResCount) {
                     before.add(DisplayPost(num, post, false, false))
-                } else {
-                    if (parentOld) {
-                        if (insertedParents.add(parent)) {
-                            posts.getOrNull(parent - 1)?.let { p ->
-                                after.add(DisplayPost(parent, p, true, true))
-                            }
+                    i++
+                } else if (parentOld) {
+                    if (handledParents.add(parent)) {
+                        posts.getOrNull(parent - 1)?.let { p ->
+                            after.add(DisplayPost(parent, p, true, true))
                         }
                     }
+                    val parentDepth = uiState.treeDepthMap[parent] ?: 0
+                    while (i < order.size) {
+                        val childNum = order[i]
+                        val childDepth = uiState.treeDepthMap[childNum] ?: 0
+                        if (childDepth <= parentDepth) break
+                        posts.getOrNull(childNum - 1)?.let { childPost ->
+                            after.add(DisplayPost(childNum, childPost, false, true))
+                        }
+                        i++
+                    }
+                } else {
                     after.add(DisplayPost(num, post, false, true))
+                    i++
                 }
             }
         }
