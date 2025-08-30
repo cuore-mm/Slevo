@@ -95,8 +95,9 @@ fun ThreadScreen(
             stack.add(num)
         }
         val before = mutableListOf<DisplayPost>()
-        val after = mutableListOf<DisplayPost>()
-        val insertedParents = mutableSetOf<Int>()
+        val parentGroups = mutableMapOf<Int, MutableList<DisplayPost>>()
+        val parentKeys = mutableMapOf<Int, Int>()
+        val singles = mutableListOf<DisplayPost>()
         order.forEach { num ->
             val parent = parentMap[num] ?: 0
             val post = posts.getOrNull(num - 1) ?: return@forEach
@@ -106,18 +107,29 @@ fun ThreadScreen(
                 val parentOld = parent in 1 until firstNewResNo
                 if (parentOld && num <= prevResCount) {
                     before.add(DisplayPost(num, post, false, false))
+                } else if (parentOld) {
+                    val list = parentGroups.getOrPut(parent) { mutableListOf() }
+                    list.add(DisplayPost(num, post, false, true))
+                    parentKeys[parent] = minOf(parentKeys[parent] ?: num, num)
                 } else {
-                    if (parentOld) {
-                        if (insertedParents.add(parent)) {
-                            posts.getOrNull(parent - 1)?.let { p ->
-                                after.add(DisplayPost(parent, p, true, true))
-                            }
-                        }
-                    }
-                    after.add(DisplayPost(num, post, false, true))
+                    singles.add(DisplayPost(num, post, false, true))
                 }
             }
         }
+        val blocks = mutableListOf<Pair<Int, List<DisplayPost>>>()
+        parentGroups.forEach { (parent, children) ->
+            val key = parentKeys[parent] ?: return@forEach
+            posts.getOrNull(parent - 1)?.let { p ->
+                val group = mutableListOf<DisplayPost>()
+                group.add(DisplayPost(parent, p, true, true))
+                group.addAll(children)
+                blocks.add(key to group)
+            }
+        }
+        singles.forEach { post ->
+            blocks.add(post.num to listOf(post))
+        }
+        val after = blocks.sortedBy { it.first }.flatMap { it.second }
         before + after
     } else {
         order.mapNotNull { num ->
