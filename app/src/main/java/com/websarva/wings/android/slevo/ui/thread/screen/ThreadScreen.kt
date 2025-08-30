@@ -94,30 +94,69 @@ fun ThreadScreen(
             parentMap[num] = stack.lastOrNull() ?: 0
             stack.add(num)
         }
-        val before = mutableListOf<DisplayPost>()
-        val after = mutableListOf<DisplayPost>()
-        val insertedParents = mutableSetOf<Int>()
+
+        fun findOldAncestor(num: Int): Int? {
+            var p = parentMap[num] ?: 0
+            while (p > 0) {
+                if (p < firstNewResNo) return p
+                p = parentMap[p] ?: 0
+            }
+            return null
+        }
+
+        fun findTopNewRoot(num: Int): Int {
+            var r = num
+            var p = parentMap[r] ?: 0
+            while (p >= firstNewResNo && p > 0) {
+                r = p
+                p = parentMap[r] ?: 0
+            }
+            return r
+        }
+
+        val minChildMap = mutableMapOf<Int, Int>()
         order.forEach { num ->
-            val parent = parentMap[num] ?: 0
+            if (num >= firstNewResNo) {
+                val oldAncestor = findOldAncestor(num)
+                if (oldAncestor != null && num > prevResCount) {
+                    val current = minChildMap[oldAncestor]
+                    if (current == null || num < current) {
+                        minChildMap[oldAncestor] = num
+                    }
+                }
+            }
+        }
+
+        val before = mutableListOf<DisplayPost>()
+        val groups = mutableMapOf<Int, MutableList<DisplayPost>>()
+        val insertedParents = mutableSetOf<Int>()
+
+        order.forEach { num ->
             val post = posts.getOrNull(num - 1) ?: return@forEach
             if (num < firstNewResNo) {
                 before.add(DisplayPost(num, post, false, false))
             } else {
-                val parentOld = parent in 1 until firstNewResNo
-                if (parentOld && num <= prevResCount) {
+                val oldAncestor = findOldAncestor(num)
+                if (oldAncestor != null && num <= prevResCount) {
                     before.add(DisplayPost(num, post, false, false))
                 } else {
-                    if (parentOld) {
-                        if (insertedParents.add(parent)) {
-                            posts.getOrNull(parent - 1)?.let { p ->
-                                after.add(DisplayPost(parent, p, true, true))
-                            }
+                    val key = if (oldAncestor != null) {
+                        minChildMap[oldAncestor] ?: num
+                    } else {
+                        findTopNewRoot(num)
+                    }
+                    val group = groups.getOrPut(key) { mutableListOf() }
+                    if (oldAncestor != null && insertedParents.add(oldAncestor)) {
+                        posts.getOrNull(oldAncestor - 1)?.let { p ->
+                            group.add(DisplayPost(oldAncestor, p, true, true))
                         }
                     }
-                    after.add(DisplayPost(num, post, false, true))
+                    group.add(DisplayPost(num, post, false, true))
                 }
             }
         }
+
+        val after = groups.entries.sortedBy { it.key }.flatMap { it.value }
         before + after
     } else {
         order.mapNotNull { num ->
