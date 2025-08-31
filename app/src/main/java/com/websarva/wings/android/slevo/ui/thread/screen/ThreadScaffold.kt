@@ -1,7 +1,6 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -23,7 +22,6 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadBottomBar
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadTopBar
@@ -51,15 +49,11 @@ fun ThreadScaffold(
             boardUrl = threadRoute.boardUrl,
             boardName = threadRoute.boardName
         )
-        tabsViewModel.openThreadTab(
-            ThreadTabInfo(
-                key = threadRoute.threadKey,
-                title = threadRoute.threadTitle,
-                boardName = info.name,
-                boardUrl = info.url,
-                boardId = info.boardId,
-                resCount = threadRoute.resCount
-            )
+        val vm = tabsViewModel.getOrCreateThreadViewModel(threadRoute.threadKey + info.url)
+        vm.initializeThread(
+            threadKey = threadRoute.threadKey,
+            boardInfo = info,
+            threadTitle = threadRoute.threadTitle
         )
     }
 
@@ -88,7 +82,8 @@ fun ThreadScaffold(
             )
         },
         updateScrollPosition = { tab, index, offset ->
-            tabsViewModel.updateThreadScrollPosition(tab.key, tab.boardUrl, index, offset)
+            tabsViewModel.getOrCreateThreadViewModel(tab.key + tab.boardUrl)
+                .updateThreadScrollPosition(tab.key, tab.boardUrl, index, offset)
         },
         scrollBehavior = scrollBehavior,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
@@ -130,7 +125,7 @@ fun ThreadScaffold(
                     uiState.posts != null &&
                     uiState.threadInfo.key.isNotEmpty()
                 ) {
-                    tabsViewModel.updateThreadTabInfo(
+                    viewModel.updateThreadTabInfo(
                         key = uiState.threadInfo.key,
                         boardUrl = uiState.boardInfo.url,
                         title = uiState.threadInfo.title,
@@ -153,7 +148,7 @@ fun ThreadScaffold(
                 prevResCount = prevResCount,
                 onBottomRefresh = { viewModel.reloadThread() },
                 onLastRead = { resNum ->
-                    tabsViewModel.updateThreadLastRead(
+                    viewModel.updateThreadLastRead(
                         uiState.threadInfo.key,
                         uiState.boardInfo.url,
                         resNum

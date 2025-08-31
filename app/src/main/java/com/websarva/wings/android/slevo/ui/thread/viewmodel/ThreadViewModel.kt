@@ -11,17 +11,19 @@ import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
-import com.websarva.wings.android.slevo.data.repository.PostRepository
-import com.websarva.wings.android.slevo.data.repository.PostResult
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
-import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.slevo.data.repository.PostRepository
+import com.websarva.wings.android.slevo.data.repository.PostResult
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
+import com.websarva.wings.android.slevo.data.repository.TabsRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
+import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
@@ -56,6 +58,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
+    private val tabsRepository: TabsRepository,
     @Assisted val viewModelKey: String,
 ) : BaseViewModel<ThreadUiState>() {
 
@@ -83,6 +86,29 @@ class ThreadViewModel @AssistedInject constructor(
             url = boardInfo.url
         )
         _uiState.update { it.copy(boardInfo = boardInfo, threadInfo = threadInfo) }
+
+        viewModelScope.launch {
+            val currentTabs = tabsRepository.observeOpenThreadTabs().first()
+            val tabIndex = currentTabs.indexOfFirst { it.key == threadKey && it.boardUrl == boardInfo.url }
+            val updated = if (tabIndex != -1) {
+                currentTabs.toMutableList().apply {
+                    this[tabIndex] = this[tabIndex].copy(
+                        title = threadTitle,
+                        boardName = boardInfo.name,
+                        boardId = boardInfo.boardId
+                    )
+                }
+            } else {
+                currentTabs + ThreadTabInfo(
+                    key = threadKey,
+                    title = threadTitle,
+                    boardName = boardInfo.name,
+                    boardUrl = boardInfo.url,
+                    boardId = boardInfo.boardId
+                )
+            }
+            tabsRepository.saveOpenThreadTabs(updated)
+        }
 
         viewModelScope.launch {
             boardRepository.fetchBoardNoname("${boardInfo.url}SETTING.TXT")?.let { noname ->
@@ -479,6 +505,69 @@ class ThreadViewModel @AssistedInject constructor(
 
     fun clearPostResultMessage() {
         _uiState.update { it.copy(postResultMessage = null) }
+    }
+
+    fun updateThreadTabInfo(key: String, boardUrl: String, title: String, resCount: Int) {
+        viewModelScope.launch {
+            val current = tabsRepository.observeOpenThreadTabs().first()
+            val updated = current.map { tab ->
+                if (tab.key == key && tab.boardUrl == boardUrl) {
+                    val candidate = if (tab.lastReadResNo == 0) {
+                        null
+                    } else if (tab.firstNewResNo == null || tab.firstNewResNo <= tab.lastReadResNo) {
+                        tab.lastReadResNo + 1
+                    } else {
+                        tab.firstNewResNo
+                    }
+                    val newFirst = candidate?.let { if (it > resCount) null else candidate }
+                    tab.copy(
+                        title = title,
+                        resCount = resCount,
+                        prevResCount = tab.resCount,
+                        firstNewResNo = newFirst
+                    )
+                } else {
+                    tab
+                }
+            }
+            tabsRepository.saveOpenThreadTabs(updated)
+        }
+    }
+
+    fun updateThreadScrollPosition(
+        tabKey: String,
+        boardUrl: String,
+        firstVisibleIndex: Int,
+        scrollOffset: Int
+    ) {
+        viewModelScope.launch {
+            val current = tabsRepository.observeOpenThreadTabs().first()
+            val updated = current.map { tab ->
+                if (tab.key == tabKey && tab.boardUrl == boardUrl) {
+                    tab.copy(
+                        firstVisibleItemIndex = firstVisibleIndex,
+                        firstVisibleItemScrollOffset = scrollOffset
+                    )
+                } else {
+                    tab
+                }
+            }
+            tabsRepository.saveOpenThreadTabs(updated)
+        }
+    }
+
+    fun updateThreadLastRead(tabKey: String, boardUrl: String, lastReadResNo: Int) {
+        viewModelScope.launch {
+            val current = tabsRepository.observeOpenThreadTabs().first()
+            val updated = current.map { tab ->
+                if (tab.key == tabKey && tab.boardUrl == boardUrl && lastReadResNo > tab.lastReadResNo) {
+                    tab.copy(lastReadResNo = lastReadResNo)
+                } else {
+                    tab
+                }
+            }
+            tabsRepository.saveOpenThreadTabs(updated)
+        }
     }
 
     companion object {
