@@ -28,6 +28,8 @@ import com.websarva.wings.android.slevo.ui.thread.components.ThreadTopBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.PostViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -42,6 +44,8 @@ fun ThreadScaffold(
     topBarState: TopAppBarState,
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
+    val postViewModel: PostViewModel = hiltViewModel()
+    val postUiState by postViewModel.uiState.collectAsState()
 
     LaunchedEffect(threadRoute) {
         val info = tabsViewModel.resolveBoardInfo(
@@ -109,7 +113,7 @@ fun ThreadScaffold(
                     .height(56.dp),
                 isTreeSort = uiState.sortType == ThreadSortType.TREE,
                 onSortClick = { viewModel.toggleSortType() },
-                onPostClick = { viewModel.showPostDialog() },
+                onPostClick = { postViewModel.showPostDialog() },
                 onTabListClick = { viewModel.openTabListSheet() },
                 onRefreshClick = { viewModel.reloadThread() },
                 onSearchClick = { viewModel.startSearch() },
@@ -157,31 +161,38 @@ fun ThreadScaffold(
             )
         },
         optionalSheetContent = { viewModel, uiState ->
-            if (uiState.postDialog) {
+            if (postUiState.postDialog) {
                 val context = LocalContext.current
                 PostDialog(
-                    onDismissRequest = { viewModel.hidePostDialog() },
-                    name = uiState.postFormState.name,
-                    mail = uiState.postFormState.mail,
-                    message = uiState.postFormState.message,
+                    onDismissRequest = { postViewModel.hidePostDialog() },
+                    name = postUiState.postFormState.name,
+                    mail = postUiState.postFormState.mail,
+                    message = postUiState.postFormState.message,
                     namePlaceholder = uiState.boardInfo.noname.ifBlank { "name" },
-                    onNameChange = { viewModel.updatePostName(it) },
-                    onMailChange = { viewModel.updatePostMail(it) },
-                    onMessageChange = { viewModel.updatePostMessage(it) },
+                    onNameChange = { postViewModel.updatePostName(it) },
+                    onMailChange = { postViewModel.updatePostMail(it) },
+                    onMessageChange = { postViewModel.updatePostMessage(it) },
                     onPostClick = {
                         parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                            viewModel.postFirstPhase(
+                            postViewModel.postFirstPhase(
                                 host,
                                 boardKey,
                                 uiState.threadInfo.key,
-                                uiState.postFormState.name,
-                                uiState.postFormState.mail,
-                                uiState.postFormState.message
-                            )
+                                postUiState.postFormState.name,
+                                postUiState.postFormState.mail,
+                                postUiState.postFormState.message
+                            ) { resNum ->
+                                viewModel.onPostSuccess(
+                                    resNum,
+                                    postUiState.postFormState.message,
+                                    postUiState.postFormState.name,
+                                    postUiState.postFormState.mail
+                                )
+                            }
                         }
                     },
                     confirmButtonText = stringResource(R.string.post),
-                    onImageSelect = { uri -> viewModel.uploadImage(context, uri) },
+                    onImageSelect = { uri -> postViewModel.uploadImage(context, uri) },
                     onImageUrlClick = { url ->
                         navController.navigate(
                             AppRoute.ImageViewer(
@@ -195,19 +206,22 @@ fun ThreadScaffold(
                 )
             }
 
-            if (uiState.isConfirmationScreen) {
-                uiState.postConfirmation?.let { confirmationData ->
+            if (postUiState.isConfirmationScreen) {
+                postUiState.postConfirmation?.let { confirmationData ->
                     ResponseWebViewDialog(
                         htmlContent = confirmationData.html,
-                        onDismissRequest = { viewModel.hideConfirmationScreen() },
+                        onDismissRequest = { postViewModel.hideConfirmationScreen() },
                         onConfirm = {
                             parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                viewModel.postTo5chSecondPhase(
+                                postViewModel.postTo5chSecondPhase(
                                     host,
                                     boardKey,
                                     uiState.threadInfo.key,
                                     confirmationData
-                                )
+                                ) { resNum ->
+                                    val form = postUiState.postFormState
+                                    viewModel.onPostSuccess(resNum, form.message, form.name, form.mail)
+                                }
                             }
                         },
                         title = "書き込み確認",
@@ -216,10 +230,10 @@ fun ThreadScaffold(
                 }
             }
 
-            if (uiState.showErrorWebView) {
+            if (postUiState.showErrorWebView) {
                 ResponseWebViewDialog(
-                    htmlContent = uiState.errorHtmlContent,
-                    onDismissRequest = { viewModel.hideErrorWebView() },
+                    htmlContent = postUiState.errorHtmlContent,
+                    onDismissRequest = { postViewModel.hideErrorWebView() },
                     title = "応答結果",
                     onConfirm = null // 確認ボタンは不要なのでnull
                 )
