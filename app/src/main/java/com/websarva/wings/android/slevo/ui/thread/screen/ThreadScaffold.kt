@@ -138,13 +138,14 @@ fun ThreadScaffold(
             }
             val firstNewResNo = tabInfo?.firstNewResNo
             val prevResCount = tabInfo?.prevResCount ?: 0
+            LaunchedEffect(firstNewResNo, prevResCount) {
+                viewModel.setNewArrivalInfo(firstNewResNo, prevResCount)
+            }
             ThreadScreen(
                 modifier = modifier,
                 uiState = uiState,
                 listState = listState,
                 navController = navController,
-                firstNewResNo = firstNewResNo,
-                prevResCount = prevResCount,
                 onBottomRefresh = { viewModel.reloadThread() },
                 onLastRead = { resNum ->
                     viewModel.updateThreadLastRead(

@@ -24,6 +24,7 @@ import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
@@ -308,6 +309,76 @@ class ThreadViewModel @AssistedInject constructor(
             if (isNg) idx + 1 else null
         }.toSet()
         _uiState.update { it.copy(ngPostNumbers = ngNumbers) }
+        updateDisplayPosts()
+    }
+
+    fun setNewArrivalInfo(firstNewResNo: Int?, prevResCount: Int) {
+        _uiState.update { it.copy(firstNewResNo = firstNewResNo, prevResCount = prevResCount) }
+        updateDisplayPosts()
+    }
+
+    private fun updateDisplayPosts() {
+        val posts = uiState.value.posts ?: return
+        val firstNewResNo = uiState.value.firstNewResNo
+        val prevResCount = uiState.value.prevResCount
+        val order = if (uiState.value.sortType == ThreadSortType.TREE) {
+            uiState.value.treeOrder
+        } else {
+            (1..posts.size).toList()
+        }
+        val orderedPosts = if (uiState.value.sortType == ThreadSortType.TREE && firstNewResNo != null) {
+            val parentMap = mutableMapOf<Int, Int>()
+            val stack = mutableListOf<Int>()
+            order.forEach { num ->
+                val depth = uiState.value.treeDepthMap[num] ?: 0
+                while (stack.size > depth) stack.removeLast()
+                parentMap[num] = stack.lastOrNull() ?: 0
+                stack.add(num)
+            }
+            val before = mutableListOf<DisplayPost>()
+            val after = mutableListOf<DisplayPost>()
+            val insertedParents = mutableSetOf<Int>()
+            order.forEach { num ->
+                val parent = parentMap[num] ?: 0
+                val post = posts.getOrNull(num - 1) ?: return@forEach
+                if (num < firstNewResNo) {
+                    before.add(DisplayPost(num, post, false, false))
+                } else {
+                    val parentOld = parent in 1 until firstNewResNo
+                    if (parentOld && num <= prevResCount) {
+                        before.add(DisplayPost(num, post, false, false))
+                    } else {
+                        if (parentOld) {
+                            if (insertedParents.add(parent)) {
+                                posts.getOrNull(parent - 1)?.let { p ->
+                                    after.add(DisplayPost(parent, p, true, true))
+                                }
+                            }
+                        }
+                        after.add(DisplayPost(num, post, false, true))
+                    }
+                }
+            }
+            before + after
+        } else {
+            order.mapNotNull { num ->
+                posts.getOrNull(num - 1)?.let { post ->
+                    val isAfter = firstNewResNo != null && num >= firstNewResNo
+                    DisplayPost(num, post, false, isAfter)
+                }
+            }
+        }
+
+        val filteredPosts = if (uiState.value.searchQuery.isNotBlank()) {
+            orderedPosts.filter { it.post.content.contains(uiState.value.searchQuery, ignoreCase = true) }
+        } else {
+            orderedPosts
+        }
+        val visiblePosts = filteredPosts.filterNot { it.num in uiState.value.ngPostNumbers }
+        val replyCounts = visiblePosts.map { p -> uiState.value.replySourceMap[p.num]?.size ?: 0 }
+        val firstAfterIndex = visiblePosts.indexOfFirst { it.isAfter }
+
+        _uiState.update { it.copy(visiblePosts = visiblePosts, replyCounts = replyCounts, firstAfterIndex = firstAfterIndex) }
     }
     fun reloadThread() {
         initialize(force = true) // 強制的に初期化処理を再実行
@@ -322,6 +393,7 @@ class ThreadViewModel @AssistedInject constructor(
             }
             state.copy(sortType = next)
         }
+        updateDisplayPosts()
     }
 
 
@@ -374,14 +446,17 @@ class ThreadViewModel @AssistedInject constructor(
 
     fun startSearch() {
         _uiState.update { it.copy(isSearchMode = true) }
+        updateDisplayPosts()
     }
 
     fun closeSearch() {
         _uiState.update { it.copy(isSearchMode = false, searchQuery = "") }
+        updateDisplayPosts()
     }
 
     fun updateSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
+        updateDisplayPosts()
     }
 
     // 初回投稿処理
