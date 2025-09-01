@@ -1,20 +1,15 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
-import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.DatRepository
-import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
-import com.websarva.wings.android.slevo.data.repository.PostRepository
-import com.websarva.wings.android.slevo.data.repository.PostResult
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
@@ -24,6 +19,7 @@ import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
@@ -51,8 +47,6 @@ private data class PendingPost(
 class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
     private val boardRepository: BoardRepository,
-    private val postRepository: PostRepository,
-    private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
     private val postHistoryRepository: PostHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
@@ -308,6 +302,76 @@ class ThreadViewModel @AssistedInject constructor(
             if (isNg) idx + 1 else null
         }.toSet()
         _uiState.update { it.copy(ngPostNumbers = ngNumbers) }
+        updateDisplayPosts()
+    }
+
+    fun setNewArrivalInfo(firstNewResNo: Int?, prevResCount: Int) {
+        _uiState.update { it.copy(firstNewResNo = firstNewResNo, prevResCount = prevResCount) }
+        updateDisplayPosts()
+    }
+
+    private fun updateDisplayPosts() {
+        val posts = uiState.value.posts ?: return
+        val firstNewResNo = uiState.value.firstNewResNo
+        val prevResCount = uiState.value.prevResCount
+        val order = if (uiState.value.sortType == ThreadSortType.TREE) {
+            uiState.value.treeOrder
+        } else {
+            (1..posts.size).toList()
+        }
+        val orderedPosts = if (uiState.value.sortType == ThreadSortType.TREE && firstNewResNo != null) {
+            val parentMap = mutableMapOf<Int, Int>()
+            val stack = mutableListOf<Int>()
+            order.forEach { num ->
+                val depth = uiState.value.treeDepthMap[num] ?: 0
+                while (stack.size > depth) stack.removeLast()
+                parentMap[num] = stack.lastOrNull() ?: 0
+                stack.add(num)
+            }
+            val before = mutableListOf<DisplayPost>()
+            val after = mutableListOf<DisplayPost>()
+            val insertedParents = mutableSetOf<Int>()
+            order.forEach { num ->
+                val parent = parentMap[num] ?: 0
+                val post = posts.getOrNull(num - 1) ?: return@forEach
+                if (num < firstNewResNo) {
+                    before.add(DisplayPost(num, post, false, false))
+                } else {
+                    val parentOld = parent in 1 until firstNewResNo
+                    if (parentOld && num <= prevResCount) {
+                        before.add(DisplayPost(num, post, false, false))
+                    } else {
+                        if (parentOld) {
+                            if (insertedParents.add(parent)) {
+                                posts.getOrNull(parent - 1)?.let { p ->
+                                    after.add(DisplayPost(parent, p, true, true))
+                                }
+                            }
+                        }
+                        after.add(DisplayPost(num, post, false, true))
+                    }
+                }
+            }
+            before + after
+        } else {
+            order.mapNotNull { num ->
+                posts.getOrNull(num - 1)?.let { post ->
+                    val isAfter = firstNewResNo != null && num >= firstNewResNo
+                    DisplayPost(num, post, false, isAfter)
+                }
+            }
+        }
+
+        val filteredPosts = if (uiState.value.searchQuery.isNotBlank()) {
+            orderedPosts.filter { it.post.content.contains(uiState.value.searchQuery, ignoreCase = true) }
+        } else {
+            orderedPosts
+        }
+        val visiblePosts = filteredPosts.filterNot { it.num in uiState.value.ngPostNumbers }
+        val replyCounts = visiblePosts.map { p -> uiState.value.replySourceMap[p.num]?.size ?: 0 }
+        val firstAfterIndex = visiblePosts.indexOfFirst { it.isAfter }
+
+        _uiState.update { it.copy(visiblePosts = visiblePosts, replyCounts = replyCounts, firstAfterIndex = firstAfterIndex) }
     }
     fun reloadThread() {
         initialize(force = true) // 強制的に初期化処理を再実行
@@ -322,6 +386,7 @@ class ThreadViewModel @AssistedInject constructor(
             }
             state.copy(sortType = next)
         }
+        updateDisplayPosts()
     }
 
 
@@ -341,171 +406,29 @@ class ThreadViewModel @AssistedInject constructor(
     fun closeBookmarkSheet() = singleBookmarkViewModel?.closeBookmarkSheet()
 
     // 書き込み画面を表示
-    fun showPostDialog() {
-        _uiState.update { it.copy(postDialog = true) }
-    }
-
-    // 書き込み画面を閉じる
-    fun hidePostDialog() {
-        _uiState.update { it.copy(postDialog = false) }
-    }
-
-    // 書き込み確認画面を閉じる
-    fun hideConfirmationScreen() {
-        _uiState.update { it.copy(isConfirmationScreen = false) }
-    }
-
-    fun updatePostName(name: String) {
-        _uiState.update { it.copy(postFormState = it.postFormState.copy(name = name)) }
-    }
-
-    fun updatePostMail(mail: String) {
-        _uiState.update { it.copy(postFormState = it.postFormState.copy(mail = mail)) }
-    }
-
-    fun updatePostMessage(message: String) {
-        _uiState.update { it.copy(postFormState = it.postFormState.copy(message = message)) }
-    }
-
-    // エラーWebViewを閉じる処理
-    fun hideErrorWebView() {
-        _uiState.update { it.copy(showErrorWebView = false, errorHtmlContent = "") }
-    }
-
     fun startSearch() {
         _uiState.update { it.copy(isSearchMode = true) }
+        updateDisplayPosts()
     }
 
     fun closeSearch() {
         _uiState.update { it.copy(isSearchMode = false, searchQuery = "") }
+        updateDisplayPosts()
     }
 
     fun updateSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
+        updateDisplayPosts()
     }
 
-    // 初回投稿処理
-    fun postFirstPhase(
-        host: String,
-        board: String,
-        threadKey: String,
-        name: String,
-        mail: String,
-        message: String
-    ) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isPosting = true, postDialog = false) }
-            val result =
-                postRepository.postTo5chFirstPhase(host, board, threadKey, name, mail, message)
-
-            _uiState.update { it.copy(isPosting = false) }
-
-            when (result) {
-                is PostResult.Success -> {
-                    // 成功メッセージ表示など
-                    _uiState.update {
-                        it.copy(
-                            postResultMessage = "書き込みに成功しました。"
-                        )
-                    }
-                    pendingPost = PendingPost(result.resNum, message, name, mail)
-                    reloadThread() // スレッドをリロード
-                }
-
-                is PostResult.Confirm -> {
-                    _uiState.update {
-                        it.copy(
-                            postConfirmation = result.confirmationData,
-                            isConfirmationScreen = true
-                        )
-                    }
-                }
-
-                is PostResult.Error -> {
-                    _uiState.update {
-                        it.copy(
-                            showErrorWebView = true,
-                            errorHtmlContent = result.html
-                        )
-                    }
-                }
-            }
-        }
+    fun onPostSuccess(resNum: Int?, message: String, name: String, mail: String) {
+        pendingPost = PendingPost(resNum, message, name, mail)
+        reloadThread()
     }
 
-    // 2回目投稿
-    fun postTo5chSecondPhase(
-        host: String,
-        board: String,
-        threadKey: String,
-        confirmationData: ConfirmationData
-    ) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isPosting = true, isConfirmationScreen = false) }
-            val result = postRepository.postTo5chSecondPhase(
-                host,
-                board,
-                threadKey,
-                confirmationData
-            )
 
-            _uiState.update { it.copy(isPosting = false) }
 
-            when (result) {
-                is PostResult.Success -> {
-                    // 成功メッセージ表示など
-                    _uiState.update {
-                        it.copy(
-                            postResultMessage = "書き込みに成功しました。"
-                        )
-                    }
-                    val form = uiState.value.postFormState
-                    pendingPost = PendingPost(result.resNum, form.message, form.name, form.mail)
-                    reloadThread()
-                }
 
-                is PostResult.Error -> {
-                    _uiState.update {
-                        it.copy(
-                            showErrorWebView = true,
-                            errorHtmlContent = result.html
-                        )
-                    }
-                }
-
-                is PostResult.Confirm -> {
-                    // 2回目でConfirmが返ることは基本ないが念のため
-                    _uiState.update {
-                        it.copy(
-                            postConfirmation = result.confirmationData,
-                            isConfirmationScreen = true
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    fun uploadImage(context: android.content.Context, uri: android.net.Uri) {
-        viewModelScope.launch {
-            val bytes = withContext(kotlinx.coroutines.Dispatchers.IO) {
-                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            }
-            bytes?.let {
-                val url = imageUploadRepository.uploadImage(it)
-                if (url != null) {
-                    val msg = uiState.value.postFormState.message
-                    _uiState.update { current ->
-                        current.copy(postFormState = current.postFormState.copy(message = msg + "\n" + url))
-                    }
-                }
-            }
-        }
-    }
-
-    fun clearPostResultMessage() {
-        _uiState.update { it.copy(postResultMessage = null) }
-    }
 
     fun updateThreadTabInfo(key: String, boardUrl: String, title: String, resCount: Int) {
         viewModelScope.launch {
