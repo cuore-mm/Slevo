@@ -81,9 +81,8 @@ fun ThreadScaffold(
                 threadTitle = tab.title
             )
         },
-        updateScrollPosition = { tab, index, offset ->
-            tabsViewModel.getOrCreateThreadViewModel(tab.key + tab.boardUrl)
-                .updateThreadScrollPosition(tab.key, tab.boardUrl, index, offset)
+        updateScrollPosition = { viewModel, tab, index, offset ->
+            viewModel.updateThreadScrollPosition(tab.key, tab.boardUrl, index, offset)
         },
         scrollBehavior = scrollBehavior,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
