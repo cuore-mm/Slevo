@@ -1,20 +1,15 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
-import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.DatRepository
-import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
-import com.websarva.wings.android.slevo.data.repository.PostRepository
-import com.websarva.wings.android.slevo.data.repository.PostResult
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
@@ -52,8 +47,6 @@ private data class PendingPost(
 class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
     private val boardRepository: BoardRepository,
-    private val postRepository: PostRepository,
-    private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
     private val postHistoryRepository: PostHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
@@ -413,37 +406,6 @@ class ThreadViewModel @AssistedInject constructor(
     fun closeBookmarkSheet() = singleBookmarkViewModel?.closeBookmarkSheet()
 
     // 書き込み画面を表示
-    fun showPostDialog() {
-        _uiState.update { it.copy(postDialog = true) }
-    }
-
-    // 書き込み画面を閉じる
-    fun hidePostDialog() {
-        _uiState.update { it.copy(postDialog = false) }
-    }
-
-    // 書き込み確認画面を閉じる
-    fun hideConfirmationScreen() {
-        _uiState.update { it.copy(isConfirmationScreen = false) }
-    }
-
-    fun updatePostName(name: String) {
-        _uiState.update { it.copy(postFormState = it.postFormState.copy(name = name)) }
-    }
-
-    fun updatePostMail(mail: String) {
-        _uiState.update { it.copy(postFormState = it.postFormState.copy(mail = mail)) }
-    }
-
-    fun updatePostMessage(message: String) {
-        _uiState.update { it.copy(postFormState = it.postFormState.copy(message = message)) }
-    }
-
-    // エラーWebViewを閉じる処理
-    fun hideErrorWebView() {
-        _uiState.update { it.copy(showErrorWebView = false, errorHtmlContent = "") }
-    }
-
     fun startSearch() {
         _uiState.update { it.copy(isSearchMode = true) }
         updateDisplayPosts()
@@ -459,128 +421,14 @@ class ThreadViewModel @AssistedInject constructor(
         updateDisplayPosts()
     }
 
-    // 初回投稿処理
-    fun postFirstPhase(
-        host: String,
-        board: String,
-        threadKey: String,
-        name: String,
-        mail: String,
-        message: String
-    ) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isPosting = true, postDialog = false) }
-            val result =
-                postRepository.postTo5chFirstPhase(host, board, threadKey, name, mail, message)
-
-            _uiState.update { it.copy(isPosting = false) }
-
-            when (result) {
-                is PostResult.Success -> {
-                    // 成功メッセージ表示など
-                    _uiState.update {
-                        it.copy(
-                            postResultMessage = "書き込みに成功しました。"
-                        )
-                    }
-                    pendingPost = PendingPost(result.resNum, message, name, mail)
-                    reloadThread() // スレッドをリロード
-                }
-
-                is PostResult.Confirm -> {
-                    _uiState.update {
-                        it.copy(
-                            postConfirmation = result.confirmationData,
-                            isConfirmationScreen = true
-                        )
-                    }
-                }
-
-                is PostResult.Error -> {
-                    _uiState.update {
-                        it.copy(
-                            showErrorWebView = true,
-                            errorHtmlContent = result.html
-                        )
-                    }
-                }
-            }
-        }
+    fun onPostSuccess(resNum: Int?, message: String, name: String, mail: String) {
+        pendingPost = PendingPost(resNum, message, name, mail)
+        reloadThread()
     }
 
-    // 2回目投稿
-    fun postTo5chSecondPhase(
-        host: String,
-        board: String,
-        threadKey: String,
-        confirmationData: ConfirmationData
-    ) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isPosting = true, isConfirmationScreen = false) }
-            val result = postRepository.postTo5chSecondPhase(
-                host,
-                board,
-                threadKey,
-                confirmationData
-            )
 
-            _uiState.update { it.copy(isPosting = false) }
 
-            when (result) {
-                is PostResult.Success -> {
-                    // 成功メッセージ表示など
-                    _uiState.update {
-                        it.copy(
-                            postResultMessage = "書き込みに成功しました。"
-                        )
-                    }
-                    val form = uiState.value.postFormState
-                    pendingPost = PendingPost(result.resNum, form.message, form.name, form.mail)
-                    reloadThread()
-                }
 
-                is PostResult.Error -> {
-                    _uiState.update {
-                        it.copy(
-                            showErrorWebView = true,
-                            errorHtmlContent = result.html
-                        )
-                    }
-                }
-
-                is PostResult.Confirm -> {
-                    // 2回目でConfirmが返ることは基本ないが念のため
-                    _uiState.update {
-                        it.copy(
-                            postConfirmation = result.confirmationData,
-                            isConfirmationScreen = true
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    fun uploadImage(context: android.content.Context, uri: android.net.Uri) {
-        viewModelScope.launch {
-            val bytes = withContext(kotlinx.coroutines.Dispatchers.IO) {
-                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            }
-            bytes?.let {
-                val url = imageUploadRepository.uploadImage(it)
-                if (url != null) {
-                    val msg = uiState.value.postFormState.message
-                    _uiState.update { current ->
-                        current.copy(postFormState = current.postFormState.copy(message = msg + "\n" + url))
-                    }
-                }
-            }
-        }
-    }
-
-    fun clearPostResultMessage() {
-        _uiState.update { it.copy(postResultMessage = null) }
-    }
 
     fun updateThreadTabInfo(key: String, boardUrl: String, title: String, resCount: Int) {
         viewModelScope.launch {
