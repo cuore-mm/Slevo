@@ -84,7 +84,7 @@ fun BoardScaffold(
                 )
             )
         },
-        updateScrollPosition = { tab, index, offset ->
+        updateScrollPosition = { _, tab, index, offset ->
             tabsViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
         scrollBehavior = scrollBehavior ,
