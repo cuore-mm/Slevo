@@ -33,6 +33,7 @@ import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
+import java.util.UUID
 
 private data class PendingPost(
     val resNum: Int?,
@@ -430,7 +431,16 @@ class ThreadViewModel @AssistedInject constructor(
                 if (beforeSet.contains(num)) {
                     posts.getOrNull(num - 1)?.let { post ->
                         val depth = treeDepthMap[num] ?: 0
-                        before.add(DisplayPost(num, post, dimmed = false, isAfter = false, depth = depth))
+                        before.add(
+                            DisplayPost(
+                                id = UUID.randomUUID().toString(),
+                                num = num,
+                                post = post,
+                                dimmed = false,
+                                isAfter = false,
+                                depth = depth
+                            )
+                        )
                     }
                 }
             }
@@ -447,7 +457,16 @@ class ThreadViewModel @AssistedInject constructor(
                 if (isAfter) {
                     posts.getOrNull(num - 1)?.let { post ->
                         val depth = (treeDepthMap[num] ?: 0) - shift
-                        after.add(DisplayPost(num, post, dimmed = false, isAfter = true, depth = depth))
+                        after.add(
+                            DisplayPost(
+                                id = UUID.randomUUID().toString(),
+                                num = num,
+                                post = post,
+                                dimmed = false,
+                                isAfter = true,
+                                depth = depth
+                            )
+                        )
                     }
                 }
                 childrenMap[num]?.forEach { child ->
@@ -464,8 +483,9 @@ class ThreadViewModel @AssistedInject constructor(
                         posts.getOrNull(parent - 1)?.let { p ->
                             after.add(
                                 DisplayPost(
-                                    parent,
-                                    p,
+                                    id = UUID.randomUUID().toString(),
+                                    num = parent,
+                                    post = p,
                                     dimmed = true,
                                     isAfter = true,
                                     depth = 0
@@ -489,7 +509,14 @@ class ThreadViewModel @AssistedInject constructor(
                 posts.getOrNull(num - 1)?.let { post ->
                     val isAfter = firstNewResNo != null && num >= firstNewResNo
                     val depth = if (sortType == ThreadSortType.TREE) treeDepthMap[num] ?: 0 else 0
-                    DisplayPost(num, post, false, isAfter, depth)
+                    DisplayPost(
+                        id = UUID.randomUUID().toString(),
+                        num = num,
+                        post = post,
+                        dimmed = false,
+                        isAfter = isAfter,
+                        depth = depth
+                    )
                 }
             }
         }
