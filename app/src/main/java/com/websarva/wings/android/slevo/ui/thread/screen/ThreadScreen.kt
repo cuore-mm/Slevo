@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
@@ -32,6 +31,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -57,9 +57,8 @@ import com.websarva.wings.android.slevo.ui.thread.item.PostItem
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
-import kotlin.math.min
-import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
+import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -191,8 +190,10 @@ fun ThreadScreen(
                     } else {
                         0
                     }
+
                     // 再構成を発生させない座標ホルダ（クリック時のみ参照）
                     data class OffsetHolder(var value: IntOffset)
+
                     val itemOffsetHolder = remember { OffsetHolder(IntOffset.Zero) }
                     Column {
                         if (firstAfterIndex != -1 && idx == firstAfterIndex) {
@@ -206,7 +207,8 @@ fun ThreadScreen(
                             post = post,
                             postNum = postNum,
                             idIndex = uiState.idIndexList.getOrElse(index) { 1 },
-                            idTotal = if (post.id.isBlank()) 1 else uiState.idCountMap[post.id] ?: 1,
+                            idTotal = if (post.id.isBlank()) 1 else uiState.idCountMap[post.id]
+                                ?: 1,
                             navController = navController,
                             boardName = uiState.boardInfo.name,
                             boardId = uiState.boardInfo.boardId,
@@ -298,7 +300,8 @@ fun ThreadScreen(
                     .pointerInput(Unit) {
                         awaitPointerEventScope {
                             while (true) {
-                                val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                val event =
+                                    awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                                 event.changes.forEach { it.consume() }
                             }
                         }

@@ -240,7 +240,7 @@ fun ThreadScaffold(
                 )
             }
 
-            if (uiState.isPosting) {
+            if (postUiState.isPosting) {
                 PostingDialog()
             }
         }
