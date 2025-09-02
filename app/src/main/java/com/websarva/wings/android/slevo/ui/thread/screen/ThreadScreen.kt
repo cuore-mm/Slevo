@@ -70,12 +70,19 @@ fun ThreadScreen(
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
 ) {
+    // 投稿一覧（nullの場合は空リスト）
     val posts = uiState.posts ?: emptyList()
+    // 表示対象の投稿（フィルタ済み）
     val visiblePosts = uiState.visiblePosts
+    // 表示用の投稿データ（ReplyInfo型）
     val displayPosts = visiblePosts.map { it.post }
+    // 各投稿の返信数
     val replyCounts = uiState.replyCounts
+    // 新着バーを表示するインデックス
     val firstAfterIndex = uiState.firstAfterIndex
+    // ポップアップ表示用のスタック
     val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
+    // NG（非表示）対象の投稿番号リスト
     val ngNumbers = uiState.ngPostNumbers
 
     LaunchedEffect(listState, visiblePosts, uiState.sortType) {

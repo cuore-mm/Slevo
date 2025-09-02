@@ -1,10 +1,10 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.lifecycle.viewModelScope
+import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.Groupable
+import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.DatRepository
@@ -13,8 +13,6 @@ import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
-import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
-import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
@@ -31,7 +29,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -53,7 +50,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
     private val tabsRepository: TabsRepository,
-    @Assisted val viewModelKey: String,
+    @Assisted @Suppress("unused") val viewModelKey: String,
 ) : BaseViewModel<ThreadUiState>() {
 
     override val _uiState = MutableStateFlow(ThreadUiState())
@@ -83,7 +80,8 @@ class ThreadViewModel @AssistedInject constructor(
 
         viewModelScope.launch {
             val currentTabs = tabsRepository.observeOpenThreadTabs().first()
-            val tabIndex = currentTabs.indexOfFirst { it.key == threadKey && it.boardUrl == boardInfo.url }
+            val tabIndex =
+                currentTabs.indexOfFirst { it.key == threadKey && it.boardUrl == boardInfo.url }
             val updated = if (tabIndex != -1) {
                 currentTabs.toMutableList().apply {
                     this[tabIndex] = this[tabIndex].copy(
@@ -149,20 +147,26 @@ class ThreadViewModel @AssistedInject constructor(
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     override suspend fun loadData(isRefresh: Boolean) {
+        // 画面ローディング状態をセットし、プログレスを初期化
         _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
         val boardUrl = uiState.value.boardInfo.url
         val key = uiState.value.threadInfo.key
 
         try {
+            // DatRepository からスレ情報を取得（進捗コールバックを渡す）
             val threadData = datRepository.getThread(boardUrl, key) { progress ->
+                // 読み込み進捗を UI 状態に反映
                 _uiState.update { it.copy(loadProgress = progress) }
             }
             if (threadData != null) {
+                // 正常に取得できた場合はパース結果を元に各種派生データを作成
                 val (posts, title) = threadData
+                // ID カウント / インデックス / 返信ソースマップ を導出
                 val derived = deriveReplyMaps(posts)
+                // ツリー順と深さマップを導出
                 val tree = deriveTreeOrder(posts)
+                // UI 状態に新しい投稿リスト等を反映（読み込みフラグ解除）
                 _uiState.update {
                     it.copy(
                         posts = posts,
@@ -176,12 +180,18 @@ class ThreadViewModel @AssistedInject constructor(
                         treeDepthMap = tree.second,
                     )
                 }
+
+                // NG 判定を再計算して表示用投稿リストを更新
                 updateNgPostNumbers()
+
+                // スレ履歴に件数を記録し、そのIDを取得
                 val historyId = historyRepository.recordHistory(
                     uiState.value.boardInfo,
                     uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
                     posts.size
                 )
+
+                // 履歴 ID が変わっていれば、過去の自分の投稿番号観察を再登録
                 if (observedThreadHistoryId != historyId) {
                     observedThreadHistoryId = historyId
                     postHistoryCollectJob?.cancel()
@@ -191,6 +201,8 @@ class ThreadViewModel @AssistedInject constructor(
                         }
                     }
                 }
+
+                // 保留していた投稿情報があれば履歴に記録（該当レス番号が有効な場合）
                 pendingPost?.let { pending ->
                     val resNumber = pending.resNum ?: posts.size
                     if (resNumber in 1..posts.size) {
@@ -206,20 +218,28 @@ class ThreadViewModel @AssistedInject constructor(
                             postId = p.id
                         )
                     }
+                    // 保留をクリア
                     pendingPost = null
                 }
             } else {
+                // 取得失敗時は読み込みフラグを解除してログを出力
                 _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
                 Timber.e("Failed to load thread data for board: $boardUrl key: $key")
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (_: Exception) {
+            // 例外時は読み込みフラグを解除（例外オブジェクトは参照しない）
             _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
         }
     }
 
+    // 投稿リストからIDカウント・IDインデックス・返信元マップを生成
+    // 1. idCountMap: 各IDの出現回数
+    // 2. idIndexList: 各投稿のID出現順（同一IDの何番目か）
+    // 3. replySourceMap: 各投稿番号に対する返信元（>>n）の投稿番号リスト
     private fun deriveReplyMaps(posts: List<ReplyInfo>): Triple<Map<String, Int>, List<Int>, Map<Int, List<Int>>> {
+        // IDごとの出現回数を集計
         val idCountMap = posts.groupingBy { it.id }.eachCount()
+        // 各投稿のID出現順を計算
         val idIndexList = run {
             val indexMap = mutableMapOf<String, Int>()
             posts.map { reply ->
@@ -228,6 +248,7 @@ class ThreadViewModel @AssistedInject constructor(
                 idx
             }
         }
+        // 各投稿への返信元（>>n）を抽出
         val replySourceMap = run {
             val map = mutableMapOf<Int, MutableList<Int>>()
             val regex = Regex(">>(\\d+)")
@@ -244,26 +265,32 @@ class ThreadViewModel @AssistedInject constructor(
         return Triple(idCountMap, idIndexList, replySourceMap)
     }
 
+    // 投稿リストからツリー順（親子関係）と各投稿の深さを計算
+    // 1. children: 親投稿番号ごとに子投稿番号リストを保持
+    // 2. parent: 各投稿番号の親投稿番号（なければ0）
+    // 3. depthMap: 各投稿番号のツリー深さ
+    // 4. order: DFSで得られる表示順
     private fun deriveTreeOrder(posts: List<ReplyInfo>): Pair<List<Int>, Map<Int, Int>> {
-        val children = mutableMapOf<Int, MutableList<Int>>()
-        val parent = IntArray(posts.size + 1)
-        val depthMap = mutableMapOf<Int, Int>()
-        val regex = Regex("^>>(\\d+)")
+        val children = mutableMapOf<Int, MutableList<Int>>() // 親→子リスト
+        val parent = IntArray(posts.size + 1) // 投稿番号→親投稿番号
+        val depthMap = mutableMapOf<Int, Int>() // 投稿番号→深さ
+        val regex = Regex("^>>(\\d+)") // 先頭>>n形式のみ親とみなす
         posts.forEachIndexed { idx, reply ->
-            val current = idx + 1
+            val current = idx + 1 // 投稿番号
             val match = regex.find(reply.content)
             val p = match?.groupValues?.get(1)?.toIntOrNull()
             if (p != null && p in 1 until current) {
-                parent[current] = p
-                children.getOrPut(p) { mutableListOf() }.add(current)
+                parent[current] = p // 親投稿番号を記録
+                children.getOrPut(p) { mutableListOf() }.add(current) // 親→子リストに追加
             }
         }
-        val order = mutableListOf<Int>()
+        val order = mutableListOf<Int>() // DFSで表示順を構築
         fun dfs(num: Int, depth: Int) {
             order.add(num)
             depthMap[num] = depth
             children[num]?.forEach { child -> dfs(child, depth + 1) }
         }
+        // 親がいない投稿（親番号0）からDFS開始
         for (i in 1..posts.size) {
             if (parent[i] == 0) {
                 dfs(i, 0)
@@ -310,69 +337,141 @@ class ThreadViewModel @AssistedInject constructor(
         updateDisplayPosts()
     }
 
+    // 表示用投稿リストを更新する
+    // NG投稿・検索・ツリー/番号ソート・新着インデックスなどの状態を反映
     private fun updateDisplayPosts() {
+        // 投稿リスト取得（nullならreturn）
         val posts = uiState.value.posts ?: return
+        // 新着レス番号・前回レス数取得
         val firstNewResNo = uiState.value.firstNewResNo
         val prevResCount = uiState.value.prevResCount
+        // 並び順（ツリー or 番号）
         val order = if (uiState.value.sortType == ThreadSortType.TREE) {
             uiState.value.treeOrder
         } else {
             (1..posts.size).toList()
         }
-        val orderedPosts = if (uiState.value.sortType == ThreadSortType.TREE && firstNewResNo != null) {
+        // ツリーソートかつ新着レスありの場合の並び替え
+        val orderedPosts = buildOrderedPosts(
+            posts = posts,
+            order = order,
+            sortType = uiState.value.sortType,
+            treeDepthMap = uiState.value.treeDepthMap,
+            firstNewResNo = firstNewResNo,
+            prevResCount = prevResCount
+        )
+
+        // 検索クエリがあれば絞り込み
+        val filteredPosts = if (uiState.value.searchQuery.isNotBlank()) {
+            orderedPosts.filter {
+                it.post.content.contains(
+                    uiState.value.searchQuery,
+                    ignoreCase = true
+                )
+            }
+        } else {
+            orderedPosts
+        }
+        // NG投稿を除外
+        val visiblePosts = filteredPosts.filterNot { it.num in uiState.value.ngPostNumbers }
+        // 各投稿の返信数リスト
+        val replyCounts = visiblePosts.map { p -> uiState.value.replySourceMap[p.num]?.size ?: 0 }
+        // 新着インデックス（最初の新着投稿の位置）
+        val firstAfterIndex = visiblePosts.indexOfFirst { it.isAfter }
+
+        // UI状態を更新
+        _uiState.update {
+            it.copy(
+                visiblePosts = visiblePosts,
+                replyCounts = replyCounts,
+                firstAfterIndex = firstAfterIndex
+            )
+        }
+    }
+
+    private fun buildOrderedPosts(
+        posts: List<ReplyInfo>,
+        order: List<Int>,
+        sortType: ThreadSortType,
+        treeDepthMap: Map<Int, Int>,
+        firstNewResNo: Int?,
+        prevResCount: Int
+    ): List<DisplayPost> {
+        // ツリーソートかつ新着レスありの場合の並び替え
+        if (sortType == ThreadSortType.TREE && firstNewResNo != null) {
+            // 親子関係を構築するためのマップとスタックを準備
             val parentMap = mutableMapOf<Int, Int>()
             val stack = mutableListOf<Int>()
+            // order（ツリーのDFS順）を走査して深さ情報から親を決定する
             order.forEach { num ->
-                val depth = uiState.value.treeDepthMap[num] ?: 0
-                while (stack.size > depth) stack.removeLast()
+                val depth = treeDepthMap[num] ?: 0
+                // 現在の深さに合わせてスタックを縮める（スタック末尾が親になる）
+                while (stack.size > depth) stack.removeAt(stack.lastIndex)
+                // スタックの末尾を親とみなす。なければ親は 0（ルート）
                 parentMap[num] = stack.lastOrNull() ?: 0
+                // 現在ノードをスタックに追加（以降の子ノードの親候補になる）
                 stack.add(num)
             }
+
+            // 新着前(before) と新着以降(after) を分けて格納するリスト
             val before = mutableListOf<DisplayPost>()
             val after = mutableListOf<DisplayPost>()
+            // 既に after に挿入済みの親を追跡（親を二重追加しないため）
             val insertedParents = mutableSetOf<Int>()
+
+            // 表示順を再走査して before/after に振り分け
             order.forEach { num ->
                 val parent = parentMap[num] ?: 0
                 val post = posts.getOrNull(num - 1) ?: return@forEach
+
                 if (num < firstNewResNo) {
-                    before.add(DisplayPost(num, post, false, false))
+                    // この投稿自体が新着より前なら before に追加（通常表示）
+                    before.add(DisplayPost(num, post, dimmed = false, isAfter = false))
                 } else {
+                    // 新着以降の投稿の処理
+                    // 親が新着より前に存在するか（新着の子であるか）を判定
                     val parentOld = parent in 1 until firstNewResNo
+
                     if (parentOld && num <= prevResCount) {
-                        before.add(DisplayPost(num, post, false, false))
+                        // 親が新着前で、かつこの投稿が前回取得分に含まれる場合は
+                        // 以前の表示（before）として扱う
+                        before.add(DisplayPost(num, post, dimmed = false, isAfter = false))
                     } else {
+                        // parentOld が true の場合、親投稿を after に一度だけ挿入する
+                        // その際は dimmed=true（薄く表示）かつ isAfter=true として新着区別を明示
                         if (parentOld) {
                             if (insertedParents.add(parent)) {
                                 posts.getOrNull(parent - 1)?.let { p ->
-                                    after.add(DisplayPost(parent, p, true, true))
+                                    after.add(
+                                        DisplayPost(
+                                            parent,
+                                            p,
+                                            dimmed = true,
+                                            isAfter = true
+                                        )
+                                    )
                                 }
                             }
                         }
-                        after.add(DisplayPost(num, post, false, true))
+                        // 現在の投稿は新着扱いとして after に追加
+                        after.add(DisplayPost(num, post, dimmed = false, isAfter = true))
                     }
                 }
             }
-            before + after
+            // before（旧投稿）を先に、after（新着）を後に連結して最終リストを返す
+            return before + after
         } else {
-            order.mapNotNull { num ->
+            // 通常の並び（番号順 or ツリー順）
+            // 各番号を対応する投稿にマッピングして DisplayPost を生成する
+            return order.mapNotNull { num ->
                 posts.getOrNull(num - 1)?.let { post ->
                     val isAfter = firstNewResNo != null && num >= firstNewResNo
                     DisplayPost(num, post, false, isAfter)
                 }
             }
         }
-
-        val filteredPosts = if (uiState.value.searchQuery.isNotBlank()) {
-            orderedPosts.filter { it.post.content.contains(uiState.value.searchQuery, ignoreCase = true) }
-        } else {
-            orderedPosts
-        }
-        val visiblePosts = filteredPosts.filterNot { it.num in uiState.value.ngPostNumbers }
-        val replyCounts = visiblePosts.map { p -> uiState.value.replySourceMap[p.num]?.size ?: 0 }
-        val firstAfterIndex = visiblePosts.indexOfFirst { it.isAfter }
-
-        _uiState.update { it.copy(visiblePosts = visiblePosts, replyCounts = replyCounts, firstAfterIndex = firstAfterIndex) }
     }
+
     fun reloadThread() {
         initialize(force = true) // 強制的に初期化処理を再実行
     }
@@ -425,9 +524,6 @@ class ThreadViewModel @AssistedInject constructor(
         pendingPost = PendingPost(resNum, message, name, mail)
         reloadThread()
     }
-
-
-
 
 
     fun updateThreadTabInfo(key: String, boardUrl: String, title: String, resCount: Int) {

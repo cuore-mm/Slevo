@@ -1,7 +1,5 @@
 package com.websarva.wings.android.slevo.data.repository
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import com.websarva.wings.android.slevo.data.datasource.remote.DatRemoteDataSource
 import com.websarva.wings.android.slevo.data.util.parseDat
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
@@ -10,15 +8,11 @@ import com.websarva.wings.android.slevo.ui.util.keyToOysterUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeParseException
 import javax.inject.Inject
 
 class DatRepository @Inject constructor(
     private val remoteDataSource: DatRemoteDataSource
 ) {
-    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getThread(
         boardUrl: String,
         threadKey: String,
@@ -46,38 +40,11 @@ class DatRepository @Inject constructor(
         }
     }
 
-    /**
-     * 日付文字列 (例: "2025/07/09(水) 19:40:25.769") をパースする
-     */
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun parseDateString(dateStr: String): LocalDateTime? {
-        // "(水)" のような曜日部分を削除し、前後の空白も除去
-        val cleanDateStr = dateStr.replace(Regex("""\s*\([日月火水木金土]\)\s*"""), " ").trim()
-        // 考えられる日付フォーマットのリスト
-        val patterns = listOf(
-            "yyyy/MM/dd HH:mm:ss.SSS",
-            "yyyy/MM/dd HH:mm:ss.SS",
-            "yyyy/MM/dd HH:mm:ss.S",
-            "yyyy/MM/dd HH:mm:ss"
-        )
-
-        // パターンを順番に試す
-        for (pattern in patterns) {
-            try {
-                return LocalDateTime.parse(cleanDateStr, DateTimeFormatter.ofPattern(pattern))
-            } catch (e: DateTimeParseException) {
-                // パースに失敗した場合は次のパターンを試す
-            }
-        }
-        // すべてのパターンで失敗した場合
-        Timber.w("Failed to parse date string: $dateStr")
-        return null
-    }
+    // parseDateStringは互換性のため削除。SimpleDateFormatベースのparseToMillisを使用します。
 
     /**
      * 投稿リストを受け取り、各投稿の勢いを計算して返す
      */
-    @RequiresApi(Build.VERSION_CODES.O)
     private fun calculateMomentum(
         replies: List<ReplyInfo>,
         // --- 調整パラメータ ---
@@ -92,24 +59,44 @@ class DatRepository @Inject constructor(
         if (replies.isEmpty()) return replies
 
         // 1) epochMillis 化（単調性を保証）
-        val zone = java.time.ZoneId.of("Asia/Tokyo")
+        // Android API 26 の java.time.ZoneId を使わず、互換性のために SimpleDateFormat を使ってミリ秒を取得する
+        val tz = java.util.TimeZone.getTimeZone("Asia/Tokyo")
+        val sdfPatterns = arrayOf(
+            "yyyy/MM/dd HH:mm:ss.SSS",
+            "yyyy/MM/dd HH:mm:ss.SS",
+            "yyyy/MM/dd HH:mm:ss.S",
+            "yyyy/MM/dd HH:mm:ss"
+        )
+        fun parseToMillis(dateStr: String): Long? {
+            val clean = dateStr.replace(Regex("""\s*\([日月火水木金土]\)\s*"""), " ").trim()
+            for (pat in sdfPatterns) {
+                try {
+                    val sdf = java.text.SimpleDateFormat(pat, java.util.Locale.JAPAN)
+                    sdf.timeZone = tz
+                    val d = sdf.parse(clean)
+                    if (d != null) return d.time
+                } catch (_: Exception) {
+                    // 次のパターンを試す
+                }
+            }
+            return null
+        }
         val t = LongArray(replies.size)
         var last = 0L
         replies.forEachIndexed { i, r ->
-            val ms = parseDateString(r.date)?.atZone(zone)?.toInstant()?.toEpochMilli() ?: last
-            t[i] = if (i == 0) ms else maxOf(ms, last + 1) // 逆行補正
+            // SimpleDateFormatでパースしてUTC epoch millisを取得。失敗したら前回値を使用
+            val ms = parseToMillis(r.date) ?: last
+            t[i] = if (i == 0) ms else kotlin.math.max(ms, last + 1) // 逆行補正
             last = t[i]
         }
 
         // 2) スレ平均密度から可変 W を決める（窓内の期待件数 ≒ targetCountInWindow）
         val spanMs = (t.last() - t.first()).coerceAtLeast(1L)
         val avgRatePerMin = (replies.size - 1).coerceAtLeast(1) * 60_000f / spanMs.toFloat()
-        val autoWmin = (targetCountInWindow / avgRatePerMin).let {
-            it.coerceIn(
-                minWindowMin.toFloat(),
-                maxWindowMin.toFloat()
-            )
-        }.toInt()
+        val autoWmin = (targetCountInWindow / avgRatePerMin).coerceIn(
+            minWindowMin.toFloat(),
+            maxWindowMin.toFloat()
+        ).toInt()
 
         val windowMs = autoWmin * 60_000L
 
