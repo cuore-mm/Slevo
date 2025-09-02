@@ -54,13 +54,10 @@ import com.websarva.wings.android.slevo.ui.thread.item.PostItem
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
-import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import kotlin.math.min
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
 
-@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun ThreadScreen(
     modifier: Modifier = Modifier,
@@ -301,7 +298,7 @@ fun ThreadScreen(
             navController = navController,
             boardName = uiState.boardInfo.name,
             boardId = uiState.boardInfo.boardId,
-            onClose = { if (popupStack.isNotEmpty()) popupStack.removeLast() }
+            onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) }
         )
 
         if (uiState.isLoading) {
