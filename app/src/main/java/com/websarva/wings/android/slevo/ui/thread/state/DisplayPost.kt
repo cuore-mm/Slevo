@@ -7,5 +7,6 @@ data class DisplayPost(
     val num: Int,
     val post: ReplyInfo,
     val dimmed: Boolean,
-    val isAfter: Boolean
+    val isAfter: Boolean,
+    val depth: Int
 )

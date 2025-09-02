@@ -399,74 +399,97 @@ class ThreadViewModel @AssistedInject constructor(
     ): List<DisplayPost> {
         // ツリーソートかつ新着レスありの場合の並び替え
         if (sortType == ThreadSortType.TREE && firstNewResNo != null) {
-            // 親子関係を構築するためのマップとスタックを準備
+            // 親子関係および子リストマップを構築
             val parentMap = mutableMapOf<Int, Int>()
+            val childrenMap = mutableMapOf<Int, MutableList<Int>>()
             val stack = mutableListOf<Int>()
-            // order（ツリーのDFS順）を走査して深さ情報から親を決定する
             order.forEach { num ->
                 val depth = treeDepthMap[num] ?: 0
-                // 現在の深さに合わせてスタックを縮める（スタック末尾が親になる）
                 while (stack.size > depth) stack.removeAt(stack.lastIndex)
-                // スタックの末尾を親とみなす。なければ親は 0（ルート）
-                parentMap[num] = stack.lastOrNull() ?: 0
-                // 現在ノードをスタックに追加（以降の子ノードの親候補になる）
+                val parent = stack.lastOrNull() ?: 0
+                parentMap[num] = parent
+                childrenMap.getOrPut(parent) { mutableListOf() }.add(num)
                 stack.add(num)
             }
 
-            // 新着前(before) と新着以降(after) を分けて格納するリスト
-            val before = mutableListOf<DisplayPost>()
-            val after = mutableListOf<DisplayPost>()
-            // 既に after に挿入済みの親を追跡（親を二重追加しないため）
-            val insertedParents = mutableSetOf<Int>()
-
-            // 表示順を再走査して before/after に振り分け
-            order.forEach { num ->
+            // 番号順で before / after を単純分割
+            val beforeSet = linkedSetOf<Int>()
+            val afterSet = linkedSetOf<Int>()
+            for (num in 1..posts.size) {
                 val parent = parentMap[num] ?: 0
-                val post = posts.getOrNull(num - 1) ?: return@forEach
-
-                if (num < firstNewResNo) {
-                    // この投稿自体が新着より前なら before に追加（通常表示）
-                    before.add(DisplayPost(num, post, dimmed = false, isAfter = false))
+                if (num < firstNewResNo || (parent in 1 until firstNewResNo && num <= prevResCount)) {
+                    beforeSet.add(num)
                 } else {
-                    // 新着以降の投稿の処理
-                    // 親が新着より前に存在するか（新着の子であるか）を判定
-                    val parentOld = parent in 1 until firstNewResNo
+                    afterSet.add(num)
+                }
+            }
 
-                    if (parentOld && num <= prevResCount) {
-                        // 親が新着前で、かつこの投稿が前回取得分に含まれる場合は
-                        // 以前の表示（before）として扱う
-                        before.add(DisplayPost(num, post, dimmed = false, isAfter = false))
-                    } else {
-                        // parentOld が true の場合、親投稿を after に一度だけ挿入する
-                        // その際は dimmed=true（薄く表示）かつ isAfter=true として新着区別を明示
-                        if (parentOld) {
-                            if (insertedParents.add(parent)) {
-                                posts.getOrNull(parent - 1)?.let { p ->
-                                    after.add(
-                                        DisplayPost(
-                                            parent,
-                                            p,
-                                            dimmed = true,
-                                            isAfter = true
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                        // 現在の投稿は新着扱いとして after に追加
-                        after.add(DisplayPost(num, post, dimmed = false, isAfter = true))
+            // before をツリー順に並べ替え
+            val before = mutableListOf<DisplayPost>()
+            order.forEach { num ->
+                if (beforeSet.contains(num)) {
+                    posts.getOrNull(num - 1)?.let { post ->
+                        val depth = treeDepthMap[num] ?: 0
+                        before.add(DisplayPost(num, post, dimmed = false, isAfter = false, depth = depth))
                     }
                 }
             }
-            // before（旧投稿）を先に、after（新着）を後に連結して最終リストを返す
+
+            // after を番号順からツリー状に並べ替え、必要に応じて親を再表示
+            val after = mutableListOf<DisplayPost>()
+            val insertedParents = mutableSetOf<Int>()
+            val visited = mutableSetOf<Int>()
+
+            fun traverse(num: Int, shift: Int) {
+                val isAfter = afterSet.contains(num)
+                if (isAfter && !visited.add(num)) return
+
+                if (isAfter) {
+                    posts.getOrNull(num - 1)?.let { post ->
+                        val depth = (treeDepthMap[num] ?: 0) - shift
+                        after.add(DisplayPost(num, post, dimmed = false, isAfter = true, depth = depth))
+                    }
+                }
+                childrenMap[num]?.forEach { child ->
+                    traverse(child, shift)
+                }
+            }
+
+            val afterNums = afterSet.toList().sorted()
+            afterNums.forEach { num ->
+                if (visited.contains(num)) return@forEach
+                val parent = parentMap[num] ?: 0
+                if (parent in beforeSet) {
+                    if (insertedParents.add(parent)) {
+                        posts.getOrNull(parent - 1)?.let { p ->
+                            after.add(
+                                DisplayPost(
+                                    parent,
+                                    p,
+                                    dimmed = true,
+                                    isAfter = true,
+                                    depth = 0
+                                )
+                            )
+                        }
+                    }
+                    val shift = treeDepthMap[parent] ?: 0
+                    childrenMap[parent]?.forEach { child -> traverse(child, shift) }
+                } else {
+                    val shift = treeDepthMap[num] ?: 0
+                    traverse(num, shift)
+                }
+            }
+
+            // before と after を連結
             return before + after
         } else {
             // 通常の並び（番号順 or ツリー順）
-            // 各番号を対応する投稿にマッピングして DisplayPost を生成する
             return order.mapNotNull { num ->
                 posts.getOrNull(num - 1)?.let { post ->
                     val isAfter = firstNewResNo != null && num >= firstNewResNo
-                    DisplayPost(num, post, false, isAfter)
+                    val depth = if (sortType == ThreadSortType.TREE) treeDepthMap[num] ?: 0 else 0
+                    DisplayPost(num, post, false, isAfter, depth)
                 }
             }
         }
