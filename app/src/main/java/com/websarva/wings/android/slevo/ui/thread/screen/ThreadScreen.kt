@@ -164,14 +164,14 @@ fun ThreadScreen(
                     } else {
                         0
                     }
-                    item {
+                    item(key = "thread_header_divider") {
                         HorizontalDivider(modifier = Modifier.padding(start = 16.dp * firstIndent))
                     }
                 }
 
                 itemsIndexed(
                     items = visiblePosts,
-                    key = { _, display -> display.num }
+                    key = { index, display -> "${display.num}_$index" }
                 ) { idx, display ->
                     val postNum = display.num
                     val post = display.post
