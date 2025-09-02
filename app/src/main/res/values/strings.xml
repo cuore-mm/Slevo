@@ -77,4 +77,5 @@
     <string name="github">GitHub</string>
     <string name="github_url">https://github.com/cuore-mm/Slevo</string>
     <string name="open_source_licenses">オープンソースライセンス</string>
+    <string name="posting_in_progress">書き込み中</string>
 </resources>
