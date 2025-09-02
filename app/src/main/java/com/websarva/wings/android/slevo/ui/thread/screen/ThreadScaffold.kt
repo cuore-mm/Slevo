@@ -20,6 +20,7 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.ui.common.PostDialog
+import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -209,6 +210,10 @@ fun ThreadScaffold(
                     title = "応答結果",
                     onConfirm = null // 確認ボタンは不要なのでnull
                 )
+            }
+
+            if (uiState.isPosting) {
+                PostingDialog()
             }
         }
     )
