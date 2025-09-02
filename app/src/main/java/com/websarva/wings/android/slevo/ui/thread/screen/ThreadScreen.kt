@@ -171,7 +171,7 @@ fun ThreadScreen(
 
                 itemsIndexed(
                     items = visiblePosts,
-                    key = { index, display -> "${display.num}_$index" }
+                    key = { _, display -> "${display.num}_${display.dimmed}" }
                 ) { idx, display ->
                     val postNum = display.num
                     val post = display.post
