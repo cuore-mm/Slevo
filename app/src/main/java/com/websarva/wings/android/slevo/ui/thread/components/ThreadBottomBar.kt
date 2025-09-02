@@ -10,7 +10,9 @@ import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FlexibleBottomAppBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
@@ -19,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.R
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadBottomBar(
     modifier: Modifier = Modifier,
@@ -29,9 +32,9 @@ fun ThreadBottomBar(
     onRefreshClick: () -> Unit,
     onSearchClick: () -> Unit,
 ) {
-    BottomAppBar(
+    FlexibleBottomAppBar(
         modifier = modifier,
-        actions = {
+        content = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
