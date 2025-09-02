@@ -49,7 +49,6 @@ data class PopupInfo(
 // アニメーションの速度（ミリ秒）
 private const val POPUP_ANIMATION_DURATION = 300
 
-@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 fun ReplyPopup(
@@ -72,7 +71,7 @@ fun ReplyPopup(
             visibilityStates.add(MutableTransitionState(false).apply { targetState = true })
         }
         while (visibilityStates.size > popupStack.size) {
-            visibilityStates.removeLast()
+            visibilityStates.removeAt(visibilityStates.lastIndex)
         }
     }
 
