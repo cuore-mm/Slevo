@@ -399,13 +399,16 @@ class ThreadViewModel @AssistedInject constructor(
     ): List<DisplayPost> {
         // ツリーソートかつ新着レスありの場合の並び替え
         if (sortType == ThreadSortType.TREE && firstNewResNo != null) {
-            // 親子関係マップを構築
+            // 親子関係および子リストマップを構築
             val parentMap = mutableMapOf<Int, Int>()
+            val childrenMap = mutableMapOf<Int, MutableList<Int>>()
             val stack = mutableListOf<Int>()
             order.forEach { num ->
                 val depth = treeDepthMap[num] ?: 0
                 while (stack.size > depth) stack.removeAt(stack.lastIndex)
-                parentMap[num] = stack.lastOrNull() ?: 0
+                val parent = stack.lastOrNull() ?: 0
+                parentMap[num] = parent
+                childrenMap.getOrPut(parent) { mutableListOf() }.add(num)
                 stack.add(num)
             }
 
@@ -432,35 +435,49 @@ class ThreadViewModel @AssistedInject constructor(
                 }
             }
 
-            // after をツリー順に並べ替え、必要に応じて親を再表示
+            // after を番号順からツリー状に並べ替え、必要に応じて親を再表示
             val after = mutableListOf<DisplayPost>()
             val insertedParents = mutableSetOf<Int>()
-            val shiftMap = mutableMapOf<Int, Int>()
+            val visited = mutableSetOf<Int>()
 
-            order.forEach { num ->
-                if (!afterSet.contains(num)) return@forEach
-                val parent = parentMap[num] ?: 0
-                // 親が before に存在する場合は薄色で挿入
-                if (parent in beforeSet && insertedParents.add(parent)) {
-                    posts.getOrNull(parent - 1)?.let { p ->
-                        after.add(
-                            DisplayPost(
-                                parent,
-                                p,
-                                dimmed = true,
-                                isAfter = true,
-                                depth = 0
-                            )
-                        )
-                        shiftMap[parent] = treeDepthMap[parent] ?: 0
+            fun traverse(num: Int, shift: Int) {
+                val isAfter = afterSet.contains(num)
+                if (isAfter && !visited.add(num)) return
+
+                if (isAfter) {
+                    posts.getOrNull(num - 1)?.let { post ->
+                        val depth = (treeDepthMap[num] ?: 0) - shift
+                        after.add(DisplayPost(num, post, dimmed = false, isAfter = true, depth = depth))
                     }
                 }
+                childrenMap[num]?.forEach { child ->
+                    traverse(child, shift)
+                }
+            }
 
-                val shift = shiftMap[parent] ?: 0
-                shiftMap[num] = shift
-                posts.getOrNull(num - 1)?.let { post ->
-                    val depth = (treeDepthMap[num] ?: 0) - shift
-                    after.add(DisplayPost(num, post, dimmed = false, isAfter = true, depth = depth))
+            val afterNums = afterSet.toList().sorted()
+            afterNums.forEach { num ->
+                if (visited.contains(num)) return@forEach
+                val parent = parentMap[num] ?: 0
+                if (parent in beforeSet) {
+                    if (insertedParents.add(parent)) {
+                        posts.getOrNull(parent - 1)?.let { p ->
+                            after.add(
+                                DisplayPost(
+                                    parent,
+                                    p,
+                                    dimmed = true,
+                                    isAfter = true,
+                                    depth = 0
+                                )
+                            )
+                        }
+                    }
+                    val shift = treeDepthMap[parent] ?: 0
+                    childrenMap[parent]?.forEach { child -> traverse(child, shift) }
+                } else {
+                    val shift = treeDepthMap[num] ?: 0
+                    traverse(num, shift)
                 }
             }
 
