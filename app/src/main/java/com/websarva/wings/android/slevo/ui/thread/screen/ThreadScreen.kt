@@ -101,10 +101,12 @@ fun ThreadScreen(
                                 .mapNotNull { info ->
                                     val idx = info.index - 1
                                     if (idx in visiblePosts.indices) {
-                                        val num = visiblePosts[idx].num
-                                        if (uiState.sortType != ThreadSortType.TREE || (uiState.treeDepthMap[num]
-                                                ?: 0) == 0
-                                        ) num else null
+                                        val display = visiblePosts[idx]
+                                        if (uiState.sortType != ThreadSortType.TREE || display.depth == 0) {
+                                            display.num
+                                        } else {
+                                            null
+                                        }
                                     } else null
                                 }
                                 .maxOrNull()
@@ -158,7 +160,7 @@ fun ThreadScreen(
             ) {
                 if (visiblePosts.isNotEmpty()) {
                     val firstIndent = if (uiState.sortType == ThreadSortType.TREE) {
-                        uiState.treeDepthMap[visiblePosts.first().num] ?: 0
+                        visiblePosts.first().depth
                     } else {
                         0
                     }
@@ -175,13 +177,13 @@ fun ThreadScreen(
                     val post = display.post
                     val index = postNum - 1
                     val indent = if (uiState.sortType == ThreadSortType.TREE) {
-                        uiState.treeDepthMap[postNum] ?: 0
+                        display.depth
                     } else {
                         0
                     }
                     val nextIndent = if (idx + 1 < visiblePosts.size) {
                         if (uiState.sortType == ThreadSortType.TREE) {
-                            uiState.treeDepthMap[visiblePosts[idx + 1].num] ?: 0
+                            visiblePosts[idx + 1].depth
                         } else {
                             0
                         }
