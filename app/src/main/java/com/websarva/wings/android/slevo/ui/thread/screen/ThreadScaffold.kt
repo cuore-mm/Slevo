@@ -140,10 +140,10 @@ fun ThreadScaffold(
             val tabInfo = tabsUiState.openThreadTabs.find {
                 it.key == uiState.threadInfo.key && it.boardUrl == uiState.boardInfo.url
             }
-            val firstNewResNo = tabInfo?.firstNewResNo
-            val prevResCount = tabInfo?.prevResCount ?: 0
-            LaunchedEffect(firstNewResNo, prevResCount) {
-                viewModel.setNewArrivalInfo(firstNewResNo, prevResCount)
+            LaunchedEffect(tabInfo?.firstNewResNo, tabInfo?.prevResCount) {
+                tabInfo?.let {
+                    viewModel.setNewArrivalInfo(it.firstNewResNo, it.prevResCount)
+                }
             }
             ThreadScreen(
                 modifier = modifier,
