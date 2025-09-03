@@ -527,6 +527,14 @@ class ThreadViewModel @AssistedInject constructor(
     fun openBookmarkSheet() = singleBookmarkViewModel?.openBookmarkSheet()
     fun closeBookmarkSheet() = singleBookmarkViewModel?.closeBookmarkSheet()
 
+    fun openThreadInfoSheet() {
+        _uiState.update { it.copy(showThreadInfoSheet = true) }
+    }
+
+    fun closeThreadInfoSheet() {
+        _uiState.update { it.copy(showThreadInfoSheet = false) }
+    }
+
     // 書き込み画面を表示
     fun startSearch() {
         _uiState.update { it.copy(isSearchMode = true) }

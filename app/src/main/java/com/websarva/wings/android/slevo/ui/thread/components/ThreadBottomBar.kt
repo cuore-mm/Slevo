@@ -52,6 +52,7 @@ fun ThreadBottomBar(
     onRefreshClick: () -> Unit,
     onSearchClick: () -> Unit,
     onBookmarkClick: () -> Unit,
+    onThreadInfoClick: () -> Unit,
     scrollBehavior: BottomAppBarScrollBehavior? = null,
 ) {
     FlexibleBottomAppBar(
@@ -66,6 +67,7 @@ fun ThreadBottomBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
+                onClick = onThreadInfoClick
             ){
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -167,7 +169,8 @@ fun ThreadBottomBarPreview() {
         onTabListClick = {},
         onRefreshClick = {},
         onSearchClick = {},
-        onBookmarkClick = {}
+        onBookmarkClick = {},
+        onThreadInfoClick = {}
     )
 }
 
