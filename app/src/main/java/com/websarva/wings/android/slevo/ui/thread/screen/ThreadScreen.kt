@@ -128,13 +128,21 @@ fun ThreadScreen(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                if (!listState.canScrollForward && available.y < 0f) {
-                    overscroll -= available.y
-                    triggerRefresh = overscroll >= refreshThresholdPx
-                } else if (available.y > 0f) {
-                    overscroll = 0f
-                    triggerRefresh = false
+                when {
+                    // ボトムで上方向に引っ張った場合にオーバースクロール量を増加
+                    !listState.canScrollForward && available.y < 0f -> {
+                        overscroll -= available.y
+                    }
+                    // 引っ張った後に下方向へ戻した場合は消費分だけオーバースクロール量を減少
+                    overscroll > 0f && consumed.y > 0f -> {
+                        overscroll = (overscroll - consumed.y).coerceAtLeast(0f)
+                    }
+                    // それ以外（通常スクロール）はリセット
+                    available.y > 0f -> {
+                        overscroll = 0f
+                    }
                 }
+                triggerRefresh = overscroll >= refreshThresholdPx
                 return Offset.Zero
             }
 
