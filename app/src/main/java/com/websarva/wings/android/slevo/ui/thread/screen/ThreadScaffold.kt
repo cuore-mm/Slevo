@@ -2,7 +2,6 @@ package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -12,10 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
@@ -26,11 +25,11 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadBottomBar
-import com.websarva.wings.android.slevo.ui.thread.components.ThreadTopBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.PostViewModel
 import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
+import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -93,7 +92,7 @@ fun ThreadScaffold(
         },
         scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = bottomBarScrollBehavior,
-        topBar = { viewModel, uiState, drawer, scrollBehavior ->
+        topBar = { viewModel, uiState, _, scrollBehavior ->
             if (uiState.isSearchMode) {
                 SearchTopAppBar(
                     searchQuery = uiState.searchQuery,
@@ -101,25 +100,25 @@ fun ThreadScaffold(
                     onCloseSearch = { viewModel.closeSearch() },
                     scrollBehavior = scrollBehavior
                 )
-            } else {
-                ThreadTopBar(
-                    onBookmarkClick = { viewModel.openBookmarkSheet() },
-                    uiState = uiState,
-                    onNavigationClick = drawer,
-                    scrollBehavior = scrollBehavior
-                )
             }
         },
         bottomBar = { viewModel, uiState ->
+            val context = LocalContext.current
+            val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
             ThreadBottomBar(
-                modifier = Modifier
-                    .navigationBarsPadding(),
+                modifier = if (isThreeButtonBar) {
+                    Modifier.navigationBarsPadding()
+                } else {
+                    Modifier
+                },
+                uiState = uiState,
                 isTreeSort = uiState.sortType == ThreadSortType.TREE,
                 onSortClick = { viewModel.toggleSortType() },
                 onPostClick = { postViewModel.showPostDialog() },
                 onTabListClick = { viewModel.openTabListSheet() },
                 onRefreshClick = { viewModel.reloadThread() },
                 onSearchClick = { viewModel.startSearch() },
+                onBookmarkClick = { viewModel.openBookmarkSheet() },
                 scrollBehavior = bottomBarScrollBehavior,
             )
         },

@@ -129,7 +129,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
             Scaffold(
                 modifier = Modifier
-                    .nestedScroll(scrollBehavior.nestedScrollConnection)
+//                    .nestedScroll(scrollBehavior.nestedScrollConnection)
                     .let { modifier ->
                         bottomBarScrollBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
                             ?: modifier
