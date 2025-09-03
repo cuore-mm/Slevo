@@ -3,43 +3,43 @@ package com.websarva.wings.android.slevo.data.datasource.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.BookmarkThreadDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.NgDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenBoardTabDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenThreadTabDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.BbsServiceDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.BoardCategoryCrossRefDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.BoardDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.CategoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.BoardBookmarkGroupDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.BookmarkBoardDao
-import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.CategoryDao
-    import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.ThreadBookmarkGroupDao
-    import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenBoardTabDao
-    import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenThreadTabDao
-    import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
-    import com.websarva.wings.android.slevo.data.datasource.local.dao.NgDao
-    import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.ThreadSummaryDao
-    import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardVisitDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.BookmarkThreadDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.ThreadBookmarkGroupDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardFetchMetaDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardVisitDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.ThreadSummaryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostHistoryDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
+import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenBoardTabEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadTabEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BbsServiceEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BoardCategoryCrossRef
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BoardEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.CategoryEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.BoardBookmarkGroupEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.BookmarkBoardEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.BookmarkThreadEntity
-import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.CategoryEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.ThreadBookmarkGroupEntity
-import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenBoardTabEntity
-import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadTabEntity
-import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryEntity
-import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryAccessEntity
-import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
-import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.ThreadSummaryEntity
-import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.BoardVisitEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.BoardFetchMetaEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.BoardVisitEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.ThreadSummaryEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostHistoryEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryAccessEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryEntity
 
 @TypeConverters(NgTypeConverter::class)
-    @Database(
-        entities = [
+@Database(
+    entities = [
         BbsServiceEntity::class,
         CategoryEntity::class,
         BoardEntity::class,
@@ -58,7 +58,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.history.Pos
         BoardFetchMetaEntity::class,
         PostHistoryEntity::class
     ],
-    version = 5,
+    version = 2,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -81,24 +81,14 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                database.execSQL(
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
                     "ALTER TABLE open_thread_tabs ADD COLUMN lastReadResNo INTEGER NOT NULL DEFAULT 0"
                 )
-            }
-        }
-
-        val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                database.execSQL(
+                db.execSQL(
                     "ALTER TABLE open_thread_tabs ADD COLUMN firstNewResNo INTEGER NOT NULL DEFAULT 0"
                 )
-            }
-        }
-
-        val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                database.execSQL(
+                db.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS new_open_thread_tabs (
                         threadKey TEXT NOT NULL,
@@ -116,7 +106,7 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                database.execSQL(
+                db.execSQL(
                     """
                     INSERT INTO new_open_thread_tabs (
                         threadKey, boardUrl, boardId, boardName, title,
@@ -130,14 +120,9 @@ abstract class AppDatabase : RoomDatabase() {
                     FROM open_thread_tabs
                     """.trimIndent()
                 )
-                database.execSQL("DROP TABLE open_thread_tabs")
-                database.execSQL("ALTER TABLE new_open_thread_tabs RENAME TO open_thread_tabs")
-            }
-        }
-
-        val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                database.execSQL(
+                db.execSQL("DROP TABLE open_thread_tabs")
+                db.execSQL("ALTER TABLE new_open_thread_tabs RENAME TO open_thread_tabs")
+                db.execSQL(
                     "ALTER TABLE open_thread_tabs ADD COLUMN prevResCount INTEGER NOT NULL DEFAULT 0"
                 )
             }
