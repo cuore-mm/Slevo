@@ -1,15 +1,16 @@
 package com.websarva.wings.android.slevo.ui.thread.components
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -19,10 +20,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import java.text.DecimalFormat
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.model.ThreadDate
+import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,21 +69,30 @@ private fun ThreadInfoBottomSheetContent(
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center
         )
-        Text(
-            text = stringResource(
-                R.string.thread_date_and_momentum,
-                date.year,
-                date.month,
-                date.day,
-                date.dayOfWeek,
-                date.hour,
-                date.minute,
-                momentumFormatter.format(threadInfo.momentum)
-            ),
-            modifier = Modifier.padding(top = 8.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center
-        )
+        Row {
+            Text(
+                text = stringResource(
+                    R.string.thread_date_and_momentum,
+                    date.year,
+                    date.month,
+                    date.day,
+                    date.dayOfWeek,
+                    date.hour,
+                    date.minute
+                ),
+                modifier = Modifier.padding(top = 8.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.padding(8.dp))
+            Text(
+                text = stringResource(R.string.momentum) + ": "
+                        + momentumFormatter.format(threadInfo.momentum),
+                modifier = Modifier.padding(top = 8.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+        }
         Button(
             onClick = onCopyClick,
             modifier = Modifier.padding(top = 16.dp)
@@ -95,11 +105,8 @@ private fun ThreadInfoBottomSheetContent(
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
-fun ThreadInfoBottomSheetPreview() {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ThreadInfoBottomSheet(
-        sheetState = sheetState,
-        onDismissRequest = {},
+fun ThreadInfoBottomSheetContentPreview() {
+    ThreadInfoBottomSheetContent(
         threadInfo = ThreadInfo(
             title = "スレッドタイトル",
             resCount = 100,
