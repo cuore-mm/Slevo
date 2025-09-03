@@ -2,7 +2,6 @@ package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -26,11 +25,9 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadBottomBar
-import com.websarva.wings.android.slevo.ui.thread.components.ThreadTopBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.PostViewModel
-import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -93,23 +90,7 @@ fun ThreadScaffold(
         },
         scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = bottomBarScrollBehavior,
-        topBar = { viewModel, uiState, drawer, scrollBehavior ->
-            if (uiState.isSearchMode) {
-                SearchTopAppBar(
-                    searchQuery = uiState.searchQuery,
-                    onQueryChange = { viewModel.updateSearchQuery(it) },
-                    onCloseSearch = { viewModel.closeSearch() },
-                    scrollBehavior = scrollBehavior
-                )
-            } else {
-                ThreadTopBar(
-                    onBookmarkClick = { viewModel.openBookmarkSheet() },
-                    uiState = uiState,
-                    onNavigationClick = drawer,
-                    scrollBehavior = scrollBehavior
-                )
-            }
-        },
+        topBar = { _, _, _, _ -> },
         bottomBar = { viewModel, uiState ->
             ThreadBottomBar(
                 modifier = Modifier
@@ -120,6 +101,8 @@ fun ThreadScaffold(
                 onTabListClick = { viewModel.openTabListSheet() },
                 onRefreshClick = { viewModel.reloadThread() },
                 onSearchClick = { viewModel.startSearch() },
+                onBookmarkClick = { viewModel.openBookmarkSheet() },
+                uiState = uiState,
                 scrollBehavior = bottomBarScrollBehavior,
             )
         },
