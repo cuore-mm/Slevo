@@ -58,7 +58,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.history.Pos
         BoardFetchMetaEntity::class,
         PostHistoryEntity::class
     ],
-    version = 5,
+    version = 2,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -85,58 +85,9 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL(
                     "ALTER TABLE open_thread_tabs ADD COLUMN lastReadResNo INTEGER NOT NULL DEFAULT 0"
                 )
-            }
-        }
-
-        val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                 database.execSQL(
-                    "ALTER TABLE open_thread_tabs ADD COLUMN firstNewResNo INTEGER NOT NULL DEFAULT 0"
+                    "ALTER TABLE open_thread_tabs ADD COLUMN firstNewResNo INTEGER"
                 )
-            }
-        }
-
-        val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                database.execSQL(
-                    """
-                    CREATE TABLE IF NOT EXISTS new_open_thread_tabs (
-                        threadKey TEXT NOT NULL,
-                        boardUrl TEXT NOT NULL,
-                        boardId INTEGER NOT NULL,
-                        boardName TEXT NOT NULL,
-                        title TEXT NOT NULL,
-                        resCount INTEGER NOT NULL,
-                        lastReadResNo INTEGER NOT NULL,
-                        firstNewResNo INTEGER,
-                        sortOrder INTEGER NOT NULL,
-                        firstVisibleItemIndex INTEGER NOT NULL,
-                        firstVisibleItemScrollOffset INTEGER NOT NULL,
-                        PRIMARY KEY(threadKey, boardUrl)
-                    )
-                    """.trimIndent()
-                )
-                database.execSQL(
-                    """
-                    INSERT INTO new_open_thread_tabs (
-                        threadKey, boardUrl, boardId, boardName, title,
-                        resCount, lastReadResNo, firstNewResNo, sortOrder,
-                        firstVisibleItemIndex, firstVisibleItemScrollOffset
-                    )
-                    SELECT threadKey, boardUrl, boardId, boardName, title,
-                        resCount, lastReadResNo,
-                        CASE WHEN firstNewResNo = 0 THEN NULL ELSE firstNewResNo END,
-                        sortOrder, firstVisibleItemIndex, firstVisibleItemScrollOffset
-                    FROM open_thread_tabs
-                    """.trimIndent()
-                )
-                database.execSQL("DROP TABLE open_thread_tabs")
-                database.execSQL("ALTER TABLE new_open_thread_tabs RENAME TO open_thread_tabs")
-            }
-        }
-
-        val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE open_thread_tabs ADD COLUMN prevResCount INTEGER NOT NULL DEFAULT 0"
                 )
