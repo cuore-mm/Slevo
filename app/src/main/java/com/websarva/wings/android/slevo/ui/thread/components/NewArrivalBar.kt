@@ -27,7 +27,7 @@ fun NewArrivalBar() {
             text = stringResource(id = R.string.new_responses),
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.primary)
+                .background(MaterialTheme.colorScheme.tertiary)
                 .padding(vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onPrimary,

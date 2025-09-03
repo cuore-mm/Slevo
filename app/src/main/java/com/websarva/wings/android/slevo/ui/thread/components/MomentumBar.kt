@@ -47,7 +47,9 @@ fun MomentumBar(
     val replyColors = replyCounts.map { count ->
         if (count >= 5) replyCountColor(count) else Color.Unspecified
     }
-    val markerColor = MaterialTheme.colorScheme.primary
+
+    val arrivalMarkerColor = MaterialTheme.colorScheme.tertiary
+    val myPostMarkerColor = MaterialTheme.colorScheme.primary
 
     var barHeight by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
@@ -197,7 +199,7 @@ fun MomentumBar(
                         lineTo(x - half, y)
                         close()
                     }
-                    drawPath(path = path, color = markerColor)
+                    drawPath(path = path, color = myPostMarkerColor)
                 }
             }
 
@@ -206,7 +208,7 @@ fun MomentumBar(
                 val y = firstAfterIndex * postHeight
                 val strokeWidth = 1.dp.toPx()
                 drawLine(
-                    color = markerColor,
+                    color = arrivalMarkerColor,
                     start = Offset(0f, y),
                     end = Offset(canvasWidth, y),
                     strokeWidth = strokeWidth
