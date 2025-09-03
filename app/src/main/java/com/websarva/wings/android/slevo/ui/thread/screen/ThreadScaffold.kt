@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
@@ -10,6 +11,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -99,7 +102,21 @@ fun ThreadScaffold(
             }
         },
         bottomBar = { viewModel, uiState ->
+            val context = LocalContext.current
+            val isThreeButtonBar = remember {
+                val id = context.resources.getIdentifier(
+                    "config_navBarInteractionMode",
+                    "integer",
+                    "android"
+                )
+                id > 0 && context.resources.getInteger(id) == 0
+            }
             ThreadBottomBar(
+                modifier = if (isThreeButtonBar) {
+                    Modifier.navigationBarsPadding()
+                } else {
+                    Modifier
+                },
                 uiState = uiState,
                 isTreeSort = uiState.sortType == ThreadSortType.TREE,
                 onSortClick = { viewModel.toggleSortType() },
