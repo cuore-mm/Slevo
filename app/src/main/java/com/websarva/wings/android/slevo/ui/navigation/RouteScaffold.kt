@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -56,18 +57,19 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     getScrollIndex: (TabInfo) -> Int,
     getScrollOffset: (TabInfo) -> Int,
     initializeViewModel: (viewModel: ViewModel, tabInfo: TabInfo) -> Unit,
-    updateScrollPosition: (tab: TabInfo, index: Int, offset: Int) -> Unit,
+    updateScrollPosition: (viewModel: ViewModel, tab: TabInfo, index: Int, offset: Int) -> Unit,
     topBar: @Composable (viewModel: ViewModel, uiState: UiState, openDrawer: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) -> Unit,
     bottomBar: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit,
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier,navController: NavHostController) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
+    bottomBarScrollBehavior: BottomAppBarScrollBehavior? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
     var cachedTabs by remember { mutableStateOf(openTabs) }
     if (openTabs.isNotEmpty()) {
         cachedTabs = openTabs
     }
-    val tabs = if (openTabs.isNotEmpty()) openTabs else cachedTabs
+    val tabs = openTabs.ifEmpty { cachedTabs }
     val currentTabInfo = tabs.find(currentRoutePredicate)
 
     if (currentTabInfo != null) {
@@ -120,13 +122,18 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
                         .debounce(200L)
                         .collectLatest { (index, offset) ->
-                            updateScrollPosition(tab, index, offset)
+                            updateScrollPosition(viewModel, tab, index, offset)
                         }
                 }
             }
 
             Scaffold(
-                modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+                modifier = Modifier
+//                    .nestedScroll(scrollBehavior.nestedScrollConnection)
+                    .let { modifier ->
+                        bottomBarScrollBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
+                            ?: modifier
+                    },
                 topBar = { topBar(viewModel, uiState, openDrawer, scrollBehavior) },
                 bottomBar = { bottomBar(viewModel, uiState) }
             ) { innerPadding ->

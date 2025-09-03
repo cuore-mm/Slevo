@@ -22,8 +22,6 @@ import com.websarva.wings.android.slevo.ui.common.SelectedTopBarScreen
 import com.websarva.wings.android.slevo.ui.bbslist.service.ServiceListTopBarScreen
 import com.websarva.wings.android.slevo.ui.bbslist.service.ServiceListViewModel
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.thread.components.ThreadTopBar
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.isInRoute
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -101,23 +99,6 @@ fun RenderTopBar(
             )
 
         }
-
-        currentDestination.isInRoute(
-            AppRoute.RouteName.THREAD
-        ) -> {
-            val threadViewModel: ThreadViewModel? =
-                navBackStackEntry?.let { hiltViewModel<ThreadViewModel>(it) }
-            // threadViewModel が null でない場合にだけ処理を実施
-            threadViewModel?.let { viewModel ->
-                val uiState by viewModel.uiState.collectAsState()
-                ThreadTopBar(
-                    onBookmarkClick = { viewModel.openBookmarkSheet() },
-                    uiState = uiState,
-                    onNavigationClick = {}
-                )
-            }
-        }
-
         else -> {}
     }
 }
