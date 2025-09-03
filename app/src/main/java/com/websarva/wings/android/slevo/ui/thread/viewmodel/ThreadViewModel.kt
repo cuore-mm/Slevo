@@ -1,29 +1,30 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
+import android.os.Build
+import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.Groupable
-import com.websarva.wings.android.slevo.data.model.NgType
-import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
+import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.DatRepository
+import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
+import com.websarva.wings.android.slevo.data.repository.PostRepository
+import com.websarva.wings.android.slevo.data.repository.PostResult
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
-import com.websarva.wings.android.slevo.data.repository.SettingsRepository
-import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.slevo.data.repository.SettingsRepository
+import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
+import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
-import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
-import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
-import com.websarva.wings.android.slevo.data.util.ThreadListParser.calculateThreadDate
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -32,11 +33,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
-import kotlin.math.max
 
 private data class PendingPost(
     val resNum: Int?,
@@ -48,13 +49,14 @@ private data class PendingPost(
 class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
     private val boardRepository: BoardRepository,
+    private val postRepository: PostRepository,
+    private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
     private val postHistoryRepository: PostHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
-    private val tabsRepository: TabsRepository,
-    @Assisted @Suppress("unused") val viewModelKey: String,
+    @Assisted val viewModelKey: String,
 ) : BaseViewModel<ThreadUiState>() {
 
     override val _uiState = MutableStateFlow(ThreadUiState())
@@ -81,30 +83,6 @@ class ThreadViewModel @AssistedInject constructor(
             url = boardInfo.url
         )
         _uiState.update { it.copy(boardInfo = boardInfo, threadInfo = threadInfo) }
-
-        viewModelScope.launch {
-            val currentTabs = tabsRepository.observeOpenThreadTabs().first()
-            val tabIndex =
-                currentTabs.indexOfFirst { it.key == threadKey && it.boardUrl == boardInfo.url }
-            val updated = if (tabIndex != -1) {
-                currentTabs.toMutableList().apply {
-                    this[tabIndex] = this[tabIndex].copy(
-                        title = threadTitle,
-                        boardName = boardInfo.name,
-                        boardId = boardInfo.boardId
-                    )
-                }
-            } else {
-                currentTabs + ThreadTabInfo(
-                    key = threadKey,
-                    title = threadTitle,
-                    boardName = boardInfo.name,
-                    boardUrl = boardInfo.url,
-                    boardId = boardInfo.boardId
-                )
-            }
-            tabsRepository.saveOpenThreadTabs(updated)
-        }
 
         viewModelScope.launch {
             boardRepository.fetchBoardNoname("${boardInfo.url}SETTING.TXT")?.let { noname ->
@@ -151,51 +129,26 @@ class ThreadViewModel @AssistedInject constructor(
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override suspend fun loadData(isRefresh: Boolean) {
-        // 画面ローディング状態をセットし、プログレスを初期化
         _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
         val boardUrl = uiState.value.boardInfo.url
         val key = uiState.value.threadInfo.key
 
         try {
-            // DatRepository からスレ情報を取得（進捗コールバックを渡す）
             val threadData = datRepository.getThread(boardUrl, key) { progress ->
-                // 読み込み進捗を UI 状態に反映
                 _uiState.update { it.copy(loadProgress = progress) }
             }
             if (threadData != null) {
-                // 正常に取得できた場合はパース結果を元に各種派生データを作成
                 val (posts, title) = threadData
-                // ID カウント / インデックス / 返信ソースマップ を導出
                 val derived = deriveReplyMaps(posts)
-                // ツリー順と深さマップを導出
                 val tree = deriveTreeOrder(posts)
-                val resCount = posts.size
-                val keyLong = key.toLongOrNull()
-                val date = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD) {
-                    calculateThreadDate(key)
-                } else {
-                    ThreadDate(0, 0, 0, 0, 0, "")
-                }
-                val momentum = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD && resCount > 0) {
-                    val elapsedSeconds = max(1L, System.currentTimeMillis() / 1000 - keyLong)
-                    val elapsedDays = elapsedSeconds / 86400.0
-                    if (elapsedDays > 0) resCount / elapsedDays else 0.0
-                } else {
-                    0.0
-                }
-                // UI 状態に新しい投稿リスト等を反映（読み込みフラグ解除）
                 _uiState.update {
                     it.copy(
                         posts = posts,
                         isLoading = false,
                         loadProgress = 1f,
-                        threadInfo = it.threadInfo.copy(
-                            title = title ?: it.threadInfo.title,
-                            resCount = resCount,
-                            date = date,
-                            momentum = momentum
-                        ),
+                        threadInfo = it.threadInfo.copy(title = title ?: it.threadInfo.title),
                         idCountMap = derived.first,
                         idIndexList = derived.second,
                         replySourceMap = derived.third,
@@ -203,18 +156,12 @@ class ThreadViewModel @AssistedInject constructor(
                         treeDepthMap = tree.second,
                     )
                 }
-
-                // NG 判定を再計算して表示用投稿リストを更新
                 updateNgPostNumbers()
-
-                // スレ履歴に件数を記録し、そのIDを取得
                 val historyId = historyRepository.recordHistory(
                     uiState.value.boardInfo,
                     uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
                     posts.size
                 )
-
-                // 履歴 ID が変わっていれば、過去の自分の投稿番号観察を再登録
                 if (observedThreadHistoryId != historyId) {
                     observedThreadHistoryId = historyId
                     postHistoryCollectJob?.cancel()
@@ -224,8 +171,6 @@ class ThreadViewModel @AssistedInject constructor(
                         }
                     }
                 }
-
-                // 保留していた投稿情報があれば履歴に記録（該当レス番号が有効な場合）
                 pendingPost?.let { pending ->
                     val resNumber = pending.resNum ?: posts.size
                     if (resNumber in 1..posts.size) {
@@ -241,28 +186,20 @@ class ThreadViewModel @AssistedInject constructor(
                             postId = p.id
                         )
                     }
-                    // 保留をクリア
                     pendingPost = null
                 }
             } else {
-                // 取得失敗時は読み込みフラグを解除してログを出力
                 _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
                 Timber.e("Failed to load thread data for board: $boardUrl key: $key")
             }
-        } catch (_: Exception) {
-            // 例外時は読み込みフラグを解除（例外オブジェクトは参照しない）
+        } catch (e: Exception) {
+            e.printStackTrace()
             _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
         }
     }
 
-    // 投稿リストからIDカウント・IDインデックス・返信元マップを生成
-    // 1. idCountMap: 各IDの出現回数
-    // 2. idIndexList: 各投稿のID出現順（同一IDの何番目か）
-    // 3. replySourceMap: 各投稿番号に対する返信元（>>n）の投稿番号リスト
     private fun deriveReplyMaps(posts: List<ReplyInfo>): Triple<Map<String, Int>, List<Int>, Map<Int, List<Int>>> {
-        // IDごとの出現回数を集計
         val idCountMap = posts.groupingBy { it.id }.eachCount()
-        // 各投稿のID出現順を計算
         val idIndexList = run {
             val indexMap = mutableMapOf<String, Int>()
             posts.map { reply ->
@@ -271,7 +208,6 @@ class ThreadViewModel @AssistedInject constructor(
                 idx
             }
         }
-        // 各投稿への返信元（>>n）を抽出
         val replySourceMap = run {
             val map = mutableMapOf<Int, MutableList<Int>>()
             val regex = Regex(">>(\\d+)")
@@ -288,32 +224,26 @@ class ThreadViewModel @AssistedInject constructor(
         return Triple(idCountMap, idIndexList, replySourceMap)
     }
 
-    // 投稿リストからツリー順（親子関係）と各投稿の深さを計算
-    // 1. children: 親投稿番号ごとに子投稿番号リストを保持
-    // 2. parent: 各投稿番号の親投稿番号（なければ0）
-    // 3. depthMap: 各投稿番号のツリー深さ
-    // 4. order: DFSで得られる表示順
     private fun deriveTreeOrder(posts: List<ReplyInfo>): Pair<List<Int>, Map<Int, Int>> {
-        val children = mutableMapOf<Int, MutableList<Int>>() // 親→子リスト
-        val parent = IntArray(posts.size + 1) // 投稿番号→親投稿番号
-        val depthMap = mutableMapOf<Int, Int>() // 投稿番号→深さ
-        val regex = Regex("^>>(\\d+)") // 先頭>>n形式のみ親とみなす
+        val children = mutableMapOf<Int, MutableList<Int>>()
+        val parent = IntArray(posts.size + 1)
+        val depthMap = mutableMapOf<Int, Int>()
+        val regex = Regex("^>>(\\d+)")
         posts.forEachIndexed { idx, reply ->
-            val current = idx + 1 // 投稿番号
+            val current = idx + 1
             val match = regex.find(reply.content)
             val p = match?.groupValues?.get(1)?.toIntOrNull()
             if (p != null && p in 1 until current) {
-                parent[current] = p // 親投稿番号を記録
-                children.getOrPut(p) { mutableListOf() }.add(current) // 親→子リストに追加
+                parent[current] = p
+                children.getOrPut(p) { mutableListOf() }.add(current)
             }
         }
-        val order = mutableListOf<Int>() // DFSで表示順を構築
+        val order = mutableListOf<Int>()
         fun dfs(num: Int, depth: Int) {
             order.add(num)
             depthMap[num] = depth
             children[num]?.forEach { child -> dfs(child, depth + 1) }
         }
-        // 親がいない投稿（親番号0）からDFS開始
         for (i in 1..posts.size) {
             if (parent[i] == 0) {
                 dfs(i, 0)
@@ -352,172 +282,7 @@ class ThreadViewModel @AssistedInject constructor(
             if (isNg) idx + 1 else null
         }.toSet()
         _uiState.update { it.copy(ngPostNumbers = ngNumbers) }
-        updateDisplayPosts()
     }
-
-    fun setNewArrivalInfo(firstNewResNo: Int?, prevResCount: Int) {
-        _uiState.update { it.copy(firstNewResNo = firstNewResNo, prevResCount = prevResCount) }
-        updateDisplayPosts()
-    }
-
-    // 表示用投稿リストを更新する
-    // NG投稿・検索・ツリー/番号ソート・新着インデックスなどの状態を反映
-    private fun updateDisplayPosts() {
-        // 投稿リスト取得（nullならreturn）
-        val posts = uiState.value.posts ?: return
-        // 新着レス番号・前回レス数取得
-        val firstNewResNo = uiState.value.firstNewResNo
-        val prevResCount = uiState.value.prevResCount
-        // 並び順（ツリー or 番号）
-        val order = if (uiState.value.sortType == ThreadSortType.TREE) {
-            uiState.value.treeOrder
-        } else {
-            (1..posts.size).toList()
-        }
-        // ツリーソートかつ新着レスありの場合の並び替え
-        val orderedPosts = buildOrderedPosts(
-            posts = posts,
-            order = order,
-            sortType = uiState.value.sortType,
-            treeDepthMap = uiState.value.treeDepthMap,
-            firstNewResNo = firstNewResNo,
-            prevResCount = prevResCount
-        )
-
-        // 検索クエリがあれば絞り込み
-        val filteredPosts = if (uiState.value.searchQuery.isNotBlank()) {
-            orderedPosts.filter {
-                it.post.content.contains(
-                    uiState.value.searchQuery,
-                    ignoreCase = true
-                )
-            }
-        } else {
-            orderedPosts
-        }
-        // NG投稿を除外
-        val visiblePosts = filteredPosts.filterNot { it.num in uiState.value.ngPostNumbers }
-        // 各投稿の返信数リスト
-        val replyCounts = visiblePosts.map { p -> uiState.value.replySourceMap[p.num]?.size ?: 0 }
-        // 新着インデックス（最初の新着投稿の位置）
-        val firstAfterIndex = visiblePosts.indexOfFirst { it.isAfter }
-
-        // UI状態を更新
-        _uiState.update {
-            it.copy(
-                visiblePosts = visiblePosts,
-                replyCounts = replyCounts,
-                firstAfterIndex = firstAfterIndex
-            )
-        }
-    }
-
-    private fun buildOrderedPosts(
-        posts: List<ReplyInfo>,
-        order: List<Int>,
-        sortType: ThreadSortType,
-        treeDepthMap: Map<Int, Int>,
-        firstNewResNo: Int?,
-        prevResCount: Int
-    ): List<DisplayPost> {
-        // ツリーソートかつ新着レスありの場合の並び替え
-        if (sortType == ThreadSortType.TREE && firstNewResNo != null) {
-            // 親子関係および子リストマップを構築
-            val parentMap = mutableMapOf<Int, Int>()
-            val childrenMap = mutableMapOf<Int, MutableList<Int>>()
-            val stack = mutableListOf<Int>()
-            order.forEach { num ->
-                val depth = treeDepthMap[num] ?: 0
-                while (stack.size > depth) stack.removeAt(stack.lastIndex)
-                val parent = stack.lastOrNull() ?: 0
-                parentMap[num] = parent
-                childrenMap.getOrPut(parent) { mutableListOf() }.add(num)
-                stack.add(num)
-            }
-
-            // 番号順で before / after を単純分割
-            val beforeSet = linkedSetOf<Int>()
-            val afterSet = linkedSetOf<Int>()
-            for (num in 1..posts.size) {
-                val parent = parentMap[num] ?: 0
-                if (num < firstNewResNo || (parent in 1 until firstNewResNo && num <= prevResCount)) {
-                    beforeSet.add(num)
-                } else {
-                    afterSet.add(num)
-                }
-            }
-
-            // before をツリー順に並べ替え
-            val before = mutableListOf<DisplayPost>()
-            order.forEach { num ->
-                if (beforeSet.contains(num)) {
-                    posts.getOrNull(num - 1)?.let { post ->
-                        val depth = treeDepthMap[num] ?: 0
-                        before.add(DisplayPost(num, post, dimmed = false, isAfter = false, depth = depth))
-                    }
-                }
-            }
-
-            // after を番号順からツリー状に並べ替え、必要に応じて親を再表示
-            val after = mutableListOf<DisplayPost>()
-            val insertedParents = mutableSetOf<Int>()
-            val visited = mutableSetOf<Int>()
-
-            fun traverse(num: Int, shift: Int) {
-                val isAfter = afterSet.contains(num)
-                if (isAfter && !visited.add(num)) return
-
-                if (isAfter) {
-                    posts.getOrNull(num - 1)?.let { post ->
-                        val depth = (treeDepthMap[num] ?: 0) - shift
-                        after.add(DisplayPost(num, post, dimmed = false, isAfter = true, depth = depth))
-                    }
-                }
-                childrenMap[num]?.forEach { child ->
-                    traverse(child, shift)
-                }
-            }
-
-            val afterNums = afterSet.toList().sorted()
-            afterNums.forEach { num ->
-                if (visited.contains(num)) return@forEach
-                val parent = parentMap[num] ?: 0
-                if (parent in beforeSet) {
-                    if (insertedParents.add(parent)) {
-                        posts.getOrNull(parent - 1)?.let { p ->
-                            after.add(
-                                DisplayPost(
-                                    parent,
-                                    p,
-                                    dimmed = true,
-                                    isAfter = true,
-                                    depth = 0
-                                )
-                            )
-                        }
-                    }
-                    val shift = treeDepthMap[parent] ?: 0
-                    childrenMap[parent]?.forEach { child -> traverse(child, shift) }
-                } else {
-                    val shift = treeDepthMap[num] ?: 0
-                    traverse(num, shift)
-                }
-            }
-
-            // before と after を連結
-            return before + after
-        } else {
-            // 通常の並び（番号順 or ツリー順）
-            return order.mapNotNull { num ->
-                posts.getOrNull(num - 1)?.let { post ->
-                    val isAfter = firstNewResNo != null && num >= firstNewResNo
-                    val depth = if (sortType == ThreadSortType.TREE) treeDepthMap[num] ?: 0 else 0
-                    DisplayPost(num, post, false, isAfter, depth)
-                }
-            }
-        }
-    }
-
     fun reloadThread() {
         initialize(force = true) // 強制的に初期化処理を再実行
     }
@@ -531,7 +296,6 @@ class ThreadViewModel @AssistedInject constructor(
             }
             state.copy(sortType = next)
         }
-        updateDisplayPosts()
     }
 
 
@@ -550,97 +314,171 @@ class ThreadViewModel @AssistedInject constructor(
     fun openBookmarkSheet() = singleBookmarkViewModel?.openBookmarkSheet()
     fun closeBookmarkSheet() = singleBookmarkViewModel?.closeBookmarkSheet()
 
-    fun openThreadInfoSheet() {
-        _uiState.update { it.copy(showThreadInfoSheet = true) }
-    }
-
-    fun closeThreadInfoSheet() {
-        _uiState.update { it.copy(showThreadInfoSheet = false) }
-    }
-
     // 書き込み画面を表示
+    fun showPostDialog() {
+        _uiState.update { it.copy(postDialog = true) }
+    }
+
+    // 書き込み画面を閉じる
+    fun hidePostDialog() {
+        _uiState.update { it.copy(postDialog = false) }
+    }
+
+    // 書き込み確認画面を閉じる
+    fun hideConfirmationScreen() {
+        _uiState.update { it.copy(isConfirmationScreen = false) }
+    }
+
+    fun updatePostName(name: String) {
+        _uiState.update { it.copy(postFormState = it.postFormState.copy(name = name)) }
+    }
+
+    fun updatePostMail(mail: String) {
+        _uiState.update { it.copy(postFormState = it.postFormState.copy(mail = mail)) }
+    }
+
+    fun updatePostMessage(message: String) {
+        _uiState.update { it.copy(postFormState = it.postFormState.copy(message = message)) }
+    }
+
+    // エラーWebViewを閉じる処理
+    fun hideErrorWebView() {
+        _uiState.update { it.copy(showErrorWebView = false, errorHtmlContent = "") }
+    }
+
     fun startSearch() {
         _uiState.update { it.copy(isSearchMode = true) }
-        updateDisplayPosts()
     }
 
     fun closeSearch() {
         _uiState.update { it.copy(isSearchMode = false, searchQuery = "") }
-        updateDisplayPosts()
     }
 
     fun updateSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
-        updateDisplayPosts()
     }
 
-    fun onPostSuccess(resNum: Int?, message: String, name: String, mail: String) {
-        pendingPost = PendingPost(resNum, message, name, mail)
-        reloadThread()
-    }
-
-
-    fun updateThreadTabInfo(key: String, boardUrl: String, title: String, resCount: Int) {
-        viewModelScope.launch {
-            val current = tabsRepository.observeOpenThreadTabs().first()
-            val updated = current.map { tab ->
-                if (tab.key == key && tab.boardUrl == boardUrl) {
-                    val candidate = if (tab.lastReadResNo == 0) {
-                        null
-                    } else if (tab.firstNewResNo == null || tab.firstNewResNo <= tab.lastReadResNo) {
-                        tab.lastReadResNo + 1
-                    } else {
-                        tab.firstNewResNo
-                    }
-                    val newFirst = candidate?.let { if (it > resCount) null else candidate }
-                    tab.copy(
-                        title = title,
-                        resCount = resCount,
-                        prevResCount = tab.resCount,
-                        firstNewResNo = newFirst
-                    )
-                } else {
-                    tab
-                }
-            }
-            tabsRepository.saveOpenThreadTabs(updated)
-        }
-    }
-
-    fun updateThreadScrollPosition(
-        tabKey: String,
-        boardUrl: String,
-        firstVisibleIndex: Int,
-        scrollOffset: Int
+    // 初回投稿処理
+    fun postFirstPhase(
+        host: String,
+        board: String,
+        threadKey: String,
+        name: String,
+        mail: String,
+        message: String
     ) {
         viewModelScope.launch {
-            val current = tabsRepository.observeOpenThreadTabs().first()
-            val updated = current.map { tab ->
-                if (tab.key == tabKey && tab.boardUrl == boardUrl) {
-                    tab.copy(
-                        firstVisibleItemIndex = firstVisibleIndex,
-                        firstVisibleItemScrollOffset = scrollOffset
-                    )
-                } else {
-                    tab
+            _uiState.update { it.copy(isPosting = true, postDialog = false) }
+            val result =
+                postRepository.postTo5chFirstPhase(host, board, threadKey, name, mail, message)
+
+            _uiState.update { it.copy(isPosting = false) }
+
+            when (result) {
+                is PostResult.Success -> {
+                    // 成功メッセージ表示など
+                    _uiState.update {
+                        it.copy(
+                            postResultMessage = "書き込みに成功しました。"
+                        )
+                    }
+                    pendingPost = PendingPost(result.resNum, message, name, mail)
+                    reloadThread() // スレッドをリロード
+                }
+
+                is PostResult.Confirm -> {
+                    _uiState.update {
+                        it.copy(
+                            postConfirmation = result.confirmationData,
+                            isConfirmationScreen = true
+                        )
+                    }
+                }
+
+                is PostResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            showErrorWebView = true,
+                            errorHtmlContent = result.html
+                        )
+                    }
                 }
             }
-            tabsRepository.saveOpenThreadTabs(updated)
         }
     }
 
-    fun updateThreadLastRead(tabKey: String, boardUrl: String, lastReadResNo: Int) {
+    // 2回目投稿
+    fun postTo5chSecondPhase(
+        host: String,
+        board: String,
+        threadKey: String,
+        confirmationData: ConfirmationData
+    ) {
         viewModelScope.launch {
-            val current = tabsRepository.observeOpenThreadTabs().first()
-            val updated = current.map { tab ->
-                if (tab.key == tabKey && tab.boardUrl == boardUrl && lastReadResNo > tab.lastReadResNo) {
-                    tab.copy(lastReadResNo = lastReadResNo)
-                } else {
-                    tab
+            _uiState.update { it.copy(isPosting = true, isConfirmationScreen = false) }
+            val result = postRepository.postTo5chSecondPhase(
+                host,
+                board,
+                threadKey,
+                confirmationData
+            )
+
+            _uiState.update { it.copy(isPosting = false) }
+
+            when (result) {
+                is PostResult.Success -> {
+                    // 成功メッセージ表示など
+                    _uiState.update {
+                        it.copy(
+                            postResultMessage = "書き込みに成功しました。"
+                        )
+                    }
+                    val form = uiState.value.postFormState
+                    pendingPost = PendingPost(result.resNum, form.message, form.name, form.mail)
+                    reloadThread()
+                }
+
+                is PostResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            showErrorWebView = true,
+                            errorHtmlContent = result.html
+                        )
+                    }
+                }
+
+                is PostResult.Confirm -> {
+                    // 2回目でConfirmが返ることは基本ないが念のため
+                    _uiState.update {
+                        it.copy(
+                            postConfirmation = result.confirmationData,
+                            isConfirmationScreen = true
+                        )
+                    }
                 }
             }
-            tabsRepository.saveOpenThreadTabs(updated)
         }
+    }
+
+    fun uploadImage(context: android.content.Context, uri: android.net.Uri) {
+        viewModelScope.launch {
+            val bytes = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            }
+            bytes?.let {
+                val url = imageUploadRepository.uploadImage(it)
+                if (url != null) {
+                    val msg = uiState.value.postFormState.message
+                    _uiState.update { current ->
+                        current.copy(postFormState = current.postFormState.copy(message = msg + "\n" + url))
+                    }
+                }
+            }
+        }
+    }
+
+    fun clearPostResultMessage() {
+        _uiState.update { it.copy(postResultMessage = null) }
     }
 
     companion object {

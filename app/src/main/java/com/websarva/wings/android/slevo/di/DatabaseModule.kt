@@ -56,7 +56,7 @@ object DatabaseModule {
             name
         )
             .addMigrations(
-                AppDatabase.MIGRATION_1_2
+                AppDatabase.MIGRATION_1_2,  // v1.1.0
             )
             .addCallback(callback)
             .apply {

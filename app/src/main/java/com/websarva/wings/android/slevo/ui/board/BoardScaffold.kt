@@ -30,7 +30,6 @@ import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.slevo.ui.common.PostDialog
-import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -85,10 +84,10 @@ fun BoardScaffold(
                 )
             )
         },
-        updateScrollPosition = { _, tab, index, offset ->
+        updateScrollPosition = { tab, index, offset ->
             tabsViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
-        scrollBehavior = scrollBehavior,
+        scrollBehavior = scrollBehavior ,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             val bookmarkState = uiState.singleBookmarkState
             val bookmarkIconColor =
@@ -248,10 +247,6 @@ fun BoardScaffold(
                     title = "応答結果",
                     onConfirm = null
                 )
-            }
-
-            if (uiState.isPosting) {
-                PostingDialog()
             }
         }
     )
