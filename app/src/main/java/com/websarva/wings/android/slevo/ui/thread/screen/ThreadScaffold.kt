@@ -5,7 +5,6 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.BottomAppBarDefaults
-import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarState
@@ -17,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -26,13 +26,12 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadBottomBar
-import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadTopBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
-import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
-import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.PostViewModel
-import androidx.hilt.navigation.compose.hiltViewModel
+import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -65,7 +64,7 @@ fun ThreadScaffold(
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
-    val bottomBarScrollBehavior: BottomAppBarScrollBehavior = BottomAppBarDefaults.exitAlwaysScrollBehavior()
+    val bottomBarScrollBehavior = BottomAppBarDefaults.exitAlwaysScrollBehavior()
 
     RouteScaffold(
         route = threadRoute,
@@ -114,8 +113,7 @@ fun ThreadScaffold(
         bottomBar = { viewModel, uiState ->
             ThreadBottomBar(
                 modifier = Modifier
-                    .navigationBarsPadding()
-                    .height(56.dp),
+                    .navigationBarsPadding(),
                 isTreeSort = uiState.sortType == ThreadSortType.TREE,
                 onSortClick = { viewModel.toggleSortType() },
                 onPostClick = { postViewModel.showPostDialog() },
@@ -226,7 +224,12 @@ fun ThreadScaffold(
                                     confirmationData
                                 ) { resNum ->
                                     val form = postUiState.postFormState
-                                    viewModel.onPostSuccess(resNum, form.message, form.name, form.mail)
+                                    viewModel.onPostSuccess(
+                                        resNum,
+                                        form.message,
+                                        form.name,
+                                        form.mail
+                                    )
                                 }
                             }
                         },

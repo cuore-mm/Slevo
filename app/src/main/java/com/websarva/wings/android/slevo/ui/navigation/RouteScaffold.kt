@@ -69,7 +69,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     if (openTabs.isNotEmpty()) {
         cachedTabs = openTabs
     }
-    val tabs = if (openTabs.isNotEmpty()) openTabs else cachedTabs
+    val tabs = openTabs.ifEmpty { cachedTabs }
     val currentTabInfo = tabs.find(currentRoutePredicate)
 
     if (currentTabInfo != null) {
