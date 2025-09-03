@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.BottomAppBarScrollBehavior
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FlexibleBottomAppBar
@@ -55,53 +56,60 @@ fun ThreadBottomBar(
 ) {
     FlexibleBottomAppBar(
         modifier = modifier,
+        expandedHeight = 96.dp,
         scrollBehavior = scrollBehavior,
     ) {
         Column(
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBookmarkClick) {
-                    if (uiState.singleBookmarkState.isBookmarked) {
-                        Box {
-                            Icon(
-                                imageVector = Icons.Filled.Star,
-                                contentDescription = null,
-                                tint = uiState.singleBookmarkState.selectedGroup?.colorName?.let {
-                                    bookmarkColor(it)
-                                } ?: LocalContentColor.current
-                            )
+            Card (
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+            ){
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onBookmarkClick) {
+                        if (uiState.singleBookmarkState.isBookmarked) {
+                            Box {
+                                Icon(
+                                    imageVector = Icons.Filled.Star,
+                                    contentDescription = null,
+                                    tint = uiState.singleBookmarkState.selectedGroup?.colorName?.let {
+                                        bookmarkColor(it)
+                                    } ?: LocalContentColor.current
+                                )
+                                Icon(
+                                    imageVector = Icons.Outlined.StarOutline,
+                                    contentDescription = stringResource(R.string.bookmark)
+                                )
+                            }
+                        } else {
                             Icon(
                                 imageVector = Icons.Outlined.StarOutline,
                                 contentDescription = stringResource(R.string.bookmark)
                             )
                         }
-                    } else {
+                    }
+                    Text(
+                        text = uiState.threadInfo.title,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp)
+                    )
+                    IconButton(onClick = onRefreshClick) {
                         Icon(
-                            imageVector = Icons.Outlined.StarOutline,
-                            contentDescription = stringResource(R.string.bookmark)
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.refresh)
                         )
                     }
-                }
-                Text(
-                    text = uiState.threadInfo.title,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 8.dp)
-                )
-                IconButton(onClick = onRefreshClick) {
-                    Icon(
-                        imageVector = Icons.Filled.Refresh,
-                        contentDescription = stringResource(R.string.refresh)
-                    )
                 }
             }
             Row(
