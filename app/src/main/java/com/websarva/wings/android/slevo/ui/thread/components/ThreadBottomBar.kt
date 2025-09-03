@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -60,12 +61,12 @@ fun ThreadBottomBar(
         scrollBehavior = scrollBehavior,
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
         ) {
             Card (
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth(),
             ){
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -102,7 +103,6 @@ fun ThreadBottomBar(
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .weight(1f)
-                            .padding(horizontal = 8.dp)
                     )
                     IconButton(onClick = onRefreshClick) {
                         Icon(
@@ -112,6 +112,7 @@ fun ThreadBottomBar(
                     }
                 }
             }
+            Spacer(modifier = Modifier.padding(2.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
