@@ -123,6 +123,17 @@ fun ThreadScreen(
     var triggerRefresh by remember { mutableStateOf(false) }
     val nestedScrollConnection = remember(listState, posts.size) {
         object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                return if (overscroll > 0f && available.y > 0f) {
+                    val delta = min(available.y, overscroll)
+                    overscroll -= delta
+                    triggerRefresh = overscroll >= refreshThresholdPx
+                    Offset(0f, delta)
+                } else {
+                    Offset.Zero
+                }
+            }
+
             override fun onPostScroll(
                 consumed: Offset,
                 available: Offset,
@@ -133,12 +144,8 @@ fun ThreadScreen(
                     !listState.canScrollForward && available.y < 0f -> {
                         overscroll -= available.y
                     }
-                    // 引っ張った後に下方向へ戻した場合は消費分だけオーバースクロール量を減少
-                    overscroll > 0f && consumed.y > 0f -> {
-                        overscroll = (overscroll - consumed.y).coerceAtLeast(0f)
-                    }
                     // それ以外（通常スクロール）はリセット
-                    available.y > 0f -> {
+                    available.y > 0f || consumed.y != 0f -> {
                         overscroll = 0f
                     }
                 }
