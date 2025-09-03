@@ -289,7 +289,9 @@ fun ThreadScreen(
                     .fillMaxHeight(),
                 posts = displayPosts,
                 replyCounts = replyCounts,
-                lazyListState = listState
+                lazyListState = listState,
+                firstAfterIndex = firstAfterIndex,
+                myPostNumbers = uiState.myPostNumbers
             )
         }
 
