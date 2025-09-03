@@ -33,9 +33,7 @@ fun MomentumBar(
     modifier: Modifier = Modifier,
     posts: List<ReplyInfo>,
     replyCounts: List<Int>,
-    lazyListState: LazyListState,
-    firstAfterIndex: Int = -1,
-    myPostNumbers: Set<Int> = emptySet()
+    lazyListState: LazyListState
 ) {
     val barColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
     val indicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
@@ -47,9 +45,6 @@ fun MomentumBar(
     val replyColors = replyCounts.map { count ->
         if (count >= 5) replyCountColor(count) else Color.Unspecified
     }
-
-    val arrivalMarkerColor = MaterialTheme.colorScheme.tertiary
-    val myPostMarkerColor = MaterialTheme.colorScheme.primary
 
     var barHeight by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
@@ -183,37 +178,6 @@ fun MomentumBar(
                     drawPath(path = path, color = color)
                 }
             }
-
-            // 書き込みマーク（自分の投稿）
-            val diamondSize = 8.dp.toPx()
-            myPostNumbers.forEach { num ->
-                val index = num - 1
-                if (index in posts.indices) {
-                    val y = index * postHeight + postHeight / 2f
-                    val x = canvasWidth / 2f
-                    val half = diamondSize / 2f
-                    val path = Path().apply {
-                        moveTo(x, y - half)
-                        lineTo(x + half, y)
-                        lineTo(x, y + half)
-                        lineTo(x - half, y)
-                        close()
-                    }
-                    drawPath(path = path, color = myPostMarkerColor)
-                }
-            }
-
-            // 新着マーク
-            if (firstAfterIndex in 0..posts.size) {
-                val y = firstAfterIndex * postHeight
-                val strokeWidth = 1.dp.toPx()
-                drawLine(
-                    color = arrivalMarkerColor,
-                    start = Offset(0f, y),
-                    end = Offset(canvasWidth, y),
-                    strokeWidth = strokeWidth
-                )
-            }
         }
     }
 }
@@ -242,12 +206,5 @@ fun MomentumBarPreview() {
     }
     val listState = rememberLazyListState()
     val counts = List(dummyPosts.size) { index -> if (index % 7 == 0) 5 else 0 }
-    val myPosts = setOf(3, 15, 25)
-    MomentumBar(
-        posts = dummyPosts,
-        replyCounts = counts,
-        lazyListState = listState,
-        firstAfterIndex = 10,
-        myPostNumbers = myPosts
-    )
+    MomentumBar(posts = dummyPosts, replyCounts = counts, lazyListState = listState)
 }
