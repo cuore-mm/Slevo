@@ -18,6 +18,7 @@ data class ThreadUiState(
     val singleBookmarkState: SingleBookmarkState = SingleBookmarkState(),
     override val isLoading: Boolean = false,
     override val showTabListSheet: Boolean = false,
+    val showThreadInfoSheet: Boolean = false,
     val myPostNumbers: Set<Int> = emptySet(),
     // UI描画用の派生情報（ViewModelで算出）
     val idCountMap: Map<String, Int> = emptyMap(),

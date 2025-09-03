@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
@@ -25,6 +26,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadBottomBar
+import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.PostViewModel
@@ -119,6 +121,7 @@ fun ThreadScaffold(
                 onRefreshClick = { viewModel.reloadThread() },
                 onSearchClick = { viewModel.startSearch() },
                 onBookmarkClick = { viewModel.openBookmarkSheet() },
+                onThreadInfoClick = { viewModel.openThreadInfoSheet() },
                 scrollBehavior = bottomBarScrollBehavior,
             )
         },
@@ -164,6 +167,19 @@ fun ThreadScaffold(
             )
         },
         optionalSheetContent = { viewModel, uiState ->
+            val threadInfoSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            if (uiState.showThreadInfoSheet) {
+                val threadUrl = parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
+                    "https://$host/test/read.cgi/$boardKey/${uiState.threadInfo.key}/"
+                } ?: ""
+                ThreadInfoBottomSheet(
+                    sheetState = threadInfoSheetState,
+                    onDismissRequest = { viewModel.closeThreadInfoSheet() },
+                    threadInfo = uiState.threadInfo,
+                    threadUrl = threadUrl,
+                )
+            }
+
             if (postUiState.postDialog) {
                 val context = LocalContext.current
                 PostDialog(

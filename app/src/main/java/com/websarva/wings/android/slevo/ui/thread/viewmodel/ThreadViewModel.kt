@@ -5,7 +5,9 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
@@ -21,6 +23,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.slevo.data.util.ThreadListParser.calculateThreadDate
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -33,6 +36,7 @@ import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
+import kotlin.math.max
 
 private data class PendingPost(
     val resNum: Int?,
@@ -166,13 +170,32 @@ class ThreadViewModel @AssistedInject constructor(
                 val derived = deriveReplyMaps(posts)
                 // ツリー順と深さマップを導出
                 val tree = deriveTreeOrder(posts)
+                val resCount = posts.size
+                val keyLong = key.toLongOrNull()
+                val date = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD) {
+                    calculateThreadDate(key)
+                } else {
+                    ThreadDate(0, 0, 0, 0, 0, "")
+                }
+                val momentum = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD && resCount > 0) {
+                    val elapsedSeconds = max(1L, System.currentTimeMillis() / 1000 - keyLong)
+                    val elapsedDays = elapsedSeconds / 86400.0
+                    if (elapsedDays > 0) resCount / elapsedDays else 0.0
+                } else {
+                    0.0
+                }
                 // UI 状態に新しい投稿リスト等を反映（読み込みフラグ解除）
                 _uiState.update {
                     it.copy(
                         posts = posts,
                         isLoading = false,
                         loadProgress = 1f,
-                        threadInfo = it.threadInfo.copy(title = title ?: it.threadInfo.title),
+                        threadInfo = it.threadInfo.copy(
+                            title = title ?: it.threadInfo.title,
+                            resCount = resCount,
+                            date = date,
+                            momentum = momentum
+                        ),
                         idCountMap = derived.first,
                         idIndexList = derived.second,
                         replySourceMap = derived.third,
@@ -526,6 +549,14 @@ class ThreadViewModel @AssistedInject constructor(
     fun closeDeleteGroupDialog() = singleBookmarkViewModel?.closeDeleteGroupDialog()
     fun openBookmarkSheet() = singleBookmarkViewModel?.openBookmarkSheet()
     fun closeBookmarkSheet() = singleBookmarkViewModel?.closeBookmarkSheet()
+
+    fun openThreadInfoSheet() {
+        _uiState.update { it.copy(showThreadInfoSheet = true) }
+    }
+
+    fun closeThreadInfoSheet() {
+        _uiState.update { it.copy(showThreadInfoSheet = false) }
+    }
 
     // 書き込み画面を表示
     fun startSearch() {
