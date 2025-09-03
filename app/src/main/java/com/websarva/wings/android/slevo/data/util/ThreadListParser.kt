@@ -5,13 +5,15 @@ import androidx.annotation.RequiresApi
 import androidx.core.text.HtmlCompat
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import java.util.Calendar
-import java.util.Date
-import java.util.TimeZone
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 import kotlin.math.max
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 
 object ThreadListParser {
+    @RequiresApi(Build.VERSION_CODES.O)
     fun parseSubjectTxt(text: String): List<ThreadInfo> {
         val threads = mutableListOf<ThreadInfo>()
         val regex = Regex("""^(\d+)\.dat<>(.+?)\s+\((\d+)\)$""")
@@ -60,26 +62,31 @@ object ThreadListParser {
         return threads
     }
 
-    // スレッドキーからスレ作成日を計算（java.time を使わず互換性を保つ）
+    //スレッドキーからスレ作成日を計算
+    @RequiresApi(Build.VERSION_CODES.O)
     fun calculateThreadDate(threadKey: String): ThreadDate {
-        val epochSeconds = threadKey.toLongOrNull() ?: throw IllegalArgumentException("Invalid thread key")
-        val date = Date(epochSeconds * 1000L)
-        val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo")).apply { time = date }
-        val dayOfWeek = when (cal.get(Calendar.DAY_OF_WEEK)) {
-            Calendar.MONDAY -> "月"
-            Calendar.TUESDAY -> "火"
-            Calendar.WEDNESDAY -> "水"
-            Calendar.THURSDAY -> "木"
-            Calendar.FRIDAY -> "金"
-            Calendar.SATURDAY -> "土"
-            else -> "日" // Calendar.SUNDAY
+        // 数値に変換（スレッドキーはepochからの秒差）
+        val epochSeconds =
+            threadKey.toLongOrNull() ?: throw IllegalArgumentException("Invalid thread key")
+        // Japan Standard Time (Asia/Tokyo) を利用して日時に変換
+        val localDateTime =
+            LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds), ZoneId.of("Asia/Tokyo"))
+        // 曜日情報を取得し、日本語表記に変換
+        val dayOfWeek = when (localDateTime.dayOfWeek) {
+            DayOfWeek.MONDAY -> "月"
+            DayOfWeek.TUESDAY -> "火"
+            DayOfWeek.WEDNESDAY -> "水"
+            DayOfWeek.THURSDAY -> "木"
+            DayOfWeek.FRIDAY -> "金"
+            DayOfWeek.SATURDAY -> "土"
+            DayOfWeek.SUNDAY -> "日"
         }
         return ThreadDate(
-            year = cal.get(Calendar.YEAR),
-            month = cal.get(Calendar.MONTH) + 1,
-            day = cal.get(Calendar.DAY_OF_MONTH),
-            hour = cal.get(Calendar.HOUR_OF_DAY),
-            minute = cal.get(Calendar.MINUTE),
+            year = localDateTime.year,
+            month = localDateTime.monthValue,
+            day = localDateTime.dayOfMonth,
+            hour = localDateTime.hour,
+            minute = localDateTime.minute,
             dayOfWeek = dayOfWeek
         )
     }

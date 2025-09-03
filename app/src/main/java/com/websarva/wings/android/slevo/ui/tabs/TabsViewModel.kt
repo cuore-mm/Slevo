@@ -4,23 +4,22 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.data.repository.BoardRepository
-import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
-import com.websarva.wings.android.slevo.data.repository.DatRepository
-import com.websarva.wings.android.slevo.data.repository.TabsRepository
-import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
-import com.websarva.wings.android.slevo.ui.board.BoardViewModel
-import com.websarva.wings.android.slevo.ui.board.BoardViewModelFactory
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModelFactory
+import com.websarva.wings.android.slevo.ui.board.BoardViewModel
+import com.websarva.wings.android.slevo.ui.board.BoardViewModelFactory
+import com.websarva.wings.android.slevo.data.repository.TabsRepository
+import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
+import com.websarva.wings.android.slevo.data.repository.BoardRepository
+import com.websarva.wings.android.slevo.data.repository.DatRepository
+import com.websarva.wings.android.slevo.data.model.BoardInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -120,6 +119,30 @@ class TabsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * スレッドタブを開く。既に同じキーのタブが存在する場合は情報のみ更新する。
+     */
+    fun openThreadTab(tabInfo: ThreadTabInfo) {
+        _uiState.update { state ->
+            val currentTabs = state.openThreadTabs
+            val tabIndex = currentTabs.indexOfFirst { it.key == tabInfo.key && it.boardUrl == tabInfo.boardUrl }
+            val updated = if (tabIndex != -1) {
+                currentTabs.toMutableList().apply {
+                    this[tabIndex] = this[tabIndex].copy(
+                        title = tabInfo.title,
+                        boardName = tabInfo.boardName,
+                        boardId = tabInfo.boardId,
+                        resCount = tabInfo.resCount
+                    )
+                }
+            } else {
+                currentTabs + tabInfo
+            }
+            state.copy(openThreadTabs = updated)
+        }
+        viewModelScope.launch { tabsRepository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
+    }
+
     fun setLastSelectedPage(page: Int) {
         viewModelScope.launch { tabsRepository.setLastSelectedPage(page) }
     }
@@ -173,13 +196,18 @@ class TabsViewModel @Inject constructor(
      */
     fun closeThreadTab(tab: ThreadTabInfo) {
         val mapKey = tab.key + tab.boardUrl
-        threadViewModelMap[mapKey]?.release()
+        val viewModelToDestroy = threadViewModelMap[mapKey]
+
+        // onCleared()の代わりに、新しく作った公開メソッドrelease()を呼び出す
+        viewModelToDestroy?.release()
+
         threadViewModelMap.remove(mapKey)
-        viewModelScope.launch {
-            val current = tabsRepository.observeOpenThreadTabs().first()
-            val updated = current.filterNot { it.key == tab.key && it.boardUrl == tab.boardUrl }
-            tabsRepository.saveOpenThreadTabs(updated)
+        _uiState.update { state ->
+            state.copy(
+                openThreadTabs = state.openThreadTabs.filterNot { it.key == tab.key && it.boardUrl == tab.boardUrl }
+            )
         }
+        viewModelScope.launch { tabsRepository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
     }
 
     /**
@@ -192,6 +220,48 @@ class TabsViewModel @Inject constructor(
             state.copy(openBoardTabs = state.openBoardTabs.filterNot { it.boardUrl == tab.boardUrl })
         }
         viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
+    }
+
+    /**
+     * スレッドタブの情報を更新する
+     */
+    fun updateThreadTabInfo(key: String, boardUrl: String, title: String, resCount: Int) {
+        _uiState.update { state ->
+            val updated = state.openThreadTabs.map { tab ->
+                if (tab.key == key && tab.boardUrl == boardUrl) {
+                    tab.copy(title = title, resCount = resCount)
+                } else {
+                    tab
+                }
+            }
+            state.copy(openThreadTabs = updated, newResCounts = state.newResCounts - (key + boardUrl))
+        }
+        viewModelScope.launch { tabsRepository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
+    }
+
+    /**
+     * スレッドタブのスクロール位置を保存する。
+     */
+    fun updateThreadScrollPosition(
+        tabKey: String,
+        boardUrl: String,
+        firstVisibleIndex: Int,
+        scrollOffset: Int
+    ) {
+        _uiState.update { state ->
+            val updated = state.openThreadTabs.map { tab ->
+                if (tab.key == tabKey && tab.boardUrl == boardUrl) {
+                    tab.copy(
+                        firstVisibleItemIndex = firstVisibleIndex,
+                        firstVisibleItemScrollOffset = scrollOffset
+                    )
+                } else {
+                    tab
+                }
+            }
+            state.copy(openThreadTabs = updated)
+        }
+        viewModelScope.launch { tabsRepository.saveOpenThreadTabs(_uiState.value.openThreadTabs) }
     }
 
     /**
@@ -229,33 +299,17 @@ class TabsViewModel @Inject constructor(
             _uiState.update { it.copy(isRefreshing = true) }
             val currentTabs = _uiState.value.openThreadTabs
             val resultMap = mutableMapOf<String, Int>()
-            val updatedTabs = currentTabs.map { tab ->
+            currentTabs.forEach { tab ->
                 val res = datRepository.getThread(tab.boardUrl, tab.key)
                 val size = res?.first?.size ?: tab.resCount
                 val diff = size - tab.resCount
                 if (diff > 0) {
                     resultMap[tab.key + tab.boardUrl] = diff
                 }
-                val candidate =
-                    if (tab.firstNewResNo == null || tab.firstNewResNo <= tab.lastReadResNo) {
-                        tab.lastReadResNo + 1
-                    } else {
-                        tab.firstNewResNo
-                    }
-                val newFirst = if (candidate > size) null else candidate
-                tab.copy(
-                    resCount = size,
-                    firstNewResNo = newFirst
-                )
             }
             _uiState.update { state ->
-                state.copy(
-                    openThreadTabs = updatedTabs,
-                    newResCounts = resultMap,
-                    isRefreshing = false
-                )
+                state.copy(newResCounts = resultMap, isRefreshing = false)
             }
-            tabsRepository.saveOpenThreadTabs(_uiState.value.openThreadTabs)
         }
     }
 
