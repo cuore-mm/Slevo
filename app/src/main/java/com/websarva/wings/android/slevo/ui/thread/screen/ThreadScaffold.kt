@@ -29,6 +29,7 @@ import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.PostViewModel
 import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
+import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -103,14 +104,7 @@ fun ThreadScaffold(
         },
         bottomBar = { viewModel, uiState ->
             val context = LocalContext.current
-            val isThreeButtonBar = remember {
-                val id = context.resources.getIdentifier(
-                    "config_navBarInteractionMode",
-                    "integer",
-                    "android"
-                )
-                id > 0 && context.resources.getInteger(id) == 0
-            }
+            val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
             ThreadBottomBar(
                 modifier = if (isThreeButtonBar) {
                     Modifier.navigationBarsPadding()
