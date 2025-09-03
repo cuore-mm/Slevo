@@ -15,7 +15,10 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -29,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadCopyDialog
 import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,15 +41,23 @@ fun ThreadInfoBottomSheet(
     sheetState: SheetState,
     onDismissRequest: () -> Unit,
     threadInfo: ThreadInfo,
-    onCopyClick: () -> Unit,
+    threadUrl: String,
 ) {
+    var showCopyDialog by remember { mutableStateOf(false) }
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
     ) {
         ThreadInfoBottomSheetContent(
             threadInfo = threadInfo,
-            onCopyClick = onCopyClick,
+            onCopyClick = { showCopyDialog = true },
+        )
+    }
+    if (showCopyDialog) {
+        ThreadCopyDialog(
+            threadTitle = threadInfo.title,
+            threadUrl = threadUrl,
+            onDismissRequest = { showCopyDialog = false },
         )
     }
 }
