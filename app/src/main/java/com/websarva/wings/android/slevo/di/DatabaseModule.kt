@@ -53,6 +53,9 @@ object DatabaseModule {
             AppDatabase::class.java,
             "slevo_database"
         )
+            .addMigrations(
+                AppDatabase.MIGRATION_1_2,  // v1.1.0
+            )
             .addCallback(callback)
             .build()
     }
