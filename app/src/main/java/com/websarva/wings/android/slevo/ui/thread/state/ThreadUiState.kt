@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.thread.state
 
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.ui.common.BaseUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
 
@@ -15,10 +16,17 @@ data class ThreadUiState(
     val posts: List<ReplyInfo>? = null,
     val loadProgress: Float = 0f,
     val boardInfo: BoardInfo = BoardInfo(0, "", ""),
+    val postDialog: Boolean = false,
+    val postFormState: PostFormState = PostFormState(),
+    val isPosting: Boolean = false,
+    val postConfirmation: ConfirmationData? = null,
+    val isConfirmationScreen: Boolean = false,
     val singleBookmarkState: SingleBookmarkState = SingleBookmarkState(),
     override val isLoading: Boolean = false,
     override val showTabListSheet: Boolean = false,
-    val showThreadInfoSheet: Boolean = false,
+    val showErrorWebView: Boolean = false,
+    val errorHtmlContent: String = "",
+    val postResultMessage: String? = null,
     val myPostNumbers: Set<Int> = emptySet(),
     // UI描画用の派生情報（ViewModelで算出）
     val idCountMap: Map<String, Int> = emptyMap(),
@@ -30,11 +38,6 @@ data class ThreadUiState(
     val sortType: ThreadSortType = ThreadSortType.NUMBER,
     val treeOrder: List<Int> = emptyList(),
     val treeDepthMap: Map<Int, Int> = emptyMap(),
-    val firstNewResNo: Int? = null,
-    val prevResCount: Int = 0,
-    val visiblePosts: List<DisplayPost> = emptyList(),
-    val replyCounts: List<Int> = emptyList(),
-    val firstAfterIndex: Int = -1,
 ) : BaseUiState<ThreadUiState> {
     override fun copyState(
         isLoading: Boolean,
@@ -65,3 +68,10 @@ data class ReplyInfo(
         const val HAS_OTHER_URL = 1 shl 2
     }
 }
+
+data class PostFormState(
+    val name: String = "",
+    val mail: String = "",
+    val message: String = ""
+)
+
