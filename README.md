@@ -1,6 +1,6 @@
 # Slevo
 
-![アプリアイコン](./assets/app_icon.png)
+<img src="./assets/app_icon.png" alt="アプリアイコン" width="128">
 SlevoはAndroid用のシンプルな5ちゃんねるビューアアプリです。Jetpack Composeを用いて開発されています。
 
 
