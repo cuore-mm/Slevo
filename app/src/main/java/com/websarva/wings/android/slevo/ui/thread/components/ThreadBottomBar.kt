@@ -55,7 +55,7 @@ fun ThreadBottomBar(
 ) {
     FlexibleBottomAppBar(
         modifier = modifier,
-        scrollBehavior = scrollBehavior
+        scrollBehavior = scrollBehavior,
     ) {
         Column(
             modifier = Modifier.fillMaxWidth()
