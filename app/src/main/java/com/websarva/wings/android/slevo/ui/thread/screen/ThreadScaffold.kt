@@ -4,6 +4,8 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.BottomAppBarDefaults
+import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarState
@@ -63,6 +65,7 @@ fun ThreadScaffold(
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
+    val bottomBarScrollBehavior: BottomAppBarScrollBehavior = BottomAppBarDefaults.exitAlwaysScrollBehavior()
 
     RouteScaffold(
         route = threadRoute,
@@ -90,6 +93,7 @@ fun ThreadScaffold(
             viewModel.updateThreadScrollPosition(tab.key, tab.boardUrl, index, offset)
         },
         scrollBehavior = scrollBehavior,
+        bottomBarScrollBehavior = bottomBarScrollBehavior,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             if (uiState.isSearchMode) {
                 SearchTopAppBar(
@@ -118,6 +122,7 @@ fun ThreadScaffold(
                 onTabListClick = { viewModel.openTabListSheet() },
                 onRefreshClick = { viewModel.reloadThread() },
                 onSearchClick = { viewModel.startSearch() },
+                scrollBehavior = bottomBarScrollBehavior,
             )
         },
         content = { viewModel, uiState, listState, modifier, navController ->

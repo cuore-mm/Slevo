@@ -88,7 +88,7 @@ fun BoardScaffold(
         updateScrollPosition = { _, tab, index, offset ->
             tabsViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
-        scrollBehavior = scrollBehavior ,
+        scrollBehavior = scrollBehavior,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             val bookmarkState = uiState.singleBookmarkState
             val bookmarkIconColor =
