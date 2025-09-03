@@ -58,6 +58,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import kotlinx.coroutines.delay
+import kotlin.math.max
 import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -128,18 +129,22 @@ fun ThreadScreen(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                if (!listState.canScrollForward && available.y < 0f) {
-                    overscroll -= available.y
-                    triggerRefresh = overscroll >= refreshThresholdPx
-                } else if (available.y > 0f) {
+                if (listState.canScrollForward) {
                     overscroll = 0f
                     triggerRefresh = false
+                    return Offset.Zero
                 }
+                if (available.y < 0f) {
+                    overscroll -= available.y
+                } else if (available.y > 0f) {
+                    overscroll = max(overscroll - available.y, 0f)
+                }
+                triggerRefresh = overscroll >= refreshThresholdPx
                 return Offset.Zero
             }
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                if (triggerRefresh) {
+                if (triggerRefresh && !listState.canScrollForward) {
                     onLastRead(posts.size)
                     onBottomRefresh()
                 }
