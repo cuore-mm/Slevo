@@ -123,6 +123,17 @@ fun ThreadScreen(
     var triggerRefresh by remember { mutableStateOf(false) }
     val nestedScrollConnection = remember(listState, posts.size) {
         object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                return if (overscroll > 0f && available.y > 0f) {
+                    val consume = min(overscroll, available.y)
+                    overscroll -= consume
+                    triggerRefresh = overscroll >= refreshThresholdPx
+                    Offset(0f, consume)
+                } else {
+                    Offset.Zero
+                }
+            }
+
             override fun onPostScroll(
                 consumed: Offset,
                 available: Offset,
@@ -131,9 +142,6 @@ fun ThreadScreen(
                 if (!listState.canScrollForward && available.y < 0f) {
                     overscroll -= available.y
                     triggerRefresh = overscroll >= refreshThresholdPx
-                } else if (available.y > 0f) {
-                    overscroll = 0f
-                    triggerRefresh = false
                 }
                 return Offset.Zero
             }
