@@ -12,10 +12,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -146,6 +149,24 @@ fun ThreadScaffold(
             LaunchedEffect(tabInfo?.firstNewResNo, tabInfo?.prevResCount) {
                 tabInfo?.let {
                     viewModel.setNewArrivalInfo(it.firstNewResNo, it.prevResCount)
+                }
+            }
+
+            val bottomBarHeightPx = with(LocalDensity.current) { 96.dp.toPx() }
+            LaunchedEffect(listState) {
+                snapshotFlow {
+                    val layoutInfo = listState.layoutInfo
+                    val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
+                    if (lastVisible != null && lastVisible.index == layoutInfo.totalItemsCount - 1) {
+                        (layoutInfo.viewportEndOffset - (lastVisible.offset + lastVisible.size)).toFloat()
+                    } else {
+                        Float.POSITIVE_INFINITY
+                    }
+                }.collect { remaining ->
+                    if (remaining <= bottomBarHeightPx) {
+                        bottomBarScrollBehavior.state.heightOffset = 0f
+                        bottomBarScrollBehavior.state.contentOffset = 0f
+                    }
                 }
             }
             ThreadScreen(
