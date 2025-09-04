@@ -11,10 +11,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
@@ -63,6 +68,7 @@ fun ThreadScaffold(
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
     val bottomBarScrollBehavior = BottomAppBarDefaults.exitAlwaysScrollBehavior()
+    var keepBottomBarVisible by remember { mutableStateOf(false) }
 
     RouteScaffold(
         route = threadRoute,
@@ -90,7 +96,7 @@ fun ThreadScaffold(
             viewModel.updateThreadScrollPosition(tab.key, tab.boardUrl, index, offset)
         },
         scrollBehavior = scrollBehavior,
-        bottomBarScrollBehavior = bottomBarScrollBehavior,
+        bottomBarScrollBehavior = if (keepBottomBarVisible) null else bottomBarScrollBehavior,
         topBar = { viewModel, uiState, _, scrollBehavior ->
             if (uiState.isSearchMode) {
                 SearchTopAppBar(
@@ -119,10 +125,30 @@ fun ThreadScaffold(
                 onSearchClick = { viewModel.startSearch() },
                 onBookmarkClick = { viewModel.openBookmarkSheet() },
                 onThreadInfoClick = { viewModel.openThreadInfoSheet() },
-                scrollBehavior = bottomBarScrollBehavior,
+                scrollBehavior = if (keepBottomBarVisible) null else bottomBarScrollBehavior,
             )
         },
         content = { viewModel, uiState, listState, modifier, navController ->
+            val bottomBarHeightPx = with(LocalDensity.current) { 96.dp.toPx() }
+            LaunchedEffect(listState) {
+                snapshotFlow {
+                    val layoutInfo = listState.layoutInfo
+                    val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
+                    if (lastVisible != null && lastVisible.index == layoutInfo.totalItemsCount - 1) {
+                        (layoutInfo.viewportEndOffset - (lastVisible.offset + lastVisible.size)).toFloat()
+                    } else {
+                        Float.MAX_VALUE
+                    }
+                }.collect { remaining ->
+                    val shouldPin = remaining <= bottomBarHeightPx
+                    if (keepBottomBarVisible != shouldPin) {
+                        keepBottomBarVisible = shouldPin
+                    }
+                    if (shouldPin) {
+                        bottomBarScrollBehavior.state.heightOffset = 0f
+                    }
+                }
+            }
             LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
                 if (
