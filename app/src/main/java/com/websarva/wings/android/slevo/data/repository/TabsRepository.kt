@@ -5,12 +5,14 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenBoardTabDa
 import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenThreadTabDao
 import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenBoardTabEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadTabEntity
+import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import androidx.room.withTransaction
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -18,7 +20,8 @@ import javax.inject.Singleton
 class TabsRepository @Inject constructor(
     private val boardDao: OpenBoardTabDao,
     private val threadDao: OpenThreadTabDao,
-    private val tabsLocalDataSource: TabsLocalDataSource
+    private val tabsLocalDataSource: TabsLocalDataSource,
+    private val db: AppDatabase,
 ) {
     fun observeOpenBoardTabs(): Flow<List<BoardTabInfo>> =
         boardDao.observeOpenBoardTabs().map { list ->
@@ -35,10 +38,12 @@ class TabsRepository @Inject constructor(
         }
 
     suspend fun saveOpenBoardTabs(tabs: List<BoardTabInfo>) = withContext(Dispatchers.IO) {
-        boardDao.deleteAll()
-        boardDao.insertAll(
-            tabs.mapIndexed { index, info ->
-                OpenBoardTabEntity(
+        db.withTransaction {
+            val existing = boardDao.getAll().associateBy { it.boardUrl }
+            val upserts = mutableListOf<OpenBoardTabEntity>()
+            val ids = mutableListOf<String>()
+            tabs.forEachIndexed { index, info ->
+                val entity = OpenBoardTabEntity(
                     boardUrl = info.boardUrl,
                     boardId = info.boardId,
                     boardName = info.boardName,
@@ -47,8 +52,20 @@ class TabsRepository @Inject constructor(
                     firstVisibleItemIndex = info.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = info.firstVisibleItemScrollOffset
                 )
+                ids.add(info.boardUrl)
+                if (existing[info.boardUrl] != entity) {
+                    upserts.add(entity)
+                }
             }
-        )
+            if (upserts.isNotEmpty()) {
+                boardDao.upsertAll(upserts)
+            }
+            if (ids.isEmpty()) {
+                boardDao.deleteAll()
+            } else {
+                boardDao.deleteNotIn(ids)
+            }
+        }
     }
 
     fun observeOpenThreadTabs(): Flow<List<ThreadTabInfo>> =
@@ -71,10 +88,12 @@ class TabsRepository @Inject constructor(
         }
 
     suspend fun saveOpenThreadTabs(tabs: List<ThreadTabInfo>) = withContext(Dispatchers.IO) {
-        threadDao.deleteAll()
-        threadDao.insertAll(
-            tabs.mapIndexed { index, info ->
-                OpenThreadTabEntity(
+        db.withTransaction {
+            val existing = threadDao.getAll().associateBy { it.threadKey + ":" + it.boardUrl }
+            val upserts = mutableListOf<OpenThreadTabEntity>()
+            val ids = mutableListOf<String>()
+            tabs.forEachIndexed { index, info ->
+                val entity = OpenThreadTabEntity(
                     threadKey = info.key,
                     boardUrl = info.boardUrl,
                     boardId = info.boardId,
@@ -88,8 +107,21 @@ class TabsRepository @Inject constructor(
                     firstVisibleItemIndex = info.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = info.firstVisibleItemScrollOffset
                 )
+                val id = info.key + ":" + info.boardUrl
+                ids.add(id)
+                if (existing[id] != entity) {
+                    upserts.add(entity)
+                }
             }
-        )
+            if (upserts.isNotEmpty()) {
+                threadDao.upsertAll(upserts)
+            }
+            if (ids.isEmpty()) {
+                threadDao.deleteAll()
+            } else {
+                threadDao.deleteNotIn(ids)
+            }
+        }
     }
 
     fun observeLastSelectedPage(): Flow<Int> =
