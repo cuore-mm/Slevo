@@ -58,6 +58,8 @@ import com.websarva.wings.android.slevo.ui.thread.dialog.TextMenuDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -390,7 +392,28 @@ fun PostItem(
                                         val pos = layout.getOffsetForPosition(offset)
                                         annotatedText.getStringAnnotations("URL", pos, pos)
                                             .firstOrNull()?.let { ann ->
-                                                uriHandler.openUri(ann.item)
+                                                val url = ann.item
+                                                parseThreadUrl(url)?.let { (host, board, key) ->
+                                                    val boardUrl = "https://$host/$board/"
+                                                    navController.navigate(
+                                                        AppRoute.Thread(
+                                                            threadKey = key,
+                                                            boardUrl = boardUrl,
+                                                            boardName = board,
+                                                            threadTitle = url
+                                                        )
+                                                    ) { launchSingleTop = true }
+                                                } ?: run {
+                                                    parseBoardUrl(url)?.let { (host, board) ->
+                                                        val boardUrl = "https://$host/$board/"
+                                                        navController.navigate(
+                                                            AppRoute.Board(
+                                                                boardName = board,
+                                                                boardUrl = boardUrl
+                                                            )
+                                                        ) { launchSingleTop = true }
+                                                    } ?: uriHandler.openUri(url)
+                                                }
                                             }
                                         annotatedText.getStringAnnotations("REPLY", pos, pos)
                                             .firstOrNull()?.let { ann ->
