@@ -18,10 +18,14 @@ fun ThreadViewModel.showPostDialog() {
 }
 
 fun ThreadViewModel.showReplyDialog(resNum: Int) {
-    _postUiState.update {
-        it.copy(
+    _postUiState.update { current ->
+        val message = current.postFormState.message
+        val separator = if (message.isNotEmpty() && !message.endsWith("\n")) "\n" else ""
+        current.copy(
             postDialog = true,
-            postFormState = it.postFormState.copy(message = ">>${resNum}\n")
+            postFormState = current.postFormState.copy(
+                message = message + separator + ">>${resNum}\n"
+            )
         )
     }
 }
