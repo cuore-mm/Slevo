@@ -143,11 +143,16 @@ fun ThreadScreen(
                 source: NestedScrollSource
             ): Offset {
                 if (!listState.canScrollForward && available.y < 0f) {
-                    overscroll -= available.y
-                    triggerRefresh = overscroll >= refreshThresholdPx
+                    val delta = -available.y
+                    var remaining = delta
                     bottomBarScrollBehavior?.state?.let { state ->
-                        val newOffset = state.heightOffset + (-available.y)
-                        state.heightOffset = newOffset.coerceAtMost(0f)
+                        val oldOffset = state.heightOffset
+                        state.heightOffset = (oldOffset + delta).coerceAtMost(0f)
+                        remaining -= state.heightOffset - oldOffset
+                    }
+                    if (remaining > 0f) {
+                        overscroll += remaining
+                        triggerRefresh = overscroll >= refreshThresholdPx
                     }
                     return available
                 }
