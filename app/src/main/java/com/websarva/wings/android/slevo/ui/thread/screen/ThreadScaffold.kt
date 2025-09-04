@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.thread.screen
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
@@ -13,6 +14,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -25,6 +27,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadBottomBar
+import com.websarva.wings.android.slevo.ui.thread.components.THREAD_BOTTOM_BAR_HEIGHT
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
@@ -122,13 +125,20 @@ fun ThreadScaffold(
                 scrollBehavior = bottomBarScrollBehavior,
             )
         },
-        content = { viewModel, uiState, listState, modifier, navController ->
-            LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
-                // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
-                if (
-                    !uiState.isLoading &&
-                    uiState.threadInfo.title.isNotEmpty() &&
-                    uiState.posts != null &&
+          content = { viewModel, uiState, listState, modifier, navController ->
+              val density = LocalDensity.current
+              val bottomBarPadding = with(density) {
+                  (THREAD_BOTTOM_BAR_HEIGHT.toPx() + bottomBarScrollBehavior.state.heightOffset)
+                      .coerceAtLeast(0f)
+                      .toDp()
+              }
+
+              LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
+                  // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
+                  if (
+                      !uiState.isLoading &&
+                      uiState.threadInfo.title.isNotEmpty() &&
+                      uiState.posts != null &&
                     uiState.threadInfo.key.isNotEmpty()
                 ) {
                     viewModel.updateThreadTabInfo(
@@ -148,21 +158,21 @@ fun ThreadScaffold(
                     viewModel.setNewArrivalInfo(it.firstNewResNo, it.prevResCount)
                 }
             }
-            ThreadScreen(
-                modifier = modifier,
-                uiState = uiState,
-                listState = listState,
-                navController = navController,
-                onBottomRefresh = { viewModel.reloadThread() },
-                onLastRead = { resNum ->
-                    viewModel.updateThreadLastRead(
-                        uiState.threadInfo.key,
-                        uiState.boardInfo.url,
-                        resNum
-                    )
-                }
-            )
-        },
+              ThreadScreen(
+                  modifier = modifier.padding(bottom = bottomBarPadding),
+                  uiState = uiState,
+                  listState = listState,
+                  navController = navController,
+                  onBottomRefresh = { viewModel.reloadThread() },
+                  onLastRead = { resNum ->
+                      viewModel.updateThreadLastRead(
+                          uiState.threadInfo.key,
+                          uiState.boardInfo.url,
+                          resNum
+                      )
+                  }
+              )
+          },
         optionalSheetContent = { viewModel, uiState ->
             val postUiState by viewModel.postUiState.collectAsState()
             val threadInfoSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)

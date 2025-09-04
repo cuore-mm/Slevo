@@ -41,6 +41,8 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 
+internal val THREAD_BOTTOM_BAR_HEIGHT = 96.dp
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadBottomBar(
@@ -58,7 +60,7 @@ fun ThreadBottomBar(
 ) {
     FlexibleBottomAppBar(
         modifier = modifier,
-        expandedHeight = 96.dp,
+        expandedHeight = THREAD_BOTTOM_BAR_HEIGHT,
         scrollBehavior = scrollBehavior,
     ) {
         Column(
