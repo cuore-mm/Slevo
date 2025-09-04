@@ -34,6 +34,7 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.PostViewModel
 import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -155,9 +156,12 @@ fun ThreadScaffold(
 
             LaunchedEffect(listState) {
                 snapshotFlow { !listState.canScrollForward }
+                    .distinctUntilChanged()
                     .collect { atBottom ->
-                        if (atBottom) {
+                        if (atBottom && bottomBarScrollBehavior.state.heightOffset < 0f) {
+                            val barHeight = -bottomBarScrollBehavior.state.heightOffsetLimit
                             bottomBarScrollBehavior.state.heightOffset = 0f
+                            listState.animateScrollBy(barHeight)
                         }
                     }
             }
