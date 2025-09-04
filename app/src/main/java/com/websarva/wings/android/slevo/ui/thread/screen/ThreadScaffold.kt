@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -150,6 +151,15 @@ fun ThreadScaffold(
                 tabInfo?.let {
                     viewModel.setNewArrivalInfo(it.firstNewResNo, it.prevResCount)
                 }
+            }
+
+            LaunchedEffect(listState) {
+                snapshotFlow { !listState.canScrollForward }
+                    .collect { atBottom ->
+                        if (atBottom) {
+                            bottomBarScrollBehavior.state.heightOffset = 0f
+                        }
+                    }
             }
             ThreadScreen(
                 modifier = modifier,
