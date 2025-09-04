@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -35,6 +36,7 @@ import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -150,6 +152,16 @@ fun ThreadScaffold(
                 tabInfo?.let {
                     viewModel.setNewArrivalInfo(it.firstNewResNo, it.prevResCount)
                 }
+            }
+
+            LaunchedEffect(listState) {
+                snapshotFlow { !listState.canScrollForward }
+                    .distinctUntilChanged()
+                    .collect { atBottom ->
+                        if (atBottom) {
+                            bottomBarScrollBehavior.state.heightOffset = 0f
+                        }
+                    }
             }
             ThreadScreen(
                 modifier = modifier,

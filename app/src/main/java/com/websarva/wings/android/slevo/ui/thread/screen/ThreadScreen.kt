@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -165,6 +166,7 @@ fun ThreadScreen(
                     .weight(1f)
                     .nestedScroll(nestedScrollConnection),
                 state = listState,
+                contentPadding = PaddingValues(bottom = 96.dp),
             ) {
                 if (visiblePosts.isNotEmpty()) {
                     val firstIndent = if (uiState.sortType == ThreadSortType.TREE) {
