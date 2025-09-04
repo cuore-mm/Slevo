@@ -68,6 +68,7 @@
     <string name="all_boards">すべての板</string>
     <string name="search_board_hint">板名またはURLで検索</string>
     <string name="new_label">new</string>
+    <string name="new_responses">新着</string>
 
     <string name="default_thread_sort_order">レスのデフォルトの並び順</string>
 
@@ -76,4 +77,8 @@
     <string name="github">GitHub</string>
     <string name="github_url">https://github.com/cuore-mm/Slevo</string>
     <string name="open_source_licenses">オープンソースライセンス</string>
+    <string name="res_count_prefix">レス数: </string>
+    <string name="thread_date">%1$d年%2$d月%3$d日%4$s曜日 %5$02d:%6$02d</string>
+    <string name="posting_in_progress">書き込み中</string>
+    <string name="momentum">勢い</string>
 </resources>

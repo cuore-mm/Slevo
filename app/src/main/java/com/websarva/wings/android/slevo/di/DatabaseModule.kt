@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.di
 
 import android.content.Context
 import androidx.room.Room
+import com.websarva.wings.android.slevo.BuildConfig
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.datasource.local.dao.NgDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenBoardTabDao
@@ -48,12 +49,21 @@ object DatabaseModule {
         @ApplicationContext context: Context,
         callback: DatabaseCallback
     ): AppDatabase {
+        val name = if (BuildConfig.DEBUG) "slevo_dev_database" else "slevo_database"
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
-            "slevo_database"
+            name
         )
+            .addMigrations(
+                AppDatabase.MIGRATION_1_2
+            )
             .addCallback(callback)
+            .apply {
+                if (BuildConfig.DEBUG) {
+                    fallbackToDestructiveMigrationOnDowngrade(true)
+                }
+            }
             .build()
     }
 

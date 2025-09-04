@@ -40,14 +40,11 @@ fun AppScaffold(
     val topBarState = rememberTopAppBarState()
 
     /* ② BottomBar の高さ(px) を取得しておく */
-    val density = LocalDensity.current
     val bottomBarHeightDp = 56.dp
-    val bottomBarHeightPx = with(density) { bottomBarHeightDp.toPx() }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val openDrawer: () -> Unit = { scope.launch { drawerState.open() } }
-    val closeDrawer: () -> Unit = { scope.launch { drawerState.close() } }
 
     // 画面遷移ごとにheightOffsetをリセット
     LaunchedEffect(navBackStackEntry?.destination?.route) {
@@ -55,18 +52,11 @@ fun AppScaffold(
     }
 
     Scaffold(
-//            modifier = modifier
-//                .fillMaxSize()
-//                .nestedScroll(scrollBehavior.nestedScrollConnection),
         bottomBar = {
-            val offsetY = (-topBarState.heightOffset)        // 符号反転
-                .coerceIn(0f, bottomBarHeightPx)             // 0 … BottomBarH
-
             RenderBottomBar(
                 modifier = Modifier
                     .navigationBarsPadding()
                     .height(bottomBarHeightDp),
-//                    .offset { IntOffset(0, offsetY.roundToInt()) },
                 navController = navController,
                 navBackStackEntry = navBackStackEntry,
             )

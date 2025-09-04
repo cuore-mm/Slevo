@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -40,6 +41,7 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
+import timber.log.Timber
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
@@ -56,34 +58,46 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     getScrollIndex: (TabInfo) -> Int,
     getScrollOffset: (TabInfo) -> Int,
     initializeViewModel: (viewModel: ViewModel, tabInfo: TabInfo) -> Unit,
-    updateScrollPosition: (tab: TabInfo, index: Int, offset: Int) -> Unit,
+    updateScrollPosition: (viewModel: ViewModel, tab: TabInfo, index: Int, offset: Int) -> Unit,
     topBar: @Composable (viewModel: ViewModel, uiState: UiState, openDrawer: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) -> Unit,
     bottomBar: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit,
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier,navController: NavHostController) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
+    bottomBarScrollBehavior: BottomAppBarScrollBehavior? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
+    // このComposableはタブベースの画面レイアウトを提供します。
+    // - HorizontalPagerで複数タブを左右にスワイプできる
+    // - 各タブごとにViewModelとリストのスクロール位置を保持/復元する
+    // - 共通のボトムシートやダイアログを表示する
+
     var cachedTabs by remember { mutableStateOf(openTabs) }
+    // openTabsが空の場合に前回のタブ一覧をキャッシュしておくための処理
     if (openTabs.isNotEmpty()) {
         cachedTabs = openTabs
     }
-    val tabs = if (openTabs.isNotEmpty()) openTabs else cachedTabs
+    val tabs = openTabs.ifEmpty { cachedTabs }
+    Timber.d("tabs: $tabs")
     val currentTabInfo = tabs.find(currentRoutePredicate)
 
     if (currentTabInfo != null) {
+        // 初期ページの決定。routeやタブ数が変わったら再計算される。
         val initialPage = remember(route, tabs.size) {
             tabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
         }
 
+        // Pagerの状態。ページ数はタブ数に応じて動的に提供される。
         val pagerState =
             rememberPagerState(initialPage = initialPage, pageCount = { tabs.size })
 
+        // initialPage が現在のページと異なる場合は強制的に遷移する。
         LaunchedEffect(initialPage) {
             if (pagerState.currentPage != initialPage) {
                 pagerState.scrollToPage(initialPage)
             }
         }
 
+        // 共通で使うボトムシートの状態
         val bookmarkSheetState = rememberModalBottomSheetState()
         val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -94,11 +108,14 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             val tab = tabs[page]
             val viewModel = getViewModel(tab)
             val uiState by viewModel.uiState.collectAsState()
+            // Board / Thread 用のブックマーク状態を統一的に取得
             val bookmarkState = (uiState as? BoardUiState)?.singleBookmarkState
                 ?: (uiState as? ThreadUiState)?.singleBookmarkState
                 ?: SingleBookmarkState()
 
 
+            // 各タブごとにLazyListStateを復元する。キーに基づいてrememberするため
+            // タブが切り替わっても正しいスクロール位置が再現される。
             val listState = remember(getKey(tab)) {
                 LazyListState(
                     firstVisibleItemIndex = getScrollIndex(tab),
@@ -106,30 +123,40 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 )
             }
 
+            // タブ初回表示時にViewModelの初期処理を行うためのフラグ
             var hasInitialized by remember(getKey(tab)) { mutableStateOf(false) }
             val isActive = pagerState.currentPage == page
             LaunchedEffect(isActive, tab) {
                 if (isActive && !hasInitialized) {
+                    // 表示されたときに初期化処理を実行
                     initializeViewModel(viewModel, tab)
                     hasInitialized = true
                 }
             }
 
+            // リストのスクロール位置が変わったら一定時間デバウンスしてViewModelに保存する
             LaunchedEffect(listState, isActive) {
                 if (isActive) {
                     snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
                         .debounce(200L)
                         .collectLatest { (index, offset) ->
-                            updateScrollPosition(tab, index, offset)
+                            // スクロール位置をViewModel側に伝える
+                            updateScrollPosition(viewModel, tab, index, offset)
                         }
                 }
             }
 
             Scaffold(
-                modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+                modifier = Modifier
+//                    .nestedScroll(scrollBehavior.nestedScrollConnection)
+                    .let { modifier ->
+                        bottomBarScrollBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
+                            ?: modifier
+                    },
                 topBar = { topBar(viewModel, uiState, openDrawer, scrollBehavior) },
                 bottomBar = { bottomBar(viewModel, uiState) }
             ) { innerPadding ->
+                // 各画面の実際のコンテンツを呼び出す
                 content(viewModel, uiState, listState, Modifier.padding(innerPadding), navController)
 
                 // 共通のボトムシートとダイアログ
@@ -137,6 +164,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     BookmarkBottomSheet(
                         sheetState = bookmarkSheetState,
                         onDismissRequest = {
+                            // ViewModelの型に応じて適切なクローズ処理を呼ぶ
                             (viewModel as? BoardViewModel)?.closeBookmarkSheet()
                                 ?: (viewModel as? ThreadViewModel)?.closeBookmarkSheet()
                         },
@@ -206,6 +234,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 }
 
                 if (uiState.showTabListSheet) {
+                    // ルートに応じてタブ選択シートの初期ページを設定
                     val initialPage = when (route) {
                         is AppRoute.Thread -> 1
                         else -> 0
@@ -224,6 +253,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
         }
     } else {
+        // currentTabInfoが見つからない場合はローディング表示を出す
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }

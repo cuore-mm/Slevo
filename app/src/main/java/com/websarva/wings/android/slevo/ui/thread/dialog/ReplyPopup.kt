@@ -1,6 +1,16 @@
 package com.websarva.wings.android.slevo.ui.thread.dialog
 
 import android.annotation.SuppressLint
+import android.os.Build
+import androidx.activity.compose.BackHandler
+import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.material3.Card
 import androidx.compose.foundation.layout.Column
@@ -8,10 +18,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -33,6 +46,9 @@ data class PopupInfo(
     val size: IntSize = IntSize.Zero,
 )
 
+// アニメーションの速度（ミリ秒）
+private const val POPUP_ANIMATION_DURATION = 300
+
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 fun ReplyPopup(
@@ -48,7 +64,35 @@ fun ReplyPopup(
     boardId: Long,
     onClose: () -> Unit
 ) {
+    val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
+
+    LaunchedEffect(popupStack.size) {
+        while (visibilityStates.size < popupStack.size) {
+            visibilityStates.add(MutableTransitionState(false).apply { targetState = true })
+        }
+        while (visibilityStates.size > popupStack.size) {
+            visibilityStates.removeAt(visibilityStates.lastIndex)
+        }
+    }
+
+    BackHandler(enabled = popupStack.isNotEmpty()) {
+        if (visibilityStates.isNotEmpty()) {
+            visibilityStates.last().targetState = false
+        }
+    }
+
+    val lastIndex = popupStack.lastIndex
     popupStack.forEachIndexed { index, info ->
+        val isTop = index == lastIndex
+        val visibleState = visibilityStates.getOrNull(index)
+            ?: MutableTransitionState(false).apply { targetState = true }
+
+        LaunchedEffect(visibleState.currentState, visibleState.targetState) {
+            if (!visibleState.currentState && !visibleState.targetState && index == popupStack.lastIndex) {
+                onClose()
+            }
+        }
+
         Popup(
             popupPositionProvider = object : PopupPositionProvider {
                 override fun calculatePosition(
@@ -63,76 +107,100 @@ fun ReplyPopup(
                     )
                 }
             },
-            onDismissRequest = onClose
+            onDismissRequest = if (index == lastIndex) {
+                { visibleState.targetState = false }
+            } else {
+                {}
+            }
         ) {
-            Card(
-                modifier = Modifier
-                    .onGloballyPositioned { coords ->
-                    val size = coords.size
-                    if (size != info.size) {
-                        popupStack[index] = info.copy(size = size)
-                    }
-                }
-                    .border(width = 2.dp, color = MaterialTheme.colorScheme.primary)
+            AnimatedVisibility(
+                visibleState = visibleState,
+                enter = fadeIn(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)) + scaleIn(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)),
+                exit = fadeOut(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)) + scaleOut(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION))
             ) {
-                val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.75f
-                Column(
+                Card(
                     modifier = Modifier
-                        .heightIn(max = maxHeight)
-                        .verticalScroll(rememberScrollState())
+                        .onGloballyPositioned { coords ->
+                            val size = coords.size
+                            if (size != info.size) {
+                                popupStack[index] = info.copy(size = size)
+                            }
+                        }
+                        .border(width = 2.dp, color = MaterialTheme.colorScheme.primary)
+                        .then(
+                            if (!isTop) {
+                                Modifier.pointerInput(Unit) {
+                                    awaitPointerEventScope {
+                                        while (true) {
+                                            val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                            event.changes.forEach { it.consume() }
+                                        }
+                                    }
+                                }
+                            } else {
+                                Modifier
+                            }
+                        )
                 ) {
-                    info.posts.forEachIndexed { i, p ->
-                        val postNum = posts.indexOf(p) + 1
-                        PostItem(
-                            post = p,
-                            postNum = postNum,
-                            idIndex = idIndexList[posts.indexOf(p)],
-                            idTotal = if (p.id.isBlank()) 1 else idCountMap[p.id] ?: 1,
-                            navController = navController,
-                            boardName = boardName,
-                            boardId = boardId,
-                            isMyPost = postNum in myPostNumbers,
-                            replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers } ?: emptyList(),
-                            onReplyFromClick = { nums ->
-                                val off = IntOffset(
-                                    popupStack[index].offset.x,
-                                    (popupStack[index].offset.y - popupStack[index].size.height).coerceAtLeast(0)
-                                )
-                                val targets = nums.filterNot { it in ngPostNumbers }.mapNotNull { n ->
-                                    posts.getOrNull(n - 1)
-                                }
-                                if (targets.isNotEmpty()) {
-                                    popupStack.add(PopupInfo(targets, off))
-                                }
-                            },
-                            onReplyClick = { num ->
-                                if (num in 1..posts.size && num !in ngPostNumbers) {
-                                    val target = posts[num - 1]
+                    val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.75f
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = maxHeight)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        info.posts.forEachIndexed { i, p ->
+                            val postNum = posts.indexOf(p) + 1
+                            PostItem(
+                                post = p,
+                                postNum = postNum,
+                                idIndex = idIndexList[posts.indexOf(p)],
+                                idTotal = if (p.id.isBlank()) 1 else idCountMap[p.id] ?: 1,
+                                navController = navController,
+                                boardName = boardName,
+                                boardId = boardId,
+                                isMyPost = postNum in myPostNumbers,
+                                replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers } ?: emptyList(),
+                                onReplyFromClick = { nums ->
+                                    val off = IntOffset(
+                                        popupStack[index].offset.x,
+                                        (popupStack[index].offset.y - popupStack[index].size.height).coerceAtLeast(0)
+                                    )
+                                    val targets = nums.filterNot { it in ngPostNumbers }.mapNotNull { n ->
+                                        posts.getOrNull(n - 1)
+                                    }
+                                    if (targets.isNotEmpty()) {
+                                        popupStack.add(PopupInfo(targets, off))
+                                    }
+                                },
+                                onReplyClick = { num ->
+                                    if (num in 1..posts.size && num !in ngPostNumbers) {
+                                        val target = posts[num - 1]
+                                        val base = popupStack[index]
+                                        val offset = IntOffset(
+                                            base.offset.x,
+                                            (base.offset.y - base.size.height).coerceAtLeast(0)
+                                        )
+                                        popupStack.add(PopupInfo(listOf(target), offset))
+                                    }
+                                },
+                                onIdClick = { id ->
                                     val base = popupStack[index]
                                     val offset = IntOffset(
                                         base.offset.x,
                                         (base.offset.y - base.size.height).coerceAtLeast(0)
                                     )
-                                    popupStack.add(PopupInfo(listOf(target), offset))
+                                    val targets = posts.mapIndexedNotNull { idx, post ->
+                                        val num = idx + 1
+                                        if (post.id == id && num !in ngPostNumbers) post else null
+                                    }
+                                    if (targets.isNotEmpty()) {
+                                        popupStack.add(PopupInfo(targets, offset))
+                                    }
                                 }
-                            },
-                            onIdClick = { id ->
-                                val base = popupStack[index]
-                                val offset = IntOffset(
-                                    base.offset.x,
-                                    (base.offset.y - base.size.height).coerceAtLeast(0)
-                                )
-                                val targets = posts.mapIndexedNotNull { idx, post ->
-                                    val num = idx + 1
-                                    if (post.id == id && num !in ngPostNumbers) post else null
-                                }
-                                if (targets.isNotEmpty()) {
-                                    popupStack.add(PopupInfo(targets, offset))
-                                }
+                            )
+                            if (i < info.posts.size - 1) {
+                                androidx.compose.material3.HorizontalDivider()
                             }
-                        )
-                        if (i < info.posts.size - 1) {
-                            androidx.compose.material3.HorizontalDivider()
                         }
                     }
                 }
@@ -141,6 +209,7 @@ fun ReplyPopup(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @SuppressLint("UnrememberedMutableState")
 @Preview(showBackground = true)
 @Composable

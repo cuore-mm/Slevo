@@ -1,10 +1,9 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarState
@@ -12,24 +11,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.ui.common.PostDialog
+import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadBottomBar
-import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
-import com.websarva.wings.android.slevo.ui.thread.components.ThreadTopBar
+import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
-import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.PostViewModel
 import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
+import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -44,6 +47,8 @@ fun ThreadScaffold(
     topBarState: TopAppBarState,
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
+    val postViewModel: PostViewModel = hiltViewModel()
+    val postUiState by postViewModel.uiState.collectAsState()
 
     LaunchedEffect(threadRoute) {
         val info = tabsViewModel.resolveBoardInfo(
@@ -51,19 +56,16 @@ fun ThreadScaffold(
             boardUrl = threadRoute.boardUrl,
             boardName = threadRoute.boardName
         )
-        tabsViewModel.openThreadTab(
-            ThreadTabInfo(
-                key = threadRoute.threadKey,
-                title = threadRoute.threadTitle,
-                boardName = info.name,
-                boardUrl = info.url,
-                boardId = info.boardId,
-                resCount = threadRoute.resCount
-            )
+        val vm = tabsViewModel.getOrCreateThreadViewModel(threadRoute.threadKey + info.url)
+        vm.initializeThread(
+            threadKey = threadRoute.threadKey,
+            boardInfo = info,
+            threadTitle = threadRoute.threadTitle
         )
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
+    val bottomBarScrollBehavior = BottomAppBarDefaults.exitAlwaysScrollBehavior()
 
     RouteScaffold(
         route = threadRoute,
@@ -87,11 +89,12 @@ fun ThreadScaffold(
                 threadTitle = tab.title
             )
         },
-        updateScrollPosition = { tab, index, offset ->
-            tabsViewModel.updateThreadScrollPosition(tab.key, tab.boardUrl, index, offset)
+        updateScrollPosition = { viewModel, tab, index, offset ->
+            viewModel.updateThreadScrollPosition(tab.key, tab.boardUrl, index, offset)
         },
         scrollBehavior = scrollBehavior,
-        topBar = { viewModel, uiState, drawer, scrollBehavior ->
+        bottomBarScrollBehavior = bottomBarScrollBehavior,
+        topBar = { viewModel, uiState, _, scrollBehavior ->
             if (uiState.isSearchMode) {
                 SearchTopAppBar(
                     searchQuery = uiState.searchQuery,
@@ -99,33 +102,39 @@ fun ThreadScaffold(
                     onCloseSearch = { viewModel.closeSearch() },
                     scrollBehavior = scrollBehavior
                 )
-            } else {
-                ThreadTopBar(
-                    onBookmarkClick = { viewModel.openBookmarkSheet() },
-                    uiState = uiState,
-                    onNavigationClick = drawer,
-                    scrollBehavior = scrollBehavior
-                )
             }
         },
         bottomBar = { viewModel, uiState ->
+            val context = LocalContext.current
+            val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
             ThreadBottomBar(
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .height(56.dp),
+                modifier = if (isThreeButtonBar) {
+                    Modifier.navigationBarsPadding()
+                } else {
+                    Modifier
+                },
+                uiState = uiState,
                 isTreeSort = uiState.sortType == ThreadSortType.TREE,
                 onSortClick = { viewModel.toggleSortType() },
-                onPostClick = { viewModel.showPostDialog() },
+                onPostClick = { postViewModel.showPostDialog() },
                 onTabListClick = { viewModel.openTabListSheet() },
                 onRefreshClick = { viewModel.reloadThread() },
                 onSearchClick = { viewModel.startSearch() },
+                onBookmarkClick = { viewModel.openBookmarkSheet() },
+                onThreadInfoClick = { viewModel.openThreadInfoSheet() },
+                scrollBehavior = bottomBarScrollBehavior,
             )
         },
         content = { viewModel, uiState, listState, modifier, navController ->
-            LaunchedEffect(uiState.threadInfo) {
+            LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
-                if (uiState.threadInfo.title.isNotEmpty() && uiState.posts != null && uiState.threadInfo.key.isNotEmpty()) {
-                    tabsViewModel.updateThreadTabInfo(
+                if (
+                    !uiState.isLoading &&
+                    uiState.threadInfo.title.isNotEmpty() &&
+                    uiState.posts != null &&
+                    uiState.threadInfo.key.isNotEmpty()
+                ) {
+                    viewModel.updateThreadTabInfo(
                         key = uiState.threadInfo.key,
                         boardUrl = uiState.boardInfo.url,
                         title = uiState.threadInfo.title,
@@ -134,40 +143,75 @@ fun ThreadScaffold(
                 }
             }
 
+            val tabInfo = tabsUiState.openThreadTabs.find {
+                it.key == uiState.threadInfo.key && it.boardUrl == uiState.boardInfo.url
+            }
+            LaunchedEffect(tabInfo?.firstNewResNo, tabInfo?.prevResCount) {
+                tabInfo?.let {
+                    viewModel.setNewArrivalInfo(it.firstNewResNo, it.prevResCount)
+                }
+            }
             ThreadScreen(
                 modifier = modifier,
                 uiState = uiState,
                 listState = listState,
                 navController = navController,
-                onBottomRefresh = { viewModel.reloadThread() }
+                onBottomRefresh = { viewModel.reloadThread() },
+                onLastRead = { resNum ->
+                    viewModel.updateThreadLastRead(
+                        uiState.threadInfo.key,
+                        uiState.boardInfo.url,
+                        resNum
+                    )
+                }
             )
         },
         optionalSheetContent = { viewModel, uiState ->
-            if (uiState.postDialog) {
+            val threadInfoSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            if (uiState.showThreadInfoSheet) {
+                val threadUrl = parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
+                    "https://$host/test/read.cgi/$boardKey/${uiState.threadInfo.key}/"
+                } ?: ""
+                ThreadInfoBottomSheet(
+                    sheetState = threadInfoSheetState,
+                    onDismissRequest = { viewModel.closeThreadInfoSheet() },
+                    threadInfo = uiState.threadInfo,
+                    threadUrl = threadUrl,
+                )
+            }
+
+            if (postUiState.postDialog) {
                 val context = LocalContext.current
                 PostDialog(
-                    onDismissRequest = { viewModel.hidePostDialog() },
-                    name = uiState.postFormState.name,
-                    mail = uiState.postFormState.mail,
-                    message = uiState.postFormState.message,
+                    onDismissRequest = { postViewModel.hidePostDialog() },
+                    name = postUiState.postFormState.name,
+                    mail = postUiState.postFormState.mail,
+                    message = postUiState.postFormState.message,
                     namePlaceholder = uiState.boardInfo.noname.ifBlank { "name" },
-                    onNameChange = { viewModel.updatePostName(it) },
-                    onMailChange = { viewModel.updatePostMail(it) },
-                    onMessageChange = { viewModel.updatePostMessage(it) },
+                    onNameChange = { postViewModel.updatePostName(it) },
+                    onMailChange = { postViewModel.updatePostMail(it) },
+                    onMessageChange = { postViewModel.updatePostMessage(it) },
                     onPostClick = {
                         parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                            viewModel.postFirstPhase(
+                            postViewModel.postFirstPhase(
                                 host,
                                 boardKey,
                                 uiState.threadInfo.key,
-                                uiState.postFormState.name,
-                                uiState.postFormState.mail,
-                                uiState.postFormState.message
-                            )
+                                postUiState.postFormState.name,
+                                postUiState.postFormState.mail,
+                                postUiState.postFormState.message
+                            ) { resNum ->
+                                viewModel.onPostSuccess(
+                                    resNum,
+                                    postUiState.postFormState.message,
+                                    postUiState.postFormState.name,
+                                    postUiState.postFormState.mail
+                                )
+                            }
                         }
                     },
                     confirmButtonText = stringResource(R.string.post),
-                    onImageSelect = { uri -> viewModel.uploadImage(context, uri) },
+                    onImageSelect = { uri -> postViewModel.uploadImage(context, uri) },
                     onImageUrlClick = { url ->
                         navController.navigate(
                             AppRoute.ImageViewer(
@@ -181,19 +225,27 @@ fun ThreadScaffold(
                 )
             }
 
-            if (uiState.isConfirmationScreen) {
-                uiState.postConfirmation?.let { confirmationData ->
+            if (postUiState.isConfirmationScreen) {
+                postUiState.postConfirmation?.let { confirmationData ->
                     ResponseWebViewDialog(
                         htmlContent = confirmationData.html,
-                        onDismissRequest = { viewModel.hideConfirmationScreen() },
+                        onDismissRequest = { postViewModel.hideConfirmationScreen() },
                         onConfirm = {
                             parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                viewModel.postTo5chSecondPhase(
+                                postViewModel.postTo5chSecondPhase(
                                     host,
                                     boardKey,
                                     uiState.threadInfo.key,
                                     confirmationData
-                                )
+                                ) { resNum ->
+                                    val form = postUiState.postFormState
+                                    viewModel.onPostSuccess(
+                                        resNum,
+                                        form.message,
+                                        form.name,
+                                        form.mail
+                                    )
+                                }
                             }
                         },
                         title = "書き込み確認",
@@ -202,13 +254,17 @@ fun ThreadScaffold(
                 }
             }
 
-            if (uiState.showErrorWebView) {
+            if (postUiState.showErrorWebView) {
                 ResponseWebViewDialog(
-                    htmlContent = uiState.errorHtmlContent,
-                    onDismissRequest = { viewModel.hideErrorWebView() },
+                    htmlContent = postUiState.errorHtmlContent,
+                    onDismissRequest = { postViewModel.hideErrorWebView() },
                     title = "応答結果",
                     onConfirm = null // 確認ボタンは不要なのでnull
                 )
+            }
+
+            if (postUiState.isPosting) {
+                PostingDialog()
             }
         }
     )

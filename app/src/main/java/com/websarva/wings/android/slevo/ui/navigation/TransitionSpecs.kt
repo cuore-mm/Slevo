@@ -8,7 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 
-private const val DefaultAnimDuration = 300
+private const val DefaultAnimDuration = 450
 
 // --- 通常画面用トランジション ---
 fun defaultEnterTransition(): EnterTransition =
