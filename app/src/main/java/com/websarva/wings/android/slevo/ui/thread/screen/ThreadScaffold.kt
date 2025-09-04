@@ -160,7 +160,8 @@ fun ThreadScaffold(
                         uiState.boardInfo.url,
                         resNum
                     )
-                }
+                },
+                bottomBarScrollBehavior = bottomBarScrollBehavior
             )
         },
         optionalSheetContent = { viewModel, uiState ->

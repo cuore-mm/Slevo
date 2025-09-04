@@ -17,7 +17,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.ContainedLoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -60,7 +62,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import kotlinx.coroutines.delay
 import kotlin.math.min
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadScreen(
     modifier: Modifier = Modifier,
@@ -69,6 +71,7 @@ fun ThreadScreen(
     navController: NavHostController,
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
+    bottomBarScrollBehavior: BottomAppBarScrollBehavior? = null,
 ) {
     // 投稿一覧（nullの場合は空リスト）
     val posts = uiState.posts ?: emptyList()
@@ -121,7 +124,7 @@ fun ThreadScreen(
     val refreshThresholdPx = with(density) { 80.dp.toPx() }
     var overscroll by remember { mutableFloatStateOf(0f) }
     var triggerRefresh by remember { mutableStateOf(false) }
-    val nestedScrollConnection = remember(listState, posts.size) {
+    val nestedScrollConnection = remember(listState, posts.size, bottomBarScrollBehavior) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 return if (overscroll > 0f && available.y > 0f) {
@@ -142,6 +145,11 @@ fun ThreadScreen(
                 if (!listState.canScrollForward && available.y < 0f) {
                     overscroll -= available.y
                     triggerRefresh = overscroll >= refreshThresholdPx
+                    bottomBarScrollBehavior?.state?.let { state ->
+                        val newOffset = state.heightOffset + (-available.y)
+                        state.heightOffset = newOffset.coerceAtMost(0f)
+                    }
+                    return available
                 }
                 return Offset.Zero
             }
@@ -374,6 +382,7 @@ fun ThreadScreen(
 
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Preview(showBackground = true)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadScreenPreview() {
     val previewPosts = listOf(
