@@ -10,8 +10,10 @@ import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.DatRepository
+import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
+import com.websarva.wings.android.slevo.data.repository.PostRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
@@ -20,6 +22,7 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewMod
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
+import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
@@ -29,7 +32,9 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -54,6 +59,8 @@ class ThreadViewModel @AssistedInject constructor(
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
     private val tabsRepository: TabsRepository,
+    internal val postRepository: PostRepository,
+    internal val imageUploadRepository: ImageUploadRepository,
     @Assisted @Suppress("unused") val viewModelKey: String,
 ) : BaseViewModel<ThreadUiState>() {
 
@@ -65,6 +72,9 @@ class ThreadViewModel @AssistedInject constructor(
     private var pendingPost: PendingPost? = null
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
+
+    internal val _postUiState = MutableStateFlow(PostUiState())
+    val postUiState: StateFlow<PostUiState> = _postUiState.asStateFlow()
 
     //画面遷移した最初に行う初期処理
     fun initializeThread(

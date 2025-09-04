@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -29,7 +28,7 @@ import com.websarva.wings.android.slevo.ui.thread.components.ThreadBottomBar
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.PostViewModel
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.*
 import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
@@ -47,8 +46,6 @@ fun ThreadScaffold(
     topBarState: TopAppBarState,
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
-    val postViewModel: PostViewModel = hiltViewModel()
-    val postUiState by postViewModel.uiState.collectAsState()
 
     LaunchedEffect(threadRoute) {
         val info = tabsViewModel.resolveBoardInfo(
@@ -116,7 +113,7 @@ fun ThreadScaffold(
                 uiState = uiState,
                 isTreeSort = uiState.sortType == ThreadSortType.TREE,
                 onSortClick = { viewModel.toggleSortType() },
-                onPostClick = { postViewModel.showPostDialog() },
+                onPostClick = { viewModel.showPostDialog() },
                 onTabListClick = { viewModel.openTabListSheet() },
                 onRefreshClick = { viewModel.reloadThread() },
                 onSearchClick = { viewModel.startSearch() },
@@ -167,6 +164,7 @@ fun ThreadScaffold(
             )
         },
         optionalSheetContent = { viewModel, uiState ->
+            val postUiState by viewModel.postUiState.collectAsState()
             val threadInfoSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             if (uiState.showThreadInfoSheet) {
                 val threadUrl = parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
@@ -183,17 +181,17 @@ fun ThreadScaffold(
             if (postUiState.postDialog) {
                 val context = LocalContext.current
                 PostDialog(
-                    onDismissRequest = { postViewModel.hidePostDialog() },
+                    onDismissRequest = { viewModel.hidePostDialog() },
                     name = postUiState.postFormState.name,
                     mail = postUiState.postFormState.mail,
                     message = postUiState.postFormState.message,
                     namePlaceholder = uiState.boardInfo.noname.ifBlank { "name" },
-                    onNameChange = { postViewModel.updatePostName(it) },
-                    onMailChange = { postViewModel.updatePostMail(it) },
-                    onMessageChange = { postViewModel.updatePostMessage(it) },
+                    onNameChange = { viewModel.updatePostName(it) },
+                    onMailChange = { viewModel.updatePostMail(it) },
+                    onMessageChange = { viewModel.updatePostMessage(it) },
                     onPostClick = {
                         parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                            postViewModel.postFirstPhase(
+                            viewModel.postFirstPhase(
                                 host,
                                 boardKey,
                                 uiState.threadInfo.key,
@@ -211,7 +209,7 @@ fun ThreadScaffold(
                         }
                     },
                     confirmButtonText = stringResource(R.string.post),
-                    onImageSelect = { uri -> postViewModel.uploadImage(context, uri) },
+                    onImageSelect = { uri -> viewModel.uploadImage(context, uri) },
                     onImageUrlClick = { url ->
                         navController.navigate(
                             AppRoute.ImageViewer(
@@ -229,10 +227,10 @@ fun ThreadScaffold(
                 postUiState.postConfirmation?.let { confirmationData ->
                     ResponseWebViewDialog(
                         htmlContent = confirmationData.html,
-                        onDismissRequest = { postViewModel.hideConfirmationScreen() },
+                        onDismissRequest = { viewModel.hideConfirmationScreen() },
                         onConfirm = {
                             parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                postViewModel.postTo5chSecondPhase(
+                                viewModel.postTo5chSecondPhase(
                                     host,
                                     boardKey,
                                     uiState.threadInfo.key,
@@ -257,7 +255,7 @@ fun ThreadScaffold(
             if (postUiState.showErrorWebView) {
                 ResponseWebViewDialog(
                     htmlContent = postUiState.errorHtmlContent,
-                    onDismissRequest = { postViewModel.hideErrorWebView() },
+                    onDismissRequest = { viewModel.hideErrorWebView() },
                     title = "応答結果",
                     onConfirm = null // 確認ボタンは不要なのでnull
                 )
