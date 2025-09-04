@@ -1,5 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.item
 
+import android.content.ClipData
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -30,11 +32,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
@@ -193,7 +195,14 @@ fun PostItem(
                         }
                         pop()
                     }
-                    val currentYearPrefix = "${LocalDate.now().year}/"
+                    val currentYearPrefix = run {
+                        val year = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            LocalDate.now().year
+                        } else {
+                            java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+                        }
+                        "$year/"
+                    }
                     val displayDate =
                         if (post.date.startsWith(currentYearPrefix)) {
                             post.date.removePrefix(currentYearPrefix)
@@ -473,11 +482,14 @@ fun PostItem(
             )
         }
         textMenuData?.let { (text, type) ->
-            val clipboardManager = LocalClipboardManager.current
+            val clipboard = LocalClipboard.current
             TextMenuDialog(
                 text = text,
                 onCopyClick = {
-                    clipboardManager.setText(AnnotatedString(text))
+                    scope.launch {
+                        val clip = ClipData.newPlainText("", text).toClipEntry()
+                        clipboard.setClipEntry(clip)
+                    }
                     textMenuData = null
                 },
                 onNgClick = {
