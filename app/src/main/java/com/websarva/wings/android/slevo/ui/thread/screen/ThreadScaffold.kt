@@ -24,6 +24,7 @@ import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.thread.components.THREAD_BOTTOM_BAR_HEIGHT
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadBottomBar
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
@@ -91,6 +92,7 @@ fun ThreadScaffold(
         },
         scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = bottomBarScrollBehavior,
+        bottomBarVisibilityThreshold = THREAD_BOTTOM_BAR_HEIGHT,
         topBar = { viewModel, uiState, _, scrollBehavior ->
             if (uiState.isSearchMode) {
                 SearchTopAppBar(

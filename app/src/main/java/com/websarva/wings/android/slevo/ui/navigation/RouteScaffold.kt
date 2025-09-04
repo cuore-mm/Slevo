@@ -25,6 +25,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.board.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.BoardViewModel
@@ -64,6 +66,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier,navController: NavHostController) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
     bottomBarScrollBehavior: BottomAppBarScrollBehavior? = null,
+    bottomBarVisibilityThreshold: Dp? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
     // このComposableはタブベースの画面レイアウトを提供します。
@@ -143,6 +146,26 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                             // スクロール位置をViewModel側に伝える
                             updateScrollPosition(viewModel, tab, index, offset)
                         }
+                }
+            }
+
+            val density = LocalDensity.current
+            val thresholdPx = bottomBarVisibilityThreshold?.let { with(density) { it.toPx() } }
+            LaunchedEffect(listState, isActive, thresholdPx) {
+                if (isActive && bottomBarScrollBehavior != null && thresholdPx != null) {
+                    snapshotFlow {
+                        val layoutInfo = listState.layoutInfo
+                        val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
+                        if (lastVisible != null && lastVisible.index == layoutInfo.totalItemsCount - 1) {
+                            (lastVisible.offset + lastVisible.size - layoutInfo.viewportEndOffset).toFloat()
+                        } else {
+                            Float.MAX_VALUE
+                        }
+                    }.collect { remaining ->
+                        if (remaining <= thresholdPx) {
+                            bottomBarScrollBehavior.state.heightOffset = 0f
+                        }
+                    }
                 }
             }
 
