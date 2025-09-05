@@ -82,4 +82,9 @@
     <string name="thread_date">%1$d年%2$d月%3$d日%4$s曜日 %5$02d:%6$02d</string>
     <string name="posting_in_progress">書き込み中</string>
     <string name="momentum">勢い</string>
+    <string name="cookie_management">Cookieの管理</string>
+    <string name="cookie_domain_path">Domain / Path: %1$s / %2$s</string>
+    <string name="cookie_expires">Expires / Max-Age: %1$s</string>
+    <string name="cookie_size">Size: %1$d</string>
+    <string name="cookie_value_preview">Value: %1$s</string>
 </resources>
