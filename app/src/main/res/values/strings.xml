@@ -82,4 +82,5 @@
     <string name="thread_date">%1$d年%2$d月%3$d日%4$s曜日 %5$02d:%6$02d</string>
     <string name="posting_in_progress">書き込み中</string>
     <string name="momentum">勢い</string>
+    <string name="cookie_management">Cookie管理</string>
 </resources>
