@@ -5,6 +5,7 @@ import com.websarva.wings.android.slevo.data.util.PostParser
 import com.websarva.wings.android.slevo.di.PersistentCookieJar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.Response
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -36,6 +37,21 @@ class PostRepository @Inject constructor(
         }
     }
 
+    private val BROKEN_TICKET_REGEX =
+        Regex("""Broken\s*MonaTicket""", RegexOption.IGNORE_CASE)
+
+    private fun Response.isBrokenMonaTicket(): Boolean {
+        val headerHit = headers("x-chx-error")
+            .any { BROKEN_TICKET_REGEX.containsMatchIn(it) }
+        val cookieHit = headers("set-cookie")
+            .any { sc ->
+                sc.startsWith("MonaTicket=", ignoreCase = true) &&
+                        sc.contains("Expires=", ignoreCase = true) // 過去期限で失効させている合図
+            }
+        Timber.d("headerHit: $headerHit, cookieHit: $cookieHit")
+        return headerHit || cookieHit
+    }
+
     suspend fun postTo5chFirstPhase(
         host: String,
         board: String,
@@ -46,9 +62,10 @@ class PostRepository @Inject constructor(
     ): PostResult = withContext(Dispatchers.IO) {
         try {
             val response = remoteDataSource.postFirstPhase(host, board, threadKey, name, mail, message)
-            if (response?.header("x-chx-error") == "0000 Confirmation[Broken MonaTicket]") {
-                response.close()
-                cookieJar.clearMonaTicket(host)
+
+            if (response != null && response.isBrokenMonaTicket()) {
+                response.close() // いったん閉じる
+                cookieJar.clear(host) // MonaTicket だけ消す実装ならなお良い（clearMonaTicket 等）
                 val retry = remoteDataSource.postFirstPhase(host, board, threadKey, name, mail, message)
                 handlePostResponse(retry)
             } else {
