@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.settings
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -48,8 +49,31 @@ fun SettingsCookieScreen(
                 key = { it.name + it.domain + it.path }
             ) { cookie ->
                 ListItem(
-                    headlineContent = { Text("${cookie.name}=${cookie.value}") },
-                    supportingContent = { Text(cookie.domain) },
+                    headlineContent = { Text(cookie.name) },
+                    supportingContent = {
+                        Column {
+                            Text(
+                                stringResource(
+                                    R.string.cookie_domain_path,
+                                    cookie.domain,
+                                    cookie.path,
+                                )
+                            )
+                            Text(
+                                stringResource(
+                                    R.string.cookie_expires,
+                                    cookie.expires,
+                                )
+                            )
+                            Text(stringResource(R.string.cookie_size, cookie.size))
+                            Text(
+                                stringResource(
+                                    R.string.cookie_value_preview,
+                                    cookie.valuePreview,
+                                )
+                            )
+                        }
+                    },
                     trailingContent = {
                         IconButton(onClick = { viewModel.removeCookie(cookie) }) {
                             Icon(
