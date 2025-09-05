@@ -327,6 +327,11 @@ class BoardViewModel @AssistedInject constructor(
                         it.copy(showErrorWebView = true, errorHtmlContent = result.html)
                     }
                 }
+                is PostResult.Retry -> {
+                    _uiState.update {
+                        it.copy(showErrorWebView = true, errorHtmlContent = "Broken MonaTicket")
+                    }
+                }
             }
         }
     }
@@ -356,6 +361,11 @@ class BoardViewModel @AssistedInject constructor(
                             postConfirmation = result.confirmationData,
                             isConfirmationScreen = true
                         )
+                    }
+                }
+                is PostResult.Retry -> {
+                    _uiState.update {
+                        it.copy(showErrorWebView = true, errorHtmlContent = "Broken MonaTicket")
                     }
                 }
             }

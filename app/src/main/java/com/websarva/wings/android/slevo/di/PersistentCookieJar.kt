@@ -71,4 +71,18 @@ class PersistentCookieJar @Inject constructor(
             localDataSource.saveCookies(cache.values.flatten())
         }
     }
+
+    /**
+     * 指定したドメインに関連するクッキーを削除する。
+     */
+    fun clearCookiesFor(domain: String) {
+        // キャッシュに登録されているドメインのうち、指定ドメインで終わるものを削除
+        val targets = cache.keys.filter { domain.endsWith(it) }
+        targets.forEach { cache.remove(it) }
+
+        // DataStoreからも削除された状態を保存
+        scope.launch {
+            localDataSource.saveCookies(cache.values.flatten())
+        }
+    }
 }

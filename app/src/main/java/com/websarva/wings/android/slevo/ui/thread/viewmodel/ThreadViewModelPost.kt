@@ -83,6 +83,12 @@ fun ThreadViewModel.postFirstPhase(
                     it.copy(showErrorWebView = true, errorHtmlContent = result.html)
                 }
             }
+            is PostResult.Retry -> {
+                // 2回目の試行でも失敗した場合はエラーとして扱う
+                _postUiState.update {
+                    it.copy(showErrorWebView = true, errorHtmlContent = "Broken MonaTicket")
+                }
+            }
         }
     }
 }
@@ -112,6 +118,10 @@ fun ThreadViewModel.postTo5chSecondPhase(
                 _postUiState.update {
                     it.copy(postConfirmation = result.confirmationData, isConfirmationScreen = true)
                 }
+            }
+            is PostResult.Retry -> {
+                val state = postUiState.value.postFormState
+                postFirstPhase(host, board, threadKey, state.name, state.mail, state.message, onSuccess)
             }
         }
     }
