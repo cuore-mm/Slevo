@@ -160,7 +160,8 @@ fun ThreadScaffold(
                         uiState.boardInfo.url,
                         resNum
                     )
-                }
+                },
+                onReplyToPost = { viewModel.showReplyDialog(it) }
             )
         },
         optionalSheetContent = { viewModel, uiState ->

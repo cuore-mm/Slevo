@@ -86,6 +86,7 @@ fun PostItem(
     dimmed: Boolean = false,
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null,
+    onMenuReplyClick: ((Int) -> Unit)? = null,
     onIdClick: ((String) -> Unit)? = null,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -479,6 +480,10 @@ fun PostItem(
         if (menuExpanded) {
             PostMenuDialog(
                 postNum = postNum,
+                onReplyClick = {
+                    menuExpanded = false
+                    onMenuReplyClick?.invoke(postNum)
+                },
                 onCopyClick = { menuExpanded = false },
                 onNgClick = {
                     menuExpanded = false

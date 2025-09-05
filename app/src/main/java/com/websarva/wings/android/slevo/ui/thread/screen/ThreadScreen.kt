@@ -69,6 +69,7 @@ fun ThreadScreen(
     navController: NavHostController,
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
+    onReplyToPost: (Int) -> Unit = {},
 ) {
     // 投稿一覧（nullの場合は空リスト）
     val posts = uiState.posts ?: emptyList()
@@ -257,6 +258,7 @@ fun ThreadScreen(
                                     popupStack.add(PopupInfo(listOf(target), offset))
                                 }
                             },
+                            onMenuReplyClick = { onReplyToPost(it) },
                             onIdClick = { id ->
                                 val offset = if (popupStack.isEmpty()) {
                                     itemOffsetHolder.value
