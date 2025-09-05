@@ -58,6 +58,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -70,6 +71,7 @@ fun ThreadScreen(
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
     onReplyToPost: (Int) -> Unit = {},
+    onBottomReached: () -> Unit = {},
 ) {
     // 投稿一覧（nullの場合は空リスト）
     val posts = uiState.posts ?: emptyList()
@@ -115,6 +117,17 @@ fun ThreadScreen(
                         lastRead?.let { onLastRead(it) }
                     }
                 }
+            }
+    }
+
+    LaunchedEffect(listState) {
+        var wasAtBottom = !listState.canScrollForward
+        snapshotFlow { listState.canScrollForward }
+            .collect { canScrollForward ->
+                if (!canScrollForward && !wasAtBottom) {
+                    onBottomReached()
+                }
+                wasAtBottom = !canScrollForward
             }
     }
 
