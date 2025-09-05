@@ -140,18 +140,27 @@ fun PostDialog(
                                 .padding(8.dp)
                         )
                     }
-                    var textFieldValue by remember(message) {
-                        mutableStateOf(
-                            TextFieldValue(
-                                text = message,
-                                selection = TextRange(message.length)
-                            )
-                        )
+
+                    var messageValue by remember {
+                        mutableStateOf(TextFieldValue(message))
                     }
+                    var initialized by remember { mutableStateOf(false) }
+
+                    LaunchedEffect(message) {
+                        if (!initialized) {
+                            messageValue = TextFieldValue(
+                                text = message,
+                                selection = TextRange(message.length) // ← 末尾にカーソル
+                            )
+                            initialized = true
+                        }
+                    }
+
                     OutlinedTextField(
-                        value = textFieldValue,
+                        value = messageValue,
                         onValueChange = {
-                            textFieldValue = it
+                            messageValue = it
+                            // 親側は String で管理しているのでテキストのみ渡す
                             onMessageChange(it.text)
                         },
                         placeholder = { Text(stringResource(R.string.post_message)) },
