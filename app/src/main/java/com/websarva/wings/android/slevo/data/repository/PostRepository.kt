@@ -48,7 +48,7 @@ class PostRepository @Inject constructor(
             val response = remoteDataSource.postFirstPhase(host, board, threadKey, name, mail, message)
             if (response?.header("x-chx-error") == "0000 Confirmation[Broken MonaTicket]") {
                 response.close()
-                cookieJar.clear(host)
+                cookieJar.clearMonaTicket(host)
                 val retry = remoteDataSource.postFirstPhase(host, board, threadKey, name, mail, message)
                 handlePostResponse(retry)
             } else {
