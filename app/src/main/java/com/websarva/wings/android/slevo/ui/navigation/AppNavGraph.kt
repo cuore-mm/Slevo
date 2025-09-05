@@ -223,6 +223,9 @@ sealed class AppRoute {
     data object SettingsThread : AppRoute()
 
     @Serializable
+    data object SettingsCookie : AppRoute()
+
+    @Serializable
     data object Tabs : AppRoute()
 
     @Serializable
@@ -250,6 +253,7 @@ sealed class AppRoute {
         const val SETTINGS_GENERAL = "SettingsGeneral"
         const val SETTINGS_NG = "SettingsNg"
         const val SETTINGS_THREAD = "SettingsThread"
+        const val SETTINGS_COOKIE = "SettingsCookie"
         const val TABS = "Tabs"
         const val MORE = "More"
         const val HISTORY_LIST = "HistoryList"

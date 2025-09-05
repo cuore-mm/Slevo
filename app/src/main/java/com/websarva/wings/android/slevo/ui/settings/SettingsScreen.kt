@@ -19,6 +19,7 @@ fun SettingsScreen(
     onGeneralClick: () -> Unit,
     onThreadClick: () -> Unit,
     onNgClick: () -> Unit,
+    onCookieClick: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -52,6 +53,13 @@ fun SettingsScreen(
                 ListItem(
                     modifier = Modifier.clickable(onClick = onNgClick),
                     headlineContent = { Text("NG") }
+                )
+                HorizontalDivider()
+            }
+            item {
+                ListItem(
+                    modifier = Modifier.clickable(onClick = onCookieClick),
+                    headlineContent = { Text("Cookie管理") }
                 )
                 HorizontalDivider()
             }

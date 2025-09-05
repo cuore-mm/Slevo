@@ -73,6 +73,23 @@ class PersistentCookieJar @Inject constructor(
     }
 
     /**
+     * 指定したクッキーを削除する
+     */
+    fun removeCookie(target: Cookie) {
+        val domain = target.domain
+        val current = cache[domain]?.toMutableList() ?: return
+        current.removeAll { it.name == target.name && it.path == target.path }
+        if (current.isEmpty()) {
+            cache.remove(domain)
+        } else {
+            cache[domain] = current
+        }
+        scope.launch {
+            localDataSource.saveCookies(cache.values.flatten())
+        }
+    }
+
+    /**
      * 指定したホストに関連するすべてのクッキーを削除する
      */
     fun clear(host: String) {
