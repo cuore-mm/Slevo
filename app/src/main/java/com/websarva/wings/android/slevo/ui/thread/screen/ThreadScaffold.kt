@@ -78,7 +78,7 @@ fun ThreadScaffold(
         bottomBarScrollBehavior.state.heightOffset = 0f
         forceShowBottomBar = true
         bottomBarJob = scope.launch {
-            delay(3000)
+            delay(1000)
             forceShowBottomBar = false
         }
     }

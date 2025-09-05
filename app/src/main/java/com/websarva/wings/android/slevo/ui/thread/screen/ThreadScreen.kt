@@ -135,6 +135,21 @@ fun ThreadScreen(
     val refreshThresholdPx = with(density) { 80.dp.toPx() }
     var overscroll by remember { mutableFloatStateOf(0f) }
     var triggerRefresh by remember { mutableStateOf(false) }
+    var enablePullRefresh by remember { mutableStateOf(false) }
+
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }
+            .collect { scrolling ->
+                if (scrolling) {
+                    enablePullRefresh = !listState.canScrollForward
+                } else {
+                    enablePullRefresh = false
+                    overscroll = 0f
+                    triggerRefresh = false
+                }
+            }
+    }
+
     val nestedScrollConnection = remember(listState, posts.size) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -153,7 +168,7 @@ fun ThreadScreen(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                if (!listState.canScrollForward && available.y < 0f) {
+                if (enablePullRefresh && !listState.canScrollForward && available.y < 0f) {
                     overscroll -= available.y
                     triggerRefresh = overscroll >= refreshThresholdPx
                 }
@@ -167,6 +182,7 @@ fun ThreadScreen(
                 }
                 overscroll = 0f
                 triggerRefresh = false
+                enablePullRefresh = false
                 return Velocity.Zero
             }
         }
