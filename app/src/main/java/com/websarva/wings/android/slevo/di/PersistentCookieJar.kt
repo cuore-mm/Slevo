@@ -71,4 +71,15 @@ class PersistentCookieJar @Inject constructor(
             localDataSource.saveCookies(cache.values.flatten())
         }
     }
+
+    /**
+     * 指定したホストに関連するクッキーを削除する
+     */
+    fun clear(host: String) {
+        val targets = cache.keys.filter { host.endsWith(it) }
+        targets.forEach { cache.remove(it) }
+        scope.launch {
+            localDataSource.saveCookies(cache.values.flatten())
+        }
+    }
 }

@@ -1,8 +1,8 @@
 package com.websarva.wings.android.slevo.data.repository
 
-import android.util.Log
 import com.websarva.wings.android.slevo.data.datasource.remote.PostRemoteDataSource
 import com.websarva.wings.android.slevo.data.util.PostParser
+import com.websarva.wings.android.slevo.di.PersistentCookieJar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -16,7 +16,8 @@ sealed class PostResult {
 }
 
 class PostRepository @Inject constructor(
-    private val remoteDataSource: PostRemoteDataSource // DIでDataSourceを受け取る
+    private val remoteDataSource: PostRemoteDataSource, // DIでDataSourceを受け取る
+    private val cookieJar: PersistentCookieJar,
 ) {
     private suspend fun handlePostResponse(response: okhttp3.Response?): PostResult {
         if (response == null) {
@@ -45,7 +46,14 @@ class PostRepository @Inject constructor(
     ): PostResult = withContext(Dispatchers.IO) {
         try {
             val response = remoteDataSource.postFirstPhase(host, board, threadKey, name, mail, message)
-            handlePostResponse(response)
+            if (response?.header("x-chx-error") == "0000 Confirmation[Broken MonaTicket]") {
+                response.close()
+                cookieJar.clear(host)
+                val retry = remoteDataSource.postFirstPhase(host, board, threadKey, name, mail, message)
+                handlePostResponse(retry)
+            } else {
+                handlePostResponse(response)
+            }
         } catch (e: Exception) {
             Timber.e(e, "初回投稿リクエスト失敗")
             PostResult.Error("", e.message ?: "不明なエラー")
