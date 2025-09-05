@@ -3,7 +3,6 @@ package com.websarva.wings.android.slevo.ui.thread.screen
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarState
@@ -30,6 +29,7 @@ import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.*
 import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
+import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.net.URLEncoder
@@ -62,7 +62,6 @@ fun ThreadScaffold(
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
-    val bottomBarScrollBehavior = BottomAppBarDefaults.exitAlwaysScrollBehavior()
 
     RouteScaffold(
         route = threadRoute,
@@ -90,7 +89,7 @@ fun ThreadScaffold(
             viewModel.updateThreadScrollPosition(tab.key, tab.boardUrl, index, offset)
         },
         scrollBehavior = scrollBehavior,
-        bottomBarScrollBehavior = bottomBarScrollBehavior,
+        bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         topBar = { viewModel, uiState, _, scrollBehavior ->
             if (uiState.isSearchMode) {
                 SearchTopAppBar(
@@ -101,7 +100,7 @@ fun ThreadScaffold(
                 )
             }
         },
-        bottomBar = { viewModel, uiState ->
+        bottomBar = { viewModel, uiState, barScrollBehavior ->
             val context = LocalContext.current
             val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
             ThreadBottomBar(
@@ -119,7 +118,7 @@ fun ThreadScaffold(
                 onSearchClick = { viewModel.startSearch() },
                 onBookmarkClick = { viewModel.openBookmarkSheet() },
                 onThreadInfoClick = { viewModel.openThreadInfoSheet() },
-                scrollBehavior = bottomBarScrollBehavior,
+                scrollBehavior = barScrollBehavior,
             )
         },
         content = { viewModel, uiState, listState, modifier, navController ->

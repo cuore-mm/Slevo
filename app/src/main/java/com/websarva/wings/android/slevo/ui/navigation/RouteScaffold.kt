@@ -60,10 +60,10 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     initializeViewModel: (viewModel: ViewModel, tabInfo: TabInfo) -> Unit,
     updateScrollPosition: (viewModel: ViewModel, tab: TabInfo, index: Int, offset: Int) -> Unit,
     topBar: @Composable (viewModel: ViewModel, uiState: UiState, openDrawer: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) -> Unit,
-    bottomBar: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit,
-    content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier,navController: NavHostController) -> Unit,
+    bottomBar: @Composable (viewModel: ViewModel, uiState: UiState, scrollBehavior: BottomAppBarScrollBehavior?) -> Unit,
+    content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier, navController: NavHostController) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
-    bottomBarScrollBehavior: BottomAppBarScrollBehavior? = null,
+    bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
     // このComposableはタブベースの画面レイアウトを提供します。
@@ -146,15 +146,15 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 }
             }
 
+            val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
             Scaffold(
                 modifier = Modifier
-//                    .nestedScroll(scrollBehavior.nestedScrollConnection)
                     .let { modifier ->
-                        bottomBarScrollBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
+                        bottomBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
                             ?: modifier
                     },
                 topBar = { topBar(viewModel, uiState, openDrawer, scrollBehavior) },
-                bottomBar = { bottomBar(viewModel, uiState) }
+                bottomBar = { bottomBar(viewModel, uiState, bottomBehavior) }
             ) { innerPadding ->
                 // 各画面の実際のコンテンツを呼び出す
                 content(viewModel, uiState, listState, Modifier.padding(innerPadding), navController)

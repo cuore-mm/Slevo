@@ -120,7 +120,7 @@ fun BoardScaffold(
                 )
             }
         },
-        bottomBar = { viewModel, _ ->
+        bottomBar = { viewModel, _, _ ->
             BoardBottomBar(
                 modifier = Modifier
                     .navigationBarsPadding()
