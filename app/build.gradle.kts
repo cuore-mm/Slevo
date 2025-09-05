@@ -32,8 +32,8 @@ android {
         applicationId = "com.websarva.wings.android.slevo"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.1.0"
+        versionCode = 4
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -63,6 +63,14 @@ android {
                 val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
                 val fileName = "Slevo-${variant.versionName}.apk"
                 output.outputFileName = fileName
+            }
+            variant.assembleProvider.get().doLast {
+                val apkDir = rootProject.file("apk")
+                apkDir.mkdirs()
+                variant.outputs.forEach {
+                    val output = it as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+                    output.outputFile.copyTo(apkDir.resolve(output.outputFileName), overwrite = true)
+                }
             }
         }
     }
