@@ -71,4 +71,33 @@ class PersistentCookieJar @Inject constructor(
             localDataSource.saveCookies(cache.values.flatten())
         }
     }
+
+    /**
+     * 指定したホストに関連するすべてのクッキーを削除する
+     */
+    fun clear(host: String) {
+        val targets = cache.keys.filter { host.endsWith(it) }
+        targets.forEach { cache.remove(it) }
+        scope.launch {
+            localDataSource.saveCookies(cache.values.flatten())
+        }
+    }
+
+    /**
+     * 指定したホストの MonaTicket クッキーのみを削除する
+     */
+    fun clearMonaTicket(host: String) {
+        val targets = cache.keys.filter { host.endsWith(it) }
+        targets.forEach { domain ->
+            val remaining = cache[domain]?.filterNot { it.name == "MonaTicket" }
+            if (remaining.isNullOrEmpty()) {
+                cache.remove(domain)
+            } else {
+                cache[domain] = remaining
+            }
+        }
+        scope.launch {
+            localDataSource.saveCookies(cache.values.flatten())
+        }
+    }
 }

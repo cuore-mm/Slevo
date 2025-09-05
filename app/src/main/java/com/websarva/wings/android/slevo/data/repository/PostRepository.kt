@@ -1,10 +1,11 @@
 package com.websarva.wings.android.slevo.data.repository
 
-import android.util.Log
 import com.websarva.wings.android.slevo.data.datasource.remote.PostRemoteDataSource
 import com.websarva.wings.android.slevo.data.util.PostParser
+import com.websarva.wings.android.slevo.di.PersistentCookieJar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.Response
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -16,7 +17,8 @@ sealed class PostResult {
 }
 
 class PostRepository @Inject constructor(
-    private val remoteDataSource: PostRemoteDataSource // DIでDataSourceを受け取る
+    private val remoteDataSource: PostRemoteDataSource, // DIでDataSourceを受け取る
+    private val cookieJar: PersistentCookieJar,
 ) {
     private suspend fun handlePostResponse(response: okhttp3.Response?): PostResult {
         if (response == null) {
@@ -35,6 +37,21 @@ class PostRepository @Inject constructor(
         }
     }
 
+    private val BROKEN_TICKET_REGEX =
+        Regex("""Broken\s*MonaTicket""", RegexOption.IGNORE_CASE)
+
+    private fun Response.isBrokenMonaTicket(): Boolean {
+        val headerHit = headers("x-chx-error")
+            .any { BROKEN_TICKET_REGEX.containsMatchIn(it) }
+        val cookieHit = headers("set-cookie")
+            .any { sc ->
+                sc.startsWith("MonaTicket=", ignoreCase = true) &&
+                        sc.contains("Expires=", ignoreCase = true) // 過去期限で失効させている合図
+            }
+        Timber.d("headerHit: $headerHit, cookieHit: $cookieHit")
+        return headerHit || cookieHit
+    }
+
     suspend fun postTo5chFirstPhase(
         host: String,
         board: String,
@@ -45,7 +62,15 @@ class PostRepository @Inject constructor(
     ): PostResult = withContext(Dispatchers.IO) {
         try {
             val response = remoteDataSource.postFirstPhase(host, board, threadKey, name, mail, message)
-            handlePostResponse(response)
+
+            if (response != null && response.isBrokenMonaTicket()) {
+                response.close() // いったん閉じる
+                cookieJar.clear(host) // MonaTicket だけ消す実装ならなお良い（clearMonaTicket 等）
+                val retry = remoteDataSource.postFirstPhase(host, board, threadKey, name, mail, message)
+                handlePostResponse(retry)
+            } else {
+                handlePostResponse(response)
+            }
         } catch (e: Exception) {
             Timber.e(e, "初回投稿リクエスト失敗")
             PostResult.Error("", e.message ?: "不明なエラー")
