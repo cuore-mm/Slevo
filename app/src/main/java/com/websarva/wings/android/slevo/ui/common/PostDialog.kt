@@ -62,15 +62,16 @@ fun PostDialog(
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             if (uri != null) onImageSelect?.invoke(uri)
         }
-    val focusRequester = remember { FocusRequester() }
-    val keyboard = LocalSoftwareKeyboardController.current
-
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-        keyboard?.show()
-    }
 
     Dialog(onDismissRequest = onDismissRequest) {
+        val focusRequester = remember { FocusRequester() }
+        val keyboard = LocalSoftwareKeyboardController.current
+
+        LaunchedEffect(Unit) {
+            focusRequester.requestFocus()
+            keyboard?.show()
+        }
+
         // ダイアログの内容をCardで包むことで見た目を整える
         Card(
             shape = MaterialTheme.shapes.medium,
