@@ -21,6 +21,7 @@ import com.websarva.wings.android.slevo.R
 @Composable
 fun PostMenuDialog(
     postNum: Int,
+    onReplyClick: () -> Unit,
     onCopyClick: () -> Unit,
     onNgClick: () -> Unit,
     onDismiss: () -> Unit
@@ -33,6 +34,13 @@ fun PostMenuDialog(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 )
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = onReplyClick,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(text = stringResource(R.string.reply))
+                }
                 Spacer(Modifier.height(8.dp))
                 Button(
                     onClick = onCopyClick,
@@ -57,6 +65,7 @@ fun PostMenuDialog(
 fun PostMenuDialogPreview() {
     PostMenuDialog(
         postNum = 123,
+        onReplyClick = {},
         onCopyClick = {},
         onNgClick = {},
         onDismiss = {}

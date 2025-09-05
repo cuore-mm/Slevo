@@ -1,5 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.item
 
+import android.content.ClipData
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -30,11 +32,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
@@ -56,6 +58,8 @@ import com.websarva.wings.android.slevo.ui.thread.dialog.TextMenuDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -82,6 +86,7 @@ fun PostItem(
     dimmed: Boolean = false,
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null,
+    onMenuReplyClick: ((Int) -> Unit)? = null,
     onIdClick: ((String) -> Unit)? = null,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -193,7 +198,14 @@ fun PostItem(
                         }
                         pop()
                     }
-                    val currentYearPrefix = "${LocalDate.now().year}/"
+                    val currentYearPrefix = run {
+                        val year = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            LocalDate.now().year
+                        } else {
+                            java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+                        }
+                        "$year/"
+                    }
                     val displayDate =
                         if (post.date.startsWith(currentYearPrefix)) {
                             post.date.removePrefix(currentYearPrefix)
@@ -381,7 +393,28 @@ fun PostItem(
                                         val pos = layout.getOffsetForPosition(offset)
                                         annotatedText.getStringAnnotations("URL", pos, pos)
                                             .firstOrNull()?.let { ann ->
-                                                uriHandler.openUri(ann.item)
+                                                val url = ann.item
+                                                parseThreadUrl(url)?.let { (host, board, key) ->
+                                                    val boardUrl = "https://$host/$board/"
+                                                    navController.navigate(
+                                                        AppRoute.Thread(
+                                                            threadKey = key,
+                                                            boardUrl = boardUrl,
+                                                            boardName = board,
+                                                            threadTitle = url
+                                                        )
+                                                    ) { launchSingleTop = true }
+                                                } ?: run {
+                                                    parseBoardUrl(url)?.let { (host, board) ->
+                                                        val boardUrl = "https://$host/$board/"
+                                                        navController.navigate(
+                                                            AppRoute.Board(
+                                                                boardName = board,
+                                                                boardUrl = boardUrl
+                                                            )
+                                                        ) { launchSingleTop = true }
+                                                    } ?: uriHandler.openUri(url)
+                                                }
                                             }
                                         annotatedText.getStringAnnotations("REPLY", pos, pos)
                                             .firstOrNull()?.let { ann ->
@@ -447,6 +480,10 @@ fun PostItem(
         if (menuExpanded) {
             PostMenuDialog(
                 postNum = postNum,
+                onReplyClick = {
+                    menuExpanded = false
+                    onMenuReplyClick?.invoke(postNum)
+                },
                 onCopyClick = { menuExpanded = false },
                 onNgClick = {
                     menuExpanded = false
@@ -473,11 +510,14 @@ fun PostItem(
             )
         }
         textMenuData?.let { (text, type) ->
-            val clipboardManager = LocalClipboardManager.current
+            val clipboard = LocalClipboard.current
             TextMenuDialog(
                 text = text,
                 onCopyClick = {
-                    clipboardManager.setText(AnnotatedString(text))
+                    scope.launch {
+                        val clip = ClipData.newPlainText("", text).toClipEntry()
+                        clipboard.setClipEntry(clip)
+                    }
                     textMenuData = null
                 },
                 onNgClick = {

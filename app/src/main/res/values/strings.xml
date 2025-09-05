@@ -51,6 +51,7 @@
     <string name="select_image">画像を選択</string>
     <string name="history">履歴</string>
     <string name="no_history">履歴がありません</string>
+    <string name="reply">返信</string>
     <string name="copy">コピー</string>
     <string name="ng_registration">NG登録</string>
     <string name="ng_setting">NG設定</string>
