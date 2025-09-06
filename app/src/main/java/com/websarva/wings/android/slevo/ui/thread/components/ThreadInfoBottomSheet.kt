@@ -32,7 +32,8 @@ import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadCopyDialog
+import com.websarva.wings.android.slevo.ui.common.CopyDialog
+import com.websarva.wings.android.slevo.ui.common.CopyItem
 import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,10 +55,22 @@ fun ThreadInfoBottomSheet(
         )
     }
     if (showCopyDialog) {
-        ThreadCopyDialog(
-            threadTitle = threadInfo.title,
-            threadUrl = threadUrl,
-            onDismissRequest = { showCopyDialog = false },
+        CopyDialog(
+            items = listOf(
+                CopyItem(
+                    text = threadInfo.title,
+                    label = stringResource(R.string.title)
+                ),
+                CopyItem(
+                    text = threadUrl,
+                    label = stringResource(R.string.url)
+                ),
+                CopyItem(
+                    text = "${threadInfo.title}\n$threadUrl",
+                    label = stringResource(R.string.title_and_url)
+                )
+            ),
+            onDismissRequest = { showCopyDialog = false }
         )
     }
 }
