@@ -33,9 +33,9 @@ fun ThreadCopyDialog(
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
 
-    val threadTitleLabel = stringResource(R.string.thread_title_label)
+    val threadTitleLabel = stringResource(R.string.title)
     val threadUrlLabel = stringResource(R.string.url)
-    val titleAndUrlLabel = stringResource(R.string.thread)
+    val titleAndUrlLabel = stringResource(R.string.title_and_url)
 
     Dialog(onDismissRequest = onDismissRequest) {
         Card(shape = MaterialTheme.shapes.medium) {
@@ -49,6 +49,7 @@ fun ThreadCopyDialog(
                 Spacer(Modifier.height(16.dp))
                 CopyCard(
                     text = threadTitle,
+                    label = threadTitleLabel,
                     onClick = {
                         scope.launch {
                             val clip =
@@ -61,6 +62,7 @@ fun ThreadCopyDialog(
                 Spacer(Modifier.height(8.dp))
                 CopyCard(
                     text = threadUrl,
+                    label = threadUrlLabel,
                     onClick = {
                         scope.launch {
                             val clip =
@@ -70,10 +72,11 @@ fun ThreadCopyDialog(
                         onDismissRequest()
                     }
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
                 val titleAndUrl = "$threadTitle\n$threadUrl"
                 CopyCard(
                     text = titleAndUrl,
+                    label = titleAndUrlLabel,
                     onClick = {
                         scope.launch {
                             val clip =
@@ -91,18 +94,27 @@ fun ThreadCopyDialog(
 @Composable
 private fun CopyCard(
     text: String,
+    label: String,
     onClick: () -> Unit,
 ) {
-    OutlinedCard(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-    ) {
+    Column {
         Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(16.dp)
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 2.dp)
         )
+        OutlinedCard(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(16.dp)
+            )
+        }
     }
 }
 

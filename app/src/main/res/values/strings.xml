@@ -65,7 +65,7 @@
     <string name="name">name</string>
     <string name="name_label">名前</string>
     <string name="word_label">ワード</string>
-    <string name="thread_title_label">スレタイ</string>
+    <string name="thread_title_label">タイトル</string>
     <string name="all_boards">すべての板</string>
     <string name="search_board_hint">板名またはURLで検索</string>
     <string name="new_label">new</string>
@@ -87,4 +87,5 @@
     <string name="cookie_expires">Expires / Max-Age: %1$s</string>
     <string name="cookie_size">Size: %1$d</string>
     <string name="cookie_value_preview">Value: %1$s</string>
+    <string name="title_and_url">タイトル + URL</string>
 </resources>
