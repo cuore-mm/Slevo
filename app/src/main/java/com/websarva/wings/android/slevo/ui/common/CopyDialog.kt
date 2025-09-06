@@ -17,8 +17,10 @@ import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.R
 import kotlinx.coroutines.launch
 
@@ -85,8 +87,22 @@ private fun CopyCard(
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(16.dp),
+                maxLines = 5,
+                overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun CopyDialogPreview() {
+    val sample = listOf(
+        CopyItem(text = "サンプルテキスト1", label = "ラベル1"),
+        CopyItem(text = "サンプルテキスト2", label = "ラベル2"),
+    )
+    MaterialTheme {
+        CopyDialog(items = sample, onDismissRequest = {})
     }
 }
