@@ -227,7 +227,7 @@ fun PostItem(
                     }
                     if (post.id.isNotBlank()) {
                         appendSpaceIfNeeded()
-                        pushStringAnnotation(tag = "ID", annotation = idText)
+                        pushStringAnnotation(tag = "ID", annotation = post.id)
                         withStyle(
                             SpanStyle(
                                 color = if (pressedHeaderPart == "ID") MaterialTheme.colorScheme.primary else idColor,
