@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.PostResult
+import com.websarva.wings.android.slevo.ui.thread.state.PostFormState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -70,7 +71,12 @@ fun ThreadViewModel.postFirstPhase(
         _postUiState.update { it.copy(isPosting = false) }
         when (result) {
             is PostResult.Success -> {
-                _postUiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
+                _postUiState.update {
+                    it.copy(
+                        postResultMessage = "書き込みに成功しました。",
+                        postFormState = PostFormState()
+                    )
+                }
                 onSuccess(result.resNum)
             }
             is PostResult.Confirm -> {
@@ -100,7 +106,12 @@ fun ThreadViewModel.postTo5chSecondPhase(
         _postUiState.update { it.copy(isPosting = false) }
         when (result) {
             is PostResult.Success -> {
-                _postUiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
+                _postUiState.update {
+                    it.copy(
+                        postResultMessage = "書き込みに成功しました。",
+                        postFormState = PostFormState()
+                    )
+                }
                 onSuccess(result.resNum)
             }
             is PostResult.Error -> {
