@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -47,7 +48,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnailGrid
+import com.websarva.wings.android.slevo.ui.common.CopyDialog
+import com.websarva.wings.android.slevo.ui.common.CopyItem
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.theme.idColor
 import com.websarva.wings.android.slevo.ui.theme.replyCountColor
@@ -90,6 +94,7 @@ fun PostItem(
     onIdClick: ((String) -> Unit)? = null,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    var showCopyDialog by remember { mutableStateOf(false) }
     var textMenuData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
     var ngDialogData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
     var showNgSelectDialog by remember { mutableStateOf(false) }
@@ -484,12 +489,33 @@ fun PostItem(
                     menuExpanded = false
                     onMenuReplyClick?.invoke(postNum)
                 },
-                onCopyClick = { menuExpanded = false },
+                onCopyClick = {
+                    menuExpanded = false
+                    showCopyDialog = true
+                },
                 onNgClick = {
                     menuExpanded = false
                     showNgSelectDialog = true
                 },
                 onDismiss = { menuExpanded = false }
+            )
+        }
+        if (showCopyDialog) {
+            val header = buildString {
+                append(postNum)
+                if (post.name.isNotBlank()) append(" ${post.name}")
+                if (post.date.isNotBlank()) append(" ${post.date}")
+                if (post.id.isNotBlank()) append(" ID:${post.id}")
+            }
+            CopyDialog(
+                items = listOf(
+                    CopyItem(postNum.toString(), stringResource(R.string.res_number_label)),
+                    CopyItem(post.name, stringResource(R.string.name_label)),
+                    CopyItem(post.id, stringResource(R.string.id_label)),
+                    CopyItem(post.content, stringResource(R.string.post_message)),
+                    CopyItem("$header\n${post.content}", stringResource(R.string.header_and_body)),
+                ),
+                onDismissRequest = { showCopyDialog = false }
             )
         }
         if (showNgSelectDialog) {
