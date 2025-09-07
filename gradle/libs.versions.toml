@@ -1,6 +1,6 @@
 [versions]
 aboutlibrariesComposeM3 = "12.2.4"
-agp = "8.12.0"
+agp = "8.13.0"
 coilComposeVersion = "3.2.0"
 datastorePreferences = "1.1.5"
 foundation = "1.8.0"
