@@ -149,7 +149,7 @@ class TabsViewModel @Inject constructor(
     /**
      * 指定された板ID・URL・板名からBoardInfoを解決する。
      * - boardIdが有効ならそれを優先。
-     * - ブックマークからURL一致の板情報を検索。
+     * - BoardEntityからURL一致の板情報を検索。
      * - それ以外は板名を取得・登録してIDを確定。
      */
     suspend fun resolveBoardInfo(
