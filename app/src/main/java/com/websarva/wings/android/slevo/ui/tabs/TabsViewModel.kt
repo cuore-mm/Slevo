@@ -159,7 +159,7 @@ class TabsViewModel @Inject constructor(
     ): BoardInfo {
         boardId?.takeIf { it != 0L }?.let { return BoardInfo(it, boardName, boardUrl) }
 
-        bookmarkBoardRepo.findBoardByUrl(boardUrl)?.let { entity ->
+        boardRepository.findBoardByUrl(boardUrl)?.let { entity ->
             return BoardInfo(entity.boardId, entity.name, entity.url)
         }
 

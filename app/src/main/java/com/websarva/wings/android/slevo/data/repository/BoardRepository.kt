@@ -189,6 +189,14 @@ class BoardRepository @Inject constructor(
     }
 
     /**
+     * boardUrl から既存の板情報を取得する。
+     * @param boardUrl 検索対象のURL
+     * @return 該当する [BoardEntity] があれば返す
+     */
+    suspend fun findBoardByUrl(boardUrl: String): BoardEntity? =
+        boardDao.findBoardByUrl(boardUrl)
+
+    /**
      * 指定した板情報をDBに登録し、そのIDを返す。
      * 既存の場合はIDのみ返す。
      * @param boardInfo 板情報
