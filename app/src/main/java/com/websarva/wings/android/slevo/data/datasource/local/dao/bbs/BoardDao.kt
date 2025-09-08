@@ -22,6 +22,10 @@ interface BoardDao {
     @Query("SELECT boardId FROM boards WHERE url = :url LIMIT 1")
     suspend fun findBoardIdByUrl(url: String): Long
 
+    /** boardUrl から BoardEntity を取得 */
+    @Query("SELECT * FROM boards WHERE url = :boardUrl LIMIT 1")
+    suspend fun findBoardByUrl(boardUrl: String): BoardEntity?
+
     @Query("DELETE FROM boards WHERE serviceId = :serviceId")
     suspend fun clearForService(serviceId: Long)
 
