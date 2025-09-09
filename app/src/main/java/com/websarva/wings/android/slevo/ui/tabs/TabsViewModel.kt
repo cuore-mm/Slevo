@@ -156,14 +156,14 @@ class TabsViewModel @Inject constructor(
         boardId: Long?,
         boardUrl: String,
         boardName: String
-    ): BoardInfo {
+    ): BoardInfo? {
         boardId?.takeIf { it != 0L }?.let { return BoardInfo(it, boardName, boardUrl) }
 
         boardRepository.findBoardByUrl(boardUrl)?.let { entity ->
             return BoardInfo(entity.boardId, entity.name, entity.url)
         }
 
-        val name = boardRepository.fetchBoardName("${boardUrl}SETTING.TXT") ?: boardName
+        val name = boardRepository.fetchBoardName("${boardUrl}SETTING.TXT") ?: return null
         val id = boardRepository.ensureBoard(BoardInfo(0L, name, boardUrl))
         return BoardInfo(id, name, boardUrl)
     }
