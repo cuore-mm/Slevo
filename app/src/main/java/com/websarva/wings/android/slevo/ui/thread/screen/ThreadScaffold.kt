@@ -71,6 +71,7 @@ fun ThreadScaffold(
             boardInfo = info,
             threadTitle = threadRoute.threadTitle
         )
+        tabsViewModel.updateLastThreadTab(routeThreadId)
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
@@ -84,6 +85,8 @@ fun ThreadScaffold(
         currentRoutePredicate = { routeThreadId != null && it.id == routeThreadId },
         getViewModel = { tab -> tabsViewModel.getOrCreateThreadViewModel(tab.id.value) },
         getKey = { it.id.value },
+        getId = { it.id.value },
+        lastTabId = tabsUiState.lastThreadId,
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
         initializeViewModel = { viewModel, tab ->
@@ -100,6 +103,7 @@ fun ThreadScaffold(
         updateScrollPosition = { viewModel, tab, index, offset ->
             viewModel.updateThreadScrollPosition(tab.id, index, offset)
         },
+        onPageChanged = { tabsViewModel.updateLastThreadTab(it.id) },
         scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         topBar = { viewModel, uiState, _, scrollBehavior ->

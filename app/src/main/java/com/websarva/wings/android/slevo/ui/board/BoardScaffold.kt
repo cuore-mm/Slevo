@@ -68,6 +68,7 @@ fun BoardScaffold(
                 serviceName = parseServiceName(info.url)
             )
         )
+        tabsViewModel.updateLastBoardTab(info.boardId)
     }
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
@@ -81,6 +82,8 @@ fun BoardScaffold(
         currentRoutePredicate = { it.boardUrl == boardRoute.boardUrl },
         getViewModel = { tab -> tabsViewModel.getOrCreateBoardViewModel(tab.boardUrl) },
         getKey = { it.boardUrl },
+        getId = { it.boardId },
+        lastTabId = tabsUiState.lastBoardId,
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
         initializeViewModel = { viewModel, tab ->
@@ -95,6 +98,7 @@ fun BoardScaffold(
         updateScrollPosition = { _, tab, index, offset ->
             tabsViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
+        onPageChanged = { tabsViewModel.updateLastBoardTab(it.boardId) },
         scrollBehavior = scrollBehavior,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             val bookmarkState = uiState.singleBookmarkState

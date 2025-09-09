@@ -103,6 +103,14 @@ class TabsViewModel @Inject constructor(
         }
     }
 
+    fun updateLastBoardTab(boardId: Long) {
+        _uiState.update { it.copy(lastBoardId = boardId) }
+    }
+
+    fun updateLastThreadTab(threadId: ThreadId) {
+        _uiState.update { it.copy(lastThreadId = threadId.value) }
+    }
+
     /**
      * 指定キーの [ThreadViewModel] を取得。
      * 存在しない場合は Factory から生成して登録する。
@@ -146,7 +154,7 @@ class TabsViewModel @Inject constructor(
             } else {
                 currentBoards + boardTabInfo
             }
-            state.copy(openBoardTabs = updated)
+            state.copy(openBoardTabs = updated, lastBoardId = boardTabInfo.boardId)
         }
         viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
     }

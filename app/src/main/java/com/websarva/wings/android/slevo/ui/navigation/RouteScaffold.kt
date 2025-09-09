@@ -55,10 +55,13 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     currentRoutePredicate: (TabInfo) -> Boolean,
     getViewModel: (TabInfo) -> ViewModel,
     getKey: (TabInfo) -> Any,
+    getId: (TabInfo) -> Any,
+    lastTabId: Any? = null,
     getScrollIndex: (TabInfo) -> Int,
     getScrollOffset: (TabInfo) -> Int,
     initializeViewModel: (viewModel: ViewModel, tabInfo: TabInfo) -> Unit,
     updateScrollPosition: (viewModel: ViewModel, tab: TabInfo, index: Int, offset: Int) -> Unit,
+    onPageChanged: (TabInfo) -> Unit = {},
     topBar: @Composable (viewModel: ViewModel, uiState: UiState, openDrawer: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) -> Unit,
     bottomBar: @Composable (viewModel: ViewModel, uiState: UiState, scrollBehavior: BottomAppBarScrollBehavior?) -> Unit,
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier, navController: NavHostController) -> Unit,
@@ -82,8 +85,9 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
     if (currentTabInfo != null) {
         // 初期ページの決定。routeやタブ数が変わったら再計算される。
-        val initialPage = remember(route, tabs.size) {
-            tabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
+        val initialPage = remember(route, tabs.size, lastTabId) {
+            val lastIndex = lastTabId?.let { id -> tabs.indexOfFirst { getId(it) == id } } ?: -1
+            if (lastIndex >= 0) lastIndex else tabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
         }
 
         // Pagerの状態。ページ数はタブ数に応じて動的に提供される。
@@ -100,6 +104,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         // 共通で使うボトムシートの状態
         val bookmarkSheetState = rememberModalBottomSheetState()
         val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+        LaunchedEffect(pagerState, tabs) {
+            snapshotFlow { pagerState.currentPage }.collect { index ->
+                tabs.getOrNull(index)?.let { onPageChanged(it) }
+            }
+        }
 
         HorizontalPager(
             state = pagerState,
