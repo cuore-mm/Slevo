@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.data.datasource.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.websarva.wings.android.slevo.data.model.ThreadId
 
 @Entity(tableName = "open_board_tabs")
 data class OpenBoardTabEntity(
@@ -15,19 +16,10 @@ data class OpenBoardTabEntity(
 )
 
 @Entity(
-    tableName = "open_thread_tabs",
-    primaryKeys = ["threadKey", "boardUrl"]
+    tableName = "open_thread_tabs"
 )
 data class OpenThreadTabEntity(
-    val threadKey: String,
-    val boardUrl: String,
-    val boardId: Long,
-    val boardName: String,
-    val title: String,
-    val resCount: Int = 0,
-    val prevResCount: Int = 0,
-    val lastReadResNo: Int = 0,
-    val firstNewResNo: Int? = null,
+    @PrimaryKey val threadId: ThreadId,
     val sortOrder: Int,
     val firstVisibleItemIndex: Int = 0,
     val firstVisibleItemScrollOffset: Int = 0

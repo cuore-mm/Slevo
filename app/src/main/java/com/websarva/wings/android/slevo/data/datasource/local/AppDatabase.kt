@@ -58,7 +58,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.history.Pos
         BoardFetchMetaEntity::class,
         PostHistoryEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -91,6 +91,35 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL(
                     "ALTER TABLE open_thread_tabs ADD COLUMN prevResCount INTEGER NOT NULL DEFAULT 0"
                 )
+            }
+        }
+        val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE thread_histories ADD COLUMN threadId TEXT NOT NULL DEFAULT ''")
+                database.execSQL(
+                    "UPDATE thread_histories SET threadId = REPLACE(boardUrl, 'https://', '') || threadKey"
+                )
+                database.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_thread_histories_threadId ON thread_histories(threadId)"
+                )
+                database.execSQL("ALTER TABLE thread_histories ADD COLUMN prevResCount INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE thread_histories ADD COLUMN lastReadResNo INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE thread_histories ADD COLUMN firstNewResNo INTEGER")
+
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS open_thread_tabs_new (" +
+                        "threadId TEXT NOT NULL PRIMARY KEY, " +
+                        "sortOrder INTEGER NOT NULL, " +
+                        "firstVisibleItemIndex INTEGER NOT NULL DEFAULT 0, " +
+                        "firstVisibleItemScrollOffset INTEGER NOT NULL DEFAULT 0" +
+                        ")"
+                )
+                database.execSQL(
+                    "INSERT INTO open_thread_tabs_new(threadId, sortOrder, firstVisibleItemIndex, firstVisibleItemScrollOffset) " +
+                        "SELECT REPLACE(boardUrl, 'https://', '') || threadKey, sortOrder, firstVisibleItemIndex, firstVisibleItemScrollOffset FROM open_thread_tabs"
+                )
+                database.execSQL("DROP TABLE open_thread_tabs")
+                database.execSQL("ALTER TABLE open_thread_tabs_new RENAME TO open_thread_tabs")
             }
         }
     }

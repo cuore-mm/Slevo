@@ -2,14 +2,17 @@ package com.websarva.wings.android.slevo.data.datasource.local.dao
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadTabEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadTabWithHistory
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface OpenThreadTabDao {
+    @Transaction
     @Query("SELECT * FROM open_thread_tabs ORDER BY sortOrder ASC")
-    fun observeOpenThreadTabs(): Flow<List<OpenThreadTabEntity>>
+    fun observeOpenThreadTabs(): Flow<List<OpenThreadTabWithHistory>>
 
     @Query("SELECT * FROM open_thread_tabs")
     suspend fun getAll(): List<OpenThreadTabEntity>
@@ -18,8 +21,7 @@ interface OpenThreadTabDao {
     suspend fun upsertAll(tabs: List<OpenThreadTabEntity>)
 
     @Query(
-        "DELETE FROM open_thread_tabs " +
-            "WHERE (threadKey || ':' || boardUrl) NOT IN (:ids)"
+        "DELETE FROM open_thread_tabs WHERE threadId NOT IN (:ids)"
     )
     suspend fun deleteNotIn(ids: List<String>)
 

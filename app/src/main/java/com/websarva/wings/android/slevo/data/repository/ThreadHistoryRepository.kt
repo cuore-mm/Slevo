@@ -4,7 +4,9 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.history.Thread
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryAccessEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -31,22 +33,23 @@ class ThreadHistoryRepository @Inject constructor(
         threadInfo: ThreadInfo,
         resCount: Int
     ): Long {
-        val existing = dao.find(threadInfo.key, boardInfo.url)
+        val (host, boardKey) = parseBoardUrl(boardInfo.url) ?: return 0L
+        val threadId = ThreadId.of(host, boardKey, threadInfo.key)
+        val existing = dao.find(threadId)
         val history = ThreadHistoryEntity(
             id = existing?.id ?: 0,
+            threadId = threadId,
             threadKey = threadInfo.key,
             boardUrl = boardInfo.url,
             boardId = boardInfo.boardId,
             boardName = boardInfo.name,
             title = threadInfo.title,
-            resCount = resCount
+            resCount = resCount,
+            prevResCount = existing?.prevResCount ?: 0,
+            lastReadResNo = existing?.lastReadResNo ?: 0,
+            firstNewResNo = existing?.firstNewResNo
         )
-        val id = if (existing == null) {
-            dao.insert(history)
-        } else {
-            dao.update(history)
-            existing.id
-        }
+        val id = dao.upsert(history)
 
         val now = System.currentTimeMillis()
         val last = dao.getLastAccessEntity(id)
