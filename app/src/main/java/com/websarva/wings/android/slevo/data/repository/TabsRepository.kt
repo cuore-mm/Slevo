@@ -6,6 +6,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenThreadTabD
 import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenBoardTabEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadTabEntity
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import kotlinx.coroutines.Dispatchers
@@ -72,7 +73,7 @@ class TabsRepository @Inject constructor(
         threadDao.observeOpenThreadTabs().map { list ->
             list.sortedBy { it.sortOrder }.map { entity ->
                 ThreadTabInfo(
-                    key = entity.threadKey,
+                    id = entity.threadId,
                     title = entity.title,
                     boardName = entity.boardName,
                     boardUrl = entity.boardUrl,
@@ -89,12 +90,12 @@ class TabsRepository @Inject constructor(
 
     suspend fun saveOpenThreadTabs(tabs: List<ThreadTabInfo>) = withContext(Dispatchers.IO) {
         db.withTransaction {
-            val existing = threadDao.getAll().associateBy { it.threadKey + ":" + it.boardUrl }
+            val existing = threadDao.getAll().associateBy { it.threadId.value }
             val upserts = mutableListOf<OpenThreadTabEntity>()
             val ids = mutableListOf<String>()
             tabs.forEachIndexed { index, info ->
                 val entity = OpenThreadTabEntity(
-                    threadKey = info.key,
+                    threadId = info.id,
                     boardUrl = info.boardUrl,
                     boardId = info.boardId,
                     boardName = info.boardName,
@@ -107,7 +108,7 @@ class TabsRepository @Inject constructor(
                     firstVisibleItemIndex = info.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = info.firstVisibleItemScrollOffset
                 )
-                val id = info.key + ":" + info.boardUrl
+                val id = info.id.value
                 ids.add(id)
                 if (existing[id] != entity) {
                     upserts.add(entity)

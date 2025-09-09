@@ -4,7 +4,10 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.history.Thread
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryAccessEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.model.threadKey
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -19,11 +22,11 @@ class ThreadHistoryRepository @Inject constructor(
 
     fun observeHistoryMap(boardUrl: String): Flow<Map<String, Int>> =
         dao.observeByBoard(boardUrl).map { list ->
-            list.associate { it.threadKey to it.resCount }
+            list.associate { it.threadId.threadKey to it.resCount }
         }
 
     suspend fun getHistoryMap(boardUrl: String): Map<String, Int> {
-        return dao.findByBoard(boardUrl).associate { it.threadKey to it.resCount }
+        return dao.findByBoard(boardUrl).associate { it.threadId.threadKey to it.resCount }
     }
 
     suspend fun recordHistory(
@@ -31,10 +34,12 @@ class ThreadHistoryRepository @Inject constructor(
         threadInfo: ThreadInfo,
         resCount: Int
     ): Long {
-        val existing = dao.find(threadInfo.key, boardInfo.url)
+        val (host, board) = parseBoardUrl(boardInfo.url) ?: return 0
+        val threadId = ThreadId.of(host, board, threadInfo.key)
+        val existing = dao.find(threadId)
         val history = ThreadHistoryEntity(
             id = existing?.id ?: 0,
-            threadKey = threadInfo.key,
+            threadId = threadId,
             boardUrl = boardInfo.url,
             boardId = boardInfo.boardId,
             boardName = boardInfo.name,

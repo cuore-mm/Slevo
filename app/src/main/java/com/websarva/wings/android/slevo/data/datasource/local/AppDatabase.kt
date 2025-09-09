@@ -58,7 +58,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.history.Pos
         BoardFetchMetaEntity::class,
         PostHistoryEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -90,6 +90,46 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 database.execSQL(
                     "ALTER TABLE open_thread_tabs ADD COLUMN prevResCount INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
+        val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("DROP TABLE IF EXISTS open_thread_tabs")
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS open_thread_tabs (" +
+                        "threadId TEXT NOT NULL, " +
+                        "boardUrl TEXT NOT NULL, " +
+                        "boardId INTEGER NOT NULL, " +
+                        "boardName TEXT NOT NULL, " +
+                        "title TEXT NOT NULL, " +
+                        "resCount INTEGER NOT NULL, " +
+                        "prevResCount INTEGER NOT NULL, " +
+                        "lastReadResNo INTEGER NOT NULL, " +
+                        "firstNewResNo INTEGER, " +
+                        "sortOrder INTEGER NOT NULL, " +
+                        "firstVisibleItemIndex INTEGER NOT NULL, " +
+                        "firstVisibleItemScrollOffset INTEGER NOT NULL, " +
+                        "PRIMARY KEY(threadId))"
+                )
+                database.execSQL("DROP TABLE IF EXISTS thread_history_accesses")
+                database.execSQL("DROP TABLE IF EXISTS thread_histories")
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS thread_histories (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "threadId TEXT NOT NULL, " +
+                        "boardUrl TEXT NOT NULL, " +
+                        "boardId INTEGER NOT NULL, " +
+                        "boardName TEXT NOT NULL, " +
+                        "title TEXT NOT NULL, " +
+                        "resCount INTEGER NOT NULL)"
+                )
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS thread_history_accesses (" +
+                        "threadHistoryId INTEGER NOT NULL, " +
+                        "accessedAt INTEGER NOT NULL, " +
+                        "PRIMARY KEY(threadHistoryId, accessedAt))"
                 )
             }
         }

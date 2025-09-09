@@ -17,10 +17,7 @@ interface OpenThreadTabDao {
     @Upsert
     suspend fun upsertAll(tabs: List<OpenThreadTabEntity>)
 
-    @Query(
-        "DELETE FROM open_thread_tabs " +
-            "WHERE (threadKey || ':' || boardUrl) NOT IN (:ids)"
-    )
+    @Query("DELETE FROM open_thread_tabs WHERE threadId NOT IN (:ids)")
     suspend fun deleteNotIn(ids: List<String>)
 
     @Query("DELETE FROM open_thread_tabs")
