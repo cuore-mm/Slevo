@@ -72,6 +72,10 @@ fun BoardScaffold(
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
 
+    val initialPage = tabsUiState.lastOpenedBoardId?.let { id ->
+        tabsUiState.openBoardTabs.indexOfFirst { it.boardId == id }.takeIf { it >= 0 }
+    } ?: tabsUiState.openBoardTabs.indexOfFirst { it.boardUrl == boardRoute.boardUrl }.coerceAtLeast(0)
+
     RouteScaffold(
         route = boardRoute,
         tabsViewModel = tabsViewModel,
@@ -96,6 +100,8 @@ fun BoardScaffold(
             tabsViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
         scrollBehavior = scrollBehavior,
+        initialPage = initialPage,
+        onPageChanged = { tab -> tabsViewModel.setLastOpenedBoard(tab.boardId) },
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             val bookmarkState = uiState.singleBookmarkState
             val bookmarkIconColor =

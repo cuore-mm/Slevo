@@ -71,9 +71,14 @@ fun ThreadScaffold(
             boardInfo = info,
             threadTitle = threadRoute.threadTitle
         )
+        routeThreadId?.let { tabsViewModel.setLastOpenedThread(it) }
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
+
+    val initialPage = tabsUiState.lastOpenedThreadId?.let { id ->
+        tabsUiState.openThreadTabs.indexOfFirst { it.id == id }.takeIf { it >= 0 }
+    } ?: tabsUiState.openThreadTabs.indexOfFirst { routeThreadId != null && it.id == routeThreadId }.coerceAtLeast(0)
 
     RouteScaffold(
         route = threadRoute,
@@ -102,6 +107,8 @@ fun ThreadScaffold(
         },
         scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
+        initialPage = initialPage,
+        onPageChanged = { tab -> tabsViewModel.setLastOpenedThread(tab.id) },
         topBar = { viewModel, uiState, _, scrollBehavior ->
             if (uiState.isSearchMode) {
                 SearchTopAppBar(

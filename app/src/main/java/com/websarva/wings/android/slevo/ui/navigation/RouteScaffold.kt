@@ -64,7 +64,9 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier, navController: NavHostController) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
-    optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
+    optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> },
+    initialPage: Int? = null,
+    onPageChanged: (TabInfo) -> Unit = {}
 ) {
     // このComposableはタブベースの画面レイアウトを提供します。
     // - HorizontalPagerで複数タブを左右にスワイプできる
@@ -82,18 +84,25 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
     if (currentTabInfo != null) {
         // 初期ページの決定。routeやタブ数が変わったら再計算される。
-        val initialPage = remember(route, tabs.size) {
+        val defaultPage = remember(route, tabs.size) {
             tabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
         }
+        val startPage = initialPage ?: defaultPage
 
         // Pagerの状態。ページ数はタブ数に応じて動的に提供される。
         val pagerState =
-            rememberPagerState(initialPage = initialPage, pageCount = { tabs.size })
+            rememberPagerState(initialPage = startPage, pageCount = { tabs.size })
 
-        // initialPage が現在のページと異なる場合は強制的に遷移する。
-        LaunchedEffect(initialPage) {
-            if (pagerState.currentPage != initialPage) {
-                pagerState.scrollToPage(initialPage)
+        // startPage が現在のページと異なる場合は強制的に遷移する。
+        LaunchedEffect(startPage) {
+            if (pagerState.currentPage != startPage) {
+                pagerState.scrollToPage(startPage)
+            }
+        }
+
+        LaunchedEffect(pagerState, tabs) {
+            snapshotFlow { pagerState.currentPage }.collect { page ->
+                onPageChanged(tabs[page])
             }
         }
 
