@@ -17,10 +17,12 @@ import com.websarva.wings.android.slevo.data.repository.PostRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
+import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
@@ -61,6 +63,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
     private val tabsRepository: TabsRepository,
+    private val readStateRepository: ThreadReadStateRepository,
     internal val postRepository: PostRepository,
     internal val imageUploadRepository: ImageUploadRepository,
     @Assisted @Suppress("unused") val viewModelKey: String,
@@ -596,6 +599,7 @@ class ThreadViewModel @AssistedInject constructor(
     fun updateThreadTabInfo(threadId: ThreadId, title: String, resCount: Int) {
         viewModelScope.launch {
             val current = tabsRepository.observeOpenThreadTabs().first()
+            var target: ThreadTabInfo? = null
             val updated = current.map { tab ->
                 if (tab.id == threadId) {
                     val candidate = if (tab.lastReadResNo == 0) {
@@ -606,17 +610,29 @@ class ThreadViewModel @AssistedInject constructor(
                         tab.firstNewResNo
                     }
                     val newFirst = candidate?.let { if (it > resCount) null else candidate }
-                    tab.copy(
+                    val newTab = tab.copy(
                         title = title,
                         resCount = resCount,
                         prevResCount = tab.resCount,
-                        firstNewResNo = newFirst
+                        firstNewResNo = newFirst,
                     )
+                    target = newTab
+                    newTab
                 } else {
                     tab
                 }
             }
             tabsRepository.saveOpenThreadTabs(updated)
+            target?.let {
+                readStateRepository.saveReadState(
+                    threadId,
+                    ThreadReadState(
+                        prevResCount = it.prevResCount,
+                        lastReadResNo = it.lastReadResNo,
+                        firstNewResNo = it.firstNewResNo,
+                    )
+                )
+            }
         }
     }
 
@@ -644,14 +660,17 @@ class ThreadViewModel @AssistedInject constructor(
     fun updateThreadLastRead(threadId: ThreadId, lastReadResNo: Int) {
         viewModelScope.launch {
             val current = tabsRepository.observeOpenThreadTabs().first()
-            val updated = current.map { tab ->
-                if (tab.id == threadId && lastReadResNo > tab.lastReadResNo) {
-                    tab.copy(lastReadResNo = lastReadResNo)
-                } else {
-                    tab
-                }
+            val tab = current.find { it.id == threadId } ?: return@launch
+            if (lastReadResNo > tab.lastReadResNo) {
+                readStateRepository.saveReadState(
+                    threadId,
+                    ThreadReadState(
+                        prevResCount = tab.prevResCount,
+                        lastReadResNo = lastReadResNo,
+                        firstNewResNo = tab.firstNewResNo,
+                    )
+                )
             }
-            tabsRepository.saveOpenThreadTabs(updated)
         }
     }
 

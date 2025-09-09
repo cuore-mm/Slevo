@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.data.repository
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryAccessEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
@@ -44,7 +45,8 @@ class ThreadHistoryRepository @Inject constructor(
             boardId = boardInfo.boardId,
             boardName = boardInfo.name,
             title = threadInfo.title,
-            resCount = resCount
+            resCount = resCount,
+            readState = existing?.readState ?: ThreadReadState(),
         )
         val id = if (existing == null) {
             dao.insert(history)

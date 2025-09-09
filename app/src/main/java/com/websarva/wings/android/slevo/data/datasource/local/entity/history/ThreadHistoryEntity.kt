@@ -1,9 +1,11 @@
 package com.websarva.wings.android.slevo.data.datasource.local.entity.history
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 
 @Entity(
     tableName = "thread_histories",
@@ -16,5 +18,6 @@ data class ThreadHistoryEntity(
     val boardId: Long,
     val boardName: String,
     val title: String,
-    val resCount: Int = 0
+    val resCount: Int = 0,
+    @Embedded val readState: ThreadReadState = ThreadReadState(),
 )
