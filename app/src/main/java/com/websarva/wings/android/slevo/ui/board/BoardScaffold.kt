@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.board
 
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.height
@@ -46,6 +47,7 @@ fun BoardScaffold(
     topBarState: TopAppBarState
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     LaunchedEffect(boardRoute) {
         val info = tabsViewModel.resolveBoardInfo(
@@ -53,6 +55,11 @@ fun BoardScaffold(
             boardUrl = boardRoute.boardUrl,
             boardName = boardRoute.boardName
         )
+        if (info == null) {
+            Toast.makeText(context, R.string.invalid_board_url, Toast.LENGTH_SHORT).show()
+            navController.navigateUp()
+            return@LaunchedEffect
+        }
         tabsViewModel.openBoardTab(
             BoardTabInfo(
                 boardId = info.boardId,
