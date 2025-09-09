@@ -47,6 +47,7 @@
     <string name="title">タイトル</string>
     <string name="open_url">URLを開く</string>
     <string name="enter_url">板またはスレッドのURLを入力してください</string>
+    <string name="invalid_board_url">無効な板URLです</string>
     <string name="open">開く</string>
     <string name="select_image">画像を選択</string>
     <string name="history">履歴</string>

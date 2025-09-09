@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.os.Build
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,6 +47,7 @@ fun ThreadScaffold(
     topBarState: TopAppBarState,
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     LaunchedEffect(threadRoute) {
         val info = tabsViewModel.resolveBoardInfo(
@@ -53,6 +55,11 @@ fun ThreadScaffold(
             boardUrl = threadRoute.boardUrl,
             boardName = threadRoute.boardName
         )
+        if (info == null) {
+            Toast.makeText(context, R.string.invalid_board_url, Toast.LENGTH_SHORT).show()
+            navController.navigateUp()
+            return@LaunchedEffect
+        }
         val vm = tabsViewModel.getOrCreateThreadViewModel(threadRoute.threadKey + info.url)
         vm.initializeThread(
             threadKey = threadRoute.threadKey,
