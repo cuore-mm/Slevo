@@ -71,6 +71,7 @@ fun ThreadScaffold(
             boardInfo = info,
             threadTitle = threadRoute.threadTitle
         )
+        tabsViewModel.setLastOpenedThread(routeThreadId)
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)

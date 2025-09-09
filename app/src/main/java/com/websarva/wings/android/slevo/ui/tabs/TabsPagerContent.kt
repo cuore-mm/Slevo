@@ -56,12 +56,14 @@ fun TabsPagerContent(
             when (page) {
                 0 -> OpenBoardsList(
                     openTabs = uiState.openBoardTabs,
+                    lastOpenedBoardId = uiState.lastOpenedBoardId,
                     onCloseClick = { tabsViewModel.closeBoardTab(it) },
                     navController = navController,
                     closeDrawer = closeDrawer
                 )
                 else -> OpenThreadsList(
                     openTabs = uiState.openThreadTabs,
+                    lastOpenedThreadId = uiState.lastOpenedThreadId,
                     onCloseClick = { tabsViewModel.closeThreadTab(it) },
                     navController = navController,
                     closeDrawer = closeDrawer,

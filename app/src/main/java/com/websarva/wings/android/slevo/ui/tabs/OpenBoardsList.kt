@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.HorizontalDivider
@@ -20,6 +21,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -35,12 +37,21 @@ import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 fun OpenBoardsList(
     modifier: Modifier = Modifier,
     openTabs: List<BoardTabInfo>,
+    lastOpenedBoardId: Long? = null,
     onCloseClick: (BoardTabInfo) -> Unit = {},
     navController: NavHostController,
     closeDrawer: () -> Unit,
 ) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(lastOpenedBoardId, openTabs) {
+        val index = openTabs.indexOfFirst { it.boardId == lastOpenedBoardId }
+        if (index >= 0) {
+            listState.scrollToItem(index)
+        }
+    }
+
     Column(modifier = modifier.fillMaxSize()) {
-        LazyColumn(modifier = Modifier.weight(1f)) {
+        LazyColumn(modifier = Modifier.weight(1f), state = listState) {
             items(openTabs, key = { it.boardUrl }) { tab ->
                 val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
                 Row(modifier = Modifier.height(IntrinsicSize.Min)) {

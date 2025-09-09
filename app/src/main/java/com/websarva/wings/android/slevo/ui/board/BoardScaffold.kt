@@ -68,6 +68,7 @@ fun BoardScaffold(
                 serviceName = parseServiceName(info.url)
             )
         )
+        tabsViewModel.setLastOpenedBoard(info.boardId)
     }
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)

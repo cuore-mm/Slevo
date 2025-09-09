@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.HorizontalDivider
@@ -26,6 +27,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -50,6 +52,7 @@ fun OpenThreadsList(
     isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
     newResCounts: Map<String, Int> = emptyMap(),
+    lastOpenedThreadId: ThreadId? = null,
     onItemClick: (ThreadTabInfo) -> Unit = {}
 ) {
     PullToRefreshBox(
@@ -57,7 +60,15 @@ fun OpenThreadsList(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
     ) {
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        val listState = rememberLazyListState()
+        LaunchedEffect(lastOpenedThreadId, openTabs) {
+            val index = openTabs.indexOfFirst { it.id == lastOpenedThreadId }
+            if (index >= 0) {
+                listState.scrollToItem(index)
+            }
+        }
+
+        LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
             items(openTabs, key = { it.id.value }) { tab ->
                 val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
                 Row(modifier = Modifier.height(IntrinsicSize.Min)) {

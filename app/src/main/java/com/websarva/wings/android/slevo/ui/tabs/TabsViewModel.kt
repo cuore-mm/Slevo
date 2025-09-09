@@ -129,6 +129,14 @@ class TabsViewModel @Inject constructor(
         viewModelScope.launch { tabsRepository.setLastSelectedPage(page) }
     }
 
+    fun setLastOpenedBoard(boardId: Long) {
+        _uiState.update { it.copy(lastOpenedBoardId = boardId) }
+    }
+
+    fun setLastOpenedThread(threadId: ThreadId) {
+        _uiState.update { it.copy(lastOpenedThreadId = threadId) }
+    }
+
     /**
      * 板タブを開く。すでに存在する場合は最新情報で上書きする。
      */
