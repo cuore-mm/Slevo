@@ -17,6 +17,7 @@ import com.websarva.wings.android.slevo.data.repository.PostRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
@@ -29,6 +30,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.data.util.ThreadListParser.calculateThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -56,6 +58,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
     private val boardRepository: BoardRepository,
     private val historyRepository: ThreadHistoryRepository,
+    private val readStateRepository: ThreadReadStateRepository,
     private val postHistoryRepository: PostHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     private val ngRepository: NgRepository,
@@ -596,6 +599,7 @@ class ThreadViewModel @AssistedInject constructor(
     fun updateThreadTabInfo(threadId: ThreadId, title: String, resCount: Int) {
         viewModelScope.launch {
             val current = tabsRepository.observeOpenThreadTabs().first()
+            var state: ThreadReadState? = null
             val updated = current.map { tab ->
                 if (tab.id == threadId) {
                     val candidate = if (tab.lastReadResNo == 0) {
@@ -606,17 +610,24 @@ class ThreadViewModel @AssistedInject constructor(
                         tab.firstNewResNo
                     }
                     val newFirst = candidate?.let { if (it > resCount) null else candidate }
-                    tab.copy(
+                    val updatedTab = tab.copy(
                         title = title,
                         resCount = resCount,
                         prevResCount = tab.resCount,
                         firstNewResNo = newFirst
                     )
+                    state = ThreadReadState(
+                        prevResCount = updatedTab.prevResCount,
+                        lastReadResNo = updatedTab.lastReadResNo,
+                        firstNewResNo = updatedTab.firstNewResNo
+                    )
+                    updatedTab
                 } else {
                     tab
                 }
             }
             tabsRepository.saveOpenThreadTabs(updated)
+            state?.let { readStateRepository.saveReadState(threadId, it) }
         }
     }
 
@@ -644,14 +655,22 @@ class ThreadViewModel @AssistedInject constructor(
     fun updateThreadLastRead(threadId: ThreadId, lastReadResNo: Int) {
         viewModelScope.launch {
             val current = tabsRepository.observeOpenThreadTabs().first()
+            var state: ThreadReadState? = null
             val updated = current.map { tab ->
                 if (tab.id == threadId && lastReadResNo > tab.lastReadResNo) {
-                    tab.copy(lastReadResNo = lastReadResNo)
+                    val updatedTab = tab.copy(lastReadResNo = lastReadResNo)
+                    state = ThreadReadState(
+                        prevResCount = updatedTab.prevResCount,
+                        lastReadResNo = updatedTab.lastReadResNo,
+                        firstNewResNo = updatedTab.firstNewResNo
+                    )
+                    updatedTab
                 } else {
                     tab
                 }
             }
             tabsRepository.saveOpenThreadTabs(updated)
+            state?.let { readStateRepository.saveReadState(threadId, it) }
         }
     }
 

@@ -66,4 +66,16 @@ interface ThreadHistoryDao {
 
     @Query("DELETE FROM thread_histories WHERE threadId = :threadId")
     suspend fun delete(threadId: ThreadId)
+
+    @Query(
+        "UPDATE thread_histories SET prevResCount = :prevResCount, " +
+            "lastReadResNo = :lastReadResNo, firstNewResNo = :firstNewResNo " +
+            "WHERE threadId = :threadId"
+    )
+    suspend fun updateReadState(
+        threadId: ThreadId,
+        prevResCount: Int,
+        lastReadResNo: Int,
+        firstNewResNo: Int?
+    )
 }

@@ -5,6 +5,7 @@ import androidx.room.Query
 import androidx.room.Upsert
 import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadTabEntity
 import kotlinx.coroutines.flow.Flow
+import com.websarva.wings.android.slevo.data.model.ThreadId
 
 @Dao
 interface OpenThreadTabDao {
@@ -22,4 +23,16 @@ interface OpenThreadTabDao {
 
     @Query("DELETE FROM open_thread_tabs")
     suspend fun deleteAll()
+
+    @Query(
+        "UPDATE open_thread_tabs SET prevResCount = :prevResCount, " +
+            "lastReadResNo = :lastReadResNo, firstNewResNo = :firstNewResNo " +
+            "WHERE threadId = :threadId"
+    )
+    suspend fun updateReadState(
+        threadId: ThreadId,
+        prevResCount: Int,
+        lastReadResNo: Int,
+        firstNewResNo: Int?
+    )
 }

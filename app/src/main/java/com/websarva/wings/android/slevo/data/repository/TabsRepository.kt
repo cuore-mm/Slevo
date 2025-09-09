@@ -9,6 +9,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
+import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -79,9 +80,9 @@ class TabsRepository @Inject constructor(
                     boardUrl = entity.boardUrl,
                     boardId = entity.boardId,
                     resCount = entity.resCount,
-                    prevResCount = entity.prevResCount,
-                    lastReadResNo = entity.lastReadResNo,
-                    firstNewResNo = entity.firstNewResNo,
+                    prevResCount = entity.readState.prevResCount,
+                    lastReadResNo = entity.readState.lastReadResNo,
+                    firstNewResNo = entity.readState.firstNewResNo,
                     firstVisibleItemIndex = entity.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = entity.firstVisibleItemScrollOffset
                 )
@@ -101,9 +102,11 @@ class TabsRepository @Inject constructor(
                     boardName = info.boardName,
                     title = info.title,
                     resCount = info.resCount,
-                    prevResCount = info.prevResCount,
-                    lastReadResNo = info.lastReadResNo,
-                    firstNewResNo = info.firstNewResNo,
+                    readState = ThreadReadState(
+                        prevResCount = info.prevResCount,
+                        lastReadResNo = info.lastReadResNo,
+                        firstNewResNo = info.firstNewResNo
+                    ),
                     sortOrder = index,
                     firstVisibleItemIndex = info.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = info.firstVisibleItemScrollOffset
