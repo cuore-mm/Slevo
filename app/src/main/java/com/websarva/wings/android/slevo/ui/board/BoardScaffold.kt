@@ -14,6 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,6 +51,7 @@ fun BoardScaffold(
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
+    var restoreLastTab by remember(boardRoute) { mutableStateOf(false) }
 
     LaunchedEffect(boardRoute) {
         val info = tabsViewModel.resolveBoardInfo(
@@ -69,6 +73,7 @@ fun BoardScaffold(
             )
         )
         tabsViewModel.updateLastBoardTab(info.boardId)
+        restoreLastTab = true
     }
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
@@ -83,7 +88,7 @@ fun BoardScaffold(
         getViewModel = { tab -> tabsViewModel.getOrCreateBoardViewModel(tab.boardUrl) },
         getKey = { it.boardUrl },
         getId = { it.boardId },
-        lastTabId = tabsUiState.lastBoardId,
+        lastTabId = if (restoreLastTab) tabsUiState.lastBoardId else null,
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
         initializeViewModel = { viewModel, tab ->

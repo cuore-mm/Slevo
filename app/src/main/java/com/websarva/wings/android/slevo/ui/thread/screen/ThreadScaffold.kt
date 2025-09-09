@@ -11,7 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -49,10 +51,10 @@ fun ThreadScaffold(
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
-
     val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, threadRoute.threadKey)
     }
+    var restoreLastTab by remember(threadRoute) { mutableStateOf(false) }
 
     LaunchedEffect(threadRoute) {
         val info = tabsViewModel.resolveBoardInfo(
@@ -72,6 +74,7 @@ fun ThreadScaffold(
             threadTitle = threadRoute.threadTitle
         )
         tabsViewModel.updateLastThreadTab(routeThreadId)
+        restoreLastTab = true
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
@@ -86,7 +89,7 @@ fun ThreadScaffold(
         getViewModel = { tab -> tabsViewModel.getOrCreateThreadViewModel(tab.id.value) },
         getKey = { it.id.value },
         getId = { it.id.value },
-        lastTabId = tabsUiState.lastThreadId,
+        lastTabId = if (restoreLastTab) tabsUiState.lastThreadId else null,
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
         initializeViewModel = { viewModel, tab ->
