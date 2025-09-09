@@ -53,12 +53,14 @@ fun ThreadScaffold(
             boardUrl = threadRoute.boardUrl,
             boardName = threadRoute.boardName
         )
-        val vm = tabsViewModel.getOrCreateThreadViewModel(threadRoute.threadKey + info.url)
-        vm.initializeThread(
-            threadKey = threadRoute.threadKey,
-            boardInfo = info,
-            threadTitle = threadRoute.threadTitle
-        )
+        info?.let {
+            val vm = tabsViewModel.getOrCreateThreadViewModel(threadRoute.threadKey + it.url)
+            vm.initializeThread(
+                threadKey = threadRoute.threadKey,
+                boardInfo = it,
+                threadTitle = threadRoute.threadTitle
+            )
+        }
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)

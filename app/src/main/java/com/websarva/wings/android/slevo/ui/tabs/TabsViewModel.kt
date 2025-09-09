@@ -150,20 +150,20 @@ class TabsViewModel @Inject constructor(
      * 指定された板ID・URL・板名からBoardInfoを解決する。
      * - boardIdが有効ならそれを優先。
      * - BoardEntityからURL一致の板情報を検索。
-     * - それ以外は板名を取得・登録してIDを確定。
+     * - それ以外は板名を取得し、取得できない場合は無効として返す。
      */
     suspend fun resolveBoardInfo(
         boardId: Long?,
         boardUrl: String,
         boardName: String
-    ): BoardInfo {
+    ): BoardInfo? {
         boardId?.takeIf { it != 0L }?.let { return BoardInfo(it, boardName, boardUrl) }
 
         boardRepository.findBoardByUrl(boardUrl)?.let { entity ->
             return BoardInfo(entity.boardId, entity.name, entity.url)
         }
 
-        val name = boardRepository.fetchBoardName("${boardUrl}SETTING.TXT") ?: boardName
+        val name = boardRepository.fetchBoardName("${boardUrl}SETTING.TXT") ?: return null
         val id = boardRepository.ensureBoard(BoardInfo(0L, name, boardUrl))
         return BoardInfo(id, name, boardUrl)
     }

@@ -53,14 +53,16 @@ fun BoardScaffold(
             boardUrl = boardRoute.boardUrl,
             boardName = boardRoute.boardName
         )
-        tabsViewModel.openBoardTab(
-            BoardTabInfo(
-                boardId = info.boardId,
-                boardName = info.name,
-                boardUrl = info.url,
-                serviceName = parseServiceName(info.url)
+        info?.let {
+            tabsViewModel.openBoardTab(
+                BoardTabInfo(
+                    boardId = it.boardId,
+                    boardName = it.name,
+                    boardUrl = it.url,
+                    serviceName = parseServiceName(it.url)
+                )
             )
-        )
+        }
     }
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
