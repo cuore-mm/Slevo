@@ -31,14 +31,14 @@ import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 @Composable
 fun TabScreenContent(
     modifier: Modifier = Modifier,
-    tabsViewModel: TabsViewModel,
+    tabListViewModel: TabListViewModel,
     navController: NavHostController,
     closeDrawer: () -> Unit,
     initialPage: Int = 0,
     onPageChanged: (Int) -> Unit = {}
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
-    val uiState by tabsViewModel.uiState.collectAsState()
+    val uiState by tabListViewModel.uiState.collectAsState()
 
     Scaffold(
         modifier = modifier,
@@ -59,7 +59,7 @@ fun TabScreenContent(
         } else {
             TabsPagerContent(
                 modifier = Modifier.padding(innerPadding),
-                tabsViewModel = tabsViewModel,
+                tabListViewModel = tabListViewModel,
                 navController = navController,
                 closeDrawer = closeDrawer,
                 initialPage = initialPage,

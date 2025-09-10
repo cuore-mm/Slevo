@@ -16,7 +16,7 @@ import androidx.navigation.NavHostController
 fun TabsBottomSheet(
     modifier: Modifier = Modifier,
     sheetState: SheetState,
-    tabsViewModel: TabsViewModel,
+    tabListViewModel: TabListViewModel,
     navController: NavHostController,
     onDismissRequest: () -> Unit,
     initialPage: Int = 0,
@@ -28,7 +28,7 @@ fun TabsBottomSheet(
     ) {
         TabScreenContent(
             modifier = Modifier.fillMaxHeight(0.8f),
-            tabsViewModel = tabsViewModel,
+            tabListViewModel = tabListViewModel,
             navController = navController,
             closeDrawer = onDismissRequest, // ボトムシートを閉じる
             initialPage = initialPage

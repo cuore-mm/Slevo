@@ -14,7 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowInsetsControllerCompat
 import com.websarva.wings.android.slevo.ui.AppScaffold
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -22,7 +22,7 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val settingsViewModel: SettingsViewModel by viewModels()
-    private val tabsViewModel: TabsViewModel by viewModels()
+    private val tabListViewModel: TabListViewModel by viewModels()
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
             SlevoTheme(darkTheme = uiState.isDark) {
                 AppScaffold(
                     settingsViewModel = settingsViewModel,
-                    tabsViewModel = tabsViewModel
+                    tabListViewModel = tabListViewModel
                 )
             }
         }

@@ -23,7 +23,8 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadBottomBar
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
@@ -42,15 +43,17 @@ import java.nio.charset.StandardCharsets
 fun ThreadScaffold(
     threadRoute: AppRoute.Thread,
     navController: NavHostController,
-    tabsViewModel: TabsViewModel,
+    tabListViewModel: TabListViewModel,
     openDrawer: () -> Unit,
     topBarState: TopAppBarState,
 ) {
-    val tabsUiState by tabsViewModel.uiState.collectAsState()
+    val tabsUiState by tabListViewModel.uiState.collectAsState()
     val context = LocalContext.current
 
+    val viewModel: ThreadViewModel = hiltViewModel(key = threadRoute.threadKey + threadRoute.boardUrl)
+
     LaunchedEffect(threadRoute) {
-        val info = tabsViewModel.resolveBoardInfo(
+        val info = tabListViewModel.resolveBoardInfo(
             boardId = threadRoute.boardId,
             boardUrl = threadRoute.boardUrl,
             boardName = threadRoute.boardName
@@ -60,8 +63,7 @@ fun ThreadScaffold(
             navController.navigateUp()
             return@LaunchedEffect
         }
-        val vm = tabsViewModel.getOrCreateThreadViewModel(threadRoute.threadKey + info.url)
-        vm.initializeThread(
+        viewModel.initializeThread(
             threadKey = threadRoute.threadKey,
             boardInfo = info,
             threadTitle = threadRoute.threadTitle
@@ -72,12 +74,12 @@ fun ThreadScaffold(
 
     RouteScaffold(
         route = threadRoute,
-        tabsViewModel = tabsViewModel,
+        tabListViewModel = tabListViewModel,
         navController = navController,
         openDrawer = openDrawer,
         openTabs = tabsUiState.openThreadTabs,
         currentRoutePredicate = { it.key == threadRoute.threadKey && it.boardUrl == threadRoute.boardUrl },
-        getViewModel = { tab -> tabsViewModel.getOrCreateThreadViewModel(tab.key + tab.boardUrl) },
+        provideViewModel = { tab -> hiltViewModel<ThreadViewModel>(key = tab.key + tab.boardUrl) },
         getKey = { it.key + it.boardUrl },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },

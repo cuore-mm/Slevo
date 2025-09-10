@@ -24,13 +24,13 @@ import kotlinx.coroutines.launch
 @Composable
 fun TabsPagerContent(
     modifier: Modifier = Modifier,
-    tabsViewModel: TabsViewModel,
+    tabListViewModel: TabListViewModel,
     navController: NavHostController,
     closeDrawer: () -> Unit,
     initialPage: Int = 0,
     onPageChanged: (Int) -> Unit = {}
 ) {
-    val uiState by tabsViewModel.uiState.collectAsState()
+    val uiState by tabListViewModel.uiState.collectAsState()
 
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 2 })
     val scope = rememberCoroutineScope()
@@ -56,19 +56,19 @@ fun TabsPagerContent(
             when (page) {
                 0 -> OpenBoardsList(
                     openTabs = uiState.openBoardTabs,
-                    onCloseClick = { tabsViewModel.closeBoardTab(it) },
+                    onCloseClick = { tabListViewModel.closeBoardTab(it) },
                     navController = navController,
                     closeDrawer = closeDrawer
                 )
                 else -> OpenThreadsList(
                     openTabs = uiState.openThreadTabs,
-                    onCloseClick = { tabsViewModel.closeThreadTab(it) },
+                    onCloseClick = { tabListViewModel.closeThreadTab(it) },
                     navController = navController,
                     closeDrawer = closeDrawer,
                     isRefreshing = uiState.isRefreshing,
-                    onRefresh = { tabsViewModel.refreshOpenThreads() },
+                    onRefresh = { tabListViewModel.refreshOpenThreads() },
                     newResCounts = uiState.newResCounts,
-                    onItemClick = { tabsViewModel.clearNewResCount(it.key, it.boardUrl) }
+                    onItemClick = { tabListViewModel.clearNewResCount(it.key, it.boardUrl) }
                 )
             }
         }

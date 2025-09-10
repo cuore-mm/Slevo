@@ -19,9 +19,8 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewMod
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
@@ -30,13 +29,13 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.runBlocking
 
 @RequiresApi(Build.VERSION_CODES.O)
-class BoardViewModel @AssistedInject constructor(
+@HiltViewModel
+class BoardViewModel @Inject constructor(
     private val repository: BoardRepository,
     private val threadCreateRepository: ThreadCreateRepository,
     private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
-    @Assisted("viewModelKey") val viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
 
     // 元のスレッドリストを保持
@@ -398,11 +397,4 @@ class BoardViewModel @AssistedInject constructor(
     }
 }
 
-
-@AssistedFactory
-interface BoardViewModelFactory {
-    fun create(
-        @Assisted("viewModelKey") viewModelKey: String
-    ): BoardViewModel
-}
 

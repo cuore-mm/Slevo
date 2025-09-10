@@ -20,7 +20,7 @@ import com.websarva.wings.android.slevo.ui.about.AboutScreen
 import com.websarva.wings.android.slevo.ui.about.OpenSourceLicenseScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabsScaffold
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
 import com.websarva.wings.android.slevo.ui.thread.screen.ThreadScaffold
 import com.websarva.wings.android.slevo.ui.viewer.ImageViewerScreen
 import kotlinx.serialization.Serializable
@@ -36,7 +36,7 @@ fun AppNavGraph(
     topBarState: TopAppBarState,
     settingsViewModel: SettingsViewModel,
     openDrawer: () -> Unit,
-    tabsViewModel: TabsViewModel,
+    tabListViewModel: TabListViewModel,
 ) {
     NavHost(
         navController = navController,
@@ -86,7 +86,7 @@ fun AppNavGraph(
                 boardRoute = boardRoute,
                 navController = navController,
                 openDrawer = openDrawer,
-                tabsViewModel = tabsViewModel,
+                tabListViewModel = tabListViewModel,
                 topBarState = topBarState
             )
         }
@@ -101,7 +101,7 @@ fun AppNavGraph(
             ThreadScaffold(
                 threadRoute = threadRoute,
                 navController = navController,
-                tabsViewModel = tabsViewModel,
+                tabListViewModel = tabListViewModel,
                 openDrawer = openDrawer,
                 topBarState = topBarState
             )
@@ -110,7 +110,7 @@ fun AppNavGraph(
         composable<AppRoute.Tabs> {
             TabsScaffold(
                 parentPadding = parentPadding,
-                tabsViewModel = tabsViewModel,
+                tabListViewModel = tabListViewModel,
                 navController = navController
             )
         }

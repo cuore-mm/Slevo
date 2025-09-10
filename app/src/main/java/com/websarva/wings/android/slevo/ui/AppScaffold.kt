@@ -22,7 +22,7 @@ import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.ui.bottombar.RenderBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.AppNavGraph
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,7 +32,7 @@ fun AppScaffold(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
     settingsViewModel: SettingsViewModel,
-    tabsViewModel: TabsViewModel
+    tabListViewModel: TabListViewModel
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
 
@@ -69,7 +69,7 @@ fun AppScaffold(
             topBarState = topBarState,
             settingsViewModel = settingsViewModel,
             openDrawer = openDrawer,
-            tabsViewModel = tabsViewModel
+            tabListViewModel = tabListViewModel
         )
     }
 

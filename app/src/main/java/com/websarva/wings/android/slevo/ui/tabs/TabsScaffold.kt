@@ -14,16 +14,16 @@ import androidx.navigation.NavHostController
 @Composable
 fun TabsScaffold(
     parentPadding: PaddingValues,
-    tabsViewModel: TabsViewModel,
+    tabListViewModel: TabListViewModel,
     navController: NavHostController
 ) {
-    val lastPage by tabsViewModel.lastSelectedPage.collectAsState()
+    val lastPage by tabListViewModel.lastSelectedPage.collectAsState()
     TabScreenContent(
         modifier = Modifier.padding(parentPadding),
-        tabsViewModel = tabsViewModel,
+        tabListViewModel = tabListViewModel,
         navController = navController,
         closeDrawer = {}, // Scaffoldの場合は何もしない
         initialPage = lastPage,
-        onPageChanged = { tabsViewModel.setLastSelectedPage(it) }
+        onPageChanged = { tabListViewModel.setLastSelectedPage(it) }
     )
 }

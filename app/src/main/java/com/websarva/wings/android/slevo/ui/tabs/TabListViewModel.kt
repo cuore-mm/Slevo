@@ -10,10 +10,6 @@ import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
-import com.websarva.wings.android.slevo.ui.board.BoardViewModel
-import com.websarva.wings.android.slevo.ui.board.BoardViewModelFactory
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModelFactory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -28,12 +24,10 @@ import javax.inject.Inject
 
 @HiltViewModel
 /**
- * スレッドタブ・板タブをまとめて管理する ViewModel。
- * 各タブに紐づく ViewModel の生成や破棄もここで行う。
+ * スレッドタブ・板タブの一覧を管理し永続化する ViewModel。
+ * 各画面の ViewModel 生成・破棄はそれぞれの画面側に任せる。
  */
-class TabsViewModel @Inject constructor(
-    private val threadViewModelFactory: ThreadViewModelFactory,
-    private val boardViewModelFactory: BoardViewModelFactory,
+class TabListViewModel @Inject constructor(
     private val tabsRepository: TabsRepository,
     private val bookmarkBoardRepo: BookmarkBoardRepository,
     private val threadBookmarkRepo: ThreadBookmarkRepository,
@@ -41,14 +35,8 @@ class TabsViewModel @Inject constructor(
     private val datRepository: DatRepository,
 ) : ViewModel() {
     // 画面用のUIステートのみを保持
-    private val _uiState = MutableStateFlow(TabsUiState())
-    val uiState: StateFlow<TabsUiState> = _uiState.asStateFlow()
-
-    // boardUrl をキーに BoardViewModel をキャッシュ
-    private val boardViewModelMap: MutableMap<String, BoardViewModel> = mutableMapOf()
-
-    // threadKey + boardUrl をキーに ThreadViewModel をキャッシュ
-    private val threadViewModelMap: MutableMap<String, ThreadViewModel> = mutableMapOf()
+    private val _uiState = MutableStateFlow(TabListUiState())
+    val uiState: StateFlow<TabListUiState> = _uiState.asStateFlow()
 
     val lastSelectedPage = tabsRepository.observeLastSelectedPage()
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
@@ -95,28 +83,6 @@ class TabsViewModel @Inject constructor(
                     )
                 }
             }
-        }
-    }
-
-    /**
-     * 指定キーの [ThreadViewModel] を取得。
-     * 存在しない場合は Factory から生成して登録する。
-     */
-    fun getOrCreateThreadViewModel(viewModelKey: String): ThreadViewModel {
-        return threadViewModelMap.getOrPut(viewModelKey) {
-            threadViewModelFactory.create(viewModelKey)
-        }
-    }
-
-    /**
-     * 指定URLの [BoardViewModel] を取得。
-     * まだ生成されていなければ Factory から作成してキャッシュする。
-     */
-    fun getOrCreateBoardViewModel(
-        boardUrl: String
-    ): BoardViewModel {
-        return boardViewModelMap.getOrPut(boardUrl) {
-            boardViewModelFactory.create(boardUrl)
         }
     }
 
@@ -169,12 +135,9 @@ class TabsViewModel @Inject constructor(
     }
 
     /**
-     * スレッドタブを閉じ、関連する [ThreadViewModel] を解放する。
+     * スレッドタブを閉じる。
      */
     fun closeThreadTab(tab: ThreadTabInfo) {
-        val mapKey = tab.key + tab.boardUrl
-        threadViewModelMap[mapKey]?.release()
-        threadViewModelMap.remove(mapKey)
         viewModelScope.launch {
             val current = tabsRepository.observeOpenThreadTabs().first()
             val updated = current.filterNot { it.key == tab.key && it.boardUrl == tab.boardUrl }
@@ -183,11 +146,10 @@ class TabsViewModel @Inject constructor(
     }
 
     /**
-     * 板タブを閉じ、対応する [BoardViewModel] を解放する。
+     * 板タブを閉じる。
      */
     @RequiresApi(Build.VERSION_CODES.O)
     fun closeBoardTab(tab: BoardTabInfo) {
-        boardViewModelMap.remove(tab.boardUrl)?.release()
         _uiState.update { state ->
             state.copy(openBoardTabs = state.openBoardTabs.filterNot { it.boardUrl == tab.boardUrl })
         }
@@ -270,12 +232,5 @@ class TabsViewModel @Inject constructor(
      * ViewModel 自身が破棄される際に呼び出される処理。
      * 登録済みの子 ViewModel もすべて解放する。
      */
-    @RequiresApi(Build.VERSION_CODES.O)
-    override fun onCleared() {
-        super.onCleared()
-        threadViewModelMap.values.forEach { it.release() }
-        threadViewModelMap.clear()
-        boardViewModelMap.values.forEach { it.release() }
-        boardViewModelMap.clear()
-    }
+    // 子 ViewModel の解放処理は各画面の ViewModel に委譲する
 }

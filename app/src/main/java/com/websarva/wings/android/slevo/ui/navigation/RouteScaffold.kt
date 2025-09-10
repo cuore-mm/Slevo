@@ -35,7 +35,7 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheet
 import com.websarva.wings.android.slevo.ui.common.bookmark.DeleteGroupDialog
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
 import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import kotlinx.coroutines.FlowPreview
@@ -48,12 +48,12 @@ import timber.log.Timber
 @Composable
 fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState>> RouteScaffold(
     route: AppRoute,
-    tabsViewModel: TabsViewModel,
+    tabListViewModel: TabListViewModel,
     navController: NavHostController,
     openDrawer: () -> Unit,
     openTabs: List<TabInfo>,
     currentRoutePredicate: (TabInfo) -> Boolean,
-    getViewModel: (TabInfo) -> ViewModel,
+    provideViewModel: @Composable (TabInfo) -> ViewModel,
     getKey: (TabInfo) -> Any,
     getScrollIndex: (TabInfo) -> Int,
     getScrollOffset: (TabInfo) -> Int,
@@ -106,7 +106,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             key = { page -> getKey(tabs[page]) }
         ) { page ->
             val tab = tabs[page]
-            val viewModel = getViewModel(tab)
+            val viewModel = provideViewModel(tab)
             val uiState by viewModel.uiState.collectAsState()
             // Board / Thread 用のブックマーク状態を統一的に取得
             val bookmarkState = (uiState as? BoardUiState)?.singleBookmarkState
@@ -241,7 +241,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     }
                     TabsBottomSheet(
                         sheetState = tabListSheetState,
-                        tabsViewModel = tabsViewModel,
+                        tabListViewModel = tabListViewModel,
                         navController = navController,
                         onDismissRequest = { viewModel.closeTabListSheet() },
                         initialPage = initialPage,

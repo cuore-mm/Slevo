@@ -27,9 +27,8 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.data.util.ThreadListParser.calculateThreadDate
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -50,7 +49,8 @@ private data class PendingPost(
     val email: String,
 )
 
-class ThreadViewModel @AssistedInject constructor(
+@HiltViewModel
+class ThreadViewModel @Inject constructor(
     private val datRepository: DatRepository,
     private val boardRepository: BoardRepository,
     private val historyRepository: ThreadHistoryRepository,
@@ -61,7 +61,6 @@ class ThreadViewModel @AssistedInject constructor(
     private val tabsRepository: TabsRepository,
     internal val postRepository: PostRepository,
     internal val imageUploadRepository: ImageUploadRepository,
-    @Assisted @Suppress("unused") val viewModelKey: String,
 ) : BaseViewModel<ThreadUiState>() {
 
     override val _uiState = MutableStateFlow(ThreadUiState())
@@ -660,7 +659,3 @@ class ThreadViewModel @AssistedInject constructor(
     }
 }
 
-@AssistedFactory
-interface ThreadViewModelFactory {
-    fun create(viewModelKey: String): ThreadViewModel
-}

@@ -3,7 +3,7 @@ package com.websarva.wings.android.slevo.ui.tabs
 /**
  * タブ画面全体のUI状態を表すデータクラス
  */
-data class TabsUiState(
+data class TabListUiState(
     val openThreadTabs: List<ThreadTabInfo> = emptyList(),
     val openBoardTabs: List<BoardTabInfo> = emptyList(),
     val boardLoaded: Boolean = false,

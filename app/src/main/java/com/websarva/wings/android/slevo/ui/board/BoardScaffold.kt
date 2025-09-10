@@ -26,7 +26,8 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
@@ -43,14 +44,14 @@ fun BoardScaffold(
     boardRoute: AppRoute.Board,
     navController: NavHostController,
     openDrawer: () -> Unit,
-    tabsViewModel: TabsViewModel,
+    tabListViewModel: TabListViewModel,
     topBarState: TopAppBarState
 ) {
-    val tabsUiState by tabsViewModel.uiState.collectAsState()
+    val tabsUiState by tabListViewModel.uiState.collectAsState()
     val context = LocalContext.current
 
     LaunchedEffect(boardRoute) {
-        val info = tabsViewModel.resolveBoardInfo(
+        val info = tabListViewModel.resolveBoardInfo(
             boardId = boardRoute.boardId,
             boardUrl = boardRoute.boardUrl,
             boardName = boardRoute.boardName
@@ -60,7 +61,7 @@ fun BoardScaffold(
             navController.navigateUp()
             return@LaunchedEffect
         }
-        tabsViewModel.openBoardTab(
+        tabListViewModel.openBoardTab(
             BoardTabInfo(
                 boardId = info.boardId,
                 boardName = info.name,
@@ -74,12 +75,12 @@ fun BoardScaffold(
 
     RouteScaffold(
         route = boardRoute,
-        tabsViewModel = tabsViewModel,
+        tabListViewModel = tabListViewModel,
         navController = navController,
         openDrawer = openDrawer,
         openTabs = tabsUiState.openBoardTabs,
         currentRoutePredicate = { it.boardUrl == boardRoute.boardUrl },
-        getViewModel = { tab -> tabsViewModel.getOrCreateBoardViewModel(tab.boardUrl) },
+        provideViewModel = { tab -> hiltViewModel<BoardViewModel>(key = tab.boardUrl) },
         getKey = { it.boardUrl },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
@@ -93,7 +94,7 @@ fun BoardScaffold(
             )
         },
         updateScrollPosition = { _, tab, index, offset ->
-            tabsViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
+            tabListViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
         scrollBehavior = scrollBehavior,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
@@ -143,7 +144,7 @@ fun BoardScaffold(
             LaunchedEffect(uiState.resetScroll) {
                 if (uiState.resetScroll) {
                     listState.scrollToItem(0)
-                    tabsViewModel.updateBoardScrollPosition(uiState.boardInfo.url, 0, 0)
+                    tabListViewModel.updateBoardScrollPosition(uiState.boardInfo.url, 0, 0)
                     viewModel.consumeResetScroll()
                 }
             }
