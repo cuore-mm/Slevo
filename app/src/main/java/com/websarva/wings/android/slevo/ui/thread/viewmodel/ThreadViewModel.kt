@@ -574,6 +574,14 @@ class ThreadViewModel @AssistedInject constructor(
         _uiState.update { it.copy(showThreadInfoSheet = false) }
     }
 
+    fun openMoreSheet() {
+        _uiState.update { it.copy(showMoreSheet = true) }
+    }
+
+    fun closeMoreSheet() {
+        _uiState.update { it.copy(showMoreSheet = false) }
+    }
+
     // 書き込み画面を表示
     fun startSearch() {
         _uiState.update { it.copy(isSearchMode = true) }

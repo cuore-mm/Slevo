@@ -30,6 +30,7 @@ import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomShe
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.*
+import com.websarva.wings.android.slevo.ui.more.MoreBottomSheet
 import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
@@ -135,6 +136,7 @@ fun ThreadScaffold(
                 onSearchClick = { viewModel.startSearch() },
                 onBookmarkClick = { viewModel.openBookmarkSheet() },
                 onThreadInfoClick = { viewModel.openThreadInfoSheet() },
+                onMoreClick = { viewModel.openMoreSheet() },
                 scrollBehavior = barScrollBehavior,
             )
         },
@@ -180,6 +182,7 @@ fun ThreadScaffold(
         optionalSheetContent = { viewModel, uiState ->
             val postUiState by viewModel.postUiState.collectAsState()
             val threadInfoSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            val moreSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             if (uiState.showThreadInfoSheet) {
                 val threadUrl = parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                     "https://$host/test/read.cgi/$boardKey/${uiState.threadInfo.key}/"
@@ -189,6 +192,29 @@ fun ThreadScaffold(
                     onDismissRequest = { viewModel.closeThreadInfoSheet() },
                     threadInfo = uiState.threadInfo,
                     threadUrl = threadUrl,
+                )
+            }
+
+            if (uiState.showMoreSheet) {
+                MoreBottomSheet(
+                    sheetState = moreSheetState,
+                    onDismissRequest = { viewModel.closeMoreSheet() },
+                    onBookmarkClick = {
+                        viewModel.closeMoreSheet()
+                        navController.navigate(AppRoute.BookmarkList)
+                    },
+                    onBoardListClick = {
+                        viewModel.closeMoreSheet()
+                        navController.navigate(AppRoute.ServiceList)
+                    },
+                    onHistoryClick = {
+                        viewModel.closeMoreSheet()
+                        navController.navigate(AppRoute.HistoryList)
+                    },
+                    onSettingsClick = {
+                        viewModel.closeMoreSheet()
+                        navController.navigate(AppRoute.SettingsHome)
+                    }
                 )
             }
 
