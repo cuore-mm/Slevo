@@ -68,7 +68,7 @@ fun TabsPagerContent(
                     isRefreshing = uiState.isRefreshing,
                     onRefresh = { tabsViewModel.refreshOpenThreads() },
                     newResCounts = uiState.newResCounts,
-                    onItemClick = { tabsViewModel.clearNewResCount(it.key, it.boardUrl) }
+                    onItemClick = { tabsViewModel.clearNewResCount(it.id) }
                 )
             }
         }

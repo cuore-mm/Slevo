@@ -21,6 +21,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.topbar.HomeTopAppBarScreen
+import com.websarva.wings.android.slevo.data.model.threadKey
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -55,7 +56,7 @@ fun HistoryListScaffold(
             onThreadClick = { history ->
                 navController.navigate(
                     AppRoute.Thread(
-                        threadKey = history.history.threadKey,
+                        threadKey = history.history.threadId.threadKey,
                         boardUrl = history.history.boardUrl,
                         boardName = history.history.boardName,
                         boardId = history.history.boardId,
