@@ -86,6 +86,17 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // テストで Room のスキーマ JSON を読み込めるようにする
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
+    // exported schema をテストの assets として参照するようにする（schemas ディレクトリを追加）
+    sourceSets {
+        getByName("test").assets.srcDir("$projectDir/schemas")
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
 }
 
 dependencies {
@@ -108,6 +119,7 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
+    androidTestImplementation(libs.androidx.room.testing)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation(libs.material3)
@@ -169,4 +181,13 @@ dependencies {
 // Allow references to generated code
 kapt {
     correctErrorTypes = true
+    // kapt を使うアノテーションプロセッサ向けに schema 出力を指定（念のため）
+    arguments {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
+}
+
+// KSP に対して Room の schema 出力先を指定
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
