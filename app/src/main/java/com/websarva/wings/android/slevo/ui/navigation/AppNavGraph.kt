@@ -1,7 +1,5 @@
 package com.websarva.wings.android.slevo.ui.navigation
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,12 +10,12 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
+import com.websarva.wings.android.slevo.ui.about.AboutScreen
+import com.websarva.wings.android.slevo.ui.about.OpenSourceLicenseScreen
 import com.websarva.wings.android.slevo.ui.board.BoardScaffold
 import com.websarva.wings.android.slevo.ui.bookmarklist.BookmarkListScaffold
 import com.websarva.wings.android.slevo.ui.history.HistoryListScaffold
 import com.websarva.wings.android.slevo.ui.more.MoreScreen
-import com.websarva.wings.android.slevo.ui.about.AboutScreen
-import com.websarva.wings.android.slevo.ui.about.OpenSourceLicenseScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabsScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -28,7 +26,6 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
 @OptIn(ExperimentalMaterial3Api::class)
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNavGraph(
     parentPadding: PaddingValues,

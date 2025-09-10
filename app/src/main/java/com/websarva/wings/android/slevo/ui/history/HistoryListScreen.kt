@@ -12,18 +12,15 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun HistoryListScreen(
     histories: List<ThreadHistoryDao.HistoryWithLastAccess>,
@@ -41,13 +38,12 @@ fun HistoryListScreen(
         return
     }
 
-    val formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd")
-        .withZone(ZoneId.systemDefault())
+    val formatter = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
 
     LazyColumn(modifier = modifier) {
         var currentDate: String? = null
         histories.forEach { history ->
-            val date = formatter.format(Instant.ofEpochMilli(history.lastAccess ?: 0L))
+            val date = formatter.format(Date(history.lastAccess ?: 0L))
             if (date != currentDate) {
                 currentDate = date
                 item(key = "header_$date") {

@@ -1,7 +1,5 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -9,9 +7,9 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -20,7 +18,6 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import kotlinx.coroutines.launch
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun TabsPagerContent(
     modifier: Modifier = Modifier,
@@ -60,6 +57,7 @@ fun TabsPagerContent(
                     navController = navController,
                     closeDrawer = closeDrawer
                 )
+
                 else -> OpenThreadsList(
                     openTabs = uiState.openThreadTabs,
                     onCloseClick = { tabsViewModel.closeThreadTab(it) },

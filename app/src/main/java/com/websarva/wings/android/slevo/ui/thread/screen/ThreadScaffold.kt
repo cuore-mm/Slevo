@@ -1,25 +1,24 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
-import android.os.Build
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -29,17 +28,26 @@ import com.websarva.wings.android.slevo.ui.thread.components.ThreadBottomBar
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.*
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadPagerViewModel
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideConfirmationScreen
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideErrorWebView
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.hidePostDialog
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.postFirstPhase
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.postTo5chSecondPhase
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.showPostDialog
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.showReplyDialog
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMail
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMessage
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostName
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.uploadImage
 import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
-import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
-import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @OptIn(ExperimentalMaterial3Api::class)
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ThreadScaffold(
     threadRoute: AppRoute.Thread,
