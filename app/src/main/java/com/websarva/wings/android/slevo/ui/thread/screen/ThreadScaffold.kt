@@ -104,7 +104,7 @@ fun ThreadScaffold(
         openTabs = tabsUiState.openThreadTabs,
         currentRoutePredicate = { routeThreadId != null && it.id == routeThreadId },
         getViewModel = { tab -> tabsViewModel.getOrCreateThreadViewModel(tab.id.value) },
-        getKey = { it.id },
+        getKey = { it.id.value },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
         initializeViewModel = { viewModel, tab ->
@@ -122,7 +122,7 @@ fun ThreadScaffold(
             viewModel.updateThreadScrollPosition(tab.id, index, offset)
         },
         scrollBehavior = scrollBehavior,
-        lastTabId = if (restoreLastTab) tabsUiState.lastThreadId else null,
+        lastTabId = if (restoreLastTab) tabsUiState.lastThreadId?.value else null,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         topBar = { viewModel, uiState, _, scrollBehavior ->
             if (uiState.isSearchMode) {
