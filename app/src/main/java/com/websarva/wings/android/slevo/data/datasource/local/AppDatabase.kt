@@ -58,7 +58,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.history.Pos
         BoardFetchMetaEntity::class,
         PostHistoryEntity::class
     ],
-    version = 4,
+    version = 3,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -105,14 +105,15 @@ abstract class AppDatabase : RoomDatabase() {
                         "boardName TEXT NOT NULL, " +
                         "title TEXT NOT NULL, " +
                         "resCount INTEGER NOT NULL, " +
-                            "prevResCount INTEGER NOT NULL DEFAULT 0, " +
-                            "lastReadResNo INTEGER NOT NULL DEFAULT 0, " +
+                        "prevResCount INTEGER NOT NULL DEFAULT 0, " +
+                        "lastReadResNo INTEGER NOT NULL DEFAULT 0, " +
                         "firstNewResNo INTEGER, " +
                         "sortOrder INTEGER NOT NULL, " +
                         "firstVisibleItemIndex INTEGER NOT NULL, " +
                         "firstVisibleItemScrollOffset INTEGER NOT NULL, " +
                         "PRIMARY KEY(threadId))"
                 )
+
                 database.execSQL("DROP TABLE IF EXISTS thread_history_accesses")
                 database.execSQL("DROP TABLE IF EXISTS thread_histories")
                 database.execSQL(
@@ -123,71 +124,25 @@ abstract class AppDatabase : RoomDatabase() {
                         "boardId INTEGER NOT NULL, " +
                         "boardName TEXT NOT NULL, " +
                         "title TEXT NOT NULL, " +
-                        "resCount INTEGER NOT NULL)"
-                )
-                database.execSQL(
-                    "CREATE TABLE IF NOT EXISTS thread_history_accesses (" +
-                        "threadHistoryId INTEGER NOT NULL, " +
-                        "accessedAt INTEGER NOT NULL, " +
-                        "PRIMARY KEY(threadHistoryId, accessedAt))"
-                )
-            }
-        }
-
-        val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                database.execSQL(
-                    "ALTER TABLE thread_histories ADD COLUMN prevResCount INTEGER NOT NULL DEFAULT 0"
-                )
-                database.execSQL(
-                    "ALTER TABLE thread_histories ADD COLUMN lastReadResNo INTEGER NOT NULL DEFAULT 0"
-                )
-                database.execSQL(
-                    "ALTER TABLE thread_histories ADD COLUMN firstNewResNo INTEGER"
+                        "resCount INTEGER NOT NULL, " +
+                        "prevResCount INTEGER NOT NULL DEFAULT 0, " +
+                        "lastReadResNo INTEGER NOT NULL DEFAULT 0, " +
+                        "firstNewResNo INTEGER" +
+                        ")"
                 )
                 database.execSQL(
                     "CREATE UNIQUE INDEX IF NOT EXISTS index_thread_histories_threadId ON thread_histories(threadId)"
                 )
                 database.execSQL(
-                    "CREATE TABLE IF NOT EXISTS thread_history_accesses_new (" +
-                            "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
-                            "threadHistoryId INTEGER NOT NULL, " +
-                            "accessedAt INTEGER NOT NULL, " +
-                            "FOREIGN KEY(threadHistoryId) REFERENCES thread_histories(id) ON DELETE CASCADE)"
+                    "CREATE TABLE IF NOT EXISTS thread_history_accesses (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "threadHistoryId INTEGER NOT NULL, " +
+                        "accessedAt INTEGER NOT NULL, " +
+                        "FOREIGN KEY(threadHistoryId) REFERENCES thread_histories(id) ON DELETE CASCADE)"
                 )
-                database.execSQL(
-                    "INSERT INTO thread_history_accesses_new (threadHistoryId, accessedAt) " +
-                            "SELECT threadHistoryId, accessedAt FROM thread_history_accesses"
-                )
-                database.execSQL("DROP TABLE thread_history_accesses")
-                database.execSQL("ALTER TABLE thread_history_accesses_new RENAME TO thread_history_accesses")
                 database.execSQL(
                     "CREATE INDEX IF NOT EXISTS index_thread_history_accesses_threadHistoryId ON thread_history_accesses(threadHistoryId)"
                 )
-                database.execSQL(
-                    "CREATE TABLE IF NOT EXISTS open_thread_tabs_new (" +
-                            "threadId TEXT NOT NULL, " +
-                            "boardUrl TEXT NOT NULL, " +
-                            "boardId INTEGER NOT NULL, " +
-                            "boardName TEXT NOT NULL, " +
-                            "title TEXT NOT NULL, " +
-                            "resCount INTEGER NOT NULL, " +
-                            "prevResCount INTEGER NOT NULL DEFAULT 0, " +
-                            "lastReadResNo INTEGER NOT NULL DEFAULT 0, " +
-                            "firstNewResNo INTEGER, " +
-                            "sortOrder INTEGER NOT NULL, " +
-                            "firstVisibleItemIndex INTEGER NOT NULL, " +
-                            "firstVisibleItemScrollOffset INTEGER NOT NULL, " +
-                            "PRIMARY KEY(threadId))"
-                )
-                database.execSQL(
-                    "INSERT INTO open_thread_tabs_new (" +
-                            "threadId, boardUrl, boardId, boardName, title, resCount, prevResCount, lastReadResNo, firstNewResNo, sortOrder, firstVisibleItemIndex, firstVisibleItemScrollOffset" +
-                            ") SELECT " +
-                            "threadId, boardUrl, boardId, boardName, title, resCount, prevResCount, lastReadResNo, firstNewResNo, sortOrder, firstVisibleItemIndex, firstVisibleItemScrollOffset FROM open_thread_tabs"
-                )
-                database.execSQL("DROP TABLE open_thread_tabs")
-                database.execSQL("ALTER TABLE open_thread_tabs_new RENAME TO open_thread_tabs")
             }
         }
     }
