@@ -1,8 +1,10 @@
 package com.websarva.wings.android.slevo.data.datasource.local.entity
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 
 @Entity(tableName = "open_board_tabs")
 data class OpenBoardTabEntity(
@@ -23,9 +25,7 @@ data class OpenThreadTabEntity(
     val boardName: String,
     val title: String,
     val resCount: Int = 0,
-    val prevResCount: Int = 0,
-    val lastReadResNo: Int = 0,
-    val firstNewResNo: Int? = null,
+    @Embedded val readState: ThreadReadState = ThreadReadState(),
     val sortOrder: Int,
     val firstVisibleItemIndex: Int = 0,
     val firstVisibleItemScrollOffset: Int = 0

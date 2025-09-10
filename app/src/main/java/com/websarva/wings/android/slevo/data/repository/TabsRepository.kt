@@ -5,6 +5,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenBoardTabDa
 import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenThreadTabDao
 import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenBoardTabEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadTabEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
@@ -79,9 +80,9 @@ class TabsRepository @Inject constructor(
                     boardUrl = entity.boardUrl,
                     boardId = entity.boardId,
                     resCount = entity.resCount,
-                    prevResCount = entity.prevResCount,
-                    lastReadResNo = entity.lastReadResNo,
-                    firstNewResNo = entity.firstNewResNo,
+                    prevResCount = entity.readState.prevResCount,
+                    lastReadResNo = entity.readState.lastReadResNo,
+                    firstNewResNo = entity.readState.firstNewResNo,
                     firstVisibleItemIndex = entity.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = entity.firstVisibleItemScrollOffset
                 )
@@ -101,9 +102,11 @@ class TabsRepository @Inject constructor(
                     boardName = info.boardName,
                     title = info.title,
                     resCount = info.resCount,
-                    prevResCount = info.prevResCount,
-                    lastReadResNo = info.lastReadResNo,
-                    firstNewResNo = info.firstNewResNo,
+                    readState = ThreadReadState(
+                        prevResCount = info.prevResCount,
+                        lastReadResNo = info.lastReadResNo,
+                        firstNewResNo = info.firstNewResNo,
+                    ),
                     sortOrder = index,
                     firstVisibleItemIndex = info.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = info.firstVisibleItemScrollOffset
