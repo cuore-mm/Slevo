@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,6 +49,8 @@ fun BoardScaffold(
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val pagerViewModel: BoardPagerViewModel = hiltViewModel()
+    val currentPage by pagerViewModel.currentPage.collectAsState()
 
     LaunchedEffect(boardRoute) {
         val info = tabsViewModel.resolveBoardInfo(
@@ -95,6 +98,8 @@ fun BoardScaffold(
         updateScrollPosition = { _, tab, index, offset ->
             tabsViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
+        currentPage = currentPage,
+        onPageChange = { pagerViewModel.setCurrentPage(it) },
         scrollBehavior = scrollBehavior,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             val bookmarkState = uiState.singleBookmarkState
