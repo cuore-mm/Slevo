@@ -25,6 +25,7 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
+import com.websarva.wings.android.slevo.ui.navigation.RoutePagerViewModel
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -48,6 +49,8 @@ fun BoardScaffold(
     topBarState: TopAppBarState
 ) {
     val tabsUiState by tabListViewModel.uiState.collectAsState()
+    val pagerViewModel: RoutePagerViewModel = hiltViewModel()
+    val pagerUiState by pagerViewModel.uiState.collectAsState()
     val context = LocalContext.current
 
     LaunchedEffect(boardRoute) {
@@ -97,6 +100,8 @@ fun BoardScaffold(
             tabListViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
         scrollBehavior = scrollBehavior,
+        currentPage = pagerUiState.currentPage,
+        onPageChange = { pagerViewModel.setCurrentPage(it) },
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             val bookmarkState = uiState.singleBookmarkState
             val bookmarkIconColor =

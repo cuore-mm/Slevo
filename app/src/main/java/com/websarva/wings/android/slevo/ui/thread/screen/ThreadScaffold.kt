@@ -23,6 +23,7 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
+import com.websarva.wings.android.slevo.ui.navigation.RoutePagerViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadBottomBar
@@ -48,6 +49,8 @@ fun ThreadScaffold(
     topBarState: TopAppBarState,
 ) {
     val tabsUiState by tabListViewModel.uiState.collectAsState()
+    val pagerViewModel: RoutePagerViewModel = hiltViewModel()
+    val pagerUiState by pagerViewModel.uiState.collectAsState()
     val context = LocalContext.current
 
     val viewModel: ThreadViewModel = hiltViewModel(key = threadRoute.threadKey + threadRoute.boardUrl)
@@ -98,7 +101,8 @@ fun ThreadScaffold(
             viewModel.updateThreadScrollPosition(tab.key, tab.boardUrl, index, offset)
         },
         scrollBehavior = scrollBehavior,
-        bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
+        currentPage = pagerUiState.currentPage,
+        onPageChange = { pagerViewModel.setCurrentPage(it) },
         topBar = { viewModel, uiState, _, scrollBehavior ->
             if (uiState.isSearchMode) {
                 SearchTopAppBar(
@@ -172,6 +176,7 @@ fun ThreadScaffold(
                 onReplyToPost = { viewModel.showReplyDialog(it) }
             )
         },
+        bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         optionalSheetContent = { viewModel, uiState ->
             val postUiState by viewModel.postUiState.collectAsState()
             val threadInfoSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)

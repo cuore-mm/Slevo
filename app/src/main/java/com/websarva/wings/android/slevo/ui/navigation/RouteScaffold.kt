@@ -59,10 +59,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     getScrollOffset: (TabInfo) -> Int,
     initializeViewModel: (viewModel: ViewModel, tabInfo: TabInfo) -> Unit,
     updateScrollPosition: (viewModel: ViewModel, tab: TabInfo, index: Int, offset: Int) -> Unit,
+    scrollBehavior: TopAppBarScrollBehavior,
+    currentPage: Int,
+    onPageChange: (Int) -> Unit,
     topBar: @Composable (viewModel: ViewModel, uiState: UiState, openDrawer: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) -> Unit,
     bottomBar: @Composable (viewModel: ViewModel, uiState: UiState, scrollBehavior: BottomAppBarScrollBehavior?) -> Unit,
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier, navController: NavHostController) -> Unit,
-    scrollBehavior: TopAppBarScrollBehavior,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
@@ -82,8 +84,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
     if (currentTabInfo != null) {
         // 初期ページの決定。routeやタブ数が変わったら再計算される。
-        val initialPage = remember(route, tabs.size) {
-            tabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
+        val initialPage = remember(route, tabs.size, currentPage) {
+            if (currentPage in tabs.indices) {
+                currentPage
+            } else {
+                tabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
+            }
         }
 
         // Pagerの状態。ページ数はタブ数に応じて動的に提供される。
@@ -95,6 +101,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             if (pagerState.currentPage != initialPage) {
                 pagerState.scrollToPage(initialPage)
             }
+        }
+
+        // 現在のページを ViewModel に反映する
+        LaunchedEffect(pagerState) {
+            snapshotFlow { pagerState.currentPage }
+                .collectLatest { onPageChange(it) }
         }
 
         // 共通で使うボトムシートの状態
