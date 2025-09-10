@@ -118,7 +118,8 @@ abstract class AppDatabase : RoomDatabase() {
                         "prevResCount, lastReadResNo, firstNewResNo, sortOrder, " +
                         "firstVisibleItemIndex, firstVisibleItemScrollOffset" +
                         ") SELECT " +
-                        "threadId, boardUrl, boardId, boardName, title, resCount, " +
+                        "trim(replace(replace(boardUrl, 'https://', ''), 'http://', ''), '/') || '/' || threadKey, " +
+                        "boardUrl, boardId, boardName, title, resCount, " +
                         "prevResCount, lastReadResNo, firstNewResNo, sortOrder, " +
                         "firstVisibleItemIndex, firstVisibleItemScrollOffset FROM open_thread_tabs"
                 )
@@ -143,7 +144,8 @@ abstract class AppDatabase : RoomDatabase() {
                     "INSERT INTO thread_histories_new (" +
                         "id, threadId, boardUrl, boardId, boardName, title, resCount" +
                         ") SELECT " +
-                        "id, threadId, boardUrl, boardId, boardName, title, resCount FROM thread_histories"
+                        "id, trim(replace(replace(boardUrl, 'https://', ''), 'http://', ''), '/') || '/' || threadKey, " +
+                        "boardUrl, boardId, boardName, title, resCount FROM thread_histories"
                 )
                 database.execSQL("DROP TABLE thread_histories")
                 database.execSQL("ALTER TABLE thread_histories_new RENAME TO thread_histories")
