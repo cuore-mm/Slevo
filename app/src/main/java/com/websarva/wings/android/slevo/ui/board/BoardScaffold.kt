@@ -14,6 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -49,25 +52,33 @@ fun BoardScaffold(
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
 
+    var hasVisited by rememberSaveable { mutableStateOf(false) }
+    var restoreLastTab by rememberSaveable { mutableStateOf(false) }
+
     LaunchedEffect(boardRoute) {
-        val info = tabsViewModel.resolveBoardInfo(
-            boardId = boardRoute.boardId,
-            boardUrl = boardRoute.boardUrl,
-            boardName = boardRoute.boardName
-        )
-        if (info == null) {
-            Toast.makeText(context, R.string.invalid_board_url, Toast.LENGTH_SHORT).show()
-            navController.navigateUp()
-            return@LaunchedEffect
-        }
-        tabsViewModel.openBoardTab(
-            BoardTabInfo(
-                boardId = info.boardId,
-                boardName = info.name,
-                boardUrl = info.url,
-                serviceName = parseServiceName(info.url)
+        if (!hasVisited) {
+            val info = tabsViewModel.resolveBoardInfo(
+                boardId = boardRoute.boardId,
+                boardUrl = boardRoute.boardUrl,
+                boardName = boardRoute.boardName
             )
-        )
+            if (info == null) {
+                Toast.makeText(context, R.string.invalid_board_url, Toast.LENGTH_SHORT).show()
+                navController.navigateUp()
+                return@LaunchedEffect
+            }
+            tabsViewModel.openBoardTab(
+                BoardTabInfo(
+                    boardId = info.boardId,
+                    boardName = info.name,
+                    boardUrl = info.url,
+                    serviceName = parseServiceName(info.url)
+                )
+            )
+            hasVisited = true
+        } else {
+            restoreLastTab = true
+        }
     }
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
@@ -96,6 +107,7 @@ fun BoardScaffold(
             tabsViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
         scrollBehavior = scrollBehavior,
+        lastTabId = if (restoreLastTab) boardRoute.boardUrl else null,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             val bookmarkState = uiState.singleBookmarkState
             val bookmarkIconColor =

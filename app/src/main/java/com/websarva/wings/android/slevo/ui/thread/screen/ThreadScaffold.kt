@@ -11,6 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -54,23 +57,31 @@ fun ThreadScaffold(
         ThreadId.of(host, board, threadRoute.threadKey)
     }
 
+    var hasVisited by rememberSaveable { mutableStateOf(false) }
+    var restoreLastTab by rememberSaveable { mutableStateOf(false) }
+
     LaunchedEffect(threadRoute) {
-        val info = tabsViewModel.resolveBoardInfo(
-            boardId = threadRoute.boardId,
-            boardUrl = threadRoute.boardUrl,
-            boardName = threadRoute.boardName
-        )
-        if (info == null || routeThreadId == null) {
-            Toast.makeText(context, R.string.invalid_board_url, Toast.LENGTH_SHORT).show()
-            navController.navigateUp()
-            return@LaunchedEffect
+        if (!hasVisited) {
+            val info = tabsViewModel.resolveBoardInfo(
+                boardId = threadRoute.boardId,
+                boardUrl = threadRoute.boardUrl,
+                boardName = threadRoute.boardName
+            )
+            if (info == null || routeThreadId == null) {
+                Toast.makeText(context, R.string.invalid_board_url, Toast.LENGTH_SHORT).show()
+                navController.navigateUp()
+                return@LaunchedEffect
+            }
+            val vm = tabsViewModel.getOrCreateThreadViewModel(routeThreadId.value)
+            vm.initializeThread(
+                threadKey = threadRoute.threadKey,
+                boardInfo = info,
+                threadTitle = threadRoute.threadTitle
+            )
+            hasVisited = true
+        } else {
+            restoreLastTab = true
         }
-        val vm = tabsViewModel.getOrCreateThreadViewModel(routeThreadId.value)
-        vm.initializeThread(
-            threadKey = threadRoute.threadKey,
-            boardInfo = info,
-            threadTitle = threadRoute.threadTitle
-        )
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
@@ -102,6 +113,7 @@ fun ThreadScaffold(
         },
         scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
+        lastTabId = if (restoreLastTab) routeThreadId?.value else null,
         topBar = { viewModel, uiState, _, scrollBehavior ->
             if (uiState.isSearchMode) {
                 SearchTopAppBar(

@@ -64,6 +64,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier, navController: NavHostController) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
+    lastTabId: Any? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
     // このComposableはタブベースの画面レイアウトを提供します。
@@ -79,11 +80,17 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     val tabs = openTabs.ifEmpty { cachedTabs }
     Timber.d("tabs: $tabs")
     val currentTabInfo = tabs.find(currentRoutePredicate)
+        ?: lastTabId?.let { id -> tabs.find { getKey(it) == id } }
 
     if (currentTabInfo != null) {
         // 初期ページの決定。routeやタブ数が変わったら再計算される。
-        val initialPage = remember(route, tabs.size) {
-            tabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
+        val initialPage = remember(route, tabs.size, lastTabId) {
+            val indexByRoute = tabs.indexOfFirst(currentRoutePredicate)
+            if (indexByRoute >= 0) {
+                indexByRoute
+            } else {
+                lastTabId?.let { id -> tabs.indexOfFirst { getKey(it) == id } }?.coerceAtLeast(0) ?: 0
+            }
         }
 
         // Pagerの状態。ページ数はタブ数に応じて動的に提供される。
