@@ -8,10 +8,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -34,6 +38,9 @@ import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBeh
 import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -75,6 +82,20 @@ fun ThreadScaffold(
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
 
+    var restoreLastTab by rememberSaveable { mutableStateOf(false) }
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    DisposableEffect(backStackEntry) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_CREATE -> restoreLastTab = false
+                Lifecycle.Event.ON_RESUME -> restoreLastTab = true
+                else -> {}
+            }
+        }
+        backStackEntry?.lifecycle?.addObserver(observer)
+        onDispose { backStackEntry?.lifecycle?.removeObserver(observer) }
+    }
+
     RouteScaffold(
         route = threadRoute,
         tabsViewModel = tabsViewModel,
@@ -83,7 +104,7 @@ fun ThreadScaffold(
         openTabs = tabsUiState.openThreadTabs,
         currentRoutePredicate = { routeThreadId != null && it.id == routeThreadId },
         getViewModel = { tab -> tabsViewModel.getOrCreateThreadViewModel(tab.id.value) },
-        getKey = { it.id.value },
+        getKey = { it.id },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
         initializeViewModel = { viewModel, tab ->
@@ -101,6 +122,7 @@ fun ThreadScaffold(
             viewModel.updateThreadScrollPosition(tab.id, index, offset)
         },
         scrollBehavior = scrollBehavior,
+        lastTabId = if (restoreLastTab) tabsUiState.lastThreadId else null,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         topBar = { viewModel, uiState, _, scrollBehavior ->
             if (uiState.isSearchMode) {

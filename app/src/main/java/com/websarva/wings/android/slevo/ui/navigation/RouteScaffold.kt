@@ -63,6 +63,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     bottomBar: @Composable (viewModel: ViewModel, uiState: UiState, scrollBehavior: BottomAppBarScrollBehavior?) -> Unit,
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier, navController: NavHostController) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
+    lastTabId: Any? = null,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
@@ -82,8 +83,10 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
     if (currentTabInfo != null) {
         // 初期ページの決定。routeやタブ数が変わったら再計算される。
-        val initialPage = remember(route, tabs.size) {
-            tabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
+        val initialPage = remember(route, tabs.size, lastTabId) {
+            lastTabId?.let { id ->
+                tabs.indexOfFirst { getKey(it) == id }.takeIf { it != -1 }
+            } ?: tabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
         }
 
         // Pagerの状態。ページ数はタブ数に応じて動的に提供される。

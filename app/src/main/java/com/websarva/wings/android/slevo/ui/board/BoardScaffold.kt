@@ -11,9 +11,13 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,6 +37,9 @@ import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -72,6 +79,20 @@ fun BoardScaffold(
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
 
+    var restoreLastTab by rememberSaveable { mutableStateOf(false) }
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    DisposableEffect(backStackEntry) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_CREATE -> restoreLastTab = false
+                Lifecycle.Event.ON_RESUME -> restoreLastTab = true
+                else -> {}
+            }
+        }
+        backStackEntry?.lifecycle?.addObserver(observer)
+        onDispose { backStackEntry?.lifecycle?.removeObserver(observer) }
+    }
+
     RouteScaffold(
         route = boardRoute,
         tabsViewModel = tabsViewModel,
@@ -80,7 +101,7 @@ fun BoardScaffold(
         openTabs = tabsUiState.openBoardTabs,
         currentRoutePredicate = { it.boardUrl == boardRoute.boardUrl },
         getViewModel = { tab -> tabsViewModel.getOrCreateBoardViewModel(tab.boardUrl) },
-        getKey = { it.boardUrl },
+        getKey = { it.boardId },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
         initializeViewModel = { viewModel, tab ->
@@ -96,6 +117,7 @@ fun BoardScaffold(
             tabsViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
         scrollBehavior = scrollBehavior,
+        lastTabId = if (restoreLastTab) tabsUiState.lastBoardId else null,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             val bookmarkState = uiState.singleBookmarkState
             val bookmarkIconColor =
