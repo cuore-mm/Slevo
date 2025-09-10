@@ -8,6 +8,7 @@ import androidx.room.Transaction
 import androidx.room.Update
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryAccessEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryEntity
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -17,7 +18,7 @@ interface ThreadHistoryDao {
         val lastAccess: Long?
     )
     data class HistorySimple(
-        val threadKey: String,
+        val threadId: ThreadId,
         val resCount: Int,
     )
 
@@ -30,12 +31,12 @@ interface ThreadHistoryDao {
     )
     fun observeHistories(): Flow<List<HistoryWithLastAccess>>
 
-    @Query("SELECT * FROM thread_histories WHERE threadKey = :threadKey AND boardUrl = :boardUrl LIMIT 1")
-    suspend fun find(threadKey: String, boardUrl: String): ThreadHistoryEntity?
-    @Query("SELECT threadKey, resCount FROM thread_histories WHERE boardUrl = :boardUrl")
+    @Query("SELECT * FROM thread_histories WHERE threadId = :threadId LIMIT 1")
+    suspend fun find(threadId: ThreadId): ThreadHistoryEntity?
+    @Query("SELECT threadId, resCount FROM thread_histories WHERE boardUrl = :boardUrl")
     suspend fun findByBoard(boardUrl: String): List<HistorySimple>
 
-    @Query("SELECT threadKey, resCount FROM thread_histories WHERE boardUrl = :boardUrl")
+    @Query("SELECT threadId, resCount FROM thread_histories WHERE boardUrl = :boardUrl")
     fun observeByBoard(boardUrl: String): Flow<List<HistorySimple>>
 
 
@@ -63,6 +64,17 @@ interface ThreadHistoryDao {
     @Update
     suspend fun updateAccess(access: ThreadHistoryAccessEntity)
 
-    @Query("DELETE FROM thread_histories WHERE threadKey = :threadKey AND boardUrl = :boardUrl")
-    suspend fun delete(threadKey: String, boardUrl: String)
+    @Query("DELETE FROM thread_histories WHERE threadId = :threadId")
+    suspend fun delete(threadId: ThreadId)
+
+    @Query(
+        "UPDATE thread_histories SET prevResCount = :prevResCount, lastReadResNo = :lastReadResNo, " +
+            "firstNewResNo = :firstNewResNo WHERE threadId = :threadId"
+    )
+    suspend fun updateReadState(
+        threadId: ThreadId,
+        prevResCount: Int,
+        lastReadResNo: Int,
+        firstNewResNo: Int?,
+    )
 }

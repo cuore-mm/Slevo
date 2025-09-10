@@ -47,6 +47,7 @@
     <string name="title">タイトル</string>
     <string name="open_url">URLを開く</string>
     <string name="enter_url">板またはスレッドのURLを入力してください</string>
+    <string name="invalid_board_url">無効な板URLです</string>
     <string name="open">開く</string>
     <string name="select_image">画像を選択</string>
     <string name="history">履歴</string>
@@ -65,7 +66,7 @@
     <string name="name">name</string>
     <string name="name_label">名前</string>
     <string name="word_label">ワード</string>
-    <string name="thread_title_label">スレタイ</string>
+    <string name="thread_title_label">タイトル</string>
     <string name="all_boards">すべての板</string>
     <string name="search_board_hint">板名またはURLで検索</string>
     <string name="new_label">new</string>
@@ -87,4 +88,7 @@
     <string name="cookie_expires">Expires / Max-Age: %1$s</string>
     <string name="cookie_size">Size: %1$d</string>
     <string name="cookie_value_preview">Value: %1$s</string>
+    <string name="title_and_url">タイトル + URL</string>
+    <string name="res_number_label">レス番号</string>
+    <string name="header_and_body">ヘッダー + 本文</string>
 </resources>

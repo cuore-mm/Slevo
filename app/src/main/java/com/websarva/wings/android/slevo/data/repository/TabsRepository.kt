@@ -5,7 +5,9 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenBoardTabDa
 import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenThreadTabDao
 import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenBoardTabEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadTabEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import kotlinx.coroutines.Dispatchers
@@ -72,15 +74,15 @@ class TabsRepository @Inject constructor(
         threadDao.observeOpenThreadTabs().map { list ->
             list.sortedBy { it.sortOrder }.map { entity ->
                 ThreadTabInfo(
-                    key = entity.threadKey,
+                    id = entity.threadId,
                     title = entity.title,
                     boardName = entity.boardName,
                     boardUrl = entity.boardUrl,
                     boardId = entity.boardId,
                     resCount = entity.resCount,
-                    prevResCount = entity.prevResCount,
-                    lastReadResNo = entity.lastReadResNo,
-                    firstNewResNo = entity.firstNewResNo,
+                    prevResCount = entity.readState.prevResCount,
+                    lastReadResNo = entity.readState.lastReadResNo,
+                    firstNewResNo = entity.readState.firstNewResNo,
                     firstVisibleItemIndex = entity.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = entity.firstVisibleItemScrollOffset
                 )
@@ -89,25 +91,27 @@ class TabsRepository @Inject constructor(
 
     suspend fun saveOpenThreadTabs(tabs: List<ThreadTabInfo>) = withContext(Dispatchers.IO) {
         db.withTransaction {
-            val existing = threadDao.getAll().associateBy { it.threadKey + ":" + it.boardUrl }
+            val existing = threadDao.getAll().associateBy { it.threadId.value }
             val upserts = mutableListOf<OpenThreadTabEntity>()
             val ids = mutableListOf<String>()
             tabs.forEachIndexed { index, info ->
                 val entity = OpenThreadTabEntity(
-                    threadKey = info.key,
+                    threadId = info.id,
                     boardUrl = info.boardUrl,
                     boardId = info.boardId,
                     boardName = info.boardName,
                     title = info.title,
                     resCount = info.resCount,
-                    prevResCount = info.prevResCount,
-                    lastReadResNo = info.lastReadResNo,
-                    firstNewResNo = info.firstNewResNo,
+                    readState = ThreadReadState(
+                        prevResCount = info.prevResCount,
+                        lastReadResNo = info.lastReadResNo,
+                        firstNewResNo = info.firstNewResNo,
+                    ),
                     sortOrder = index,
                     firstVisibleItemIndex = info.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = info.firstVisibleItemScrollOffset
                 )
-                val id = info.key + ":" + info.boardUrl
+                val id = info.id.value
                 ids.add(id)
                 if (existing[id] != entity) {
                     upserts.add(entity)

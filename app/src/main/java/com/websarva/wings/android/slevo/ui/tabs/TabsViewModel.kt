@@ -5,11 +5,13 @@ import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.board.BoardViewModel
 import com.websarva.wings.android.slevo.ui.board.BoardViewModelFactory
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
@@ -47,7 +49,7 @@ class TabsViewModel @Inject constructor(
     // boardUrl をキーに BoardViewModel をキャッシュ
     private val boardViewModelMap: MutableMap<String, BoardViewModel> = mutableMapOf()
 
-    // threadKey + boardUrl をキーに ThreadViewModel をキャッシュ
+    // threadId をキーに ThreadViewModel をキャッシュ
     private val threadViewModelMap: MutableMap<String, ThreadViewModel> = mutableMapOf()
 
     val lastSelectedPage = tabsRepository.observeLastSelectedPage()
@@ -83,10 +85,13 @@ class TabsViewModel @Inject constructor(
                 groups.forEach { g ->
                     val color = g.group.colorName
                     g.threads.forEach { t ->
-                        colorMap[t.threadKey + t.boardUrl] = color
+                        parseBoardUrl(t.boardUrl)?.let { (host, board) ->
+                            val threadId = ThreadId.of(host, board, t.threadKey)
+                            colorMap[threadId.value] = color
+                        }
                     }
                 }
-                tabs.map { it.copy(bookmarkColorName = colorMap[it.key + it.boardUrl]) }
+                tabs.map { it.copy(bookmarkColorName = colorMap[it.id.value]) }
             }.collect { threads ->
                 _uiState.update { current ->
                     current.copy(
@@ -149,21 +154,21 @@ class TabsViewModel @Inject constructor(
     /**
      * 指定された板ID・URL・板名からBoardInfoを解決する。
      * - boardIdが有効ならそれを優先。
-     * - ブックマークからURL一致の板情報を検索。
+     * - BoardEntityからURL一致の板情報を検索。
      * - それ以外は板名を取得・登録してIDを確定。
      */
     suspend fun resolveBoardInfo(
         boardId: Long?,
         boardUrl: String,
         boardName: String
-    ): BoardInfo {
+    ): BoardInfo? {
         boardId?.takeIf { it != 0L }?.let { return BoardInfo(it, boardName, boardUrl) }
 
-        bookmarkBoardRepo.findBoardByUrl(boardUrl)?.let { entity ->
+        boardRepository.findBoardByUrl(boardUrl)?.let { entity ->
             return BoardInfo(entity.boardId, entity.name, entity.url)
         }
 
-        val name = boardRepository.fetchBoardName("${boardUrl}SETTING.TXT") ?: boardName
+        val name = boardRepository.fetchBoardName("${boardUrl}SETTING.TXT") ?: return null
         val id = boardRepository.ensureBoard(BoardInfo(0L, name, boardUrl))
         return BoardInfo(id, name, boardUrl)
     }
@@ -172,12 +177,12 @@ class TabsViewModel @Inject constructor(
      * スレッドタブを閉じ、関連する [ThreadViewModel] を解放する。
      */
     fun closeThreadTab(tab: ThreadTabInfo) {
-        val mapKey = tab.key + tab.boardUrl
+        val mapKey = tab.id.value
         threadViewModelMap[mapKey]?.release()
         threadViewModelMap.remove(mapKey)
         viewModelScope.launch {
             val current = tabsRepository.observeOpenThreadTabs().first()
-            val updated = current.filterNot { it.key == tab.key && it.boardUrl == tab.boardUrl }
+            val updated = current.filterNot { it.id == tab.id }
             tabsRepository.saveOpenThreadTabs(updated)
         }
     }
@@ -218,8 +223,8 @@ class TabsViewModel @Inject constructor(
         viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
     }
 
-    fun clearNewResCount(threadKey: String, boardUrl: String) {
-        val key = threadKey + boardUrl
+    fun clearNewResCount(threadId: ThreadId) {
+        val key = threadId.value
         _uiState.update { it.copy(newResCounts = it.newResCounts - key) }
     }
 
@@ -230,11 +235,11 @@ class TabsViewModel @Inject constructor(
             val currentTabs = _uiState.value.openThreadTabs
             val resultMap = mutableMapOf<String, Int>()
             val updatedTabs = currentTabs.map { tab ->
-                val res = datRepository.getThread(tab.boardUrl, tab.key)
+                val res = datRepository.getThread(tab.boardUrl, tab.threadKey)
                 val size = res?.first?.size ?: tab.resCount
                 val diff = size - tab.resCount
                 if (diff > 0) {
-                    resultMap[tab.key + tab.boardUrl] = diff
+                    resultMap[tab.id.value] = diff
                 }
                 val candidate =
                     if (tab.firstNewResNo == null || tab.firstNewResNo <= tab.lastReadResNo) {
@@ -262,8 +267,8 @@ class TabsViewModel @Inject constructor(
     /**
      * 指定キーのタブ情報を取得する。
      */
-    fun getTabInfo(tabKey: String, boardUrl: String): ThreadTabInfo? {
-        return _uiState.value.openThreadTabs.find { it.key == tabKey && it.boardUrl == boardUrl }
+    fun getTabInfo(threadId: ThreadId): ThreadTabInfo? {
+        return _uiState.value.openThreadTabs.find { it.id == threadId }
     }
 
     /**

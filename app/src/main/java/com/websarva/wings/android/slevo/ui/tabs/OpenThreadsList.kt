@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
@@ -57,7 +58,7 @@ fun OpenThreadsList(
         onRefresh = onRefresh,
     ) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(openTabs, key = { it.key + it.boardUrl }) { tab ->
+            items(openTabs, key = { it.id.value }) { tab ->
                 val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
                 Row(modifier = Modifier.height(IntrinsicSize.Min)) {
                     if (color != null) {
@@ -76,7 +77,7 @@ fun OpenThreadsList(
                                 onItemClick(tab)
                                 navController.navigate(
                                     AppRoute.Thread(
-                                        threadKey = tab.key,
+                                        threadKey = tab.threadKey,
                                         boardUrl = tab.boardUrl,
                                         boardName = tab.boardName,
                                         boardId = tab.boardId,
@@ -122,7 +123,7 @@ fun OpenThreadsList(
                                     contentDescription = stringResource(R.string.close)
                                 )
                             }
-                            val diff = newResCounts[tab.key + tab.boardUrl] ?: 0
+                            val diff = newResCounts[tab.id.value] ?: 0
                             if (diff > 0) {
                                 Text(
                                     text = "+$diff",
@@ -144,7 +145,7 @@ fun OpenThreadsList(
 fun OpenThreadsListPreview() {
     val sampleTabs = listOf(
         ThreadTabInfo(
-            "1",
+            ThreadId.of("example.com", "board1", "1"),
             "スレッド1",
             "板1",
             "https://example.com/board1",
@@ -153,7 +154,7 @@ fun OpenThreadsListPreview() {
             bookmarkColorName = BookmarkColor.RED.value
         ),
         ThreadTabInfo(
-            "2",
+            ThreadId.of("example.com", "board2", "2"),
             "スレッド2",
             "板2",
             "https://example.com/board2",
@@ -161,7 +162,14 @@ fun OpenThreadsListPreview() {
             200,
             bookmarkColorName = BookmarkColor.GREEN.value
         ),
-        ThreadTabInfo("3", "スレッド3", "板3", "https://example.com/board3", 3, 300)
+        ThreadTabInfo(
+            ThreadId.of("example.com", "board3", "3"),
+            "スレッド3",
+            "板3",
+            "https://example.com/board3",
+            3,
+            300
+        )
     )
     OpenThreadsList(
         openTabs = sampleTabs,

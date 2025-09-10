@@ -311,7 +311,12 @@ class BoardViewModel @AssistedInject constructor(
             _uiState.update { it.copy(isPosting = false) }
             when (result) {
                 is PostResult.Success -> {
-                    _uiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
+                    _uiState.update {
+                        it.copy(
+                            postResultMessage = "書き込みに成功しました。",
+                            createFormState = CreateThreadFormState()
+                        )
+                    }
                     refreshBoardData()
                 }
                 is PostResult.Confirm -> {
@@ -342,7 +347,12 @@ class BoardViewModel @AssistedInject constructor(
             _uiState.update { it.copy(isPosting = false) }
             when (result) {
                 is PostResult.Success -> {
-                    _uiState.update { it.copy(postResultMessage = "書き込みに成功しました。") }
+                    _uiState.update {
+                        it.copy(
+                            postResultMessage = "書き込みに成功しました。",
+                            createFormState = CreateThreadFormState()
+                        )
+                    }
                     refreshBoardData()
                 }
                 is PostResult.Error -> {

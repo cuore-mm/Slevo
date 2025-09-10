@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,14 +29,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.toClipEntry
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
@@ -46,7 +47,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.ui.common.CopyDialog
+import com.websarva.wings.android.slevo.ui.common.CopyItem
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnailGrid
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.theme.idColor
@@ -58,7 +62,6 @@ import com.websarva.wings.android.slevo.ui.thread.dialog.TextMenuDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
-import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -90,6 +93,7 @@ fun PostItem(
     onIdClick: ((String) -> Unit)? = null,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    var showCopyDialog by remember { mutableStateOf(false) }
     var textMenuData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
     var ngDialogData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
     var showNgSelectDialog by remember { mutableStateOf(false) }
@@ -145,336 +149,363 @@ fun PostItem(
                     )
                     .pointerInput(Unit) {
                         detectTapGestures(
-                        onPress = {
-                            handlePressFeedback(
-                                scope = scope,
-                                onFeedbackStart = { isContentPressed = true },
-                                onFeedbackEnd = { isContentPressed = false },
-                                awaitRelease = { awaitRelease() }
-                            )
-                        },
-                        onLongPress = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            menuExpanded = true
-                        }
-                    )
-                }
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        ) {
-            val idColor = idColor(idTotal)
+                            onPress = {
+                                handlePressFeedback(
+                                    scope = scope,
+                                    onFeedbackStart = { isContentPressed = true },
+                                    onFeedbackEnd = { isContentPressed = false },
+                                    awaitRelease = { awaitRelease() }
+                                )
+                            },
+                            onLongPress = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                menuExpanded = true
+                            }
+                        )
+                    }
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                val idColor = idColor(idTotal)
 
-            Row {
-                val replyCount = replyFromNumbers.size
-                val postNumColor =
-                    if (replyCount > 0) replyCountColor(replyCount) else MaterialTheme.colorScheme.onSurfaceVariant
-                Text(
-                    modifier = Modifier
-                        .alignByBaseline()
-                        .clickable(enabled = replyCount > 0) {
-                            onReplyFromClick?.invoke(
-                                replyFromNumbers
-                            )
-                        },
-                    text = if (replyCount > 0) "$postNum ($replyCount)" else postNum.toString(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = postNumColor
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                val headerText = buildAnnotatedString {
-                    var first = true
-                    fun appendSpaceIfNeeded() {
-                        if (!first) append(" ") else first = false
-                    }
-                    if (post.name.isNotBlank()) {
-                        appendSpaceIfNeeded()
-                        pushStringAnnotation(tag = "NAME", annotation = post.name)
-                        withStyle(
-                            SpanStyle(
-                                color = if (pressedHeaderPart == "NAME") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                textDecoration = if (pressedHeaderPart == "NAME") TextDecoration.Underline else TextDecoration.None
-                            )
-                        ) {
-                            append(post.name)
+                Row {
+                    val replyCount = replyFromNumbers.size
+                    val postNumColor =
+                        if (replyCount > 0) replyCountColor(replyCount) else MaterialTheme.colorScheme.onSurfaceVariant
+                    Text(
+                        modifier = Modifier
+                            .alignByBaseline()
+                            .clickable(enabled = replyCount > 0) {
+                                onReplyFromClick?.invoke(
+                                    replyFromNumbers
+                                )
+                            },
+                        text = if (replyCount > 0) "$postNum ($replyCount)" else postNum.toString(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = postNumColor
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    val headerText = buildAnnotatedString {
+                        var first = true
+                        fun appendSpaceIfNeeded() {
+                            if (!first) append(" ") else first = false
                         }
-                        pop()
-                    }
-                    val currentYearPrefix = run {
-                        val year = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            LocalDate.now().year
-                        } else {
-                            java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+                        if (post.name.isNotBlank()) {
+                            appendSpaceIfNeeded()
+                            pushStringAnnotation(tag = "NAME", annotation = post.name)
+                            withStyle(
+                                SpanStyle(
+                                    color = if (pressedHeaderPart == "NAME") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textDecoration = if (pressedHeaderPart == "NAME") TextDecoration.Underline else TextDecoration.None
+                                )
+                            ) {
+                                append(post.name)
+                            }
+                            pop()
                         }
-                        "$year/"
-                    }
-                    val displayDate =
-                        if (post.date.startsWith(currentYearPrefix)) {
-                            post.date.removePrefix(currentYearPrefix)
-                        } else {
-                            post.date
+                        val currentYearPrefix = run {
+                            val year = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                LocalDate.now().year
+                            } else {
+                                java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+                            }
+                            "$year/"
                         }
-                    val emailDate =
-                        listOf(post.email, displayDate).filter { it.isNotBlank() }.joinToString(" ")
-                    if (emailDate.isNotBlank()) {
-                        appendSpaceIfNeeded()
-                        withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
-                            append(emailDate)
+                        val displayDate =
+                            if (post.date.startsWith(currentYearPrefix)) {
+                                post.date.removePrefix(currentYearPrefix)
+                            } else {
+                                post.date
+                            }
+                        val emailDate =
+                            listOf(post.email, displayDate).filter { it.isNotBlank() }
+                                .joinToString(" ")
+                        if (emailDate.isNotBlank()) {
+                            appendSpaceIfNeeded()
+                            withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
+                                append(emailDate)
+                            }
+                        }
+                        if (post.id.isNotBlank()) {
+                            appendSpaceIfNeeded()
+                            pushStringAnnotation(tag = "ID", annotation = post.id)
+                            withStyle(
+                                SpanStyle(
+                                    color = if (pressedHeaderPart == "ID") MaterialTheme.colorScheme.primary else idColor,
+                                    textDecoration = if (pressedHeaderPart == "ID") TextDecoration.Underline else TextDecoration.None
+                                )
+                            ) {
+                                append(idText)
+                            }
+                            pop()
+                        }
+                        if (post.beRank.isNotBlank()) {
+                            appendSpaceIfNeeded()
+                            withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
+                                append(post.beRank)
+                            }
                         }
                     }
-                    if (post.id.isNotBlank()) {
-                        appendSpaceIfNeeded()
-                        pushStringAnnotation(tag = "ID", annotation = idText)
-                        withStyle(
-                            SpanStyle(
-                                color = if (pressedHeaderPart == "ID") MaterialTheme.colorScheme.primary else idColor,
-                                textDecoration = if (pressedHeaderPart == "ID") TextDecoration.Underline else TextDecoration.None
-                            )
-                        ) {
-                            append(idText)
-                        }
-                        pop()
-                    }
-                    if (post.beRank.isNotBlank()) {
-                        appendSpaceIfNeeded()
-                        withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
-                            append(post.beRank)
-                        }
-                    }
-                }
-                var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
-                Text(
-                    modifier = Modifier
-                        .alignByBaseline()
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onPress = { offset ->
-                                    headerLayout?.let { layout ->
-                                        val pos = layout.getOffsetForPosition(offset)
-                                        val nameAnn = headerText.getStringAnnotations("NAME", pos, pos).firstOrNull()
-                                        val idAnn = headerText.getStringAnnotations("ID", pos, pos).firstOrNull()
-                                        when {
-                                            nameAnn != null ->
-                                                handlePressFeedback(
-                                                    scope = scope,
-                                                    feedbackDelayMillis = 0L,
-                                                    onFeedbackStart = { pressedHeaderPart = "NAME" },
-                                                    onFeedbackEnd = { pressedHeaderPart = null },
-                                                    awaitRelease = { awaitRelease() }
-                                                )
-                                            idAnn != null ->
-                                                handlePressFeedback(
-                                                    scope = scope,
-                                                    feedbackDelayMillis = 0L,
-                                                    onFeedbackStart = { pressedHeaderPart = "ID" },
-                                                    onFeedbackEnd = { pressedHeaderPart = null },
-                                                    awaitRelease = { awaitRelease() }
-                                                )
-                                            else ->
-                                                handlePressFeedback(
-                                                    scope = scope,
-                                                    onFeedbackStart = { isContentPressed = true },
-                                                    onFeedbackEnd = { isContentPressed = false },
-                                                    awaitRelease = { awaitRelease() }
-                                                )
-                                        }
-                                    } ?: handlePressFeedback(
-                                        scope = scope,
-                                        onFeedbackStart = { isContentPressed = true },
-                                        onFeedbackEnd = { isContentPressed = false },
-                                        awaitRelease = { awaitRelease() }
-                                    )
-                                },
-                                onTap = { offset ->
-                                    headerLayout?.let { layout ->
-                                        val pos = layout.getOffsetForPosition(offset)
-                                        headerText.getStringAnnotations("ID", pos, pos)
-                                            .firstOrNull()?.let { ann ->
-                                                onIdClick?.invoke(post.id)
+                    var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+                    Text(
+                        modifier = Modifier
+                            .alignByBaseline()
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onPress = { offset ->
+                                        headerLayout?.let { layout ->
+                                            val pos = layout.getOffsetForPosition(offset)
+                                            val nameAnn =
+                                                headerText.getStringAnnotations("NAME", pos, pos)
+                                                    .firstOrNull()
+                                            val idAnn =
+                                                headerText.getStringAnnotations("ID", pos, pos)
+                                                    .firstOrNull()
+                                            when {
+                                                nameAnn != null ->
+                                                    handlePressFeedback(
+                                                        scope = scope,
+                                                        feedbackDelayMillis = 0L,
+                                                        onFeedbackStart = {
+                                                            pressedHeaderPart = "NAME"
+                                                        },
+                                                        onFeedbackEnd = {
+                                                            pressedHeaderPart = null
+                                                        },
+                                                        awaitRelease = { awaitRelease() }
+                                                    )
+
+                                                idAnn != null ->
+                                                    handlePressFeedback(
+                                                        scope = scope,
+                                                        feedbackDelayMillis = 0L,
+                                                        onFeedbackStart = {
+                                                            pressedHeaderPart = "ID"
+                                                        },
+                                                        onFeedbackEnd = {
+                                                            pressedHeaderPart = null
+                                                        },
+                                                        awaitRelease = { awaitRelease() }
+                                                    )
+
+                                                else ->
+                                                    handlePressFeedback(
+                                                        scope = scope,
+                                                        onFeedbackStart = {
+                                                            isContentPressed = true
+                                                        },
+                                                        onFeedbackEnd = {
+                                                            isContentPressed = false
+                                                        },
+                                                        awaitRelease = { awaitRelease() }
+                                                    )
                                             }
-                                    }
-                                },
-                                onLongPress = { offset ->
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    headerLayout?.let { layout ->
-                                        val pos = layout.getOffsetForPosition(offset)
-                                        val nameAnn =
-                                            headerText.getStringAnnotations("NAME", pos, pos)
-                                                .firstOrNull()
-                                        val idAnn =
+                                        } ?: handlePressFeedback(
+                                            scope = scope,
+                                            onFeedbackStart = { isContentPressed = true },
+                                            onFeedbackEnd = { isContentPressed = false },
+                                            awaitRelease = { awaitRelease() }
+                                        )
+                                    },
+                                    onTap = { offset ->
+                                        headerLayout?.let { layout ->
+                                            val pos = layout.getOffsetForPosition(offset)
                                             headerText.getStringAnnotations("ID", pos, pos)
-                                                .firstOrNull()
-                                        when {
-                                            nameAnn != null ->
-                                                textMenuData = nameAnn.item to NgType.USER_NAME
-                                            idAnn != null ->
-                                                textMenuData = idAnn.item to NgType.USER_ID
-                                            else -> menuExpanded = true
+                                                .firstOrNull()?.let { ann ->
+                                                    onIdClick?.invoke(post.id)
+                                                }
                                         }
-                                    } ?: run { menuExpanded = true }
-                                }
-                            )
-                        },
-                    text = headerText,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    onTextLayout = { headerLayout = it }
-                )
-            }
+                                    },
+                                    onLongPress = { offset ->
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        headerLayout?.let { layout ->
+                                            val pos = layout.getOffsetForPosition(offset)
+                                            val nameAnn =
+                                                headerText.getStringAnnotations("NAME", pos, pos)
+                                                    .firstOrNull()
+                                            val idAnn =
+                                                headerText.getStringAnnotations("ID", pos, pos)
+                                                    .firstOrNull()
+                                            when {
+                                                nameAnn != null ->
+                                                    textMenuData = nameAnn.item to NgType.USER_NAME
 
-            val uriHandler = LocalUriHandler.current
-            val annotatedText = buildUrlAnnotatedString(
-                text = post.content,
-                onOpenUrl = { uriHandler.openUri(it) },
-                pressedUrl = pressedUrl,
-                pressedReply = pressedReply
-            )
-            var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+                                                idAnn != null ->
+                                                    textMenuData = idAnn.item to NgType.USER_ID
 
-            Column(horizontalAlignment = Alignment.Start) {
-                if (post.beIconUrl.isNotBlank()) {
-                    AsyncImage(
-                        model = post.beIconUrl,
-                        contentDescription = null,
-                        modifier = Modifier.size(32.dp)
+                                                else -> menuExpanded = true
+                                            }
+                                        } ?: run { menuExpanded = true }
+                                    }
+                                )
+                            },
+                        text = headerText,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        onTextLayout = { headerLayout = it }
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    modifier = Modifier
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onPress = { offset ->
-                                    contentLayout?.let { layout ->
-                                        val pos = layout.getOffsetForPosition(offset)
-                                        val urlAnn =
+
+                val uriHandler = LocalUriHandler.current
+                val annotatedText = buildUrlAnnotatedString(
+                    text = post.content,
+                    onOpenUrl = { uriHandler.openUri(it) },
+                    pressedUrl = pressedUrl,
+                    pressedReply = pressedReply
+                )
+                var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+
+                Column(horizontalAlignment = Alignment.Start) {
+                    if (post.beIconUrl.isNotBlank()) {
+                        AsyncImage(
+                            model = post.beIconUrl,
+                            contentDescription = null,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        modifier = Modifier
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onPress = { offset ->
+                                        contentLayout?.let { layout ->
+                                            val pos = layout.getOffsetForPosition(offset)
+                                            val urlAnn =
+                                                annotatedText.getStringAnnotations("URL", pos, pos)
+                                                    .firstOrNull()
+                                            val replyAnn =
+                                                annotatedText.getStringAnnotations(
+                                                    "REPLY",
+                                                    pos,
+                                                    pos
+                                                )
+                                                    .firstOrNull()
+                                            when {
+                                                urlAnn != null -> {
+                                                    handlePressFeedback(
+                                                        scope = scope,
+                                                        feedbackDelayMillis = 0L,
+                                                        onFeedbackStart = {
+                                                            pressedUrl = urlAnn.item
+                                                        },
+                                                        onFeedbackEnd = { pressedUrl = null },
+                                                        awaitRelease = { awaitRelease() }
+                                                    )
+                                                }
+
+                                                replyAnn != null -> {
+                                                    handlePressFeedback(
+                                                        scope = scope,
+                                                        feedbackDelayMillis = 0L,
+                                                        onFeedbackStart = {
+                                                            pressedReply = replyAnn.item
+                                                        },
+                                                        onFeedbackEnd = { pressedReply = null },
+                                                        awaitRelease = { awaitRelease() }
+                                                    )
+                                                }
+
+                                                else -> {
+                                                    handlePressFeedback(
+                                                        scope = scope,
+                                                        onFeedbackStart = {
+                                                            isContentPressed = true
+                                                        },
+                                                        onFeedbackEnd = {
+                                                            isContentPressed = false
+                                                        },
+                                                        awaitRelease = { awaitRelease() }
+                                                    )
+                                                }
+                                            }
+                                        } ?: handlePressFeedback(
+                                            scope = scope,
+                                            onFeedbackStart = { isContentPressed = true },
+                                            onFeedbackEnd = { isContentPressed = false },
+                                            awaitRelease = { awaitRelease() }
+                                        )
+                                    },
+                                    onTap = { offset ->
+                                        contentLayout?.let { layout ->
+                                            val pos = layout.getOffsetForPosition(offset)
                                             annotatedText.getStringAnnotations("URL", pos, pos)
-                                                .firstOrNull()
-                                        val replyAnn =
-                                            annotatedText.getStringAnnotations("REPLY", pos, pos)
-                                                .firstOrNull()
-                                        when {
-                                            urlAnn != null -> {
-                                                handlePressFeedback(
-                                                    scope = scope,
-                                                    feedbackDelayMillis = 0L,
-                                                    onFeedbackStart = { pressedUrl = urlAnn.item },
-                                                    onFeedbackEnd = { pressedUrl = null },
-                                                    awaitRelease = { awaitRelease() }
-                                                )
-                                            }
-
-                                            replyAnn != null -> {
-                                                handlePressFeedback(
-                                                    scope = scope,
-                                                    feedbackDelayMillis = 0L,
-                                                    onFeedbackStart = { pressedReply = replyAnn.item },
-                                                    onFeedbackEnd = { pressedReply = null },
-                                                    awaitRelease = { awaitRelease() }
-                                                )
-                                            }
-
-                                            else -> {
-                                                handlePressFeedback(
-                                                    scope = scope,
-                                                    onFeedbackStart = { isContentPressed = true },
-                                                    onFeedbackEnd = { isContentPressed = false },
-                                                    awaitRelease = { awaitRelease() }
-                                                )
-                                            }
-                                        }
-                                    } ?: handlePressFeedback(
-                                        scope = scope,
-                                        onFeedbackStart = { isContentPressed = true },
-                                        onFeedbackEnd = { isContentPressed = false },
-                                        awaitRelease = { awaitRelease() }
-                                    )
-                                },
-                                onTap = { offset ->
-                                    contentLayout?.let { layout ->
-                                        val pos = layout.getOffsetForPosition(offset)
-                                        annotatedText.getStringAnnotations("URL", pos, pos)
-                                            .firstOrNull()?.let { ann ->
-                                                val url = ann.item
-                                                parseThreadUrl(url)?.let { (host, board, key) ->
-                                                    val boardUrl = "https://$host/$board/"
-                                                    navController.navigate(
-                                                        AppRoute.Thread(
-                                                            threadKey = key,
-                                                            boardUrl = boardUrl,
-                                                            boardName = board,
-                                                            threadTitle = url
-                                                        )
-                                                    ) { launchSingleTop = true }
-                                                } ?: run {
-                                                    parseBoardUrl(url)?.let { (host, board) ->
+                                                .firstOrNull()?.let { ann ->
+                                                    val url = ann.item
+                                                    parseThreadUrl(url)?.let { (host, board, key) ->
                                                         val boardUrl = "https://$host/$board/"
                                                         navController.navigate(
-                                                            AppRoute.Board(
+                                                            AppRoute.Thread(
+                                                                threadKey = key,
+                                                                boardUrl = boardUrl,
                                                                 boardName = board,
-                                                                boardUrl = boardUrl
+                                                                threadTitle = url
                                                             )
                                                         ) { launchSingleTop = true }
                                                     } ?: uriHandler.openUri(url)
                                                 }
-                                            }
-                                        annotatedText.getStringAnnotations("REPLY", pos, pos)
-                                            .firstOrNull()?.let { ann ->
-                                                ann.item.toIntOrNull()
-                                                    ?.let { onReplyClick?.invoke(it) }
-                                            }
-                                    }
-                                },
-                                onLongPress = { offset ->
-                                    contentLayout?.let { layout ->
-                                        val pos = layout.getOffsetForPosition(offset)
-                                        val urlAnn =
-                                            annotatedText.getStringAnnotations("URL", pos, pos)
-                                                .firstOrNull()
-                                        val replyAnn =
                                             annotatedText.getStringAnnotations("REPLY", pos, pos)
-                                                .firstOrNull()
-                                        if (urlAnn == null && replyAnn == null) {
+                                                .firstOrNull()?.let { ann ->
+                                                    ann.item.toIntOrNull()
+                                                        ?.let { onReplyClick?.invoke(it) }
+                                                }
+                                        }
+                                    },
+                                    onLongPress = { offset ->
+                                        contentLayout?.let { layout ->
+                                            val pos = layout.getOffsetForPosition(offset)
+                                            val urlAnn =
+                                                annotatedText.getStringAnnotations("URL", pos, pos)
+                                                    .firstOrNull()
+                                            val replyAnn =
+                                                annotatedText.getStringAnnotations(
+                                                    "REPLY",
+                                                    pos,
+                                                    pos
+                                                )
+                                                    .firstOrNull()
+                                            if (urlAnn == null && replyAnn == null) {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                menuExpanded = true
+                                            }
+                                        } ?: run {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             menuExpanded = true
                                         }
-                                    } ?: run {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        menuExpanded = true
                                     }
-                                }
-                            )
-                        },
-                    text = annotatedText,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurface
-                    ),
-                    onTextLayout = { contentLayout = it }
-                )
-            }
-
-            val imageUrls = remember(post.content, post.urlFlags) {
-                if (post.urlFlags and ReplyInfo.HAS_IMAGE_URL != 0) {
-                    extractImageUrls(post.content)
-                } else {
-                    emptyList()
+                                )
+                            },
+                        text = annotatedText,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        onTextLayout = { contentLayout = it }
+                    )
                 }
-            }
-            if (imageUrls.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                ImageThumbnailGrid(
-                    imageUrls = imageUrls,
-                    onImageClick = { url ->
-                        navController.navigate(
-                            AppRoute.ImageViewer(
-                                imageUrl = URLEncoder.encode(
-                                    url,
-                                    StandardCharsets.UTF_8.toString()
+
+                val imageUrls = remember(post.content, post.urlFlags) {
+                    if (post.urlFlags and ReplyInfo.HAS_IMAGE_URL != 0) {
+                        extractImageUrls(post.content)
+                    } else {
+                        emptyList()
+                    }
+                }
+                if (imageUrls.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    ImageThumbnailGrid(
+                        imageUrls = imageUrls,
+                        onImageClick = { url ->
+                            navController.navigate(
+                                AppRoute.ImageViewer(
+                                    imageUrl = URLEncoder.encode(
+                                        url,
+                                        StandardCharsets.UTF_8.toString()
+                                    )
                                 )
                             )
-                        )
-                    }
-                )
+                        }
+                    )
+                }
             }
-        }
         }
 
         if (menuExpanded) {
@@ -484,12 +515,33 @@ fun PostItem(
                     menuExpanded = false
                     onMenuReplyClick?.invoke(postNum)
                 },
-                onCopyClick = { menuExpanded = false },
+                onCopyClick = {
+                    menuExpanded = false
+                    showCopyDialog = true
+                },
                 onNgClick = {
                     menuExpanded = false
                     showNgSelectDialog = true
                 },
                 onDismiss = { menuExpanded = false }
+            )
+        }
+        if (showCopyDialog) {
+            val header = buildString {
+                append(postNum)
+                if (post.name.isNotBlank()) append(" ${post.name}")
+                if (post.date.isNotBlank()) append(" ${post.date}")
+                if (post.id.isNotBlank()) append(" ID:${post.id}")
+            }
+            CopyDialog(
+                items = listOf(
+                    CopyItem(postNum.toString(), stringResource(R.string.res_number_label)),
+                    CopyItem(post.name, stringResource(R.string.name_label)),
+                    CopyItem(post.id, stringResource(R.string.id_label)),
+                    CopyItem(post.content, stringResource(R.string.post_message)),
+                    CopyItem("$header\n${post.content}", stringResource(R.string.header_and_body)),
+                ),
+                onDismissRequest = { showCopyDialog = false }
             )
         }
         if (showNgSelectDialog) {

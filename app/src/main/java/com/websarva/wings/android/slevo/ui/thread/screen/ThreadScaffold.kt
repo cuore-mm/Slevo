@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.os.Build
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -11,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -32,6 +34,7 @@ import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -46,6 +49,13 @@ fun ThreadScaffold(
     topBarState: TopAppBarState,
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val pagerViewModel: ThreadPagerViewModel = hiltViewModel()
+    val currentPage by pagerViewModel.currentPage.collectAsState()
+
+    val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
+        ThreadId.of(host, board, threadRoute.threadKey)
+    }
 
     LaunchedEffect(threadRoute) {
         val info = tabsViewModel.resolveBoardInfo(
@@ -53,7 +63,12 @@ fun ThreadScaffold(
             boardUrl = threadRoute.boardUrl,
             boardName = threadRoute.boardName
         )
-        val vm = tabsViewModel.getOrCreateThreadViewModel(threadRoute.threadKey + info.url)
+        if (info == null || routeThreadId == null) {
+            Toast.makeText(context, R.string.invalid_board_url, Toast.LENGTH_SHORT).show()
+            navController.navigateUp()
+            return@LaunchedEffect
+        }
+        val vm = tabsViewModel.getOrCreateThreadViewModel(routeThreadId.value)
         vm.initializeThread(
             threadKey = threadRoute.threadKey,
             boardInfo = info,
@@ -69,14 +84,14 @@ fun ThreadScaffold(
         navController = navController,
         openDrawer = openDrawer,
         openTabs = tabsUiState.openThreadTabs,
-        currentRoutePredicate = { it.key == threadRoute.threadKey && it.boardUrl == threadRoute.boardUrl },
-        getViewModel = { tab -> tabsViewModel.getOrCreateThreadViewModel(tab.key + tab.boardUrl) },
-        getKey = { it.key + it.boardUrl },
+        currentRoutePredicate = { routeThreadId != null && it.id == routeThreadId },
+        getViewModel = { tab -> tabsViewModel.getOrCreateThreadViewModel(tab.id.value) },
+        getKey = { it.id.value },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
         initializeViewModel = { viewModel, tab ->
             viewModel.initializeThread(
-                threadKey = tab.key,
+                threadKey = tab.threadKey,
                 boardInfo = BoardInfo(
                     name = tab.boardName,
                     url = tab.boardUrl,
@@ -86,8 +101,10 @@ fun ThreadScaffold(
             )
         },
         updateScrollPosition = { viewModel, tab, index, offset ->
-            viewModel.updateThreadScrollPosition(tab.key, tab.boardUrl, index, offset)
+            viewModel.updateThreadScrollPosition(tab.id, index, offset)
         },
+        currentPage = currentPage,
+        onPageChange = { pagerViewModel.setCurrentPage(it) },
         scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         topBar = { viewModel, uiState, _, scrollBehavior ->
@@ -130,17 +147,18 @@ fun ThreadScaffold(
                     uiState.posts != null &&
                     uiState.threadInfo.key.isNotEmpty()
                 ) {
-                    viewModel.updateThreadTabInfo(
-                        key = uiState.threadInfo.key,
-                        boardUrl = uiState.boardInfo.url,
-                        title = uiState.threadInfo.title,
-                        resCount = uiState.posts.size
-                    )
+                    parseBoardUrl(uiState.boardInfo.url)?.let { (host, board) ->
+                        viewModel.updateThreadTabInfo(
+                            threadId = ThreadId.of(host, board, uiState.threadInfo.key),
+                            title = uiState.threadInfo.title,
+                            resCount = uiState.posts.size
+                        )
+                    }
                 }
             }
 
             val tabInfo = tabsUiState.openThreadTabs.find {
-                it.key == uiState.threadInfo.key && it.boardUrl == uiState.boardInfo.url
+                it.threadKey == uiState.threadInfo.key && it.boardUrl == uiState.boardInfo.url
             }
             LaunchedEffect(tabInfo?.firstNewResNo, tabInfo?.prevResCount) {
                 tabInfo?.let {
@@ -154,11 +172,7 @@ fun ThreadScaffold(
                 navController = navController,
                 onBottomRefresh = { viewModel.reloadThread() },
                 onLastRead = { resNum ->
-                    viewModel.updateThreadLastRead(
-                        uiState.threadInfo.key,
-                        uiState.boardInfo.url,
-                        resNum
-                    )
+                    routeThreadId?.let { viewModel.updateThreadLastRead(it, resNum) }
                 },
                 onReplyToPost = { viewModel.showReplyDialog(it) }
             )

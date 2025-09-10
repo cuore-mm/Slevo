@@ -37,7 +37,7 @@ import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import java.text.DecimalFormat
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
-import java.time.LocalDate
+import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -159,7 +159,7 @@ fun ThreadCard(
                     Spacer(modifier = Modifier.width(4.dp))
                 }
                 val dateText = threadInfo.date.run {
-                    val currentYear = LocalDate.now().year
+                    val currentYear = Calendar.getInstance().get(Calendar.YEAR)
                     val datePart = if (year == currentYear) {
                         "$month/$day"
                     } else {
