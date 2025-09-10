@@ -4,14 +4,18 @@
 SlevoはAndroid用のシンプルな5ちゃんねるビューアアプリです。Jetpack Composeを用いて開発されています。
 
 
-## Download
+## ダウンロード
 
 最新のリリースは以下からダウンロードできます。
 
 [![Latest Release](https://img.shields.io/github/v/release/cuore-mm/Slevo.svg)](https://github.com/cuore-mm/Slevo/releases)
 
 
-## Features
+## 動作環境
+Android 7.0 以上
+
+
+## 機能
 
 * **スレッド閲覧**:
   * 番号順・ツリー順の表示切替
@@ -33,11 +37,11 @@ SlevoはAndroid用のシンプルな5ちゃんねるビューアアプリです�
 * ダークモードに対応
 
 
-## License
+## ライセンス
 
 このプロジェクトは GNU General Public License v3.0 の下で公開されています。詳細については `LICENSE` ファイルをご覧ください。
 
 
-## Contributing
+## 貢献
 
 バグ報告や機能改善の提案は、IssuesやPull requestsでいつでも歓迎します。
