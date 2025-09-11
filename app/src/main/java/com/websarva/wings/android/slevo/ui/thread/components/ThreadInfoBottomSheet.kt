@@ -1,6 +1,5 @@
 package com.websarva.wings.android.slevo.ui.thread.components
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,9 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
-import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -40,8 +37,8 @@ import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.common.CopyDialog
 import com.websarva.wings.android.slevo.ui.common.CopyItem
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.LabeledIconButton
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -168,26 +165,16 @@ private fun ThreadInfoBottomSheetContent(
             horizontalArrangement = Arrangement.spacedBy(32.dp),
             modifier = Modifier.padding(top = 16.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.clickable(onClick = onBoardClick)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Article,
-                    contentDescription = boardName
-                )
-                Text(
-                    text = boardName,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
             LabeledIconButton(
-            icon = Icons.Filled.ContentCopy,
-            label = stringResource(R.string.copy),
-            onClick = onCopyClick,
-            modifier = Modifier.padding(top = 16.dp)
-        )
+                icon = Icons.AutoMirrored.Filled.Article,
+                label = boardName,
+                onClick = onBoardClick,
+            )
+            LabeledIconButton(
+                icon = Icons.Filled.ContentCopy,
+                label = stringResource(R.string.copy),
+                onClick = onCopyClick,
+            )
         }
     }
 }
