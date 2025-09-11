@@ -1,24 +1,22 @@
 package com.websarva.wings.android.slevo.ui.board
 
-import android.os.Build
-import androidx.annotation.RequiresApi
-import androidx.lifecycle.viewModelScope
 import android.content.Context
 import android.net.Uri
+import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.Groupable
+import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
-import com.websarva.wings.android.slevo.data.repository.ThreadCreateRepository
-import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
-import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
+import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
 import com.websarva.wings.android.slevo.data.repository.PostResult
+import com.websarva.wings.android.slevo.data.repository.ThreadCreateRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
-import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -26,10 +24,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
-@RequiresApi(Build.VERSION_CODES.O)
 class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
     private val threadCreateRepository: ThreadCreateRepository,
@@ -129,7 +126,6 @@ class BoardViewModel @AssistedInject constructor(
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     fun refreshBoardData() { // Pull-to-refresh 用のメソッド
         initialize(force = true) // 強制的に初期化処理を再実行
     }
@@ -307,7 +303,14 @@ class BoardViewModel @AssistedInject constructor(
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isPosting = true, createDialog = false) }
-            val result = threadCreateRepository.createThreadFirstPhase(host, board, title, name, mail, message)
+            val result = threadCreateRepository.createThreadFirstPhase(
+                host,
+                board,
+                title,
+                name,
+                mail,
+                message
+            )
             _uiState.update { it.copy(isPosting = false) }
             when (result) {
                 is PostResult.Success -> {
@@ -319,6 +322,7 @@ class BoardViewModel @AssistedInject constructor(
                     }
                     refreshBoardData()
                 }
+
                 is PostResult.Confirm -> {
                     _uiState.update {
                         it.copy(
@@ -327,6 +331,7 @@ class BoardViewModel @AssistedInject constructor(
                         )
                     }
                 }
+
                 is PostResult.Error -> {
                     _uiState.update {
                         it.copy(showErrorWebView = true, errorHtmlContent = result.html)
@@ -343,7 +348,8 @@ class BoardViewModel @AssistedInject constructor(
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isPosting = true, isConfirmationScreen = false) }
-            val result = threadCreateRepository.createThreadSecondPhase(host, board, confirmationData)
+            val result =
+                threadCreateRepository.createThreadSecondPhase(host, board, confirmationData)
             _uiState.update { it.copy(isPosting = false) }
             when (result) {
                 is PostResult.Success -> {
@@ -355,11 +361,13 @@ class BoardViewModel @AssistedInject constructor(
                     }
                     refreshBoardData()
                 }
+
                 is PostResult.Error -> {
                     _uiState.update {
                         it.copy(showErrorWebView = true, errorHtmlContent = result.html)
                     }
                 }
+
                 is PostResult.Confirm -> {
                     _uiState.update {
                         it.copy(

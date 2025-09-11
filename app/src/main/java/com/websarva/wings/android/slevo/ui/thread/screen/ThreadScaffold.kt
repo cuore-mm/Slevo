@@ -1,8 +1,6 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
-import android.os.Build
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
@@ -51,7 +49,6 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @OptIn(ExperimentalMaterial3Api::class)
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ThreadScaffold(
     threadRoute: AppRoute.Thread,

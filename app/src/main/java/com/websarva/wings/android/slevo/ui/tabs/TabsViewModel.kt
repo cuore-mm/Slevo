@@ -1,7 +1,5 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -11,11 +9,11 @@ import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
-import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.board.BoardViewModel
 import com.websarva.wings.android.slevo.ui.board.BoardViewModelFactory
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModelFactory
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -190,7 +188,6 @@ class TabsViewModel @Inject constructor(
     /**
      * 板タブを閉じ、対応する [BoardViewModel] を解放する。
      */
-    @RequiresApi(Build.VERSION_CODES.O)
     fun closeBoardTab(tab: BoardTabInfo) {
         boardViewModelMap.remove(tab.boardUrl)?.release()
         _uiState.update { state ->
@@ -228,7 +225,6 @@ class TabsViewModel @Inject constructor(
         _uiState.update { it.copy(newResCounts = it.newResCounts - key) }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     fun refreshOpenThreads() {
         viewModelScope.launch {
             _uiState.update { it.copy(isRefreshing = true) }
@@ -275,7 +271,6 @@ class TabsViewModel @Inject constructor(
      * ViewModel 自身が破棄される際に呼び出される処理。
      * 登録済みの子 ViewModel もすべて解放する。
      */
-    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCleared() {
         super.onCleared()
         threadViewModelMap.values.forEach { it.release() }

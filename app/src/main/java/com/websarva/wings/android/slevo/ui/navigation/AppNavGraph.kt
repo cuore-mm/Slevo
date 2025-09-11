@@ -1,7 +1,5 @@
 package com.websarva.wings.android.slevo.ui.navigation
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.PaddingValues
@@ -28,7 +26,6 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
 @OptIn(ExperimentalMaterial3Api::class)
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNavGraph(
     parentPadding: PaddingValues,
