@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
-import com.websarva.wings.android.slevo.ui.more.ToolbarMenuContent
+import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarMenuContent
 
 @Composable
 fun BottomAlignedDialog(
@@ -86,7 +86,7 @@ fun BottomAlignedDialog(
 @Composable
 fun BottomAlignedDialogPreview() {
     BottomAlignedDialog(onDismiss = {}) {
-        ToolbarMenuContent(
+        ThreadToolbarMenuContent(
             onBookmarkClick = {},
             onBoardListClick = {},
             onHistoryClick = {},

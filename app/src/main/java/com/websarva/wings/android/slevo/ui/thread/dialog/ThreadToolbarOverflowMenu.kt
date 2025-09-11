@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.more
+package com.websarva.wings.android.slevo.ui.thread.dialog
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -21,7 +21,7 @@ import com.websarva.wings.android.slevo.ui.util.LabeledIconButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ToolbarOverflowMenu(
+fun ThreadToolbarOverflowMenu(
     onDismissRequest: () -> Unit,
     onBookmarkClick: () -> Unit,
     onBoardListClick: () -> Unit,
@@ -31,7 +31,7 @@ fun ToolbarOverflowMenu(
     BottomAlignedDialog(
         onDismiss = onDismissRequest
     ) {
-        ToolbarMenuContent(
+        ThreadToolbarMenuContent(
             onBookmarkClick = onBookmarkClick,
             onBoardListClick = onBoardListClick,
             onHistoryClick = onHistoryClick,
@@ -41,7 +41,7 @@ fun ToolbarOverflowMenu(
 }
 
 @Composable
-fun ToolbarMenuContent(
+fun ThreadToolbarMenuContent(
     onBookmarkClick: () -> Unit,
     onBoardListClick: () -> Unit,
     onHistoryClick: () -> Unit,
@@ -78,8 +78,8 @@ fun ToolbarMenuContent(
 
 @Preview(showBackground = true)
 @Composable
-fun ToolbarMenuContentPreview() {
-    ToolbarMenuContent(
+fun ThreadToolbarMenuContentPreview() {
+    ThreadToolbarMenuContent(
         onBookmarkClick = {},
         onBoardListClick = {},
         onHistoryClick = {},
