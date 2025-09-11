@@ -189,18 +189,14 @@ fun ThreadScaffold(
         },
         optionalSheetContent = { viewModel, uiState ->
             val postUiState by viewModel.postUiState.collectAsState()
-            val threadInfoSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            if (uiState.showThreadInfoSheet) {
-                val threadUrl = parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                    "https://$host/test/read.cgi/$boardKey/${uiState.threadInfo.key}/"
-                } ?: ""
-                ThreadInfoBottomSheet(
-                    sheetState = threadInfoSheetState,
-                    onDismissRequest = { viewModel.closeThreadInfoSheet() },
-                    threadInfo = uiState.threadInfo,
-                    threadUrl = threadUrl,
-                )
-            }
+
+            ThreadInfoBottomSheet(
+                showThreadInfoSheet = uiState.showThreadInfoSheet,
+                onDismissRequest = { viewModel.closeThreadInfoSheet() },
+                threadInfo = uiState.threadInfo,
+                boardInfo = uiState.boardInfo,
+                navController = navController,
+            )
 
             if (uiState.showMoreSheet) {
                 ThreadToolbarOverflowMenu(
