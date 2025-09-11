@@ -21,6 +21,7 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
+import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -143,6 +144,7 @@ fun ThreadScaffold(
                 onSearchClick = { viewModel.startSearch() },
                 onBookmarkClick = { viewModel.openBookmarkSheet() },
                 onThreadInfoClick = { viewModel.openThreadInfoSheet() },
+                onMoreClick = { viewModel.openMoreSheet() },
                 scrollBehavior = barScrollBehavior,
             )
         },
@@ -197,6 +199,28 @@ fun ThreadScaffold(
                     onDismissRequest = { viewModel.closeThreadInfoSheet() },
                     threadInfo = uiState.threadInfo,
                     threadUrl = threadUrl,
+                )
+            }
+
+            if (uiState.showMoreSheet) {
+                ThreadToolbarOverflowMenu(
+                    onDismissRequest = { viewModel.closeMoreSheet() },
+                    onBookmarkClick = {
+                        viewModel.closeMoreSheet()
+                        navController.navigate(AppRoute.BookmarkList)
+                    },
+                    onBoardListClick = {
+                        viewModel.closeMoreSheet()
+                        navController.navigate(AppRoute.ServiceList)
+                    },
+                    onHistoryClick = {
+                        viewModel.closeMoreSheet()
+                        navController.navigate(AppRoute.HistoryList)
+                    },
+                    onSettingsClick = {
+                        viewModel.closeMoreSheet()
+                        navController.navigate(AppRoute.SettingsHome)
+                    }
                 )
             }
 

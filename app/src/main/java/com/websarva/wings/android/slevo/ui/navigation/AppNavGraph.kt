@@ -15,11 +15,11 @@ import com.websarva.wings.android.slevo.ui.about.OpenSourceLicenseScreen
 import com.websarva.wings.android.slevo.ui.board.BoardScaffold
 import com.websarva.wings.android.slevo.ui.bookmarklist.BookmarkListScaffold
 import com.websarva.wings.android.slevo.ui.history.HistoryListScaffold
-import com.websarva.wings.android.slevo.ui.more.MoreScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabsScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.screen.ThreadScaffold
+import com.websarva.wings.android.slevo.ui.util.isInRoute
 import com.websarva.wings.android.slevo.ui.viewer.ImageViewerScreen
 import kotlinx.serialization.Serializable
 import java.net.URLDecoder
@@ -44,7 +44,52 @@ fun AppNavGraph(
         popExitTransition = { ExitTransition.None }
     ) {
         //お気に入り一覧
-        composable<AppRoute.BookmarkList> {
+        composable<AppRoute.BookmarkList>(
+            enterTransition = {
+                if (initialState.destination.isInRoute(
+                        AppRoute.RouteName.TABS,
+                        AppRoute.RouteName.BBS_SERVICE_GROUP
+                    )
+                ) {
+                    EnterTransition.None
+                } else {
+                    defaultEnterTransition()
+                }
+            },
+            exitTransition = {
+                if (targetState.destination.isInRoute(
+                        AppRoute.RouteName.TABS,
+                        AppRoute.RouteName.BBS_SERVICE_GROUP
+                    )
+                ) {
+                    ExitTransition.None
+                } else {
+                    defaultExitTransition()
+                }
+            },
+            popEnterTransition = {
+                if (initialState.destination.isInRoute(
+                        AppRoute.RouteName.TABS,
+                        AppRoute.RouteName.BBS_SERVICE_GROUP
+                    )
+                ) {
+                    EnterTransition.None
+                } else {
+                    defaultPopEnterTransition()
+                }
+            },
+            popExitTransition = {
+                if (targetState.destination.isInRoute(
+                        AppRoute.RouteName.TABS,
+                        AppRoute.RouteName.BBS_SERVICE_GROUP
+                    )
+                ) {
+                    ExitTransition.None
+                } else {
+                    defaultPopExitTransition()
+                }
+            }
+        ) {
             BookmarkListScaffold(
                 parentPadding = parentPadding,
                 topBarState = topBarState,
@@ -116,15 +161,6 @@ fun AppNavGraph(
             viewModel = settingsViewModel,
             navController = navController
         )
-        //その他
-        composable<AppRoute.More> {
-            MoreScreen(
-                onBoardListClick = { navController.navigate(AppRoute.ServiceList) },
-                onHistoryClick = { navController.navigate(AppRoute.HistoryList) },
-                onSettingsClick = { navController.navigate(AppRoute.SettingsHome) },
-                onAboutClick = { navController.navigate(AppRoute.About) }
-            )
-        }
         //このアプリについて
         composable<AppRoute.About>(
             enterTransition = { defaultEnterTransition() },
@@ -225,8 +261,6 @@ sealed class AppRoute {
     @Serializable
     data object Tabs : AppRoute()
 
-    @Serializable
-    data object More : AppRoute()
 
     @Serializable
     data class ImageViewer(val imageUrl: String) : AppRoute()
@@ -252,7 +286,6 @@ sealed class AppRoute {
         const val SETTINGS_THREAD = "SettingsThread"
         const val SETTINGS_COOKIE = "SettingsCookie"
         const val TABS = "Tabs"
-        const val MORE = "More"
         const val HISTORY_LIST = "HistoryList"
         const val ABOUT = "About"
         const val OPEN_SOURCE_LICENSE = "OpenSourceLicense"
