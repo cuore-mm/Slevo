@@ -12,15 +12,16 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
+import com.websarva.wings.android.slevo.ui.about.AboutScreen
+import com.websarva.wings.android.slevo.ui.about.OpenSourceLicenseScreen
 import com.websarva.wings.android.slevo.ui.board.BoardScaffold
 import com.websarva.wings.android.slevo.ui.bookmarklist.BookmarkListScaffold
 import com.websarva.wings.android.slevo.ui.history.HistoryListScaffold
-import com.websarva.wings.android.slevo.ui.about.AboutScreen
-import com.websarva.wings.android.slevo.ui.about.OpenSourceLicenseScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabsScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.screen.ThreadScaffold
+import com.websarva.wings.android.slevo.ui.util.isInRoute
 import com.websarva.wings.android.slevo.ui.viewer.ImageViewerScreen
 import kotlinx.serialization.Serializable
 import java.net.URLDecoder
@@ -46,7 +47,52 @@ fun AppNavGraph(
         popExitTransition = { ExitTransition.None }
     ) {
         //お気に入り一覧
-        composable<AppRoute.BookmarkList> {
+        composable<AppRoute.BookmarkList>(
+            enterTransition = {
+                if (initialState.destination.isInRoute(
+                        AppRoute.RouteName.TABS,
+                        AppRoute.RouteName.BBS_SERVICE_GROUP
+                    )
+                ) {
+                    EnterTransition.None
+                } else {
+                    defaultEnterTransition()
+                }
+            },
+            exitTransition = {
+                if (targetState.destination.isInRoute(
+                        AppRoute.RouteName.TABS,
+                        AppRoute.RouteName.BBS_SERVICE_GROUP
+                    )
+                ) {
+                    ExitTransition.None
+                } else {
+                    defaultExitTransition()
+                }
+            },
+            popEnterTransition = {
+                if (initialState.destination.isInRoute(
+                        AppRoute.RouteName.TABS,
+                        AppRoute.RouteName.BBS_SERVICE_GROUP
+                    )
+                ) {
+                    EnterTransition.None
+                } else {
+                    defaultPopEnterTransition()
+                }
+            },
+            popExitTransition = {
+                if (targetState.destination.isInRoute(
+                        AppRoute.RouteName.TABS,
+                        AppRoute.RouteName.BBS_SERVICE_GROUP
+                    )
+                ) {
+                    ExitTransition.None
+                } else {
+                    defaultPopExitTransition()
+                }
+            }
+        ) {
             BookmarkListScaffold(
                 parentPadding = parentPadding,
                 topBarState = topBarState,
