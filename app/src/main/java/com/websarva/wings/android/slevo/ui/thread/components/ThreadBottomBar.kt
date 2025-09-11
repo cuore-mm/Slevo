@@ -12,7 +12,7 @@ import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.FormatListNumbered
-import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -68,12 +68,12 @@ fun ThreadBottomBar(
                 .fillMaxWidth()
                 .padding(vertical = 4.dp),
         ) {
-            Card (
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
                 onClick = onThreadInfoClick
-            ){
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -151,7 +151,7 @@ fun ThreadBottomBar(
                 }
                 IconButton(onClick = onMoreClick) {
                     Icon(
-                        imageVector = Icons.Filled.MoreHoriz,
+                        imageVector = Icons.Filled.Menu,
                         contentDescription = stringResource(R.string.more)
                     )
                 }
@@ -185,4 +185,3 @@ fun ThreadBottomBarPreview() {
         onMoreClick = {}
     )
 }
-

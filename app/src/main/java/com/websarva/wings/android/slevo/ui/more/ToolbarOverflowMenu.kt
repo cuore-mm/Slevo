@@ -10,31 +10,28 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.ui.util.BottomAlignedDialog
 import com.websarva.wings.android.slevo.ui.util.LabeledIconButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MoreBottomSheet(
-    sheetState: SheetState,
+fun ToolbarOverflowMenu(
     onDismissRequest: () -> Unit,
     onBookmarkClick: () -> Unit,
     onBoardListClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onSettingsClick: () -> Unit,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismissRequest,
-        sheetState = sheetState,
+    BottomAlignedDialog(
+        onDismiss = onDismissRequest
     ) {
-        MoreBottomSheetContent(
+        ToolbarMenuContent(
             onBookmarkClick = onBookmarkClick,
             onBoardListClick = onBoardListClick,
             onHistoryClick = onHistoryClick,
@@ -44,7 +41,7 @@ fun MoreBottomSheet(
 }
 
 @Composable
-fun MoreBottomSheetContent(
+fun ToolbarMenuContent(
     onBookmarkClick: () -> Unit,
     onBoardListClick: () -> Unit,
     onHistoryClick: () -> Unit,
@@ -81,8 +78,8 @@ fun MoreBottomSheetContent(
 
 @Preview(showBackground = true)
 @Composable
-fun MoreBottomSheetPreview() {
-    MoreBottomSheetContent(
+fun ToolbarMenuContentPreview() {
+    ToolbarMenuContent(
         onBookmarkClick = {},
         onBoardListClick = {},
         onHistoryClick = {},
