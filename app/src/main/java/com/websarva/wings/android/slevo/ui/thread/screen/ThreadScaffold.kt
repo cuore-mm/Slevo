@@ -1,12 +1,11 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
-import android.os.Build
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -22,6 +21,7 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
+import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -49,7 +49,6 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @OptIn(ExperimentalMaterial3Api::class)
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ThreadScaffold(
     threadRoute: AppRoute.Thread,
@@ -145,6 +144,7 @@ fun ThreadScaffold(
                 onSearchClick = { viewModel.startSearch() },
                 onBookmarkClick = { viewModel.openBookmarkSheet() },
                 onThreadInfoClick = { viewModel.openThreadInfoSheet() },
+                onMoreClick = { viewModel.openMoreSheet() },
                 scrollBehavior = barScrollBehavior,
             )
         },
@@ -197,6 +197,28 @@ fun ThreadScaffold(
                 boardInfo = uiState.boardInfo,
                 navController = navController,
             )
+
+            if (uiState.showMoreSheet) {
+                ThreadToolbarOverflowMenu(
+                    onDismissRequest = { viewModel.closeMoreSheet() },
+                    onBookmarkClick = {
+                        viewModel.closeMoreSheet()
+                        navController.navigate(AppRoute.BookmarkList)
+                    },
+                    onBoardListClick = {
+                        viewModel.closeMoreSheet()
+                        navController.navigate(AppRoute.ServiceList)
+                    },
+                    onHistoryClick = {
+                        viewModel.closeMoreSheet()
+                        navController.navigate(AppRoute.HistoryList)
+                    },
+                    onSettingsClick = {
+                        viewModel.closeMoreSheet()
+                        navController.navigate(AppRoute.SettingsHome)
+                    }
+                )
+            }
 
             if (postUiState.postDialog) {
                 val context = LocalContext.current

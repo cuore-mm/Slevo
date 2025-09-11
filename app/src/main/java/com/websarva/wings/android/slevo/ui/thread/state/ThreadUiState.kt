@@ -19,6 +19,7 @@ data class ThreadUiState(
     override val isLoading: Boolean = false,
     override val showTabListSheet: Boolean = false,
     val showThreadInfoSheet: Boolean = false,
+    val showMoreSheet: Boolean = false,
     val myPostNumbers: Set<Int> = emptySet(),
     // UI描画用の派生情報（ViewModelで算出）
     val idCountMap: Map<String, Int> = emptyMap(),

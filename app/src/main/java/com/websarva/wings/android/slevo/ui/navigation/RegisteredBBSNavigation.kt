@@ -2,6 +2,8 @@ package com.websarva.wings.android.slevo.ui.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -42,7 +44,51 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
     openDrawer: () -> Unit
 ) {
     navigation<AppRoute.BbsServiceGroup>(
-        startDestination = AppRoute.ServiceList
+        startDestination = AppRoute.ServiceList,
+        enterTransition = {
+            if (initialState.destination.isInRoute(
+                    AppRoute.RouteName.TABS,
+                    AppRoute.RouteName.BOOKMARK_LIST
+                )
+            ) {
+                EnterTransition.None
+            } else {
+                defaultEnterTransition()
+            }
+        },
+        exitTransition = {
+            if (targetState.destination.isInRoute(
+                    AppRoute.RouteName.TABS,
+                    AppRoute.RouteName.BOOKMARK_LIST
+                )
+            ) {
+                ExitTransition.None
+            } else {
+                defaultExitTransition()
+            }
+        },
+        popEnterTransition = {
+            if (initialState.destination.isInRoute(
+                    AppRoute.RouteName.TABS,
+                    AppRoute.RouteName.BOOKMARK_LIST
+                )
+            ) {
+                EnterTransition.None
+            } else {
+                defaultPopEnterTransition()
+            }
+        },
+        popExitTransition = {
+            if (targetState.destination.isInRoute(
+                    AppRoute.RouteName.TABS,
+                    AppRoute.RouteName.BOOKMARK_LIST
+                )
+            ) {
+                ExitTransition.None
+            } else {
+                defaultPopExitTransition()
+            }
+        }
     ) {
         //掲示板一覧
         composable<AppRoute.ServiceList>(

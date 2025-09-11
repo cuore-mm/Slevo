@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -42,6 +41,7 @@ import com.websarva.wings.android.slevo.ui.common.CopyDialog
 import com.websarva.wings.android.slevo.ui.common.CopyItem
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.ui.util.LabeledIconButton
 import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -182,20 +182,12 @@ private fun ThreadInfoBottomSheetContent(
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.clickable(onClick = onCopyClick)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.ContentCopy,
-                    contentDescription = stringResource(R.string.copy)
-                )
-                Text(
-                    text = stringResource(R.string.copy),
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
+            LabeledIconButton(
+            icon = Icons.Filled.ContentCopy,
+            label = stringResource(R.string.copy),
+            onClick = onCopyClick,
+            modifier = Modifier.padding(top = 16.dp)
+        )
         }
     }
 }
