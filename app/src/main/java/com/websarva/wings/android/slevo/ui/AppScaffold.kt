@@ -1,7 +1,5 @@
 package com.websarva.wings.android.slevo.ui
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.DrawerValue
@@ -30,7 +28,6 @@ import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppScaffold(
     modifier: Modifier = Modifier,
@@ -97,5 +94,4 @@ fun AppScaffold(
             }
         )
     }
-
 }
