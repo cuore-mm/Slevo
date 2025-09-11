@@ -29,6 +29,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 fun NavigationBottomBar(
     currentDestination: NavDestination?,
     onClick: (AppRoute) -> Unit,
+    onMoreClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val topLevelRoutes = listOf(
@@ -49,13 +50,7 @@ fun NavigationBottomBar(
             name = stringResource(R.string.boardList),
             icon = Icons.AutoMirrored.Filled.List,
             parentRoute = AppRoute.BbsServiceGroup
-        ),
-        TopLevelRoute(
-            route = AppRoute.More,
-            name = stringResource(R.string.more),
-            icon = Icons.Default.MoreHoriz,
-            parentRoute = AppRoute.More
-        ),
+        )
     )
     NavigationBar(modifier = modifier) {
         topLevelRoutes.forEach { item ->
@@ -80,6 +75,24 @@ fun NavigationBottomBar(
                 onClick = { onClick(item.route) }
             )
         }
+        NavigationBarItem(
+            icon = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(Icons.Default.MoreHoriz, contentDescription = stringResource(R.string.more))
+                    Text(
+                        text = stringResource(R.string.more),
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                }
+            },
+            label = null,
+            alwaysShowLabel = true,
+            selected = false,
+            onClick = onMoreClick
+        )
     }
 }
 
@@ -97,6 +110,7 @@ fun HomeBottomNavigationBarPreview() {
         modifier = Modifier
             .height(56.dp),
         currentDestination = null,
-        onClick = {}
+        onClick = {},
+        onMoreClick = {}
     )
 }
