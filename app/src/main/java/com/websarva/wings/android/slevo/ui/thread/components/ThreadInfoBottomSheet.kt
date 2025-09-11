@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +45,8 @@ fun ThreadInfoBottomSheet(
     onDismissRequest: () -> Unit,
     threadInfo: ThreadInfo,
     threadUrl: String,
+    boardName: String,
+    onBoardClick: () -> Unit,
 ) {
     var showCopyDialog by remember { mutableStateOf(false) }
     ModalBottomSheet(
@@ -51,6 +55,8 @@ fun ThreadInfoBottomSheet(
     ) {
         ThreadInfoBottomSheetContent(
             threadInfo = threadInfo,
+            boardName = boardName,
+            onBoardClick = onBoardClick,
             onCopyClick = { showCopyDialog = true },
         )
     }
@@ -78,6 +84,8 @@ fun ThreadInfoBottomSheet(
 @Composable
 private fun ThreadInfoBottomSheetContent(
     threadInfo: ThreadInfo,
+    boardName: String,
+    onBoardClick: () -> Unit,
     onCopyClick: () -> Unit,
 ) {
     val momentumFormatter = remember { DecimalFormat("0.0") }
@@ -129,21 +137,38 @@ private fun ThreadInfoBottomSheetContent(
                 textAlign = TextAlign.Center
             )
         }
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .padding(top = 16.dp)
-                .clickable(onClick = onCopyClick)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(32.dp),
+            modifier = Modifier.padding(top = 16.dp)
         ) {
-            Icon(
-                imageVector = Icons.Filled.ContentCopy,
-                contentDescription = stringResource(R.string.copy)
-            )
-            Text(
-                text = stringResource(R.string.copy),
-                style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.padding(top = 4.dp)
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable(onClick = onBoardClick)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.OpenInBrowser,
+                    contentDescription = boardName
+                )
+                Text(
+                    text = boardName,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable(onClick = onCopyClick)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ContentCopy,
+                    contentDescription = stringResource(R.string.copy)
+                )
+                Text(
+                    text = stringResource(R.string.copy),
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
         }
     }
 }
@@ -159,6 +184,8 @@ fun ThreadInfoBottomSheetContentPreview() {
             momentum = 1234.5,
             date = ThreadDate(2024, 5, 1, 12, 34, "水")
         ),
-        onCopyClick = {}
+        boardName = "板名",
+        onBoardClick = {},
+        onCopyClick = {},
     )
 }

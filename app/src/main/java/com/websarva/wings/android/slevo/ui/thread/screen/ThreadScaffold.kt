@@ -189,6 +189,18 @@ fun ThreadScaffold(
                     onDismissRequest = { viewModel.closeThreadInfoSheet() },
                     threadInfo = uiState.threadInfo,
                     threadUrl = threadUrl,
+                    boardName = uiState.boardInfo.name,
+                    onBoardClick = {
+                        navController.navigate(
+                            AppRoute.Board(
+                                boardId = threadRoute.boardId,
+                                boardName = threadRoute.boardName,
+                                boardUrl = threadRoute.boardUrl
+                            )
+                        ) {
+                            launchSingleTop = true
+                        }
+                    },
                 )
             }
 
