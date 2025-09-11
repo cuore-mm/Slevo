@@ -15,7 +15,6 @@ import androidx.navigation.toRoute
 import com.websarva.wings.android.slevo.ui.board.BoardScaffold
 import com.websarva.wings.android.slevo.ui.bookmarklist.BookmarkListScaffold
 import com.websarva.wings.android.slevo.ui.history.HistoryListScaffold
-import com.websarva.wings.android.slevo.ui.more.MoreScreen
 import com.websarva.wings.android.slevo.ui.about.AboutScreen
 import com.websarva.wings.android.slevo.ui.about.OpenSourceLicenseScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
@@ -119,15 +118,6 @@ fun AppNavGraph(
             viewModel = settingsViewModel,
             navController = navController
         )
-        //その他
-        composable<AppRoute.More> {
-            MoreScreen(
-                onBoardListClick = { navController.navigate(AppRoute.ServiceList) },
-                onHistoryClick = { navController.navigate(AppRoute.HistoryList) },
-                onSettingsClick = { navController.navigate(AppRoute.SettingsHome) },
-                onAboutClick = { navController.navigate(AppRoute.About) }
-            )
-        }
         //このアプリについて
         composable<AppRoute.About>(
             enterTransition = { defaultEnterTransition() },
@@ -228,8 +218,6 @@ sealed class AppRoute {
     @Serializable
     data object Tabs : AppRoute()
 
-    @Serializable
-    data object More : AppRoute()
 
     @Serializable
     data class ImageViewer(val imageUrl: String) : AppRoute()
@@ -255,7 +243,6 @@ sealed class AppRoute {
         const val SETTINGS_THREAD = "SettingsThread"
         const val SETTINGS_COOKIE = "SettingsCookie"
         const val TABS = "Tabs"
-        const val MORE = "More"
         const val HISTORY_LIST = "HistoryList"
         const val ABOUT = "About"
         const val OPEN_SOURCE_LICENSE = "OpenSourceLicense"

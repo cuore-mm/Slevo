@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,7 +33,7 @@ import androidx.compose.ui.unit.dp
 @Stable
 object AppIndication {
     // アプリ統一で使い回す大きめリップル（bounded=false で外へ広げる／radius 指定でサイズ固定）
-    val LargeRipple = ripple(bounded = false, radius = 48.dp)
+    val LargeRipple = ripple(bounded = false, radius = 56.dp)
 }
 
 @Composable
@@ -55,7 +57,7 @@ fun LabeledIconButton(
     Column(
         horizontalAlignment = Alignment.Companion.CenterHorizontally,
         modifier = modifier
-            .size(width = 76.dp, height = 64.dp)
+            .size(width = 76.dp, height = 76.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(
                 interactionSource = interaction,
@@ -72,10 +74,12 @@ fun LabeledIconButton(
             }
         ) {
             Icon(icon, contentDescription = label)
+            Spacer(modifier = Modifier.weight(1f))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.padding(top = 4.dp)
+                maxLines = 2,
+                minLines = 2,
             )
         }
     }
@@ -84,10 +88,15 @@ fun LabeledIconButton(
 @Preview(showBackground = true)
 @Composable
 fun LabeledIconButtonPreview() {
-    MaterialTheme {
+    Row {
         LabeledIconButton(
             icon = Icons.Filled.Favorite,
-            label = "ブックマーク",
+            label = "ブックマークリスト",
+            onClick = {}
+        )
+        LabeledIconButton(
+            icon = Icons.Filled.Favorite,
+            label = "お気に入り",
             onClick = {}
         )
     }
