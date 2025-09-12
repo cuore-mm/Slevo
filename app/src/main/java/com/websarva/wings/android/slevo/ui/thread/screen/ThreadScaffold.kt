@@ -22,7 +22,7 @@ import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
-import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadDisplaySettingsDialog
+import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadDisplaySettingsBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -191,6 +191,7 @@ fun ThreadScaffold(
         optionalSheetContent = { viewModel, uiState ->
             val postUiState by viewModel.postUiState.collectAsState()
             val threadInfoSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            val displaySettingsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             if (uiState.showThreadInfoSheet) {
                 val threadUrl = parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                     "https://$host/test/read.cgi/$boardKey/${uiState.threadInfo.key}/"
@@ -229,8 +230,9 @@ fun ThreadScaffold(
                 )
             }
 
-            if (uiState.showDisplaySettingsDialog) {
-                ThreadDisplaySettingsDialog(
+            if (uiState.showDisplaySettingsSeet) {
+                ThreadDisplaySettingsBottomSheet(
+                    sheetState = displaySettingsSheetState,
                     currentScale = uiState.postTextScale,
                     onDismissRequest = { viewModel.closeDisplaySettingsDialog() },
                     onValueChange = { viewModel.updatePostTextScale(it) }

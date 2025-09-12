@@ -589,11 +589,11 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     fun openDisplaySettingsDialog() {
-        _uiState.update { it.copy(showDisplaySettingsDialog = true) }
+        _uiState.update { it.copy(showDisplaySettingsSeet = true) }
     }
 
     fun closeDisplaySettingsDialog() {
-        _uiState.update { it.copy(showDisplaySettingsDialog = false) }
+        _uiState.update { it.copy(showDisplaySettingsSeet = false) }
     }
 
     fun updatePostTextScale(scale: Float) {
