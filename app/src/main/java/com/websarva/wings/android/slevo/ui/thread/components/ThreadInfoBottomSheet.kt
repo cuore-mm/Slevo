@@ -179,14 +179,14 @@ private fun ThreadInfoBottomSheetContent(
                 onClick = onBoardClick,
             )
             LabeledIconButton(
-                icon = Icons.Filled.OpenInBrowser,
-                label = stringResource(R.string.open),
-                onClick = onOpenBrowserClick,
-            )
-            LabeledIconButton(
                 icon = Icons.Filled.ContentCopy,
                 label = stringResource(R.string.copy),
                 onClick = onCopyClick,
+            )
+            LabeledIconButton(
+                icon = Icons.Filled.OpenInBrowser,
+                label = stringResource(R.string.open_in_external_browser),
+                onClick = onOpenBrowserClick,
             )
         }
     }
