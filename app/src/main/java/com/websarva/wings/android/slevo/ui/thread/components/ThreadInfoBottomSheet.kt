@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -21,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -52,6 +54,7 @@ fun ThreadInfoBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showCopyDialog by remember { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
 
     val threadUrl = parseBoardUrl(threadInfo.url)?.let { (host, boardKey) ->
         "https://$host/test/read.cgi/$boardKey/${threadInfo.key}/"
@@ -75,6 +78,10 @@ fun ThreadInfoBottomSheet(
                     ) {
                         launchSingleTop = true
                     }
+                    onDismissRequest()
+                },
+                onOpenBrowserClick = {
+                    uriHandler.openUri(threadUrl)
                     onDismissRequest()
                 },
                 onCopyClick = {
@@ -110,6 +117,7 @@ private fun ThreadInfoBottomSheetContent(
     threadInfo: ThreadInfo,
     boardName: String,
     onBoardClick: () -> Unit,
+    onOpenBrowserClick: () -> Unit,
     onCopyClick: () -> Unit,
 ) {
     val momentumFormatter = remember { DecimalFormat("0.0") }
@@ -171,6 +179,11 @@ private fun ThreadInfoBottomSheetContent(
                 onClick = onBoardClick,
             )
             LabeledIconButton(
+                icon = Icons.Filled.OpenInBrowser,
+                label = stringResource(R.string.open),
+                onClick = onOpenBrowserClick,
+            )
+            LabeledIconButton(
                 icon = Icons.Filled.ContentCopy,
                 label = stringResource(R.string.copy),
                 onClick = onCopyClick,
@@ -192,6 +205,7 @@ fun ThreadInfoBottomSheetContentPreview() {
         ),
         boardName = "なんでも実況J",
         onBoardClick = {},
+        onOpenBrowserClick = {},
         onCopyClick = {},
     )
 }
