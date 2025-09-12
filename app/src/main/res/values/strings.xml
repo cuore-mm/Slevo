@@ -91,4 +91,5 @@
     <string name="title_and_url">タイトル + URL</string>
     <string name="res_number_label">レス番号</string>
     <string name="header_and_body">ヘッダー + 本文</string>
+    <string name="open_in_external_browser">外部ブラウザで開く</string>
 </resources>
