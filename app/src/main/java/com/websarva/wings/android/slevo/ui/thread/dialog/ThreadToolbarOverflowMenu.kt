@@ -1,6 +1,5 @@
 package com.websarva.wings.android.slevo.ui.thread.dialog
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,11 +10,10 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.ListItem
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -56,16 +54,18 @@ fun ThreadToolbarMenuContent(
     onDisplaySettingsClick: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 24.dp),
+                .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             LabeledIconButton(
-                icon = Icons.Filled.Star,
+                icon = Icons.Default.Star,
                 label = stringResource(R.string.bookmark),
                 onClick = onBookmarkClick
             )
@@ -75,22 +75,20 @@ fun ThreadToolbarMenuContent(
                 onClick = onBoardListClick
             )
             LabeledIconButton(
-                icon = Icons.Filled.History,
+                icon = Icons.Default.History,
                 label = stringResource(R.string.history),
                 onClick = onHistoryClick
             )
             LabeledIconButton(
-                icon = Icons.Filled.Settings,
+                icon = Icons.Default.Settings,
                 label = stringResource(R.string.settings),
                 onClick = onSettingsClick
             )
         }
-        HorizontalDivider()
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.display_settings)) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onDisplaySettingsClick)
+        LabeledIconButton(
+            icon = Icons.Default.Tune,
+            label = stringResource(R.string.display_settings),
+            onClick = onDisplaySettingsClick
         )
     }
 }
