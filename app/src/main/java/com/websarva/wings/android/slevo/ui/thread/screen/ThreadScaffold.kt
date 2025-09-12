@@ -145,6 +145,7 @@ fun ThreadScaffold(
                 onBookmarkClick = { viewModel.openBookmarkSheet() },
                 onThreadInfoClick = { viewModel.openThreadInfoSheet() },
                 onMoreClick = { viewModel.openMoreSheet() },
+                onAutoScrollClick = { viewModel.toggleAutoScroll() },
                 scrollBehavior = barScrollBehavior,
             )
         },

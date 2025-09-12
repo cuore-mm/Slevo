@@ -118,6 +118,12 @@ fun ThreadScreen(
             }
     }
 
+    LaunchedEffect(uiState.isAutoScroll, visiblePosts.size) {
+        if (uiState.isAutoScroll && visiblePosts.isNotEmpty()) {
+            listState.animateScrollToItem(visiblePosts.size)
+        }
+    }
+
     val density = LocalDensity.current
     val refreshThresholdPx = with(density) { 80.dp.toPx() }
     var overscroll by remember { mutableFloatStateOf(0f) }

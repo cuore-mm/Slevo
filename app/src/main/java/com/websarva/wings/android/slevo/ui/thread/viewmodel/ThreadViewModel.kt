@@ -35,6 +35,8 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -77,6 +79,7 @@ class ThreadViewModel @AssistedInject constructor(
     private var pendingPost: PendingPost? = null
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
+    private var autoScrollJob: Job? = null
 
     internal val _postUiState = MutableStateFlow(PostUiState())
     val postUiState: StateFlow<PostUiState> = _postUiState.asStateFlow()
@@ -536,6 +539,23 @@ class ThreadViewModel @AssistedInject constructor(
 
     fun reloadThread() {
         initialize(force = true) // 強制的に初期化処理を再実行
+    }
+
+    fun toggleAutoScroll() {
+        val enabled = !_uiState.value.isAutoScroll
+        _uiState.update { it.copy(isAutoScroll = enabled) }
+        if (enabled) {
+            autoScrollJob?.cancel()
+            autoScrollJob = viewModelScope.launch {
+                while (isActive) {
+                    delay(10_000)
+                    reloadThread()
+                }
+            }
+        } else {
+            autoScrollJob?.cancel()
+            autoScrollJob = null
+        }
     }
 
     fun toggleSortType() {
