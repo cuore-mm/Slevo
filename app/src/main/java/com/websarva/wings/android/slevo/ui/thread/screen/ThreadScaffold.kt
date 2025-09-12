@@ -22,6 +22,7 @@ import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
+import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadDisplaySettingsDialog
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -220,7 +221,19 @@ fun ThreadScaffold(
                     onSettingsClick = {
                         viewModel.closeMoreSheet()
                         navController.navigate(AppRoute.SettingsHome)
+                    },
+                    onDisplaySettingsClick = {
+                        viewModel.closeMoreSheet()
+                        viewModel.openDisplaySettingsDialog()
                     }
+                )
+            }
+
+            if (uiState.showDisplaySettingsDialog) {
+                ThreadDisplaySettingsDialog(
+                    currentScale = uiState.postTextScale,
+                    onDismissRequest = { viewModel.closeDisplaySettingsDialog() },
+                    onValueChange = { viewModel.updatePostTextScale(it) }
                 )
             }
 

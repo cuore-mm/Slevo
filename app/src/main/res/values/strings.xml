@@ -72,6 +72,9 @@
     <string name="new_label">new</string>
     <string name="new_responses">新着</string>
 
+    <string name="display_settings">表示設定</string>
+    <string name="post_body_text_size">レス本文の文字サイズ</string>
+
     <string name="default_thread_sort_order">レスのデフォルトの並び順</string>
 
     <string name="about_this_app">このアプリについて</string>

@@ -276,7 +276,8 @@ fun ThreadScreen(
                                 if (targets.isNotEmpty()) {
                                     popupStack.add(PopupInfo(targets, offset))
                                 }
-                            }
+                            },
+                            contentTextScale = uiState.postTextScale
                         )
                         HorizontalDivider(
                             modifier = Modifier.padding(
@@ -332,7 +333,8 @@ fun ThreadScreen(
             navController = navController,
             boardName = uiState.boardInfo.name,
             boardId = uiState.boardInfo.boardId,
-            onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) }
+            onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) },
+            contentTextScale = uiState.postTextScale
         )
 
         if (uiState.isLoading) {

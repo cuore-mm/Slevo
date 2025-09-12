@@ -91,6 +91,7 @@ fun PostItem(
     onReplyClick: ((Int) -> Unit)? = null,
     onMenuReplyClick: ((Int) -> Unit)? = null,
     onIdClick: ((String) -> Unit)? = null,
+    contentTextScale: Float = 1f,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     var showCopyDialog by remember { mutableStateOf(false) }
@@ -476,7 +477,8 @@ fun PostItem(
                             },
                         text = annotatedText,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = MaterialTheme.typography.bodyMedium.fontSize * contentTextScale
                         ),
                         onTextLayout = { contentLayout = it }
                     )
