@@ -295,7 +295,7 @@ fun ThreadScreen(
             // 右側: 固定の勢いバー
             MomentumBar(
                 modifier = Modifier
-                    .width(32.dp)
+                    .width(24.dp)
                     .fillMaxHeight(),
                 posts = displayPosts,
                 replyCounts = replyCounts,
