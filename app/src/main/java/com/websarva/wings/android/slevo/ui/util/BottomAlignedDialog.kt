@@ -91,6 +91,7 @@ fun BottomAlignedDialogPreview() {
             onBoardListClick = {},
             onHistoryClick = {},
             onSettingsClick = {},
+            onDisplaySettingsClick = {},
         )
     }
 }

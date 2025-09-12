@@ -62,7 +62,8 @@ fun ReplyPopup(
     navController: NavHostController,
     boardName: String,
     boardId: Long,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    contentTextScale: Float = 1f,
 ) {
     val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
 
@@ -189,18 +190,19 @@ fun ReplyPopup(
                                         base.offset.x,
                                         (base.offset.y - base.size.height).coerceAtLeast(0)
                                     )
-                                    val targets = posts.mapIndexedNotNull { idx, post ->
-                                        val num = idx + 1
-                                        if (post.id == id && num !in ngPostNumbers) post else null
-                                    }
-                                    if (targets.isNotEmpty()) {
-                                        popupStack.add(PopupInfo(targets, offset))
-                                    }
+                                val targets = posts.mapIndexedNotNull { idx, post ->
+                                    val num = idx + 1
+                                    if (post.id == id && num !in ngPostNumbers) post else null
                                 }
-                            )
-                            if (i < info.posts.size - 1) {
-                                androidx.compose.material3.HorizontalDivider()
-                            }
+                                if (targets.isNotEmpty()) {
+                                    popupStack.add(PopupInfo(targets, offset))
+                                }
+                            },
+                            contentTextScale = contentTextScale
+                        )
+                        if (i < info.posts.size - 1) {
+                            androidx.compose.material3.HorizontalDivider()
+                        }
                         }
                     }
                 }

@@ -165,6 +165,12 @@ class ThreadViewModel @AssistedInject constructor(
             }
             initialize() // BaseViewModelの初期化処理を呼び出す
         }
+
+        viewModelScope.launch {
+            settingsRepository.observePostTextScale().collect { scale ->
+                _uiState.update { it.copy(postTextScale = scale) }
+            }
+        }
     }
 
     override suspend fun loadData(isRefresh: Boolean) {
@@ -580,6 +586,18 @@ class ThreadViewModel @AssistedInject constructor(
 
     fun closeMoreSheet() {
         _uiState.update { it.copy(showMoreSheet = false) }
+    }
+
+    fun openDisplaySettingsDialog() {
+        _uiState.update { it.copy(showDisplaySettingsDialog = true) }
+    }
+
+    fun closeDisplaySettingsDialog() {
+        _uiState.update { it.copy(showDisplaySettingsDialog = false) }
+    }
+
+    fun updatePostTextScale(scale: Float) {
+        viewModelScope.launch { settingsRepository.setPostTextScale(scale) }
     }
 
     // 書き込み画面を表示
