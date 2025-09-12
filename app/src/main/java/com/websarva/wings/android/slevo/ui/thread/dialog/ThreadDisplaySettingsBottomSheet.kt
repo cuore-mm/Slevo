@@ -13,11 +13,21 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,12 +49,16 @@ fun ThreadDisplaySettingsBottomSheet(
             Spacer(Modifier.height(8.dp))
             Slider(
                 value = currentScale,
-                onValueChange = onValueChange,
-                valueRange = 0.5f..2f,
+                onValueChange = {
+                    val rounded = (it * 20).roundToInt() / 20f
+                    onValueChange(rounded)
+                },
+                valueRange = 0.8f..1.6f,
+                steps = 29,
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                text = "${(currentScale * 100).toInt()}%",
+                text = "${(currentScale * 100).roundToInt()}%",
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             )
             Spacer(Modifier.height(8.dp))
@@ -56,4 +70,21 @@ fun ThreadDisplaySettingsBottomSheet(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(showBackground = true)
+@Composable
+fun PreviewThreadDisplaySettingsBottomSheet() {
+    val sheetState = rememberModalBottomSheetState()
+    val coroutineScope = rememberCoroutineScope()
+    var previewScale by remember { mutableFloatStateOf(1.0f) }
+    ThreadDisplaySettingsBottomSheet(
+        sheetState = sheetState,
+        currentScale = previewScale,
+        onValueChange = { previewScale = it },
+        onDismissRequest = {
+            coroutineScope.launch { sheetState.hide() }
+        }
+    )
 }
