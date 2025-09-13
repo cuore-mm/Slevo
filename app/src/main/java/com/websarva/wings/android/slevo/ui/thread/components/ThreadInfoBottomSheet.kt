@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.thread.components
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -92,12 +93,12 @@ fun ThreadInfoBottomSheet(
                     onDismissRequest()
                 },
                 onShareClick = {
-                    val shareText = "${threadInfo.title}\n$threadUrl"
-                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    val intent = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
-                        putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                        putExtra(Intent.EXTRA_TEXT, threadUrl)
+                        putExtra(Intent.EXTRA_TITLE, threadInfo.title)
                     }
-                    context.startActivity(android.content.Intent.createChooser(intent, null))
+                    context.startActivity(Intent.createChooser(intent, null))
                     onDismissRequest()
                 },
             )
@@ -138,7 +139,7 @@ private fun ThreadInfoBottomSheetContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
@@ -183,8 +184,10 @@ private fun ThreadInfoBottomSheetContent(
             )
         }
         Row(
-            horizontalArrangement = Arrangement.spacedBy(32.dp),
-            modifier = Modifier.padding(top = 16.dp)
+            horizontalArrangement = Arrangement.SpaceAround,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
         ) {
             LabeledIconButton(
                 icon = Icons.AutoMirrored.Filled.Article,
@@ -197,14 +200,14 @@ private fun ThreadInfoBottomSheetContent(
                 onClick = onCopyClick,
             )
             LabeledIconButton(
-                icon = Icons.Filled.Share,
-                label = stringResource(R.string.share),
-                onClick = onShareClick,
-            )
-            LabeledIconButton(
                 icon = Icons.Filled.OpenInBrowser,
                 label = stringResource(R.string.open_in_external_browser),
                 onClick = onOpenBrowserClick,
+            )
+            LabeledIconButton(
+                icon = Icons.Filled.Share,
+                label = stringResource(R.string.share),
+                onClick = onShareClick,
             )
         }
     }

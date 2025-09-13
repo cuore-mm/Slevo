@@ -51,7 +51,7 @@ fun ThreadToolbarMenuContent(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 24.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
+        horizontalArrangement = Arrangement.SpaceAround
     ) {
         LabeledIconButton(
             icon = Icons.Filled.Star,
