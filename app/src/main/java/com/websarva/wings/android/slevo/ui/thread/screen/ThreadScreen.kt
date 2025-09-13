@@ -58,6 +58,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -118,9 +119,20 @@ fun ThreadScreen(
             }
     }
 
-    LaunchedEffect(uiState.isAutoScroll, visiblePosts.size) {
-        if (uiState.isAutoScroll && visiblePosts.isNotEmpty()) {
-            listState.animateScrollToItem(visiblePosts.size)
+    val autoScrollStep = with(LocalDensity.current) { 1.dp.toPx() }
+    LaunchedEffect(uiState.isAutoScroll, autoScrollStep) {
+        if (uiState.isAutoScroll) {
+            while (isActive) {
+                if (listState.canScrollForward) {
+                    listState.animateScrollToItem(
+                        listState.firstVisibleItemIndex,
+                        listState.firstVisibleItemScrollOffset + autoScrollStep.toInt()
+                    )
+                    delay(16L)
+                } else {
+                    delay(500L)
+                }
+            }
         }
     }
 
