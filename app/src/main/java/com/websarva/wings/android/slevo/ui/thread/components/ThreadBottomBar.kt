@@ -16,6 +16,8 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.Card
@@ -56,6 +58,7 @@ fun ThreadBottomBar(
     onBookmarkClick: () -> Unit,
     onThreadInfoClick: () -> Unit,
     onMoreClick: () -> Unit,
+    onAutoScrollClick: () -> Unit,
     scrollBehavior: BottomAppBarScrollBehavior? = null,
 ) {
     FlexibleBottomAppBar(
@@ -149,6 +152,22 @@ fun ThreadBottomBar(
                         contentDescription = stringResource(R.string.post)
                     )
                 }
+                IconButton(onClick = onAutoScrollClick) {
+                    Icon(
+                        imageVector = if (uiState.isAutoScroll) {
+                            Icons.Filled.Pause
+                        } else {
+                            Icons.Filled.PlayArrow
+                        },
+                        contentDescription = stringResource(
+                            if (uiState.isAutoScroll) {
+                                R.string.stop_auto_scroll
+                            } else {
+                                R.string.start_auto_scroll
+                            }
+                        )
+                    )
+                }
                 IconButton(onClick = onMoreClick) {
                     Icon(
                         imageVector = Icons.Filled.Menu,
@@ -182,6 +201,7 @@ fun ThreadBottomBarPreview() {
         onSearchClick = {},
         onBookmarkClick = {},
         onThreadInfoClick = {},
-        onMoreClick = {}
+        onMoreClick = {},
+        onAutoScrollClick = {}
     )
 }

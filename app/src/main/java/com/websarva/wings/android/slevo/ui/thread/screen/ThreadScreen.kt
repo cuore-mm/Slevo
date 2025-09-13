@@ -58,6 +58,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -67,6 +68,7 @@ fun ThreadScreen(
     uiState: ThreadUiState,
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
+    onAutoScrollBottom: () -> Unit = {},
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
     onReplyToPost: (Int) -> Unit = {},
@@ -116,6 +118,24 @@ fun ThreadScreen(
                     }
                 }
             }
+    }
+
+    val autoScrollStep = with(LocalDensity.current) { 1.dp.toPx() }
+    LaunchedEffect(uiState.isAutoScroll, autoScrollStep) {
+        if (uiState.isAutoScroll) {
+            while (isActive) {
+                if (listState.canScrollForward) {
+                    listState.animateScrollToItem(
+                        listState.firstVisibleItemIndex,
+                        listState.firstVisibleItemScrollOffset + autoScrollStep.toInt()
+                    )
+                    delay(16L)
+                } else {
+                    onAutoScrollBottom()
+                    delay(500L)
+                }
+            }
+        }
     }
 
     val density = LocalDensity.current
@@ -411,6 +431,7 @@ fun ThreadScreenPreview() {
     ThreadScreen(
         uiState = uiState,
         navController = NavHostController(LocalContext.current),
+        onAutoScrollBottom = {},
         onBottomRefresh = {}
     )
 }
