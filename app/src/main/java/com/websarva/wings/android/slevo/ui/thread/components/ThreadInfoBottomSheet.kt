@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -22,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -55,6 +57,7 @@ fun ThreadInfoBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showCopyDialog by remember { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
 
     val threadUrl = parseBoardUrl(threadInfo.url)?.let { (host, boardKey) ->
         "https://$host/test/read.cgi/$boardKey/${threadInfo.key}/"
@@ -88,6 +91,15 @@ fun ThreadInfoBottomSheet(
                     showCopyDialog = true
                     onDismissRequest()
                 },
+                onShareClick = {
+                    val shareText = "${threadInfo.title}\n$threadUrl"
+                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                    }
+                    context.startActivity(android.content.Intent.createChooser(intent, null))
+                    onDismissRequest()
+                },
             )
         }
     }
@@ -119,6 +131,7 @@ private fun ThreadInfoBottomSheetContent(
     onBoardClick: () -> Unit,
     onOpenBrowserClick: () -> Unit,
     onCopyClick: () -> Unit,
+    onShareClick: () -> Unit,
 ) {
     val momentumFormatter = remember { DecimalFormat("0.0") }
     val date = threadInfo.date
@@ -184,6 +197,11 @@ private fun ThreadInfoBottomSheetContent(
                 onClick = onCopyClick,
             )
             LabeledIconButton(
+                icon = Icons.Filled.Share,
+                label = stringResource(R.string.share),
+                onClick = onShareClick,
+            )
+            LabeledIconButton(
                 icon = Icons.Filled.OpenInBrowser,
                 label = stringResource(R.string.open_in_external_browser),
                 onClick = onOpenBrowserClick,
@@ -207,5 +225,6 @@ fun ThreadInfoBottomSheetContentPreview() {
         onBoardClick = {},
         onOpenBrowserClick = {},
         onCopyClick = {},
+        onShareClick = {},
     )
 }
