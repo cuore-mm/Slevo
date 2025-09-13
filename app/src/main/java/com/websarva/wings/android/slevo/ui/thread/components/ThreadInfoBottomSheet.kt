@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,9 +40,11 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.CopyDialog
 import com.websarva.wings.android.slevo.ui.common.CopyItem
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.util.LabeledIconButton
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.text.DecimalFormat
@@ -57,6 +60,7 @@ fun ThreadInfoBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showCopyDialog by remember { mutableStateOf(false) }
+    var showNgDialog by remember { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
 
@@ -92,6 +96,10 @@ fun ThreadInfoBottomSheet(
                     showCopyDialog = true
                     onDismissRequest()
                 },
+                onNgClick = {
+                    showNgDialog = true
+                    onDismissRequest()
+                },
                 onShareClick = {
                     val intent = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
@@ -123,6 +131,15 @@ fun ThreadInfoBottomSheet(
             onDismissRequest = { showCopyDialog = false }
         )
     }
+    if (showNgDialog) {
+        NgDialogRoute(
+            text = threadInfo.title,
+            type = NgType.THREAD_TITLE,
+            boardName = boardInfo.name,
+            boardId = boardInfo.boardId.takeIf { it != 0L },
+            onDismiss = { showNgDialog = false }
+        )
+    }
 }
 
 @Composable
@@ -132,6 +149,7 @@ private fun ThreadInfoBottomSheetContent(
     onBoardClick: () -> Unit,
     onOpenBrowserClick: () -> Unit,
     onCopyClick: () -> Unit,
+    onNgClick: () -> Unit,
     onShareClick: () -> Unit,
 ) {
     val momentumFormatter = remember { DecimalFormat("0.0") }
@@ -209,6 +227,11 @@ private fun ThreadInfoBottomSheetContent(
                 label = stringResource(R.string.share),
                 onClick = onShareClick,
             )
+            LabeledIconButton(
+                icon = Icons.Filled.Block,
+                label = stringResource(R.string.ng_registration),
+                onClick = onNgClick,
+            )
         }
     }
 }
@@ -228,6 +251,7 @@ fun ThreadInfoBottomSheetContentPreview() {
         onBoardClick = {},
         onOpenBrowserClick = {},
         onCopyClick = {},
+        onNgClick = {},
         onShareClick = {},
     )
 }
