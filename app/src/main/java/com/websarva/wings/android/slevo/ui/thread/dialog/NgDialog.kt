@@ -12,15 +12,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.TextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Divider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -188,7 +188,7 @@ fun BoardListDialog(
                         headlineContent = { Text(stringResource(R.string.all_boards)) },
                         modifier = Modifier.clickable { onSelect(BoardInfo(0L, "", "")) },
                     )
-                    Divider()
+                    HorizontalDivider()
                 }
                 items(boards, key = { it.boardId }) { info ->
                     ListItem(
