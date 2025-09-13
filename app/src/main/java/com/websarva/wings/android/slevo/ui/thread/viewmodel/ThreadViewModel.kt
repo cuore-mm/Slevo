@@ -35,8 +35,6 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -79,7 +77,7 @@ class ThreadViewModel @AssistedInject constructor(
     private var pendingPost: PendingPost? = null
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
-    private var autoScrollJob: Job? = null
+    private var lastAutoRefreshTime: Long = 0L
 
     internal val _postUiState = MutableStateFlow(PostUiState())
     val postUiState: StateFlow<PostUiState> = _postUiState.asStateFlow()
@@ -544,17 +542,17 @@ class ThreadViewModel @AssistedInject constructor(
     fun toggleAutoScroll() {
         val enabled = !_uiState.value.isAutoScroll
         _uiState.update { it.copy(isAutoScroll = enabled) }
-        if (enabled) {
-            autoScrollJob?.cancel()
-            autoScrollJob = viewModelScope.launch {
-                while (isActive) {
-                    delay(10_000)
-                    reloadThread()
-                }
-            }
-        } else {
-            autoScrollJob?.cancel()
-            autoScrollJob = null
+        if (!enabled) {
+            lastAutoRefreshTime = 0L
+        }
+    }
+
+    fun onAutoScrollReachedBottom() {
+        if (!_uiState.value.isAutoScroll) return
+        val now = System.currentTimeMillis()
+        if (lastAutoRefreshTime == 0L || now - lastAutoRefreshTime >= 10_000L) {
+            lastAutoRefreshTime = now
+            reloadThread()
         }
     }
 

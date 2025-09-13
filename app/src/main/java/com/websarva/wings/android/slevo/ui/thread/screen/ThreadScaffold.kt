@@ -181,6 +181,7 @@ fun ThreadScaffold(
                 uiState = uiState,
                 listState = listState,
                 navController = navController,
+                onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
                 onBottomRefresh = { viewModel.reloadThread() },
                 onLastRead = { resNum ->
                     routeThreadId?.let { viewModel.updateThreadLastRead(it, resNum) }

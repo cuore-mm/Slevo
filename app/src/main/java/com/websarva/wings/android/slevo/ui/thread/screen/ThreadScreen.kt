@@ -68,6 +68,7 @@ fun ThreadScreen(
     uiState: ThreadUiState,
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
+    onAutoScrollBottom: () -> Unit = {},
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
     onReplyToPost: (Int) -> Unit = {},
@@ -130,6 +131,7 @@ fun ThreadScreen(
                     )
                     delay(16L)
                 } else {
+                    onAutoScrollBottom()
                     delay(500L)
                 }
             }
@@ -429,6 +431,7 @@ fun ThreadScreenPreview() {
     ThreadScreen(
         uiState = uiState,
         navController = NavHostController(LocalContext.current),
+        onAutoScrollBottom = {},
         onBottomRefresh = {}
     )
 }
