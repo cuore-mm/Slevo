@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.thread.components
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -22,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -55,6 +58,7 @@ fun ThreadInfoBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showCopyDialog by remember { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
 
     val threadUrl = parseBoardUrl(threadInfo.url)?.let { (host, boardKey) ->
         "https://$host/test/read.cgi/$boardKey/${threadInfo.key}/"
@@ -88,6 +92,15 @@ fun ThreadInfoBottomSheet(
                     showCopyDialog = true
                     onDismissRequest()
                 },
+                onShareClick = {
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, threadUrl)
+                        putExtra(Intent.EXTRA_TITLE, threadInfo.title)
+                    }
+                    context.startActivity(Intent.createChooser(intent, null))
+                    onDismissRequest()
+                },
             )
         }
     }
@@ -119,13 +132,14 @@ private fun ThreadInfoBottomSheetContent(
     onBoardClick: () -> Unit,
     onOpenBrowserClick: () -> Unit,
     onCopyClick: () -> Unit,
+    onShareClick: () -> Unit,
 ) {
     val momentumFormatter = remember { DecimalFormat("0.0") }
     val date = threadInfo.date
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
@@ -170,8 +184,10 @@ private fun ThreadInfoBottomSheetContent(
             )
         }
         Row(
-            horizontalArrangement = Arrangement.spacedBy(32.dp),
-            modifier = Modifier.padding(top = 16.dp)
+            horizontalArrangement = Arrangement.SpaceAround,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
         ) {
             LabeledIconButton(
                 icon = Icons.AutoMirrored.Filled.Article,
@@ -187,6 +203,11 @@ private fun ThreadInfoBottomSheetContent(
                 icon = Icons.Filled.OpenInBrowser,
                 label = stringResource(R.string.open_in_external_browser),
                 onClick = onOpenBrowserClick,
+            )
+            LabeledIconButton(
+                icon = Icons.Filled.Share,
+                label = stringResource(R.string.share),
+                onClick = onShareClick,
             )
         }
     }
@@ -207,5 +228,6 @@ fun ThreadInfoBottomSheetContentPreview() {
         onBoardClick = {},
         onOpenBrowserClick = {},
         onCopyClick = {},
+        onShareClick = {},
     )
 }
