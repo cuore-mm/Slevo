@@ -7,12 +7,14 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
 import com.websarva.wings.android.slevo.data.repository.PostResult
 import com.websarva.wings.android.slevo.data.repository.ThreadCreateRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
@@ -32,6 +34,7 @@ class BoardViewModel @AssistedInject constructor(
     private val threadCreateRepository: ThreadCreateRepository,
     private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
+    private val ngRepository: NgRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     @Assisted("viewModelKey") val viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
@@ -42,6 +45,7 @@ class BoardViewModel @AssistedInject constructor(
     private var currentHistoryMap: Map<String, Int> = emptyMap()
     private var isObservingThreads: Boolean = false
     private var initializedUrl: String? = null
+    private var ngTitlePatterns: List<Pair<Long?, Regex>> = emptyList()
 
     override val _uiState = MutableStateFlow(BoardUiState())
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
@@ -69,6 +73,26 @@ class BoardViewModel @AssistedInject constructor(
         viewModelScope.launch {
             singleBookmarkViewModel?.uiState?.collect { bkState ->
                 _uiState.update { it.copy(singleBookmarkState = bkState) }
+            }
+        }
+
+        viewModelScope.launch {
+            ngRepository.observeNgs().collect { list ->
+                ngTitlePatterns = list.filter { it.type == NgType.THREAD_TITLE }
+                    .mapNotNull { ng ->
+                        runCatching {
+                            val rx = if (ng.isRegex) {
+                                Regex(ng.pattern)
+                            } else {
+                                Regex(Regex.escape(ng.pattern))
+                            }
+                            ng.boardId to rx
+                        }.getOrNull()
+                    }
+                baseThreads = baseThreads.filterNot {
+                    isNgTitle(it.title, uiState.value.boardInfo.boardId)
+                }
+                mergeHistory(currentHistoryMap)
             }
         }
 
@@ -117,12 +141,18 @@ class BoardViewModel @AssistedInject constructor(
             ) { threads, historyMap ->
                 threads to historyMap
             }.collect { (threads, historyMap) ->
-                baseThreads = threads
+                baseThreads = threads.filterNot { isNgTitle(it.title, boardId) }
                 currentHistoryMap = historyMap
                 if (!_uiState.value.isLoading) {
                     mergeHistory(historyMap)
                 }
             }
+        }
+    }
+
+    private fun isNgTitle(title: String, boardId: Long): Boolean {
+        return ngTitlePatterns.any { (bId, rx) ->
+            (bId == null || bId == boardId) && rx.containsMatchIn(title)
         }
     }
 
