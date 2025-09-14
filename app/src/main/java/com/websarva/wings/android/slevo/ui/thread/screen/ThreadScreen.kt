@@ -120,12 +120,12 @@ fun ThreadScreen(
             }
     }
 
-    val autoScrollStep = with(LocalDensity.current) { 1.dp.toPx() }
+    val autoScrollStep = with(LocalDensity.current) { 4.dp.toPx() }
     LaunchedEffect(uiState.isAutoScroll, autoScrollStep) {
         if (uiState.isAutoScroll) {
             while (isActive) {
                 if (listState.canScrollForward) {
-                    listState.animateScrollToItem(
+                    listState.scrollToItem(
                         listState.firstVisibleItemIndex,
                         listState.firstVisibleItemScrollOffset + autoScrollStep.toInt()
                     )
