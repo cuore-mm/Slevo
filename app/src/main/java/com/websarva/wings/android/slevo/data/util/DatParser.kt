@@ -30,6 +30,7 @@ fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {
                 // タイトルもHTMLデコード
                 threadTitle =
                     HtmlCompat.fromHtml(parts[4], HtmlCompat.FROM_HTML_MODE_LEGACY).toString()
+                        .removeSuffix(" ")
                         .takeIf { it.isNotBlank() }
             }
 
@@ -116,7 +117,10 @@ private fun cleanContent(contentHtml: String): Pair<String, String> {
 
     // 2. <br> タグをプレースホルダに変換
     val textWithPlaceholders =
-        withoutIcon.replace(Regex("\\s?<br\\s*/?>\\s?", RegexOption.IGNORE_CASE), newlinePlaceholder)
+        withoutIcon.replace(
+            Regex("\\s?<br\\s*/?>\\s?", RegexOption.IGNORE_CASE),
+            newlinePlaceholder
+        )
 
     // 2. HTMLエンティティをデコード (この時プレースホルダはそのままのはず)
     val decodedContent =
