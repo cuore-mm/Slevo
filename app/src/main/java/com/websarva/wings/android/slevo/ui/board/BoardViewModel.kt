@@ -10,9 +10,11 @@ import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
+import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostResult
 import com.websarva.wings.android.slevo.data.repository.ThreadCreateRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
@@ -33,6 +35,7 @@ class BoardViewModel @AssistedInject constructor(
     private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
+    private val ngRepository: NgRepository,
     @Assisted("viewModelKey") val viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
 
@@ -45,6 +48,7 @@ class BoardViewModel @AssistedInject constructor(
 
     override val _uiState = MutableStateFlow(BoardUiState())
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
+    private var threadTitleNg: List<Pair<Long?, Regex>> = emptyList()
 
     fun initializeBoard(boardInfo: BoardInfo) {
         if (initializedUrl == boardInfo.url) return
@@ -69,6 +73,23 @@ class BoardViewModel @AssistedInject constructor(
         viewModelScope.launch {
             singleBookmarkViewModel?.uiState?.collect { bkState ->
                 _uiState.update { it.copy(singleBookmarkState = bkState) }
+            }
+        }
+
+        viewModelScope.launch {
+            ngRepository.observeNgs().collect { list ->
+                threadTitleNg = list.filter { it.type == NgType.THREAD_TITLE }
+                    .mapNotNull { ng ->
+                        runCatching {
+                            val rx = if (ng.isRegex) {
+                                Regex(ng.pattern)
+                            } else {
+                                Regex(Regex.escape(ng.pattern))
+                            }
+                            ng.boardId to rx
+                        }.getOrNull()
+                    }
+                applyFiltersAndSort()
             }
         }
 
@@ -179,12 +200,19 @@ class BoardViewModel @AssistedInject constructor(
     private fun applyFiltersAndSort() {
         originalThreads?.let { allThreads ->
             // 1. フィルタリング
-            val filteredList = if (_uiState.value.searchQuery.isNotBlank()) {
+            val searchFiltered = if (_uiState.value.searchQuery.isNotBlank()) {
                 allThreads.filter {
                     it.title.contains(_uiState.value.searchQuery, ignoreCase = true)
                 }
             } else {
                 allThreads
+            }
+
+            val filteredList = searchFiltered.filterNot { thread ->
+                threadTitleNg.any { (bId, rx) ->
+                    (bId == null || bId == _uiState.value.boardInfo.boardId) &&
+                        rx.containsMatchIn(thread.title)
+                }
             }
 
             // スレッドキーが閾値以上のものを常に末尾に回す
