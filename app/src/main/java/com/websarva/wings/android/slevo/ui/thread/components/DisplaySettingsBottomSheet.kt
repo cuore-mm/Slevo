@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,11 +41,14 @@ fun DisplaySettingsBottomSheet(
                 Text(text = stringResource(R.string.text_size))
                 Slider(
                     value = textScale,
-                    onValueChange = onTextScaleChange,
+                    onValueChange = {
+                        val snapped = (it * 20).roundToInt() / 20f
+                        onTextScaleChange(snapped)
+                    },
                     valueRange = 0.5f..2f,
                     steps = 29
                 )
-                Text(text = "${(textScale * 100).toInt()}%")
+                Text(text = "${(textScale * 100).roundToInt()}%")
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
