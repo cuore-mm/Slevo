@@ -20,6 +20,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -132,7 +134,11 @@ fun ThreadScaffold(
             } else {
                 Modifier
             }
+            val keyboardController = LocalSoftwareKeyboardController.current
+            val focusManager = LocalFocusManager.current
             BackHandler(enabled = uiState.isSearchMode) {
+                keyboardController?.hide()
+                focusManager.clearFocus()
                 viewModel.closeSearch()
             }
             AnimatedContent(
