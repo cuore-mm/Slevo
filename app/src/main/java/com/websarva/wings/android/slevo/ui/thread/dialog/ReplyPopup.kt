@@ -62,7 +62,8 @@ fun ReplyPopup(
     navController: NavHostController,
     boardName: String,
     boardId: Long,
-    textScale: Float,
+    headerTextScale: Float,
+    bodyTextScale: Float,
     onClose: () -> Unit
 ) {
     val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
@@ -159,7 +160,8 @@ fun ReplyPopup(
                                 navController = navController,
                                 boardName = boardName,
                                 boardId = boardId,
-                                textScale = textScale,
+                                headerTextScale = headerTextScale,
+                                bodyTextScale = bodyTextScale,
                                 isMyPost = postNum in myPostNumbers,
                                 replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers } ?: emptyList(),
                                 onReplyFromClick = { nums ->
@@ -254,7 +256,8 @@ fun ReplyPopupPreview() {
         navController = navController,
         boardName = "test",
         boardId = 1L,
-        textScale = 1f,
+        headerTextScale = 0.85f,
+        bodyTextScale = 1f,
         onClose = {}
     )
 }

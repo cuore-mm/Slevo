@@ -86,6 +86,21 @@ class ThreadViewModel @AssistedInject constructor(
                 _uiState.update { it.copy(textScale = scale) }
             }
         }
+        viewModelScope.launch {
+            settingsRepository.observeIsIndividualTextScale().collect { enabled ->
+                _uiState.update { it.copy(isIndividualTextScale = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.observeHeaderTextScale().collect { scale ->
+                _uiState.update { it.copy(headerTextScale = scale) }
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.observeBodyTextScale().collect { scale ->
+                _uiState.update { it.copy(bodyTextScale = scale) }
+            }
+        }
     }
 
     internal val _postUiState = MutableStateFlow(PostUiState())
@@ -620,6 +635,28 @@ class ThreadViewModel @AssistedInject constructor(
     fun updateTextScale(scale: Float) {
         viewModelScope.launch {
             settingsRepository.setTextScale(scale)
+            if (!_uiState.value.isIndividualTextScale) {
+                settingsRepository.setBodyTextScale(scale)
+                settingsRepository.setHeaderTextScale(scale * 0.85f)
+            }
+        }
+    }
+
+    fun updateIndividualTextScale(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setIndividualTextScale(enabled)
+        }
+    }
+
+    fun updateHeaderTextScale(scale: Float) {
+        viewModelScope.launch {
+            settingsRepository.setHeaderTextScale(scale)
+        }
+    }
+
+    fun updateBodyTextScale(scale: Float) {
+        viewModelScope.launch {
+            settingsRepository.setBodyTextScale(scale)
         }
     }
 

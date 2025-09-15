@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.components
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -23,8 +25,14 @@ import kotlin.math.roundToInt
 fun DisplaySettingsBottomSheet(
     show: Boolean,
     textScale: Float,
+    isIndividual: Boolean,
+    headerTextScale: Float,
+    bodyTextScale: Float,
     onDismissRequest: () -> Unit,
     onTextScaleChange: (Float) -> Unit,
+    onIndividualChange: (Boolean) -> Unit,
+    onHeaderTextScaleChange: (Float) -> Unit,
+    onBodyTextScaleChange: (Float) -> Unit,
 ) {
     if (show) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -46,10 +54,43 @@ fun DisplaySettingsBottomSheet(
                         onTextScaleChange(snapped)
                     },
                     valueRange = 0.5f..2f,
-                    steps = 29
+                    steps = 29,
+                    enabled = !isIndividual
                 )
                 Text(text = "${(textScale * 100).roundToInt()}%")
                 Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = stringResource(R.string.individual_text_settings))
+                    Spacer(modifier = Modifier.weight(1f))
+                    Switch(checked = isIndividual, onCheckedChange = onIndividualChange)
+                }
+                if (isIndividual) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = stringResource(R.string.header_text_size))
+                    Slider(
+                        value = headerTextScale,
+                        onValueChange = {
+                            val snapped = (it * 20).roundToInt() / 20f
+                            onHeaderTextScaleChange(snapped)
+                        },
+                        valueRange = 0.5f..2f,
+                        steps = 29
+                    )
+                    Text(text = "${(headerTextScale * 100).roundToInt()}%")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = stringResource(R.string.body_text_size))
+                    Slider(
+                        value = bodyTextScale,
+                        onValueChange = {
+                            val snapped = (it * 20).roundToInt() / 20f
+                            onBodyTextScaleChange(snapped)
+                        },
+                        valueRange = 0.5f..2f,
+                        steps = 29
+                    )
+                    Text(text = "${(bodyTextScale * 100).roundToInt()}%")
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
             }
         }
     }
