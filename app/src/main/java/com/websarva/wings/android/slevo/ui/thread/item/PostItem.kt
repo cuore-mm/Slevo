@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
 import com.websarva.wings.android.slevo.R
@@ -478,6 +479,7 @@ fun PostItem(
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = MaterialTheme.colorScheme.onSurface
                         ),
+                        lineHeight = 1.5.em,
                         onTextLayout = { contentLayout = it }
                     )
                 }
