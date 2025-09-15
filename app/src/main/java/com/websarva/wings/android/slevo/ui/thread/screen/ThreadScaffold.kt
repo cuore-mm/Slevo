@@ -26,6 +26,7 @@ import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
+import com.websarva.wings.android.slevo.ui.thread.components.ThreadSearchBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadPagerViewModel
@@ -40,7 +41,6 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMail
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMessage
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostName
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.uploadImage
-import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
@@ -115,38 +115,40 @@ fun ThreadScaffold(
         onPageChange = { pagerViewModel.setCurrentPage(it) },
         scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
-        topBar = { viewModel, uiState, _, scrollBehavior ->
-            if (uiState.isSearchMode) {
-                SearchTopAppBar(
-                    searchQuery = uiState.searchQuery,
-                    onQueryChange = { viewModel.updateSearchQuery(it) },
-                    onCloseSearch = { viewModel.closeSearch() },
-                    scrollBehavior = scrollBehavior
-                )
-            }
-        },
+        topBar = { _, _, _, _ -> },
         bottomBar = { viewModel, uiState, barScrollBehavior ->
             val context = LocalContext.current
             val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
-            ThreadToolBar(
-                modifier = if (isThreeButtonBar) {
-                    Modifier.navigationBarsPadding()
-                } else {
-                    Modifier
-                },
-                uiState = uiState,
-                isTreeSort = uiState.sortType == ThreadSortType.TREE,
-                onSortClick = { viewModel.toggleSortType() },
-                onPostClick = { viewModel.showPostDialog() },
-                onTabListClick = { viewModel.openTabListSheet() },
-                onRefreshClick = { viewModel.reloadThread() },
-                onSearchClick = { viewModel.startSearch() },
-                onBookmarkClick = { viewModel.openBookmarkSheet() },
-                onThreadInfoClick = { viewModel.openThreadInfoSheet() },
-                onMoreClick = { viewModel.openMoreSheet() },
-                onAutoScrollClick = { viewModel.toggleAutoScroll() },
-                scrollBehavior = barScrollBehavior,
-            )
+            val modifier = if (isThreeButtonBar) {
+                Modifier.navigationBarsPadding()
+            } else {
+                Modifier
+            }
+            if (uiState.isSearchMode) {
+                ThreadSearchBar(
+                    modifier = modifier,
+                    searchQuery = uiState.searchQuery,
+                    onQueryChange = { viewModel.updateSearchQuery(it) },
+                    onCloseSearch = { viewModel.closeSearch() },
+                    scrollBehavior = barScrollBehavior,
+                )
+            } else {
+                ThreadToolBar(
+                    modifier = modifier,
+                    uiState = uiState,
+                    isTreeSort = uiState.sortType == ThreadSortType.TREE,
+                    onSortClick = { viewModel.toggleSortType() },
+                    onPostClick = { viewModel.showPostDialog() },
+                    onTabListClick = { viewModel.openTabListSheet() },
+                    onRefreshClick = { viewModel.reloadThread() },
+                    onSearchClick = { viewModel.startSearch() },
+                    onBookmarkClick = { viewModel.openBookmarkSheet() },
+                    onThreadInfoClick = { viewModel.openThreadInfoSheet() },
+                    onMoreClick = { viewModel.openMoreSheet() },
+                    onAutoScrollClick = { viewModel.toggleAutoScroll() },
+                    scrollBehavior = barScrollBehavior,
+                )
+            }
         },
         content = { viewModel, uiState, listState, modifier, navController ->
             LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
