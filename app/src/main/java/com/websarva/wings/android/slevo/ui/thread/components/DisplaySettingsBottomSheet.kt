@@ -28,11 +28,13 @@ fun DisplaySettingsBottomSheet(
     isIndividual: Boolean,
     headerTextScale: Float,
     bodyTextScale: Float,
+    lineHeight: Float,
     onDismissRequest: () -> Unit,
     onTextScaleChange: (Float) -> Unit,
     onIndividualChange: (Boolean) -> Unit,
     onHeaderTextScaleChange: (Float) -> Unit,
     onBodyTextScaleChange: (Float) -> Unit,
+    onLineHeightChange: (Float) -> Unit,
 ) {
     if (show) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -89,6 +91,18 @@ fun DisplaySettingsBottomSheet(
                         steps = 29
                     )
                     Text(text = "${(bodyTextScale * 100).roundToInt()}%")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = stringResource(R.string.line_spacing))
+                    Slider(
+                        value = lineHeight,
+                        onValueChange = {
+                            val snapped = (it * 10).roundToInt() / 10f
+                            onLineHeightChange(snapped)
+                        },
+                        valueRange = 1.2f..2f,
+                        steps = 7
+                    )
+                    Text(text = String.format("%.1f", lineHeight) + "em")
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }

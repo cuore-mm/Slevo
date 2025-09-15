@@ -19,6 +19,7 @@ private val TEXT_SCALE_KEY = floatPreferencesKey("text_scale")
 private val INDIVIDUAL_TEXT_SCALE_KEY = booleanPreferencesKey("individual_text_scale")
 private val HEADER_TEXT_SCALE_KEY = floatPreferencesKey("header_text_scale")
 private val BODY_TEXT_SCALE_KEY = floatPreferencesKey("body_text_scale")
+private val LINE_HEIGHT_KEY = floatPreferencesKey("line_height")
 
 @Singleton
 class SettingsLocalDataSourceImpl @Inject constructor(
@@ -81,6 +82,16 @@ class SettingsLocalDataSourceImpl @Inject constructor(
     override suspend fun setBodyTextScale(scale: Float) {
         context.dataStore.edit { prefs ->
             prefs[BODY_TEXT_SCALE_KEY] = scale
+        }
+    }
+
+    override fun observeLineHeight(): Flow<Float> =
+        context.dataStore.data
+            .map { prefs -> prefs[LINE_HEIGHT_KEY] ?: 1.5f }
+
+    override suspend fun setLineHeight(height: Float) {
+        context.dataStore.edit { prefs ->
+            prefs[LINE_HEIGHT_KEY] = height
         }
     }
 }

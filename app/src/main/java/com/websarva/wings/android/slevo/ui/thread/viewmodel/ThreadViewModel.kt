@@ -101,6 +101,11 @@ class ThreadViewModel @AssistedInject constructor(
                 _uiState.update { it.copy(bodyTextScale = scale) }
             }
         }
+        viewModelScope.launch {
+            settingsRepository.observeLineHeight().collect { height ->
+                _uiState.update { it.copy(lineHeight = height) }
+            }
+        }
     }
 
     internal val _postUiState = MutableStateFlow(PostUiState())
@@ -645,6 +650,9 @@ class ThreadViewModel @AssistedInject constructor(
     fun updateIndividualTextScale(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setIndividualTextScale(enabled)
+            if (!enabled) {
+                settingsRepository.setLineHeight(1.5f)
+            }
         }
     }
 
@@ -657,6 +665,12 @@ class ThreadViewModel @AssistedInject constructor(
     fun updateBodyTextScale(scale: Float) {
         viewModelScope.launch {
             settingsRepository.setBodyTextScale(scale)
+        }
+    }
+
+    fun updateLineHeight(height: Float) {
+        viewModelScope.launch {
+            settingsRepository.setLineHeight(height)
         }
     }
 
