@@ -32,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -58,6 +59,8 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import androidx.compose.foundation.gestures.scrollBy
 import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -67,6 +70,7 @@ fun ThreadScreen(
     uiState: ThreadUiState,
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
+    onAutoScrollBottom: () -> Unit = {},
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
     onReplyToPost: (Int) -> Unit = {},
@@ -85,6 +89,7 @@ fun ThreadScreen(
     val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
     // NG（非表示）対象の投稿番号リスト
     val ngNumbers = uiState.ngPostNumbers
+    val density = LocalDensity.current
 
     LaunchedEffect(listState, visiblePosts, uiState.sortType) {
         snapshotFlow { listState.isScrollInProgress }
@@ -118,7 +123,34 @@ fun ThreadScreen(
             }
     }
 
-    val density = LocalDensity.current
+    val autoScrollDpPerSec = 40f
+    val isScrollInProgress = listState.isScrollInProgress
+    LaunchedEffect(uiState.isAutoScroll, isScrollInProgress, autoScrollDpPerSec, density) {
+        if (!uiState.isAutoScroll || isScrollInProgress) return@LaunchedEffect
+        val pxPerSec = with(density) { autoScrollDpPerSec.dp.toPx() }
+        var lastTime: Long? = null
+        while (isActive) {
+            val dt = withFrameNanos { now ->
+                val prev = lastTime
+                lastTime = now
+                if (prev == null) 0f else (now - prev) / 1_000_000_000f
+            }
+            if (dt == 0f) continue
+
+            val consumed = listState.scrollBy(pxPerSec * dt)
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()
+            val atEnd = last != null &&
+                last.index == info.totalItemsCount - 1 &&
+                last.offset + last.size <= info.viewportEndOffset + 1
+
+            if (atEnd || consumed == 0f) {
+                onAutoScrollBottom()
+                continue
+            }
+        }
+    }
+
     val refreshThresholdPx = with(density) { 80.dp.toPx() }
     var overscroll by remember { mutableFloatStateOf(0f) }
     var triggerRefresh by remember { mutableStateOf(false) }
@@ -411,6 +443,7 @@ fun ThreadScreenPreview() {
     ThreadScreen(
         uiState = uiState,
         navController = NavHostController(LocalContext.current),
+        onAutoScrollBottom = {},
         onBottomRefresh = {}
     )
 }

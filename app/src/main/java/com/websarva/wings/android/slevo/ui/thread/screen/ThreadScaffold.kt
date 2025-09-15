@@ -145,6 +145,7 @@ fun ThreadScaffold(
                 onBookmarkClick = { viewModel.openBookmarkSheet() },
                 onThreadInfoClick = { viewModel.openThreadInfoSheet() },
                 onMoreClick = { viewModel.openMoreSheet() },
+                onAutoScrollClick = { viewModel.toggleAutoScroll() },
                 scrollBehavior = barScrollBehavior,
             )
         },
@@ -180,6 +181,7 @@ fun ThreadScaffold(
                 uiState = uiState,
                 listState = listState,
                 navController = navController,
+                onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
                 onBottomRefresh = { viewModel.reloadThread() },
                 onLastRead = { resNum ->
                     routeThreadId?.let { viewModel.updateThreadLastRead(it, resNum) }

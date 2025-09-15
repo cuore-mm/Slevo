@@ -71,6 +71,8 @@
     <string name="search_board_hint">板名またはURLで検索</string>
     <string name="new_label">new</string>
     <string name="new_responses">新着</string>
+    <string name="start_auto_scroll">自動スクロール開始</string>
+    <string name="stop_auto_scroll">自動スクロール停止</string>
 
     <string name="default_thread_sort_order">レスのデフォルトの並び順</string>
 

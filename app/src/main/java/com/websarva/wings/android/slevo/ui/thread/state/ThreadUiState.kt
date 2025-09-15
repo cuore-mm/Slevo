@@ -33,6 +33,7 @@ data class ThreadUiState(
     val treeDepthMap: Map<Int, Int> = emptyMap(),
     val firstNewResNo: Int? = null,
     val prevResCount: Int = 0,
+    val isAutoScroll: Boolean = false,
     val visiblePosts: List<DisplayPost> = emptyList(),
     val replyCounts: List<Int> = emptyList(),
     val firstAfterIndex: Int = -1,
