@@ -44,4 +44,10 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setBodyTextScale(scale: Float) =
         local.setBodyTextScale(scale)
+
+    fun observeLineHeight(): Flow<Float> =
+        local.observeLineHeight()
+
+    suspend fun setLineHeight(height: Float) =
+        local.setLineHeight(height)
 }

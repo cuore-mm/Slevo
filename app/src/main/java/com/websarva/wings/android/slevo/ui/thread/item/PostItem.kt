@@ -86,6 +86,7 @@ fun PostItem(
     boardId: Long,
     headerTextScale: Float,
     bodyTextScale: Float,
+    lineHeight: Float,
     indentLevel: Int = 0,
     replyFromNumbers: List<Int> = emptyList(),
     isMyPost: Boolean = false,
@@ -348,6 +349,7 @@ fun PostItem(
                             fontSize = headerFontSize
                         ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = lineHeight.em,
                         onTextLayout = { headerLayout = it }
                     )
                 }
@@ -486,7 +488,7 @@ fun PostItem(
                             color = MaterialTheme.colorScheme.onSurface,
                             fontSize = bodyFontSize
                         ),
-                        lineHeight = 1.5.em,
+                        lineHeight = lineHeight.em,
                         onTextLayout = { contentLayout = it }
                     )
                 }
@@ -642,5 +644,6 @@ fun ReplyCardPreview() {
         boardId = 0L,
         headerTextScale = 0.85f,
         bodyTextScale = 1f,
+        lineHeight = 1.5f,
     )
 }

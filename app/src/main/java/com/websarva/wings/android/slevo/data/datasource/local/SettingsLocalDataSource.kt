@@ -38,4 +38,10 @@ interface SettingsLocalDataSource {
 
     /** 本文文字サイズの倍率を保存する */
     suspend fun setBodyTextScale(scale: Float)
+
+    /** 行間の倍率を監視する */
+    fun observeLineHeight(): Flow<Float>
+
+    /** 行間の倍率を保存する */
+    suspend fun setLineHeight(height: Float)
 }

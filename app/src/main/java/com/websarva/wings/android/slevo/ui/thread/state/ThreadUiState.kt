@@ -39,6 +39,7 @@ data class ThreadUiState(
     val isIndividualTextScale: Boolean = false,
     val headerTextScale: Float = 0.85f,
     val bodyTextScale: Float = 1f,
+    val lineHeight: Float = 1.5f,
     val visiblePosts: List<DisplayPost> = emptyList(),
     val replyCounts: List<Int> = emptyList(),
     val firstAfterIndex: Int = -1,
