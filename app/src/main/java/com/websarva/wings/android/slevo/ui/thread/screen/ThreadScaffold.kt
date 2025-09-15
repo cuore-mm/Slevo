@@ -230,8 +230,16 @@ fun ThreadScaffold(
             DisplaySettingsBottomSheet(
                 show = uiState.showDisplaySettingsSheet,
                 textScale = uiState.textScale,
+                isIndividual = uiState.isIndividualTextScale,
+                headerTextScale = uiState.headerTextScale,
+                bodyTextScale = uiState.bodyTextScale,
+                lineHeight = uiState.lineHeight,
                 onDismissRequest = { viewModel.closeDisplaySettingsSheet() },
-                onTextScaleChange = { viewModel.updateTextScale(it) }
+                onTextScaleChange = { viewModel.updateTextScale(it) },
+                onIndividualChange = { viewModel.updateIndividualTextScale(it) },
+                onHeaderTextScaleChange = { viewModel.updateHeaderTextScale(it) },
+                onBodyTextScaleChange = { viewModel.updateBodyTextScale(it) },
+                onLineHeightChange = { viewModel.updateLineHeight(it) }
             )
 
             if (postUiState.postDialog) {
