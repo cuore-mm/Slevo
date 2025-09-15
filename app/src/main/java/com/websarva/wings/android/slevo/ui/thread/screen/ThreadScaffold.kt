@@ -27,6 +27,7 @@ import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadBottomBar
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
+import com.websarva.wings.android.slevo.ui.thread.components.DisplaySettingsBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadPagerViewModel
@@ -218,9 +219,20 @@ fun ThreadScaffold(
                     onSettingsClick = {
                         viewModel.closeMoreSheet()
                         navController.navigate(AppRoute.SettingsHome)
+                    },
+                    onDisplaySettingsClick = {
+                        viewModel.closeMoreSheet()
+                        viewModel.openDisplaySettingsSheet()
                     }
                 )
             }
+
+            DisplaySettingsBottomSheet(
+                show = uiState.showDisplaySettingsSheet,
+                textScale = uiState.textScale,
+                onDismissRequest = { viewModel.closeDisplaySettingsSheet() },
+                onTextScaleChange = { viewModel.updateTextScale(it) }
+            )
 
             if (postUiState.postDialog) {
                 val context = LocalContext.current

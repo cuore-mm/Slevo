@@ -253,6 +253,7 @@ fun ThreadScreen(
                             navController = navController,
                             boardName = uiState.boardInfo.name,
                             boardId = uiState.boardInfo.boardId,
+                            textScale = uiState.textScale,
                             indentLevel = indent,
                             replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
                             isMyPost = postNum in uiState.myPostNumbers,
@@ -364,6 +365,7 @@ fun ThreadScreen(
             navController = navController,
             boardName = uiState.boardInfo.name,
             boardId = uiState.boardInfo.boardId,
+            textScale = uiState.textScale,
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) }
         )
 

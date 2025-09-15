@@ -14,4 +14,10 @@ interface SettingsLocalDataSource {
 
     /** レスのデフォルト並び順を保存する */
     suspend fun setTreeSort(enabled: Boolean)
+
+    /** レス表示の文字倍率を監視する */
+    fun observeTextScale(): Flow<Float>
+
+    /** レス表示の文字倍率を保存する */
+    suspend fun setTextScale(scale: Float)
 }

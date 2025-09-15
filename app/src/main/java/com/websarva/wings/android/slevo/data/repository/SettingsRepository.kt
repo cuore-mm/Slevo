@@ -20,4 +20,10 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setTreeSort(enabled: Boolean) =
         local.setTreeSort(enabled)
+
+    fun observeTextScale(): Flow<Float> =
+        local.observeTextScale()
+
+    suspend fun setTextScale(scale: Float) =
+        local.setTextScale(scale)
 }

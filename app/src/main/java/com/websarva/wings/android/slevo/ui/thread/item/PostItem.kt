@@ -84,6 +84,7 @@ fun PostItem(
     navController: NavHostController,
     boardName: String,
     boardId: Long,
+    textScale: Float,
     indentLevel: Int = 0,
     replyFromNumbers: List<Int> = emptyList(),
     isMyPost: Boolean = false,
@@ -110,6 +111,8 @@ fun PostItem(
     val haptic = LocalHapticFeedback.current
 
     val boundaryColor = MaterialTheme.colorScheme.outlineVariant
+    val bodyFontSize = MaterialTheme.typography.bodyMedium.fontSize * textScale
+    val headerFontSize = bodyFontSize * 0.85f
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -340,7 +343,9 @@ fun PostItem(
                                 )
                             },
                         text = headerText,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = headerFontSize
+                        ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         onTextLayout = { headerLayout = it }
                     )
@@ -477,7 +482,8 @@ fun PostItem(
                             },
                         text = annotatedText,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = bodyFontSize
                         ),
                         lineHeight = 1.5.em,
                         onTextLayout = { contentLayout = it }
@@ -633,5 +639,6 @@ fun ReplyCardPreview() {
         navController = NavHostController(LocalContext.current),
         boardName = "board",
         boardId = 0L,
+        textScale = 1f,
     )
 }

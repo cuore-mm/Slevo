@@ -38,6 +38,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -78,6 +79,14 @@ class ThreadViewModel @AssistedInject constructor(
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
     private var lastAutoRefreshTime: Long = 0L
+
+    init {
+        viewModelScope.launch {
+            settingsRepository.observeTextScale().collect { scale ->
+                _uiState.update { it.copy(textScale = scale) }
+            }
+        }
+    }
 
     internal val _postUiState = MutableStateFlow(PostUiState())
     val postUiState: StateFlow<PostUiState> = _postUiState.asStateFlow()
@@ -598,6 +607,20 @@ class ThreadViewModel @AssistedInject constructor(
 
     fun closeMoreSheet() {
         _uiState.update { it.copy(showMoreSheet = false) }
+    }
+
+    fun openDisplaySettingsSheet() {
+        _uiState.update { it.copy(showDisplaySettingsSheet = true) }
+    }
+
+    fun closeDisplaySettingsSheet() {
+        _uiState.update { it.copy(showDisplaySettingsSheet = false) }
+    }
+
+    fun updateTextScale(scale: Float) {
+        viewModelScope.launch {
+            settingsRepository.setTextScale(scale)
+        }
     }
 
     // 書き込み画面を表示
