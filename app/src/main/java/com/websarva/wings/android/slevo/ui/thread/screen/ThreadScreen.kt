@@ -145,7 +145,7 @@ fun ThreadScreen(
 
             if (atEnd || consumed == 0f) {
                 onAutoScrollBottom()
-                break
+                continue
             }
         }
     }
