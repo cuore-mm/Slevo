@@ -109,7 +109,6 @@ fun ThreadToolBar(
                         style = MaterialTheme.typography.titleSmall,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
                         modifier = Modifier
                             .weight(1f)
                     )
@@ -182,7 +181,7 @@ fun ThreadToolBar(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
-fun ThreadBottomBarPreview() {
+fun ThreadToolBarPreview() {
     ThreadToolBar(
         uiState = ThreadUiState(
             threadInfo = ThreadInfo(
