@@ -650,6 +650,9 @@ class ThreadViewModel @AssistedInject constructor(
     fun updateIndividualTextScale(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setIndividualTextScale(enabled)
+            if (!enabled) {
+                settingsRepository.setLineHeight(1.5f)
+            }
         }
     }
 
