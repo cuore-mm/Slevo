@@ -45,7 +45,7 @@ import com.websarva.wings.android.slevo.ui.common.CopyDialog
 import com.websarva.wings.android.slevo.ui.common.CopyItem
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
-import com.websarva.wings.android.slevo.ui.util.LabeledIconButton
+import com.websarva.wings.android.slevo.ui.common.LabeledIconButton
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.text.DecimalFormat
 

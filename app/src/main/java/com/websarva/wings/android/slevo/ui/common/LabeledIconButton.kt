@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.util
+package com.websarva.wings.android.slevo.ui.common
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -58,14 +58,14 @@ fun LabeledIconButton(
     Column(
         horizontalAlignment = Alignment.Companion.CenterHorizontally,
         modifier = modifier
-            .size(width = 76.dp, height = 76.dp)
+            .size(width = 68.dp, height = 76.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(
                 interactionSource = interaction,
                 indication = AppIndication.LargeRipple,
                 onClick = onClick
             )
-            .padding(vertical = 8.dp, horizontal = 4.dp)
+            .padding(vertical = 8.dp)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,

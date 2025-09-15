@@ -15,8 +15,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.ui.util.BottomAlignedDialog
-import com.websarva.wings.android.slevo.ui.util.LabeledIconButton
+import com.websarva.wings.android.slevo.ui.common.BottomAlignedDialog
+import com.websarva.wings.android.slevo.ui.common.LabeledIconButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
