@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
@@ -124,13 +125,15 @@ fun ThreadScaffold(
             } else {
                 Modifier
             }
+            BackHandler(enabled = uiState.isSearchMode) {
+                viewModel.closeSearch()
+            }
             if (uiState.isSearchMode) {
                 ThreadSearchBar(
                     modifier = modifier,
                     searchQuery = uiState.searchQuery,
                     onQueryChange = { viewModel.updateSearchQuery(it) },
                     onCloseSearch = { viewModel.closeSearch() },
-                    scrollBehavior = barScrollBehavior,
                 )
             } else {
                 ThreadToolBar(
