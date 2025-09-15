@@ -2,6 +2,13 @@ package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
@@ -48,7 +55,7 @@ import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBeh
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun ThreadScaffold(
     threadRoute: AppRoute.Thread,
@@ -128,29 +135,38 @@ fun ThreadScaffold(
             BackHandler(enabled = uiState.isSearchMode) {
                 viewModel.closeSearch()
             }
-            if (uiState.isSearchMode) {
-                ThreadSearchBar(
-                    modifier = modifier,
-                    searchQuery = uiState.searchQuery,
-                    onQueryChange = { viewModel.updateSearchQuery(it) },
-                    onCloseSearch = { viewModel.closeSearch() },
-                )
-            } else {
-                ThreadToolBar(
-                    modifier = modifier,
-                    uiState = uiState,
-                    isTreeSort = uiState.sortType == ThreadSortType.TREE,
-                    onSortClick = { viewModel.toggleSortType() },
-                    onPostClick = { viewModel.showPostDialog() },
-                    onTabListClick = { viewModel.openTabListSheet() },
-                    onRefreshClick = { viewModel.reloadThread() },
-                    onSearchClick = { viewModel.startSearch() },
-                    onBookmarkClick = { viewModel.openBookmarkSheet() },
-                    onThreadInfoClick = { viewModel.openThreadInfoSheet() },
-                    onMoreClick = { viewModel.openMoreSheet() },
-                    onAutoScrollClick = { viewModel.toggleAutoScroll() },
-                    scrollBehavior = barScrollBehavior,
-                )
+            AnimatedContent(
+                targetState = uiState.isSearchMode,
+                transitionSpec = {
+                    slideInVertically { it } + fadeIn() togetherWith
+                            slideOutVertically { it } + fadeOut()
+                },
+                label = "BottomBarAnimation"
+            ) { isSearchMode ->
+                if (isSearchMode) {
+                    ThreadSearchBar(
+                        modifier = modifier,
+                        searchQuery = uiState.searchQuery,
+                        onQueryChange = { viewModel.updateSearchQuery(it) },
+                        onCloseSearch = { viewModel.closeSearch() },
+                    )
+                } else {
+                    ThreadToolBar(
+                        modifier = modifier,
+                        uiState = uiState,
+                        isTreeSort = uiState.sortType == ThreadSortType.TREE,
+                        onSortClick = { viewModel.toggleSortType() },
+                        onPostClick = { viewModel.showPostDialog() },
+                        onTabListClick = { viewModel.openTabListSheet() },
+                        onRefreshClick = { viewModel.reloadThread() },
+                        onSearchClick = { viewModel.startSearch() },
+                        onBookmarkClick = { viewModel.openBookmarkSheet() },
+                        onThreadInfoClick = { viewModel.openThreadInfoSheet() },
+                        onMoreClick = { viewModel.openMoreSheet() },
+                        onAutoScrollClick = { viewModel.toggleAutoScroll() },
+                        scrollBehavior = barScrollBehavior,
+                    )
+                }
             }
         },
         content = { viewModel, uiState, listState, modifier, navController ->
