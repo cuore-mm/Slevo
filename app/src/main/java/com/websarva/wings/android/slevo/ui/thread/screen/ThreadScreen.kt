@@ -124,8 +124,9 @@ fun ThreadScreen(
     }
 
     val autoScrollDpPerSec = 250f
-    LaunchedEffect(uiState.isAutoScroll, autoScrollDpPerSec, density) {
-        if (!uiState.isAutoScroll) return@LaunchedEffect
+    val isScrollInProgress = listState.isScrollInProgress
+    LaunchedEffect(uiState.isAutoScroll, isScrollInProgress, autoScrollDpPerSec, density) {
+        if (!uiState.isAutoScroll || isScrollInProgress) return@LaunchedEffect
         val pxPerSec = with(density) { autoScrollDpPerSec.dp.toPx() }
         var lastTime: Long? = null
         while (isActive) {
