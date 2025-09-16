@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.websarva.wings.android.slevo.data.datasource.local.SettingsLocalDataSource
+import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -87,7 +88,7 @@ class SettingsLocalDataSourceImpl @Inject constructor(
 
     override fun observeLineHeight(): Flow<Float> =
         context.dataStore.data
-            .map { prefs -> prefs[LINE_HEIGHT_KEY] ?: 1.5f }
+            .map { prefs -> prefs[LINE_HEIGHT_KEY] ?: DEFAULT_THREAD_LINE_HEIGHT }
 
     override suspend fun setLineHeight(height: Float) {
         context.dataStore.edit { prefs ->

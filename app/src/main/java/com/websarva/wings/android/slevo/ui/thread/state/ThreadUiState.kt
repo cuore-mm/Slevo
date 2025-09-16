@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.state
 
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.common.BaseUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
@@ -39,7 +40,7 @@ data class ThreadUiState(
     val isIndividualTextScale: Boolean = false,
     val headerTextScale: Float = 0.85f,
     val bodyTextScale: Float = 1f,
-    val lineHeight: Float = 1.5f,
+    val lineHeight: Float = DEFAULT_THREAD_LINE_HEIGHT,
     val visiblePosts: List<DisplayPost> = emptyList(),
     val replyCounts: List<Int> = emptyList(),
     val firstAfterIndex: Int = -1,

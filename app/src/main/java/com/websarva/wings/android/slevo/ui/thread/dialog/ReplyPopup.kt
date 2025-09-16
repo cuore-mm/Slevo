@@ -37,6 +37,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.ui.thread.item.PostItem
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 
@@ -260,7 +261,7 @@ fun ReplyPopupPreview() {
         boardId = 1L,
         headerTextScale = 0.85f,
         bodyTextScale = 1f,
-        lineHeight = 1.5f,
+        lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
         onClose = {}
     )
 }

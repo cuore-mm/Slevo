@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.em
 import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.CopyDialog
 import com.websarva.wings.android.slevo.ui.common.CopyItem
@@ -644,6 +645,6 @@ fun ReplyCardPreview() {
         boardId = 0L,
         headerTextScale = 0.85f,
         bodyTextScale = 1f,
-        lineHeight = 1.5f,
+        lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
     )
 }
