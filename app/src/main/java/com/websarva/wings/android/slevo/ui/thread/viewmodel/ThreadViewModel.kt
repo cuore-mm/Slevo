@@ -7,6 +7,7 @@ import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.DatRepository
@@ -651,7 +652,7 @@ class ThreadViewModel @AssistedInject constructor(
         viewModelScope.launch {
             settingsRepository.setIndividualTextScale(enabled)
             if (!enabled) {
-                settingsRepository.setLineHeight(1.5f)
+                settingsRepository.setLineHeight(DEFAULT_THREAD_LINE_HEIGHT)
             }
         }
     }

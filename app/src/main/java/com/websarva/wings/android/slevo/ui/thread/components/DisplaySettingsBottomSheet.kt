@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -200,7 +201,7 @@ fun DisplaySettingsContentPreview() {
     val individualState = remember { mutableStateOf(true) }
     val headerScaleState = remember { mutableFloatStateOf(1f) }
     val bodyScaleState = remember { mutableFloatStateOf(1f) }
-    val lineHeightState = remember { mutableFloatStateOf(1.4f) }
+    val lineHeightState = remember { mutableFloatStateOf(DEFAULT_THREAD_LINE_HEIGHT) }
 
     DisplaySettingsContent(
         textScale = textScaleState.floatValue,
