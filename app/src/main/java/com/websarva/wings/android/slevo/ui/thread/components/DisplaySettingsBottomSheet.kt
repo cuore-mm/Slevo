@@ -5,7 +5,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +22,7 @@ import androidx.compose.material3.SliderColors
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableFloatStateOf
@@ -118,11 +118,11 @@ fun DisplaySettingsContent(
         )
 
         Spacer(modifier = Modifier.height(8.dp))
-        Card (
+        Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
             elevation = CardDefaults.cardElevation()
-        ){
+        ) {
             Column(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -196,19 +196,21 @@ fun DisplaySettingsContent(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = stringResource(R.string.reset),
-            modifier = Modifier
-                .align(Alignment.End)
-                .clickable {
-                    onTextScaleChange(DEFAULT_TEXT_SCALE)
-                    onHeaderTextScaleChange(DEFAULT_HEADER_TEXT_SCALE)
-                    onBodyTextScaleChange(DEFAULT_BODY_TEXT_SCALE)
-                    onLineHeightChange(DEFAULT_THREAD_LINE_HEIGHT)
-                },
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Medium,
-        )
+        TextButton(
+            onClick = {
+                onTextScaleChange(DEFAULT_TEXT_SCALE)
+                onHeaderTextScaleChange(DEFAULT_HEADER_TEXT_SCALE)
+                onBodyTextScaleChange(DEFAULT_BODY_TEXT_SCALE)
+                onLineHeightChange(DEFAULT_THREAD_LINE_HEIGHT)
+            },
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            Text(
+                text = stringResource(R.string.reset),
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium,
+            )
+        }
     }
 }
 
