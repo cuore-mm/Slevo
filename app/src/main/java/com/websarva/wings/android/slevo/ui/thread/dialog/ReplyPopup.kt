@@ -37,6 +37,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.ui.thread.item.PostItem
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 
@@ -62,6 +63,10 @@ fun ReplyPopup(
     navController: NavHostController,
     boardName: String,
     boardId: Long,
+    headerTextScale: Float,
+    bodyTextScale: Float,
+    lineHeight: Float,
+    searchQuery: String = "",
     onClose: () -> Unit
 ) {
     val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
@@ -158,6 +163,10 @@ fun ReplyPopup(
                                 navController = navController,
                                 boardName = boardName,
                                 boardId = boardId,
+                                headerTextScale = headerTextScale,
+                                bodyTextScale = bodyTextScale,
+                                lineHeight = lineHeight,
+                                searchQuery = searchQuery,
                                 isMyPost = postNum in myPostNumbers,
                                 replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers } ?: emptyList(),
                                 onReplyFromClick = { nums ->
@@ -248,10 +257,14 @@ fun ReplyPopupPreview() {
         idCountMap = dummyIdCountMap,
         idIndexList = dummyIdIndexList,
         ngPostNumbers = dummyNgPostNumbers,
+        myPostNumbers = emptySet(),
         navController = navController,
         boardName = "test",
         boardId = 1L,
+        headerTextScale = 0.85f,
+        bodyTextScale = 1f,
+        lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
         onClose = {},
-        myPostNumbers = emptySet()
+        searchQuery = "",
     )
 }

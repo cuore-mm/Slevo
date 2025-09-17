@@ -1,7 +1,5 @@
 package com.websarva.wings.android.slevo.ui
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.DrawerValue
@@ -12,21 +10,24 @@ import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.websarva.wings.android.slevo.ui.bottombar.MoreMenuDialog
 import com.websarva.wings.android.slevo.ui.bottombar.RenderBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.AppNavGraph
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppScaffold(
     modifier: Modifier = Modifier,
@@ -51,6 +52,8 @@ fun AppScaffold(
         topBarState.heightOffset = 0f
     }
 
+    var showMoreMenu by remember { mutableStateOf(false) }
+
     Scaffold(
         bottomBar = {
             RenderBottomBar(
@@ -59,6 +62,7 @@ fun AppScaffold(
                     .height(bottomBarHeightDp),
                 navController = navController,
                 navBackStackEntry = navBackStackEntry,
+                onMoreClick = { showMoreMenu = true }
             )
         }
     ) { innerPadding ->
@@ -73,4 +77,21 @@ fun AppScaffold(
         )
     }
 
+    if (showMoreMenu) {
+        MoreMenuDialog(
+            onDismissRequest = { showMoreMenu = false },
+            onHistoryClick = {
+                showMoreMenu = false
+                navController.navigate(AppRoute.HistoryList)
+            },
+            onSettingsClick = {
+                showMoreMenu = false
+                navController.navigate(AppRoute.SettingsHome)
+            },
+            onAboutClick = {
+                showMoreMenu = false
+                navController.navigate(AppRoute.About)
+            }
+        )
+    }
 }

@@ -1,24 +1,25 @@
 package com.websarva.wings.android.slevo.ui.board
 
-import android.os.Build
-import androidx.annotation.RequiresApi
-import androidx.lifecycle.viewModelScope
 import android.content.Context
 import android.net.Uri
+import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.Groupable
+import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
-import com.websarva.wings.android.slevo.data.repository.ThreadCreateRepository
-import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
-import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
+import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
+import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostResult
+import com.websarva.wings.android.slevo.data.repository.ThreadCreateRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
+import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
-import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -26,16 +27,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
-@RequiresApi(Build.VERSION_CODES.O)
 class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
     private val threadCreateRepository: ThreadCreateRepository,
     private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
+    private val ngRepository: NgRepository,
     @Assisted("viewModelKey") val viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
 
@@ -48,6 +49,7 @@ class BoardViewModel @AssistedInject constructor(
 
     override val _uiState = MutableStateFlow(BoardUiState())
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
+    private var threadTitleNg: List<Pair<Long?, Regex>> = emptyList()
 
     fun initializeBoard(boardInfo: BoardInfo) {
         if (initializedUrl == boardInfo.url) return
@@ -72,6 +74,23 @@ class BoardViewModel @AssistedInject constructor(
         viewModelScope.launch {
             singleBookmarkViewModel?.uiState?.collect { bkState ->
                 _uiState.update { it.copy(singleBookmarkState = bkState) }
+            }
+        }
+
+        viewModelScope.launch {
+            ngRepository.observeNgs().collect { list ->
+                threadTitleNg = list.filter { it.type == NgType.THREAD_TITLE }
+                    .mapNotNull { ng ->
+                        runCatching {
+                            val rx = if (ng.isRegex) {
+                                Regex(ng.pattern)
+                            } else {
+                                Regex(Regex.escape(ng.pattern))
+                            }
+                            ng.boardId to rx
+                        }.getOrNull()
+                    }
+                applyFiltersAndSort()
             }
         }
 
@@ -129,7 +148,6 @@ class BoardViewModel @AssistedInject constructor(
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     fun refreshBoardData() { // Pull-to-refresh 用のメソッド
         initialize(force = true) // 強制的に初期化処理を再実行
     }
@@ -183,12 +201,20 @@ class BoardViewModel @AssistedInject constructor(
     private fun applyFiltersAndSort() {
         originalThreads?.let { allThreads ->
             // 1. フィルタリング
-            val filteredList = if (_uiState.value.searchQuery.isNotBlank()) {
+            val query = _uiState.value.searchQuery.toHiragana()
+            val searchFiltered = if (query.isNotBlank()) {
                 allThreads.filter {
-                    it.title.contains(_uiState.value.searchQuery, ignoreCase = true)
+                    it.title.toHiragana().contains(query, ignoreCase = true)
                 }
             } else {
                 allThreads
+            }
+
+            val filteredList = searchFiltered.filterNot { thread ->
+                threadTitleNg.any { (bId, rx) ->
+                    (bId == null || bId == _uiState.value.boardInfo.boardId) &&
+                        rx.containsMatchIn(thread.title)
+                }
             }
 
             // スレッドキーが閾値以上のものを常に末尾に回す
@@ -307,7 +333,14 @@ class BoardViewModel @AssistedInject constructor(
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isPosting = true, createDialog = false) }
-            val result = threadCreateRepository.createThreadFirstPhase(host, board, title, name, mail, message)
+            val result = threadCreateRepository.createThreadFirstPhase(
+                host,
+                board,
+                title,
+                name,
+                mail,
+                message
+            )
             _uiState.update { it.copy(isPosting = false) }
             when (result) {
                 is PostResult.Success -> {
@@ -319,6 +352,7 @@ class BoardViewModel @AssistedInject constructor(
                     }
                     refreshBoardData()
                 }
+
                 is PostResult.Confirm -> {
                     _uiState.update {
                         it.copy(
@@ -327,6 +361,7 @@ class BoardViewModel @AssistedInject constructor(
                         )
                     }
                 }
+
                 is PostResult.Error -> {
                     _uiState.update {
                         it.copy(showErrorWebView = true, errorHtmlContent = result.html)
@@ -343,7 +378,8 @@ class BoardViewModel @AssistedInject constructor(
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isPosting = true, isConfirmationScreen = false) }
-            val result = threadCreateRepository.createThreadSecondPhase(host, board, confirmationData)
+            val result =
+                threadCreateRepository.createThreadSecondPhase(host, board, confirmationData)
             _uiState.update { it.copy(isPosting = false) }
             when (result) {
                 is PostResult.Success -> {
@@ -355,11 +391,13 @@ class BoardViewModel @AssistedInject constructor(
                     }
                     refreshBoardData()
                 }
+
                 is PostResult.Error -> {
                     _uiState.update {
                         it.copy(showErrorWebView = true, errorHtmlContent = result.html)
                     }
                 }
+
                 is PostResult.Confirm -> {
                     _uiState.update {
                         it.copy(

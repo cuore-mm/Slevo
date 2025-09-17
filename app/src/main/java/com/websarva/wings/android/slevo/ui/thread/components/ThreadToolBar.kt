@@ -12,9 +12,12 @@ import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.FormatListNumbered
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.Card
@@ -43,7 +46,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun ThreadBottomBar(
+fun ThreadToolBar(
     modifier: Modifier = Modifier,
     uiState: ThreadUiState,
     isTreeSort: Boolean,
@@ -54,6 +57,8 @@ fun ThreadBottomBar(
     onSearchClick: () -> Unit,
     onBookmarkClick: () -> Unit,
     onThreadInfoClick: () -> Unit,
+    onMoreClick: () -> Unit,
+    onAutoScrollClick: () -> Unit,
     scrollBehavior: BottomAppBarScrollBehavior? = null,
 ) {
     FlexibleBottomAppBar(
@@ -66,12 +71,12 @@ fun ThreadBottomBar(
                 .fillMaxWidth()
                 .padding(vertical = 4.dp),
         ) {
-            Card (
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
                 onClick = onThreadInfoClick
-            ){
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -104,7 +109,6 @@ fun ThreadBottomBar(
                         style = MaterialTheme.typography.titleSmall,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
                         modifier = Modifier
                             .weight(1f)
                     )
@@ -147,6 +151,28 @@ fun ThreadBottomBar(
                         contentDescription = stringResource(R.string.post)
                     )
                 }
+                IconButton(onClick = onAutoScrollClick) {
+                    Icon(
+                        imageVector = if (uiState.isAutoScroll) {
+                            Icons.Filled.Pause
+                        } else {
+                            Icons.Filled.PlayArrow
+                        },
+                        contentDescription = stringResource(
+                            if (uiState.isAutoScroll) {
+                                R.string.stop_auto_scroll
+                            } else {
+                                R.string.start_auto_scroll
+                            }
+                        )
+                    )
+                }
+                IconButton(onClick = onMoreClick) {
+                    Icon(
+                        imageVector = Icons.Filled.Menu,
+                        contentDescription = stringResource(R.string.more)
+                    )
+                }
             }
         }
     }
@@ -155,8 +181,8 @@ fun ThreadBottomBar(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
-fun ThreadBottomBarPreview() {
-    ThreadBottomBar(
+fun ThreadToolBarPreview() {
+    ThreadToolBar(
         uiState = ThreadUiState(
             threadInfo = ThreadInfo(
                 title = "スレッドのタイトル"
@@ -173,7 +199,8 @@ fun ThreadBottomBarPreview() {
         onRefreshClick = {},
         onSearchClick = {},
         onBookmarkClick = {},
-        onThreadInfoClick = {}
+        onThreadInfoClick = {},
+        onMoreClick = {},
+        onAutoScrollClick = {}
     )
 }
-

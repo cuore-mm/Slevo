@@ -5,6 +5,10 @@
     <string name="boardList">板一覧</string>
     <string name="BBSList">掲示板一覧</string>
     <string name="search">検索</string>
+    <string name="voice_input">音声入力</string>
+    <string name="voice_search_prompt">検索ワードを話してください</string>
+    <string name="voice_permission_denied">音声入力を使用するにはマイクへのアクセスを許可してください</string>
+    <string name="speech_recognition_not_available">この端末では音声入力を利用できません</string>
     <string name="refresh">更新</string>
     <string name="create_thread">スレッド作成</string>
     <string name="sort">並び替え</string>
@@ -71,6 +75,16 @@
     <string name="search_board_hint">板名またはURLで検索</string>
     <string name="new_label">new</string>
     <string name="new_responses">新着</string>
+    <string name="start_auto_scroll">自動スクロール開始</string>
+    <string name="stop_auto_scroll">自動スクロール停止</string>
+
+    <string name="display_settings">表示設定</string>
+    <string name="text_size">テキストサイズ</string>
+    <string name="individual_text_settings">個別に設定する</string>
+    <string name="header_text_size">ヘッダーのテキストサイズ</string>
+    <string name="body_text_size">本文のテキストサイズ</string>
+    <string name="line_spacing">行間</string>
+    <string name="reset">リセット</string>
 
     <string name="default_thread_sort_order">レスのデフォルトの並び順</string>
 
@@ -91,4 +105,7 @@
     <string name="title_and_url">タイトル + URL</string>
     <string name="res_number_label">レス番号</string>
     <string name="header_and_body">ヘッダー + 本文</string>
+    <string name="open_in_external_browser">外部ブラウザで開く</string>
+    <string name="share">共有</string>
+    <string name="search_in_thread">スレッド内を検索</string>
 </resources>

@@ -1,7 +1,5 @@
 package com.websarva.wings.android.slevo.ui.navigation
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -43,7 +41,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import timber.log.Timber
 
-@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
 fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState>> RouteScaffold(
@@ -167,7 +164,13 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 bottomBar = { bottomBar(viewModel, uiState, bottomBehavior) }
             ) { innerPadding ->
                 // 各画面の実際のコンテンツを呼び出す
-                content(viewModel, uiState, listState, Modifier.padding(innerPadding), navController)
+                content(
+                    viewModel,
+                    uiState,
+                    listState,
+                    Modifier.padding(innerPadding),
+                    navController
+                )
 
                 // 共通のボトムシートとダイアログ
                 if (bookmarkState.showBookmarkSheet) {

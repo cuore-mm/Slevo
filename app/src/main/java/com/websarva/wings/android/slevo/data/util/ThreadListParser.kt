@@ -1,15 +1,13 @@
 package com.websarva.wings.android.slevo.data.util
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.core.text.HtmlCompat
+import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import java.util.Calendar
 import java.util.Date
 import java.util.TimeZone
 import kotlin.math.max
-import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 
 object ThreadListParser {
     fun parseSubjectTxt(text: String): List<ThreadInfo> {
@@ -23,21 +21,24 @@ object ThreadListParser {
                 val match = regex.find(trimmedLine)
                 if (match != null) {
                     val (key, titleHtml, resCountStr) = match.destructured
-                    val title = HtmlCompat.fromHtml(titleHtml, HtmlCompat.FROM_HTML_MODE_LEGACY).toString()
+                    val title =
+                        HtmlCompat.fromHtml(titleHtml, HtmlCompat.FROM_HTML_MODE_LEGACY).toString()
                     val resCount = resCountStr.toIntOrNull() ?: 0
                     val threadEpochSeconds = key.toLongOrNull() ?: 0L
 
-                    val momentum = if (threadEpochSeconds in 1 until THREAD_KEY_THRESHOLD && resCount > 0) {
-                        val elapsedTimeSeconds = max(1, currentUnixTime - threadEpochSeconds) // 経過時間（秒）、最低1秒
-                        val elapsedTimeDays = elapsedTimeSeconds / 86400.0 // 経過時間（日）
-                        if (elapsedTimeDays > 0) {
-                            resCount / elapsedTimeDays
+                    val momentum =
+                        if (threadEpochSeconds in 1 until THREAD_KEY_THRESHOLD && resCount > 0) {
+                            val elapsedTimeSeconds =
+                                max(1, currentUnixTime - threadEpochSeconds) // 経過時間（秒）、最低1秒
+                            val elapsedTimeDays = elapsedTimeSeconds / 86400.0 // 経過時間（日）
+                            if (elapsedTimeDays > 0) {
+                                resCount / elapsedTimeDays
+                            } else {
+                                0.0 // 経過時間が0日未満の場合は勢い0（または大きな値）
+                            }
                         } else {
-                            0.0 // 経過時間が0日未満の場合は勢い0（または大きな値）
+                            0.0
                         }
-                    } else {
-                        0.0
-                    }
 
                     val date = if (threadEpochSeconds in 1 until THREAD_KEY_THRESHOLD) {
                         calculateThreadDate(key)
@@ -62,7 +63,8 @@ object ThreadListParser {
 
     // スレッドキーからスレ作成日を計算（java.time を使わず互換性を保つ）
     fun calculateThreadDate(threadKey: String): ThreadDate {
-        val epochSeconds = threadKey.toLongOrNull() ?: throw IllegalArgumentException("Invalid thread key")
+        val epochSeconds =
+            threadKey.toLongOrNull() ?: throw IllegalArgumentException("Invalid thread key")
         val date = Date(epochSeconds * 1000L)
         val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo")).apply { time = date }
         val dayOfWeek = when (cal.get(Calendar.DAY_OF_WEEK)) {

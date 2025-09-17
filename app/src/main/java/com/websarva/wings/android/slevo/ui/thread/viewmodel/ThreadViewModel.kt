@@ -7,6 +7,7 @@ import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.DatRepository
@@ -21,6 +22,7 @@ import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepositor
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
+import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
@@ -38,6 +40,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -77,6 +80,35 @@ class ThreadViewModel @AssistedInject constructor(
     private var pendingPost: PendingPost? = null
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
+    private var lastAutoRefreshTime: Long = 0L
+
+    init {
+        viewModelScope.launch {
+            settingsRepository.observeTextScale().collect { scale ->
+                _uiState.update { it.copy(textScale = scale) }
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.observeIsIndividualTextScale().collect { enabled ->
+                _uiState.update { it.copy(isIndividualTextScale = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.observeHeaderTextScale().collect { scale ->
+                _uiState.update { it.copy(headerTextScale = scale) }
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.observeBodyTextScale().collect { scale ->
+                _uiState.update { it.copy(bodyTextScale = scale) }
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.observeLineHeight().collect { height ->
+                _uiState.update { it.copy(lineHeight = height) }
+            }
+        }
+    }
 
     internal val _postUiState = MutableStateFlow(PostUiState())
     val postUiState: StateFlow<PostUiState> = _postUiState.asStateFlow()
@@ -401,10 +433,11 @@ class ThreadViewModel @AssistedInject constructor(
         )
 
         // 検索クエリがあれば絞り込み
-        val filteredPosts = if (uiState.value.searchQuery.isNotBlank()) {
+        val query = uiState.value.searchQuery.toHiragana()
+        val filteredPosts = if (query.isNotBlank()) {
             orderedPosts.filter {
-                it.post.content.contains(
-                    uiState.value.searchQuery,
+                it.post.content.toHiragana().contains(
+                    query,
                     ignoreCase = true
                 )
             }
@@ -538,6 +571,23 @@ class ThreadViewModel @AssistedInject constructor(
         initialize(force = true) // 強制的に初期化処理を再実行
     }
 
+    fun toggleAutoScroll() {
+        val enabled = !_uiState.value.isAutoScroll
+        _uiState.update { it.copy(isAutoScroll = enabled) }
+        if (!enabled) {
+            lastAutoRefreshTime = 0L
+        }
+    }
+
+    fun onAutoScrollReachedBottom() {
+        if (!_uiState.value.isAutoScroll) return
+        val now = System.currentTimeMillis()
+        if (lastAutoRefreshTime == 0L || now - lastAutoRefreshTime >= 10_000L) {
+            lastAutoRefreshTime = now
+            reloadThread()
+        }
+    }
+
     fun toggleSortType() {
         _uiState.update { state ->
             val next = if (state.sortType == ThreadSortType.NUMBER) {
@@ -572,6 +622,59 @@ class ThreadViewModel @AssistedInject constructor(
 
     fun closeThreadInfoSheet() {
         _uiState.update { it.copy(showThreadInfoSheet = false) }
+    }
+
+    fun openMoreSheet() {
+        _uiState.update { it.copy(showMoreSheet = true) }
+    }
+
+    fun closeMoreSheet() {
+        _uiState.update { it.copy(showMoreSheet = false) }
+    }
+
+    fun openDisplaySettingsSheet() {
+        _uiState.update { it.copy(showDisplaySettingsSheet = true) }
+    }
+
+    fun closeDisplaySettingsSheet() {
+        _uiState.update { it.copy(showDisplaySettingsSheet = false) }
+    }
+
+    fun updateTextScale(scale: Float) {
+        viewModelScope.launch {
+            settingsRepository.setTextScale(scale)
+            if (!_uiState.value.isIndividualTextScale) {
+                settingsRepository.setBodyTextScale(scale)
+                settingsRepository.setHeaderTextScale(scale * 0.85f)
+            }
+        }
+    }
+
+    fun updateIndividualTextScale(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setIndividualTextScale(enabled)
+            if (!enabled) {
+                settingsRepository.setLineHeight(DEFAULT_THREAD_LINE_HEIGHT)
+            }
+        }
+    }
+
+    fun updateHeaderTextScale(scale: Float) {
+        viewModelScope.launch {
+            settingsRepository.setHeaderTextScale(scale)
+        }
+    }
+
+    fun updateBodyTextScale(scale: Float) {
+        viewModelScope.launch {
+            settingsRepository.setBodyTextScale(scale)
+        }
+    }
+
+    fun updateLineHeight(height: Float) {
+        viewModelScope.launch {
+            settingsRepository.setLineHeight(height)
+        }
     }
 
     // 書き込み画面を表示

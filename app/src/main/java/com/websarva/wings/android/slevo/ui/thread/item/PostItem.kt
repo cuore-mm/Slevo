@@ -1,6 +1,5 @@
 package com.websarva.wings.android.slevo.ui.thread.item
 
-import android.content.ClipData
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,46 +31,37 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.platform.toClipEntry
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
-import com.websarva.wings.android.slevo.ui.common.CopyDialog
-import com.websarva.wings.android.slevo.ui.common.CopyItem
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnailGrid
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.theme.idColor
 import com.websarva.wings.android.slevo.ui.theme.replyCountColor
-import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
-import com.websarva.wings.android.slevo.ui.thread.dialog.NgSelectDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.PostMenuDialog
-import com.websarva.wings.android.slevo.ui.thread.dialog.TextMenuDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.LocalDate
-
-private const val PressFeedbackDelayMillis = 80L
 
 @Composable
 fun PostItem(
@@ -83,20 +73,21 @@ fun PostItem(
     navController: NavHostController,
     boardName: String,
     boardId: Long,
+    headerTextScale: Float,
+    bodyTextScale: Float,
+    lineHeight: Float,
     indentLevel: Int = 0,
     replyFromNumbers: List<Int> = emptyList(),
     isMyPost: Boolean = false,
     dimmed: Boolean = false,
+    searchQuery: String = "",
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null,
     onMenuReplyClick: ((Int) -> Unit)? = null,
     onIdClick: ((String) -> Unit)? = null,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    var showCopyDialog by remember { mutableStateOf(false) }
-    var textMenuData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
-    var ngDialogData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
-    var showNgSelectDialog by remember { mutableStateOf(false) }
+    val dialogState = rememberPostItemDialogState()
     var isColumnPressed by remember { mutableStateOf(false) }
     var isHeaderPressed by remember { mutableStateOf(false) }
     var isContentPressed by remember { mutableStateOf(false) }
@@ -109,6 +100,8 @@ fun PostItem(
     val haptic = LocalHapticFeedback.current
 
     val boundaryColor = MaterialTheme.colorScheme.outlineVariant
+    val bodyFontSize = MaterialTheme.typography.bodyMedium.fontSize * bodyTextScale
+    val headerFontSize = MaterialTheme.typography.bodyMedium.fontSize * headerTextScale
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -179,11 +172,13 @@ fun PostItem(
                                     replyFromNumbers
                                 )
                             },
-                        text = if (replyCount > 0) "$postNum ($replyCount)" else postNum.toString(),
-                        style = MaterialTheme.typography.labelMedium,
+                        text = if (replyCount > 0) "$postNum ($replyCount) " else "$postNum ",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = headerFontSize
+                        ),
+                        fontWeight = FontWeight.Bold,
                         color = postNumColor
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
                     val headerText = buildAnnotatedString {
                         var first = true
                         fun appendSpaceIfNeeded() {
@@ -327,10 +322,16 @@ fun PostItem(
                                                     .firstOrNull()
                                             when {
                                                 nameAnn != null ->
-                                                    textMenuData = nameAnn.item to NgType.USER_NAME
+                                                    dialogState.showTextMenu(
+                                                        text = nameAnn.item,
+                                                        type = NgType.USER_NAME
+                                                    )
 
                                                 idAnn != null ->
-                                                    textMenuData = idAnn.item to NgType.USER_ID
+                                                    dialogState.showTextMenu(
+                                                        text = idAnn.item,
+                                                        type = NgType.USER_ID
+                                                    )
 
                                                 else -> menuExpanded = true
                                             }
@@ -339,8 +340,11 @@ fun PostItem(
                                 )
                             },
                         text = headerText,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = headerFontSize
+                        ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = lineHeight.em,
                         onTextLayout = { headerLayout = it }
                     )
                 }
@@ -351,6 +355,13 @@ fun PostItem(
                     onOpenUrl = { uriHandler.openUri(it) },
                     pressedUrl = pressedUrl,
                     pressedReply = pressedReply
+                )
+                val highlightBackground = MaterialTheme.colorScheme.tertiaryContainer
+                val highlightedText = rememberHighlightedText(
+                    baseText = annotatedText,
+                    rawContent = post.content,
+                    searchQuery = searchQuery,
+                    highlightColor = highlightBackground
                 )
                 var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
 
@@ -371,10 +382,10 @@ fun PostItem(
                                         contentLayout?.let { layout ->
                                             val pos = layout.getOffsetForPosition(offset)
                                             val urlAnn =
-                                                annotatedText.getStringAnnotations("URL", pos, pos)
+                                                highlightedText.getStringAnnotations("URL", pos, pos)
                                                     .firstOrNull()
                                             val replyAnn =
-                                                annotatedText.getStringAnnotations(
+                                                highlightedText.getStringAnnotations(
                                                     "REPLY",
                                                     pos,
                                                     pos
@@ -428,7 +439,7 @@ fun PostItem(
                                     onTap = { offset ->
                                         contentLayout?.let { layout ->
                                             val pos = layout.getOffsetForPosition(offset)
-                                            annotatedText.getStringAnnotations("URL", pos, pos)
+                                            highlightedText.getStringAnnotations("URL", pos, pos)
                                                 .firstOrNull()?.let { ann ->
                                                     val url = ann.item
                                                     parseThreadUrl(url)?.let { (host, board, key) ->
@@ -443,7 +454,7 @@ fun PostItem(
                                                         ) { launchSingleTop = true }
                                                     } ?: uriHandler.openUri(url)
                                                 }
-                                            annotatedText.getStringAnnotations("REPLY", pos, pos)
+                                            highlightedText.getStringAnnotations("REPLY", pos, pos)
                                                 .firstOrNull()?.let { ann ->
                                                     ann.item.toIntOrNull()
                                                         ?.let { onReplyClick?.invoke(it) }
@@ -454,10 +465,10 @@ fun PostItem(
                                         contentLayout?.let { layout ->
                                             val pos = layout.getOffsetForPosition(offset)
                                             val urlAnn =
-                                                annotatedText.getStringAnnotations("URL", pos, pos)
+                                                highlightedText.getStringAnnotations("URL", pos, pos)
                                                     .firstOrNull()
                                             val replyAnn =
-                                                annotatedText.getStringAnnotations(
+                                                highlightedText.getStringAnnotations(
                                                     "REPLY",
                                                     pos,
                                                     pos
@@ -474,10 +485,12 @@ fun PostItem(
                                     }
                                 )
                             },
-                        text = annotatedText,
+                        text = highlightedText,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = bodyFontSize
                         ),
+                        lineHeight = lineHeight.em,
                         onTextLayout = { contentLayout = it }
                     )
                 }
@@ -517,97 +530,23 @@ fun PostItem(
                 },
                 onCopyClick = {
                     menuExpanded = false
-                    showCopyDialog = true
+                    dialogState.showCopyDialog()
                 },
                 onNgClick = {
                     menuExpanded = false
-                    showNgSelectDialog = true
+                    dialogState.showNgSelectDialog()
                 },
                 onDismiss = { menuExpanded = false }
             )
         }
-        if (showCopyDialog) {
-            val header = buildString {
-                append(postNum)
-                if (post.name.isNotBlank()) append(" ${post.name}")
-                if (post.date.isNotBlank()) append(" ${post.date}")
-                if (post.id.isNotBlank()) append(" ID:${post.id}")
-            }
-            CopyDialog(
-                items = listOf(
-                    CopyItem(postNum.toString(), stringResource(R.string.res_number_label)),
-                    CopyItem(post.name, stringResource(R.string.name_label)),
-                    CopyItem(post.id, stringResource(R.string.id_label)),
-                    CopyItem(post.content, stringResource(R.string.post_message)),
-                    CopyItem("$header\n${post.content}", stringResource(R.string.header_and_body)),
-                ),
-                onDismissRequest = { showCopyDialog = false }
-            )
-        }
-        if (showNgSelectDialog) {
-            NgSelectDialog(
-                onNgIdClick = {
-                    showNgSelectDialog = false
-                    ngDialogData = post.id to NgType.USER_ID
-                },
-                onNgNameClick = {
-                    showNgSelectDialog = false
-                    ngDialogData = post.name to NgType.USER_NAME
-                },
-                onNgWordClick = {
-                    showNgSelectDialog = false
-                    ngDialogData = post.content to NgType.WORD
-                },
-                onDismiss = { showNgSelectDialog = false }
-            )
-        }
-        textMenuData?.let { (text, type) ->
-            val clipboard = LocalClipboard.current
-            TextMenuDialog(
-                text = text,
-                onCopyClick = {
-                    scope.launch {
-                        val clip = ClipData.newPlainText("", text).toClipEntry()
-                        clipboard.setClipEntry(clip)
-                    }
-                    textMenuData = null
-                },
-                onNgClick = {
-                    textMenuData = null
-                    ngDialogData = text to type
-                },
-                onDismiss = { textMenuData = null }
-            )
-        }
-        ngDialogData?.let { (text, type) ->
-            NgDialogRoute(
-                text = text,
-                type = type,
-                boardName = boardName,
-                boardId = boardId.takeIf { it != 0L },
-                onDismiss = { ngDialogData = null }
-            )
-        }
-    }
-}
-
-suspend fun handlePressFeedback(
-    scope: CoroutineScope,
-    feedbackDelayMillis: Long = PressFeedbackDelayMillis,
-    onFeedbackStart: () -> Unit,
-    onFeedbackEnd: () -> Unit,
-    awaitRelease: suspend () -> Unit
-) {
-    var job: Job? = null
-    try {
-        job = scope.launch {
-            delay(feedbackDelayMillis)
-            onFeedbackStart()
-        }
-        awaitRelease()
-    } finally {
-        job?.cancel()
-        onFeedbackEnd()
+        PostItemDialogs(
+            post = post,
+            postNum = postNum,
+            boardName = boardName,
+            boardId = boardId,
+            scope = scope,
+            dialogState = dialogState
+        )
     }
 }
 
@@ -631,5 +570,9 @@ fun ReplyCardPreview() {
         navController = NavHostController(LocalContext.current),
         boardName = "board",
         boardId = 0L,
+        headerTextScale = 0.85f,
+        bodyTextScale = 1f,
+        lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
+        searchQuery = "",
     )
 }

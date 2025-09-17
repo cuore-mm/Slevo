@@ -1,26 +1,38 @@
 package com.websarva.wings.android.slevo.ui.thread.components
 
-import androidx.compose.foundation.clickable
+import android.content.Intent
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -29,30 +41,82 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.CopyDialog
 import com.websarva.wings.android.slevo.ui.common.CopyItem
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
+import com.websarva.wings.android.slevo.ui.common.LabeledIconButton
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadInfoBottomSheet(
-    sheetState: SheetState,
+    showThreadInfoSheet: Boolean,
     onDismissRequest: () -> Unit,
     threadInfo: ThreadInfo,
-    threadUrl: String,
+    boardInfo: BoardInfo,
+    navController: NavHostController,
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showCopyDialog by remember { mutableStateOf(false) }
-    ModalBottomSheet(
-        onDismissRequest = onDismissRequest,
-        sheetState = sheetState,
-    ) {
-        ThreadInfoBottomSheetContent(
-            threadInfo = threadInfo,
-            onCopyClick = { showCopyDialog = true },
-        )
+    var showNgDialog by remember { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
+
+    val threadUrl = parseBoardUrl(threadInfo.url)?.let { (host, boardKey) ->
+        "https://$host/test/read.cgi/$boardKey/${threadInfo.key}/"
+    } ?: ""
+
+    if (showThreadInfoSheet) {
+        ModalBottomSheet(
+            onDismissRequest = onDismissRequest,
+            sheetState = sheetState,
+        ) {
+            ThreadInfoBottomSheetContent(
+                threadInfo = threadInfo,
+                boardName = boardInfo.name,
+                onBoardClick = {
+                    navController.navigate(
+                        AppRoute.Board(
+                            boardId = boardInfo.boardId,
+                            boardName = boardInfo.name,
+                            boardUrl = boardInfo.url
+                        )
+                    ) {
+                        launchSingleTop = true
+                    }
+                    onDismissRequest()
+                },
+                onOpenBrowserClick = {
+                    uriHandler.openUri(threadUrl)
+                    onDismissRequest()
+                },
+                onCopyClick = {
+                    showCopyDialog = true
+                    onDismissRequest()
+                },
+                onNgClick = {
+                    showNgDialog = true
+                    onDismissRequest()
+                },
+                onShareClick = {
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, threadUrl)
+                        putExtra(Intent.EXTRA_TITLE, threadInfo.title)
+                    }
+                    context.startActivity(Intent.createChooser(intent, null))
+                    onDismissRequest()
+                },
+            )
+        }
     }
     if (showCopyDialog) {
         CopyDialog(
@@ -73,12 +137,26 @@ fun ThreadInfoBottomSheet(
             onDismissRequest = { showCopyDialog = false }
         )
     }
+    if (showNgDialog) {
+        NgDialogRoute(
+            text = threadInfo.title,
+            type = NgType.THREAD_TITLE,
+            boardName = boardInfo.name,
+            boardId = boardInfo.boardId.takeIf { it != 0L },
+            onDismiss = { showNgDialog = false }
+        )
+    }
 }
 
 @Composable
 private fun ThreadInfoBottomSheetContent(
     threadInfo: ThreadInfo,
+    boardName: String,
+    onBoardClick: () -> Unit,
+    onOpenBrowserClick: () -> Unit,
     onCopyClick: () -> Unit,
+    onNgClick: () -> Unit,
+    onShareClick: () -> Unit,
 ) {
     val momentumFormatter = remember { DecimalFormat("0.0") }
     val date = threadInfo.date
@@ -92,7 +170,6 @@ private fun ThreadInfoBottomSheetContent(
             text = threadInfo.title,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
         )
         Text(
             text = buildAnnotatedString {
@@ -129,24 +206,73 @@ private fun ThreadInfoBottomSheetContent(
                 textAlign = TextAlign.Center
             )
         }
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
+        val actionButtons = listOf(
+            ThreadInfoActionButton(
+                icon = Icons.AutoMirrored.Filled.Article,
+                label = boardName,
+                onClick = onBoardClick
+            ),
+            ThreadInfoActionButton(
+                icon = Icons.Filled.ContentCopy,
+                label = stringResource(R.string.copy),
+                onClick = onCopyClick
+            ),
+            ThreadInfoActionButton(
+                icon = Icons.Filled.Block,
+                label = stringResource(R.string.ng_registration),
+                onClick = onNgClick
+            ),
+            ThreadInfoActionButton(
+                icon = Icons.Filled.OpenInBrowser,
+                label = stringResource(R.string.open_in_external_browser),
+                onClick = onOpenBrowserClick
+            ),
+            ThreadInfoActionButton(
+                icon = Icons.Filled.Share,
+                label = stringResource(R.string.share),
+                onClick = onShareClick
+            )
+        )
+        val totalSlots = THREAD_INFO_GRID_COLUMNS * THREAD_INFO_GRID_ROWS
+        val placeholders = (totalSlots - actionButtons.size).coerceAtLeast(0)
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(THREAD_INFO_GRID_COLUMNS),
             modifier = Modifier
-                .padding(top = 16.dp)
-                .clickable(onClick = onCopyClick)
+                .fillMaxWidth()
+                .padding(top = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            userScrollEnabled = false,
+            contentPadding = PaddingValues(horizontal = 16.dp)
         ) {
-            Icon(
-                imageVector = Icons.Filled.ContentCopy,
-                contentDescription = stringResource(R.string.copy)
-            )
-            Text(
-                text = stringResource(R.string.copy),
-                style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.padding(top = 4.dp)
-            )
+            items(actionButtons) { action ->
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    LabeledIconButton(
+                        icon = action.icon,
+                        label = action.label,
+                        onClick = action.onClick,
+                    )
+                }
+            }
+            items(placeholders) {
+                Box(modifier = Modifier.fillMaxWidth())
+            }
         }
     }
 }
+
+private const val THREAD_INFO_GRID_COLUMNS = 4
+private const val THREAD_INFO_GRID_ROWS = 2
+
+private data class ThreadInfoActionButton(
+    val icon: ImageVector,
+    val label: String,
+    val onClick: () -> Unit
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
@@ -154,11 +280,16 @@ private fun ThreadInfoBottomSheetContent(
 fun ThreadInfoBottomSheetContentPreview() {
     ThreadInfoBottomSheetContent(
         threadInfo = ThreadInfo(
-            title = "スレッドタイトル",
+            title = "お前らこのスレ開いてから一分以内にamazonの問い合わせ番号書いてみ？",
             resCount = 100,
             momentum = 1234.5,
             date = ThreadDate(2024, 5, 1, 12, 34, "水")
         ),
-        onCopyClick = {}
+        boardName = "なんでも実況J",
+        onBoardClick = {},
+        onOpenBrowserClick = {},
+        onCopyClick = {},
+        onNgClick = {},
+        onShareClick = {},
     )
 }

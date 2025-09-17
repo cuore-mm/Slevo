@@ -32,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -49,6 +50,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.PopupInfo
@@ -58,6 +60,8 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import androidx.compose.foundation.gestures.scrollBy
 import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -67,6 +71,7 @@ fun ThreadScreen(
     uiState: ThreadUiState,
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
+    onAutoScrollBottom: () -> Unit = {},
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
     onReplyToPost: (Int) -> Unit = {},
@@ -85,6 +90,7 @@ fun ThreadScreen(
     val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
     // NG（非表示）対象の投稿番号リスト
     val ngNumbers = uiState.ngPostNumbers
+    val density = LocalDensity.current
 
     LaunchedEffect(listState, visiblePosts, uiState.sortType) {
         snapshotFlow { listState.isScrollInProgress }
@@ -118,7 +124,34 @@ fun ThreadScreen(
             }
     }
 
-    val density = LocalDensity.current
+    val autoScrollDpPerSec = 40f
+    val isScrollInProgress = listState.isScrollInProgress
+    LaunchedEffect(uiState.isAutoScroll, isScrollInProgress, autoScrollDpPerSec, density) {
+        if (!uiState.isAutoScroll || isScrollInProgress) return@LaunchedEffect
+        val pxPerSec = with(density) { autoScrollDpPerSec.dp.toPx() }
+        var lastTime: Long? = null
+        while (isActive) {
+            val dt = withFrameNanos { now ->
+                val prev = lastTime
+                lastTime = now
+                if (prev == null) 0f else (now - prev) / 1_000_000_000f
+            }
+            if (dt == 0f) continue
+
+            val consumed = listState.scrollBy(pxPerSec * dt)
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()
+            val atEnd = last != null &&
+                last.index == info.totalItemsCount - 1 &&
+                last.offset + last.size <= info.viewportEndOffset + 1
+
+            if (atEnd || consumed == 0f) {
+                onAutoScrollBottom()
+                continue
+            }
+        }
+    }
+
     val refreshThresholdPx = with(density) { 80.dp.toPx() }
     var overscroll by remember { mutableFloatStateOf(0f) }
     var triggerRefresh by remember { mutableStateOf(false) }
@@ -221,10 +254,14 @@ fun ThreadScreen(
                             navController = navController,
                             boardName = uiState.boardInfo.name,
                             boardId = uiState.boardInfo.boardId,
+                            headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
+                            bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
+                            lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
                             indentLevel = indent,
                             replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
                             isMyPost = postNum in uiState.myPostNumbers,
                             dimmed = display.dimmed,
+                            searchQuery = uiState.searchQuery,
                             onReplyFromClick = { nums ->
                                 val offset = if (popupStack.isEmpty()) {
                                     itemOffsetHolder.value
@@ -295,7 +332,7 @@ fun ThreadScreen(
             // 右側: 固定の勢いバー
             MomentumBar(
                 modifier = Modifier
-                    .width(32.dp)
+                    .width(24.dp)
                     .fillMaxHeight(),
                 posts = displayPosts,
                 replyCounts = replyCounts,
@@ -332,6 +369,10 @@ fun ThreadScreen(
             navController = navController,
             boardName = uiState.boardInfo.name,
             boardId = uiState.boardInfo.boardId,
+            headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
+            bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
+            lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
+            searchQuery = uiState.searchQuery,
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) }
         )
 
@@ -411,6 +452,7 @@ fun ThreadScreenPreview() {
     ThreadScreen(
         uiState = uiState,
         navController = NavHostController(LocalContext.current),
+        onAutoScrollBottom = {},
         onBottomRefresh = {}
     )
 }

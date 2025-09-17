@@ -16,28 +16,11 @@ import com.websarva.wings.android.slevo.ui.util.isInRoute
 fun RenderBottomBar(
     modifier: Modifier = Modifier,
     navController: NavHostController,
-    navBackStackEntry: NavBackStackEntry?
+    navBackStackEntry: NavBackStackEntry?,
+    onMoreClick: () -> Unit
 ) {
     val currentDestination = navBackStackEntry?.destination
     when {
-        currentDestination.isInRoute(
-            AppRoute.RouteName.MORE
-        ) -> {
-            NavigationBottomBar(
-                modifier = modifier,
-                currentDestination = currentDestination,
-                onClick = { route ->
-                    navController.navigate(route) {
-                        popUpTo(navController.graph.startDestinationId) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                }
-            )
-        }
-
         currentDestination.isInRoute(
             AppRoute.RouteName.BOOKMARK_LIST
         ) -> {
@@ -56,7 +39,8 @@ fun RenderBottomBar(
                             launchSingleTop = true
                             restoreState = true
                         }
-                    }
+                    },
+                    onMoreClick = onMoreClick
                 )
             } else {
                 BookmarkSelectBottomBar(
@@ -86,7 +70,8 @@ fun RenderBottomBar(
                             launchSingleTop = true
                             restoreState = true
                         }
-                    }
+                    },
+                    onMoreClick = onMoreClick
                 )
             } else {
                 BbsSelectBottomBar(

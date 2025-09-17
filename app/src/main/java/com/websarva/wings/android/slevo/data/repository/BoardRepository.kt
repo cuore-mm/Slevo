@@ -1,31 +1,28 @@
 package com.websarva.wings.android.slevo.data.repository
 
-import android.os.Build
-import android.util.Log
-import androidx.annotation.RequiresApi
+import androidx.room.withTransaction
+import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.BbsServiceDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.BoardDao
-import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.ThreadSummaryDao
-import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardVisitDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardFetchMetaDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardVisitDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.ThreadSummaryDao
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BbsServiceEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BoardEntity
-import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.ThreadSummaryEntity
-import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.BoardVisitEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.BoardFetchMetaEntity
-import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
+import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.BoardVisitEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.ThreadSummaryEntity
 import com.websarva.wings.android.slevo.data.datasource.remote.BoardRemoteDataSource
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import com.websarva.wings.android.slevo.data.util.ThreadListParser.parseSubjectTxt
 import com.websarva.wings.android.slevo.data.util.ThreadListParser.calculateThreadDate
+import com.websarva.wings.android.slevo.data.util.ThreadListParser.parseSubjectTxt
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.withContext
-import androidx.room.withTransaction
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -43,7 +40,6 @@ class BoardRepository @Inject constructor(
      * 指定した板IDのスレッド一覧を監視するFlowを返す。
      * スレッド情報・基準時刻・メタ情報を組み合わせてThreadInfoリストを生成。
      */
-    @RequiresApi(Build.VERSION_CODES.O)
     fun observeThreads(boardId: Long): Flow<List<ThreadInfo>> {
         val baselineFlow = boardVisitDao.observeBaseline(boardId)
             .distinctUntilChanged()
@@ -55,13 +51,16 @@ class BoardRepository @Inject constructor(
             val base = baseline ?: 0L
             val currentUnixTime = (meta?.lastFetchedAt ?: 0L) / 1000
             summaries.map { summary ->
-                val date = if (summary.threadId.toLongOrNull()?.let { it < com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD } == true) {
+                val date = if (summary.threadId.toLongOrNull()
+                        ?.let { it < com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD } == true
+                ) {
                     calculateThreadDate(summary.threadId)
                 } else {
                     com.websarva.wings.android.slevo.data.model.ThreadDate(0, 0, 0, 0, 0, "")
                 }
                 val momentum = if (
-                    summary.threadId.toLongOrNull()?.let { it < com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD } == true &&
+                    summary.threadId.toLongOrNull()
+                        ?.let { it < com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD } == true &&
                     summary.resCount > 0 &&
                     currentUnixTime > 0
                 ) {
@@ -100,7 +99,6 @@ class BoardRepository @Inject constructor(
      * @param onProgress 進捗コールバック
      * @return 成功時true
      */
-    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun refreshThreadList(
         boardId: Long,
         subjectUrl: String,
@@ -116,7 +114,12 @@ class BoardRepository @Inject constructor(
             304 -> {
                 db.withTransaction {
                     fetchMetaDao.upsert(
-                        BoardFetchMetaEntity(boardId, result.etag ?: meta?.etag, result.lastModified ?: meta?.lastModified, now)
+                        BoardFetchMetaEntity(
+                            boardId,
+                            result.etag ?: meta?.etag,
+                            result.lastModified ?: meta?.lastModified,
+                            now
+                        )
                     )
                     if (isManual) {
                         boardVisitDao.upsert(BoardVisitEntity(boardId, refreshStartAt))
@@ -124,6 +127,7 @@ class BoardRepository @Inject constructor(
                 }
                 true
             }
+
             200 -> {
                 val threads = parseSubjectTxt(result.body ?: return@withContext false)
                 db.withTransaction {
@@ -133,7 +137,13 @@ class BoardRepository @Inject constructor(
                     threads.forEachIndexed { index, t ->
                         newIds.add(t.key)
                         if (t.key in existingIds) {
-                            threadSummaryDao.updateExisting(boardId, t.key, t.title, t.resCount, index)
+                            threadSummaryDao.updateExisting(
+                                boardId,
+                                t.key,
+                                t.title,
+                                t.resCount,
+                                index
+                            )
                         } else {
                             inserts.add(
                                 ThreadSummaryEntity(
@@ -160,6 +170,7 @@ class BoardRepository @Inject constructor(
                 }
                 true
             }
+
             else -> false
         }
     }
@@ -210,7 +221,11 @@ class BoardRepository @Inject constructor(
             val serviceName = parseServiceName(boardInfo.url)
             // サービス情報がDBに存在しなければ新規登録
             val service = serviceDao.findByDomain(serviceName) ?: run {
-                val svc = BbsServiceEntity(domain = serviceName, displayName = serviceName, menuUrl = null)
+                val svc = BbsServiceEntity(
+                    domain = serviceName,
+                    displayName = serviceName,
+                    menuUrl = null
+                )
                 val id = serviceDao.upsert(svc)
                 svc.copy(serviceId = id)
             }
