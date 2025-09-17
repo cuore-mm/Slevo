@@ -2,11 +2,16 @@ package com.websarva.wings.android.slevo.ui.thread.components
 
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.ContentCopy
@@ -25,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -157,14 +163,13 @@ private fun ThreadInfoBottomSheetContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 16.dp),
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = threadInfo.title,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
         )
         Text(
             text = buildAnnotatedString {
@@ -201,40 +206,73 @@ private fun ThreadInfoBottomSheetContent(
                 textAlign = TextAlign.Center
             )
         }
-        Row(
-            horizontalArrangement = Arrangement.SpaceAround,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp)
-        ) {
-            LabeledIconButton(
+        val actionButtons = listOf(
+            ThreadInfoActionButton(
                 icon = Icons.AutoMirrored.Filled.Article,
                 label = boardName,
-                onClick = onBoardClick,
-            )
-            LabeledIconButton(
+                onClick = onBoardClick
+            ),
+            ThreadInfoActionButton(
                 icon = Icons.Filled.ContentCopy,
                 label = stringResource(R.string.copy),
-                onClick = onCopyClick,
-            )
-            LabeledIconButton(
-                icon = Icons.Filled.OpenInBrowser,
-                label = stringResource(R.string.open_in_external_browser),
-                onClick = onOpenBrowserClick,
-            )
-            LabeledIconButton(
-                icon = Icons.Filled.Share,
-                label = stringResource(R.string.share),
-                onClick = onShareClick,
-            )
-            LabeledIconButton(
+                onClick = onCopyClick
+            ),
+            ThreadInfoActionButton(
                 icon = Icons.Filled.Block,
                 label = stringResource(R.string.ng_registration),
-                onClick = onNgClick,
+                onClick = onNgClick
+            ),
+            ThreadInfoActionButton(
+                icon = Icons.Filled.OpenInBrowser,
+                label = stringResource(R.string.open_in_external_browser),
+                onClick = onOpenBrowserClick
+            ),
+            ThreadInfoActionButton(
+                icon = Icons.Filled.Share,
+                label = stringResource(R.string.share),
+                onClick = onShareClick
             )
+        )
+        val totalSlots = THREAD_INFO_GRID_COLUMNS * THREAD_INFO_GRID_ROWS
+        val placeholders = (totalSlots - actionButtons.size).coerceAtLeast(0)
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(THREAD_INFO_GRID_COLUMNS),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            userScrollEnabled = false,
+            contentPadding = PaddingValues(horizontal = 16.dp)
+        ) {
+            items(actionButtons) { action ->
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    LabeledIconButton(
+                        icon = action.icon,
+                        label = action.label,
+                        onClick = action.onClick,
+                    )
+                }
+            }
+            items(placeholders) {
+                Box(modifier = Modifier.fillMaxWidth())
+            }
         }
     }
 }
+
+private const val THREAD_INFO_GRID_COLUMNS = 4
+private const val THREAD_INFO_GRID_ROWS = 2
+
+private data class ThreadInfoActionButton(
+    val icon: ImageVector,
+    val label: String,
+    val onClick: () -> Unit
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
@@ -242,7 +280,7 @@ private fun ThreadInfoBottomSheetContent(
 fun ThreadInfoBottomSheetContentPreview() {
     ThreadInfoBottomSheetContent(
         threadInfo = ThreadInfo(
-            title = "スレッドタイトル",
+            title = "お前らこのスレ開いてから一分以内にamazonの問い合わせ番号書いてみ？",
             resCount = 100,
             momentum = 1234.5,
             date = ThreadDate(2024, 5, 1, 12, 34, "水")

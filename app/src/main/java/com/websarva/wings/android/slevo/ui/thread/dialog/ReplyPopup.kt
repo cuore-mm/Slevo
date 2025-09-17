@@ -264,7 +264,7 @@ fun ReplyPopupPreview() {
         headerTextScale = 0.85f,
         bodyTextScale = 1f,
         lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
-        onClose = {}
+        onClose = {},
         searchQuery = "",
     )
 }
