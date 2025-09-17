@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
@@ -64,6 +65,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
+import com.websarva.wings.android.slevo.ui.util.toHiragana
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -88,6 +90,7 @@ fun PostItem(
     replyFromNumbers: List<Int> = emptyList(),
     isMyPost: Boolean = false,
     dimmed: Boolean = false,
+    searchQuery: String = "",
     onReplyFromClick: ((List<Int>) -> Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null,
     onMenuReplyClick: ((Int) -> Unit)? = null,
@@ -353,6 +356,60 @@ fun PostItem(
                     pressedUrl = pressedUrl,
                     pressedReply = pressedReply
                 )
+                val highlightBackground = MaterialTheme.colorScheme.tertiaryContainer
+                val highlightedText = remember(
+                    annotatedText,
+                    searchQuery,
+                    post.content,
+                    highlightBackground
+                ) {
+                    if (searchQuery.isBlank()) {
+                        annotatedText
+                    } else {
+                        val normalizedContent = post.content.toHiragana()
+                        val normalizedQuery = searchQuery.toHiragana()
+                        if (normalizedQuery.isBlank()) {
+                            annotatedText
+                        } else {
+                            val ranges = mutableListOf<IntRange>()
+                            var startIndex = 0
+                            val step = normalizedQuery.length.coerceAtLeast(1)
+                            while (true) {
+                                val foundIndex = normalizedContent.indexOf(
+                                    normalizedQuery,
+                                    startIndex = startIndex,
+                                    ignoreCase = true
+                                )
+                                if (foundIndex == -1) break
+                                val end = (foundIndex + normalizedQuery.length)
+                                    .coerceAtMost(annotatedText.length)
+                                if (end > foundIndex) {
+                                    ranges.add(foundIndex until end)
+                                }
+                                startIndex = foundIndex + step
+                            }
+                            if (ranges.isEmpty()) {
+                                annotatedText
+                            } else {
+                                AnnotatedString.Builder().apply {
+                                    append(annotatedText)
+                                    val highlightStyle = SpanStyle(
+                                        background = highlightBackground
+                                    )
+                                    ranges.forEach { range ->
+                                        val end = (range.last + 1)
+                                            .coerceAtMost(annotatedText.length)
+                                        addStyle(
+                                            highlightStyle,
+                                            start = range.first,
+                                            end = end
+                                        )
+                                    }
+                                }.toAnnotatedString()
+                            }
+                        }
+                    }
+                }
                 var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
 
                 Column(horizontalAlignment = Alignment.Start) {
@@ -372,10 +429,10 @@ fun PostItem(
                                         contentLayout?.let { layout ->
                                             val pos = layout.getOffsetForPosition(offset)
                                             val urlAnn =
-                                                annotatedText.getStringAnnotations("URL", pos, pos)
+                                                highlightedText.getStringAnnotations("URL", pos, pos)
                                                     .firstOrNull()
                                             val replyAnn =
-                                                annotatedText.getStringAnnotations(
+                                                highlightedText.getStringAnnotations(
                                                     "REPLY",
                                                     pos,
                                                     pos
@@ -429,7 +486,7 @@ fun PostItem(
                                     onTap = { offset ->
                                         contentLayout?.let { layout ->
                                             val pos = layout.getOffsetForPosition(offset)
-                                            annotatedText.getStringAnnotations("URL", pos, pos)
+                                            highlightedText.getStringAnnotations("URL", pos, pos)
                                                 .firstOrNull()?.let { ann ->
                                                     val url = ann.item
                                                     parseThreadUrl(url)?.let { (host, board, key) ->
@@ -444,7 +501,7 @@ fun PostItem(
                                                         ) { launchSingleTop = true }
                                                     } ?: uriHandler.openUri(url)
                                                 }
-                                            annotatedText.getStringAnnotations("REPLY", pos, pos)
+                                            highlightedText.getStringAnnotations("REPLY", pos, pos)
                                                 .firstOrNull()?.let { ann ->
                                                     ann.item.toIntOrNull()
                                                         ?.let { onReplyClick?.invoke(it) }
@@ -455,10 +512,10 @@ fun PostItem(
                                         contentLayout?.let { layout ->
                                             val pos = layout.getOffsetForPosition(offset)
                                             val urlAnn =
-                                                annotatedText.getStringAnnotations("URL", pos, pos)
+                                                highlightedText.getStringAnnotations("URL", pos, pos)
                                                     .firstOrNull()
                                             val replyAnn =
-                                                annotatedText.getStringAnnotations(
+                                                highlightedText.getStringAnnotations(
                                                     "REPLY",
                                                     pos,
                                                     pos
@@ -475,7 +532,7 @@ fun PostItem(
                                     }
                                 )
                             },
-                        text = annotatedText,
+                        text = highlightedText,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = MaterialTheme.colorScheme.onSurface
                         ),
@@ -633,5 +690,6 @@ fun ReplyCardPreview() {
         navController = NavHostController(LocalContext.current),
         boardName = "board",
         boardId = 0L,
+        searchQuery = "",
     )
 }
