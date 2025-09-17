@@ -38,6 +38,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
@@ -46,6 +47,7 @@ import androidx.compose.ui.unit.em
 import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnailGrid
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -71,6 +73,9 @@ fun PostItem(
     navController: NavHostController,
     boardName: String,
     boardId: Long,
+    headerTextScale: Float,
+    bodyTextScale: Float,
+    lineHeight: Float,
     indentLevel: Int = 0,
     replyFromNumbers: List<Int> = emptyList(),
     isMyPost: Boolean = false,
@@ -95,6 +100,8 @@ fun PostItem(
     val haptic = LocalHapticFeedback.current
 
     val boundaryColor = MaterialTheme.colorScheme.outlineVariant
+    val bodyFontSize = MaterialTheme.typography.bodyMedium.fontSize * bodyTextScale
+    val headerFontSize = MaterialTheme.typography.bodyMedium.fontSize * headerTextScale
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -165,11 +172,13 @@ fun PostItem(
                                     replyFromNumbers
                                 )
                             },
-                        text = if (replyCount > 0) "$postNum ($replyCount)" else postNum.toString(),
-                        style = MaterialTheme.typography.labelMedium,
+                        text = if (replyCount > 0) "$postNum ($replyCount) " else "$postNum ",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = headerFontSize
+                        ),
+                        fontWeight = FontWeight.Bold,
                         color = postNumColor
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
                     val headerText = buildAnnotatedString {
                         var first = true
                         fun appendSpaceIfNeeded() {
@@ -331,8 +340,11 @@ fun PostItem(
                                 )
                             },
                         text = headerText,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = headerFontSize
+                        ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = lineHeight.em,
                         onTextLayout = { headerLayout = it }
                     )
                 }
@@ -475,9 +487,10 @@ fun PostItem(
                             },
                         text = highlightedText,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = bodyFontSize
                         ),
-                        lineHeight = 1.5.em,
+                        lineHeight = lineHeight.em,
                         onTextLayout = { contentLayout = it }
                     )
                 }
@@ -557,6 +570,9 @@ fun ReplyCardPreview() {
         navController = NavHostController(LocalContext.current),
         boardName = "board",
         boardId = 0L,
+        headerTextScale = 0.85f,
+        bodyTextScale = 1f,
+        lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
         searchQuery = "",
     )
 }

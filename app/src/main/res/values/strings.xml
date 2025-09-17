@@ -78,6 +78,14 @@
     <string name="start_auto_scroll">自動スクロール開始</string>
     <string name="stop_auto_scroll">自動スクロール停止</string>
 
+    <string name="display_settings">表示設定</string>
+    <string name="text_size">テキストサイズ</string>
+    <string name="individual_text_settings">個別に設定する</string>
+    <string name="header_text_size">ヘッダーのテキストサイズ</string>
+    <string name="body_text_size">本文のテキストサイズ</string>
+    <string name="line_spacing">行間</string>
+    <string name="reset">リセット</string>
+
     <string name="default_thread_sort_order">レスのデフォルトの並び順</string>
 
     <string name="about_this_app">このアプリについて</string>

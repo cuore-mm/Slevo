@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.util
+package com.websarva.wings.android.slevo.ui.common
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -67,7 +67,7 @@ fun BottomAlignedDialog(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
+                    .padding(horizontal = 8.dp)
                     .clickable(
                         indication = null,
                         interactionSource = remember { MutableInteractionSource() }
@@ -91,6 +91,7 @@ fun BottomAlignedDialogPreview() {
             onBoardListClick = {},
             onHistoryClick = {},
             onSettingsClick = {},
+            onDisplaySettingsClick = {},
         )
     }
 }

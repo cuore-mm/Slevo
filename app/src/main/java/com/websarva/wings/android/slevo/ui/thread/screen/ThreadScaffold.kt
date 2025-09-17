@@ -37,6 +37,7 @@ import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
+import com.websarva.wings.android.slevo.ui.thread.components.DisplaySettingsBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadSearchBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
@@ -245,9 +246,28 @@ fun ThreadScaffold(
                     onSettingsClick = {
                         viewModel.closeMoreSheet()
                         navController.navigate(AppRoute.SettingsHome)
+                    },
+                    onDisplaySettingsClick = {
+                        viewModel.closeMoreSheet()
+                        viewModel.openDisplaySettingsSheet()
                     }
                 )
             }
+
+            DisplaySettingsBottomSheet(
+                show = uiState.showDisplaySettingsSheet,
+                textScale = uiState.textScale,
+                isIndividual = uiState.isIndividualTextScale,
+                headerTextScale = uiState.headerTextScale,
+                bodyTextScale = uiState.bodyTextScale,
+                lineHeight = uiState.lineHeight,
+                onDismissRequest = { viewModel.closeDisplaySettingsSheet() },
+                onTextScaleChange = { viewModel.updateTextScale(it) },
+                onIndividualChange = { viewModel.updateIndividualTextScale(it) },
+                onHeaderTextScaleChange = { viewModel.updateHeaderTextScale(it) },
+                onBodyTextScaleChange = { viewModel.updateBodyTextScale(it) },
+                onLineHeightChange = { viewModel.updateLineHeight(it) }
+            )
 
             if (postUiState.postDialog) {
                 val context = LocalContext.current
