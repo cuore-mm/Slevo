@@ -1,6 +1,5 @@
 package com.websarva.wings.android.slevo.ui.thread.item
 
-import android.content.ClipData
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,12 +31,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.platform.toClipEntry
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -51,30 +47,19 @@ import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.NgType
-import com.websarva.wings.android.slevo.ui.common.CopyDialog
-import com.websarva.wings.android.slevo.ui.common.CopyItem
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnailGrid
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.theme.idColor
 import com.websarva.wings.android.slevo.ui.theme.replyCountColor
-import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
-import com.websarva.wings.android.slevo.ui.thread.dialog.NgSelectDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.PostMenuDialog
-import com.websarva.wings.android.slevo.ui.thread.dialog.TextMenuDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
-import com.websarva.wings.android.slevo.ui.util.toHiragana
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.LocalDate
-
-private const val PressFeedbackDelayMillis = 80L
 
 @Composable
 fun PostItem(
@@ -97,10 +82,7 @@ fun PostItem(
     onIdClick: ((String) -> Unit)? = null,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    var showCopyDialog by remember { mutableStateOf(false) }
-    var textMenuData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
-    var ngDialogData by remember { mutableStateOf<Pair<String, NgType>?>(null) }
-    var showNgSelectDialog by remember { mutableStateOf(false) }
+    val dialogState = rememberPostItemDialogState()
     var isColumnPressed by remember { mutableStateOf(false) }
     var isHeaderPressed by remember { mutableStateOf(false) }
     var isContentPressed by remember { mutableStateOf(false) }
@@ -331,10 +313,16 @@ fun PostItem(
                                                     .firstOrNull()
                                             when {
                                                 nameAnn != null ->
-                                                    textMenuData = nameAnn.item to NgType.USER_NAME
+                                                    dialogState.showTextMenu(
+                                                        text = nameAnn.item,
+                                                        type = NgType.USER_NAME
+                                                    )
 
                                                 idAnn != null ->
-                                                    textMenuData = idAnn.item to NgType.USER_ID
+                                                    dialogState.showTextMenu(
+                                                        text = idAnn.item,
+                                                        type = NgType.USER_ID
+                                                    )
 
                                                 else -> menuExpanded = true
                                             }
@@ -357,59 +345,12 @@ fun PostItem(
                     pressedReply = pressedReply
                 )
                 val highlightBackground = MaterialTheme.colorScheme.tertiaryContainer
-                val highlightedText = remember(
-                    annotatedText,
-                    searchQuery,
-                    post.content,
-                    highlightBackground
-                ) {
-                    if (searchQuery.isBlank()) {
-                        annotatedText
-                    } else {
-                        val normalizedContent = post.content.toHiragana()
-                        val normalizedQuery = searchQuery.toHiragana()
-                        if (normalizedQuery.isBlank()) {
-                            annotatedText
-                        } else {
-                            val ranges = mutableListOf<IntRange>()
-                            var startIndex = 0
-                            val step = normalizedQuery.length.coerceAtLeast(1)
-                            while (true) {
-                                val foundIndex = normalizedContent.indexOf(
-                                    normalizedQuery,
-                                    startIndex = startIndex,
-                                    ignoreCase = true
-                                )
-                                if (foundIndex == -1) break
-                                val end = (foundIndex + normalizedQuery.length)
-                                    .coerceAtMost(annotatedText.length)
-                                if (end > foundIndex) {
-                                    ranges.add(foundIndex until end)
-                                }
-                                startIndex = foundIndex + step
-                            }
-                            if (ranges.isEmpty()) {
-                                annotatedText
-                            } else {
-                                AnnotatedString.Builder().apply {
-                                    append(annotatedText)
-                                    val highlightStyle = SpanStyle(
-                                        background = highlightBackground
-                                    )
-                                    ranges.forEach { range ->
-                                        val end = (range.last + 1)
-                                            .coerceAtMost(annotatedText.length)
-                                        addStyle(
-                                            highlightStyle,
-                                            start = range.first,
-                                            end = end
-                                        )
-                                    }
-                                }.toAnnotatedString()
-                            }
-                        }
-                    }
-                }
+                val highlightedText = rememberHighlightedText(
+                    baseText = annotatedText,
+                    rawContent = post.content,
+                    searchQuery = searchQuery,
+                    highlightColor = highlightBackground
+                )
                 var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
 
                 Column(horizontalAlignment = Alignment.Start) {
@@ -576,97 +517,23 @@ fun PostItem(
                 },
                 onCopyClick = {
                     menuExpanded = false
-                    showCopyDialog = true
+                    dialogState.showCopyDialog()
                 },
                 onNgClick = {
                     menuExpanded = false
-                    showNgSelectDialog = true
+                    dialogState.showNgSelectDialog()
                 },
                 onDismiss = { menuExpanded = false }
             )
         }
-        if (showCopyDialog) {
-            val header = buildString {
-                append(postNum)
-                if (post.name.isNotBlank()) append(" ${post.name}")
-                if (post.date.isNotBlank()) append(" ${post.date}")
-                if (post.id.isNotBlank()) append(" ID:${post.id}")
-            }
-            CopyDialog(
-                items = listOf(
-                    CopyItem(postNum.toString(), stringResource(R.string.res_number_label)),
-                    CopyItem(post.name, stringResource(R.string.name_label)),
-                    CopyItem(post.id, stringResource(R.string.id_label)),
-                    CopyItem(post.content, stringResource(R.string.post_message)),
-                    CopyItem("$header\n${post.content}", stringResource(R.string.header_and_body)),
-                ),
-                onDismissRequest = { showCopyDialog = false }
-            )
-        }
-        if (showNgSelectDialog) {
-            NgSelectDialog(
-                onNgIdClick = {
-                    showNgSelectDialog = false
-                    ngDialogData = post.id to NgType.USER_ID
-                },
-                onNgNameClick = {
-                    showNgSelectDialog = false
-                    ngDialogData = post.name to NgType.USER_NAME
-                },
-                onNgWordClick = {
-                    showNgSelectDialog = false
-                    ngDialogData = post.content to NgType.WORD
-                },
-                onDismiss = { showNgSelectDialog = false }
-            )
-        }
-        textMenuData?.let { (text, type) ->
-            val clipboard = LocalClipboard.current
-            TextMenuDialog(
-                text = text,
-                onCopyClick = {
-                    scope.launch {
-                        val clip = ClipData.newPlainText("", text).toClipEntry()
-                        clipboard.setClipEntry(clip)
-                    }
-                    textMenuData = null
-                },
-                onNgClick = {
-                    textMenuData = null
-                    ngDialogData = text to type
-                },
-                onDismiss = { textMenuData = null }
-            )
-        }
-        ngDialogData?.let { (text, type) ->
-            NgDialogRoute(
-                text = text,
-                type = type,
-                boardName = boardName,
-                boardId = boardId.takeIf { it != 0L },
-                onDismiss = { ngDialogData = null }
-            )
-        }
-    }
-}
-
-suspend fun handlePressFeedback(
-    scope: CoroutineScope,
-    feedbackDelayMillis: Long = PressFeedbackDelayMillis,
-    onFeedbackStart: () -> Unit,
-    onFeedbackEnd: () -> Unit,
-    awaitRelease: suspend () -> Unit
-) {
-    var job: Job? = null
-    try {
-        job = scope.launch {
-            delay(feedbackDelayMillis)
-            onFeedbackStart()
-        }
-        awaitRelease()
-    } finally {
-        job?.cancel()
-        onFeedbackEnd()
+        PostItemDialogs(
+            post = post,
+            postNum = postNum,
+            boardName = boardName,
+            boardId = boardId,
+            scope = scope,
+            dialogState = dialogState
+        )
     }
 }
 
