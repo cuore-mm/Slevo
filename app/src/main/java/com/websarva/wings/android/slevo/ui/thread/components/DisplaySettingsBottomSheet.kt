@@ -22,6 +22,7 @@ import androidx.compose.material3.SliderColors
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableFloatStateOf
@@ -37,6 +38,10 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import java.util.Locale
 import kotlin.math.roundToInt
+
+private const val DEFAULT_TEXT_SCALE = 1f
+private const val DEFAULT_HEADER_TEXT_SCALE = 0.85f
+private const val DEFAULT_BODY_TEXT_SCALE = 1f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,11 +118,11 @@ fun DisplaySettingsContent(
         )
 
         Spacer(modifier = Modifier.height(8.dp))
-        Card (
+        Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
             elevation = CardDefaults.cardElevation()
-        ){
+        ) {
             Column(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -189,6 +194,23 @@ fun DisplaySettingsContent(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        TextButton(
+            onClick = {
+                onTextScaleChange(DEFAULT_TEXT_SCALE)
+                onHeaderTextScaleChange(DEFAULT_HEADER_TEXT_SCALE)
+                onBodyTextScaleChange(DEFAULT_BODY_TEXT_SCALE)
+                onLineHeightChange(DEFAULT_THREAD_LINE_HEIGHT)
+            },
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            Text(
+                text = stringResource(R.string.reset),
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium,
+            )
+        }
     }
 }
 
@@ -238,10 +260,10 @@ fun LabeledSlider(
 @Preview(showBackground = true)
 @Composable
 fun DisplaySettingsContentPreview() {
-    val textScaleState = remember { mutableFloatStateOf(1f) }
+    val textScaleState = remember { mutableFloatStateOf(DEFAULT_TEXT_SCALE) }
     val individualState = remember { mutableStateOf(true) }
-    val headerScaleState = remember { mutableFloatStateOf(1f) }
-    val bodyScaleState = remember { mutableFloatStateOf(1f) }
+    val headerScaleState = remember { mutableFloatStateOf(DEFAULT_HEADER_TEXT_SCALE) }
+    val bodyScaleState = remember { mutableFloatStateOf(DEFAULT_BODY_TEXT_SCALE) }
     val lineHeightState = remember { mutableFloatStateOf(DEFAULT_THREAD_LINE_HEIGHT) }
 
     DisplaySettingsContent(

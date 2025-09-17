@@ -80,6 +80,7 @@
     <string name="header_text_size">ヘッダーのテキストサイズ</string>
     <string name="body_text_size">本文のテキストサイズ</string>
     <string name="line_spacing">行間</string>
+    <string name="reset">リセット</string>
 
     <string name="default_thread_sort_order">レスのデフォルトの並び順</string>
 

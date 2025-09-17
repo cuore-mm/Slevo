@@ -41,6 +41,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
@@ -186,11 +187,13 @@ fun PostItem(
                                     replyFromNumbers
                                 )
                             },
-                        text = if (replyCount > 0) "$postNum ($replyCount)" else postNum.toString(),
-                        style = MaterialTheme.typography.labelMedium,
+                        text = if (replyCount > 0) "$postNum ($replyCount) " else "$postNum ",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = headerFontSize
+                        ),
+                        fontWeight = FontWeight.Bold,
                         color = postNumColor
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
                     val headerText = buildAnnotatedString {
                         var first = true
                         fun appendSpaceIfNeeded() {
