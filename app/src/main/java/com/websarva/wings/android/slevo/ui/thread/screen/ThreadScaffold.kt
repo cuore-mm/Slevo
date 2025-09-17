@@ -1,6 +1,15 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
@@ -12,6 +21,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -26,6 +37,7 @@ import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
+import com.websarva.wings.android.slevo.ui.thread.components.ThreadSearchBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadPagerViewModel
@@ -40,14 +52,13 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMail
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMessage
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostName
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.uploadImage
-import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun ThreadScaffold(
     threadRoute: AppRoute.Thread,
@@ -115,38 +126,55 @@ fun ThreadScaffold(
         onPageChange = { pagerViewModel.setCurrentPage(it) },
         scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
-        topBar = { viewModel, uiState, _, scrollBehavior ->
-            if (uiState.isSearchMode) {
-                SearchTopAppBar(
-                    searchQuery = uiState.searchQuery,
-                    onQueryChange = { viewModel.updateSearchQuery(it) },
-                    onCloseSearch = { viewModel.closeSearch() },
-                    scrollBehavior = scrollBehavior
-                )
-            }
-        },
+        topBar = { _, _, _, _ -> },
         bottomBar = { viewModel, uiState, barScrollBehavior ->
             val context = LocalContext.current
             val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
-            ThreadToolBar(
-                modifier = if (isThreeButtonBar) {
-                    Modifier.navigationBarsPadding()
-                } else {
-                    Modifier
+            val modifier = if (isThreeButtonBar) {
+                Modifier.navigationBarsPadding().imePadding()
+            } else {
+                Modifier.imePadding()
+            }
+            val keyboardController = LocalSoftwareKeyboardController.current
+            val focusManager = LocalFocusManager.current
+            BackHandler(enabled = uiState.isSearchMode) {
+                keyboardController?.hide()
+                focusManager.clearFocus()
+                viewModel.closeSearch()
+            }
+            AnimatedContent(
+                targetState = uiState.isSearchMode,
+                transitionSpec = {
+                    slideInVertically { it } + fadeIn() togetherWith
+                            slideOutVertically { it } + fadeOut()
                 },
-                uiState = uiState,
-                isTreeSort = uiState.sortType == ThreadSortType.TREE,
-                onSortClick = { viewModel.toggleSortType() },
-                onPostClick = { viewModel.showPostDialog() },
-                onTabListClick = { viewModel.openTabListSheet() },
-                onRefreshClick = { viewModel.reloadThread() },
-                onSearchClick = { viewModel.startSearch() },
-                onBookmarkClick = { viewModel.openBookmarkSheet() },
-                onThreadInfoClick = { viewModel.openThreadInfoSheet() },
-                onMoreClick = { viewModel.openMoreSheet() },
-                onAutoScrollClick = { viewModel.toggleAutoScroll() },
-                scrollBehavior = barScrollBehavior,
-            )
+                label = "BottomBarAnimation"
+            ) { isSearchMode ->
+                if (isSearchMode) {
+                    ThreadSearchBar(
+                        modifier = modifier,
+                        searchQuery = uiState.searchQuery,
+                        onQueryChange = { viewModel.updateSearchQuery(it) },
+                        onCloseSearch = { viewModel.closeSearch() },
+                    )
+                } else {
+                    ThreadToolBar(
+                        modifier = modifier,
+                        uiState = uiState,
+                        isTreeSort = uiState.sortType == ThreadSortType.TREE,
+                        onSortClick = { viewModel.toggleSortType() },
+                        onPostClick = { viewModel.showPostDialog() },
+                        onTabListClick = { viewModel.openTabListSheet() },
+                        onRefreshClick = { viewModel.reloadThread() },
+                        onSearchClick = { viewModel.startSearch() },
+                        onBookmarkClick = { viewModel.openBookmarkSheet() },
+                        onThreadInfoClick = { viewModel.openThreadInfoSheet() },
+                        onMoreClick = { viewModel.openMoreSheet() },
+                        onAutoScrollClick = { viewModel.toggleAutoScroll() },
+                        scrollBehavior = barScrollBehavior,
+                    )
+                }
+            }
         },
         content = { viewModel, uiState, listState, modifier, navController ->
             LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {

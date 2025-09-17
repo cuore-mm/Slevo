@@ -257,6 +257,7 @@ fun ThreadScreen(
                             replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
                             isMyPost = postNum in uiState.myPostNumbers,
                             dimmed = display.dimmed,
+                            searchQuery = uiState.searchQuery,
                             onReplyFromClick = { nums ->
                                 val offset = if (popupStack.isEmpty()) {
                                     itemOffsetHolder.value
@@ -364,6 +365,7 @@ fun ThreadScreen(
             navController = navController,
             boardName = uiState.boardInfo.name,
             boardId = uiState.boardInfo.boardId,
+            searchQuery = uiState.searchQuery,
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) }
         )
 
