@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -37,6 +38,10 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import java.util.Locale
 import kotlin.math.roundToInt
+
+private const val DEFAULT_TEXT_SCALE = 1f
+private const val DEFAULT_HEADER_TEXT_SCALE = 0.85f
+private const val DEFAULT_BODY_TEXT_SCALE = 1f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -189,6 +194,21 @@ fun DisplaySettingsContent(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = stringResource(R.string.reset),
+            modifier = Modifier
+                .align(Alignment.End)
+                .clickable {
+                    onTextScaleChange(DEFAULT_TEXT_SCALE)
+                    onHeaderTextScaleChange(DEFAULT_HEADER_TEXT_SCALE)
+                    onBodyTextScaleChange(DEFAULT_BODY_TEXT_SCALE)
+                    onLineHeightChange(DEFAULT_THREAD_LINE_HEIGHT)
+                },
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }
 
@@ -238,10 +258,10 @@ fun LabeledSlider(
 @Preview(showBackground = true)
 @Composable
 fun DisplaySettingsContentPreview() {
-    val textScaleState = remember { mutableFloatStateOf(1f) }
+    val textScaleState = remember { mutableFloatStateOf(DEFAULT_TEXT_SCALE) }
     val individualState = remember { mutableStateOf(true) }
-    val headerScaleState = remember { mutableFloatStateOf(1f) }
-    val bodyScaleState = remember { mutableFloatStateOf(1f) }
+    val headerScaleState = remember { mutableFloatStateOf(DEFAULT_HEADER_TEXT_SCALE) }
+    val bodyScaleState = remember { mutableFloatStateOf(DEFAULT_BODY_TEXT_SCALE) }
     val lineHeightState = remember { mutableFloatStateOf(DEFAULT_THREAD_LINE_HEIGHT) }
 
     DisplaySettingsContent(
