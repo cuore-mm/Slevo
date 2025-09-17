@@ -8,6 +8,7 @@ import android.speech.RecognizerIntent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -154,34 +155,40 @@ fun ThreadSearchBar(
                         unfocusedIndicatorColor = Color.Transparent,
                     )
                 )
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { onQueryChange("") }) {
-                        Icon(
-                            imageVector = Icons.Filled.Clear,
-                            contentDescription = "Clear search"
-                        )
-                    }
-                }
-                IconButton(
-                    onClick = {
-                        keyboardController?.hide()
-                        focusManager.clearFocus()
-                        if (
-                            ContextCompat.checkSelfPermission(
-                                context,
-                                Manifest.permission.RECORD_AUDIO
-                            ) == PackageManager.PERMISSION_GRANTED
+                AnimatedContent(
+                    targetState = searchQuery.isNotEmpty(),
+                    label = "SearchBarIcon"
+                ) { hasQuery ->
+                    if (hasQuery) {
+                        IconButton(onClick = { onQueryChange("") }) {
+                            Icon(
+                                imageVector = Icons.Filled.Clear,
+                                contentDescription = "Clear search"
+                            )
+                        }
+                    } else {
+                        IconButton(
+                            onClick = {
+                                keyboardController?.hide()
+                                focusManager.clearFocus()
+                                if (
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.RECORD_AUDIO
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    startSpeechRecognition()
+                                } else {
+                                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            }
                         ) {
-                            startSpeechRecognition()
-                        } else {
-                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            Icon(
+                                imageVector = Icons.Filled.Mic,
+                                contentDescription = stringResource(R.string.voice_input)
+                            )
                         }
                     }
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Mic,
-                        contentDescription = stringResource(R.string.voice_input)
-                    )
                 }
             }
         }
