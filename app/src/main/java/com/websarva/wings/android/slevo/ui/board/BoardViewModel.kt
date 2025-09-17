@@ -18,6 +18,7 @@ import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
+import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -200,9 +201,10 @@ class BoardViewModel @AssistedInject constructor(
     private fun applyFiltersAndSort() {
         originalThreads?.let { allThreads ->
             // 1. フィルタリング
-            val searchFiltered = if (_uiState.value.searchQuery.isNotBlank()) {
+            val query = _uiState.value.searchQuery.toHiragana()
+            val searchFiltered = if (query.isNotBlank()) {
                 allThreads.filter {
-                    it.title.contains(_uiState.value.searchQuery, ignoreCase = true)
+                    it.title.toHiragana().contains(query, ignoreCase = true)
                 }
             } else {
                 allThreads

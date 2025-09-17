@@ -46,7 +46,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun ThreadBottomBar(
+fun ThreadToolBar(
     modifier: Modifier = Modifier,
     uiState: ThreadUiState,
     isTreeSort: Boolean,
@@ -109,7 +109,6 @@ fun ThreadBottomBar(
                         style = MaterialTheme.typography.titleSmall,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
                         modifier = Modifier
                             .weight(1f)
                     )
@@ -182,8 +181,8 @@ fun ThreadBottomBar(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
-fun ThreadBottomBarPreview() {
-    ThreadBottomBar(
+fun ThreadToolBarPreview() {
+    ThreadToolBar(
         uiState = ThreadUiState(
             threadInfo = ThreadInfo(
                 title = "スレッドのタイトル"

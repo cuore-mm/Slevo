@@ -66,6 +66,7 @@ fun ReplyPopup(
     headerTextScale: Float,
     bodyTextScale: Float,
     lineHeight: Float,
+    searchQuery: String = "",
     onClose: () -> Unit
 ) {
     val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
@@ -165,6 +166,7 @@ fun ReplyPopup(
                                 headerTextScale = headerTextScale,
                                 bodyTextScale = bodyTextScale,
                                 lineHeight = lineHeight,
+                                searchQuery = searchQuery,
                                 isMyPost = postNum in myPostNumbers,
                                 replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers } ?: emptyList(),
                                 onReplyFromClick = { nums ->
@@ -263,5 +265,6 @@ fun ReplyPopupPreview() {
         bodyTextScale = 1f,
         lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
         onClose = {}
+        searchQuery = "",
     )
 }

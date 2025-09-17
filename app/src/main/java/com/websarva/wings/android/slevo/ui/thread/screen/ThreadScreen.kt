@@ -261,6 +261,7 @@ fun ThreadScreen(
                             replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
                             isMyPost = postNum in uiState.myPostNumbers,
                             dimmed = display.dimmed,
+                            searchQuery = uiState.searchQuery,
                             onReplyFromClick = { nums ->
                                 val offset = if (popupStack.isEmpty()) {
                                     itemOffsetHolder.value
@@ -371,6 +372,7 @@ fun ThreadScreen(
             headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
             bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
             lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
+            searchQuery = uiState.searchQuery,
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) }
         )
 

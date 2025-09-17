@@ -22,6 +22,7 @@ import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepositor
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
+import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
@@ -432,10 +433,11 @@ class ThreadViewModel @AssistedInject constructor(
         )
 
         // 検索クエリがあれば絞り込み
-        val filteredPosts = if (uiState.value.searchQuery.isNotBlank()) {
+        val query = uiState.value.searchQuery.toHiragana()
+        val filteredPosts = if (query.isNotBlank()) {
             orderedPosts.filter {
-                it.post.content.contains(
-                    uiState.value.searchQuery,
+                it.post.content.toHiragana().contains(
+                    query,
                     ignoreCase = true
                 )
             }
