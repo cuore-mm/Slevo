@@ -76,7 +76,7 @@
 
     <string name="display_settings">表示設定</string>
     <string name="text_size">テキストサイズ</string>
-    <string name="individual_text_settings">個別設定</string>
+    <string name="individual_text_settings">個別に設定する</string>
     <string name="header_text_size">ヘッダーのテキストサイズ</string>
     <string name="body_text_size">本文のテキストサイズ</string>
     <string name="line_spacing">行間</string>

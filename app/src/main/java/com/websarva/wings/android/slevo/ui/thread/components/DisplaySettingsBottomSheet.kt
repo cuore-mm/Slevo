@@ -1,5 +1,10 @@
 package com.websarva.wings.android.slevo.ui.thread.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -121,62 +126,66 @@ fun DisplaySettingsContent(
                     Spacer(modifier = Modifier.weight(1f))
                     Switch(checked = isIndividual, onCheckedChange = onIndividualChange)
                 }
-                if (isIndividual) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LabeledSlider(
-                        labelRes = R.string.header_text_size,
-                        value = headerTextScale,
-                        valueRange = 0.7f..1.6f,
-                        snapFactor = 20,
-                        steps = 0,
-                        valueFormatter = { v ->
-                            String.format(
-                                Locale.getDefault(),
-                                "%d%%",
-                                (v * 100).roundToInt()
+                AnimatedVisibility(
+                    visible = isIndividual,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically(),
+                ) {
+                    Column {
+                        LabeledSlider(
+                            labelRes = R.string.header_text_size,
+                            value = headerTextScale,
+                            valueRange = 0.7f..1.6f,
+                            snapFactor = 20,
+                            steps = 0,
+                            valueFormatter = { v ->
+                                String.format(
+                                    Locale.getDefault(),
+                                    "%d%%",
+                                    (v * 100).roundToInt()
+                                )
+                            },
+                            onValueChange = onHeaderTextScaleChange,
+                            sliderColors = SliderDefaults.colors(
+                                inactiveTrackColor = MaterialTheme.colorScheme.primaryContainer,
                             )
-                        },
-                        onValueChange = onHeaderTextScaleChange,
-                        sliderColors = SliderDefaults.colors(
-                            inactiveTrackColor = MaterialTheme.colorScheme.primaryContainer,
                         )
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    LabeledSlider(
-                        labelRes = R.string.body_text_size,
-                        value = bodyTextScale,
-                        valueRange = 0.7f..1.6f,
-                        snapFactor = 20,
-                        steps = 0,
-                        valueFormatter = { v ->
-                            String.format(
-                                Locale.getDefault(),
-                                "%d%%",
-                                (v * 100).roundToInt()
+                        Spacer(modifier = Modifier.height(16.dp))
+                        LabeledSlider(
+                            labelRes = R.string.body_text_size,
+                            value = bodyTextScale,
+                            valueRange = 0.7f..1.6f,
+                            snapFactor = 20,
+                            steps = 0,
+                            valueFormatter = { v ->
+                                String.format(
+                                    Locale.getDefault(),
+                                    "%d%%",
+                                    (v * 100).roundToInt()
+                                )
+                            },
+                            onValueChange = onBodyTextScaleChange,
+                            sliderColors = SliderDefaults.colors(
+                                inactiveTrackColor = MaterialTheme.colorScheme.primaryContainer,
                             )
-                        },
-                        onValueChange = onBodyTextScaleChange,
-                        sliderColors = SliderDefaults.colors(
-                            inactiveTrackColor = MaterialTheme.colorScheme.primaryContainer,
                         )
-                    )
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    LabeledSlider(
-                        labelRes = R.string.line_spacing,
-                        value = lineHeight,
-                        valueRange = 1.2f..1.8f,
-                        snapFactor = 10,
-                        steps = 5,
-                        valueFormatter = { v ->
-                            String.format(Locale.getDefault(), "%d%%", (v * 100).roundToInt())
-                        },
-                        onValueChange = onLineHeightChange,
-                        sliderColors = SliderDefaults.colors(
-                            inactiveTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                        Spacer(modifier = Modifier.height(16.dp))
+                        LabeledSlider(
+                            labelRes = R.string.line_spacing,
+                            value = lineHeight,
+                            valueRange = 1.2f..1.8f,
+                            snapFactor = 10,
+                            steps = 5,
+                            valueFormatter = { v ->
+                                String.format(Locale.getDefault(), "%d%%", (v * 100).roundToInt())
+                            },
+                            onValueChange = onLineHeightChange,
+                            sliderColors = SliderDefaults.colors(
+                                inactiveTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            )
                         )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
             }
         }
