@@ -2,9 +2,15 @@ package com.websarva.wings.android.slevo.ui.board
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.CropSquare
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarState
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -13,21 +19,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.ui.common.BookmarkToolBar
+import com.websarva.wings.android.slevo.ui.common.BookmarkToolBarAction
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
@@ -98,15 +104,7 @@ fun BoardScaffold(
         currentPage = currentPage,
         onPageChange = { pagerViewModel.setCurrentPage(it) },
         scrollBehavior = scrollBehavior,
-        topBar = { viewModel, uiState, drawer, scrollBehavior ->
-            val bookmarkState = uiState.singleBookmarkState
-            val bookmarkIconColor =
-                if (bookmarkState.isBookmarked && bookmarkState.selectedGroup?.colorName != null) {
-                    bookmarkColor(bookmarkState.selectedGroup.colorName)
-                } else {
-                    Color.Unspecified
-                }
-
+        topBar = { viewModel, uiState, _, scrollBehavior ->
             BackHandler(enabled = uiState.isSearchActive) {
                 viewModel.setSearchMode(false)
             }
@@ -116,29 +114,50 @@ fun BoardScaffold(
                     searchQuery = uiState.searchQuery,
                     onQueryChange = { viewModel.setSearchQuery(it) },
                     onCloseSearch = { viewModel.setSearchMode(false) },
-                )
-            } else {
-                BoardTopBarScreen(
-                    title = uiState.boardInfo.name,
-                    onNavigationClick = drawer,
-                    onBookmarkClick = { viewModel.openBookmarkSheet() },
-                    onInfoClick = { viewModel.openInfoDialog() },
-                    isBookmarked = bookmarkState.isBookmarked,
-                    bookmarkIconColor = bookmarkIconColor,
-                    scrollBehavior = scrollBehavior
+                    scrollBehavior = scrollBehavior,
                 )
             }
         },
-        bottomBar = { viewModel, _, _ ->
-            BoardBottomBar(
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .height(56.dp),
-                onSortClick = { viewModel.openSortBottomSheet() },
-                onRefreshClick = { viewModel.refreshBoardData() },
-                onSearchClick = { viewModel.setSearchMode(true) },
-                onTabListClick = { viewModel.openTabListSheet() },
-                onCreateThreadClick = { viewModel.showCreateDialog() }
+        bottomBar = { viewModel, uiState, barScrollBehavior ->
+            val actions = listOf(
+                BookmarkToolBarAction(
+                    icon = Icons.AutoMirrored.Filled.Sort,
+                    contentDescriptionRes = R.string.sort,
+                    onClick = { viewModel.openSortBottomSheet() },
+                ),
+                BookmarkToolBarAction(
+                    icon = Icons.Filled.Search,
+                    contentDescriptionRes = R.string.search,
+                    onClick = { viewModel.setSearchMode(true) },
+                ),
+                BookmarkToolBarAction(
+                    icon = Icons.Filled.CropSquare,
+                    contentDescriptionRes = R.string.open_tablist,
+                    onClick = { viewModel.openTabListSheet() },
+                ),
+                BookmarkToolBarAction(
+                    icon = Icons.Filled.Refresh,
+                    contentDescriptionRes = R.string.refresh,
+                    onClick = { viewModel.refreshBoardData() },
+                ),
+                BookmarkToolBarAction(
+                    icon = Icons.Filled.Create,
+                    contentDescriptionRes = R.string.create_thread,
+                    onClick = { viewModel.showCreateDialog() },
+                ),
+            )
+
+            BookmarkToolBar(
+                modifier = Modifier.navigationBarsPadding(),
+                title = uiState.boardInfo.name,
+                bookmarkState = uiState.singleBookmarkState,
+                onBookmarkClick = { viewModel.openBookmarkSheet() },
+                actions = actions,
+                scrollBehavior = barScrollBehavior,
+                onRefreshClick = null,
+                titleStyle = MaterialTheme.typography.titleMedium,
+                titleFontWeight = FontWeight.Normal,
+                titleMaxLines = 1,
             )
         },
         content = { viewModel, uiState, listState, modifier, navController ->
