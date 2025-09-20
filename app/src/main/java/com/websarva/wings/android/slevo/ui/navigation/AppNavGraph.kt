@@ -94,7 +94,8 @@ fun AppNavGraph(
                 parentPadding = parentPadding,
                 topBarState = topBarState,
                 navController = navController,
-                openDrawer = openDrawer
+                openDrawer = openDrawer,
+                tabsViewModel = tabsViewModel
             )
         }
         //履歴一覧
@@ -107,14 +108,16 @@ fun AppNavGraph(
             HistoryListScaffold(
                 navController = navController,
                 topBarState = topBarState,
-                parentPadding = parentPadding
+                parentPadding = parentPadding,
+                tabsViewModel = tabsViewModel
             )
         }
         //掲示板一覧
         addRegisteredBBSNavigation(
             parentPadding = parentPadding,
             navController = navController,
-            openDrawer = openDrawer
+            openDrawer = openDrawer,
+            tabsViewModel = tabsViewModel
         )
         //スレッド一覧
         composable<AppRoute.Board>(

@@ -55,7 +55,8 @@ fun TabsPagerContent(
                     openTabs = uiState.openBoardTabs,
                     onCloseClick = { tabsViewModel.closeBoardTab(it) },
                     navController = navController,
-                    closeDrawer = closeDrawer
+                    closeDrawer = closeDrawer,
+                    tabsViewModel = tabsViewModel
                 )
 
                 else -> OpenThreadsList(
@@ -66,7 +67,8 @@ fun TabsPagerContent(
                     isRefreshing = uiState.isRefreshing,
                     onRefresh = { tabsViewModel.refreshOpenThreads() },
                     newResCounts = uiState.newResCounts,
-                    onItemClick = { tabsViewModel.clearNewResCount(it.id) }
+                    onItemClick = { tabsViewModel.clearNewResCount(it.id) },
+                    tabsViewModel = tabsViewModel
                 )
             }
         }

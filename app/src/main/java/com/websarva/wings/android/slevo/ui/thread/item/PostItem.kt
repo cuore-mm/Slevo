@@ -51,6 +51,8 @@ import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnailGrid
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.theme.idColor
 import com.websarva.wings.android.slevo.ui.theme.replyCountColor
 import com.websarva.wings.android.slevo.ui.thread.dialog.PostMenuDialog
@@ -71,6 +73,7 @@ fun PostItem(
     idIndex: Int,
     idTotal: Int,
     navController: NavHostController,
+    tabsViewModel: TabsViewModel? = null,
     boardName: String,
     boardId: Long,
     headerTextScale: Float,
@@ -444,14 +447,16 @@ fun PostItem(
                                                     val url = ann.item
                                                     parseThreadUrl(url)?.let { (host, board, key) ->
                                                         val boardUrl = "https://$host/$board/"
-                                                        navController.navigate(
-                                                            AppRoute.Thread(
-                                                                threadKey = key,
-                                                                boardUrl = boardUrl,
-                                                                boardName = board,
-                                                                threadTitle = url
-                                                            )
-                                                        ) { launchSingleTop = true }
+                                                        val route = AppRoute.Thread(
+                                                            threadKey = key,
+                                                            boardUrl = boardUrl,
+                                                            boardName = board,
+                                                            threadTitle = url
+                                                        )
+                                                        navController.navigateToThread(
+                                                            route = route,
+                                                            tabsViewModel = tabsViewModel,
+                                                        )
                                                     } ?: uriHandler.openUri(url)
                                                 }
                                             highlightedText.getStringAnnotations("REPLY", pos, pos)

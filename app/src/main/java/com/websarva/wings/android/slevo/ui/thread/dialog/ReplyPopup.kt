@@ -38,6 +38,7 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
+import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.item.PostItem
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 
@@ -61,6 +62,7 @@ fun ReplyPopup(
     ngPostNumbers: Set<Int>,
     myPostNumbers: Set<Int>,
     navController: NavHostController,
+    tabsViewModel: TabsViewModel? = null,
     boardName: String,
     boardId: Long,
     headerTextScale: Float,
@@ -161,6 +163,7 @@ fun ReplyPopup(
                                 idIndex = idIndexList[posts.indexOf(p)],
                                 idTotal = if (p.id.isBlank()) 1 else idCountMap[p.id] ?: 1,
                                 navController = navController,
+                                tabsViewModel = tabsViewModel,
                                 boardName = boardName,
                                 boardId = boardId,
                                 headerTextScale = headerTextScale,

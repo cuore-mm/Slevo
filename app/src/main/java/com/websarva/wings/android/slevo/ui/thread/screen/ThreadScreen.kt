@@ -57,6 +57,7 @@ import com.websarva.wings.android.slevo.ui.thread.item.PostItem
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import androidx.compose.foundation.gestures.scrollBy
@@ -69,6 +70,7 @@ fun ThreadScreen(
     uiState: ThreadUiState,
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
+    tabsViewModel: TabsViewModel? = null,
     onAutoScrollBottom: () -> Unit = {},
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
@@ -250,6 +252,7 @@ fun ThreadScreen(
                             idTotal = if (post.id.isBlank()) 1 else uiState.idCountMap[post.id]
                                 ?: 1,
                             navController = navController,
+                            tabsViewModel = tabsViewModel,
                             boardName = uiState.boardInfo.name,
                             boardId = uiState.boardInfo.boardId,
                             headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
@@ -365,6 +368,7 @@ fun ThreadScreen(
             ngPostNumbers = ngNumbers,
             myPostNumbers = uiState.myPostNumbers,
             navController = navController,
+            tabsViewModel = tabsViewModel,
             boardName = uiState.boardInfo.name,
             boardId = uiState.boardInfo.boardId,
             headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,

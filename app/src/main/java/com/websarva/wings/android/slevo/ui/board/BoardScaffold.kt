@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -44,6 +45,7 @@ import com.websarva.wings.android.slevo.ui.common.TabToolBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
@@ -65,8 +67,7 @@ fun BoardScaffold(
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val pagerViewModel: BoardPagerViewModel = hiltViewModel()
-    val currentPage by pagerViewModel.currentPage.collectAsState()
+    val currentPage by tabsViewModel.boardCurrentPage.collectAsState()
 
     LaunchedEffect(boardRoute) {
         val info = tabsViewModel.resolveBoardInfo(
@@ -115,7 +116,7 @@ fun BoardScaffold(
             tabsViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
         currentPage = currentPage,
-        onPageChange = { pagerViewModel.setCurrentPage(it) },
+        onPageChange = { tabsViewModel.setBoardCurrentPage(it) },
         scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         bottomBar = { viewModel, uiState, barScrollBehavior ->
@@ -205,18 +206,18 @@ fun BoardScaffold(
                 modifier = modifier,
                 threads = uiState.threads ?: emptyList(),
                 onClick = { threadInfo ->
-                    navController.navigate(
-                        AppRoute.Thread(
-                            threadKey = threadInfo.key,
-                            boardUrl = uiState.boardInfo.url,
-                            boardName = uiState.boardInfo.name,
-                            boardId = uiState.boardInfo.boardId,
-                            threadTitle = threadInfo.title,
-                            resCount = threadInfo.resCount
-                        )
-                    ) {
-                        launchSingleTop = true
-                    }
+                    val route = AppRoute.Thread(
+                        threadKey = threadInfo.key,
+                        boardUrl = uiState.boardInfo.url,
+                        boardName = uiState.boardInfo.name,
+                        boardId = uiState.boardInfo.boardId,
+                        threadTitle = threadInfo.title,
+                        resCount = threadInfo.resCount
+                    )
+                    navController.navigateToThread(
+                        route = route,
+                        tabsViewModel = tabsViewModel,
+                    )
                 },
                 isRefreshing = uiState.isLoading,
                 onRefresh = { viewModel.refreshBoardData() },
