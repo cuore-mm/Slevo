@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +22,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +61,8 @@ fun TabToolBar(
     scrollBehavior: BottomAppBarScrollBehavior? = null,
     onTitleClick: (() -> Unit)? = null,
     onRefreshClick: (() -> Unit),
+    isLoading: Boolean = false,
+    loadProgress: Float = 0f,
     titleStyle: TextStyle = MaterialTheme.typography.titleSmall,
     titleFontWeight: FontWeight = FontWeight.Bold,
     titleMaxLines: Int = 2,
@@ -72,6 +77,18 @@ fun TabToolBar(
                 .fillMaxWidth()
                 .padding(vertical = 4.dp),
         ) {
+            if (isLoading) {
+                LinearProgressIndicator(
+                    progress = { loadProgress },
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    color = ProgressIndicatorDefaults.linearColor,
+                    trackColor = ProgressIndicatorDefaults.linearTrackColor,
+                    strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
             val cardModifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp)

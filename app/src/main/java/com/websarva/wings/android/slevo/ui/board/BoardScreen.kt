@@ -17,15 +17,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
@@ -47,7 +44,6 @@ fun BoardScreen(
     onClick: (ThreadInfo) -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
-    loadProgress: Float,
     listState: LazyListState = rememberLazyListState()
 ) {
     val (momentumMean, momentumStd) = remember(threads) {
@@ -94,17 +90,6 @@ fun BoardScreen(
                 // 各アイテムの下に区切り線を表示
                 HorizontalDivider()
             }
-        }
-        if (isRefreshing) {
-            LinearProgressIndicator(
-                progress = { loadProgress },
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth(),
-                color = ProgressIndicatorDefaults.linearColor,
-                trackColor = ProgressIndicatorDefaults.linearTrackColor,
-                strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
-            )
         }
     }
 }

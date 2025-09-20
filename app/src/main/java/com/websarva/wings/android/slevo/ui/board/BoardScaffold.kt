@@ -182,6 +182,8 @@ fun BoardScaffold(
                         actions = actions,
                         scrollBehavior = barScrollBehavior,
                         onRefreshClick = { viewModel.refreshBoardData() },
+                        isLoading = uiState.isLoading,
+                        loadProgress = uiState.loadProgress,
                         titleStyle = MaterialTheme.typography.titleMedium,
                         titleFontWeight = FontWeight.Normal,
                         titleMaxLines = 1,
@@ -216,7 +218,6 @@ fun BoardScaffold(
                 },
                 isRefreshing = uiState.isLoading,
                 onRefresh = { viewModel.refreshBoardData() },
-                loadProgress = uiState.loadProgress,
                 listState = listState
             )
             if (uiState.showInfoDialog) {
