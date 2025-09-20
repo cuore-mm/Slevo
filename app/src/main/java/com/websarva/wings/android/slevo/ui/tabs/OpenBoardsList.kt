@@ -28,6 +28,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 
@@ -73,15 +74,10 @@ fun OpenBoardsList(
                                     boardName = tab.boardName,
                                     boardUrl = tab.boardUrl
                                 )
-                                tabsViewModel?.let { viewModel ->
-                                    viewModel.ensureBoardTab(route).let { index ->
-                                        if (index >= 0) {
-                                            viewModel.setBoardCurrentPage(index)
-                                        }
-                                    }
-                                }
-                                navController.navigate(route) {
-                                    launchSingleTop = true
+                                navController.navigateToBoard(
+                                    route = route,
+                                    tabsViewModel = tabsViewModel,
+                                ) {
                                     restoreState = true
                                 }
                             }

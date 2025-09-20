@@ -28,6 +28,8 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheet
 import com.websarva.wings.android.slevo.ui.common.bookmark.AddGroupDialog
 import com.websarva.wings.android.slevo.ui.common.bookmark.DeleteGroupDialog
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,14 +93,10 @@ fun BookmarkListScaffold(
                     boardName = board.name,
                     boardUrl = board.url
                 )
-                tabsViewModel.ensureBoardTab(route).let { index ->
-                    if (index >= 0) {
-                        tabsViewModel.setBoardCurrentPage(index)
-                    }
-                }
-                navController.navigate(route) {
-                    launchSingleTop = true
-                }
+                navController.navigateToBoard(
+                    route = route,
+                    tabsViewModel = tabsViewModel,
+                )
             },
             threadGroups = uiState.groupedThreadBookmarks,
             onThreadClick = { thread ->
@@ -110,14 +108,10 @@ fun BookmarkListScaffold(
                     boardId = thread.boardId,
                     resCount = thread.resCount
                 )
-                tabsViewModel.ensureThreadTab(route).let { index ->
-                    if (index >= 0) {
-                        tabsViewModel.setThreadCurrentPage(index)
-                    }
-                }
-                navController.navigate(route) {
-                    launchSingleTop = true
-                }
+                navController.navigateToThread(
+                    route = route,
+                    tabsViewModel = tabsViewModel,
+                )
             },
             selectMode = uiState.selectMode,
             selectedBoardIds = uiState.selectedBoards,

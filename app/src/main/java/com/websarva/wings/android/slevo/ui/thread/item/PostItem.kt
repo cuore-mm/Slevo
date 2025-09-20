@@ -51,6 +51,7 @@ import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnailGrid
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.theme.idColor
 import com.websarva.wings.android.slevo.ui.theme.replyCountColor
@@ -452,14 +453,10 @@ fun PostItem(
                                                             boardName = board,
                                                             threadTitle = url
                                                         )
-                                                        tabsViewModel?.let { viewModel ->
-                                                            viewModel.ensureThreadTab(route).let { index ->
-                                                                if (index >= 0) {
-                                                                    viewModel.setThreadCurrentPage(index)
-                                                                }
-                                                            }
-                                                        }
-                                                        navController.navigate(route) { launchSingleTop = true }
+                                                        navController.navigateToThread(
+                                                            route = route,
+                                                            tabsViewModel = tabsViewModel,
+                                                        )
                                                     } ?: uriHandler.openUri(url)
                                                 }
                                             highlightedText.getStringAnnotations("REPLY", pos, pos)

@@ -50,6 +50,7 @@ import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.CopyDialog
 import com.websarva.wings.android.slevo.ui.common.CopyItem
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.common.LabeledIconButton
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -90,16 +91,10 @@ fun ThreadInfoBottomSheet(
                         boardName = boardInfo.name,
                         boardUrl = boardInfo.url
                     )
-                    tabsViewModel?.let { viewModel ->
-                        viewModel.ensureBoardTab(route).let { index ->
-                            if (index >= 0) {
-                                viewModel.setBoardCurrentPage(index)
-                            }
-                        }
-                    }
-                    navController.navigate(route) {
-                        launchSingleTop = true
-                    }
+                    navController.navigateToBoard(
+                        route = route,
+                        tabsViewModel = tabsViewModel,
+                    )
                     onDismissRequest()
                 },
                 onOpenBrowserClick = {

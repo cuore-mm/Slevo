@@ -36,6 +36,7 @@ import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 
@@ -84,15 +85,10 @@ fun OpenThreadsList(
                                     threadTitle = tab.title,
                                     resCount = tab.resCount
                                 )
-                                tabsViewModel?.let { viewModel ->
-                                    viewModel.ensureThreadTab(route).let { index ->
-                                        if (index >= 0) {
-                                            viewModel.setThreadCurrentPage(index)
-                                        }
-                                    }
-                                }
-                                navController.navigate(route) {
-                                    launchSingleTop = true
+                                navController.navigateToThread(
+                                    route = route,
+                                    tabsViewModel = tabsViewModel,
+                                ) {
                                     restoreState = true
                                 }
                             }
