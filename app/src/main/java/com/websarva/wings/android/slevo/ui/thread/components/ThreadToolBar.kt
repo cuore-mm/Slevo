@@ -89,6 +89,8 @@ fun ThreadToolBar(
         scrollBehavior = scrollBehavior,
         onTitleClick = onThreadInfoClick,
         onRefreshClick = onRefreshClick,
+        isLoading = uiState.isLoading,
+        loadProgress = uiState.loadProgress,
         titleStyle = MaterialTheme.typography.titleSmall,
         titleFontWeight = FontWeight.Bold,
         titleMaxLines = 2,
