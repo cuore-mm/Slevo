@@ -36,20 +36,20 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.ui.common.PostDialog
+import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
-import com.websarva.wings.android.slevo.ui.common.PostDialog
-import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
-import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
+import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -117,13 +117,14 @@ fun BoardScaffold(
         onPageChange = { pagerViewModel.setCurrentPage(it) },
         scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
-        topBar = { _, _, _, _ -> },
         bottomBar = { viewModel, uiState, barScrollBehavior ->
             val keyboardController = LocalSoftwareKeyboardController.current
             val focusManager = LocalFocusManager.current
             val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
             val searchModifier = if (isThreeButtonBar) {
-                Modifier.navigationBarsPadding().imePadding()
+                Modifier
+                    .navigationBarsPadding()
+                    .imePadding()
             } else {
                 Modifier.imePadding()
             }
@@ -160,7 +161,7 @@ fun BoardScaffold(
                 targetState = uiState.isSearchActive,
                 transitionSpec = {
                     slideInVertically { it } + fadeIn() togetherWith
-                        slideOutVertically { it } + fadeOut()
+                            slideOutVertically { it } + fadeOut()
                 },
                 label = "BoardBottomBarAnimation",
             ) { isSearchMode ->
