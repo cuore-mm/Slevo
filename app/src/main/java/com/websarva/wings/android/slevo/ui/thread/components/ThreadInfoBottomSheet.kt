@@ -90,7 +90,13 @@ fun ThreadInfoBottomSheet(
                         boardName = boardInfo.name,
                         boardUrl = boardInfo.url
                     )
-                    tabsViewModel?.ensureBoardTab(route)
+                    tabsViewModel?.let { viewModel ->
+                        viewModel.ensureBoardTab(route).let { index ->
+                            if (index >= 0) {
+                                viewModel.setBoardCurrentPage(index)
+                            }
+                        }
+                    }
                     navController.navigate(route) {
                         launchSingleTop = true
                     }

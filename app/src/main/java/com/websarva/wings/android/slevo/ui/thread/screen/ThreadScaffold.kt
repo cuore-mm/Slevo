@@ -24,7 +24,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -41,7 +40,6 @@ import com.websarva.wings.android.slevo.ui.thread.components.DisplaySettingsBott
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadSearchBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadPagerViewModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideConfirmationScreen
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideErrorWebView
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hidePostDialog
@@ -70,8 +68,7 @@ fun ThreadScaffold(
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val pagerViewModel: ThreadPagerViewModel = hiltViewModel()
-    val currentPage by pagerViewModel.currentPage.collectAsState()
+    val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
 
     val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, threadRoute.threadKey)
@@ -130,7 +127,7 @@ fun ThreadScaffold(
             viewModel.updateThreadScrollPosition(tab.id, index, offset)
         },
         currentPage = currentPage,
-        onPageChange = { pagerViewModel.setCurrentPage(it) },
+        onPageChange = { tabsViewModel.setThreadCurrentPage(it) },
         scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         topBar = { _, _, _, _ -> },

@@ -84,7 +84,13 @@ fun OpenThreadsList(
                                     threadTitle = tab.title,
                                     resCount = tab.resCount
                                 )
-                                tabsViewModel?.ensureThreadTab(route)
+                                tabsViewModel?.let { viewModel ->
+                                    viewModel.ensureThreadTab(route).let { index ->
+                                        if (index >= 0) {
+                                            viewModel.setThreadCurrentPage(index)
+                                        }
+                                    }
+                                }
                                 navController.navigate(route) {
                                     launchSingleTop = true
                                     restoreState = true

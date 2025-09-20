@@ -61,7 +61,11 @@ fun HistoryListScaffold(
                     threadTitle = history.history.title,
                     resCount = history.history.resCount
                 )
-                tabsViewModel.ensureThreadTab(route)
+                tabsViewModel.ensureThreadTab(route).let { index ->
+                    if (index >= 0) {
+                        tabsViewModel.setThreadCurrentPage(index)
+                    }
+                }
                 navController.navigate(route) { launchSingleTop = true }
             }
         )

@@ -73,7 +73,13 @@ fun OpenBoardsList(
                                     boardName = tab.boardName,
                                     boardUrl = tab.boardUrl
                                 )
-                                tabsViewModel?.ensureBoardTab(route)
+                                tabsViewModel?.let { viewModel ->
+                                    viewModel.ensureBoardTab(route).let { index ->
+                                        if (index >= 0) {
+                                            viewModel.setBoardCurrentPage(index)
+                                        }
+                                    }
+                                }
                                 navController.navigate(route) {
                                     launchSingleTop = true
                                     restoreState = true

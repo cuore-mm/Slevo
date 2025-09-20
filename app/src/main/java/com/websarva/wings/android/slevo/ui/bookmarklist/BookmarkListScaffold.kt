@@ -91,7 +91,11 @@ fun BookmarkListScaffold(
                     boardName = board.name,
                     boardUrl = board.url
                 )
-                tabsViewModel.ensureBoardTab(route)
+                tabsViewModel.ensureBoardTab(route).let { index ->
+                    if (index >= 0) {
+                        tabsViewModel.setBoardCurrentPage(index)
+                    }
+                }
                 navController.navigate(route) {
                     launchSingleTop = true
                 }
@@ -106,7 +110,11 @@ fun BookmarkListScaffold(
                     boardId = thread.boardId,
                     resCount = thread.resCount
                 )
-                tabsViewModel.ensureThreadTab(route)
+                tabsViewModel.ensureThreadTab(route).let { index ->
+                    if (index >= 0) {
+                        tabsViewModel.setThreadCurrentPage(index)
+                    }
+                }
                 navController.navigate(route) {
                     launchSingleTop = true
                 }

@@ -80,7 +80,11 @@ fun TabScreenContent(
                             boardName = board,
                             threadTitle = url
                         )
-                        tabsViewModel.ensureThreadTab(route)
+                        tabsViewModel.ensureThreadTab(route).let { index ->
+                            if (index >= 0) {
+                                tabsViewModel.setThreadCurrentPage(index)
+                            }
+                        }
                         navController.navigate(route) { launchSingleTop = true }
                     } else {
                         parseBoardUrl(url)?.let { (host, board) ->
@@ -89,7 +93,11 @@ fun TabScreenContent(
                                 boardName = boardUrl,
                                 boardUrl = boardUrl
                             )
-                            tabsViewModel.ensureBoardTab(route)
+                            tabsViewModel.ensureBoardTab(route).let { index ->
+                                if (index >= 0) {
+                                    tabsViewModel.setBoardCurrentPage(index)
+                                }
+                            }
                             navController.navigate(route) { launchSingleTop = true }
                         }
                     }

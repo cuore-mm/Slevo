@@ -46,6 +46,12 @@ class TabsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(TabsUiState())
     val uiState: StateFlow<TabsUiState> = _uiState.asStateFlow()
 
+    private val _boardCurrentPage = MutableStateFlow(-1)
+    val boardCurrentPage: StateFlow<Int> = _boardCurrentPage.asStateFlow()
+
+    private val _threadCurrentPage = MutableStateFlow(-1)
+    val threadCurrentPage: StateFlow<Int> = _threadCurrentPage.asStateFlow()
+
     // boardUrl をキーに BoardViewModel をキャッシュ
     private val boardViewModelMap: MutableMap<String, BoardViewModel> = mutableMapOf()
 
@@ -129,8 +135,8 @@ class TabsViewModel @Inject constructor(
         viewModelScope.launch { tabsRepository.setLastSelectedPage(page) }
     }
 
-    fun ensureBoardTab(route: AppRoute.Board) {
-        openBoardTab(
+    fun ensureBoardTab(route: AppRoute.Board): Int {
+        val index = upsertBoardTab(
             BoardTabInfo(
                 boardId = route.boardId ?: 0L,
                 boardName = route.boardName,
@@ -138,10 +144,12 @@ class TabsViewModel @Inject constructor(
                 serviceName = parseServiceName(route.boardUrl)
             )
         )
+        viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
+        return index
     }
 
-    fun ensureThreadTab(route: AppRoute.Thread) {
-        val (host, board) = parseBoardUrl(route.boardUrl) ?: return
+    fun ensureThreadTab(route: AppRoute.Thread): Int {
+        val (host, board) = parseBoardUrl(route.boardUrl) ?: return -1
         val tabInfo = ThreadTabInfo(
             id = ThreadId.of(host, board, route.threadKey),
             title = route.threadTitle,
@@ -150,17 +158,24 @@ class TabsViewModel @Inject constructor(
             boardId = route.boardId ?: 0L,
             resCount = route.resCount
         )
-        upsertThreadTab(tabInfo)
+        return upsertThreadTab(tabInfo)
     }
 
     /**
      * 板タブを開く。すでに存在する場合は最新情報で上書きする。
      */
     fun openBoardTab(boardTabInfo: BoardTabInfo) {
+        upsertBoardTab(boardTabInfo)
+        viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
+    }
+
+    private fun upsertBoardTab(boardTabInfo: BoardTabInfo): Int {
+        var targetIndex = -1
         _uiState.update { state ->
             val currentBoards = state.openBoardTabs
             val index = currentBoards.indexOfFirst { it.boardUrl == boardTabInfo.boardUrl }
             val updated = if (index != -1) {
+                targetIndex = index
                 currentBoards.toMutableList().apply {
                     this[index] = boardTabInfo.copy(
                         firstVisibleItemIndex = this[index].firstVisibleItemIndex,
@@ -168,19 +183,22 @@ class TabsViewModel @Inject constructor(
                     )
                 }
             } else {
+                targetIndex = currentBoards.size
                 currentBoards + boardTabInfo
             }
             state.copy(openBoardTabs = updated)
         }
-        viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
+        return targetIndex
     }
 
-    private fun upsertThreadTab(tabInfo: ThreadTabInfo) {
+    private fun upsertThreadTab(tabInfo: ThreadTabInfo): Int {
         var updatedTabs: List<ThreadTabInfo> = emptyList()
+        var targetIndex = -1
         _uiState.update { state ->
             val current = state.openThreadTabs
             val index = current.indexOfFirst { it.id == tabInfo.id }
             val newList = if (index != -1) {
+                targetIndex = index
                 current.toMutableList().apply {
                     val existing = this[index]
                     this[index] = existing.copy(
@@ -192,12 +210,22 @@ class TabsViewModel @Inject constructor(
                     )
                 }
             } else {
+                targetIndex = current.size
                 current + tabInfo
             }
             updatedTabs = newList
             state.copy(openThreadTabs = newList)
         }
         viewModelScope.launch { tabsRepository.saveOpenThreadTabs(updatedTabs) }
+        return targetIndex
+    }
+
+    fun setBoardCurrentPage(page: Int) {
+        _boardCurrentPage.value = page
+    }
+
+    fun setThreadCurrentPage(page: Int) {
+        _threadCurrentPage.value = page
     }
 
     /**
