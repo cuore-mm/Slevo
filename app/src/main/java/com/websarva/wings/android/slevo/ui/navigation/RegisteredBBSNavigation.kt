@@ -35,13 +35,15 @@ import com.websarva.wings.android.slevo.ui.bbslist.service.ServiceListScreen
 import com.websarva.wings.android.slevo.ui.bbslist.service.ServiceListTopBarScreen
 import com.websarva.wings.android.slevo.ui.bbslist.service.ServiceListViewModel
 import com.websarva.wings.android.slevo.ui.common.SelectedTopBarScreen
+import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.util.isInRoute
 
 @OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.addRegisteredBBSNavigation(
     parentPadding: PaddingValues,
     navController: NavHostController,
-    openDrawer: () -> Unit
+    openDrawer: () -> Unit,
+    tabsViewModel: TabsViewModel,
 ) {
     navigation<AppRoute.BbsServiceGroup>(
         startDestination = AppRoute.ServiceList,
@@ -295,20 +297,14 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                     ),
                     boards = uiState.boards,
                     onBoardClick = { board ->
-                        navController.navigate(
-                            AppRoute.Board(
-                                boardId = board.boardId,
-                                boardName = board.name,
-                                boardUrl = board.url
-                            )
-                        ) {
-                            popUpTo(
-                                AppRoute.Board(
-                                    boardId = board.boardId,
-                                    boardName = board.name,
-                                    boardUrl = board.url
-                                )
-                            ) {
+                        val route = AppRoute.Board(
+                            boardId = board.boardId,
+                            boardName = board.name,
+                            boardUrl = board.url
+                        )
+                        tabsViewModel.ensureBoardTab(route)
+                        navController.navigate(route) {
+                            popUpTo(route) {
                                 inclusive = false
                                 saveState = true
                             }

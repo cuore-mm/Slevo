@@ -153,16 +153,16 @@ fun BoardScaffold(
                 modifier = modifier,
                 threads = uiState.threads ?: emptyList(),
                 onClick = { threadInfo ->
-                    navController.navigate(
-                        AppRoute.Thread(
-                            threadKey = threadInfo.key,
-                            boardUrl = uiState.boardInfo.url,
-                            boardName = uiState.boardInfo.name,
-                            boardId = uiState.boardInfo.boardId,
-                            threadTitle = threadInfo.title,
-                            resCount = threadInfo.resCount
-                        )
-                    ) {
+                    val route = AppRoute.Thread(
+                        threadKey = threadInfo.key,
+                        boardUrl = uiState.boardInfo.url,
+                        boardName = uiState.boardInfo.name,
+                        boardId = uiState.boardInfo.boardId,
+                        threadTitle = threadInfo.title,
+                        resCount = threadInfo.resCount
+                    )
+                    tabsViewModel.ensureThreadTab(route)
+                    navController.navigate(route) {
                         launchSingleTop = true
                     }
                 },

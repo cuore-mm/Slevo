@@ -38,6 +38,7 @@ fun OpenBoardsList(
     onCloseClick: (BoardTabInfo) -> Unit = {},
     navController: NavHostController,
     closeDrawer: () -> Unit,
+    tabsViewModel: TabsViewModel? = null,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         LazyColumn(modifier = Modifier.weight(1f)) {
@@ -67,13 +68,13 @@ fun OpenBoardsList(
                             .weight(1f)
                             .clickable {
                                 closeDrawer()
-                                navController.navigate(
-                                    AppRoute.Board(
-                                        boardId = tab.boardId,
-                                        boardName = tab.boardName,
-                                        boardUrl = tab.boardUrl
-                                    )
-                                ) {
+                                val route = AppRoute.Board(
+                                    boardId = tab.boardId,
+                                    boardName = tab.boardName,
+                                    boardUrl = tab.boardUrl
+                                )
+                                tabsViewModel?.ensureBoardTab(route)
+                                navController.navigate(route) {
                                     launchSingleTop = true
                                     restoreState = true
                                 }

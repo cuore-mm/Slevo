@@ -11,9 +11,11 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.ui.board.BoardViewModel
 import com.websarva.wings.android.slevo.ui.board.BoardViewModelFactory
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModelFactory
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -127,6 +129,30 @@ class TabsViewModel @Inject constructor(
         viewModelScope.launch { tabsRepository.setLastSelectedPage(page) }
     }
 
+    fun ensureBoardTab(route: AppRoute.Board) {
+        openBoardTab(
+            BoardTabInfo(
+                boardId = route.boardId ?: 0L,
+                boardName = route.boardName,
+                boardUrl = route.boardUrl,
+                serviceName = parseServiceName(route.boardUrl)
+            )
+        )
+    }
+
+    fun ensureThreadTab(route: AppRoute.Thread) {
+        val (host, board) = parseBoardUrl(route.boardUrl) ?: return
+        val tabInfo = ThreadTabInfo(
+            id = ThreadId.of(host, board, route.threadKey),
+            title = route.threadTitle,
+            boardName = route.boardName,
+            boardUrl = route.boardUrl,
+            boardId = route.boardId ?: 0L,
+            resCount = route.resCount
+        )
+        upsertThreadTab(tabInfo)
+    }
+
     /**
      * 板タブを開く。すでに存在する場合は最新情報で上書きする。
      */
@@ -147,6 +173,31 @@ class TabsViewModel @Inject constructor(
             state.copy(openBoardTabs = updated)
         }
         viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
+    }
+
+    private fun upsertThreadTab(tabInfo: ThreadTabInfo) {
+        var updatedTabs: List<ThreadTabInfo> = emptyList()
+        _uiState.update { state ->
+            val current = state.openThreadTabs
+            val index = current.indexOfFirst { it.id == tabInfo.id }
+            val newList = if (index != -1) {
+                current.toMutableList().apply {
+                    val existing = this[index]
+                    this[index] = existing.copy(
+                        title = tabInfo.title,
+                        boardName = tabInfo.boardName,
+                        boardId = if (tabInfo.boardId != 0L) tabInfo.boardId else existing.boardId,
+                        boardUrl = tabInfo.boardUrl,
+                        resCount = if (tabInfo.resCount != 0) tabInfo.resCount else existing.resCount
+                    )
+                }
+            } else {
+                current + tabInfo
+            }
+            updatedTabs = newList
+            state.copy(openThreadTabs = newList)
+        }
+        viewModelScope.launch { tabsRepository.saveOpenThreadTabs(updatedTabs) }
     }
 
     /**

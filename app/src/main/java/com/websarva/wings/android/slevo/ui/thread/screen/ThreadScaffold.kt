@@ -88,6 +88,12 @@ fun ThreadScaffold(
             navController.navigateUp()
             return@LaunchedEffect
         }
+        tabsViewModel.ensureThreadTab(
+            threadRoute.copy(
+                boardId = info.boardId,
+                boardName = info.name
+            )
+        )
         val vm = tabsViewModel.getOrCreateThreadViewModel(routeThreadId.value)
         vm.initializeThread(
             threadKey = threadRoute.threadKey,
@@ -209,6 +215,7 @@ fun ThreadScaffold(
                 uiState = uiState,
                 listState = listState,
                 navController = navController,
+                tabsViewModel = tabsViewModel,
                 onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
                 onBottomRefresh = { viewModel.reloadThread() },
                 onLastRead = { resNum ->
@@ -226,6 +233,7 @@ fun ThreadScaffold(
                 threadInfo = uiState.threadInfo,
                 boardInfo = uiState.boardInfo,
                 navController = navController,
+                tabsViewModel = tabsViewModel,
             )
 
             if (uiState.showMoreSheet) {
