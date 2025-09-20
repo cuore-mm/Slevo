@@ -19,6 +19,7 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.threadKey
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.topbar.HomeTopAppBarScreen
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 
@@ -61,12 +62,10 @@ fun HistoryListScaffold(
                     threadTitle = history.history.title,
                     resCount = history.history.resCount
                 )
-                tabsViewModel.ensureThreadTab(route).let { index ->
-                    if (index >= 0) {
-                        tabsViewModel.setThreadCurrentPage(index)
-                    }
-                }
-                navController.navigate(route) { launchSingleTop = true }
+                navController.navigateToThread(
+                    route = route,
+                    tabsViewModel = tabsViewModel,
+                )
             }
         )
     }

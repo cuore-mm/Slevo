@@ -22,6 +22,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 
@@ -80,12 +82,10 @@ fun TabScreenContent(
                             boardName = board,
                             threadTitle = url
                         )
-                        tabsViewModel.ensureThreadTab(route).let { index ->
-                            if (index >= 0) {
-                                tabsViewModel.setThreadCurrentPage(index)
-                            }
-                        }
-                        navController.navigate(route) { launchSingleTop = true }
+                        navController.navigateToThread(
+                            route = route,
+                            tabsViewModel = tabsViewModel,
+                        )
                     } else {
                         parseBoardUrl(url)?.let { (host, board) ->
                             val boardUrl = "https://$host/$board/"
@@ -93,12 +93,10 @@ fun TabScreenContent(
                                 boardName = boardUrl,
                                 boardUrl = boardUrl
                             )
-                            tabsViewModel.ensureBoardTab(route).let { index ->
-                                if (index >= 0) {
-                                    tabsViewModel.setBoardCurrentPage(index)
-                                }
-                            }
-                            navController.navigate(route) { launchSingleTop = true }
+                            navController.navigateToBoard(
+                                route = route,
+                                tabsViewModel = tabsViewModel,
+                            )
                         }
                     }
                     showUrlDialog = false

@@ -302,17 +302,14 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                             boardName = board.name,
                             boardUrl = board.url
                         )
-                        tabsViewModel.ensureBoardTab(route).let { index ->
-                            if (index >= 0) {
-                                tabsViewModel.setBoardCurrentPage(index)
-                            }
-                        }
-                        navController.navigate(route) {
+                        navController.navigateToBoard(
+                            route = route,
+                            tabsViewModel = tabsViewModel,
+                        ) {
                             popUpTo(route) {
                                 inclusive = false
                                 saveState = true
                             }
-                            launchSingleTop = true
                             restoreState = true
                         }
                     }

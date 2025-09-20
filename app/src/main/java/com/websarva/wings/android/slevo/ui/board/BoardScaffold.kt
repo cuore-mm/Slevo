@@ -24,6 +24,7 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
@@ -159,14 +160,10 @@ fun BoardScaffold(
                         threadTitle = threadInfo.title,
                         resCount = threadInfo.resCount
                     )
-                    tabsViewModel.ensureThreadTab(route).let { index ->
-                        if (index >= 0) {
-                            tabsViewModel.setThreadCurrentPage(index)
-                        }
-                    }
-                    navController.navigate(route) {
-                        launchSingleTop = true
-                    }
+                    navController.navigateToThread(
+                        route = route,
+                        tabsViewModel = tabsViewModel,
+                    )
                 },
                 isRefreshing = uiState.isLoading,
                 onRefresh = { viewModel.refreshBoardData() },
