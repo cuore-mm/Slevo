@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
@@ -185,8 +186,9 @@ fun BoardScaffold(
                         isLoading = uiState.isLoading,
                         loadProgress = uiState.loadProgress,
                         titleStyle = MaterialTheme.typography.titleMedium,
-                        titleFontWeight = FontWeight.Normal,
+                        titleFontWeight = FontWeight.Bold,
                         titleMaxLines = 1,
+                        titleTextAlign = TextAlign.Center,
                     )
                 }
             }
