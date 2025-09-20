@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -46,8 +45,7 @@ fun BoardScaffold(
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val pagerViewModel: BoardPagerViewModel = hiltViewModel()
-    val currentPage by pagerViewModel.currentPage.collectAsState()
+    val currentPage by tabsViewModel.boardCurrentPage.collectAsState()
 
     LaunchedEffect(boardRoute) {
         val info = tabsViewModel.resolveBoardInfo(
@@ -96,7 +94,7 @@ fun BoardScaffold(
             tabsViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
         currentPage = currentPage,
-        onPageChange = { pagerViewModel.setCurrentPage(it) },
+        onPageChange = { tabsViewModel.setBoardCurrentPage(it) },
         scrollBehavior = scrollBehavior,
         topBar = { viewModel, uiState, drawer, scrollBehavior ->
             val bookmarkState = uiState.singleBookmarkState
@@ -153,16 +151,20 @@ fun BoardScaffold(
                 modifier = modifier,
                 threads = uiState.threads ?: emptyList(),
                 onClick = { threadInfo ->
-                    navController.navigate(
-                        AppRoute.Thread(
-                            threadKey = threadInfo.key,
-                            boardUrl = uiState.boardInfo.url,
-                            boardName = uiState.boardInfo.name,
-                            boardId = uiState.boardInfo.boardId,
-                            threadTitle = threadInfo.title,
-                            resCount = threadInfo.resCount
-                        )
-                    ) {
+                    val route = AppRoute.Thread(
+                        threadKey = threadInfo.key,
+                        boardUrl = uiState.boardInfo.url,
+                        boardName = uiState.boardInfo.name,
+                        boardId = uiState.boardInfo.boardId,
+                        threadTitle = threadInfo.title,
+                        resCount = threadInfo.resCount
+                    )
+                    tabsViewModel.ensureThreadTab(route).let { index ->
+                        if (index >= 0) {
+                            tabsViewModel.setThreadCurrentPage(index)
+                        }
+                    }
+                    navController.navigate(route) {
                         launchSingleTop = true
                     }
                 },

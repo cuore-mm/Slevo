@@ -50,7 +50,8 @@ fun OpenThreadsList(
     isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
     newResCounts: Map<String, Int> = emptyMap(),
-    onItemClick: (ThreadTabInfo) -> Unit = {}
+    onItemClick: (ThreadTabInfo) -> Unit = {},
+    tabsViewModel: TabsViewModel? = null,
 ) {
     PullToRefreshBox(
         modifier = modifier,
@@ -75,16 +76,22 @@ fun OpenThreadsList(
                             .clickable {
                                 closeDrawer()
                                 onItemClick(tab)
-                                navController.navigate(
-                                    AppRoute.Thread(
-                                        threadKey = tab.threadKey,
-                                        boardUrl = tab.boardUrl,
-                                        boardName = tab.boardName,
-                                        boardId = tab.boardId,
-                                        threadTitle = tab.title,
-                                        resCount = tab.resCount
-                                    )
-                                ) {
+                                val route = AppRoute.Thread(
+                                    threadKey = tab.threadKey,
+                                    boardUrl = tab.boardUrl,
+                                    boardName = tab.boardName,
+                                    boardId = tab.boardId,
+                                    threadTitle = tab.title,
+                                    resCount = tab.resCount
+                                )
+                                tabsViewModel?.let { viewModel ->
+                                    viewModel.ensureThreadTab(route).let { index ->
+                                        if (index >= 0) {
+                                            viewModel.setThreadCurrentPage(index)
+                                        }
+                                    }
+                                }
+                                navController.navigate(route) {
                                     launchSingleTop = true
                                     restoreState = true
                                 }

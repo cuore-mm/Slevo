@@ -28,6 +28,7 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheet
 import com.websarva.wings.android.slevo.ui.common.bookmark.AddGroupDialog
 import com.websarva.wings.android.slevo.ui.common.bookmark.DeleteGroupDialog
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,7 +36,8 @@ fun BookmarkListScaffold(
     parentPadding: PaddingValues,
     navController: NavHostController,
     topBarState: TopAppBarState,
-    openDrawer: () -> Unit
+    openDrawer: () -> Unit,
+    tabsViewModel: TabsViewModel,
 ) {
     val bookmarkViewModel: BookmarkViewModel = hiltViewModel()
     val uiState by bookmarkViewModel.uiState.collectAsState()
@@ -84,28 +86,36 @@ fun BookmarkListScaffold(
             scrollBehavior = scrollBehavior,
             boardGroups = uiState.boardList,
             onBoardClick = { board ->
-                navController.navigate(
-                    AppRoute.Board(
-                        boardId = board.boardId,
-                        boardName = board.name,
-                        boardUrl = board.url
-                    )
-                ) {
+                val route = AppRoute.Board(
+                    boardId = board.boardId,
+                    boardName = board.name,
+                    boardUrl = board.url
+                )
+                tabsViewModel.ensureBoardTab(route).let { index ->
+                    if (index >= 0) {
+                        tabsViewModel.setBoardCurrentPage(index)
+                    }
+                }
+                navController.navigate(route) {
                     launchSingleTop = true
                 }
             },
             threadGroups = uiState.groupedThreadBookmarks,
             onThreadClick = { thread ->
-                navController.navigate(
-                    AppRoute.Thread(
-                        threadKey = thread.threadKey,
-                        boardName = thread.boardName,
-                        boardUrl = thread.boardUrl,
-                        threadTitle = thread.title,
-                        boardId = thread.boardId,
-                        resCount = thread.resCount
-                    )
-                ) {
+                val route = AppRoute.Thread(
+                    threadKey = thread.threadKey,
+                    boardName = thread.boardName,
+                    boardUrl = thread.boardUrl,
+                    threadTitle = thread.title,
+                    boardId = thread.boardId,
+                    resCount = thread.resCount
+                )
+                tabsViewModel.ensureThreadTab(route).let { index ->
+                    if (index >= 0) {
+                        tabsViewModel.setThreadCurrentPage(index)
+                    }
+                }
+                navController.navigate(route) {
                     launchSingleTop = true
                 }
             },

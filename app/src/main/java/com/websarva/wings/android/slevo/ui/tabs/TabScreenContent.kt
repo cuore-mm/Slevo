@@ -74,23 +74,31 @@ fun TabScreenContent(
                     if (thread != null) {
                         val (host, board, key) = thread
                         val boardUrl = "https://$host/$board/"
-                        navController.navigate(
-                            AppRoute.Thread(
-                                threadKey = key,
-                                boardUrl = boardUrl,
-                                boardName = board,
-                                threadTitle = url
-                            )
-                        ) { launchSingleTop = true }
+                        val route = AppRoute.Thread(
+                            threadKey = key,
+                            boardUrl = boardUrl,
+                            boardName = board,
+                            threadTitle = url
+                        )
+                        tabsViewModel.ensureThreadTab(route).let { index ->
+                            if (index >= 0) {
+                                tabsViewModel.setThreadCurrentPage(index)
+                            }
+                        }
+                        navController.navigate(route) { launchSingleTop = true }
                     } else {
                         parseBoardUrl(url)?.let { (host, board) ->
                             val boardUrl = "https://$host/$board/"
-                            navController.navigate(
-                                AppRoute.Board(
-                                    boardName = boardUrl,
-                                    boardUrl = boardUrl
-                                )
-                            ) { launchSingleTop = true }
+                            val route = AppRoute.Board(
+                                boardName = boardUrl,
+                                boardUrl = boardUrl
+                            )
+                            tabsViewModel.ensureBoardTab(route).let { index ->
+                                if (index >= 0) {
+                                    tabsViewModel.setBoardCurrentPage(index)
+                                }
+                            }
+                            navController.navigate(route) { launchSingleTop = true }
                         }
                     }
                     showUrlDialog = false
