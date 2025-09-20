@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.thread.components
+package com.websarva.wings.android.slevo.ui.common
 
 import android.Manifest
 import android.app.Activity
@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Mic
+import androidx.annotation.StringRes
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -52,11 +53,12 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun ThreadSearchBar(
+fun SearchBottomBar(
     modifier: Modifier = Modifier,
     searchQuery: String,
     onQueryChange: (String) -> Unit,
     onCloseSearch: () -> Unit,
+    @StringRes placeholderResId: Int = R.string.search,
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -136,7 +138,7 @@ fun ThreadSearchBar(
                     modifier = Modifier
                         .weight(1f)
                         .focusRequester(focusRequester),
-                    placeholder = { Text(stringResource(R.string.search_in_thread)) },
+                    placeholder = { Text(stringResource(placeholderResId)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions.Default.copy(
                         imeAction = ImeAction.Search
@@ -198,11 +200,12 @@ fun ThreadSearchBar(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
-fun ThreadSearchBarPreview() {
+fun SearchBottomBarPreview() {
     var query by remember { mutableStateOf("") }
-    ThreadSearchBar(
+    SearchBottomBar(
         searchQuery = query,
         onQueryChange = { query = it },
         onCloseSearch = {},
+        placeholderResId = R.string.search_in_thread,
     )
 }

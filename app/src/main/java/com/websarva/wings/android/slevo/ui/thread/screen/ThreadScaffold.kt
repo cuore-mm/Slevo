@@ -38,7 +38,7 @@ import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.components.DisplaySettingsBottomSheet
-import com.websarva.wings.android.slevo.ui.thread.components.ThreadSearchBar
+import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadPagerViewModel
@@ -152,11 +152,12 @@ fun ThreadScaffold(
                 label = "BottomBarAnimation"
             ) { isSearchMode ->
                 if (isSearchMode) {
-                    ThreadSearchBar(
+                    SearchBottomBar(
                         modifier = modifier,
                         searchQuery = uiState.searchQuery,
                         onQueryChange = { viewModel.updateSearchQuery(it) },
                         onCloseSearch = { viewModel.closeSearch() },
+                        placeholderResId = R.string.search_in_thread,
                     )
                 } else {
                     ThreadToolBar(
