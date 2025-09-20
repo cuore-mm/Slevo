@@ -7,7 +7,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.CropSquare
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -26,8 +25,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.ui.common.BookmarkToolBar
-import com.websarva.wings.android.slevo.ui.common.BookmarkToolBarAction
+import com.websarva.wings.android.slevo.ui.common.TabToolBar
+import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -120,41 +119,36 @@ fun BoardScaffold(
         },
         bottomBar = { viewModel, uiState, barScrollBehavior ->
             val actions = listOf(
-                BookmarkToolBarAction(
+                TabToolBarAction(
                     icon = Icons.AutoMirrored.Filled.Sort,
                     contentDescriptionRes = R.string.sort,
                     onClick = { viewModel.openSortBottomSheet() },
                 ),
-                BookmarkToolBarAction(
+                TabToolBarAction(
                     icon = Icons.Filled.Search,
                     contentDescriptionRes = R.string.search,
                     onClick = { viewModel.setSearchMode(true) },
                 ),
-                BookmarkToolBarAction(
+                TabToolBarAction(
                     icon = Icons.Filled.CropSquare,
                     contentDescriptionRes = R.string.open_tablist,
                     onClick = { viewModel.openTabListSheet() },
                 ),
-                BookmarkToolBarAction(
-                    icon = Icons.Filled.Refresh,
-                    contentDescriptionRes = R.string.refresh,
-                    onClick = { viewModel.refreshBoardData() },
-                ),
-                BookmarkToolBarAction(
+                TabToolBarAction(
                     icon = Icons.Filled.Create,
                     contentDescriptionRes = R.string.create_thread,
                     onClick = { viewModel.showCreateDialog() },
                 ),
             )
 
-            BookmarkToolBar(
+            TabToolBar(
                 modifier = Modifier.navigationBarsPadding(),
                 title = uiState.boardInfo.name,
                 bookmarkState = uiState.singleBookmarkState,
                 onBookmarkClick = { viewModel.openBookmarkSheet() },
                 actions = actions,
                 scrollBehavior = barScrollBehavior,
-                onRefreshClick = null,
+                onRefreshClick = { viewModel.refreshBoardData() },
                 titleStyle = MaterialTheme.typography.titleMedium,
                 titleFontWeight = FontWeight.Normal,
                 titleMaxLines = 1,
