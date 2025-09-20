@@ -58,7 +58,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     updateScrollPosition: (viewModel: ViewModel, tab: TabInfo, index: Int, offset: Int) -> Unit,
     currentPage: Int,
     onPageChange: (Int) -> Unit,
-    topBar: @Composable (viewModel: ViewModel, uiState: UiState, openDrawer: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) -> Unit,
     bottomBar: @Composable (viewModel: ViewModel, uiState: UiState, scrollBehavior: BottomAppBarScrollBehavior?) -> Unit,
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier, navController: NavHostController) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
@@ -160,7 +159,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         bottomBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
                             ?: modifier
                     },
-                topBar = { topBar(viewModel, uiState, openDrawer, scrollBehavior) },
                 bottomBar = { bottomBar(viewModel, uiState, bottomBehavior) }
             ) { innerPadding ->
                 // 各画面の実際のコンテンツを呼び出す
