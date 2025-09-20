@@ -26,17 +26,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.vector.ImageVector
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
+import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 
-data class BookmarkToolBarAction(
+data class TabToolBarAction(
     val icon: ImageVector,
     @StringRes val contentDescriptionRes: Int,
     val onClick: () -> Unit,
@@ -45,15 +49,15 @@ data class BookmarkToolBarAction(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun BookmarkToolBar(
+fun TabToolBar(
     modifier: Modifier = Modifier,
     title: String,
     bookmarkState: SingleBookmarkState,
     onBookmarkClick: () -> Unit,
-    actions: List<BookmarkToolBarAction>,
+    actions: List<TabToolBarAction>,
     scrollBehavior: BottomAppBarScrollBehavior? = null,
     onTitleClick: (() -> Unit)? = null,
-    onRefreshClick: (() -> Unit)? = null,
+    onRefreshClick: (() -> Unit),
     titleStyle: TextStyle = MaterialTheme.typography.titleSmall,
     titleFontWeight: FontWeight = FontWeight.Bold,
     titleMaxLines: Int = 2,
@@ -79,8 +83,9 @@ fun BookmarkToolBar(
                 ) {
                     IconButton(onClick = onBookmarkClick) {
                         if (bookmarkState.isBookmarked) {
-                            val tintColor = bookmarkState.selectedGroup?.colorName?.let { bookmarkColor(it) }
-                                ?: LocalContentColor.current
+                            val tintColor =
+                                bookmarkState.selectedGroup?.colorName?.let { bookmarkColor(it) }
+                                    ?: LocalContentColor.current
                             Box {
                                 Icon(
                                     imageVector = Icons.Filled.Star,
@@ -107,13 +112,11 @@ fun BookmarkToolBar(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
-                    if (onRefreshClick != null) {
-                        IconButton(onClick = onRefreshClick) {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = stringResource(R.string.refresh),
-                            )
-                        }
+                    IconButton(onClick = onRefreshClick) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.refresh),
+                        )
                     }
                 }
             }
@@ -149,4 +152,31 @@ fun BookmarkToolBar(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
+@Preview(showBackground = true)
+@Composable
+fun ThreadToolBarPreview() {
+    ThreadToolBar(
+        uiState = ThreadUiState(
+            threadInfo = ThreadInfo(
+                title = "スレッドのタイトル"
+            ),
+            singleBookmarkState = SingleBookmarkState(
+                isBookmarked = false,
+                selectedGroup = null
+            )
+        ),
+        isTreeSort = false,
+        onSortClick = {},
+        onPostClick = {},
+        onTabListClick = {},
+        onRefreshClick = {},
+        onSearchClick = {},
+        onBookmarkClick = {},
+        onThreadInfoClick = {},
+        onMoreClick = {},
+        onAutoScrollClick = {}
+    )
 }
