@@ -30,15 +30,15 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
-import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
+import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
-import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.components.DisplaySettingsBottomSheet
-import com.websarva.wings.android.slevo.ui.thread.components.ThreadSearchBar
+import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
+import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
+import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideConfirmationScreen
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideErrorWebView
@@ -130,12 +130,13 @@ fun ThreadScaffold(
         onPageChange = { tabsViewModel.setThreadCurrentPage(it) },
         scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
-        topBar = { _, _, _, _ -> },
         bottomBar = { viewModel, uiState, barScrollBehavior ->
             val context = LocalContext.current
             val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
             val modifier = if (isThreeButtonBar) {
-                Modifier.navigationBarsPadding().imePadding()
+                Modifier
+                    .navigationBarsPadding()
+                    .imePadding()
             } else {
                 Modifier.imePadding()
             }
@@ -155,11 +156,12 @@ fun ThreadScaffold(
                 label = "BottomBarAnimation"
             ) { isSearchMode ->
                 if (isSearchMode) {
-                    ThreadSearchBar(
+                    SearchBottomBar(
                         modifier = modifier,
                         searchQuery = uiState.searchQuery,
                         onQueryChange = { viewModel.updateSearchQuery(it) },
                         onCloseSearch = { viewModel.closeSearch() },
+                        placeholderResId = R.string.search_in_thread,
                     )
                 } else {
                     ThreadToolBar(

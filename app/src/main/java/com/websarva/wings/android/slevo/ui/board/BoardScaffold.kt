@@ -2,9 +2,22 @@ package com.websarva.wings.android.slevo.ui.board
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.height
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.CropSquare
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarState
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -12,30 +25,38 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
+import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
+import com.websarva.wings.android.slevo.ui.common.TabToolBar
+import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
-import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
+import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
+import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun BoardScaffold(
     boardRoute: AppRoute.Board,
@@ -69,7 +90,7 @@ fun BoardScaffold(
         )
     }
 
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
 
     RouteScaffold(
         route = boardRoute,
@@ -97,48 +118,81 @@ fun BoardScaffold(
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setBoardCurrentPage(it) },
         scrollBehavior = scrollBehavior,
-        topBar = { viewModel, uiState, drawer, scrollBehavior ->
-            val bookmarkState = uiState.singleBookmarkState
-            val bookmarkIconColor =
-                if (bookmarkState.isBookmarked && bookmarkState.selectedGroup?.colorName != null) {
-                    bookmarkColor(bookmarkState.selectedGroup.colorName)
-                } else {
-                    Color.Unspecified
-                }
+        bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
+        bottomBar = { viewModel, uiState, barScrollBehavior ->
+            val keyboardController = LocalSoftwareKeyboardController.current
+            val focusManager = LocalFocusManager.current
+            val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
+            val searchModifier = if (isThreeButtonBar) {
+                Modifier
+                    .navigationBarsPadding()
+                    .imePadding()
+            } else {
+                Modifier.imePadding()
+            }
+            val actions = listOf(
+                TabToolBarAction(
+                    icon = Icons.AutoMirrored.Filled.Sort,
+                    contentDescriptionRes = R.string.sort,
+                    onClick = { viewModel.openSortBottomSheet() },
+                ),
+                TabToolBarAction(
+                    icon = Icons.Filled.Search,
+                    contentDescriptionRes = R.string.search,
+                    onClick = { viewModel.setSearchMode(true) },
+                ),
+                TabToolBarAction(
+                    icon = Icons.Filled.CropSquare,
+                    contentDescriptionRes = R.string.open_tablist,
+                    onClick = { viewModel.openTabListSheet() },
+                ),
+                TabToolBarAction(
+                    icon = Icons.Filled.Create,
+                    contentDescriptionRes = R.string.create_thread,
+                    onClick = { viewModel.showCreateDialog() },
+                ),
+            )
 
             BackHandler(enabled = uiState.isSearchActive) {
+                keyboardController?.hide()
+                focusManager.clearFocus()
                 viewModel.setSearchMode(false)
             }
 
-            if (uiState.isSearchActive) {
-                SearchTopAppBar(
-                    searchQuery = uiState.searchQuery,
-                    onQueryChange = { viewModel.setSearchQuery(it) },
-                    onCloseSearch = { viewModel.setSearchMode(false) },
-                )
-            } else {
-                BoardTopBarScreen(
-                    title = uiState.boardInfo.name,
-                    onNavigationClick = drawer,
-                    onBookmarkClick = { viewModel.openBookmarkSheet() },
-                    onInfoClick = { viewModel.openInfoDialog() },
-                    isBookmarked = bookmarkState.isBookmarked,
-                    bookmarkIconColor = bookmarkIconColor,
-                    scrollBehavior = scrollBehavior
-                )
+            AnimatedContent(
+                targetState = uiState.isSearchActive,
+                transitionSpec = {
+                    slideInVertically { it } + fadeIn() togetherWith
+                            slideOutVertically { it } + fadeOut()
+                },
+                label = "BoardBottomBarAnimation",
+            ) { isSearchMode ->
+                if (isSearchMode) {
+                    SearchBottomBar(
+                        modifier = searchModifier,
+                        searchQuery = uiState.searchQuery,
+                        onQueryChange = { viewModel.setSearchQuery(it) },
+                        onCloseSearch = { viewModel.setSearchMode(false) },
+                        placeholderResId = R.string.search_in_board,
+                    )
+                } else {
+                    TabToolBar(
+                        modifier = Modifier.navigationBarsPadding(),
+                        title = uiState.boardInfo.name,
+                        bookmarkState = uiState.singleBookmarkState,
+                        onBookmarkClick = { viewModel.openBookmarkSheet() },
+                        actions = actions,
+                        scrollBehavior = barScrollBehavior,
+                        onRefreshClick = { viewModel.refreshBoardData() },
+                        isLoading = uiState.isLoading,
+                        loadProgress = uiState.loadProgress,
+                        titleStyle = MaterialTheme.typography.titleMedium,
+                        titleFontWeight = FontWeight.Bold,
+                        titleMaxLines = 1,
+                        titleTextAlign = TextAlign.Center,
+                    )
+                }
             }
-        },
-        bottomBar = { viewModel, _, _ ->
-            BoardBottomBar(
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .height(56.dp),
-                onSortClick = { viewModel.openSortBottomSheet() },
-                onRefreshClick = { viewModel.refreshBoardData() },
-                onSearchClick = { viewModel.setSearchMode(true) },
-                onTabListClick = { viewModel.openTabListSheet() },
-                onCreateThreadClick = { viewModel.showCreateDialog() }
-            )
         },
         content = { viewModel, uiState, listState, modifier, navController ->
             LaunchedEffect(uiState.resetScroll) {
@@ -167,7 +221,6 @@ fun BoardScaffold(
                 },
                 isRefreshing = uiState.isLoading,
                 onRefresh = { viewModel.refreshBoardData() },
-                loadProgress = uiState.loadProgress,
                 listState = listState
             )
             if (uiState.showInfoDialog) {
