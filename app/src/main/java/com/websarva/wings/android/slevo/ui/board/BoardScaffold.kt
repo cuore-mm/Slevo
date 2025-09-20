@@ -2,6 +2,14 @@ package com.websarva.wings.android.slevo.ui.board
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
@@ -17,14 +25,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
 import com.websarva.wings.android.slevo.ui.common.PostDialog
@@ -34,13 +46,13 @@ import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
-import com.websarva.wings.android.slevo.ui.topbar.SearchTopAppBar
+import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun BoardScaffold(
     boardRoute: AppRoute.Board,
@@ -103,21 +115,16 @@ fun BoardScaffold(
         currentPage = currentPage,
         onPageChange = { pagerViewModel.setCurrentPage(it) },
         scrollBehavior = scrollBehavior,
-        topBar = { viewModel, uiState, _, scrollBehavior ->
-            BackHandler(enabled = uiState.isSearchActive) {
-                viewModel.setSearchMode(false)
-            }
-
-            if (uiState.isSearchActive) {
-                SearchTopAppBar(
-                    searchQuery = uiState.searchQuery,
-                    onQueryChange = { viewModel.setSearchQuery(it) },
-                    onCloseSearch = { viewModel.setSearchMode(false) },
-                    scrollBehavior = scrollBehavior,
-                )
-            }
-        },
+        topBar = { _, _, _, _ -> },
         bottomBar = { viewModel, uiState, barScrollBehavior ->
+            val keyboardController = LocalSoftwareKeyboardController.current
+            val focusManager = LocalFocusManager.current
+            val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
+            val searchModifier = if (isThreeButtonBar) {
+                Modifier.navigationBarsPadding().imePadding()
+            } else {
+                Modifier.imePadding()
+            }
             val actions = listOf(
                 TabToolBarAction(
                     icon = Icons.AutoMirrored.Filled.Sort,
@@ -141,18 +148,43 @@ fun BoardScaffold(
                 ),
             )
 
-            TabToolBar(
-                modifier = Modifier.navigationBarsPadding(),
-                title = uiState.boardInfo.name,
-                bookmarkState = uiState.singleBookmarkState,
-                onBookmarkClick = { viewModel.openBookmarkSheet() },
-                actions = actions,
-                scrollBehavior = barScrollBehavior,
-                onRefreshClick = { viewModel.refreshBoardData() },
-                titleStyle = MaterialTheme.typography.titleMedium,
-                titleFontWeight = FontWeight.Normal,
-                titleMaxLines = 1,
-            )
+            BackHandler(enabled = uiState.isSearchActive) {
+                keyboardController?.hide()
+                focusManager.clearFocus()
+                viewModel.setSearchMode(false)
+            }
+
+            AnimatedContent(
+                targetState = uiState.isSearchActive,
+                transitionSpec = {
+                    slideInVertically { it } + fadeIn() togetherWith
+                        slideOutVertically { it } + fadeOut()
+                },
+                label = "BoardBottomBarAnimation",
+            ) { isSearchMode ->
+                if (isSearchMode) {
+                    SearchBottomBar(
+                        modifier = searchModifier,
+                        searchQuery = uiState.searchQuery,
+                        onQueryChange = { viewModel.setSearchQuery(it) },
+                        onCloseSearch = { viewModel.setSearchMode(false) },
+                        placeholderResId = R.string.search_in_board,
+                    )
+                } else {
+                    TabToolBar(
+                        modifier = Modifier.navigationBarsPadding(),
+                        title = uiState.boardInfo.name,
+                        bookmarkState = uiState.singleBookmarkState,
+                        onBookmarkClick = { viewModel.openBookmarkSheet() },
+                        actions = actions,
+                        scrollBehavior = barScrollBehavior,
+                        onRefreshClick = { viewModel.refreshBoardData() },
+                        titleStyle = MaterialTheme.typography.titleMedium,
+                        titleFontWeight = FontWeight.Normal,
+                        titleMaxLines = 1,
+                    )
+                }
+            }
         },
         content = { viewModel, uiState, listState, modifier, navController ->
             LaunchedEffect(uiState.resetScroll) {
