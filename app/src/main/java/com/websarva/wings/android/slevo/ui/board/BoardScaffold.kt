@@ -47,6 +47,7 @@ import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
+import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import java.net.URLEncoder
@@ -87,7 +88,7 @@ fun BoardScaffold(
         )
     }
 
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
 
     RouteScaffold(
         route = boardRoute,
@@ -115,6 +116,7 @@ fun BoardScaffold(
         currentPage = currentPage,
         onPageChange = { pagerViewModel.setCurrentPage(it) },
         scrollBehavior = scrollBehavior,
+        bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         topBar = { _, _, _, _ -> },
         bottomBar = { viewModel, uiState, barScrollBehavior ->
             val keyboardController = LocalSoftwareKeyboardController.current
