@@ -63,8 +63,6 @@ fun ThreadScaffold(
     threadRoute: AppRoute.Thread,
     navController: NavHostController,
     tabsViewModel: TabsViewModel,
-    openDrawer: () -> Unit,
-    topBarState: TopAppBarState,
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -99,13 +97,10 @@ fun ThreadScaffold(
         )
     }
 
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
-
     RouteScaffold(
         route = threadRoute,
         tabsViewModel = tabsViewModel,
         navController = navController,
-        openDrawer = openDrawer,
         openTabs = tabsUiState.openThreadTabs,
         currentRoutePredicate = { routeThreadId != null && it.id == routeThreadId },
         getViewModel = { tab -> tabsViewModel.getOrCreateThreadViewModel(tab.id.value) },
@@ -128,7 +123,6 @@ fun ThreadScaffold(
         },
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setThreadCurrentPage(it) },
-        scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         bottomBar = { viewModel, uiState, barScrollBehavior ->
             val context = LocalContext.current

@@ -61,9 +61,7 @@ import java.nio.charset.StandardCharsets
 fun BoardScaffold(
     boardRoute: AppRoute.Board,
     navController: NavHostController,
-    openDrawer: () -> Unit,
     tabsViewModel: TabsViewModel,
-    topBarState: TopAppBarState
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -90,13 +88,10 @@ fun BoardScaffold(
         )
     }
 
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
-
     RouteScaffold(
         route = boardRoute,
         tabsViewModel = tabsViewModel,
         navController = navController,
-        openDrawer = openDrawer,
         openTabs = tabsUiState.openBoardTabs,
         currentRoutePredicate = { it.boardUrl == boardRoute.boardUrl },
         getViewModel = { tab -> tabsViewModel.getOrCreateBoardViewModel(tab.boardUrl) },
@@ -117,7 +112,6 @@ fun BoardScaffold(
         },
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setBoardCurrentPage(it) },
-        scrollBehavior = scrollBehavior,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         bottomBar = { viewModel, uiState, barScrollBehavior ->
             val keyboardController = LocalSoftwareKeyboardController.current

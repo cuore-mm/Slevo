@@ -47,7 +47,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     route: AppRoute,
     tabsViewModel: TabsViewModel,
     navController: NavHostController,
-    openDrawer: () -> Unit,
     openTabs: List<TabInfo>,
     currentRoutePredicate: (TabInfo) -> Boolean,
     getViewModel: (TabInfo) -> ViewModel,
@@ -60,7 +59,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     onPageChange: (Int) -> Unit,
     bottomBar: @Composable (viewModel: ViewModel, uiState: UiState, scrollBehavior: BottomAppBarScrollBehavior?) -> Unit,
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier, navController: NavHostController) -> Unit,
-    scrollBehavior: TopAppBarScrollBehavior,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {

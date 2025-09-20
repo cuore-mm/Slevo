@@ -130,9 +130,7 @@ fun AppNavGraph(
             BoardScaffold(
                 boardRoute = boardRoute,
                 navController = navController,
-                openDrawer = openDrawer,
                 tabsViewModel = tabsViewModel,
-                topBarState = topBarState
             )
         }
         //スレッド画面
@@ -147,8 +145,6 @@ fun AppNavGraph(
                 threadRoute = threadRoute,
                 navController = navController,
                 tabsViewModel = tabsViewModel,
-                openDrawer = openDrawer,
-                topBarState = topBarState
             )
         }
         //タブ画面
