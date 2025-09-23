@@ -1,5 +1,8 @@
 package com.websarva.wings.android.slevo.ui.navigation
 
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -151,6 +154,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
             val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
+            val swipeBlockerState = rememberDraggableState { _ -> }
             Scaffold(
                 modifier = Modifier
                     .let { modifier ->
@@ -159,12 +163,19 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     },
                 bottomBar = { bottomBar(viewModel, uiState, bottomBehavior) }
             ) { innerPadding ->
+                val contentModifier = Modifier
+                    .padding(innerPadding)
+                    .draggable(
+                        state = swipeBlockerState,
+                        orientation = Orientation.Horizontal,
+                        enabled = true
+                    )
                 // 各画面の実際のコンテンツを呼び出す
                 content(
                     viewModel,
                     uiState,
                     listState,
-                    Modifier.padding(innerPadding),
+                    contentModifier,
                     navController
                 )
 

@@ -9,6 +9,9 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -112,8 +115,13 @@ fun SearchBottomBar(
         keyboardController?.show()
     }
 
+    val swipeBlockerState = rememberDraggableState { _ -> }
     FlexibleBottomAppBar(
-        modifier = modifier,
+        modifier = modifier.draggable(
+            state = swipeBlockerState,
+            orientation = Orientation.Horizontal,
+            enabled = true
+        ),
     ) {
         Card {
             Row(
