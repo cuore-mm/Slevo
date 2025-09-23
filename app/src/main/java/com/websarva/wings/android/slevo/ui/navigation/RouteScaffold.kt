@@ -18,6 +18,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -57,7 +58,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     updateScrollPosition: (viewModel: ViewModel, tab: TabInfo, index: Int, offset: Int) -> Unit,
     currentPage: Int,
     onPageChange: (Int) -> Unit,
-    bottomBar: @Composable (viewModel: ViewModel, uiState: UiState, scrollBehavior: BottomAppBarScrollBehavior?) -> Unit,
+    bottomBar: @Composable (
+        viewModel: ViewModel,
+        uiState: UiState,
+        scrollBehavior: BottomAppBarScrollBehavior?,
+        openTabListSheet: () -> Unit,
+    ) -> Unit,
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier, navController: NavHostController) -> Unit,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
@@ -106,6 +112,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         // 共通で使うボトムシートの状態
         val bookmarkSheetState = rememberModalBottomSheetState()
         val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        var showTabListSheet by rememberSaveable { mutableStateOf(false) }
 
         HorizontalPager(
             state = pagerState,
@@ -159,7 +166,15 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         bottomBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
                             ?: modifier
                     },
-                bottomBar = { bottomBar(viewModel, uiState, bottomBehavior) }
+                bottomBar = {
+                    bottomBar(
+                        viewModel,
+                        uiState,
+                        bottomBehavior
+                    ) {
+                        showTabListSheet = true
+                    }
+                }
             ) { innerPadding ->
                 // 各画面の実際のコンテンツを呼び出す
                 content(
@@ -243,25 +258,24 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         }
                     )
                 }
-
-                if (uiState.showTabListSheet) {
-                    // ルートに応じてタブ選択シートの初期ページを設定
-                    val initialPage = when (route) {
-                        is AppRoute.Thread -> 1
-                        else -> 0
-                    }
-                    TabsBottomSheet(
-                        sheetState = tabListSheetState,
-                        tabsViewModel = tabsViewModel,
-                        navController = navController,
-                        onDismissRequest = { viewModel.closeTabListSheet() },
-                        initialPage = initialPage,
-                    )
-                }
-
                 // 各画面固有のシート
                 optionalSheetContent(viewModel, uiState)
             }
+        }
+
+        if (showTabListSheet) {
+            // ルートに応じてタブ選択シートの初期ページを設定
+            val initialPage = when (route) {
+                is AppRoute.Thread -> 1
+                else -> 0
+            }
+            TabsBottomSheet(
+                sheetState = tabListSheetState,
+                tabsViewModel = tabsViewModel,
+                navController = navController,
+                onDismissRequest = { showTabListSheet = false },
+                initialPage = initialPage,
+            )
         }
     } else {
         // 表示可能なタブがない場合はローディング表示を出す

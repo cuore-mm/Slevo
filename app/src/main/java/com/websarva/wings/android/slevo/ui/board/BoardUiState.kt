@@ -29,15 +29,12 @@ data class BoardUiState(
     val resetScroll: Boolean = false,
     val loadProgress: Float = 0f,
     override val isLoading: Boolean = false,
-    override val showTabListSheet: Boolean = false,
 ) : BaseUiState<BoardUiState> {
     override fun copyState(
         isLoading: Boolean,
-        showTabListSheet: Boolean
     ): BoardUiState {
         return this.copy(
             isLoading = isLoading,
-            showTabListSheet = showTabListSheet
         )
     }
 }

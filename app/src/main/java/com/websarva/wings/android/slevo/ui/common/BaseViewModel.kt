@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 abstract class BaseViewModel<S> : ViewModel() where S : BaseUiState<S> {
@@ -32,14 +31,6 @@ abstract class BaseViewModel<S> : ViewModel() where S : BaseUiState<S> {
      * @param isRefresh trueの場合はキャッシュを無視した強制的な更新を意図する
      */
     protected abstract suspend fun loadData(isRefresh: Boolean)
-
-    fun openTabListSheet() {
-        _uiState.update { it.copyState(showTabListSheet = true) }
-    }
-
-    fun closeTabListSheet() {
-        _uiState.update { it.copyState(showTabListSheet = false) }
-    }
 
     fun release() {
         onCleared()
