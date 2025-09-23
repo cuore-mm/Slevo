@@ -168,6 +168,7 @@ dependencies {
 
     // compose.foundation
     implementation(libs.androidx.foundation)
+    implementation(libs.lazycolumn.scrollbar)
 
     // Telephoto
     implementation(libs.zoomable.image.coil3)

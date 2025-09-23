@@ -36,6 +36,7 @@ data class ThreadUiState(
     val firstNewResNo: Int? = null,
     val prevResCount: Int = 0,
     val isAutoScroll: Boolean = false,
+    val showMinimapScrollbar: Boolean = true,
     val textScale: Float = 1f,
     val isIndividualTextScale: Boolean = false,
     val headerTextScale: Float = 0.85f,

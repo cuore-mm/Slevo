@@ -5,6 +5,7 @@ coilComposeVersion = "3.2.0"
 datastorePreferences = "1.1.5"
 foundation = "1.8.0"
 foundationPager = "<compose_version>"
+lazyColumnScrollbar = "2.2.0"
 hiltAndroid = "2.51.1"
 hiltNavigationCompose = "1.2.0"
 jsoup = "1.17.2"
@@ -90,6 +91,7 @@ okhttp3-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp
 timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
 zoomable-image-coil3 = { module = "me.saket.telephoto:zoomable-image-coil3", version.ref = "zoomableImageCoil3" }
 desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugarJdkLibs" }
+lazycolumn-scrollbar = { module = "com.github.nanihadesuka:LazyColumnScrollbar", version.ref = "lazyColumnScrollbar" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
