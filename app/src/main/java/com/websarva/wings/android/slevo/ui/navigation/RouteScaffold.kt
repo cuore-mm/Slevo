@@ -108,9 +108,20 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         val bookmarkSheetState = rememberModalBottomSheetState()
         val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+        val pagerUserScrollEnabled = run {
+            val currentViewModel = getViewModel(currentTabInfo)
+            val currentUiState = currentViewModel.uiState.collectAsState().value
+            when (currentUiState) {
+                is BoardUiState -> !currentUiState.isSearchActive
+                is ThreadUiState -> !currentUiState.isSearchMode
+                else -> true
+            }
+        }
+
         HorizontalPager(
             state = pagerState,
-            key = { page -> getKey(tabs[page]) }
+            key = { page -> getKey(tabs[page]) },
+            userScrollEnabled = pagerUserScrollEnabled
         ) { page ->
             val tab = tabs[page]
             val viewModel = getViewModel(tab)
