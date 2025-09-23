@@ -117,14 +117,15 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         var showTabListSheet by rememberSaveable { mutableStateOf(false) }
 
-        val pagerUserScrollEnabled = run {
-            val currentViewModel = getViewModel(currentTabInfo)
-            val currentUiState = currentViewModel.uiState.collectAsState().value
-            when (currentUiState) {
-                is BoardUiState -> !currentUiState.isSearchActive
-                is ThreadUiState -> !currentUiState.isSearchMode
-                else -> true
+        val pagerUserScrollEnabled = when (
+            val currentUiState = currentTabInfo?.let { tabInfo ->
+                val currentViewModel = getViewModel(tabInfo)
+                currentViewModel.uiState.collectAsState().value
             }
+        ) {
+            is BoardUiState -> !currentUiState.isSearchActive
+            is ThreadUiState -> !currentUiState.isSearchMode
+            else -> true
         }
 
         HorizontalPager(
