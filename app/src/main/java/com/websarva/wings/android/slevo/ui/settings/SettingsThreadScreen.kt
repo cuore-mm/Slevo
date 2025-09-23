@@ -9,6 +9,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -63,6 +64,26 @@ fun SettingsThreadScreen(
                     RadioButton(
                         selected = uiState.isTreeSort,
                         onClick = { viewModel.updateSort(true) }
+                    )
+                }
+            )
+            HorizontalDivider()
+            Text(
+                text = stringResource(R.string.thread_scrollbar_settings),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+            ListItem(
+                modifier = Modifier.clickable {
+                    viewModel.updateMinimapScrollbar(!uiState.showMinimapScrollbar)
+                },
+                headlineContent = { Text(stringResource(R.string.show_minimap_scrollbar)) },
+                supportingContent = {
+                    Text(stringResource(R.string.show_minimap_scrollbar_description))
+                },
+                trailingContent = {
+                    Switch(
+                        checked = uiState.showMinimapScrollbar,
+                        onCheckedChange = { viewModel.updateMinimapScrollbar(it) }
                     )
                 }
             )

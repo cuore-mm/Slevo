@@ -15,6 +15,12 @@ interface SettingsLocalDataSource {
     /** レスのデフォルト並び順を保存する */
     suspend fun setTreeSort(enabled: Boolean)
 
+    /** スレッド画面のミニマップ付きスクロールバーを表示するかを監視する */
+    fun observeIsThreadMinimapScrollbarEnabled(): Flow<Boolean>
+
+    /** スレッド画面のミニマップ付きスクロールバーを表示するかを保存する */
+    suspend fun setThreadMinimapScrollbarEnabled(enabled: Boolean)
+
     /** レス表示の文字倍率を監視する */
     fun observeTextScale(): Flow<Float>
 
