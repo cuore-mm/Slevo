@@ -68,6 +68,12 @@ fun ThreadScaffold(
     val context = LocalContext.current
     val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
 
+    LaunchedEffect(tabsUiState.threadLoaded, tabsUiState.openThreadTabs) {
+        if (tabsUiState.threadLoaded && tabsUiState.openThreadTabs.isEmpty()) {
+            navController.navigateUp()
+        }
+    }
+
     val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, threadRoute.threadKey)
     }

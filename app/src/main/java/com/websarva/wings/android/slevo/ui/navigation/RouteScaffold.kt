@@ -76,13 +76,15 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     Timber.d("tabs: $tabs")
     val currentTabInfo = tabs.find(currentRoutePredicate)
 
-    if (currentTabInfo != null) {
+    if (tabs.isNotEmpty()) {
         // 初期ページの決定。routeやタブ数が変わったら再計算される。
-        val initialPage = remember(route, tabs.size, currentPage) {
-            if (currentPage >= 0) {
-                currentPage.coerceIn(0, tabs.size - 1)
-            } else {
-                tabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
+        val initialPage = remember(route, tabs.size, currentTabInfo, currentPage) {
+            when {
+                currentPage in tabs.indices -> currentPage
+                currentPage >= 0 -> currentPage.coerceIn(0, tabs.size - 1)
+                currentTabInfo != null -> tabs.indexOf(currentTabInfo).takeIf { it >= 0 }
+                    ?: 0
+                else -> 0
             }
         }
 
@@ -262,7 +264,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
         }
     } else {
-        // currentTabInfoが見つからない場合はローディング表示を出す
+        // 表示可能なタブがない場合はローディング表示を出す
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
