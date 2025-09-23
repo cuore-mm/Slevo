@@ -50,7 +50,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
-import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
+import com.websarva.wings.android.slevo.ui.thread.components.MinimapScrollbar
 import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.dialog.ReplyPopup
@@ -336,7 +336,7 @@ fun ThreadScreen(
                 VerticalDivider()
 
                 // 右側: 固定の勢いバー
-                MomentumBar(
+                MinimapScrollbar(
                     modifier = Modifier
                         .width(24.dp)
                         .fillMaxHeight(),

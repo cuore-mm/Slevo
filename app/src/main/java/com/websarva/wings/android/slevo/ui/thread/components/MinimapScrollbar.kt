@@ -29,7 +29,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import kotlinx.coroutines.launch
 
 @Composable
-fun MomentumBar(
+fun MinimapScrollbar(
     modifier: Modifier = Modifier,
     posts: List<ReplyInfo>,
     replyCounts: List<Int>,
@@ -220,7 +220,7 @@ fun MomentumBar(
 
 @Preview(showBackground = true, widthDp = 60, heightDp = 400)
 @Composable
-fun MomentumBarPreview() {
+fun MinimapScrollbarPreview() {
     val dummyPosts = List(30) { i ->
         val urlFlags = when (i % 5) {
             0 -> ReplyInfo.HAS_IMAGE_URL
@@ -243,7 +243,7 @@ fun MomentumBarPreview() {
     val listState = rememberLazyListState()
     val counts = List(dummyPosts.size) { index -> if (index % 7 == 0) 5 else 0 }
     val myPosts = setOf(3, 15, 25)
-    MomentumBar(
+    MinimapScrollbar(
         posts = dummyPosts,
         replyCounts = counts,
         lazyListState = listState,
