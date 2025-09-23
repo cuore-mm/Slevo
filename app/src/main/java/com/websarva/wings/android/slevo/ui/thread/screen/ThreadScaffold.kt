@@ -124,7 +124,7 @@ fun ThreadScaffold(
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setThreadCurrentPage(it) },
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
-        bottomBar = { viewModel, uiState, barScrollBehavior ->
+        bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
             val context = LocalContext.current
             val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
             val modifier = if (isThreeButtonBar) {
@@ -164,7 +164,7 @@ fun ThreadScaffold(
                         isTreeSort = uiState.sortType == ThreadSortType.TREE,
                         onSortClick = { viewModel.toggleSortType() },
                         onPostClick = { viewModel.showPostDialog() },
-                        onTabListClick = { viewModel.openTabListSheet() },
+                        onTabListClick = openTabListSheet,
                         onRefreshClick = { viewModel.reloadThread() },
                         onSearchClick = { viewModel.startSearch() },
                         onBookmarkClick = { viewModel.openBookmarkSheet() },

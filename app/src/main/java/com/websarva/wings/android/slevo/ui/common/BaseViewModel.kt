@@ -33,14 +33,6 @@ abstract class BaseViewModel<S> : ViewModel() where S : BaseUiState<S> {
      */
     protected abstract suspend fun loadData(isRefresh: Boolean)
 
-    fun openTabListSheet() {
-        _uiState.update { it.copyState(showTabListSheet = true) }
-    }
-
-    fun closeTabListSheet() {
-        _uiState.update { it.copyState(showTabListSheet = false) }
-    }
-
     fun release() {
         onCleared()
     }

@@ -60,7 +60,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     updateScrollPosition: (viewModel: ViewModel, tab: TabInfo, index: Int, offset: Int) -> Unit,
     currentPage: Int,
     onPageChange: (Int) -> Unit,
-    bottomBar: @Composable (viewModel: ViewModel, uiState: UiState, scrollBehavior: BottomAppBarScrollBehavior?) -> Unit,
+    bottomBar: @Composable (
+        viewModel: ViewModel,
+        uiState: UiState,
+        scrollBehavior: BottomAppBarScrollBehavior?,
+        openTabListSheet: () -> Unit,
+    ) -> Unit,
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier, navController: NavHostController) -> Unit,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
@@ -71,6 +76,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     // - 共通のボトムシートやダイアログを表示する
 
     var cachedTabs by remember { mutableStateOf(openTabs) }
+    var showTabListSheet by remember { mutableStateOf(false) }
     // openTabsが空の場合に前回のタブ一覧をキャッシュしておくための処理
     if (openTabs.isNotEmpty()) {
         cachedTabs = openTabs
@@ -172,7 +178,14 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         bottomBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
                             ?: modifier
                     },
-                bottomBar = { bottomBar(viewModel, uiState, bottomBehavior) }
+                bottomBar = {
+                    bottomBar(
+                        viewModel,
+                        uiState,
+                        bottomBehavior,
+                        { showTabListSheet = true }
+                    )
+                }
             ) { innerPadding ->
                 val contentModifier = Modifier
                     .padding(innerPadding)
@@ -264,24 +277,23 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     )
                 }
 
-                if (uiState.showTabListSheet) {
-                    // ルートに応じてタブ選択シートの初期ページを設定
-                    val initialPage = when (route) {
-                        is AppRoute.Thread -> 1
-                        else -> 0
-                    }
-                    TabsBottomSheet(
-                        sheetState = tabListSheetState,
-                        tabsViewModel = tabsViewModel,
-                        navController = navController,
-                        onDismissRequest = { viewModel.closeTabListSheet() },
-                        initialPage = initialPage,
-                    )
-                }
-
                 // 各画面固有のシート
                 optionalSheetContent(viewModel, uiState)
             }
+        }
+        if (showTabListSheet) {
+            // ルートに応じてタブ選択シートの初期ページを設定
+            val initialPage = when (route) {
+                is AppRoute.Thread -> 1
+                else -> 0
+            }
+            TabsBottomSheet(
+                sheetState = tabListSheetState,
+                tabsViewModel = tabsViewModel,
+                navController = navController,
+                onDismissRequest = { showTabListSheet = false },
+                initialPage = initialPage,
+            )
         }
     } else {
         // currentTabInfoが見つからない場合はローディング表示を出す
