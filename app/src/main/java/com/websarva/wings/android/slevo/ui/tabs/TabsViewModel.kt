@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -255,13 +254,26 @@ class TabsViewModel @Inject constructor(
      */
     fun closeThreadTab(tab: ThreadTabInfo) {
         val mapKey = tab.id.value
-        threadViewModelMap[mapKey]?.release()
-        threadViewModelMap.remove(mapKey)
-        viewModelScope.launch {
-            val current = tabsRepository.observeOpenThreadTabs().first()
-            val updated = current.filterNot { it.id == tab.id }
-            tabsRepository.saveOpenThreadTabs(updated)
+        threadViewModelMap.remove(mapKey)?.release()
+
+        var updatedTabs: List<ThreadTabInfo> = emptyList()
+        val removedIndex = _uiState.value.openThreadTabs.indexOfFirst { it.id == tab.id }
+        _uiState.update { state ->
+            val newTabs = state.openThreadTabs.filterNot { it.id == tab.id }
+            updatedTabs = newTabs
+            state.copy(
+                openThreadTabs = newTabs,
+                newResCounts = state.newResCounts - mapKey
+            )
         }
+
+        updateCurrentPageAfterRemoval(
+            currentPageFlow = _threadCurrentPage,
+            removedIndex = removedIndex,
+            updatedSize = updatedTabs.size
+        )
+
+        viewModelScope.launch { tabsRepository.saveOpenThreadTabs(updatedTabs) }
     }
 
     /**
@@ -269,10 +281,40 @@ class TabsViewModel @Inject constructor(
      */
     fun closeBoardTab(tab: BoardTabInfo) {
         boardViewModelMap.remove(tab.boardUrl)?.release()
+
+        var updatedTabs: List<BoardTabInfo> = emptyList()
+        val removedIndex = _uiState.value.openBoardTabs.indexOfFirst { it.boardUrl == tab.boardUrl }
         _uiState.update { state ->
-            state.copy(openBoardTabs = state.openBoardTabs.filterNot { it.boardUrl == tab.boardUrl })
+            val newTabs = state.openBoardTabs.filterNot { it.boardUrl == tab.boardUrl }
+            updatedTabs = newTabs
+            state.copy(openBoardTabs = newTabs)
         }
-        viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
+
+        updateCurrentPageAfterRemoval(
+            currentPageFlow = _boardCurrentPage,
+            removedIndex = removedIndex,
+            updatedSize = updatedTabs.size
+        )
+
+        viewModelScope.launch { tabsRepository.saveOpenBoardTabs(updatedTabs) }
+    }
+
+    private fun updateCurrentPageAfterRemoval(
+        currentPageFlow: MutableStateFlow<Int>,
+        removedIndex: Int,
+        updatedSize: Int,
+    ) {
+        val current = currentPageFlow.value
+        val newPage = when {
+            updatedSize <= 0 -> -1
+            current < 0 -> current
+            removedIndex == -1 -> current.coerceIn(0, updatedSize - 1)
+            current == removedIndex -> removedIndex.coerceAtMost(updatedSize - 1)
+            current > removedIndex -> (current - 1).coerceIn(0, updatedSize - 1)
+            current >= updatedSize -> updatedSize - 1
+            else -> current
+        }
+        currentPageFlow.value = newPage
     }
 
     /**

@@ -67,6 +67,12 @@ fun BoardScaffold(
     val context = LocalContext.current
     val currentPage by tabsViewModel.boardCurrentPage.collectAsState()
 
+    LaunchedEffect(tabsUiState.boardLoaded, tabsUiState.openBoardTabs) {
+        if (tabsUiState.boardLoaded && tabsUiState.openBoardTabs.isEmpty()) {
+            navController.navigateUp()
+        }
+    }
+
     LaunchedEffect(boardRoute) {
         val info = tabsViewModel.resolveBoardInfo(
             boardId = boardRoute.boardId,
@@ -113,7 +119,7 @@ fun BoardScaffold(
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setBoardCurrentPage(it) },
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
-        bottomBar = { viewModel, uiState, barScrollBehavior ->
+        bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
             val keyboardController = LocalSoftwareKeyboardController.current
             val focusManager = LocalFocusManager.current
             val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
@@ -138,7 +144,7 @@ fun BoardScaffold(
                 TabToolBarAction(
                     icon = Icons.Filled.CropSquare,
                     contentDescriptionRes = R.string.open_tablist,
-                    onClick = { viewModel.openTabListSheet() },
+                    onClick = openTabListSheet,
                 ),
                 TabToolBarAction(
                     icon = Icons.Filled.Create,
