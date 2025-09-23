@@ -16,6 +16,7 @@ import javax.inject.Singleton
 private val Context.dataStore by preferencesDataStore(name = "settings")
 private val DARK_MODE_KEY = booleanPreferencesKey("dark_mode")
 private val TREE_SORT_KEY = booleanPreferencesKey("tree_sort")
+private val THREAD_MINIMAP_SCROLLBAR_KEY = booleanPreferencesKey("thread_minimap_scrollbar")
 private val TEXT_SCALE_KEY = floatPreferencesKey("text_scale")
 private val INDIVIDUAL_TEXT_SCALE_KEY = booleanPreferencesKey("individual_text_scale")
 private val HEADER_TEXT_SCALE_KEY = floatPreferencesKey("header_text_scale")
@@ -43,6 +44,16 @@ class SettingsLocalDataSourceImpl @Inject constructor(
     override suspend fun setTreeSort(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[TREE_SORT_KEY] = enabled
+        }
+    }
+
+    override fun observeIsThreadMinimapScrollbarEnabled(): Flow<Boolean> =
+        context.dataStore.data
+            .map { prefs -> prefs[THREAD_MINIMAP_SCROLLBAR_KEY] ?: true }
+
+    override suspend fun setThreadMinimapScrollbarEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[THREAD_MINIMAP_SCROLLBAR_KEY] = enabled
         }
     }
 

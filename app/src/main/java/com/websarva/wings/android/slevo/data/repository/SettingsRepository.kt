@@ -21,6 +21,12 @@ class SettingsRepository @Inject constructor(
     suspend fun setTreeSort(enabled: Boolean) =
         local.setTreeSort(enabled)
 
+    fun observeIsThreadMinimapScrollbarEnabled(): Flow<Boolean> =
+        local.observeIsThreadMinimapScrollbarEnabled()
+
+    suspend fun setThreadMinimapScrollbarEnabled(enabled: Boolean) =
+        local.setThreadMinimapScrollbarEnabled(enabled)
+
     fun observeTextScale(): Flow<Float> =
         local.observeTextScale()
 
