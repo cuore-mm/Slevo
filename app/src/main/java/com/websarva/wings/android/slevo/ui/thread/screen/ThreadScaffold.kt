@@ -24,24 +24,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
-import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
+import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
-import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.components.DisplaySettingsBottomSheet
-import com.websarva.wings.android.slevo.ui.thread.components.ThreadSearchBar
+import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
+import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
+import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadPagerViewModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideConfirmationScreen
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideErrorWebView
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hidePostDialog
@@ -65,13 +63,16 @@ fun ThreadScaffold(
     threadRoute: AppRoute.Thread,
     navController: NavHostController,
     tabsViewModel: TabsViewModel,
-    openDrawer: () -> Unit,
-    topBarState: TopAppBarState,
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val pagerViewModel: ThreadPagerViewModel = hiltViewModel()
-    val currentPage by pagerViewModel.currentPage.collectAsState()
+    val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
+
+    LaunchedEffect(tabsUiState.threadLoaded, tabsUiState.openThreadTabs) {
+        if (tabsUiState.threadLoaded && tabsUiState.openThreadTabs.isEmpty()) {
+            navController.navigateUp()
+        }
+    }
 
     val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, threadRoute.threadKey)
@@ -88,6 +89,12 @@ fun ThreadScaffold(
             navController.navigateUp()
             return@LaunchedEffect
         }
+        tabsViewModel.ensureThreadTab(
+            threadRoute.copy(
+                boardId = info.boardId,
+                boardName = info.name
+            )
+        )
         val vm = tabsViewModel.getOrCreateThreadViewModel(routeThreadId.value)
         vm.initializeThread(
             threadKey = threadRoute.threadKey,
@@ -96,13 +103,10 @@ fun ThreadScaffold(
         )
     }
 
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topBarState)
-
     RouteScaffold(
         route = threadRoute,
         tabsViewModel = tabsViewModel,
         navController = navController,
-        openDrawer = openDrawer,
         openTabs = tabsUiState.openThreadTabs,
         currentRoutePredicate = { routeThreadId != null && it.id == routeThreadId },
         getViewModel = { tab -> tabsViewModel.getOrCreateThreadViewModel(tab.id.value) },
@@ -124,15 +128,15 @@ fun ThreadScaffold(
             viewModel.updateThreadScrollPosition(tab.id, index, offset)
         },
         currentPage = currentPage,
-        onPageChange = { pagerViewModel.setCurrentPage(it) },
-        scrollBehavior = scrollBehavior,
+        onPageChange = { tabsViewModel.setThreadCurrentPage(it) },
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
-        topBar = { _, _, _, _ -> },
-        bottomBar = { viewModel, uiState, barScrollBehavior ->
+        bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
             val context = LocalContext.current
             val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
             val modifier = if (isThreeButtonBar) {
-                Modifier.navigationBarsPadding().imePadding()
+                Modifier
+                    .navigationBarsPadding()
+                    .imePadding()
             } else {
                 Modifier.imePadding()
             }
@@ -152,11 +156,12 @@ fun ThreadScaffold(
                 label = "BottomBarAnimation"
             ) { isSearchMode ->
                 if (isSearchMode) {
-                    ThreadSearchBar(
+                    SearchBottomBar(
                         modifier = modifier,
                         searchQuery = uiState.searchQuery,
                         onQueryChange = { viewModel.updateSearchQuery(it) },
                         onCloseSearch = { viewModel.closeSearch() },
+                        placeholderResId = R.string.search_in_thread,
                     )
                 } else {
                     ThreadToolBar(
@@ -165,7 +170,7 @@ fun ThreadScaffold(
                         isTreeSort = uiState.sortType == ThreadSortType.TREE,
                         onSortClick = { viewModel.toggleSortType() },
                         onPostClick = { viewModel.showPostDialog() },
-                        onTabListClick = { viewModel.openTabListSheet() },
+                        onTabListClick = openTabListSheet,
                         onRefreshClick = { viewModel.reloadThread() },
                         onSearchClick = { viewModel.startSearch() },
                         onBookmarkClick = { viewModel.openBookmarkSheet() },
@@ -209,6 +214,7 @@ fun ThreadScaffold(
                 uiState = uiState,
                 listState = listState,
                 navController = navController,
+                tabsViewModel = tabsViewModel,
                 onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
                 onBottomRefresh = { viewModel.reloadThread() },
                 onLastRead = { resNum ->
@@ -226,6 +232,7 @@ fun ThreadScaffold(
                 threadInfo = uiState.threadInfo,
                 boardInfo = uiState.boardInfo,
                 navController = navController,
+                tabsViewModel = tabsViewModel,
             )
 
             if (uiState.showMoreSheet) {

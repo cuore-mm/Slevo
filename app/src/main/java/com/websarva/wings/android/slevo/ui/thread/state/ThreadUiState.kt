@@ -18,7 +18,6 @@ data class ThreadUiState(
     val boardInfo: BoardInfo = BoardInfo(0, "", ""),
     val singleBookmarkState: SingleBookmarkState = SingleBookmarkState(),
     override val isLoading: Boolean = false,
-    override val showTabListSheet: Boolean = false,
     val showThreadInfoSheet: Boolean = false,
     val showMoreSheet: Boolean = false,
     val showDisplaySettingsSheet: Boolean = false,
@@ -36,6 +35,7 @@ data class ThreadUiState(
     val firstNewResNo: Int? = null,
     val prevResCount: Int = 0,
     val isAutoScroll: Boolean = false,
+    val showMinimapScrollbar: Boolean = true,
     val textScale: Float = 1f,
     val isIndividualTextScale: Boolean = false,
     val headerTextScale: Float = 0.85f,
@@ -47,11 +47,9 @@ data class ThreadUiState(
 ) : BaseUiState<ThreadUiState> {
     override fun copyState(
         isLoading: Boolean,
-        showTabListSheet: Boolean
     ): ThreadUiState {
         return this.copy(
             isLoading = isLoading,
-            showTabListSheet = showTabListSheet
         )
     }
 }

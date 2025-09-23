@@ -19,7 +19,9 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.threadKey
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.topbar.HomeTopAppBarScreen
+import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,6 +29,7 @@ fun HistoryListScaffold(
     navController: NavHostController,
     topBarState: TopAppBarState,
     parentPadding: PaddingValues,
+    tabsViewModel: TabsViewModel,
 ) {
     val viewModel: HistoryViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
@@ -51,16 +54,18 @@ fun HistoryListScaffold(
             ),
             histories = uiState.histories,
             onThreadClick = { history ->
-                navController.navigate(
-                    AppRoute.Thread(
-                        threadKey = history.history.threadId.threadKey,
-                        boardUrl = history.history.boardUrl,
-                        boardName = history.history.boardName,
-                        boardId = history.history.boardId,
-                        threadTitle = history.history.title,
-                        resCount = history.history.resCount
-                    )
-                ) { launchSingleTop = true }
+                val route = AppRoute.Thread(
+                    threadKey = history.history.threadId.threadKey,
+                    boardUrl = history.history.boardUrl,
+                    boardName = history.history.boardName,
+                    boardId = history.history.boardId,
+                    threadTitle = history.history.title,
+                    resCount = history.history.resCount
+                )
+                navController.navigateToThread(
+                    route = route,
+                    tabsViewModel = tabsViewModel,
+                )
             }
         )
     }

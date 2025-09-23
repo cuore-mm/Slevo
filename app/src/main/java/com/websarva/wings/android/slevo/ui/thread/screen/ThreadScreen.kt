@@ -3,15 +3,16 @@ package com.websarva.wings.android.slevo.ui.thread.screen
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -21,8 +22,6 @@ import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -59,9 +58,10 @@ import com.websarva.wings.android.slevo.ui.thread.item.PostItem
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import androidx.compose.foundation.gestures.scrollBy
+import my.nanihadesuka.compose.LazyColumnScrollbar
 import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -71,6 +71,7 @@ fun ThreadScreen(
     uiState: ThreadUiState,
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
+    tabsViewModel: TabsViewModel? = null,
     onAutoScrollBottom: () -> Unit = {},
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
@@ -193,153 +194,173 @@ fun ThreadScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .nestedScroll(nestedScrollConnection),
-                state = listState,
-            ) {
-                if (visiblePosts.isNotEmpty()) {
-                    val firstIndent = if (uiState.sortType == ThreadSortType.TREE) {
-                        visiblePosts.first().depth
-                    } else {
-                        0
-                    }
-                    item(key = "thread_header_divider") {
-                        HorizontalDivider(modifier = Modifier.padding(start = 16.dp * firstIndent))
-                    }
+        val lazyColumnContent: LazyListScope.() -> Unit = {
+            if (visiblePosts.isNotEmpty()) {
+                val firstIndent = if (uiState.sortType == ThreadSortType.TREE) {
+                    visiblePosts.first().depth
+                } else {
+                    0
                 }
-
-                itemsIndexed(
-                    items = visiblePosts,
-                    key = { _, display -> "${display.num}_${display.dimmed}" }
-                ) { idx, display ->
-                    val postNum = display.num
-                    val post = display.post
-                    val index = postNum - 1
-                    val indent = if (uiState.sortType == ThreadSortType.TREE) {
-                        display.depth
-                    } else {
-                        0
-                    }
-                    val nextIndent = if (idx + 1 < visiblePosts.size) {
-                        if (uiState.sortType == ThreadSortType.TREE) {
-                            visiblePosts[idx + 1].depth
-                        } else {
-                            0
-                        }
-                    } else {
-                        0
-                    }
-
-                    // 再構成を発生させない座標ホルダ（クリック時のみ参照）
-                    data class OffsetHolder(var value: IntOffset)
-
-                    val itemOffsetHolder = remember { OffsetHolder(IntOffset.Zero) }
-                    Column {
-                        if (firstAfterIndex != -1 && idx == firstAfterIndex) {
-                            NewArrivalBar()
-                        }
-                        PostItem(
-                            modifier = Modifier.onGloballyPositioned { coords ->
-                                val pos = coords.positionInWindow()
-                                itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
-                            },
-                            post = post,
-                            postNum = postNum,
-                            idIndex = uiState.idIndexList.getOrElse(index) { 1 },
-                            idTotal = if (post.id.isBlank()) 1 else uiState.idCountMap[post.id]
-                                ?: 1,
-                            navController = navController,
-                            boardName = uiState.boardInfo.name,
-                            boardId = uiState.boardInfo.boardId,
-                            headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
-                            bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
-                            lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
-                            indentLevel = indent,
-                            replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
-                            isMyPost = postNum in uiState.myPostNumbers,
-                            dimmed = display.dimmed,
-                            searchQuery = uiState.searchQuery,
-                            onReplyFromClick = { nums ->
-                                val offset = if (popupStack.isEmpty()) {
-                                    itemOffsetHolder.value
-                                } else {
-                                    val last = popupStack.last()
-                                    IntOffset(
-                                        last.offset.x,
-                                        (last.offset.y - last.size.height).coerceAtLeast(0)
-                                    )
-                                }
-                                val targets = nums.filterNot { it in ngNumbers }.mapNotNull { num ->
-                                    posts.getOrNull(num - 1)
-                                }
-                                if (targets.isNotEmpty()) {
-                                    popupStack.add(PopupInfo(targets, offset))
-                                }
-                            },
-                            onReplyClick = { num ->
-                                if (num in 1..posts.size && num !in ngNumbers) {
-                                    val target = posts[num - 1]
-                                    val baseOffset = itemOffsetHolder.value
-                                    val offset = if (popupStack.isEmpty()) {
-                                        baseOffset
-                                    } else {
-                                        val last = popupStack.last()
-                                        IntOffset(
-                                            last.offset.x,
-                                            (last.offset.y - last.size.height).coerceAtLeast(0)
-                                        )
-                                    }
-                                    popupStack.add(PopupInfo(listOf(target), offset))
-                                }
-                            },
-                            onMenuReplyClick = { onReplyToPost(it) },
-                            onIdClick = { id ->
-                                val offset = if (popupStack.isEmpty()) {
-                                    itemOffsetHolder.value
-                                } else {
-                                    val last = popupStack.last()
-                                    IntOffset(
-                                        last.offset.x,
-                                        (last.offset.y - last.size.height).coerceAtLeast(0)
-                                    )
-                                }
-                                val targets = posts.mapIndexedNotNull { idx, p ->
-                                    val num = idx + 1
-                                    if (p.id == id && num !in ngNumbers) p else null
-                                }
-                                if (targets.isNotEmpty()) {
-                                    popupStack.add(PopupInfo(targets, offset))
-                                }
-                            }
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(
-                                start = 16.dp * min(
-                                    indent,
-                                    nextIndent
-                                )
-                            )
-                        )
-                    }
+                item(key = "thread_header_divider") {
+                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp * firstIndent))
                 }
             }
-            // 中央の区切り線
-            VerticalDivider()
 
-            // 右側: 固定の勢いバー
-            MomentumBar(
-                modifier = Modifier
-                    .width(24.dp)
-                    .fillMaxHeight(),
-                posts = displayPosts,
-                replyCounts = replyCounts,
-                lazyListState = listState,
-                firstAfterIndex = firstAfterIndex,
-                myPostNumbers = uiState.myPostNumbers
-            )
+            itemsIndexed(
+                items = visiblePosts,
+                key = { _, display -> "${display.num}_${display.dimmed}" }
+            ) { idx, display ->
+                val postNum = display.num
+                val post = display.post
+                val index = postNum - 1
+                val indent = if (uiState.sortType == ThreadSortType.TREE) {
+                    display.depth
+                } else {
+                    0
+                }
+                val nextIndent = if (idx + 1 < visiblePosts.size) {
+                    if (uiState.sortType == ThreadSortType.TREE) {
+                        visiblePosts[idx + 1].depth
+                    } else {
+                        0
+                    }
+                } else {
+                    0
+                }
+
+                // 再構成を発生させない座標ホルダ（クリック時のみ参照）
+                data class OffsetHolder(var value: IntOffset)
+
+                val itemOffsetHolder = remember { OffsetHolder(IntOffset.Zero) }
+                Column {
+                    if (firstAfterIndex != -1 && idx == firstAfterIndex) {
+                        NewArrivalBar()
+                    }
+                    PostItem(
+                        modifier = Modifier.onGloballyPositioned { coords ->
+                            val pos = coords.positionInWindow()
+                            itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
+                        },
+                        post = post,
+                        postNum = postNum,
+                        idIndex = uiState.idIndexList.getOrElse(index) { 1 },
+                        idTotal = if (post.id.isBlank()) 1 else uiState.idCountMap[post.id]
+                            ?: 1,
+                        navController = navController,
+                        tabsViewModel = tabsViewModel,
+                        boardName = uiState.boardInfo.name,
+                        boardId = uiState.boardInfo.boardId,
+                        headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
+                        bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
+                        lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
+                        indentLevel = indent,
+                        replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
+                        isMyPost = postNum in uiState.myPostNumbers,
+                        dimmed = display.dimmed,
+                        searchQuery = uiState.searchQuery,
+                        onReplyFromClick = { nums ->
+                            val offset = if (popupStack.isEmpty()) {
+                                itemOffsetHolder.value
+                            } else {
+                                val last = popupStack.last()
+                                IntOffset(
+                                    last.offset.x,
+                                    (last.offset.y - last.size.height).coerceAtLeast(0)
+                                )
+                            }
+                            val targets = nums.filterNot { it in ngNumbers }.mapNotNull { num ->
+                                posts.getOrNull(num - 1)
+                            }
+                            if (targets.isNotEmpty()) {
+                                popupStack.add(PopupInfo(targets, offset))
+                            }
+                        },
+                        onReplyClick = { num ->
+                            if (num in 1..posts.size && num !in ngNumbers) {
+                                val target = posts[num - 1]
+                                val baseOffset = itemOffsetHolder.value
+                                val offset = if (popupStack.isEmpty()) {
+                                    baseOffset
+                                } else {
+                                    val last = popupStack.last()
+                                    IntOffset(
+                                        last.offset.x,
+                                        (last.offset.y - last.size.height).coerceAtLeast(0)
+                                    )
+                                }
+                                popupStack.add(PopupInfo(listOf(target), offset))
+                            }
+                        },
+                        onMenuReplyClick = { onReplyToPost(it) },
+                        onIdClick = { id ->
+                            val offset = if (popupStack.isEmpty()) {
+                                itemOffsetHolder.value
+                            } else {
+                                val last = popupStack.last()
+                                IntOffset(
+                                    last.offset.x,
+                                    (last.offset.y - last.size.height).coerceAtLeast(0)
+                                )
+                            }
+                            val targets = posts.mapIndexedNotNull { idx, p ->
+                                val num = idx + 1
+                                if (p.id == id && num !in ngNumbers) p else null
+                            }
+                            if (targets.isNotEmpty()) {
+                                popupStack.add(PopupInfo(targets, offset))
+                            }
+                        }
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(
+                            start = 16.dp * min(
+                                indent,
+                                nextIndent
+                            )
+                        )
+                    )
+                }
+            }
+        }
+
+        if (uiState.showMinimapScrollbar) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(1f)
+                        .nestedScroll(nestedScrollConnection),
+                    state = listState,
+                    content = lazyColumnContent
+                )
+                // 中央の区切り線
+                VerticalDivider()
+
+                // 右側: 固定の勢いバー
+                MomentumBar(
+                    modifier = Modifier
+                        .width(24.dp)
+                        .fillMaxHeight(),
+                    posts = displayPosts,
+                    replyCounts = replyCounts,
+                    lazyListState = listState,
+                    firstAfterIndex = firstAfterIndex,
+                    myPostNumbers = uiState.myPostNumbers
+                )
+            }
+        } else {
+            LazyColumnScrollbar(
+                modifier = Modifier.fillMaxSize(),
+                state = listState,
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(nestedScrollConnection),
+                    state = listState,
+                    content = lazyColumnContent
+                )
+            }
         }
 
         if (popupStack.isNotEmpty()) {
@@ -367,6 +388,7 @@ fun ThreadScreen(
             ngPostNumbers = ngNumbers,
             myPostNumbers = uiState.myPostNumbers,
             navController = navController,
+            tabsViewModel = tabsViewModel,
             boardName = uiState.boardInfo.name,
             boardId = uiState.boardInfo.boardId,
             headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
@@ -375,18 +397,6 @@ fun ThreadScreen(
             searchQuery = uiState.searchQuery,
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) }
         )
-
-        if (uiState.isLoading) {
-            LinearProgressIndicator(
-                progress = { uiState.loadProgress },
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth(),
-                color = ProgressIndicatorDefaults.linearColor,
-                trackColor = ProgressIndicatorDefaults.linearTrackColor,
-                strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
-            )
-        }
 
         val arrowRotation by animateFloatAsState(
             targetValue = if (triggerRefresh) 180f else (overscroll / refreshThresholdPx).coerceIn(

@@ -32,8 +32,8 @@ android {
         applicationId = "com.websarva.wings.android.slevo"
         minSdk = 24
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.2.0"
+        versionCode = 8
+        versionName = "1.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -168,6 +168,7 @@ dependencies {
 
     // compose.foundation
     implementation(libs.androidx.foundation)
+    implementation(libs.lazycolumn.scrollbar)
 
     // Telephoto
     implementation(libs.zoomable.image.coil3)

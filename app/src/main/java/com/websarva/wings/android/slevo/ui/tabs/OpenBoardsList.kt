@@ -28,6 +28,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 
@@ -38,6 +39,7 @@ fun OpenBoardsList(
     onCloseClick: (BoardTabInfo) -> Unit = {},
     navController: NavHostController,
     closeDrawer: () -> Unit,
+    tabsViewModel: TabsViewModel? = null,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         LazyColumn(modifier = Modifier.weight(1f)) {
@@ -67,14 +69,15 @@ fun OpenBoardsList(
                             .weight(1f)
                             .clickable {
                                 closeDrawer()
-                                navController.navigate(
-                                    AppRoute.Board(
-                                        boardId = tab.boardId,
-                                        boardName = tab.boardName,
-                                        boardUrl = tab.boardUrl
-                                    )
+                                val route = AppRoute.Board(
+                                    boardId = tab.boardId,
+                                    boardName = tab.boardName,
+                                    boardUrl = tab.boardUrl
+                                )
+                                navController.navigateToBoard(
+                                    route = route,
+                                    tabsViewModel = tabsViewModel,
                                 ) {
-                                    launchSingleTop = true
                                     restoreState = true
                                 }
                             }

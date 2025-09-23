@@ -108,6 +108,11 @@ class ThreadViewModel @AssistedInject constructor(
                 _uiState.update { it.copy(lineHeight = height) }
             }
         }
+        viewModelScope.launch {
+            settingsRepository.observeIsThreadMinimapScrollbarEnabled().collect { enabled ->
+                _uiState.update { it.copy(showMinimapScrollbar = enabled) }
+            }
+        }
     }
 
     internal val _postUiState = MutableStateFlow(PostUiState())

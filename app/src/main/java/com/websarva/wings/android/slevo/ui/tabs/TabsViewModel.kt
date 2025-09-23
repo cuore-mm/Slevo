@@ -11,16 +11,17 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.ui.board.BoardViewModel
 import com.websarva.wings.android.slevo.ui.board.BoardViewModelFactory
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModelFactory
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -43,6 +44,12 @@ class TabsViewModel @Inject constructor(
     // 画面用のUIステートのみを保持
     private val _uiState = MutableStateFlow(TabsUiState())
     val uiState: StateFlow<TabsUiState> = _uiState.asStateFlow()
+
+    private val _boardCurrentPage = MutableStateFlow(-1)
+    val boardCurrentPage: StateFlow<Int> = _boardCurrentPage.asStateFlow()
+
+    private val _threadCurrentPage = MutableStateFlow(-1)
+    val threadCurrentPage: StateFlow<Int> = _threadCurrentPage.asStateFlow()
 
     // boardUrl をキーに BoardViewModel をキャッシュ
     private val boardViewModelMap: MutableMap<String, BoardViewModel> = mutableMapOf()
@@ -127,14 +134,47 @@ class TabsViewModel @Inject constructor(
         viewModelScope.launch { tabsRepository.setLastSelectedPage(page) }
     }
 
+    fun ensureBoardTab(route: AppRoute.Board): Int {
+        val index = upsertBoardTab(
+            BoardTabInfo(
+                boardId = route.boardId ?: 0L,
+                boardName = route.boardName,
+                boardUrl = route.boardUrl,
+                serviceName = parseServiceName(route.boardUrl)
+            )
+        )
+        viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
+        return index
+    }
+
+    fun ensureThreadTab(route: AppRoute.Thread): Int {
+        val (host, board) = parseBoardUrl(route.boardUrl) ?: return -1
+        val tabInfo = ThreadTabInfo(
+            id = ThreadId.of(host, board, route.threadKey),
+            title = route.threadTitle,
+            boardName = route.boardName,
+            boardUrl = route.boardUrl,
+            boardId = route.boardId ?: 0L,
+            resCount = route.resCount
+        )
+        return upsertThreadTab(tabInfo)
+    }
+
     /**
      * 板タブを開く。すでに存在する場合は最新情報で上書きする。
      */
     fun openBoardTab(boardTabInfo: BoardTabInfo) {
+        upsertBoardTab(boardTabInfo)
+        viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
+    }
+
+    private fun upsertBoardTab(boardTabInfo: BoardTabInfo): Int {
+        var targetIndex = -1
         _uiState.update { state ->
             val currentBoards = state.openBoardTabs
             val index = currentBoards.indexOfFirst { it.boardUrl == boardTabInfo.boardUrl }
             val updated = if (index != -1) {
+                targetIndex = index
                 currentBoards.toMutableList().apply {
                     this[index] = boardTabInfo.copy(
                         firstVisibleItemIndex = this[index].firstVisibleItemIndex,
@@ -142,11 +182,49 @@ class TabsViewModel @Inject constructor(
                     )
                 }
             } else {
+                targetIndex = currentBoards.size
                 currentBoards + boardTabInfo
             }
             state.copy(openBoardTabs = updated)
         }
-        viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
+        return targetIndex
+    }
+
+    private fun upsertThreadTab(tabInfo: ThreadTabInfo): Int {
+        var updatedTabs: List<ThreadTabInfo> = emptyList()
+        var targetIndex = -1
+        _uiState.update { state ->
+            val current = state.openThreadTabs
+            val index = current.indexOfFirst { it.id == tabInfo.id }
+            val newList = if (index != -1) {
+                targetIndex = index
+                current.toMutableList().apply {
+                    val existing = this[index]
+                    this[index] = existing.copy(
+                        title = tabInfo.title,
+                        boardName = tabInfo.boardName,
+                        boardId = if (tabInfo.boardId != 0L) tabInfo.boardId else existing.boardId,
+                        boardUrl = tabInfo.boardUrl,
+                        resCount = if (tabInfo.resCount != 0) tabInfo.resCount else existing.resCount
+                    )
+                }
+            } else {
+                targetIndex = current.size
+                current + tabInfo
+            }
+            updatedTabs = newList
+            state.copy(openThreadTabs = newList)
+        }
+        viewModelScope.launch { tabsRepository.saveOpenThreadTabs(updatedTabs) }
+        return targetIndex
+    }
+
+    fun setBoardCurrentPage(page: Int) {
+        _boardCurrentPage.value = page
+    }
+
+    fun setThreadCurrentPage(page: Int) {
+        _threadCurrentPage.value = page
     }
 
     /**
@@ -176,13 +254,26 @@ class TabsViewModel @Inject constructor(
      */
     fun closeThreadTab(tab: ThreadTabInfo) {
         val mapKey = tab.id.value
-        threadViewModelMap[mapKey]?.release()
-        threadViewModelMap.remove(mapKey)
-        viewModelScope.launch {
-            val current = tabsRepository.observeOpenThreadTabs().first()
-            val updated = current.filterNot { it.id == tab.id }
-            tabsRepository.saveOpenThreadTabs(updated)
+        threadViewModelMap.remove(mapKey)?.release()
+
+        var updatedTabs: List<ThreadTabInfo> = emptyList()
+        val removedIndex = _uiState.value.openThreadTabs.indexOfFirst { it.id == tab.id }
+        _uiState.update { state ->
+            val newTabs = state.openThreadTabs.filterNot { it.id == tab.id }
+            updatedTabs = newTabs
+            state.copy(
+                openThreadTabs = newTabs,
+                newResCounts = state.newResCounts - mapKey
+            )
         }
+
+        updateCurrentPageAfterRemoval(
+            currentPageFlow = _threadCurrentPage,
+            removedIndex = removedIndex,
+            updatedSize = updatedTabs.size
+        )
+
+        viewModelScope.launch { tabsRepository.saveOpenThreadTabs(updatedTabs) }
     }
 
     /**
@@ -190,10 +281,40 @@ class TabsViewModel @Inject constructor(
      */
     fun closeBoardTab(tab: BoardTabInfo) {
         boardViewModelMap.remove(tab.boardUrl)?.release()
+
+        var updatedTabs: List<BoardTabInfo> = emptyList()
+        val removedIndex = _uiState.value.openBoardTabs.indexOfFirst { it.boardUrl == tab.boardUrl }
         _uiState.update { state ->
-            state.copy(openBoardTabs = state.openBoardTabs.filterNot { it.boardUrl == tab.boardUrl })
+            val newTabs = state.openBoardTabs.filterNot { it.boardUrl == tab.boardUrl }
+            updatedTabs = newTabs
+            state.copy(openBoardTabs = newTabs)
         }
-        viewModelScope.launch { tabsRepository.saveOpenBoardTabs(_uiState.value.openBoardTabs) }
+
+        updateCurrentPageAfterRemoval(
+            currentPageFlow = _boardCurrentPage,
+            removedIndex = removedIndex,
+            updatedSize = updatedTabs.size
+        )
+
+        viewModelScope.launch { tabsRepository.saveOpenBoardTabs(updatedTabs) }
+    }
+
+    private fun updateCurrentPageAfterRemoval(
+        currentPageFlow: MutableStateFlow<Int>,
+        removedIndex: Int,
+        updatedSize: Int,
+    ) {
+        val current = currentPageFlow.value
+        val newPage = when {
+            updatedSize <= 0 -> -1
+            current < 0 -> current
+            removedIndex == -1 -> current.coerceIn(0, updatedSize - 1)
+            current == removedIndex -> removedIndex.coerceAtMost(updatedSize - 1)
+            current > removedIndex -> (current - 1).coerceIn(0, updatedSize - 1)
+            current >= updatedSize -> updatedSize - 1
+            else -> current
+        }
+        currentPageFlow.value = newPage
     }
 
     /**

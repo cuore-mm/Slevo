@@ -24,6 +24,11 @@ class SettingsThreadViewModel @Inject constructor(
                 _uiState.update { it.copy(isTreeSort = isTree) }
             }
         }
+        viewModelScope.launch {
+            repository.observeIsThreadMinimapScrollbarEnabled().collect { enabled ->
+                _uiState.update { it.copy(showMinimapScrollbar = enabled) }
+            }
+        }
     }
 
     fun updateSort(isTree: Boolean) {
@@ -31,8 +36,15 @@ class SettingsThreadViewModel @Inject constructor(
             repository.setTreeSort(isTree)
         }
     }
+
+    fun updateMinimapScrollbar(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setThreadMinimapScrollbarEnabled(enabled)
+        }
+    }
 }
 
 data class SettingsThreadUiState(
-    val isTreeSort: Boolean = false
+    val isTreeSort: Boolean = false,
+    val showMinimapScrollbar: Boolean = true,
 )

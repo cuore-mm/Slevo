@@ -87,6 +87,9 @@
     <string name="reset">リセット</string>
 
     <string name="default_thread_sort_order">レスのデフォルトの並び順</string>
+    <string name="thread_scrollbar_settings">スクロールバー</string>
+    <string name="show_minimap_scrollbar">ミニマップ付きスクロールバーを表示する</string>
+    <string name="show_minimap_scrollbar_description">スレッド画面右側のミニマップ付きスクロールバーを有効にします</string>
 
     <string name="about_this_app">このアプリについて</string>
     <string name="version_name_label">バージョン: %1$s</string>
@@ -108,4 +111,5 @@
     <string name="open_in_external_browser">外部ブラウザで開く</string>
     <string name="share">共有</string>
     <string name="search_in_thread">スレッド内を検索</string>
+    <string name="search_in_board">板内を検索</string>
 </resources>

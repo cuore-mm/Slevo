@@ -22,6 +22,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 
@@ -74,23 +76,27 @@ fun TabScreenContent(
                     if (thread != null) {
                         val (host, board, key) = thread
                         val boardUrl = "https://$host/$board/"
-                        navController.navigate(
-                            AppRoute.Thread(
-                                threadKey = key,
-                                boardUrl = boardUrl,
-                                boardName = board,
-                                threadTitle = url
-                            )
-                        ) { launchSingleTop = true }
+                        val route = AppRoute.Thread(
+                            threadKey = key,
+                            boardUrl = boardUrl,
+                            boardName = board,
+                            threadTitle = url
+                        )
+                        navController.navigateToThread(
+                            route = route,
+                            tabsViewModel = tabsViewModel,
+                        )
                     } else {
                         parseBoardUrl(url)?.let { (host, board) ->
                             val boardUrl = "https://$host/$board/"
-                            navController.navigate(
-                                AppRoute.Board(
-                                    boardName = boardUrl,
-                                    boardUrl = boardUrl
-                                )
-                            ) { launchSingleTop = true }
+                            val route = AppRoute.Board(
+                                boardName = boardUrl,
+                                boardUrl = boardUrl
+                            )
+                            navController.navigateToBoard(
+                                route = route,
+                                tabsViewModel = tabsViewModel,
+                            )
                         }
                     }
                     showUrlDialog = false

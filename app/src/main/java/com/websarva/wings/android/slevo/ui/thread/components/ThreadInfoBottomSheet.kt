@@ -50,8 +50,10 @@ import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.CopyDialog
 import com.websarva.wings.android.slevo.ui.common.CopyItem
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.common.LabeledIconButton
+import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.text.DecimalFormat
 
@@ -63,6 +65,7 @@ fun ThreadInfoBottomSheet(
     threadInfo: ThreadInfo,
     boardInfo: BoardInfo,
     navController: NavHostController,
+    tabsViewModel: TabsViewModel? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showCopyDialog by remember { mutableStateOf(false) }
@@ -83,15 +86,15 @@ fun ThreadInfoBottomSheet(
                 threadInfo = threadInfo,
                 boardName = boardInfo.name,
                 onBoardClick = {
-                    navController.navigate(
-                        AppRoute.Board(
-                            boardId = boardInfo.boardId,
-                            boardName = boardInfo.name,
-                            boardUrl = boardInfo.url
-                        )
-                    ) {
-                        launchSingleTop = true
-                    }
+                    val route = AppRoute.Board(
+                        boardId = boardInfo.boardId,
+                        boardName = boardInfo.name,
+                        boardUrl = boardInfo.url
+                    )
+                    navController.navigateToBoard(
+                        route = route,
+                        tabsViewModel = tabsViewModel,
+                    )
                     onDismissRequest()
                 },
                 onOpenBrowserClick = {

@@ -1,5 +1,8 @@
 package com.websarva.wings.android.slevo.ui.navigation
 
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -18,6 +21,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -47,7 +51,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     route: AppRoute,
     tabsViewModel: TabsViewModel,
     navController: NavHostController,
-    openDrawer: () -> Unit,
     openTabs: List<TabInfo>,
     currentRoutePredicate: (TabInfo) -> Boolean,
     getViewModel: (TabInfo) -> ViewModel,
@@ -58,10 +61,13 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     updateScrollPosition: (viewModel: ViewModel, tab: TabInfo, index: Int, offset: Int) -> Unit,
     currentPage: Int,
     onPageChange: (Int) -> Unit,
-    topBar: @Composable (viewModel: ViewModel, uiState: UiState, openDrawer: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) -> Unit,
-    bottomBar: @Composable (viewModel: ViewModel, uiState: UiState, scrollBehavior: BottomAppBarScrollBehavior?) -> Unit,
+    bottomBar: @Composable (
+        viewModel: ViewModel,
+        uiState: UiState,
+        scrollBehavior: BottomAppBarScrollBehavior?,
+        openTabListSheet: () -> Unit,
+    ) -> Unit,
     content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier, navController: NavHostController) -> Unit,
-    scrollBehavior: TopAppBarScrollBehavior,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
@@ -79,13 +85,15 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     Timber.d("tabs: $tabs")
     val currentTabInfo = tabs.find(currentRoutePredicate)
 
-    if (currentTabInfo != null) {
+    if (tabs.isNotEmpty()) {
         // 初期ページの決定。routeやタブ数が変わったら再計算される。
-        val initialPage = remember(route, tabs.size, currentPage) {
-            if (currentPage >= 0) {
-                currentPage.coerceIn(0, tabs.size - 1)
-            } else {
-                tabs.indexOfFirst(currentRoutePredicate).coerceAtLeast(0)
+        val initialPage = remember(route, tabs.size, currentTabInfo, currentPage) {
+            when {
+                currentPage in tabs.indices -> currentPage
+                currentPage >= 0 -> currentPage.coerceIn(0, tabs.size - 1)
+                currentTabInfo != null -> tabs.indexOf(currentTabInfo).takeIf { it >= 0 }
+                    ?: 0
+                else -> 0
             }
         }
 
@@ -107,10 +115,23 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         // 共通で使うボトムシートの状態
         val bookmarkSheetState = rememberModalBottomSheetState()
         val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        var showTabListSheet by rememberSaveable { mutableStateOf(false) }
+
+        val pagerUserScrollEnabled = when (
+            val currentUiState = currentTabInfo?.let { tabInfo ->
+                val currentViewModel = getViewModel(tabInfo)
+                currentViewModel.uiState.collectAsState().value
+            }
+        ) {
+            is BoardUiState -> !currentUiState.isSearchActive
+            is ThreadUiState -> !currentUiState.isSearchMode
+            else -> true
+        }
 
         HorizontalPager(
             state = pagerState,
-            key = { page -> getKey(tabs[page]) }
+            key = { page -> getKey(tabs[page]) },
+            userScrollEnabled = pagerUserScrollEnabled
         ) { page ->
             val tab = tabs[page]
             val viewModel = getViewModel(tab)
@@ -154,21 +175,36 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
             val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
+            val swipeBlockerState = rememberDraggableState { _ -> }
             Scaffold(
                 modifier = Modifier
                     .let { modifier ->
                         bottomBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
                             ?: modifier
                     },
-                topBar = { topBar(viewModel, uiState, openDrawer, scrollBehavior) },
-                bottomBar = { bottomBar(viewModel, uiState, bottomBehavior) }
+                bottomBar = {
+                    bottomBar(
+                        viewModel,
+                        uiState,
+                        bottomBehavior
+                    ) {
+                        showTabListSheet = true
+                    }
+                }
             ) { innerPadding ->
+                val contentModifier = Modifier
+                    .padding(innerPadding)
+                    .draggable(
+                        state = swipeBlockerState,
+                        orientation = Orientation.Horizontal,
+                        enabled = true
+                    )
                 // 各画面の実際のコンテンツを呼び出す
                 content(
                     viewModel,
                     uiState,
                     listState,
-                    Modifier.padding(innerPadding),
+                    contentModifier,
                     navController
                 )
 
@@ -245,28 +281,27 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         }
                     )
                 }
-
-                if (uiState.showTabListSheet) {
-                    // ルートに応じてタブ選択シートの初期ページを設定
-                    val initialPage = when (route) {
-                        is AppRoute.Thread -> 1
-                        else -> 0
-                    }
-                    TabsBottomSheet(
-                        sheetState = tabListSheetState,
-                        tabsViewModel = tabsViewModel,
-                        navController = navController,
-                        onDismissRequest = { viewModel.closeTabListSheet() },
-                        initialPage = initialPage,
-                    )
-                }
-
                 // 各画面固有のシート
                 optionalSheetContent(viewModel, uiState)
             }
         }
+
+        if (showTabListSheet) {
+            // ルートに応じてタブ選択シートの初期ページを設定
+            val initialPage = when (route) {
+                is AppRoute.Thread -> 1
+                else -> 0
+            }
+            TabsBottomSheet(
+                sheetState = tabListSheetState,
+                tabsViewModel = tabsViewModel,
+                navController = navController,
+                onDismissRequest = { showTabListSheet = false },
+                initialPage = initialPage,
+            )
+        }
     } else {
-        // currentTabInfoが見つからない場合はローディング表示を出す
+        // 表示可能なタブがない場合はローディング表示を出す
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
