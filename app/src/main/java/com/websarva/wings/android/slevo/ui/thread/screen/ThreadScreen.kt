@@ -327,6 +327,7 @@ fun ThreadScreen(
             Row(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     modifier = Modifier
+                        .fillMaxHeight()
                         .weight(1f)
                         .nestedScroll(nestedScrollConnection),
                     state = listState,
