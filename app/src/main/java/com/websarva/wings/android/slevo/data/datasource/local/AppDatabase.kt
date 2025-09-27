@@ -10,15 +10,16 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.BoardDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.BoardBookmarkGroupDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.BookmarkBoardDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.CategoryDao
-    import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.ThreadBookmarkGroupDao
-    import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenBoardTabDao
-    import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenThreadTabDao
-    import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
-    import com.websarva.wings.android.slevo.data.datasource.local.dao.NgDao
-    import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.ThreadSummaryDao
-    import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardVisitDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.ThreadBookmarkGroupDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenBoardTabDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenThreadTabDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.NgDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.ThreadSummaryDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardVisitDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardFetchMetaDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostHistoryDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostIdentityHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BbsServiceEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BoardCategoryCrossRef
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BoardEntity
@@ -36,10 +37,11 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.Threa
 import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.BoardVisitEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.BoardFetchMetaEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostHistoryEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityHistoryEntity
 
 @TypeConverters(NgTypeConverter::class)
-    @Database(
-        entities = [
+@Database(
+    entities = [
         BbsServiceEntity::class,
         CategoryEntity::class,
         BoardEntity::class,
@@ -56,9 +58,10 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.history.Pos
         ThreadSummaryEntity::class,
         BoardVisitEntity::class,
         BoardFetchMetaEntity::class,
-        PostHistoryEntity::class
+        PostHistoryEntity::class,
+        PostIdentityHistoryEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -78,6 +81,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun boardVisitDao(): BoardVisitDao
     abstract fun boardFetchMetaDao(): BoardFetchMetaDao
     abstract fun postHistoryDao(): PostHistoryDao
+    abstract fun postIdentityHistoryDao(): PostIdentityHistoryDao
 
     companion object {
         val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
@@ -168,6 +172,31 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE thread_history_accesses_new RENAME TO thread_history_accesses")
                 database.execSQL(
                     "CREATE INDEX IF NOT EXISTS index_thread_history_accesses_threadHistoryId ON thread_history_accesses(threadHistoryId)"
+                )
+            }
+        }
+
+        val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS post_identity_histories (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "boardId INTEGER NOT NULL, " +
+                        "type TEXT NOT NULL, " +
+                        "value TEXT NOT NULL, " +
+                        "lastUsedAt INTEGER NOT NULL, " +
+                        "FOREIGN KEY(boardId) REFERENCES boards(boardId) ON DELETE CASCADE" +
+                        ")"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_post_identity_histories_boardId ON post_identity_histories(boardId)"
+                )
+                database.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_post_identity_histories_boardId_type_value " +
+                        "ON post_identity_histories(boardId, type, value)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_post_identity_histories_lastUsedAt ON post_identity_histories(lastUsedAt)"
                 )
             }
         }

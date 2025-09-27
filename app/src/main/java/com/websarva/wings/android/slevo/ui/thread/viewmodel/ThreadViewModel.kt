@@ -699,6 +699,16 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     fun onPostSuccess(resNum: Int?, message: String, name: String, mail: String) {
+        val boardId = uiState.value.boardInfo.boardId
+        if (boardId != 0L) {
+            viewModelScope.launch {
+                postHistoryRepository.recordIdentity(
+                    boardId = boardId,
+                    name = name,
+                    email = mail
+                )
+            }
+        }
         pendingPost = PendingPost(resNum, message, name, mail)
         reloadThread()
     }
