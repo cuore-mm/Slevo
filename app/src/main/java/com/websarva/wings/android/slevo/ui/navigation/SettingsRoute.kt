@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import com.websarva.wings.android.slevo.ui.settings.SettingsCookieScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsGeneralScreen
+import com.websarva.wings.android.slevo.ui.settings.SettingsGestureScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsNgScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsThreadScreen
@@ -27,6 +28,7 @@ fun NavGraphBuilder.addSettingsRoute(
         composable<AppRoute.SettingsHome> {
             SettingsScreen(
                 onGeneralClick = { navController.navigate(AppRoute.SettingsGeneral) },
+                onGestureClick = { navController.navigate(AppRoute.SettingsGesture) },
                 onThreadClick = { navController.navigate(AppRoute.SettingsThread) },
                 onNgClick = { navController.navigate(AppRoute.SettingsNg) },
                 onCookieClick = { navController.navigate(AppRoute.SettingsCookie) }
@@ -52,6 +54,11 @@ fun NavGraphBuilder.addSettingsRoute(
         }
         composable<AppRoute.SettingsCookie> {
             SettingsCookieScreen(
+                onNavigateUp = { navController.navigateUp() }
+            )
+        }
+        composable<AppRoute.SettingsGesture> {
+            SettingsGestureScreen(
                 onNavigateUp = { navController.navigateUp() }
             )
         }
