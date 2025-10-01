@@ -11,12 +11,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.topbar.HomeTopAppBarScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onGeneralClick: () -> Unit,
+    onGestureClick: () -> Unit,
     onThreadClick: () -> Unit,
     onNgClick: () -> Unit,
     onCookieClick: () -> Unit,
@@ -39,6 +42,13 @@ fun SettingsScreen(
                 ListItem(
                     modifier = Modifier.clickable(onClick = onGeneralClick),
                     headlineContent = { Text("全般") }
+                )
+                HorizontalDivider()
+            }
+            item {
+                ListItem(
+                    modifier = Modifier.clickable(onClick = onGestureClick),
+                    headlineContent = { Text(stringResource(id = R.string.gesture_settings)) }
                 )
                 HorizontalDivider()
             }
