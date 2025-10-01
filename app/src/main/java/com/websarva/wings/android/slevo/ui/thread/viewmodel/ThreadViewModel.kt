@@ -167,6 +167,30 @@ class ThreadViewModel @AssistedInject constructor(
             }
         }
 
+        viewModelScope.launch {
+            val ensuredId = boardRepository.ensureBoard(boardInfo)
+            if (ensuredId != boardInfo.boardId) {
+                _uiState.update { state ->
+                    state.copy(boardInfo = state.boardInfo.copy(boardId = ensuredId))
+                }
+            }
+            postHistoryRepository.getLastIdentity(ensuredId)?.let { identity ->
+                _postUiState.update { current ->
+                    val form = current.postFormState
+                    if (form.name.isEmpty() && form.mail.isEmpty()) {
+                        current.copy(
+                            postFormState = form.copy(
+                                name = identity.name,
+                                mail = identity.email
+                            )
+                        )
+                    } else {
+                        current
+                    }
+                }
+            }
+        }
+
         // Factoryを使ってBookmarkStateViewModelを生成
         singleBookmarkViewModel = singleBookmarkViewModelFactory.create(boardInfo, threadInfo)
 
@@ -699,6 +723,25 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     fun onPostSuccess(resNum: Int?, message: String, name: String, mail: String) {
+        val boardId = uiState.value.boardInfo.boardId
+        if (boardId != 0L) {
+            viewModelScope.launch {
+                postHistoryRepository.recordIdentity(
+                    boardId = boardId,
+                    name = name,
+                    email = mail
+                )
+            }
+        }
+        _postUiState.update { state ->
+            state.copy(
+                postFormState = state.postFormState.copy(
+                    name = name,
+                    mail = mail,
+                    message = ""
+                )
+            )
+        }
         pendingPost = PendingPost(resNum, message, name, mail)
         reloadThread()
     }

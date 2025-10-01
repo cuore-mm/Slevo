@@ -11,6 +11,7 @@ import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
+import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.PostResult
 import com.websarva.wings.android.slevo.data.repository.ThreadCreateRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
@@ -35,6 +36,7 @@ class BoardViewModel @AssistedInject constructor(
     private val threadCreateRepository: ThreadCreateRepository,
     private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
+    private val postHistoryRepository: PostHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     private val ngRepository: NgRepository,
     @Assisted("viewModelKey") val viewModelKey: String
@@ -67,6 +69,22 @@ class BoardViewModel @AssistedInject constructor(
             repository.fetchBoardNoname("${boardInfo.url}SETTING.TXT")?.let { noname ->
                 _uiState.update { state ->
                     state.copy(boardInfo = state.boardInfo.copy(noname = noname))
+                }
+            }
+
+            postHistoryRepository.getLastIdentity(ensuredId)?.let { identity ->
+                _uiState.update { state ->
+                    val form = state.createFormState
+                    if (form.name.isEmpty() && form.mail.isEmpty()) {
+                        state.copy(
+                            createFormState = form.copy(
+                                name = identity.name,
+                                mail = identity.email
+                            )
+                        )
+                    } else {
+                        state
+                    }
                 }
             }
         }
@@ -344,10 +362,22 @@ class BoardViewModel @AssistedInject constructor(
             _uiState.update { it.copy(isPosting = false) }
             when (result) {
                 is PostResult.Success -> {
+                    val formState = uiState.value.createFormState
+                    val boardId = uiState.value.boardInfo.boardId
                     _uiState.update {
                         it.copy(
                             postResultMessage = "書き込みに成功しました。",
-                            createFormState = CreateThreadFormState()
+                            createFormState = CreateThreadFormState(
+                                name = formState.name,
+                                mail = formState.mail
+                            )
+                        )
+                    }
+                    if (boardId != 0L) {
+                        postHistoryRepository.recordIdentity(
+                            boardId = boardId,
+                            name = formState.name,
+                            email = formState.mail
                         )
                     }
                     refreshBoardData()
@@ -383,10 +413,22 @@ class BoardViewModel @AssistedInject constructor(
             _uiState.update { it.copy(isPosting = false) }
             when (result) {
                 is PostResult.Success -> {
+                    val formState = uiState.value.createFormState
+                    val boardId = uiState.value.boardInfo.boardId
                     _uiState.update {
                         it.copy(
                             postResultMessage = "書き込みに成功しました。",
-                            createFormState = CreateThreadFormState()
+                            createFormState = CreateThreadFormState(
+                                name = formState.name,
+                                mail = formState.mail
+                            )
+                        )
+                    }
+                    if (boardId != 0L) {
+                        postHistoryRepository.recordIdentity(
+                            boardId = boardId,
+                            name = formState.name,
+                            email = formState.mail
                         )
                     }
                     refreshBoardData()
