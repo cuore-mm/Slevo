@@ -20,6 +20,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardVis
 import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardFetchMetaDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostIdentityHistoryDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostLastIdentityDao
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BbsServiceEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BoardCategoryCrossRef
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BoardEntity
@@ -38,6 +39,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.Board
 import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.BoardFetchMetaEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostHistoryEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityHistoryEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostLastIdentityEntity
 
 @TypeConverters(NgTypeConverter::class)
 @Database(
@@ -59,9 +61,10 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.history.Pos
         BoardVisitEntity::class,
         BoardFetchMetaEntity::class,
         PostHistoryEntity::class,
-        PostIdentityHistoryEntity::class
+        PostIdentityHistoryEntity::class,
+        PostLastIdentityEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -82,6 +85,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun boardFetchMetaDao(): BoardFetchMetaDao
     abstract fun postHistoryDao(): PostHistoryDao
     abstract fun postIdentityHistoryDao(): PostIdentityHistoryDao
+    abstract fun postLastIdentityDao(): PostLastIdentityDao
 
     companion object {
         val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
@@ -197,6 +201,24 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 database.execSQL(
                     "CREATE INDEX IF NOT EXISTS index_post_identity_histories_lastUsedAt ON post_identity_histories(lastUsedAt)"
+                )
+            }
+        }
+
+        val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS post_last_identities (" +
+                        "boardId INTEGER NOT NULL, " +
+                        "name TEXT NOT NULL, " +
+                        "email TEXT NOT NULL, " +
+                        "updatedAt INTEGER NOT NULL, " +
+                        "PRIMARY KEY(boardId), " +
+                        "FOREIGN KEY(boardId) REFERENCES boards(boardId) ON DELETE CASCADE" +
+                        ")"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_post_last_identities_boardId ON post_last_identities(boardId)"
                 )
             }
         }
