@@ -1,5 +1,8 @@
 package com.websarva.wings.android.slevo.data.datasource.local
 
+import com.websarva.wings.android.slevo.data.model.GestureAction
+import com.websarva.wings.android.slevo.data.model.GestureDirection
+import com.websarva.wings.android.slevo.data.model.GestureSettings
 import kotlinx.coroutines.flow.Flow
 
 interface SettingsLocalDataSource {
@@ -50,4 +53,13 @@ interface SettingsLocalDataSource {
 
     /** 行間の倍率を保存する */
     suspend fun setLineHeight(height: Float)
+
+    /** ジェスチャー設定を監視する */
+    fun observeGestureSettings(): Flow<GestureSettings>
+
+    /** ジェスチャー機能の有効/無効を保存する */
+    suspend fun setGestureEnabled(enabled: Boolean)
+
+    /** 指定方向のジェスチャーアクションを保存する */
+    suspend fun setGestureAction(direction: GestureDirection, action: GestureAction?)
 }

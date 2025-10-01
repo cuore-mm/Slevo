@@ -4,14 +4,20 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.remove
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.websarva.wings.android.slevo.data.datasource.local.SettingsLocalDataSource
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
+import com.websarva.wings.android.slevo.data.model.GestureAction
+import com.websarva.wings.android.slevo.data.model.GestureDirection
+import com.websarva.wings.android.slevo.data.model.GestureSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.Locale
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 private val DARK_MODE_KEY = booleanPreferencesKey("dark_mode")
@@ -22,6 +28,10 @@ private val INDIVIDUAL_TEXT_SCALE_KEY = booleanPreferencesKey("individual_text_s
 private val HEADER_TEXT_SCALE_KEY = floatPreferencesKey("header_text_scale")
 private val BODY_TEXT_SCALE_KEY = floatPreferencesKey("body_text_scale")
 private val LINE_HEIGHT_KEY = floatPreferencesKey("line_height")
+private val GESTURE_ENABLED_KEY = booleanPreferencesKey("gesture_enabled")
+private val GESTURE_ACTION_KEYS = GestureDirection.values().associateWith { direction ->
+    stringPreferencesKey("gesture_action_${direction.name.lowercase(Locale.ROOT)}")
+}
 
 @Singleton
 class SettingsLocalDataSourceImpl @Inject constructor(
@@ -104,6 +114,36 @@ class SettingsLocalDataSourceImpl @Inject constructor(
     override suspend fun setLineHeight(height: Float) {
         context.dataStore.edit { prefs ->
             prefs[LINE_HEIGHT_KEY] = height
+        }
+    }
+
+    override fun observeGestureSettings(): Flow<GestureSettings> =
+        context.dataStore.data
+            .map { prefs ->
+                val isEnabled = prefs[GESTURE_ENABLED_KEY] ?: GestureSettings.DEFAULT.isEnabled
+                val assignments = GestureDirection.values().associateWith { direction ->
+                    val key = GESTURE_ACTION_KEYS.getValue(direction)
+                    prefs[key]?.let { value ->
+                        GestureAction.values().firstOrNull { it.name == value }
+                    }
+                }
+                GestureSettings(isEnabled = isEnabled, assignments = assignments)
+            }
+
+    override suspend fun setGestureEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[GESTURE_ENABLED_KEY] = enabled
+        }
+    }
+
+    override suspend fun setGestureAction(direction: GestureDirection, action: GestureAction?) {
+        val key = GESTURE_ACTION_KEYS.getValue(direction)
+        context.dataStore.edit { prefs ->
+            if (action == null) {
+                prefs.remove(key)
+            } else {
+                prefs[key] = action.name
+            }
         }
     }
 }
