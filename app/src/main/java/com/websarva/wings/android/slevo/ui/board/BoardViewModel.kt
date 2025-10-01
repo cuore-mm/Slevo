@@ -71,6 +71,22 @@ class BoardViewModel @AssistedInject constructor(
                     state.copy(boardInfo = state.boardInfo.copy(noname = noname))
                 }
             }
+
+            postHistoryRepository.getLastIdentity(ensuredId)?.let { identity ->
+                _uiState.update { state ->
+                    val form = state.createFormState
+                    if (form.name.isEmpty() && form.mail.isEmpty()) {
+                        state.copy(
+                            createFormState = form.copy(
+                                name = identity.name,
+                                mail = identity.email
+                            )
+                        )
+                    } else {
+                        state
+                    }
+                }
+            }
         }
 
         viewModelScope.launch {
@@ -351,7 +367,10 @@ class BoardViewModel @AssistedInject constructor(
                     _uiState.update {
                         it.copy(
                             postResultMessage = "書き込みに成功しました。",
-                            createFormState = CreateThreadFormState()
+                            createFormState = CreateThreadFormState(
+                                name = formState.name,
+                                mail = formState.mail
+                            )
                         )
                     }
                     if (boardId != 0L) {
@@ -399,7 +418,10 @@ class BoardViewModel @AssistedInject constructor(
                     _uiState.update {
                         it.copy(
                             postResultMessage = "書き込みに成功しました。",
-                            createFormState = CreateThreadFormState()
+                            createFormState = CreateThreadFormState(
+                                name = formState.name,
+                                mail = formState.mail
+                            )
                         )
                     }
                     if (boardId != 0L) {
