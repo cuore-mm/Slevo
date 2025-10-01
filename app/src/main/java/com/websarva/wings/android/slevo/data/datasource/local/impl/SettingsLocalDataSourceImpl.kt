@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
-import androidx.datastore.preferences.core.remove
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.websarva.wings.android.slevo.data.datasource.local.SettingsLocalDataSource
@@ -15,9 +14,9 @@ import com.websarva.wings.android.slevo.data.model.GestureSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
-import java.util.Locale
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 private val DARK_MODE_KEY = booleanPreferencesKey("dark_mode")
@@ -29,7 +28,7 @@ private val HEADER_TEXT_SCALE_KEY = floatPreferencesKey("header_text_scale")
 private val BODY_TEXT_SCALE_KEY = floatPreferencesKey("body_text_scale")
 private val LINE_HEIGHT_KEY = floatPreferencesKey("line_height")
 private val GESTURE_ENABLED_KEY = booleanPreferencesKey("gesture_enabled")
-private val GESTURE_ACTION_KEYS = GestureDirection.values().associateWith { direction ->
+private val GESTURE_ACTION_KEYS = GestureDirection.entries.associateWith { direction ->
     stringPreferencesKey("gesture_action_${direction.name.lowercase(Locale.ROOT)}")
 }
 
@@ -121,10 +120,10 @@ class SettingsLocalDataSourceImpl @Inject constructor(
         context.dataStore.data
             .map { prefs ->
                 val isEnabled = prefs[GESTURE_ENABLED_KEY] ?: GestureSettings.DEFAULT.isEnabled
-                val assignments = GestureDirection.values().associateWith { direction ->
+                val assignments = GestureDirection.entries.associateWith { direction ->
                     val key = GESTURE_ACTION_KEYS.getValue(direction)
                     prefs[key]?.let { value ->
-                        GestureAction.values().firstOrNull { it.name == value }
+                        GestureAction.entries.firstOrNull { it.name == value }
                     }
                 }
                 GestureSettings(isEnabled = isEnabled, assignments = assignments)
