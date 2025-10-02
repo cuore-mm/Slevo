@@ -2,10 +2,8 @@ package com.websarva.wings.android.slevo.ui.common
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,11 +19,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -106,47 +106,85 @@ fun PostDialog(
                     ) {
                         val focusManager = LocalFocusManager.current
                         Column(modifier = Modifier.weight(1f)) {
-                            OutlinedTextField(
-                                value = name,
-                                onValueChange = { onNameChange(it) },
-                                placeholder = {
-                                    Text(
-                                        text = namePlaceholder,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                            var isNameFocused by remember { mutableStateOf(false) }
+                            Box {
+                                OutlinedTextField(
+                                    value = name,
+                                    onValueChange = { onNameChange(it) },
+                                    placeholder = {
+                                        Text(
+                                            text = namePlaceholder,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .onFocusChanged { focusState ->
+                                            isNameFocused = focusState.isFocused
+                                        },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = { focusManager.moveFocus(FocusDirection.Next) }
                                     )
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
-                                keyboardActions = KeyboardActions(
-                                    onNext = { focusManager.moveFocus(FocusDirection.Next) }
                                 )
-                            )
-                            IdentityHistoryChips(
-                                history = nameHistory,
-                                onHistorySelect = onNameHistorySelect,
-                            )
+                                DropdownMenu(
+                                    expanded = isNameFocused && nameHistory.isNotEmpty(),
+                                    onDismissRequest = {
+                                        isNameFocused = false
+                                        focusManager.clearFocus()
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    nameHistory.forEach { value ->
+                                        DropdownMenuItem(
+                                            text = { Text(value) },
+                                            onClick = {
+                                                onNameHistorySelect(value)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            OutlinedTextField(
-                                value = mail,
-                                onValueChange = { onMailChange(it) },
-                                placeholder = { Text(stringResource(R.string.e_mail)) },
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
-                                keyboardActions = KeyboardActions(
-                                    onNext = { focusManager.moveFocus(FocusDirection.Next) }
+                            var isMailFocused by remember { mutableStateOf(false) }
+                            Box {
+                                OutlinedTextField(
+                                    value = mail,
+                                    onValueChange = { onMailChange(it) },
+                                    placeholder = { Text(stringResource(R.string.e_mail)) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .onFocusChanged { focusState ->
+                                            isMailFocused = focusState.isFocused
+                                        },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = { focusManager.moveFocus(FocusDirection.Next) }
+                                    )
                                 )
-                            )
-                            IdentityHistoryChips(
-                                history = mailHistory,
-                                onHistorySelect = onMailHistorySelect,
-                            )
+                                DropdownMenu(
+                                    expanded = isMailFocused && mailHistory.isNotEmpty(),
+                                    onDismissRequest = {
+                                        isMailFocused = false
+                                        focusManager.clearFocus()
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    mailHistory.forEach { value ->
+                                        DropdownMenuItem(
+                                            text = { Text(value) },
+                                            onClick = {
+                                                onMailHistorySelect(value)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -229,30 +267,6 @@ fun PostDialog(
                     Text(text = confirmButtonText)
                 }
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun IdentityHistoryChips(
-    history: List<String>,
-    onHistorySelect: (String) -> Unit,
-) {
-    if (history.isEmpty()) return
-
-    FlowRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        history.forEach { value ->
-            SuggestionChip(
-                onClick = { onHistorySelect(value) },
-                label = { Text(value) }
-            )
         }
     }
 }
