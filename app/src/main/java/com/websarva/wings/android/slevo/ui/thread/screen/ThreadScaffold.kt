@@ -45,6 +45,8 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideErrorWebView
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hidePostDialog
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.postFirstPhase
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.postTo5chSecondPhase
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.selectPostMailHistory
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.selectPostNameHistory
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.showPostDialog
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.showReplyDialog
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMail
@@ -284,9 +286,13 @@ fun ThreadScaffold(
                     mail = postUiState.postFormState.mail,
                     message = postUiState.postFormState.message,
                     namePlaceholder = uiState.boardInfo.noname.ifBlank { "name" },
+                    nameHistory = postUiState.nameHistory,
+                    mailHistory = postUiState.mailHistory,
                     onNameChange = { viewModel.updatePostName(it) },
                     onMailChange = { viewModel.updatePostMail(it) },
                     onMessageChange = { viewModel.updatePostMessage(it) },
+                    onNameHistorySelect = { viewModel.selectPostNameHistory(it) },
+                    onMailHistorySelect = { viewModel.selectPostMailHistory(it) },
                     onPostClick = {
                         parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                             viewModel.postFirstPhase(

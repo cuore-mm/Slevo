@@ -59,6 +59,9 @@ class PostHistoryRepository @Inject constructor(
     fun observeMyPostNumbers(threadHistoryId: Long): Flow<Set<Int>> =
         dao.observeResNums(threadHistoryId).map { it.toSet() }
 
+    fun observeIdentityHistories(boardId: Long, type: PostIdentityType): Flow<List<String>> =
+        identityDao.observeValues(boardId, type.name)
+
     suspend fun recordIdentity(boardId: Long, name: String?, email: String?) {
         val now = System.currentTimeMillis()
         if (boardId != 0L) {

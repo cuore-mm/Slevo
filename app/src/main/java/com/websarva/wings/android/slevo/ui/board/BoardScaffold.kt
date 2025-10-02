@@ -254,9 +254,13 @@ fun BoardScaffold(
                     mail = uiState.createFormState.mail,
                     message = uiState.createFormState.message,
                     namePlaceholder = uiState.boardInfo.noname.ifBlank { stringResource(R.string.name) },
+                    nameHistory = uiState.createNameHistory,
+                    mailHistory = uiState.createMailHistory,
                     onNameChange = { viewModel.updateCreateName(it) },
                     onMailChange = { viewModel.updateCreateMail(it) },
                     onMessageChange = { viewModel.updateCreateMessage(it) },
+                    onNameHistorySelect = { viewModel.selectCreateNameHistory(it) },
+                    onMailHistorySelect = { viewModel.selectCreateMailHistory(it) },
                     onPostClick = {
                         parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                             viewModel.createThreadFirstPhase(

@@ -16,6 +16,7 @@ import com.websarva.wings.android.slevo.data.repository.PostResult
 import com.websarva.wings.android.slevo.data.repository.ThreadCreateRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
@@ -24,6 +25,7 @@ import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
@@ -48,6 +50,11 @@ class BoardViewModel @AssistedInject constructor(
     private var currentHistoryMap: Map<String, Int> = emptyMap()
     private var isObservingThreads: Boolean = false
     private var initializedUrl: String? = null
+    private var createNameHistoryJob: Job? = null
+    private var createMailHistoryJob: Job? = null
+    private var latestCreateNameHistories: List<String> = emptyList()
+    private var latestCreateMailHistories: List<String> = emptyList()
+    private var observedCreateIdentityBoardId: Long? = null
 
     override val _uiState = MutableStateFlow(BoardUiState())
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
@@ -87,6 +94,7 @@ class BoardViewModel @AssistedInject constructor(
                     }
                 }
             }
+            startObservingIdentityHistories(ensuredId)
         }
 
         viewModelScope.launch {
@@ -319,10 +327,12 @@ class BoardViewModel @AssistedInject constructor(
 
     fun updateCreateName(name: String) {
         _uiState.update { it.copy(createFormState = it.createFormState.copy(name = name)) }
+        updateCreateNameHistorySuggestions(name)
     }
 
     fun updateCreateMail(mail: String) {
         _uiState.update { it.copy(createFormState = it.createFormState.copy(mail = mail)) }
+        updateCreateMailHistorySuggestions(mail)
     }
 
     fun updateCreateTitle(title: String) {
@@ -331,6 +341,68 @@ class BoardViewModel @AssistedInject constructor(
 
     fun updateCreateMessage(message: String) {
         _uiState.update { it.copy(createFormState = it.createFormState.copy(message = message)) }
+    }
+
+    fun selectCreateNameHistory(name: String) {
+        _uiState.update { it.copy(createFormState = it.createFormState.copy(name = name)) }
+        updateCreateNameHistorySuggestions(name)
+    }
+
+    fun selectCreateMailHistory(mail: String) {
+        _uiState.update { it.copy(createFormState = it.createFormState.copy(mail = mail)) }
+        updateCreateMailHistorySuggestions(mail)
+    }
+
+    private fun startObservingIdentityHistories(boardId: Long) {
+        if (observedCreateIdentityBoardId == boardId) {
+            updateCreateNameHistorySuggestions(_uiState.value.createFormState.name)
+            updateCreateMailHistorySuggestions(_uiState.value.createFormState.mail)
+            return
+        }
+        observedCreateIdentityBoardId = boardId
+        createNameHistoryJob?.cancel()
+        createMailHistoryJob?.cancel()
+
+        latestCreateNameHistories = emptyList()
+        latestCreateMailHistories = emptyList()
+        updateCreateNameHistorySuggestions(_uiState.value.createFormState.name)
+        updateCreateMailHistorySuggestions(_uiState.value.createFormState.mail)
+
+        if (boardId == 0L) {
+            return
+        }
+
+        createNameHistoryJob = viewModelScope.launch {
+            postHistoryRepository.observeIdentityHistories(boardId, PostIdentityType.NAME).collect { histories ->
+                latestCreateNameHistories = histories
+                updateCreateNameHistorySuggestions(_uiState.value.createFormState.name)
+            }
+        }
+        createMailHistoryJob = viewModelScope.launch {
+            postHistoryRepository.observeIdentityHistories(boardId, PostIdentityType.EMAIL).collect { histories ->
+                latestCreateMailHistories = histories
+                updateCreateMailHistorySuggestions(_uiState.value.createFormState.mail)
+            }
+        }
+    }
+
+    private fun updateCreateNameHistorySuggestions(query: String) {
+        val filtered = filterIdentityHistories(latestCreateNameHistories, query)
+        _uiState.update { it.copy(createNameHistory = filtered) }
+    }
+
+    private fun updateCreateMailHistorySuggestions(query: String) {
+        val filtered = filterIdentityHistories(latestCreateMailHistories, query)
+        _uiState.update { it.copy(createMailHistory = filtered) }
+    }
+
+    private fun filterIdentityHistories(source: List<String>, query: String): List<String> {
+        val normalized = query.trim()
+        return if (normalized.isEmpty()) {
+            source
+        } else {
+            source.filter { it.contains(normalized, ignoreCase = true) }
+        }
     }
 
     fun hideConfirmationScreen() {

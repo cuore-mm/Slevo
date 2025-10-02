@@ -41,10 +41,12 @@ fun ThreadViewModel.hideConfirmationScreen() {
 
 fun ThreadViewModel.updatePostName(name: String) {
     _postUiState.update { it.copy(postFormState = it.postFormState.copy(name = name)) }
+    refreshNameHistorySuggestions(name)
 }
 
 fun ThreadViewModel.updatePostMail(mail: String) {
     _postUiState.update { it.copy(postFormState = it.postFormState.copy(mail = mail)) }
+    refreshMailHistorySuggestions(mail)
 }
 
 fun ThreadViewModel.updatePostMessage(message: String) {
@@ -149,5 +151,15 @@ fun ThreadViewModel.uploadImage(context: Context, uri: Uri) {
 
 fun ThreadViewModel.clearPostResultMessage() {
     _postUiState.update { it.copy(postResultMessage = null) }
+}
+
+fun ThreadViewModel.selectPostNameHistory(name: String) {
+    _postUiState.update { it.copy(postFormState = it.postFormState.copy(name = name)) }
+    refreshNameHistorySuggestions(name)
+}
+
+fun ThreadViewModel.selectPostMailHistory(mail: String) {
+    _postUiState.update { it.copy(postFormState = it.postFormState.copy(mail = mail)) }
+    refreshMailHistorySuggestions(mail)
 }
 

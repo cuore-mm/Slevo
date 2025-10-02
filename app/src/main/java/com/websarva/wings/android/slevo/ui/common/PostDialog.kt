@@ -2,7 +2,10 @@ package com.websarva.wings.android.slevo.ui.common
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,9 +57,13 @@ fun PostDialog(
     mail: String,
     message: String,
     namePlaceholder: String,
+    nameHistory: List<String>,
+    mailHistory: List<String>,
     onNameChange: (String) -> Unit,
     onMailChange: (String) -> Unit,
     onMessageChange: (String) -> Unit,
+    onNameHistorySelect: (String) -> Unit,
+    onMailHistorySelect: (String) -> Unit,
     onPostClick: () -> Unit,
     confirmButtonText: String,
     title: String? = null,
@@ -97,37 +105,49 @@ fun PostDialog(
                             .padding(8.dp),
                     ) {
                         val focusManager = LocalFocusManager.current
-                        OutlinedTextField(
-                            value = name,
-                            onValueChange = { onNameChange(it) },
-                            placeholder = {
-                                Text(
-                                    text = namePlaceholder,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                        Column(modifier = Modifier.weight(1f)) {
+                            OutlinedTextField(
+                                value = name,
+                                onValueChange = { onNameChange(it) },
+                                placeholder = {
+                                    Text(
+                                        text = namePlaceholder,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Next) }
                                 )
-                            },
-                            modifier = Modifier
-                                .weight(1f),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(
-                                onNext = { focusManager.moveFocus(FocusDirection.Next) }
                             )
-                        )
+                            IdentityHistoryChips(
+                                history = nameHistory,
+                                onHistorySelect = onNameHistorySelect,
+                            )
+                        }
                         Spacer(modifier = Modifier.width(8.dp))
-                        OutlinedTextField(
-                            value = mail,
-                            onValueChange = { onMailChange(it) },
-                            placeholder = { Text(stringResource(R.string.e_mail)) },
-                            modifier = Modifier
-                                .weight(1f),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(
-                                onNext = { focusManager.moveFocus(FocusDirection.Next) }
+                        Column(modifier = Modifier.weight(1f)) {
+                            OutlinedTextField(
+                                value = mail,
+                                onValueChange = { onMailChange(it) },
+                                placeholder = { Text(stringResource(R.string.e_mail)) },
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Next) }
+                                )
                             )
-                        )
+                            IdentityHistoryChips(
+                                history = mailHistory,
+                                onHistorySelect = onMailHistorySelect,
+                            )
+                        }
                     }
 
                     if (title != null && onTitleChange != null) {
@@ -213,6 +233,30 @@ fun PostDialog(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun IdentityHistoryChips(
+    history: List<String>,
+    onHistorySelect: (String) -> Unit,
+) {
+    if (history.isEmpty()) return
+
+    FlowRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        history.forEach { value ->
+            SuggestionChip(
+                onClick = { onHistorySelect(value) },
+                label = { Text(value) }
+            )
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun PostDialogPreview() {
@@ -222,9 +266,13 @@ fun PostDialogPreview() {
         mail = "",
         message = "",
         namePlaceholder = "それでも動く名無し",
+        nameHistory = listOf("太郎", "名無し"),
+        mailHistory = listOf("sage", "mail@example.com"),
         onNameChange = { /* 名前変更処理 */ },
         onMailChange = { /* メール変更処理 */ },
         onMessageChange = { /* メッセージ変更処理 */ },
+        onNameHistorySelect = {},
+        onMailHistorySelect = {},
         onPostClick = { /* 投稿処理 */ },
         confirmButtonText = "書き込み",
         onImageSelect = { }
