@@ -29,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
@@ -49,6 +50,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.slevo.data.model.GestureAction
+import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
@@ -59,10 +62,12 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import my.nanihadesuka.compose.LazyColumnScrollbar
 import kotlin.math.min
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -76,6 +81,8 @@ fun ThreadScreen(
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
     onReplyToPost: (Int) -> Unit = {},
+    gestureSettings: GestureSettings = GestureSettings.DEFAULT,
+    onGestureAction: (GestureAction) -> Unit = {},
 ) {
     // 投稿一覧（nullの場合は空リスト）
     val posts = uiState.posts ?: emptyList()
@@ -193,7 +200,35 @@ fun ThreadScreen(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    val coroutineScope = rememberCoroutineScope()
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .detectDirectionalGesture(enabled = gestureSettings.isEnabled) { direction ->
+                val action = gestureSettings.assignments[direction] ?: return@detectDirectionalGesture
+                when (action) {
+                    GestureAction.ToTop -> coroutineScope.launch {
+                        listState.animateScrollToItem(0)
+                    }
+
+                    GestureAction.ToBottom -> coroutineScope.launch {
+                        val totalItems = listState.layoutInfo.totalItemsCount
+                        val fallback = if (visiblePosts.isNotEmpty()) visiblePosts.size else 0
+                        val targetIndex = when {
+                            totalItems > 0 -> totalItems - 1
+                            fallback > 0 -> fallback
+                            else -> 0
+                        }
+                        if (targetIndex >= 0) {
+                            listState.animateScrollToItem(targetIndex)
+                        }
+                    }
+
+                    else -> onGestureAction(action)
+                }
+            }
+    ) {
         val lazyColumnContent: LazyListScope.() -> Unit = {
             if (visiblePosts.isNotEmpty()) {
                 val firstIndent = if (uiState.sortType == ThreadSortType.TREE) {

@@ -28,6 +28,7 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
@@ -220,7 +221,16 @@ fun ThreadScaffold(
                 onLastRead = { resNum ->
                     routeThreadId?.let { viewModel.updateThreadLastRead(it, resNum) }
                 },
-                onReplyToPost = { viewModel.showReplyDialog(it) }
+                onReplyToPost = { viewModel.showReplyDialog(it) },
+                gestureSettings = uiState.gestureSettings,
+                onGestureAction = { action ->
+                    when (action) {
+                        GestureAction.Refresh -> viewModel.reloadThread()
+                        GestureAction.PostOrCreateThread -> viewModel.showPostDialog()
+                        GestureAction.Search -> viewModel.startSearch()
+                        GestureAction.ToTop, GestureAction.ToBottom -> Unit
+                    }
+                }
             )
         },
         optionalSheetContent = { viewModel, uiState ->

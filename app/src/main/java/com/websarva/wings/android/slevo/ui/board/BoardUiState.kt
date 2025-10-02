@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.board
 
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.ui.common.BaseUiState
@@ -28,6 +29,7 @@ data class BoardUiState(
     val postResultMessage: String? = null,
     val resetScroll: Boolean = false,
     val loadProgress: Float = 0f,
+    val gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     override val isLoading: Boolean = false,
 ) : BaseUiState<BoardUiState> {
     override fun copyState(

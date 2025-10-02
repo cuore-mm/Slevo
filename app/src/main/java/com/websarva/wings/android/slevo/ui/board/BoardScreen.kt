@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,11 +31,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.GestureAction
+import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import java.text.DecimalFormat
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import java.util.Calendar
+import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +49,9 @@ fun BoardScreen(
     onClick: (ThreadInfo) -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
-    listState: LazyListState = rememberLazyListState()
+    listState: LazyListState = rememberLazyListState(),
+    gestureSettings: GestureSettings = GestureSettings.DEFAULT,
+    onGestureAction: (GestureAction) -> Unit = {},
 ) {
     val (momentumMean, momentumStd) = remember(threads) {
         val values = threads.filter {
@@ -59,12 +66,40 @@ fun BoardScreen(
         mean to std
     }
 
+    val coroutineScope = rememberCoroutineScope()
+
     PullToRefreshBox(
         modifier = modifier,
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .detectDirectionalGesture(enabled = gestureSettings.isEnabled) { direction ->
+                    val action = gestureSettings.assignments[direction] ?: return@detectDirectionalGesture
+                    when (action) {
+                        GestureAction.ToTop -> coroutineScope.launch {
+                            listState.animateScrollToItem(0)
+                        }
+
+                        GestureAction.ToBottom -> coroutineScope.launch {
+                            val totalItems = listState.layoutInfo.totalItemsCount
+                            val fallback = if (threads.isNotEmpty()) threads.size else 0
+                            val targetIndex = when {
+                                totalItems > 0 -> totalItems - 1
+                                fallback > 0 -> fallback
+                                else -> 0
+                            }
+                            if (targetIndex >= 0) {
+                                listState.animateScrollToItem(targetIndex)
+                            }
+                        }
+
+                        else -> onGestureAction(action)
+                    }
+                }
+        ) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize(),

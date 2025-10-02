@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
@@ -221,7 +222,16 @@ fun BoardScaffold(
                 },
                 isRefreshing = uiState.isLoading,
                 onRefresh = { viewModel.refreshBoardData() },
-                listState = listState
+                listState = listState,
+                gestureSettings = uiState.gestureSettings,
+                onGestureAction = { action ->
+                    when (action) {
+                        GestureAction.Refresh -> viewModel.refreshBoardData()
+                        GestureAction.PostOrCreateThread -> viewModel.showCreateDialog()
+                        GestureAction.Search -> viewModel.setSearchMode(true)
+                        GestureAction.ToTop, GestureAction.ToBottom -> Unit
+                    }
+                }
             )
             if (uiState.showInfoDialog) {
                 BoardInfoDialog(
