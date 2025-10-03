@@ -38,6 +38,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
@@ -72,12 +73,16 @@ fun PostDialog(
     onImageSelect: ((android.net.Uri) -> Unit)? = null,
     onImageUrlClick: ((String) -> Unit)? = null,
 ) {
-    val launcher =
+    // Preview（Inspection）環境かどうか
+    val isPreview = LocalInspectionMode.current
+    // Preview では ActivityResultRegistryOwner が無くクラッシュするので生成しない
+    val launcher = if (!isPreview) {
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             if (uri != null) onImageSelect?.invoke(uri)
         }
+    } else null
 
-    Dialog(onDismissRequest = onDismissRequest) {
+    val content: @Composable () -> Unit = {
         val focusRequester = remember { FocusRequester() }
         val keyboard = LocalSoftwareKeyboardController.current
 
@@ -136,7 +141,6 @@ fun PostDialog(
                                         isNameFocused = false
                                         focusManager.clearFocus()
                                     },
-                                    modifier = Modifier.fillMaxWidth(),
                                     properties = PopupProperties(focusable = false)
                                 ) {
                                     nameHistory.forEach { value ->
@@ -175,7 +179,6 @@ fun PostDialog(
                                         isMailFocused = false
                                         focusManager.clearFocus()
                                     },
-                                    modifier = Modifier.fillMaxWidth(),
                                     properties = PopupProperties(focusable = false)
                                 ) {
                                     mailHistory.forEach { value ->
@@ -246,7 +249,10 @@ fun PostDialog(
 
                 // 非スクロール領域（常に表示）
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    IconButton(onClick = { launcher.launch("image/*") }) {
+                    IconButton(
+                        onClick = { launcher?.launch("image/*") },
+                        enabled = launcher != null
+                    ) {
                         Icon(
                             Icons.Filled.Image,
                             contentDescription = stringResource(id = R.string.select_image)
@@ -271,6 +277,12 @@ fun PostDialog(
                 }
             }
         }
+    }
+
+    if (isPreview) {
+        content()
+    } else {
+        Dialog(onDismissRequest = onDismissRequest) { content() }
     }
 }
 
