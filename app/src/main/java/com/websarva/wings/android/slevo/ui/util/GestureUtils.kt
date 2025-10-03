@@ -1,14 +1,11 @@
 package com.websarva.wings.android.slevo.ui.util
 
-import androidx.compose.ui.composed
 import android.annotation.SuppressLint
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
+import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -21,6 +18,12 @@ import kotlin.math.min
 private enum class HorizontalDirection {
     Right,
     Left,
+}
+
+private sealed interface GestureDetectionResult {
+    data object None : GestureDetectionResult
+    data object Invalid : GestureDetectionResult
+    data class Direction(val value: GestureDirection) : GestureDetectionResult
 }
 
 @SuppressLint("UnnecessaryComposedModifier")
@@ -40,6 +43,7 @@ fun Modifier.detectDirectionalGesture(
             var path = mutableListOf(Offset.Zero)
             var totalOffset = Offset.Zero
             var lastDirection: GestureDirection? = null
+            var isInvalid = false
 
             detectDragGestures(
                 onDragStart = {
@@ -47,14 +51,35 @@ fun Modifier.detectDirectionalGesture(
                     path = mutableListOf(Offset.Zero)
                     totalOffset = Offset.Zero
                     lastDirection = null
+                    isInvalid = false
                 },
                 onDrag = { change, dragAmount ->
+                    if (isInvalid) {
+                        change.consume()
+                        return@detectDragGestures
+                    }
                     totalOffset += dragAmount
                     path.add(totalOffset)
-                    val direction = detectGestureDirection(path, thresholdPx)
-                    if (direction != lastDirection) {
-                        lastDirection = direction
-                        onGestureProgress(direction)
+                    when (val result = detectGestureDirection(path, thresholdPx)) {
+                        GestureDetectionResult.None -> Unit
+                        GestureDetectionResult.Invalid -> {
+                            if (!isInvalid) {
+                                if (lastDirection != null) {
+                                    onGestureProgress(null)
+                                    lastDirection = null
+                                }
+                                isInvalid = true
+                                onGestureInvalid()
+                            }
+                        }
+
+                        is GestureDetectionResult.Direction -> {
+                            val direction = result.value
+                            if (direction != lastDirection) {
+                                lastDirection = direction
+                                onGestureProgress(direction)
+                            }
+                        }
                     }
                     change.consume()
                 },
@@ -65,25 +90,47 @@ fun Modifier.detectDirectionalGesture(
                     } else {
                         onGestureProgress(null)
                     }
-                    onGestureInvalid()
-                },
-                onDragEnd = {
-                    val direction = detectGestureDirection(path, thresholdPx)
-                    if (direction != null) {
-                        onGesture(direction)
-                        if (lastDirection != null) {
-                            onGestureProgress(null)
-                            lastDirection = null
-                        }
-                    } else {
-                        if (lastDirection != null) {
-                            onGestureProgress(null)
-                            lastDirection = null
-                        } else {
-                            onGestureProgress(null)
-                        }
+                    if (!isInvalid) {
                         onGestureInvalid()
                     }
+                    isInvalid = false
+                },
+                onDragEnd = {
+                    val result = detectGestureDirection(path, thresholdPx)
+                    when (result) {
+                        is GestureDetectionResult.Direction -> {
+                            onGesture(result.value)
+                            if (lastDirection != null) {
+                                onGestureProgress(null)
+                                lastDirection = null
+                            }
+                        }
+
+                        GestureDetectionResult.Invalid -> {
+                            if (lastDirection != null) {
+                                onGestureProgress(null)
+                                lastDirection = null
+                            } else {
+                                onGestureProgress(null)
+                            }
+                            if (!isInvalid) {
+                                onGestureInvalid()
+                            }
+                        }
+
+                        GestureDetectionResult.None -> {
+                            if (lastDirection != null) {
+                                onGestureProgress(null)
+                                lastDirection = null
+                            } else {
+                                onGestureProgress(null)
+                            }
+                            if (!isInvalid) {
+                                onGestureInvalid()
+                            }
+                        }
+                    }
+                    isInvalid = false
                 }
             )
         }
@@ -93,14 +140,14 @@ fun Modifier.detectDirectionalGesture(
 private fun detectGestureDirection(
     path: List<Offset>,
     thresholdPx: Float,
-): GestureDirection? {
-    if (path.size < 2) return null
+): GestureDetectionResult {
+    if (path.size < 2) return GestureDetectionResult.None
     val firstIndex = path.indexOfFirst { offset ->
         abs(offset.x) >= thresholdPx
     }
-    if (firstIndex == -1) return null
+    if (firstIndex == -1) return GestureDetectionResult.None
     val firstPoint = path[firstIndex]
-    if (abs(firstPoint.x) < abs(firstPoint.y)) return null
+    if (abs(firstPoint.x) < abs(firstPoint.y)) return GestureDetectionResult.None
 
     val firstDirection = if (firstPoint.x > 0f) {
         HorizontalDirection.Right
@@ -110,8 +157,8 @@ private fun detectGestureDirection(
 
     if (firstIndex == path.lastIndex) {
         return when (firstDirection) {
-            HorizontalDirection.Right -> GestureDirection.Right
-            HorizontalDirection.Left -> GestureDirection.Left
+            HorizontalDirection.Right -> GestureDetectionResult.Direction(GestureDirection.Right)
+            HorizontalDirection.Left -> GestureDetectionResult.Direction(GestureDirection.Left)
         }
     }
 
@@ -129,18 +176,34 @@ private fun detectGestureDirection(
     }
 
     return when (firstDirection) {
-        HorizontalDirection.Right -> when {
-            firstPoint.y - minY >= thresholdPx -> GestureDirection.RightUp
-            maxY - firstPoint.y >= thresholdPx -> GestureDirection.RightDown
-            firstPoint.x - minX >= thresholdPx -> GestureDirection.RightLeft
-            else -> GestureDirection.Right
+        HorizontalDirection.Right -> {
+            val movedUp = firstPoint.y - minY >= thresholdPx
+            val movedDown = maxY - firstPoint.y >= thresholdPx
+            val movedBack = firstPoint.x - minX >= thresholdPx
+            val movementCount = listOf(movedUp, movedDown, movedBack).count { it }
+            if (movementCount > 1) {
+                GestureDetectionResult.Invalid
+            } else when {
+                movedUp -> GestureDetectionResult.Direction(GestureDirection.RightUp)
+                movedDown -> GestureDetectionResult.Direction(GestureDirection.RightDown)
+                movedBack -> GestureDetectionResult.Direction(GestureDirection.RightLeft)
+                else -> GestureDetectionResult.Direction(GestureDirection.Right)
+            }
         }
 
-        HorizontalDirection.Left -> when {
-            firstPoint.y - minY >= thresholdPx -> GestureDirection.LeftUp
-            maxY - firstPoint.y >= thresholdPx -> GestureDirection.LeftDown
-            maxX - firstPoint.x >= thresholdPx -> GestureDirection.LeftRight
-            else -> GestureDirection.Left
+        HorizontalDirection.Left -> {
+            val movedUp = firstPoint.y - minY >= thresholdPx
+            val movedDown = maxY - firstPoint.y >= thresholdPx
+            val movedBack = maxX - firstPoint.x >= thresholdPx
+            val movementCount = listOf(movedUp, movedDown, movedBack).count { it }
+            if (movementCount > 1) {
+                GestureDetectionResult.Invalid
+            } else when {
+                movedUp -> GestureDetectionResult.Direction(GestureDirection.LeftUp)
+                movedDown -> GestureDetectionResult.Direction(GestureDirection.LeftDown)
+                movedBack -> GestureDetectionResult.Direction(GestureDirection.LeftRight)
+                else -> GestureDetectionResult.Direction(GestureDirection.Left)
+            }
         }
     }
 }
