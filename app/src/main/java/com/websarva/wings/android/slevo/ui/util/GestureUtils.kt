@@ -1,9 +1,14 @@
 package com.websarva.wings.android.slevo.ui.util
 
 import androidx.compose.ui.composed
+import android.annotation.SuppressLint
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -18,6 +23,7 @@ private enum class HorizontalDirection {
     Left,
 }
 
+@SuppressLint("UnnecessaryComposedModifier")
 fun Modifier.detectDirectionalGesture(
     enabled: Boolean,
     threshold: Dp = 64.dp,
@@ -29,7 +35,7 @@ fun Modifier.detectDirectionalGesture(
         this
     } else {
         val thresholdPx = with(LocalDensity.current) { threshold.toPx() }
-        pointerInput(enabled, thresholdPx) {
+        pointerInput(true, thresholdPx) {
             if (!enabled) return@pointerInput
             var path = mutableListOf(Offset.Zero)
             var totalOffset = Offset.Zero
