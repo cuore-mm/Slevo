@@ -1,14 +1,15 @@
 package com.websarva.wings.android.slevo.ui.util
 
+import androidx.compose.ui.composed
 import android.annotation.SuppressLint
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -26,6 +27,8 @@ private enum class HorizontalDirection {
 fun Modifier.detectDirectionalGesture(
     enabled: Boolean,
     threshold: Dp = 64.dp,
+    onGestureProgress: (GestureDirection?) -> Unit = {},
+    onGestureInvalid: () -> Unit = {},
     onGesture: (GestureDirection) -> Unit,
 ): Modifier = composed {
     if (!enabled) {
@@ -34,26 +37,55 @@ fun Modifier.detectDirectionalGesture(
         val thresholdPx = with(LocalDensity.current) { threshold.toPx() }
         pointerInput(true, thresholdPx) {
             if (!enabled) return@pointerInput
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false)
-                val pointerId = down.id
-                val path = mutableListOf(Offset.Zero)
-                var totalOffset = Offset.Zero
+            var path = mutableListOf(Offset.Zero)
+            var totalOffset = Offset.Zero
+            var lastDirection: GestureDirection? = null
 
-                while (true) {
-                    val event = awaitPointerEvent()
-                    val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
-                    val delta = change.positionChange()
-                    if (delta != Offset.Zero) {
-                        totalOffset += delta
-                        path.add(totalOffset)
+            detectDragGestures(
+                onDragStart = {
+                    onGestureProgress(null)
+                    path = mutableListOf(Offset.Zero)
+                    totalOffset = Offset.Zero
+                    lastDirection = null
+                },
+                onDrag = { change, dragAmount ->
+                    totalOffset += dragAmount
+                    path.add(totalOffset)
+                    val direction = detectGestureDirection(path, thresholdPx)
+                    if (direction != lastDirection) {
+                        lastDirection = direction
+                        onGestureProgress(direction)
                     }
-                    if (change.changedToUpIgnoreConsumed()) {
-                        detectGestureDirection(path, thresholdPx)?.let(onGesture)
-                        break
+                    change.consume()
+                },
+                onDragCancel = {
+                    if (lastDirection != null) {
+                        onGestureProgress(null)
+                        lastDirection = null
+                    } else {
+                        onGestureProgress(null)
+                    }
+                    onGestureInvalid()
+                },
+                onDragEnd = {
+                    val direction = detectGestureDirection(path, thresholdPx)
+                    if (direction != null) {
+                        onGesture(direction)
+                        if (lastDirection != null) {
+                            onGestureProgress(null)
+                            lastDirection = null
+                        }
+                    } else {
+                        if (lastDirection != null) {
+                            onGestureProgress(null)
+                            lastDirection = null
+                        } else {
+                            onGestureProgress(null)
+                        }
+                        onGestureInvalid()
                     }
                 }
-            }
+            )
         }
     }
 }

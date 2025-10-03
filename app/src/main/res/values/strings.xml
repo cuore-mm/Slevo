@@ -95,9 +95,11 @@
     <string name="enable_gesture_feature">ジェスチャー機能を有効にする</string>
     <string name="gesture_list_title">ジェスチャーの割り当て</string>
     <string name="gesture_action_unassigned">未設定</string>
+    <string name="gesture_action_unassigned_message">アクションが未定義です</string>
     <string name="gesture_action_to_top">先頭へ</string>
     <string name="gesture_action_to_bottom">末尾へ</string>
     <string name="gesture_action_post_or_create_thread">書き込み/スレッド作成</string>
+    <string name="gesture_invalid_message">ジェスチャーが無効です</string>
     <string name="gesture_direction_right">右</string>
     <string name="gesture_direction_right_up">右→上</string>
     <string name="gesture_direction_right_left">右→左</string>
