@@ -21,8 +21,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,10 +39,13 @@ import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import java.text.DecimalFormat
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
-import java.util.Calendar
+import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
+import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
+import java.text.DecimalFormat
+import java.util.Calendar
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,11 +80,34 @@ fun BoardScreen(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
     ) {
+        var gestureHint by remember { mutableStateOf<GestureHint>(GestureHint.Hidden) }
+        LaunchedEffect(gestureHint) {
+            if (gestureHint is GestureHint.Invalid) {
+                delay(1200)
+                gestureHint = GestureHint.Hidden
+            }
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .detectDirectionalGesture(enabled = gestureSettings.isEnabled) { direction ->
-                    val action = gestureSettings.assignments[direction] ?: return@detectDirectionalGesture
+                .detectDirectionalGesture(
+                    enabled = gestureSettings.isEnabled,
+                    onGestureProgress = { direction ->
+                        gestureHint = direction?.let {
+                            GestureHint.Direction(it, gestureSettings.assignments[it])
+                        } ?: GestureHint.Hidden
+                    },
+                    onGestureInvalid = {
+                        gestureHint = GestureHint.Invalid
+                    },
+                ) { direction ->
+                    val action = gestureSettings.assignments[direction]
+                    if (action == null) {
+                        gestureHint = GestureHint.Direction(direction, null)
+                        return@detectDirectionalGesture
+                    }
+                    gestureHint = GestureHint.Hidden
                     when (action) {
                         GestureAction.ToTop -> coroutineScope.launch {
                             listState.animateScrollToItem(0)
@@ -126,6 +156,7 @@ fun BoardScreen(
                 HorizontalDivider()
             }
         }
+        GestureHintOverlay(state = gestureHint)
     }
 }
 }

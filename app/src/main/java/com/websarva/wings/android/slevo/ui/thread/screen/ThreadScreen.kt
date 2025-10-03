@@ -62,6 +62,8 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
+import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -202,11 +204,34 @@ fun ThreadScreen(
 
     val coroutineScope = rememberCoroutineScope()
 
+    var gestureHint by remember { mutableStateOf<GestureHint>(GestureHint.Hidden) }
+    LaunchedEffect(gestureHint) {
+        if (gestureHint is GestureHint.Invalid) {
+            delay(1200)
+            gestureHint = GestureHint.Hidden
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .detectDirectionalGesture(enabled = gestureSettings.isEnabled) { direction ->
-                val action = gestureSettings.assignments[direction] ?: return@detectDirectionalGesture
+            .detectDirectionalGesture(
+                enabled = gestureSettings.isEnabled,
+                onGestureProgress = { direction ->
+                    gestureHint = direction?.let {
+                        GestureHint.Direction(it, gestureSettings.assignments[it])
+                    } ?: GestureHint.Hidden
+                },
+                onGestureInvalid = {
+                    gestureHint = GestureHint.Invalid
+                },
+            ) { direction ->
+                val action = gestureSettings.assignments[direction]
+                if (action == null) {
+                    gestureHint = GestureHint.Direction(direction, null)
+                    return@detectDirectionalGesture
+                }
+                gestureHint = GestureHint.Hidden
                 when (action) {
                     GestureAction.ToTop -> coroutineScope.launch {
                         listState.animateScrollToItem(0)
@@ -354,9 +379,9 @@ fun ThreadScreen(
                             )
                         )
                     )
-                }
             }
         }
+    }
 
         if (uiState.showMinimapScrollbar) {
             Row(modifier = Modifier.fillMaxSize()) {
@@ -457,6 +482,7 @@ fun ThreadScreen(
                     .rotate(arrowRotation)
             )
         }
+        GestureHintOverlay(state = gestureHint)
     }
 }
 
