@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.PopupProperties
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 
@@ -135,7 +136,8 @@ fun PostDialog(
                                         isNameFocused = false
                                         focusManager.clearFocus()
                                     },
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
+                                    properties = PopupProperties(focusable = false)
                                 ) {
                                     nameHistory.forEach { value ->
                                         DropdownMenuItem(
@@ -173,7 +175,8 @@ fun PostDialog(
                                         isMailFocused = false
                                         focusManager.clearFocus()
                                     },
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
+                                    properties = PopupProperties(focusable = false)
                                 ) {
                                     mailHistory.forEach { value ->
                                         DropdownMenuItem(
