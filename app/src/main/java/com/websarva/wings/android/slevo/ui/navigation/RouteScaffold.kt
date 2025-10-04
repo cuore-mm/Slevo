@@ -13,7 +13,6 @@ import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -93,6 +92,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 currentPage >= 0 -> currentPage.coerceIn(0, tabs.size - 1)
                 currentTabInfo != null -> tabs.indexOf(currentTabInfo).takeIf { it >= 0 }
                     ?: 0
+
                 else -> 0
             }
         }

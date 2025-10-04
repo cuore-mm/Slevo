@@ -121,9 +121,7 @@ fun BoardScreen(
                                 fallback > 0 -> fallback
                                 else -> 0
                             }
-                            if (targetIndex >= 0) {
-                                listState.animateScrollToItem(targetIndex)
-                            }
+                            listState.animateScrollToItem(targetIndex)
                         }
 
                         else -> onGestureAction(action)

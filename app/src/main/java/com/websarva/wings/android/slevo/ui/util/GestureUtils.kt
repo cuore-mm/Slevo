@@ -1,6 +1,5 @@
 package com.websarva.wings.android.slevo.ui.util
 
-import android.R.attr.enabled
 import android.annotation.SuppressLint
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.Modifier
