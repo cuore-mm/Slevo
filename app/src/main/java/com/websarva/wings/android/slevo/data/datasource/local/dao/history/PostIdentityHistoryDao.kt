@@ -23,4 +23,9 @@ interface PostIdentityHistoryDao {
 
     @Query("DELETE FROM post_identity_histories WHERE id IN (:ids)")
     suspend fun deleteByIds(ids: List<Long>)
+
+    @Query(
+        "DELETE FROM post_identity_histories WHERE boardId = :boardId AND type = :type AND value = :value"
+    )
+    suspend fun deleteByValue(boardId: Long, type: String, value: String)
 }

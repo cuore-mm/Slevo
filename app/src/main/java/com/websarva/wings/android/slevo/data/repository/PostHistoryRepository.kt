@@ -112,6 +112,13 @@ class PostHistoryRepository @Inject constructor(
         }
     }
 
+    suspend fun deleteIdentity(boardId: Long, type: PostIdentityType, value: String) {
+        if (boardId == 0L) return
+        val normalized = value.trim()
+        if (normalized.isEmpty()) return
+        identityDao.deleteByValue(boardId, type.name, normalized)
+    }
+
     companion object {
         private const val MAX_HISTORY_COUNT = 3
     }
