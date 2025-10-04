@@ -112,6 +112,39 @@ class PostHistoryRepository @Inject constructor(
         }
     }
 
+    suspend fun deleteIdentity(boardId: Long, type: PostIdentityType, value: String) {
+        if (boardId == 0L) return
+        val normalized = value.trim()
+        if (normalized.isEmpty()) return
+        identityDao.deleteByValue(boardId, type.name, normalized)
+        val lastIdentity = lastIdentityDao.findByBoardId(boardId) ?: return
+        when (type) {
+            PostIdentityType.NAME -> {
+                if (lastIdentity.name == normalized) {
+                    if (lastIdentity.email.isEmpty()) {
+                        lastIdentityDao.deleteByBoardId(boardId)
+                    } else {
+                        lastIdentityDao.upsert(
+                            lastIdentity.copy(name = "", updatedAt = System.currentTimeMillis())
+                        )
+                    }
+                }
+            }
+
+            PostIdentityType.EMAIL -> {
+                if (lastIdentity.email == normalized) {
+                    if (lastIdentity.name.isEmpty()) {
+                        lastIdentityDao.deleteByBoardId(boardId)
+                    } else {
+                        lastIdentityDao.upsert(
+                            lastIdentity.copy(email = "", updatedAt = System.currentTimeMillis())
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     companion object {
         private const val MAX_HISTORY_COUNT = 3
     }

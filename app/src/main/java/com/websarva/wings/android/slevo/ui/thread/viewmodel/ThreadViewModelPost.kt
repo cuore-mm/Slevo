@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
+import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.PostResult
 import com.websarva.wings.android.slevo.ui.thread.state.PostFormState
@@ -161,5 +162,13 @@ fun ThreadViewModel.selectPostNameHistory(name: String) {
 fun ThreadViewModel.selectPostMailHistory(mail: String) {
     _postUiState.update { it.copy(postFormState = it.postFormState.copy(mail = mail)) }
     refreshMailHistorySuggestions(mail)
+}
+
+fun ThreadViewModel.deletePostNameHistory(name: String) {
+    deletePostIdentityHistory(PostIdentityType.NAME, name)
+}
+
+fun ThreadViewModel.deletePostMailHistory(mail: String) {
+    deletePostIdentityHistory(PostIdentityType.EMAIL, mail)
 }
 

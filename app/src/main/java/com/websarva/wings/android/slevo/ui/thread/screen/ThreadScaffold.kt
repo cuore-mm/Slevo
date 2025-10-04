@@ -40,6 +40,8 @@ import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.deletePostMailHistory
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.deletePostNameHistory
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideConfirmationScreen
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideErrorWebView
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hidePostDialog
@@ -293,6 +295,8 @@ fun ThreadScaffold(
                     onMessageChange = { viewModel.updatePostMessage(it) },
                     onNameHistorySelect = { viewModel.selectPostNameHistory(it) },
                     onMailHistorySelect = { viewModel.selectPostMailHistory(it) },
+                    onNameHistoryDelete = { viewModel.deletePostNameHistory(it) },
+                    onMailHistoryDelete = { viewModel.deletePostMailHistory(it) },
                     onPostClick = {
                         parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                             viewModel.postFirstPhase(

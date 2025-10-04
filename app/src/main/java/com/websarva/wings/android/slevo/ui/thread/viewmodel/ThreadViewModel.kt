@@ -796,6 +796,31 @@ class ThreadViewModel @AssistedInject constructor(
         _postUiState.update { it.copy(mailHistory = filtered) }
     }
 
+    internal fun deletePostIdentityHistory(type: PostIdentityType, value: String) {
+        val normalized = value.trim()
+        if (normalized.isEmpty()) {
+            return
+        }
+        when (type) {
+            PostIdentityType.NAME -> {
+                latestNameHistories = latestNameHistories.filterNot { it == normalized }
+                refreshNameHistorySuggestions(_postUiState.value.postFormState.name)
+            }
+
+            PostIdentityType.EMAIL -> {
+                latestMailHistories = latestMailHistories.filterNot { it == normalized }
+                refreshMailHistorySuggestions(_postUiState.value.postFormState.mail)
+            }
+        }
+        val boardId = _uiState.value.boardInfo.boardId
+        if (boardId == 0L) {
+            return
+        }
+        viewModelScope.launch {
+            postHistoryRepository.deleteIdentity(boardId, type, normalized)
+        }
+    }
+
     private fun filterIdentityHistories(source: List<String>, query: String): List<String> {
         val normalized = query.trim()
         return if (normalized.isEmpty()) {

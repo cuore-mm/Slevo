@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -68,6 +69,8 @@ fun PostDialog(
     onMessageChange: (String) -> Unit,
     onNameHistorySelect: (String) -> Unit,
     onMailHistorySelect: (String) -> Unit,
+    onNameHistoryDelete: (String) -> Unit,
+    onMailHistoryDelete: (String) -> Unit,
     onPostClick: () -> Unit,
     confirmButtonText: String,
     title: String? = null,
@@ -164,6 +167,14 @@ fun PostDialog(
                                                 onNameHistorySelect(value)
                                                 isNameFocused = false
                                                 focusManager.clearFocus()
+                                            },
+                                            trailingIcon = {
+                                                IconButton(onClick = { onNameHistoryDelete(value) }) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Close,
+                                                        contentDescription = stringResource(R.string.delete)
+                                                    )
+                                                }
                                             }
                                         )
                                     }
@@ -215,6 +226,14 @@ fun PostDialog(
                                                 onMailHistorySelect(value)
                                                 isMailFocused = false
                                                 focusManager.clearFocus()
+                                            },
+                                            trailingIcon = {
+                                                IconButton(onClick = { onMailHistoryDelete(value) }) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Close,
+                                                        contentDescription = stringResource(R.string.delete)
+                                                    )
+                                                }
                                             }
                                         )
                                     }
@@ -331,6 +350,8 @@ fun PostDialogPreview() {
         onMessageChange = { /* メッセージ変更処理 */ },
         onNameHistorySelect = {},
         onMailHistorySelect = {},
+        onNameHistoryDelete = {},
+        onMailHistoryDelete = {},
         onPostClick = { /* 投稿処理 */ },
         confirmButtonText = "書き込み",
         onImageSelect = { }

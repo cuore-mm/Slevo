@@ -261,6 +261,8 @@ fun BoardScaffold(
                     onMessageChange = { viewModel.updateCreateMessage(it) },
                     onNameHistorySelect = { viewModel.selectCreateNameHistory(it) },
                     onMailHistorySelect = { viewModel.selectCreateMailHistory(it) },
+                    onNameHistoryDelete = { viewModel.deleteCreateNameHistory(it) },
+                    onMailHistoryDelete = { viewModel.deleteCreateMailHistory(it) },
                     onPostClick = {
                         parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                             viewModel.createThreadFirstPhase(

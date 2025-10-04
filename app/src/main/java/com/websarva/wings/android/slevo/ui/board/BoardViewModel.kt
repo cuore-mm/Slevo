@@ -353,6 +353,38 @@ class BoardViewModel @AssistedInject constructor(
         updateCreateMailHistorySuggestions(mail)
     }
 
+    fun deleteCreateNameHistory(name: String) {
+        val normalized = name.trim()
+        if (normalized.isEmpty()) {
+            return
+        }
+        latestCreateNameHistories = latestCreateNameHistories.filterNot { it == normalized }
+        updateCreateNameHistorySuggestions(_uiState.value.createFormState.name)
+        val boardId = _uiState.value.boardInfo.boardId
+        if (boardId == 0L) {
+            return
+        }
+        viewModelScope.launch {
+            postHistoryRepository.deleteIdentity(boardId, PostIdentityType.NAME, normalized)
+        }
+    }
+
+    fun deleteCreateMailHistory(mail: String) {
+        val normalized = mail.trim()
+        if (normalized.isEmpty()) {
+            return
+        }
+        latestCreateMailHistories = latestCreateMailHistories.filterNot { it == normalized }
+        updateCreateMailHistorySuggestions(_uiState.value.createFormState.mail)
+        val boardId = _uiState.value.boardInfo.boardId
+        if (boardId == 0L) {
+            return
+        }
+        viewModelScope.launch {
+            postHistoryRepository.deleteIdentity(boardId, PostIdentityType.EMAIL, normalized)
+        }
+    }
+
     private fun startObservingIdentityHistories(boardId: Long) {
         if (observedCreateIdentityBoardId == boardId) {
             updateCreateNameHistorySuggestions(_uiState.value.createFormState.name)
