@@ -110,7 +110,7 @@ fun BoardScreen(
                     gestureHint = GestureHint.Hidden
                     when (action) {
                         GestureAction.ToTop -> coroutineScope.launch {
-                            listState.animateScrollToItem(0)
+                            listState.scrollToItem(0)
                         }
 
                         GestureAction.ToBottom -> coroutineScope.launch {
@@ -121,7 +121,7 @@ fun BoardScreen(
                                 fallback > 0 -> fallback
                                 else -> 0
                             }
-                            listState.animateScrollToItem(targetIndex)
+                            listState.scrollToItem(targetIndex)
                         }
 
                         else -> onGestureAction(action)

@@ -234,7 +234,7 @@ fun ThreadScreen(
                 gestureHint = GestureHint.Hidden
                 when (action) {
                     GestureAction.ToTop -> coroutineScope.launch {
-                        listState.animateScrollToItem(0)
+                        listState.scrollToItem(0)
                     }
 
                     GestureAction.ToBottom -> coroutineScope.launch {
@@ -245,9 +245,7 @@ fun ThreadScreen(
                             fallback > 0 -> fallback
                             else -> 0
                         }
-                        if (targetIndex >= 0) {
-                            listState.animateScrollToItem(targetIndex)
-                        }
+                        listState.scrollToItem(targetIndex)
                     }
 
                     else -> onGestureAction(action)
