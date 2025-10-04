@@ -20,6 +20,8 @@ data class BoardUiState(
     val searchQuery: String = "",
     val createDialog: Boolean = false,
     val createFormState: CreateThreadFormState = CreateThreadFormState(),
+    val createNameHistory: List<String> = emptyList(),
+    val createMailHistory: List<String> = emptyList(),
     val isPosting: Boolean = false,
     val postConfirmation: ConfirmationData? = null,
     val isConfirmationScreen: Boolean = false,

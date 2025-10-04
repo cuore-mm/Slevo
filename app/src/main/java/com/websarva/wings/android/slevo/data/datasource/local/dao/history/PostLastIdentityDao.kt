@@ -12,4 +12,7 @@ interface PostLastIdentityDao {
 
     @Query("SELECT * FROM post_last_identities WHERE boardId = :boardId")
     suspend fun findByBoardId(boardId: Long): PostLastIdentityEntity?
+
+    @Query("DELETE FROM post_last_identities WHERE boardId = :boardId")
+    suspend fun deleteByBoardId(boardId: Long)
 }
