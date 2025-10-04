@@ -167,8 +167,9 @@ fun Modifier.detectDirectionalGesture(
 // thresholdPx: 判定に使用する閾値（ピクセル）
 // アルゴリズム概要:
 // 1) path の中から最初に水平移動が閾値を越えた点を見つける（firstPoint）
-// 2) その点が主に水平移動か（水平成分が垂直成分より大きいか）を確認
-// 3) 以降の点の最大/最小 X/Y を算出し、最初の水平方向（右/左）に対して
+// 2) firstPoint から初期の水平方向に伸びた経路のうち、方向が確定的に切り替わった地点
+//    （switchPoint）を特定する
+// 3) switchPoint 以降の点の最大/最小 X/Y を算出し、最初の水平方向（右/左）に対して
 //    上/下/戻り/前進 のうちどれが閾値を越えたかを判定する
 // 4) 複数の方向が閾値を越えていた場合は Invalid、1 つだけなら対応する GestureDirection を返す
 private fun detectGestureDirection(
@@ -203,13 +204,16 @@ private fun detectGestureDirection(
         }
     }
 
-    // 以降の点を走査して X/Y の最大・最小を求める
-    var maxX = firstPoint.x
-    var minX = firstPoint.x
-    var maxY = firstPoint.y
-    var minY = firstPoint.y
+    val switchIndex = findDirectionSwitchIndex(path, firstIndex, firstDirection, thresholdPx)
+    val switchPoint = path[switchIndex]
 
-    for (i in firstIndex + 1 until path.size) {
+    // 以降の点を走査して X/Y の最大・最小を求める
+    var maxX = switchPoint.x
+    var minX = switchPoint.x
+    var maxY = switchPoint.y
+    var minY = switchPoint.y
+
+    for (i in switchIndex + 1 until path.size) {
         val point = path[i]
         maxX = max(maxX, point.x)
         minX = min(minX, point.x)
@@ -225,10 +229,10 @@ private fun detectGestureDirection(
             // movedDown: 最初の y から下方向へ閾値以上移動したか
             // movedBack: 最初の x から戻る方向（左）へ閾値以上移動したか
             // movedForward: 最初の x からさらに進む方向（右）へ閾値以上移動したか
-            val movedUp = firstPoint.y - minY >= thresholdPx
-            val movedDown = maxY - firstPoint.y >= thresholdPx
-            val movedBack = firstPoint.x - minX >= thresholdPx
-            val movedForward = maxX - firstPoint.x >= thresholdPx
+            val movedUp = switchPoint.y - minY >= thresholdPx
+            val movedDown = maxY - switchPoint.y >= thresholdPx
+            val movedBack = switchPoint.x - minX >= thresholdPx
+            val movedForward = maxX - switchPoint.x >= thresholdPx
 
             // 複数のフラグが true なら混在していると判断
             val movementCount = listOf(movedUp, movedDown, movedBack, movedForward).count { it }
@@ -244,10 +248,10 @@ private fun detectGestureDirection(
 
         HorizontalDirection.Left -> {
             // 左に最初に動いた場合の追加変化を判定
-            val movedUp = firstPoint.y - minY >= thresholdPx
-            val movedDown = maxY - firstPoint.y >= thresholdPx
-            val movedBack = maxX - firstPoint.x >= thresholdPx
-            val movedForward = firstPoint.x - minX >= thresholdPx
+            val movedUp = switchPoint.y - minY >= thresholdPx
+            val movedDown = maxY - switchPoint.y >= thresholdPx
+            val movedBack = maxX - switchPoint.x >= thresholdPx
+            val movedForward = switchPoint.x - minX >= thresholdPx
 
             val movementCount = listOf(movedUp, movedDown, movedBack, movedForward).count { it }
             if (movementCount > 1) {
@@ -258,6 +262,88 @@ private fun detectGestureDirection(
                 movedBack -> GestureDetectionResult.Direction(GestureDirection.LeftRight)
                 else -> GestureDetectionResult.Direction(GestureDirection.Left)
             }
+        }
+    }
+}
+
+private fun findDirectionSwitchIndex(
+    path: List<Offset>,
+    firstIndex: Int,
+    firstDirection: HorizontalDirection,
+    thresholdPx: Float,
+): Int {
+    var switchIndex = firstIndex
+    var switchPoint = path[firstIndex]
+
+    return when (firstDirection) {
+        HorizontalDirection.Right -> {
+            var furthestX = switchPoint.x
+            var minY = switchPoint.y
+            var maxY = switchPoint.y
+            var minX = switchPoint.x
+
+            for (i in firstIndex + 1 until path.size) {
+                val point = path[i]
+
+                if (point.x > furthestX) {
+                    furthestX = point.x
+                    switchIndex = i
+                    switchPoint = point
+                    minY = point.y
+                    maxY = point.y
+                    minX = point.x
+                    continue
+                }
+
+                minY = min(minY, point.y)
+                maxY = max(maxY, point.y)
+                minX = min(minX, point.x)
+
+                val movedUp = switchPoint.y - minY >= thresholdPx
+                val movedDown = maxY - switchPoint.y >= thresholdPx
+                val movedBack = switchPoint.x - minX >= thresholdPx
+
+                if (movedUp || movedDown || movedBack) {
+                    return switchIndex
+                }
+            }
+
+            switchIndex
+        }
+
+        HorizontalDirection.Left -> {
+            var furthestX = switchPoint.x
+            var minY = switchPoint.y
+            var maxY = switchPoint.y
+            var maxX = switchPoint.x
+
+            for (i in firstIndex + 1 until path.size) {
+                val point = path[i]
+
+                if (point.x < furthestX) {
+                    furthestX = point.x
+                    switchIndex = i
+                    switchPoint = point
+                    minY = point.y
+                    maxY = point.y
+                    maxX = point.x
+                    continue
+                }
+
+                minY = min(minY, point.y)
+                maxY = max(maxY, point.y)
+                maxX = max(maxX, point.x)
+
+                val movedUp = switchPoint.y - minY >= thresholdPx
+                val movedDown = maxY - switchPoint.y >= thresholdPx
+                val movedBack = maxX - switchPoint.x >= thresholdPx
+
+                if (movedUp || movedDown || movedBack) {
+                    return switchIndex
+                }
+            }
+
+            switchIndex
         }
     }
 }
