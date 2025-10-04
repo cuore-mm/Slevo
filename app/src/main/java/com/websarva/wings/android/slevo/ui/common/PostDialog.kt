@@ -113,10 +113,10 @@ fun PostDialog(
                             .padding(8.dp),
                     ) {
                         val focusManager = LocalFocusManager.current
+                        val density = LocalDensity.current
                         Column(modifier = Modifier.weight(1f)) {
                             var isNameFocused by remember { mutableStateOf(false) }
                             var nameTextFieldWidth by remember { mutableStateOf(0.dp) }
-                            val density = LocalDensity.current
                             val filteredNameHistory = remember(nameHistory, name) {
                                 nameHistory.filter { it != name }
                             }
