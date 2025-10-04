@@ -37,6 +37,8 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -113,6 +115,11 @@ fun PostDialog(
                         val focusManager = LocalFocusManager.current
                         Column(modifier = Modifier.weight(1f)) {
                             var isNameFocused by remember { mutableStateOf(false) }
+                            var nameTextFieldWidth by remember { mutableStateOf(0.dp) }
+                            val density = LocalDensity.current
+                            val filteredNameHistory = remember(nameHistory, name) {
+                                nameHistory.filter { it != name }
+                            }
                             Box {
                                 OutlinedTextField(
                                     value = name,
@@ -128,6 +135,11 @@ fun PostDialog(
                                         .fillMaxWidth()
                                         .onFocusChanged { focusState ->
                                             isNameFocused = focusState.isFocused
+                                        }
+                                        .onGloballyPositioned { coordinates ->
+                                            nameTextFieldWidth = with(density) {
+                                                coordinates.size.width.toDp()
+                                            }
                                         },
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
@@ -136,18 +148,22 @@ fun PostDialog(
                                     )
                                 )
                                 DropdownMenu(
-                                    expanded = isNameFocused && nameHistory.isNotEmpty(),
+                                    expanded = isNameFocused && filteredNameHistory.isNotEmpty(),
                                     onDismissRequest = {
                                         isNameFocused = false
                                         focusManager.clearFocus()
                                     },
-                                    properties = PopupProperties(focusable = false)
+                                    properties = PopupProperties(focusable = false),
+                                    modifier = Modifier.width(nameTextFieldWidth)
                                 ) {
-                                    nameHistory.forEach { value ->
+                                    filteredNameHistory.forEach { value ->
                                         DropdownMenuItem(
                                             text = { Text(value) },
                                             onClick = {
+                                                onNameChange(value)
                                                 onNameHistorySelect(value)
+                                                isNameFocused = false
+                                                focusManager.clearFocus()
                                             }
                                         )
                                     }
@@ -157,6 +173,10 @@ fun PostDialog(
                         Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             var isMailFocused by remember { mutableStateOf(false) }
+                            var mailTextFieldWidth by remember { mutableStateOf(0.dp) }
+                            val mailFilteredHistory = remember(mailHistory, mail) {
+                                mailHistory.filter { it != mail }
+                            }
                             Box {
                                 OutlinedTextField(
                                     value = mail,
@@ -166,6 +186,11 @@ fun PostDialog(
                                         .fillMaxWidth()
                                         .onFocusChanged { focusState ->
                                             isMailFocused = focusState.isFocused
+                                        }
+                                        .onGloballyPositioned { coordinates ->
+                                            mailTextFieldWidth = with(density) {
+                                                coordinates.size.width.toDp()
+                                            }
                                         },
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
@@ -174,18 +199,22 @@ fun PostDialog(
                                     )
                                 )
                                 DropdownMenu(
-                                    expanded = isMailFocused && mailHistory.isNotEmpty(),
+                                    expanded = isMailFocused && mailFilteredHistory.isNotEmpty(),
                                     onDismissRequest = {
                                         isMailFocused = false
                                         focusManager.clearFocus()
                                     },
-                                    properties = PopupProperties(focusable = false)
+                                    properties = PopupProperties(focusable = false),
+                                    modifier = Modifier.width(mailTextFieldWidth)
                                 ) {
-                                    mailHistory.forEach { value ->
+                                    mailFilteredHistory.forEach { value ->
                                         DropdownMenuItem(
                                             text = { Text(value) },
                                             onClick = {
+                                                onMailChange(value)
                                                 onMailHistorySelect(value)
+                                                isMailFocused = false
+                                                focusManager.clearFocus()
                                             }
                                         )
                                     }
