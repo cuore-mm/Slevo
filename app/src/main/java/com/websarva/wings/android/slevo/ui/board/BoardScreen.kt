@@ -58,6 +58,7 @@ fun BoardScreen(
     onRefresh: () -> Unit,
     listState: LazyListState = rememberLazyListState(),
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
+    showBottomBar: (() -> Unit)? = null,
     onGestureAction: (GestureAction) -> Unit = {},
 ) {
     val (momentumMean, momentumStd) = remember(threads) {
@@ -113,15 +114,18 @@ fun BoardScreen(
                             listState.scrollToItem(0)
                         }
 
-                        GestureAction.ToBottom -> coroutineScope.launch {
-                            val totalItems = listState.layoutInfo.totalItemsCount
-                            val fallback = if (threads.isNotEmpty()) threads.size else 0
-                            val targetIndex = when {
-                                totalItems > 0 -> totalItems - 1
-                                fallback > 0 -> fallback
-                                else -> 0
+                        GestureAction.ToBottom -> {
+                            showBottomBar?.invoke()
+                            coroutineScope.launch {
+                                val totalItems = listState.layoutInfo.totalItemsCount
+                                val fallback = if (threads.isNotEmpty()) threads.size else 0
+                                val targetIndex = when {
+                                    totalItems > 0 -> totalItems - 1
+                                    fallback > 0 -> fallback
+                                    else -> 0
+                                }
+                                listState.scrollToItem(targetIndex)
                             }
-                            listState.scrollToItem(targetIndex)
                         }
 
                         else -> onGestureAction(action)

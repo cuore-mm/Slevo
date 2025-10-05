@@ -191,7 +191,7 @@ fun BoardScaffold(
                 }
             }
         },
-        content = { viewModel, uiState, listState, modifier, navController ->
+        content = { viewModel, uiState, listState, modifier, navController, showBottomBar ->
             LaunchedEffect(uiState.resetScroll) {
                 if (uiState.resetScroll) {
                     listState.scrollToItem(0)
@@ -220,6 +220,7 @@ fun BoardScaffold(
                 onRefresh = { viewModel.refreshBoardData() },
                 listState = listState,
                 gestureSettings = uiState.gestureSettings,
+                showBottomBar = showBottomBar,
                 onGestureAction = { action ->
                     when (action) {
                         GestureAction.Refresh -> viewModel.refreshBoardData()

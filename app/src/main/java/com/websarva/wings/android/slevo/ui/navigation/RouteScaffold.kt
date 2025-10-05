@@ -66,7 +66,14 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         scrollBehavior: BottomAppBarScrollBehavior?,
         openTabListSheet: () -> Unit,
     ) -> Unit,
-    content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier, navController: NavHostController) -> Unit,
+    content: @Composable (
+        viewModel: ViewModel,
+        uiState: UiState,
+        listState: LazyListState,
+        modifier: Modifier,
+        navController: NavHostController,
+        showBottomBar: (() -> Unit)?,
+    ) -> Unit,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
@@ -176,6 +183,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
             val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
             val swipeBlockerState = rememberDraggableState { _ -> }
+            val showBottomBar = bottomBehavior?.let { behavior ->
+                {
+                    behavior.state.heightOffset = 0f
+                }
+            }
+
             Scaffold(
                 modifier = Modifier
                     .let { modifier ->
@@ -205,7 +218,8 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     uiState,
                     listState,
                     contentModifier,
-                    navController
+                    navController,
+                    showBottomBar,
                 )
 
                 // 共通のボトムシートとダイアログ

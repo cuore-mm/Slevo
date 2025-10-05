@@ -79,6 +79,7 @@ fun ThreadScreen(
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
     tabsViewModel: TabsViewModel? = null,
+    showBottomBar: (() -> Unit)? = null,
     onAutoScrollBottom: () -> Unit = {},
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
@@ -237,15 +238,18 @@ fun ThreadScreen(
                         listState.scrollToItem(0)
                     }
 
-                    GestureAction.ToBottom -> coroutineScope.launch {
-                        val totalItems = listState.layoutInfo.totalItemsCount
-                        val fallback = if (visiblePosts.isNotEmpty()) visiblePosts.size else 0
-                        val targetIndex = when {
-                            totalItems > 0 -> totalItems - 1
-                            fallback > 0 -> fallback
-                            else -> 0
+                    GestureAction.ToBottom -> {
+                        showBottomBar?.invoke()
+                        coroutineScope.launch {
+                            val totalItems = listState.layoutInfo.totalItemsCount
+                            val fallback = if (visiblePosts.isNotEmpty()) visiblePosts.size else 0
+                            val targetIndex = when {
+                                totalItems > 0 -> totalItems - 1
+                                fallback > 0 -> fallback
+                                else -> 0
+                            }
+                            listState.scrollToItem(targetIndex)
                         }
-                        listState.scrollToItem(targetIndex)
                     }
 
                     else -> onGestureAction(action)
