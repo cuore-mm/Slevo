@@ -66,7 +66,14 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         scrollBehavior: BottomAppBarScrollBehavior?,
         openTabListSheet: () -> Unit,
     ) -> Unit,
-    content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier, navController: NavHostController) -> Unit,
+    content: @Composable (
+        viewModel: ViewModel,
+        uiState: UiState,
+        listState: LazyListState,
+        modifier: Modifier,
+        navController: NavHostController,
+        bottomBarScrollBehavior: BottomAppBarScrollBehavior?,
+    ) -> Unit,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
@@ -205,7 +212,8 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     uiState,
                     listState,
                     contentModifier,
-                    navController
+                    navController,
+                    bottomBehavior
                 )
 
                 // 共通のボトムシートとダイアログ

@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +60,7 @@ fun BoardScreen(
     listState: LazyListState = rememberLazyListState(),
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     onGestureAction: (GestureAction) -> Unit = {},
+    bottomBarScrollBehavior: BottomAppBarScrollBehavior? = null,
 ) {
     val (momentumMean, momentumStd) = remember(threads) {
         val values = threads.filter {
@@ -114,6 +116,7 @@ fun BoardScreen(
                         }
 
                         GestureAction.ToBottom -> coroutineScope.launch {
+                            bottomBarScrollBehavior?.state?.heightOffset = 0f
                             val totalItems = listState.layoutInfo.totalItemsCount
                             val fallback = if (threads.isNotEmpty()) threads.size else 0
                             val targetIndex = when {

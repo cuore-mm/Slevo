@@ -18,7 +18,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.ContainedLoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -71,7 +73,7 @@ import my.nanihadesuka.compose.LazyColumnScrollbar
 import kotlin.math.min
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadScreen(
     modifier: Modifier = Modifier,
@@ -85,6 +87,7 @@ fun ThreadScreen(
     onReplyToPost: (Int) -> Unit = {},
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     onGestureAction: (GestureAction) -> Unit = {},
+    bottomBarScrollBehavior: BottomAppBarScrollBehavior? = null,
 ) {
     // 投稿一覧（nullの場合は空リスト）
     val posts = uiState.posts ?: emptyList()
@@ -238,6 +241,7 @@ fun ThreadScreen(
                     }
 
                     GestureAction.ToBottom -> coroutineScope.launch {
+                        bottomBarScrollBehavior?.state?.heightOffset = 0f
                         val totalItems = listState.layoutInfo.totalItemsCount
                         val fallback = if (visiblePosts.isNotEmpty()) visiblePosts.size else 0
                         val targetIndex = when {
@@ -486,6 +490,7 @@ fun ThreadScreen(
 
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Preview(showBackground = true)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ThreadScreenPreview() {
     val previewPosts = listOf(

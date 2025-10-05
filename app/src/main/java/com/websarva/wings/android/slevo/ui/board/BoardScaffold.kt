@@ -191,7 +191,7 @@ fun BoardScaffold(
                 }
             }
         },
-        content = { viewModel, uiState, listState, modifier, navController ->
+        content = { viewModel, uiState, listState, modifier, navController, bottomBarScrollBehavior ->
             LaunchedEffect(uiState.resetScroll) {
                 if (uiState.resetScroll) {
                     listState.scrollToItem(0)
@@ -227,7 +227,8 @@ fun BoardScaffold(
                         GestureAction.Search -> viewModel.setSearchMode(true)
                         GestureAction.ToTop, GestureAction.ToBottom -> Unit
                     }
-                }
+                },
+                bottomBarScrollBehavior = bottomBarScrollBehavior
             )
             if (uiState.showInfoDialog) {
                 BoardInfoDialog(
