@@ -82,7 +82,10 @@ fun ThreadScaffold(
         ThreadId.of(host, board, threadRoute.threadKey)
     }
 
-    LaunchedEffect(threadRoute) {
+    LaunchedEffect(threadRoute, tabsUiState.threadLoaded) {
+        if (!tabsUiState.threadLoaded) {
+            return@LaunchedEffect
+        }
         val info = tabsViewModel.resolveBoardInfo(
             boardId = threadRoute.boardId,
             boardUrl = threadRoute.boardUrl,
