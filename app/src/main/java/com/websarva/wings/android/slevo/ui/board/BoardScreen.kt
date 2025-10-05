@@ -27,6 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +59,7 @@ fun BoardScreen(
     onRefresh: () -> Unit,
     listState: LazyListState = rememberLazyListState(),
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
+    showBottomBar: (() -> Unit)? = null,
     onGestureAction: (GestureAction) -> Unit = {},
 ) {
     val (momentumMean, momentumStd) = remember(threads) {
@@ -109,19 +111,32 @@ fun BoardScreen(
                     }
                     gestureHint = GestureHint.Hidden
                     when (action) {
-                        GestureAction.ToTop -> coroutineScope.launch {
-                            listState.scrollToItem(0)
+                        GestureAction.ToTop -> {
+                            showBottomBar?.invoke()
+                            coroutineScope.launch {
+                                listState.scrollToItem(0)
+                            }
                         }
 
-                        GestureAction.ToBottom -> coroutineScope.launch {
-                            val totalItems = listState.layoutInfo.totalItemsCount
-                            val fallback = if (threads.isNotEmpty()) threads.size else 0
-                            val targetIndex = when {
-                                totalItems > 0 -> totalItems - 1
-                                fallback > 0 -> fallback
-                                else -> 0
+                        GestureAction.ToBottom -> {
+                            coroutineScope.launch {
+                                showBottomBar?.invoke()
+                                val prevViewportEnd = listState.layoutInfo.viewportEndOffset
+                                repeat(10) {
+                                    withFrameNanos { /* 1 フレーム待ち */ }
+                                    if (listState.layoutInfo.viewportEndOffset != prevViewportEnd) return@repeat
+                                }
+                                coroutineScope.launch {
+                                    val totalItems = listState.layoutInfo.totalItemsCount
+                                    val fallback = if (threads.isNotEmpty()) threads.size else 0
+                                    val targetIndex = when {
+                                        totalItems > 0 -> totalItems - 1
+                                        fallback > 0 -> fallback
+                                        else -> 0
+                                    }
+                                    listState.scrollToItem(targetIndex)
+                                }
                             }
-                            listState.scrollToItem(targetIndex)
                         }
 
                         else -> onGestureAction(action)
