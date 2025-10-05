@@ -15,22 +15,27 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.util.GestureHint
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.tooling.preview.Preview
+import com.websarva.wings.android.slevo.data.model.GestureDirection
+import com.websarva.wings.android.slevo.data.model.GestureAction
 
 @Composable
 fun GestureHintOverlay(
     state: GestureHint,
     modifier: Modifier = Modifier,
 ) {
+    // Surface の共通サイズを定義（幅を固定、最小高さを確保）
+    // （具体的な Surface は下の OverlaySurface で共通化）
+
     when (state) {
         is GestureHint.Hidden -> Unit
         is GestureHint.Direction -> Box(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            Surface(
-                tonalElevation = 6.dp,
-                shape = MaterialTheme.shapes.medium,
-            ) {
+            OverlaySurface {
                 Column(
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -57,10 +62,7 @@ fun GestureHintOverlay(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            Surface(
-                tonalElevation = 6.dp,
-                shape = MaterialTheme.shapes.medium,
-            ) {
+            OverlaySurface {
                 Text(
                     text = stringResource(id = R.string.gesture_invalid_message),
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
@@ -70,4 +72,44 @@ fun GestureHintOverlay(
             }
         }
     }
+}
+
+/**
+ * 共通のオーバーレイ Surface を生成するヘルパー。
+ * 幅を固定し最小高さを確保、半透明の背景色を適用します。
+ */
+@Composable
+private fun OverlaySurface(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Surface(
+        modifier = modifier.width(240.dp).heightIn(min = 72.dp),
+        tonalElevation = 6.dp,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+    ) {
+        content()
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun GestureHintOverlay_DirectionPreview() {
+    GestureHintOverlay(
+        state = GestureHint.Direction(
+            direction = GestureDirection.Right,
+            action = GestureAction.ToTop,
+        ),
+        modifier = Modifier,
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun GestureHintOverlay_InvalidPreview() {
+    GestureHintOverlay(
+        state = GestureHint.Invalid,
+        modifier = Modifier,
+    )
 }
