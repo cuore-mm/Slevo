@@ -60,7 +60,7 @@ class SettingsGestureViewModel @Inject constructor(
     }
 
     private fun GestureSettings.toGestureItems(): List<GestureItem> =
-        GestureDirection.values().map { direction ->
+        GestureDirection.entries.map { direction ->
             GestureItem(
                 direction = direction,
                 action = assignments[direction],
@@ -70,7 +70,7 @@ class SettingsGestureViewModel @Inject constructor(
 
 data class SettingsGestureUiState(
     val isGestureEnabled: Boolean = GestureSettings.DEFAULT.isEnabled,
-    val gestureItems: List<GestureItem> = GestureDirection.values().map { direction ->
+    val gestureItems: List<GestureItem> = GestureDirection.entries.map { direction ->
         GestureItem(direction = direction, action = GestureSettings.DEFAULT.assignments[direction])
     },
     val selectedDirection: GestureDirection? = null,

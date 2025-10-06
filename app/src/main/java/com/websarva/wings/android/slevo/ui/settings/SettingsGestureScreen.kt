@@ -96,19 +96,11 @@ fun SettingsGestureScreenContent(
                 .fillMaxSize()
         ) {
             item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        toggleGesture(!uiState.isGestureEnabled)
-                    },
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    ),
-                ) {
+                // Use the extracted SettingsCard composable and pass the inner content as a lambda
+                SettingsCard(onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    toggleGesture(!uiState.isGestureEnabled)
+                }) {
                     ListItem(
                         modifier = Modifier
                             .padding(horizontal = 8.dp),
@@ -146,13 +138,6 @@ fun SettingsGestureScreenContent(
                     text = stringResource(id = R.string.gesture_supporting_description),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-            }
-            item {
-                Text(
-                    text = stringResource(id = R.string.gesture_list_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                 )
             }
             items(uiState.gestureItems) { item ->
@@ -243,6 +228,27 @@ private fun GestureActionSelectionRow(
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(text = label)
+    }
+}
+
+// New reusable card for settings screen. It encapsulates common styling and click handling
+@Composable
+private fun SettingsCard(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        onClick = onClick,
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+    ) {
+        content()
     }
 }
 
