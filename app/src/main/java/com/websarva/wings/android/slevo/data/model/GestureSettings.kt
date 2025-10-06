@@ -14,7 +14,7 @@ data class GestureSettings(
     companion object {
         val DEFAULT = GestureSettings(
             isEnabled = false,
-            assignments = GestureDirection.values().associateWith { null }
+            assignments = GestureDirection.entries.associateWith { null }
         )
     }
 }
