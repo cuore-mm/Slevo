@@ -17,9 +17,12 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModelFacto
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -50,6 +53,12 @@ class TabsViewModel @Inject constructor(
 
     private val _threadCurrentPage = MutableStateFlow(-1)
     val threadCurrentPage: StateFlow<Int> = _threadCurrentPage.asStateFlow()
+
+    private val _boardPageAnimation = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+    val boardPageAnimation: SharedFlow<Int> = _boardPageAnimation.asSharedFlow()
+
+    private val _threadPageAnimation = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+    val threadPageAnimation: SharedFlow<Int> = _threadPageAnimation.asSharedFlow()
 
     // boardUrl をキーに BoardViewModel をキャッシュ
     private val boardViewModelMap: MutableMap<String, BoardViewModel> = mutableMapOf()
@@ -237,6 +246,16 @@ class TabsViewModel @Inject constructor(
         }
     }
 
+    fun animateBoardPage(offset: Int) {
+        val tabs = _uiState.value.openBoardTabs
+        if (tabs.isEmpty()) return
+        val currentIndex = _boardCurrentPage.value.takeIf { it in tabs.indices } ?: 0
+        val targetIndex = currentIndex + offset
+        if (targetIndex in tabs.indices) {
+            viewModelScope.launch { _boardPageAnimation.emit(targetIndex) }
+        }
+    }
+
     fun moveThreadPage(offset: Int) {
         val tabs = _uiState.value.openThreadTabs
         if (tabs.isEmpty()) return
@@ -244,6 +263,16 @@ class TabsViewModel @Inject constructor(
         val targetIndex = currentIndex + offset
         if (targetIndex in tabs.indices) {
             setThreadCurrentPage(targetIndex)
+        }
+    }
+
+    fun animateThreadPage(offset: Int) {
+        val tabs = _uiState.value.openThreadTabs
+        if (tabs.isEmpty()) return
+        val currentIndex = _threadCurrentPage.value.takeIf { it in tabs.indices } ?: 0
+        val targetIndex = currentIndex + offset
+        if (targetIndex in tabs.indices) {
+            viewModelScope.launch { _threadPageAnimation.emit(targetIndex) }
         }
     }
 

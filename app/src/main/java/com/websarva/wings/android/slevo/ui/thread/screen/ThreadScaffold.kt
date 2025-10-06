@@ -130,6 +130,7 @@ fun ThreadScaffold(
         },
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setThreadCurrentPage(it) },
+        animateToPageFlow = tabsViewModel.threadPageAnimation,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
             val context = LocalContext.current
@@ -234,8 +235,8 @@ fun ThreadScaffold(
                         GestureAction.OpenBoardList -> navController.navigate(AppRoute.ServiceList)
                         GestureAction.OpenHistory -> navController.navigate(AppRoute.HistoryList)
                         GestureAction.OpenNewTab -> openUrlDialog()
-                        GestureAction.SwitchToNextTab -> tabsViewModel.moveThreadPage(1)
-                        GestureAction.SwitchToPreviousTab -> tabsViewModel.moveThreadPage(-1)
+                        GestureAction.SwitchToNextTab -> tabsViewModel.animateThreadPage(1)
+                        GestureAction.SwitchToPreviousTab -> tabsViewModel.animateThreadPage(-1)
                         GestureAction.CloseTab ->
                             if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
                                 tabsViewModel.closeThreadTab(uiState.threadInfo.key, uiState.boardInfo.url)
