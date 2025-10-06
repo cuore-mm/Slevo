@@ -92,7 +92,9 @@
     <string name="show_minimap_scrollbar_description">スレッド画面右側のミニマップ付きスクロールバーを有効にします</string>
 
     <string name="gesture_settings">ジェスチャー</string>
-    <string name="enable_gesture_feature">ジェスチャー機能を有効にする</string>
+    <string name="switch_on">ON</string>
+    <string name="switch_off">OFF</string>
+    <string name="gesture_supporting_description">板・スレッドの閲覧画面でジェスチャー操作が使えます。</string>
     <string name="gesture_list_title">ジェスチャーの割り当て</string>
     <string name="gesture_action_unassigned">未設定</string>
     <string name="gesture_action_unassigned_message">アクションなし</string>

@@ -17,9 +17,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -31,8 +33,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -64,7 +71,7 @@ fun SettingsGestureScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsGestureScreenContent(
     uiState: SettingsGestureUiState,
@@ -74,6 +81,7 @@ fun SettingsGestureScreenContent(
     dismissGestureDialog: () -> Unit,
     assignGestureAction: (GestureDirection, GestureAction?) -> Unit,
 ) {
+    val haptic = LocalHapticFeedback.current
     Scaffold(
         topBar = {
             SmallTopAppBarScreen(
@@ -91,21 +99,54 @@ fun SettingsGestureScreenContent(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        toggleGesture(!uiState.isGestureEnabled)
+                    },
+                    shape = MaterialTheme.shapes.extraLarge,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    ),
                 ) {
                     ListItem(
-                        headlineContent = { Text(stringResource(id = R.string.enable_gesture_feature)) },
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp),
+                        colors = ListItemDefaults.colors(
+                            containerColor = Color.Transparent
+                        ),
+                        headlineContent = {
+                            val stateText =
+                                if (uiState.isGestureEnabled) stringResource(id = R.string.switch_on)
+                                else stringResource(id = R.string.switch_off)
+                            Text(
+                                text = stateText,
+                                fontWeight = FontWeight.Bold,
+                                color = if (uiState.isGestureEnabled) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface
+                            )
+                        },
                         trailingContent = {
+                            // Switch は個別にもタップ可能
                             Switch(
+                                modifier = Modifier
+                                    .scale(0.8f),
                                 checked = uiState.isGestureEnabled,
-                                onCheckedChange = { toggleGesture(it) }
+                                onCheckedChange = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    toggleGesture(it)
+                                }
                             )
                         }
                     )
                 }
+            }
+            item {
+                Text(
+                    text = stringResource(id = R.string.gesture_supporting_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
             }
             item {
                 Text(
@@ -148,7 +189,6 @@ fun SettingsGestureScreenContent(
             onDismissRequest = { dismissGestureDialog() },
             title = { Text(text = stringResource(id = direction.labelRes)) },
             text = {
-                // Use LazyColumn for better performance with many items and limit max height
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -209,7 +249,6 @@ private fun GestureActionSelectionRow(
 @Preview(showBackground = true)
 @Composable
 private fun SettingsGestureScreenPreview() {
-    // Create a sample state for preview
     val sampleState = SettingsGestureUiState(
         isGestureEnabled = true,
         gestureItems = GestureDirection.entries.map { direction ->
