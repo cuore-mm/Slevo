@@ -117,6 +117,8 @@
     <string name="gesture_direction_left_up">左から上へ</string>
     <string name="gesture_direction_left_right">左から右へ</string>
     <string name="gesture_direction_left_down">左から下へ</string>
+    <string name="gesture_group_right">右からのジェスチャー</string>
+    <string name="gesture_group_left">左からのジェスチャー</string>
 
     <string name="about_this_app">このアプリについて</string>
     <string name="version_name_label">バージョン: %1$s</string>

@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.settings
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -90,6 +90,22 @@ fun SettingsGestureScreenContent(
             )
         }
     ) { innerPadding ->
+        val rightDirections = setOf(
+            GestureDirection.Right,
+            GestureDirection.RightUp,
+            GestureDirection.RightLeft,
+            GestureDirection.RightDown,
+        )
+        val leftDirections = setOf(
+            GestureDirection.Left,
+            GestureDirection.LeftUp,
+            GestureDirection.LeftRight,
+            GestureDirection.LeftDown,
+        )
+
+        val rightGestureItems = uiState.gestureItems.filter { it.direction in rightDirections }
+        val leftGestureItems = uiState.gestureItems.filter { it.direction in leftDirections }
+
         LazyColumn(
             modifier = Modifier
                 .padding(innerPadding)
@@ -140,29 +156,25 @@ fun SettingsGestureScreenContent(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
-            items(uiState.gestureItems) { item ->
-                val directionLabel = stringResource(id = item.direction.labelRes)
-                val actionLabel = item.action?.let { stringResource(id = it.labelRes) }
-                    ?: stringResource(id = R.string.gesture_action_unassigned)
-                val itemModifier = if (uiState.isGestureEnabled) {
-                    Modifier.clickable { onGestureItemClick(item.direction) }
-                } else {
-                    Modifier
+            if (rightGestureItems.isNotEmpty()) {
+                item {
+                    GestureDirectionGroupCard(
+                        title = stringResource(id = R.string.gesture_group_right),
+                        gestureItems = rightGestureItems,
+                        isGestureEnabled = uiState.isGestureEnabled,
+                        onGestureItemClick = onGestureItemClick,
+                    )
                 }
-                ListItem(
-                    modifier = itemModifier,
-                    leadingContent = {
-                        Icon(
-                            painter = painterResource(id = item.direction.iconRes),
-                            contentDescription = directionLabel,
-                            modifier = Modifier.size(32.dp),
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
-                    },
-                    headlineContent = { Text(directionLabel) },
-                    trailingContent = { Text(actionLabel) }
-                )
-                HorizontalDivider()
+            }
+            if (leftGestureItems.isNotEmpty()) {
+                item {
+                    GestureDirectionGroupCard(
+                        title = stringResource(id = R.string.gesture_group_left),
+                        gestureItems = leftGestureItems,
+                        isGestureEnabled = uiState.isGestureEnabled,
+                        onGestureItemClick = onGestureItemClick,
+                    )
+                }
             }
         }
     }
@@ -235,20 +247,86 @@ private fun GestureActionSelectionRow(
 @Composable
 private fun SettingsCard(
     modifier: Modifier = Modifier,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        onClick = onClick,
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
-    ) {
-        content()
+    val cardModifier = modifier
+        .fillMaxWidth()
+        .padding(horizontal = 8.dp, vertical = 8.dp)
+    val shape = MaterialTheme.shapes.extraLarge
+    val colors = CardDefaults.cardColors(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer
+    )
+
+    if (onClick != null) {
+        Card(
+            modifier = cardModifier,
+            onClick = onClick,
+            shape = shape,
+            colors = colors,
+        ) {
+            content()
+        }
+    } else {
+        Card(
+            modifier = cardModifier,
+            shape = shape,
+            colors = colors,
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun GestureDirectionGroupCard(
+    title: String,
+    gestureItems: List<GestureItem>,
+    isGestureEnabled: Boolean,
+    onGestureItemClick: (GestureDirection) -> Unit,
+) {
+    SettingsCard(onClick = null) {
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+            gestureItems.forEachIndexed { index, item ->
+                val directionLabel = stringResource(id = item.direction.labelRes)
+                val actionLabel = item.action?.let { stringResource(id = it.labelRes) }
+                    ?: stringResource(id = R.string.gesture_action_unassigned)
+                val itemModifier = if (isGestureEnabled) {
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onGestureItemClick(item.direction) }
+                } else {
+                    Modifier.fillMaxWidth()
+                }
+                ListItem(
+                    modifier = itemModifier,
+                    colors = ListItemDefaults.colors(
+                        containerColor = Color.Transparent
+                    ),
+                    leadingContent = {
+                        Icon(
+                            painter = painterResource(id = item.direction.iconRes),
+                            contentDescription = directionLabel,
+                            modifier = Modifier.size(32.dp),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    },
+                    headlineContent = { Text(directionLabel) },
+                    trailingContent = { Text(actionLabel) }
+                )
+                if (index != gestureItems.lastIndex) {
+                    HorizontalDivider()
+                }
+            }
+        }
     }
 }
 
