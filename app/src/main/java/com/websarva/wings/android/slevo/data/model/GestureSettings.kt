@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.data.model
 
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import com.websarva.wings.android.slevo.R
 
@@ -13,20 +14,47 @@ data class GestureSettings(
     companion object {
         val DEFAULT = GestureSettings(
             isEnabled = false,
-            assignments = GestureDirection.values().associateWith { null }
+            assignments = GestureDirection.entries.associateWith { null }
         )
     }
 }
 
-enum class GestureDirection(@StringRes val labelRes: Int) {
-    Right(R.string.gesture_direction_right),
-    RightUp(R.string.gesture_direction_right_up),
-    RightLeft(R.string.gesture_direction_right_left),
-    RightDown(R.string.gesture_direction_right_down),
-    Left(R.string.gesture_direction_left),
-    LeftUp(R.string.gesture_direction_left_up),
-    LeftRight(R.string.gesture_direction_left_right),
-    LeftDown(R.string.gesture_direction_left_down),
+enum class GestureDirection(
+    @StringRes val labelRes: Int,
+    @DrawableRes val iconRes: Int,
+) {
+    Right(
+        labelRes = R.string.gesture_direction_right,
+        iconRes = R.drawable.ic_gesture_right,
+    ),
+    RightUp(
+        labelRes = R.string.gesture_direction_right_up,
+        iconRes = R.drawable.ic_gesture_right_then_up,
+    ),
+    RightLeft(
+        labelRes = R.string.gesture_direction_right_left,
+        iconRes = R.drawable.ic_gesture_right_then_left,
+    ),
+    RightDown(
+        labelRes = R.string.gesture_direction_right_down,
+        iconRes = R.drawable.ic_gesture_right_then_down,
+    ),
+    Left(
+        labelRes = R.string.gesture_direction_left,
+        iconRes = R.drawable.ic_gesture_left,
+    ),
+    LeftUp(
+        labelRes = R.string.gesture_direction_left_up,
+        iconRes = R.drawable.ic_gesture_left_then_up,
+    ),
+    LeftRight(
+        labelRes = R.string.gesture_direction_left_right,
+        iconRes = R.drawable.ic_gesture_left_then_right,
+    ),
+    LeftDown(
+        labelRes = R.string.gesture_direction_left_down,
+        iconRes = R.drawable.ic_gesture_left_then_down,
+    ),
 }
 
 enum class GestureAction(@StringRes val labelRes: Int) {

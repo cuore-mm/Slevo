@@ -3,23 +3,26 @@ package com.websarva.wings.android.slevo.ui.common
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.ui.util.GestureHint
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.ui.tooling.preview.Preview
-import com.websarva.wings.android.slevo.data.model.GestureDirection
 import com.websarva.wings.android.slevo.data.model.GestureAction
+import com.websarva.wings.android.slevo.data.model.GestureDirection
+import com.websarva.wings.android.slevo.ui.util.GestureHint
 
 @Composable
 fun GestureHintOverlay(
@@ -40,10 +43,11 @@ fun GestureHintOverlay(
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(
-                        text = stringResource(id = state.direction.labelRes),
-                        style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Center,
+                    Icon(
+                        painter = painterResource(id = state.direction.iconRes),
+                        contentDescription = stringResource(id = state.direction.labelRes),
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.onSurface,
                     )
                     val message = state.action?.let { action ->
                         stringResource(id = action.labelRes)
@@ -52,7 +56,7 @@ fun GestureHintOverlay(
                         text = message,
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 4.dp),
+                        modifier = Modifier.padding(top = 8.dp),
                     )
                 }
             }
@@ -64,12 +68,14 @@ fun GestureHintOverlay(
         ) {
             OverlaySurface {
                 Text(
+                    modifier = Modifier
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
                     text = stringResource(id = R.string.gesture_invalid_message),
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                 )
             }
+
         }
     }
 }
@@ -84,12 +90,18 @@ private fun OverlaySurface(
     content: @Composable () -> Unit,
 ) {
     Surface(
-        modifier = modifier.width(240.dp).heightIn(min = 72.dp),
+        modifier = modifier
+            .width(240.dp)
+            .heightIn(min = 120.dp),
         tonalElevation = 6.dp,
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
     ) {
-        content()
+        Box(
+            contentAlignment = Alignment.Center,
+        ) {
+            content()
+        }
     }
 }
 
