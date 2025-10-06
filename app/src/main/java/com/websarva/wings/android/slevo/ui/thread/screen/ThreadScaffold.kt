@@ -28,6 +28,7 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
@@ -182,7 +183,7 @@ fun ThreadScaffold(
                 }
             }
         },
-        content = { viewModel, uiState, listState, modifier, navController ->
+        content = { viewModel, uiState, listState, modifier, navController, showBottomBar, openTabListSheet, openUrlDialog ->
             LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
                 if (
@@ -215,12 +216,33 @@ fun ThreadScaffold(
                 listState = listState,
                 navController = navController,
                 tabsViewModel = tabsViewModel,
+                showBottomBar = showBottomBar,
                 onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
                 onBottomRefresh = { viewModel.reloadThread() },
                 onLastRead = { resNum ->
                     routeThreadId?.let { viewModel.updateThreadLastRead(it, resNum) }
                 },
-                onReplyToPost = { viewModel.showReplyDialog(it) }
+                onReplyToPost = { viewModel.showReplyDialog(it) },
+                gestureSettings = uiState.gestureSettings,
+                onGestureAction = { action ->
+                    when (action) {
+                        GestureAction.Refresh -> viewModel.reloadThread()
+                        GestureAction.PostOrCreateThread -> viewModel.showPostDialog()
+                        GestureAction.Search -> viewModel.startSearch()
+                        GestureAction.OpenTabList -> openTabListSheet()
+                        GestureAction.OpenBookmarkList -> navController.navigate(AppRoute.BookmarkList)
+                        GestureAction.OpenBoardList -> navController.navigate(AppRoute.ServiceList)
+                        GestureAction.OpenHistory -> navController.navigate(AppRoute.HistoryList)
+                        GestureAction.OpenNewTab -> openUrlDialog()
+                        GestureAction.SwitchToNextTab -> tabsViewModel.moveThreadPage(1)
+                        GestureAction.SwitchToPreviousTab -> tabsViewModel.moveThreadPage(-1)
+                        GestureAction.CloseTab ->
+                            if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
+                                tabsViewModel.closeThreadTab(uiState.threadInfo.key, uiState.boardInfo.url)
+                            }
+                        GestureAction.ToTop, GestureAction.ToBottom -> Unit
+                    }
+                }
             )
         },
         optionalSheetContent = { viewModel, uiState ->

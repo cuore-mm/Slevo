@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -36,7 +37,7 @@ fun rememberBottomBarShowOnBottomBehavior(
     val barState = rememberBottomAppBarState()
     var atBottomSticky by remember { mutableStateOf(false) }
     // 保持ロック (ミリ秒)。sticky にした時点から最低この時刻までは解除を無視する
-    var stickyLockUntil by remember { mutableStateOf(0L) }
+    var stickyLockUntil by remember { mutableLongStateOf(0L) }
 
     // 末尾アイテムが“可視か”と、そのときのビューポート下端との隙間(px)
     val lastVisibleAndGap by remember {
