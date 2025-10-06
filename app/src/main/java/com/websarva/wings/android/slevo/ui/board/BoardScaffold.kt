@@ -115,6 +115,7 @@ fun BoardScaffold(
         },
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setBoardCurrentPage(it) },
+        animateToPageFlow = tabsViewModel.boardPageAnimation,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
             val keyboardController = LocalSoftwareKeyboardController.current
@@ -231,8 +232,8 @@ fun BoardScaffold(
                         GestureAction.OpenBoardList -> navController.navigate(AppRoute.ServiceList)
                         GestureAction.OpenHistory -> navController.navigate(AppRoute.HistoryList)
                         GestureAction.OpenNewTab -> openUrlDialog()
-                        GestureAction.SwitchToNextTab -> tabsViewModel.moveBoardPage(1)
-                        GestureAction.SwitchToPreviousTab -> tabsViewModel.moveBoardPage(-1)
+                        GestureAction.SwitchToNextTab -> tabsViewModel.animateBoardPage(1)
+                        GestureAction.SwitchToPreviousTab -> tabsViewModel.animateBoardPage(-1)
                         GestureAction.CloseTab ->
                             if (uiState.boardInfo.url.isNotBlank()) {
                                 tabsViewModel.closeBoardTabByUrl(uiState.boardInfo.url)

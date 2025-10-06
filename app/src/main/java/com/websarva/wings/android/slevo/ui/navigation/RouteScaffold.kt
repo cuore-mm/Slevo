@@ -43,6 +43,7 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import timber.log.Timber
@@ -63,6 +64,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     updateScrollPosition: (viewModel: ViewModel, tab: TabInfo, index: Int, offset: Int) -> Unit,
     currentPage: Int,
     onPageChange: (Int) -> Unit,
+    animateToPageFlow: Flow<Int>? = null,
     bottomBar: @Composable (
         viewModel: ViewModel,
         uiState: UiState,
@@ -122,6 +124,18 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
         LaunchedEffect(pagerState.currentPage) {
             onPageChange(pagerState.currentPage)
+        }
+
+        LaunchedEffect(animateToPageFlow, pagerState) {
+            animateToPageFlow?.let { flow ->
+                flow.collectLatest { target ->
+                    if (pagerState.pageCount <= 0) return@collectLatest
+                    val bounded = target.coerceIn(0, pagerState.pageCount - 1)
+                    if (bounded != pagerState.currentPage) {
+                        pagerState.animateScrollToPage(bounded)
+                    }
+                }
+            }
         }
 
         // 共通で使うボトムシートの状態
