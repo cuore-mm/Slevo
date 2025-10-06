@@ -26,14 +26,16 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadDate
-import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import java.text.DecimalFormat
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
+import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.ui.thread.item.rememberHighlightedText
+import java.text.DecimalFormat
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,6 +46,7 @@ fun BoardScreen(
     onClick: (ThreadInfo) -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
+    searchQuery: String,
     listState: LazyListState = rememberLazyListState()
 ) {
     val (momentumMean, momentumStd) = remember(threads) {
@@ -84,6 +87,7 @@ fun BoardScreen(
                 ThreadCard(
                     threadInfo = thread,
                     onClick = onClick,
+                    searchQuery = searchQuery,
                     momentumMean = momentumMean,
                     momentumStd = momentumStd
                 )
@@ -99,6 +103,7 @@ fun BoardScreen(
 fun ThreadCard(
     threadInfo: ThreadInfo,
     onClick: (ThreadInfo) -> Unit,
+    searchQuery: String,
     momentumMean: Double,
     momentumStd: Double,
 ) {
@@ -122,8 +127,16 @@ fun ThreadCard(
             .clickable(onClick = { onClick(threadInfo) })
             .padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
+        val baseTitle = remember(threadInfo.title) { AnnotatedString(threadInfo.title) }
+        val highlightBackground = MaterialTheme.colorScheme.tertiaryContainer
+        val highlightedTitle = rememberHighlightedText(
+            baseText = baseTitle,
+            rawContent = threadInfo.title,
+            searchQuery = searchQuery,
+            highlightColor = highlightBackground
+        )
         Text(
-            text = threadInfo.title,
+            text = highlightedTitle,
             color = if (threadInfo.isVisited)
                 MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
         )
@@ -206,6 +219,7 @@ fun ThreadCardPreview() {
             isNew = true,
         ),
         onClick = {},
+        searchQuery = "",
         momentumMean = 1000.0,
         momentumStd = 100.0,
     )

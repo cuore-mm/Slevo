@@ -221,6 +221,7 @@ fun BoardScaffold(
                 },
                 isRefreshing = uiState.isLoading,
                 onRefresh = { viewModel.refreshBoardData() },
+                searchQuery = uiState.searchQuery,
                 listState = listState
             )
             if (uiState.showInfoDialog) {
