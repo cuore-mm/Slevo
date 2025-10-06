@@ -37,8 +37,11 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.DeleteGroupDialog
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
 import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
@@ -73,6 +76,8 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         modifier: Modifier,
         navController: NavHostController,
         showBottomBar: (() -> Unit)?,
+        openTabListSheet: () -> Unit,
+        openUrlDialog: () -> Unit,
     ) -> Unit,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
@@ -123,6 +128,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         val bookmarkSheetState = rememberModalBottomSheetState()
         val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         var showTabListSheet by rememberSaveable { mutableStateOf(false) }
+        var showUrlDialog by rememberSaveable { mutableStateOf(false) }
 
         val pagerUserScrollEnabled = when (
             val currentUiState = currentTabInfo?.let { tabInfo ->
@@ -220,6 +226,8 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     contentModifier,
                     navController,
                     showBottomBar,
+                    { showTabListSheet = true },
+                    { showUrlDialog = true },
                 )
 
                 // 共通のボトムシートとダイアログ
@@ -312,6 +320,42 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 navController = navController,
                 onDismissRequest = { showTabListSheet = false },
                 initialPage = initialPage,
+            )
+        }
+
+        if (showUrlDialog) {
+            UrlOpenDialog(
+                onDismissRequest = { showUrlDialog = false },
+                onOpen = { url ->
+                    val thread = parseThreadUrl(url)
+                    if (thread != null) {
+                        val (host, board, key) = thread
+                        val boardUrl = "https://$host/$board/"
+                        val route = AppRoute.Thread(
+                            threadKey = key,
+                            boardUrl = boardUrl,
+                            boardName = board,
+                            threadTitle = url
+                        )
+                        navController.navigateToThread(
+                            route = route,
+                            tabsViewModel = tabsViewModel,
+                        )
+                    } else {
+                        parseBoardUrl(url)?.let { (host, board) ->
+                            val boardUrl = "https://$host/$board/"
+                            val route = AppRoute.Board(
+                                boardName = boardUrl,
+                                boardUrl = boardUrl,
+                            )
+                            navController.navigateToBoard(
+                                route = route,
+                                tabsViewModel = tabsViewModel,
+                            )
+                        }
+                    }
+                    showUrlDialog = false
+                }
             )
         }
     } else {

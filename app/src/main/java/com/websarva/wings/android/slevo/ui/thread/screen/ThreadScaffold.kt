@@ -183,7 +183,7 @@ fun ThreadScaffold(
                 }
             }
         },
-        content = { viewModel, uiState, listState, modifier, navController, showBottomBar ->
+        content = { viewModel, uiState, listState, modifier, navController, showBottomBar, openTabListSheet, openUrlDialog ->
             LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
                 if (
@@ -229,6 +229,17 @@ fun ThreadScaffold(
                         GestureAction.Refresh -> viewModel.reloadThread()
                         GestureAction.PostOrCreateThread -> viewModel.showPostDialog()
                         GestureAction.Search -> viewModel.startSearch()
+                        GestureAction.OpenTabList -> openTabListSheet()
+                        GestureAction.OpenBookmarkList -> navController.navigate(AppRoute.BookmarkList)
+                        GestureAction.OpenBoardList -> navController.navigate(AppRoute.ServiceList)
+                        GestureAction.OpenHistory -> navController.navigate(AppRoute.HistoryList)
+                        GestureAction.OpenNewTab -> openUrlDialog()
+                        GestureAction.SwitchToNextTab -> tabsViewModel.moveThreadPage(1)
+                        GestureAction.SwitchToPreviousTab -> tabsViewModel.moveThreadPage(-1)
+                        GestureAction.CloseTab ->
+                            if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
+                                tabsViewModel.closeThreadTab(uiState.threadInfo.key, uiState.boardInfo.url)
+                            }
                         GestureAction.ToTop, GestureAction.ToBottom -> Unit
                     }
                 }

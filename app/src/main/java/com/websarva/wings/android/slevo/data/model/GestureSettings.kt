@@ -63,4 +63,12 @@ enum class GestureAction(@StringRes val labelRes: Int) {
     Refresh(R.string.refresh),
     PostOrCreateThread(R.string.gesture_action_post_or_create_thread),
     Search(R.string.search),
+    OpenTabList(R.string.gesture_action_open_tab_list),
+    OpenBookmarkList(R.string.gesture_action_open_bookmark_list),
+    OpenBoardList(R.string.gesture_action_open_board_list),
+    OpenHistory(R.string.gesture_action_open_history),
+    OpenNewTab(R.string.gesture_action_open_new_tab),
+    SwitchToNextTab(R.string.gesture_action_switch_to_next_tab),
+    SwitchToPreviousTab(R.string.gesture_action_switch_to_previous_tab),
+    CloseTab(R.string.gesture_action_close_tab),
 }
