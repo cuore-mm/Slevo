@@ -6,14 +6,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -31,10 +33,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.GestureAction
+import com.websarva.wings.android.slevo.data.model.GestureDirection
 import com.websarva.wings.android.slevo.ui.topbar.SmallTopAppBarScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,6 +49,31 @@ fun SettingsGestureScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    SettingsGestureScreenContent(
+        uiState = uiState,
+        onNavigateUp = onNavigateUp,
+        toggleGesture = { viewModel.toggleGesture(it) },
+        onGestureItemClick = { viewModel.onGestureItemClick(it) },
+        dismissGestureDialog = { viewModel.dismissGestureDialog() },
+        assignGestureAction = { direction, action ->
+            viewModel.assignGestureAction(
+                direction,
+                action
+            )
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsGestureScreenContent(
+    uiState: SettingsGestureUiState,
+    onNavigateUp: () -> Unit,
+    toggleGesture: (Boolean) -> Unit,
+    onGestureItemClick: (GestureDirection) -> Unit,
+    dismissGestureDialog: () -> Unit,
+    assignGestureAction: (GestureDirection, GestureAction?) -> Unit,
+) {
     Scaffold(
         topBar = {
             SmallTopAppBarScreen(
@@ -59,16 +88,24 @@ fun SettingsGestureScreen(
                 .fillMaxSize()
         ) {
             item {
-                ListItem(
-                    headlineContent = { Text(stringResource(id = R.string.enable_gesture_feature)) },
-                    trailingContent = {
-                        Switch(
-                            checked = uiState.isGestureEnabled,
-                            onCheckedChange = { viewModel.toggleGesture(it) }
-                        )
-                    }
-                )
-                HorizontalDivider()
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(id = R.string.enable_gesture_feature)) },
+                        trailingContent = {
+                            Switch(
+                                checked = uiState.isGestureEnabled,
+                                onCheckedChange = { toggleGesture(it) }
+                            )
+                        }
+                    )
+                }
             }
             item {
                 Text(
@@ -82,7 +119,7 @@ fun SettingsGestureScreen(
                 val actionLabel = item.action?.let { stringResource(id = it.labelRes) }
                     ?: stringResource(id = R.string.gesture_action_unassigned)
                 val itemModifier = if (uiState.isGestureEnabled) {
-                    Modifier.clickable { viewModel.onGestureItemClick(item.direction) }
+                    Modifier.clickable { onGestureItemClick(item.direction) }
                 } else {
                     Modifier
                 }
@@ -106,9 +143,9 @@ fun SettingsGestureScreen(
 
     uiState.selectedDirection?.let { direction ->
         val currentAction = uiState.gestureItems.firstOrNull { it.direction == direction }?.action
-        val actions = enumValues<GestureAction>()
+        val actions = GestureAction.entries.toList()
         AlertDialog(
-            onDismissRequest = { viewModel.dismissGestureDialog() },
+            onDismissRequest = { dismissGestureDialog() },
             title = { Text(text = stringResource(id = direction.labelRes)) },
             text = {
                 // Use LazyColumn for better performance with many items and limit max height
@@ -121,7 +158,7 @@ fun SettingsGestureScreen(
                         GestureActionSelectionRow(
                             label = stringResource(id = R.string.gesture_action_unassigned),
                             selected = currentAction == null,
-                            onClick = { viewModel.assignGestureAction(direction, null) }
+                            onClick = { assignGestureAction(direction, null) }
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                     }
@@ -129,7 +166,7 @@ fun SettingsGestureScreen(
                         GestureActionSelectionRow(
                             label = stringResource(id = action.labelRes),
                             selected = currentAction == action,
-                            onClick = { viewModel.assignGestureAction(direction, action) }
+                            onClick = { assignGestureAction(direction, action) }
                         )
                         if (index != actions.lastIndex) {
                             Spacer(modifier = Modifier.height(4.dp))
@@ -139,7 +176,7 @@ fun SettingsGestureScreen(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { viewModel.dismissGestureDialog() }) {
+                TextButton(onClick = { dismissGestureDialog() }) {
                     Text(text = stringResource(id = R.string.close))
                 }
             }
@@ -166,5 +203,29 @@ private fun GestureActionSelectionRow(
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(text = label)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SettingsGestureScreenPreview() {
+    // Create a sample state for preview
+    val sampleState = SettingsGestureUiState(
+        isGestureEnabled = true,
+        gestureItems = GestureDirection.entries.map { direction ->
+            GestureItem(direction = direction, action = GestureAction.entries.firstOrNull())
+        },
+        selectedDirection = GestureDirection.entries.first(),
+    )
+
+    MaterialTheme {
+        SettingsGestureScreenContent(
+            uiState = sampleState,
+            onNavigateUp = {},
+            toggleGesture = {},
+            onGestureItemClick = {},
+            dismissGestureDialog = {},
+            assignGestureAction = { _, _ -> }
+        )
     }
 }

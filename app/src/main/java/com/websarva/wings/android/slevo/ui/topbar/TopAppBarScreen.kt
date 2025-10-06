@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.topbar
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -42,13 +43,13 @@ fun SmallTopAppBarScreen(
             Text(
                 text = title,
                 fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleLarge
             )
         },
         navigationIcon = { // 左端にボタンを追加
             IconButton(onClick = onNavigateUp) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                     contentDescription = "Back"
                 )
             }
