@@ -1,7 +1,6 @@
 package com.websarva.wings.android.slevo.ui.settings
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +11,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -110,14 +111,21 @@ fun SettingsGestureScreen(
             onDismissRequest = { viewModel.dismissGestureDialog() },
             title = { Text(text = stringResource(id = direction.labelRes)) },
             text = {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    GestureActionSelectionRow(
-                        label = stringResource(id = R.string.gesture_action_unassigned),
-                        selected = currentAction == null,
-                        onClick = { viewModel.assignGestureAction(direction, null) }
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    actions.forEachIndexed { index, action ->
+                // Use LazyColumn for better performance with many items and limit max height
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 320.dp)
+                ) {
+                    item {
+                        GestureActionSelectionRow(
+                            label = stringResource(id = R.string.gesture_action_unassigned),
+                            selected = currentAction == null,
+                            onClick = { viewModel.assignGestureAction(direction, null) }
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                    itemsIndexed(actions) { index, action ->
                         GestureActionSelectionRow(
                             label = stringResource(id = action.labelRes),
                             selected = currentAction == action,

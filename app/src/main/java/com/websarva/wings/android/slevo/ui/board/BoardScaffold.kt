@@ -191,7 +191,7 @@ fun BoardScaffold(
                 }
             }
         },
-        content = { viewModel, uiState, listState, modifier, navController, showBottomBar ->
+        content = { viewModel, uiState, listState, modifier, navController, showBottomBar, openTabListSheet, openUrlDialog ->
             LaunchedEffect(uiState.resetScroll) {
                 if (uiState.resetScroll) {
                     listState.scrollToItem(0)
@@ -226,6 +226,17 @@ fun BoardScaffold(
                         GestureAction.Refresh -> viewModel.refreshBoardData()
                         GestureAction.PostOrCreateThread -> viewModel.showCreateDialog()
                         GestureAction.Search -> viewModel.setSearchMode(true)
+                        GestureAction.OpenTabList -> openTabListSheet()
+                        GestureAction.OpenBookmarkList -> navController.navigate(AppRoute.BookmarkList)
+                        GestureAction.OpenBoardList -> navController.navigate(AppRoute.ServiceList)
+                        GestureAction.OpenHistory -> navController.navigate(AppRoute.HistoryList)
+                        GestureAction.OpenNewTab -> openUrlDialog()
+                        GestureAction.SwitchToNextTab -> tabsViewModel.moveBoardPage(1)
+                        GestureAction.SwitchToPreviousTab -> tabsViewModel.moveBoardPage(-1)
+                        GestureAction.CloseTab ->
+                            if (uiState.boardInfo.url.isNotBlank()) {
+                                tabsViewModel.closeBoardTabByUrl(uiState.boardInfo.url)
+                            }
                         GestureAction.ToTop, GestureAction.ToBottom -> Unit
                     }
                 }

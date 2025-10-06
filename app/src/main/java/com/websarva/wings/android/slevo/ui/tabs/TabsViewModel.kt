@@ -227,6 +227,40 @@ class TabsViewModel @Inject constructor(
         _threadCurrentPage.value = page
     }
 
+    fun moveBoardPage(offset: Int) {
+        val tabs = _uiState.value.openBoardTabs
+        if (tabs.isEmpty()) return
+        val currentIndex = _boardCurrentPage.value.takeIf { it in tabs.indices } ?: 0
+        val targetIndex = currentIndex + offset
+        if (targetIndex in tabs.indices) {
+            setBoardCurrentPage(targetIndex)
+        }
+    }
+
+    fun moveThreadPage(offset: Int) {
+        val tabs = _uiState.value.openThreadTabs
+        if (tabs.isEmpty()) return
+        val currentIndex = _threadCurrentPage.value.takeIf { it in tabs.indices } ?: 0
+        val targetIndex = currentIndex + offset
+        if (targetIndex in tabs.indices) {
+            setThreadCurrentPage(targetIndex)
+        }
+    }
+
+    fun closeBoardTabByUrl(boardUrl: String) {
+        _uiState.value.openBoardTabs.find { it.boardUrl == boardUrl }?.let { tab ->
+            closeBoardTab(tab)
+        }
+    }
+
+    fun closeThreadTab(threadKey: String, boardUrl: String) {
+        val (host, board) = parseBoardUrl(boardUrl) ?: return
+        val id = ThreadId.of(host, board, threadKey)
+        _uiState.value.openThreadTabs.find { it.id == id }?.let { tab ->
+            closeThreadTab(tab)
+        }
+    }
+
     /**
      * 指定された板ID・URL・板名からBoardInfoを解決する。
      * - boardIdが有効ならそれを優先。
