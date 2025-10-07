@@ -20,7 +20,7 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.threadKey
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
-import com.websarva.wings.android.slevo.ui.topbar.HomeTopAppBarScreen
+import com.websarva.wings.android.slevo.ui.topbar.SlevoTopAppBar
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,8 +38,9 @@ fun HistoryListScaffold(
 
     Scaffold(
         topBar = {
-            HomeTopAppBarScreen(
+            SlevoTopAppBar(
                 title = stringResource(R.string.history),
+                onNavigateUp = { navController.popBackStack() },
                 scrollBehavior = scrollBehavior
             )
         },

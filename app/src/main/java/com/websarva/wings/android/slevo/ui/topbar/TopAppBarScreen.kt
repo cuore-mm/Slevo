@@ -2,7 +2,6 @@ package com.websarva.wings.android.slevo.ui.topbar
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -17,24 +16,10 @@ import androidx.compose.ui.tooling.preview.Preview
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeTopAppBarScreen(
-    title: String,
-    modifier: Modifier = Modifier,
-    scrollBehavior: TopAppBarScrollBehavior? = null
-) {
-    CenterAlignedTopAppBar(
-        title = { Text(title) },
-        modifier = modifier,
-        scrollBehavior = scrollBehavior,
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 fun SlevoTopAppBar(
     modifier: Modifier = Modifier,
     title: String,
-    onNavigateUp: () -> Unit, // 戻る処理のためのコールバック
+    onNavigateUp: (() -> Unit)? = null, // 戻る処理のためのコールバック
     scrollBehavior: TopAppBarScrollBehavior? = null
 ) {
     TopAppBar(
@@ -45,12 +30,14 @@ fun SlevoTopAppBar(
                 style = MaterialTheme.typography.titleLarge
             )
         },
-        navigationIcon = { // 左端にボタンを追加
-            IconButton(onClick = onNavigateUp) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
-                    contentDescription = "Back"
-                )
+        navigationIcon = {
+            if (onNavigateUp != null) { // 左端にボタンを追加
+                IconButton(onClick = onNavigateUp) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
+                        contentDescription = "Back"
+                    )
+                }
             }
         },
         modifier = modifier,
@@ -63,8 +50,9 @@ fun SlevoTopAppBar(
 @Preview(showBackground = true)
 @Composable
 fun CenterAlignedTopAppBarScreenPreview() {
-    HomeTopAppBarScreen(
-        title = "お気に入り"
+    SlevoTopAppBar(
+        title = "お気に入り",
+        onNavigateUp = null
     )
 }
 
