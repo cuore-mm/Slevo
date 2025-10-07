@@ -35,7 +35,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
-import com.websarva.wings.android.slevo.ui.topbar.SlevoTopAppBar
+import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

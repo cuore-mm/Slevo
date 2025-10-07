@@ -20,7 +20,7 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.threadKey
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
-import com.websarva.wings.android.slevo.ui.topbar.SlevoTopAppBar
+import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)

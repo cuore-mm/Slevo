@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.topbar
+package com.websarva.wings.android.slevo.ui.common
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
@@ -31,7 +31,7 @@ fun SlevoTopAppBar(
             )
         },
         navigationIcon = {
-            if (onNavigateUp != null) { // 左端にボタンを追加
+            if (onNavigateUp != null) {
                 IconButton(onClick = onNavigateUp) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
@@ -42,17 +42,6 @@ fun SlevoTopAppBar(
         },
         modifier = modifier,
         scrollBehavior = scrollBehavior,
-    )
-}
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Preview(showBackground = true)
-@Composable
-fun CenterAlignedTopAppBarScreenPreview() {
-    SlevoTopAppBar(
-        title = "お気に入り",
-        onNavigateUp = null
     )
 }
 
