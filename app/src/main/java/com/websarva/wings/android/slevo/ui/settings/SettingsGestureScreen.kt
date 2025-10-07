@@ -112,7 +112,6 @@ fun SettingsGestureScreenContent(
                 .fillMaxSize()
         ) {
             item {
-                // Use the extracted SettingsCard composable and pass the inner content as a lambda
                 SettingsCard(onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     toggleGesture(!uiState.isGestureEnabled)
@@ -159,7 +158,6 @@ fun SettingsGestureScreenContent(
             if (rightGestureItems.isNotEmpty()) {
                 item {
                     GestureDirectionGroupCard(
-                        title = stringResource(id = R.string.gesture_group_right),
                         gestureItems = rightGestureItems,
                         isGestureEnabled = uiState.isGestureEnabled,
                         onGestureItemClick = onGestureItemClick,
@@ -169,7 +167,6 @@ fun SettingsGestureScreenContent(
             if (leftGestureItems.isNotEmpty()) {
                 item {
                     GestureDirectionGroupCard(
-                        title = stringResource(id = R.string.gesture_group_left),
                         gestureItems = leftGestureItems,
                         isGestureEnabled = uiState.isGestureEnabled,
                         onGestureItemClick = onGestureItemClick,
@@ -280,21 +277,12 @@ private fun SettingsCard(
 
 @Composable
 private fun GestureDirectionGroupCard(
-    title: String,
     gestureItems: List<GestureItem>,
     isGestureEnabled: Boolean,
     onGestureItemClick: (GestureDirection) -> Unit,
 ) {
     SettingsCard(onClick = null) {
         Column {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            )
             gestureItems.forEachIndexed { index, item ->
                 val directionLabel = stringResource(id = item.direction.labelRes)
                 val actionLabel = item.action?.let { stringResource(id = it.labelRes) }
@@ -320,7 +308,7 @@ private fun GestureDirectionGroupCard(
                         )
                     },
                     headlineContent = { Text(directionLabel) },
-                    trailingContent = { Text(actionLabel) }
+                    supportingContent = { Text(actionLabel) }
                 )
                 if (index != gestureItems.lastIndex) {
                     HorizontalDivider()
