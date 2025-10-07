@@ -61,21 +61,17 @@ fun GestureActionDialogContent(
 ) {
     BoxWithConstraints {
         val maxH = this.maxHeight * 0.9f
-        Card(modifier = modifier.heightIn(max = maxH)) {
+        Card(modifier = modifier.heightIn(max = maxH),
+            shape = MaterialTheme.shapes.extraLarge) {
             Column(
-                modifier = modifier
+                modifier =Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(vertical = 16.dp, horizontal = 24.dp)
             ) {
                 Text(
                     text = stringResource(id = direction.labelRes),
-                    fontWeight = FontWeight.Companion.Bold,
-                    modifier = Modifier.Companion.padding(
-                        start = 16.dp,
-                        top = 12.dp,
-                        end = 16.dp,
-                        bottom = 8.dp
-                    )
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
                 HorizontalDivider()
 
@@ -85,6 +81,8 @@ fun GestureActionDialogContent(
                     settings = ScrollbarSettings.Default.copy(
                         selectionMode = ScrollbarSelectionMode.Disabled,
                         thumbUnselectedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                        thumbThickness   = 3.dp,                  // デフォルト 6.dp → 細く
+                        scrollbarPadding = 0.dp,                  // デフォルト 8.dp → 端に寄せる
                     )
                 ) {
                     LazyColumn(
@@ -125,14 +123,14 @@ private fun GestureActionSelectionRow(
         modifier = Modifier.Companion
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.Companion.CenterVertically
     ) {
         RadioButton(
             selected = selected,
             onClick = onClick
         )
-        Spacer(modifier = Modifier.Companion.width(16.dp))
+        Spacer(modifier = Modifier.Companion.width(8.dp))
         Text(text = label)
     }
 }

@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -97,7 +98,8 @@ fun SettingsGestureScreenContent(
         LazyColumn(
             modifier = Modifier
                 .padding(innerPadding)
-                .fillMaxSize()
+                .fillMaxSize(),
+            contentPadding = PaddingValues(vertical = 8.dp),
         ) {
             item {
                 SettingsCard(onClick = {
@@ -238,7 +240,7 @@ private fun SettingsGestureScreenPreview() {
         gestureItems = GestureDirection.entries.map { direction ->
             GestureItem(direction = direction, action = GestureAction.entries.firstOrNull())
         },
-        selectedDirection = GestureDirection.entries.first(),
+//        selectedDirection = GestureDirection.entries.first(),
     )
 
     MaterialTheme {
