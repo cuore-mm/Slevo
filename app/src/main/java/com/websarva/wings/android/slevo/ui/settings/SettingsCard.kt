@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -18,6 +19,7 @@ import androidx.compose.ui.unit.dp
  * @param enabled カードを有効化するかどうか（false のとき見た目を薄くしてクリック不可にする）
  * @param content カード内に表示するコンテンツ
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsCard(
     modifier: Modifier = Modifier,
@@ -30,7 +32,7 @@ fun SettingsCard(
         .padding(horizontal = 8.dp, vertical = 8.dp)
     // disabled の場合は見た目を薄くする
     val effectiveModifier = if (enabled) cardModifier else cardModifier.alpha(0.5f)
-    val shape = MaterialTheme.shapes.extraLarge
+    val shape = MaterialTheme.shapes.largeIncreased
     val colors = CardDefaults.cardColors(
         containerColor = MaterialTheme.colorScheme.surfaceContainer
     )

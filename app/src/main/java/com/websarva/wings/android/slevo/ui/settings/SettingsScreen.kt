@@ -1,17 +1,18 @@
 package com.websarva.wings.android.slevo.ui.settings
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 
@@ -28,7 +29,7 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             SlevoTopAppBar(
-                title = "設定",
+                title = stringResource(id = R.string.settings),
                 modifier = Modifier,
                 onNavigateUp = onNavigateUp,
                 scrollBehavior = null
@@ -38,44 +39,54 @@ fun SettingsScreen(
         LazyColumn(
             modifier = Modifier
                 .padding(innerPadding)
-                .fillMaxSize()
+                .fillMaxSize(),
+            contentPadding = PaddingValues(8.dp)
         ) {
-            item {
-                ListItem(
-                    modifier = Modifier.clickable(onClick = onGeneralClick),
-                    headlineContent = { Text("全般") }
+            val generalGroup = listOf(
+                ListItemSpec(
+                    headlineContent = { Text(stringResource(id = R.string.settings_general)) },
+                    onClick = onGeneralClick,
                 )
-                HorizontalDivider()
-            }
-            item {
-                ListItem(
-                    modifier = Modifier.clickable(onClick = onGestureClick),
-                    headlineContent = { Text(stringResource(id = R.string.gesture_settings)) }
+            )
+            val threadGroup = listOf(
+                ListItemSpec(
+                    headlineContent = { Text(stringResource(id = R.string.thread_display)) },
+                    onClick = onThreadClick,
+                ),
+                ListItemSpec(
+                    headlineContent = { Text(stringResource(id = R.string.ng_label)) },
+                    onClick = onNgClick,
+                ),
+                ListItemSpec(
+                    headlineContent = { Text(stringResource(id = R.string.gesture_settings)) },
+                    onClick = onGestureClick,
+                ),
+            )
+            val otherGroup = listOf(
+                ListItemSpec(
+                    headlineContent = { Text(stringResource(id = R.string.cookie_management)) },
+                    onClick = onCookieClick,
                 )
-                HorizontalDivider()
-            }
-            item {
-                ListItem(
-                    modifier = Modifier.clickable(onClick = onThreadClick),
-                    headlineContent = { Text("スレッド") }
-                )
-                HorizontalDivider()
-            }
-            item {
-                ListItem(
-                    modifier = Modifier.clickable(onClick = onNgClick),
-                    headlineContent = { Text("NG") }
-                )
-                HorizontalDivider()
-            }
-            item {
-                ListItem(
-                    modifier = Modifier.clickable(onClick = onCookieClick),
-                    headlineContent = { Text("Cookie管理") }
-                )
-                HorizontalDivider()
-            }
+            )
+
+            item { SettingsCardWithListItems(items = generalGroup) }
+            item { SettingsCardWithListItems(items = threadGroup) }
+            item { SettingsCardWithListItems(items = otherGroup) }
         }
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun SettingsScreenPreview() {
+    MaterialTheme {
+        SettingsScreen(
+            onGeneralClick = {},
+            onGestureClick = {},
+            onThreadClick = {},
+            onNgClick = {},
+            onCookieClick = {},
+            onNavigateUp = {}
+        )
+    }
+}

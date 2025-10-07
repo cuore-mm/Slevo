@@ -54,4 +54,3 @@ fun SmallTopAppBarScreenPreview() {
         onNavigateUp = { /* 戻る処理 */ }
     )
 }
-

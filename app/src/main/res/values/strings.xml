@@ -118,6 +118,9 @@
     <string name="gesture_direction_left_right">左 → 右</string>
     <string name="gesture_direction_left_down">左 → 下</string>
 
+    <string name="settings_general">全般</string>
+    <string name="ng_label">NG</string>
+    <string name="thread_display">スレッドの表示</string>
     <string name="about_this_app">このアプリについて</string>
     <string name="version_name_label">バージョン: %1$s</string>
     <string name="github">GitHub</string>
