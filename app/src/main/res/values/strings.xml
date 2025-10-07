@@ -95,7 +95,7 @@
     <string name="switch_on">ON</string>
     <string name="switch_off">OFF</string>
     <string name="gesture_supporting_description">板・スレッドの閲覧画面でジェスチャー操作が使えます。</string>
-    <string name="gesture_action_unassigned">未設定</string>
+    <string name="gesture_action_unassigned">なし</string>
     <string name="gesture_action_unassigned_message">アクションなし</string>
     <string name="gesture_action_to_top">最上部までスクロール</string>
     <string name="gesture_action_to_bottom">最下部までスクロール</string>
@@ -110,13 +110,13 @@
     <string name="gesture_action_close_tab">現在のタブを閉じる</string>
     <string name="gesture_invalid_message">無効なジェスチャーです</string>
     <string name="gesture_direction_right">右</string>
-    <string name="gesture_direction_right_up">右から上へ</string>
-    <string name="gesture_direction_right_left">右から左へ</string>
-    <string name="gesture_direction_right_down">右から下へ</string>
+    <string name="gesture_direction_right_up">右→上</string>
+    <string name="gesture_direction_right_left">右→左</string>
+    <string name="gesture_direction_right_down">右→下</string>
     <string name="gesture_direction_left">左</string>
-    <string name="gesture_direction_left_up">左から上へ</string>
-    <string name="gesture_direction_left_right">左から右へ</string>
-    <string name="gesture_direction_left_down">左から下へ</string>
+    <string name="gesture_direction_left_up">左→上</string>
+    <string name="gesture_direction_left_right">左→右</string>
+    <string name="gesture_direction_left_down">左→下</string>
 
     <string name="about_this_app">このアプリについて</string>
     <string name="version_name_label">バージョン: %1$s</string>
