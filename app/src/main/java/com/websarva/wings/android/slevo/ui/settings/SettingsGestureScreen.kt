@@ -1,16 +1,12 @@
 package com.websarva.wings.android.slevo.ui.settings
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -102,41 +98,41 @@ fun SettingsGestureScreenContent(
             contentPadding = PaddingValues(vertical = 8.dp),
         ) {
             item {
-                SettingsCard(onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    toggleGesture(!uiState.isGestureEnabled)
-                }) {
-                    ListItem(
-                        modifier = Modifier
-                            .padding(horizontal = 8.dp),
-                        colors = ListItemDefaults.colors(
-                            containerColor = Color.Transparent
-                        ),
-                        headlineContent = {
-                            val stateText =
-                                if (uiState.isGestureEnabled) stringResource(id = R.string.switch_on)
-                                else stringResource(id = R.string.switch_off)
-                            Text(
-                                text = stateText,
-                                fontWeight = FontWeight.Bold,
-                                color = if (uiState.isGestureEnabled) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurface
-                            )
-                        },
-                        trailingContent = {
-                            // Switch は個別にもタップ可能
-                            Switch(
-                                modifier = Modifier
-                                    .scale(0.8f),
-                                checked = uiState.isGestureEnabled,
-                                onCheckedChange = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    toggleGesture(it)
-                                }
-                            )
-                        }
-                    )
-                }
+                SettingsCardWithListItems(
+                    items = listOf(
+                        ListItemSpec(
+                            headlineContent = {
+                                val stateText =
+                                    if (uiState.isGestureEnabled) stringResource(id = R.string.switch_on)
+                                    else stringResource(id = R.string.switch_off)
+                                Text(
+                                    text = stateText,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (uiState.isGestureEnabled) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            trailingContent = {
+                                // Switch は個別にもタップ可能
+                                Switch(
+                                    modifier = Modifier
+                                        .scale(0.8f),
+                                    checked = uiState.isGestureEnabled,
+                                    onCheckedChange = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        toggleGesture(it)
+                                    }
+                                )
+                            },
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                toggleGesture(!uiState.isGestureEnabled)
+                            },
+                        )
+                    ),
+                    // このカード自体は常にクリック可能にしておく（ジェスチャーの有効化/無効化用）
+                    cardEnabled = true,
+                )
             }
             item {
                 Text(
@@ -185,51 +181,38 @@ private fun GestureDirectionGroupCard(
     isGestureEnabled: Boolean,
     onGestureItemClick: (GestureDirection) -> Unit,
 ) {
-    SettingsCard(onClick = null, enabled = isGestureEnabled) {
-        Column {
-            gestureItems.forEachIndexed { index, item ->
-                val directionLabel = stringResource(id = item.direction.labelRes)
-                val actionLabel = item.action?.let { stringResource(id = it.labelRes) }
-                    ?: stringResource(id = R.string.gesture_action_unassigned)
-                val itemModifier = if (isGestureEnabled) {
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { onGestureItemClick(item.direction) }
-                } else {
-                    Modifier.fillMaxWidth()
-                }
-                ListItem(
-                    modifier = itemModifier,
-                    colors = ListItemDefaults.colors(
-                        containerColor = Color.Transparent
-                    ),
-                    leadingContent = {
-                        Icon(
-                            painter = painterResource(id = item.direction.iconRes),
-                            contentDescription = directionLabel,
-                            modifier = Modifier.size(32.dp),
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
-                    },
-                    headlineContent = {
-                        Text(
-                            text = directionLabel,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    },
-                    supportingContent = {
-                        Text(
-                            text = actionLabel,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
+    val specs = gestureItems.map { item ->
+        val directionLabel = stringResource(id = item.direction.labelRes)
+        val actionLabel = item.action?.let { stringResource(id = it.labelRes) }
+            ?: stringResource(id = R.string.gesture_action_unassigned)
+
+        ListItemSpec(
+            leadingContent = {
+                Icon(
+                    painter = painterResource(id = item.direction.iconRes),
+                    contentDescription = directionLabel,
+                    modifier = Modifier.size(32.dp),
+                    tint = MaterialTheme.colorScheme.onSurface,
                 )
-                if (index != gestureItems.lastIndex) {
-                    HorizontalDivider(modifier = Modifier.padding(start = 64.dp, end = 16.dp))
-                }
-            }
-        }
+            },
+            headlineContent = {
+                Text(
+                    text = directionLabel,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = actionLabel,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            },
+            onClick = if (isGestureEnabled) { { onGestureItemClick(item.direction) } } else null,
+            enabled = isGestureEnabled,
+        )
     }
+
+    SettingsCardWithListItems(items = specs, cardEnabled = isGestureEnabled)
 }
 
 @Preview(showBackground = true)
