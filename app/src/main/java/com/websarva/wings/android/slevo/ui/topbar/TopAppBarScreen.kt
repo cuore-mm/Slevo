@@ -1,7 +1,6 @@
 package com.websarva.wings.android.slevo.ui.topbar
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,7 +31,7 @@ fun HomeTopAppBarScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SmallTopAppBarScreen(
+fun SlevoTopAppBar(
     modifier: Modifier = Modifier,
     title: String,
     onNavigateUp: () -> Unit, // 戻る処理のためのコールバック
@@ -73,7 +72,7 @@ fun CenterAlignedTopAppBarScreenPreview() {
 @Preview(showBackground = true)
 @Composable
 fun SmallTopAppBarScreenPreview() {
-    SmallTopAppBarScreen(
+    SlevoTopAppBar(
         title = "お気に入り",
         onNavigateUp = { /* 戻る処理 */ }
     )

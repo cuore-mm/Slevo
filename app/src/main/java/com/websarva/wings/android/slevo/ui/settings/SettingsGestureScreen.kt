@@ -35,7 +35,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
-import com.websarva.wings.android.slevo.ui.topbar.SmallTopAppBarScreen
+import com.websarva.wings.android.slevo.ui.topbar.SlevoTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,7 +73,7 @@ fun SettingsGestureScreenContent(
     val haptic = LocalHapticFeedback.current
     Scaffold(
         topBar = {
-            SmallTopAppBarScreen(
+            SlevoTopAppBar(
                 title = stringResource(id = R.string.gesture_settings),
                 onNavigateUp = onNavigateUp,
             )
@@ -185,7 +185,7 @@ private fun GestureDirectionGroupCard(
     isGestureEnabled: Boolean,
     onGestureItemClick: (GestureDirection) -> Unit,
 ) {
-    SettingsCard(onClick = null) {
+    SettingsCard(onClick = null, enabled = isGestureEnabled) {
         Column {
             gestureItems.forEachIndexed { index, item ->
                 val directionLabel = stringResource(id = item.direction.labelRes)

@@ -7,32 +7,38 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 
 /**
  * 設定画面のカードUIコンポーネント。
  *
  * @param modifier 追加の修飾子
- * @param onClick カードがクリックされたときのコールバック。nullの場合、カードはクリック不可になる。
+ * @param onClick カードがクリックされたときのコールバック。nullまたは`enabled=false` の場合、カードはクリック不可になる。
+ * @param enabled カードを有効化するかどうか（false のとき見た目を薄くしてクリック不可にする）
  * @param content カード内に表示するコンテンツ
  */
 @Composable
 fun SettingsCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    enabled: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val cardModifier = modifier
         .fillMaxWidth()
         .padding(horizontal = 8.dp, vertical = 8.dp)
+    // disabled の場合は見た目を薄くする
+    val effectiveModifier = if (enabled) cardModifier else cardModifier.alpha(0.5f)
     val shape = MaterialTheme.shapes.extraLarge
     val colors = CardDefaults.cardColors(
         containerColor = MaterialTheme.colorScheme.surfaceContainer
     )
 
-    if (onClick != null) {
+    // onClick は enabled が true のときのみ有効にする
+    if (onClick != null && enabled) {
         Card(
-            modifier = cardModifier,
+            modifier = effectiveModifier,
             onClick = onClick,
             shape = shape,
             colors = colors,
@@ -41,7 +47,7 @@ fun SettingsCard(
         }
     } else {
         Card(
-            modifier = cardModifier,
+            modifier = effectiveModifier,
             shape = shape,
             colors = colors,
         ) {

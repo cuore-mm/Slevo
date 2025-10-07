@@ -12,9 +12,20 @@ data class GestureSettings(
     val assignments: Map<GestureDirection, GestureAction?>
 ) {
     companion object {
+        private val DEFAULT_ASSIGNMENTS: Map<GestureDirection, GestureAction?> = mapOf(
+            GestureDirection.Right to GestureAction.SwitchToPreviousTab,
+            GestureDirection.RightUp to GestureAction.ToTop,
+            GestureDirection.RightLeft to GestureAction.OpenNewTab,
+            GestureDirection.RightDown to GestureAction.ToBottom,
+            GestureDirection.Left to GestureAction.SwitchToNextTab,
+            GestureDirection.LeftUp to GestureAction.Refresh,
+            GestureDirection.LeftRight to GestureAction.CloseTab,
+            GestureDirection.LeftDown to GestureAction.PostOrCreateThread
+        )
+
         val DEFAULT = GestureSettings(
             isEnabled = false,
-            assignments = GestureDirection.entries.associateWith { null }
+            assignments = DEFAULT_ASSIGNMENTS
         )
     }
 }
