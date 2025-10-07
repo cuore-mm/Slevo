@@ -240,7 +240,7 @@ fun BoardScaffold(
                             }
                         GestureAction.ToTop, GestureAction.ToBottom -> Unit
                     }
-                }
+                },
                 searchQuery = uiState.searchQuery,
             )
             if (uiState.showInfoDialog) {
