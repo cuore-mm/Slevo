@@ -23,7 +23,7 @@ fun SettingsScreen(
     onThreadClick: () -> Unit,
     onNgClick: () -> Unit,
     onCookieClick: () -> Unit,
-    onNavigateUp: (() -> Unit)? = null,
+    onNavigateUp: (() -> Unit),
 ) {
     Scaffold(
         topBar = {

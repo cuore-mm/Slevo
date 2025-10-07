@@ -31,7 +31,8 @@ fun NavGraphBuilder.addSettingsRoute(
                 onGestureClick = { navController.navigate(AppRoute.SettingsGesture) },
                 onThreadClick = { navController.navigate(AppRoute.SettingsThread) },
                 onNgClick = { navController.navigate(AppRoute.SettingsNg) },
-                onCookieClick = { navController.navigate(AppRoute.SettingsCookie) }
+                onCookieClick = { navController.navigate(AppRoute.SettingsCookie) },
+                onNavigateUp = { navController.navigateUp() }
             )
         }
         composable<AppRoute.SettingsGeneral> {
