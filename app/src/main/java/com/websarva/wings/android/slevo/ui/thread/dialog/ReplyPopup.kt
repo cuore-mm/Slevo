@@ -49,7 +49,7 @@ data class PopupInfo(
 )
 
 // アニメーションの速度（ミリ秒）
-private const val POPUP_ANIMATION_DURATION = 300
+private const val POPUP_ANIMATION_DURATION = 160
 
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable

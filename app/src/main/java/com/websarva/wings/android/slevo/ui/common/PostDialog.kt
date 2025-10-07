@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.common
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,9 +16,12 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,7 +37,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
@@ -43,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.PopupProperties
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 
@@ -53,9 +62,15 @@ fun PostDialog(
     mail: String,
     message: String,
     namePlaceholder: String,
+    nameHistory: List<String>,
+    mailHistory: List<String>,
     onNameChange: (String) -> Unit,
     onMailChange: (String) -> Unit,
     onMessageChange: (String) -> Unit,
+    onNameHistorySelect: (String) -> Unit,
+    onMailHistorySelect: (String) -> Unit,
+    onNameHistoryDelete: (String) -> Unit,
+    onMailHistoryDelete: (String) -> Unit,
     onPostClick: () -> Unit,
     confirmButtonText: String,
     title: String? = null,
@@ -63,12 +78,16 @@ fun PostDialog(
     onImageSelect: ((android.net.Uri) -> Unit)? = null,
     onImageUrlClick: ((String) -> Unit)? = null,
 ) {
-    val launcher =
+    // Preview（Inspection）環境かどうか
+    val isPreview = LocalInspectionMode.current
+    // Preview では ActivityResultRegistryOwner が無くクラッシュするので生成しない
+    val launcher = if (!isPreview) {
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             if (uri != null) onImageSelect?.invoke(uri)
         }
+    } else null
 
-    Dialog(onDismissRequest = onDismissRequest) {
+    val content: @Composable () -> Unit = {
         val focusRequester = remember { FocusRequester() }
         val keyboard = LocalSoftwareKeyboardController.current
 
@@ -97,37 +116,130 @@ fun PostDialog(
                             .padding(8.dp),
                     ) {
                         val focusManager = LocalFocusManager.current
-                        OutlinedTextField(
-                            value = name,
-                            onValueChange = { onNameChange(it) },
-                            placeholder = {
-                                Text(
-                                    text = namePlaceholder,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                        val density = LocalDensity.current
+                        Column(modifier = Modifier.weight(1f)) {
+                            var isNameFocused by remember { mutableStateOf(false) }
+                            var nameTextFieldWidth by remember { mutableStateOf(0.dp) }
+                            val filteredNameHistory = remember(nameHistory, name) {
+                                nameHistory.filter { it != name }
+                            }
+                            Box {
+                                OutlinedTextField(
+                                    value = name,
+                                    onValueChange = { onNameChange(it) },
+                                    placeholder = {
+                                        Text(
+                                            text = namePlaceholder,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .onFocusChanged { focusState ->
+                                            isNameFocused = focusState.isFocused
+                                        }
+                                        .onGloballyPositioned { coordinates ->
+                                            nameTextFieldWidth = with(density) {
+                                                coordinates.size.width.toDp()
+                                            }
+                                        },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = { focusManager.moveFocus(FocusDirection.Next) }
+                                    )
                                 )
-                            },
-                            modifier = Modifier
-                                .weight(1f),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(
-                                onNext = { focusManager.moveFocus(FocusDirection.Next) }
-                            )
-                        )
+                                DropdownMenu(
+                                    expanded = isNameFocused && filteredNameHistory.isNotEmpty(),
+                                    onDismissRequest = {
+                                        isNameFocused = false
+                                        focusManager.clearFocus()
+                                    },
+                                    properties = PopupProperties(focusable = false),
+                                    modifier = Modifier.width(nameTextFieldWidth)
+                                ) {
+                                    filteredNameHistory.forEach { value ->
+                                        DropdownMenuItem(
+                                            text = { Text(value) },
+                                            onClick = {
+                                                onNameChange(value)
+                                                onNameHistorySelect(value)
+                                                isNameFocused = false
+                                                focusManager.clearFocus()
+                                            },
+                                            trailingIcon = {
+                                                IconButton(onClick = { onNameHistoryDelete(value) }) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Close,
+                                                        contentDescription = stringResource(R.string.delete)
+                                                    )
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         Spacer(modifier = Modifier.width(8.dp))
-                        OutlinedTextField(
-                            value = mail,
-                            onValueChange = { onMailChange(it) },
-                            placeholder = { Text(stringResource(R.string.e_mail)) },
-                            modifier = Modifier
-                                .weight(1f),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(
-                                onNext = { focusManager.moveFocus(FocusDirection.Next) }
-                            )
-                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            var isMailFocused by remember { mutableStateOf(false) }
+                            var mailTextFieldWidth by remember { mutableStateOf(0.dp) }
+                            val mailFilteredHistory = remember(mailHistory, mail) {
+                                mailHistory.filter { it != mail }
+                            }
+                            Box {
+                                OutlinedTextField(
+                                    value = mail,
+                                    onValueChange = { onMailChange(it) },
+                                    placeholder = { Text(stringResource(R.string.e_mail)) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .onFocusChanged { focusState ->
+                                            isMailFocused = focusState.isFocused
+                                        }
+                                        .onGloballyPositioned { coordinates ->
+                                            mailTextFieldWidth = with(density) {
+                                                coordinates.size.width.toDp()
+                                            }
+                                        },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = { focusManager.moveFocus(FocusDirection.Next) }
+                                    )
+                                )
+                                DropdownMenu(
+                                    expanded = isMailFocused && mailFilteredHistory.isNotEmpty(),
+                                    onDismissRequest = {
+                                        isMailFocused = false
+                                        focusManager.clearFocus()
+                                    },
+                                    properties = PopupProperties(focusable = false),
+                                    modifier = Modifier.width(mailTextFieldWidth)
+                                ) {
+                                    mailFilteredHistory.forEach { value ->
+                                        DropdownMenuItem(
+                                            text = { Text(value) },
+                                            onClick = {
+                                                onMailChange(value)
+                                                onMailHistorySelect(value)
+                                                isMailFocused = false
+                                                focusManager.clearFocus()
+                                            },
+                                            trailingIcon = {
+                                                IconButton(onClick = { onMailHistoryDelete(value) }) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Close,
+                                                        contentDescription = stringResource(R.string.delete)
+                                                    )
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     if (title != null && onTitleChange != null) {
@@ -185,7 +297,10 @@ fun PostDialog(
 
                 // 非スクロール領域（常に表示）
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    IconButton(onClick = { launcher.launch("image/*") }) {
+                    IconButton(
+                        onClick = { launcher?.launch("image/*") },
+                        enabled = launcher != null
+                    ) {
                         Icon(
                             Icons.Filled.Image,
                             contentDescription = stringResource(id = R.string.select_image)
@@ -211,6 +326,12 @@ fun PostDialog(
             }
         }
     }
+
+    if (isPreview) {
+        content()
+    } else {
+        Dialog(onDismissRequest = onDismissRequest) { content() }
+    }
 }
 
 @Preview(showBackground = true)
@@ -222,9 +343,15 @@ fun PostDialogPreview() {
         mail = "",
         message = "",
         namePlaceholder = "それでも動く名無し",
+        nameHistory = listOf("太郎", "名無し"),
+        mailHistory = listOf("sage", "mail@example.com"),
         onNameChange = { /* 名前変更処理 */ },
         onMailChange = { /* メール変更処理 */ },
         onMessageChange = { /* メッセージ変更処理 */ },
+        onNameHistorySelect = {},
+        onMailHistorySelect = {},
+        onNameHistoryDelete = {},
+        onMailHistoryDelete = {},
         onPostClick = { /* 投稿処理 */ },
         confirmButtonText = "書き込み",
         onImageSelect = { }

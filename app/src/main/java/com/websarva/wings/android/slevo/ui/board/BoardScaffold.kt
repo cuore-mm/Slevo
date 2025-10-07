@@ -241,6 +241,7 @@ fun BoardScaffold(
                         GestureAction.ToTop, GestureAction.ToBottom -> Unit
                     }
                 }
+                searchQuery = uiState.searchQuery,
             )
             if (uiState.showInfoDialog) {
                 BoardInfoDialog(
@@ -273,9 +274,15 @@ fun BoardScaffold(
                     mail = uiState.createFormState.mail,
                     message = uiState.createFormState.message,
                     namePlaceholder = uiState.boardInfo.noname.ifBlank { stringResource(R.string.name) },
+                    nameHistory = uiState.createNameHistory,
+                    mailHistory = uiState.createMailHistory,
                     onNameChange = { viewModel.updateCreateName(it) },
                     onMailChange = { viewModel.updateCreateMail(it) },
                     onMessageChange = { viewModel.updateCreateMessage(it) },
+                    onNameHistorySelect = { viewModel.selectCreateNameHistory(it) },
+                    onMailHistorySelect = { viewModel.selectCreateMailHistory(it) },
+                    onNameHistoryDelete = { viewModel.deleteCreateNameHistory(it) },
+                    onMailHistoryDelete = { viewModel.deleteCreateMailHistory(it) },
                     onPostClick = {
                         parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                             viewModel.createThreadFirstPhase(
