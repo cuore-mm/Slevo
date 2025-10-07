@@ -13,7 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.ui.topbar.HomeTopAppBarScreen
+import com.websarva.wings.android.slevo.ui.topbar.SlevoTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,12 +23,14 @@ fun SettingsScreen(
     onThreadClick: () -> Unit,
     onNgClick: () -> Unit,
     onCookieClick: () -> Unit,
+    onNavigateUp: (() -> Unit)? = null,
 ) {
     Scaffold(
         topBar = {
-            HomeTopAppBarScreen(
+            SlevoTopAppBar(
                 title = "設定",
                 modifier = Modifier,
+                onNavigateUp = onNavigateUp,
                 scrollBehavior = null
             )
         }
