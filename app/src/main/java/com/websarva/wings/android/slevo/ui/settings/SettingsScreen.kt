@@ -4,14 +4,21 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Cookie
+import androidx.compose.material.icons.filled.Gesture
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
@@ -44,26 +51,56 @@ fun SettingsScreen(
         ) {
             val generalGroup = listOf(
                 ListItemSpec(
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = stringResource(id = R.string.settings_general),
+                        )
+                    },
                     headlineContent = { Text(stringResource(id = R.string.settings_general)) },
                     onClick = onGeneralClick,
                 )
             )
             val threadGroup = listOf(
                 ListItemSpec(
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ViewList,
+                            contentDescription = stringResource(id = R.string.thread_display),
+                        )
+                    },
                     headlineContent = { Text(stringResource(id = R.string.thread_display)) },
                     onClick = onThreadClick,
                 ),
                 ListItemSpec(
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Default.Block,
+                            contentDescription = stringResource(id = R.string.ng_label),
+                        )
+                    },
                     headlineContent = { Text(stringResource(id = R.string.ng_label)) },
                     onClick = onNgClick,
                 ),
                 ListItemSpec(
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Default.Gesture,
+                            contentDescription = stringResource(id = R.string.gesture_settings),
+                        )
+                    },
                     headlineContent = { Text(stringResource(id = R.string.gesture_settings)) },
                     onClick = onGestureClick,
                 ),
             )
             val otherGroup = listOf(
                 ListItemSpec(
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Default.Cookie,
+                            contentDescription = stringResource(id = R.string.cookie_management),
+                        )
+                    },
                     headlineContent = { Text(stringResource(id = R.string.cookie_management)) },
                     onClick = onCookieClick,
                 )

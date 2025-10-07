@@ -3,13 +3,10 @@ package com.websarva.wings.android.slevo.ui.settings
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -19,7 +16,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -191,7 +187,6 @@ private fun GestureDirectionGroupCard(
                 Icon(
                     painter = painterResource(id = item.direction.iconRes),
                     contentDescription = directionLabel,
-                    modifier = Modifier.size(32.dp),
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             },
@@ -207,7 +202,9 @@ private fun GestureDirectionGroupCard(
                     color = MaterialTheme.colorScheme.primary
                 )
             },
-            onClick = if (isGestureEnabled) { { onGestureItemClick(item.direction) } } else null,
+            onClick = if (isGestureEnabled) {
+                { onGestureItemClick(item.direction) }
+            } else null,
             enabled = isGestureEnabled,
         )
     }

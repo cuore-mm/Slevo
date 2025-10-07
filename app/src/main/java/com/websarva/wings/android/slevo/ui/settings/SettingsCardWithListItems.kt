@@ -57,7 +57,7 @@ fun SettingsCardWithListItems(
                 )
 
                 if (index != items.lastIndex) {
-                    HorizontalDivider(modifier = Modifier.padding(start = 64.dp, end = 16.dp))
+                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp, end = 16.dp))
                 }
             }
         }

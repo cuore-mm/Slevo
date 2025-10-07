@@ -99,7 +99,7 @@
     <string name="gesture_action_unassigned_message">アクションなし</string>
     <string name="gesture_action_to_top">最上部までスクロール</string>
     <string name="gesture_action_to_bottom">最下部までスクロール</string>
-    <string name="gesture_action_post_or_create_thread">書き込み/スレッド作成</string>
+    <string name="gesture_action_post_or_create_thread">書き込み / スレッド作成</string>
     <string name="gesture_action_open_tab_list">タブ一覧を表示</string>
     <string name="gesture_action_open_bookmark_list">ブックマーク一覧を開く</string>
     <string name="gesture_action_open_board_list">板一覧に移動</string>
