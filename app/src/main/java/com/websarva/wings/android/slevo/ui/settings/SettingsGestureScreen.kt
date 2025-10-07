@@ -152,7 +152,7 @@ fun SettingsGestureScreenContent(
                 Text(
                     text = stringResource(id = R.string.gesture_supporting_description),
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                 )
             }
             if (rightGestureItems.isNotEmpty()) {
@@ -307,11 +307,21 @@ private fun GestureDirectionGroupCard(
                             tint = MaterialTheme.colorScheme.onSurface,
                         )
                     },
-                    headlineContent = { Text(directionLabel) },
-                    supportingContent = { Text(actionLabel) }
+                    headlineContent = {
+                        Text(
+                            text = directionLabel,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            text = actionLabel,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 )
                 if (index != gestureItems.lastIndex) {
-                    HorizontalDivider()
+                    HorizontalDivider(modifier = Modifier.padding(start = 64.dp,end = 16.dp))
                 }
             }
         }
