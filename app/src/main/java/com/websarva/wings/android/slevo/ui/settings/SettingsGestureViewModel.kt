@@ -1,22 +1,47 @@
 package com.websarva.wings.android.slevo.ui.settings
 
-import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
-import com.websarva.wings.android.slevo.R
+import androidx.lifecycle.viewModelScope
+import com.websarva.wings.android.slevo.data.model.GestureAction
+import com.websarva.wings.android.slevo.data.model.GestureDirection
+import com.websarva.wings.android.slevo.data.model.GestureSettings
+import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 @HiltViewModel
-class SettingsGestureViewModel @Inject constructor() : ViewModel() {
+class SettingsGestureViewModel @Inject constructor(
+    private val repository: SettingsRepository,
+) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsGestureUiState())
     val uiState: StateFlow<SettingsGestureUiState> = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            repository.observeGestureSettings()
+                .collect { settings ->
+                    _uiState.update { state ->
+                        state.copy(
+                            isGestureEnabled = settings.isEnabled,
+                            gestureItems = settings.toGestureItems(),
+                        )
+                    }
+                }
+        }
+    }
+
     fun toggleGesture(enabled: Boolean) {
-        _uiState.update { it.copy(isGestureEnabled = enabled) }
+        if (!enabled) {
+            _uiState.update { it.copy(selectedDirection = null) }
+        }
+        viewModelScope.launch {
+            repository.setGestureEnabled(enabled)
+        }
     }
 
     fun onGestureItemClick(direction: GestureDirection) {
@@ -28,26 +53,25 @@ class SettingsGestureViewModel @Inject constructor() : ViewModel() {
     }
 
     fun assignGestureAction(direction: GestureDirection, action: GestureAction?) {
-        _uiState.update { state ->
-            val updatedItems = state.gestureItems.map { item ->
-                if (item.direction == direction) {
-                    item.copy(action = action)
-                } else {
-                    item
-                }
-            }
-            state.copy(
-                gestureItems = updatedItems,
-                selectedDirection = null
-            )
+        viewModelScope.launch {
+            repository.setGestureAction(direction, action)
+            _uiState.update { it.copy(selectedDirection = null) }
         }
     }
+
+    private fun GestureSettings.toGestureItems(): List<GestureItem> =
+        GestureDirection.entries.map { direction ->
+            GestureItem(
+                direction = direction,
+                action = assignments[direction],
+            )
+        }
 }
 
 data class SettingsGestureUiState(
-    val isGestureEnabled: Boolean = false,
-    val gestureItems: List<GestureItem> = GestureDirection.values().map { direction ->
-        GestureItem(direction = direction, action = null)
+    val isGestureEnabled: Boolean = GestureSettings.DEFAULT.isEnabled,
+    val gestureItems: List<GestureItem> = GestureDirection.entries.map { direction ->
+        GestureItem(direction = direction, action = GestureSettings.DEFAULT.assignments[direction])
     },
     val selectedDirection: GestureDirection? = null,
 )
@@ -56,22 +80,3 @@ data class GestureItem(
     val direction: GestureDirection,
     val action: GestureAction?,
 )
-
-enum class GestureDirection(@StringRes val labelRes: Int) {
-    Right(R.string.gesture_direction_right),
-    RightUp(R.string.gesture_direction_right_up),
-    RightLeft(R.string.gesture_direction_right_left),
-    RightDown(R.string.gesture_direction_right_down),
-    Left(R.string.gesture_direction_left),
-    LeftUp(R.string.gesture_direction_left_up),
-    LeftRight(R.string.gesture_direction_left_right),
-    LeftDown(R.string.gesture_direction_left_down),
-}
-
-enum class GestureAction(@StringRes val labelRes: Int) {
-    ToTop(R.string.gesture_action_to_top),
-    ToBottom(R.string.gesture_action_to_bottom),
-    Refresh(R.string.refresh),
-    PostOrCreateThread(R.string.gesture_action_post_or_create_thread),
-    Search(R.string.search),
-}

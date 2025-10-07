@@ -15,6 +15,7 @@ import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.PostResult
 import com.websarva.wings.android.slevo.data.repository.ThreadCreateRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
@@ -41,6 +42,7 @@ class BoardViewModel @AssistedInject constructor(
     private val postHistoryRepository: PostHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     private val ngRepository: NgRepository,
+    private val settingsRepository: SettingsRepository,
     @Assisted("viewModelKey") val viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
 
@@ -59,6 +61,14 @@ class BoardViewModel @AssistedInject constructor(
     override val _uiState = MutableStateFlow(BoardUiState())
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
     private var threadTitleNg: List<Pair<Long?, Regex>> = emptyList()
+
+    init {
+        viewModelScope.launch {
+            settingsRepository.observeGestureSettings().collect { settings ->
+                _uiState.update { it.copy(gestureSettings = settings) }
+            }
+        }
+    }
 
     fun initializeBoard(boardInfo: BoardInfo) {
         if (initializedUrl == boardInfo.url) return

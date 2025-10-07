@@ -15,7 +15,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import com.websarva.wings.android.slevo.BuildConfig
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.ui.topbar.SmallTopAppBarScreen
+import com.websarva.wings.android.slevo.ui.topbar.SlevoTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,7 +29,7 @@ fun AboutScreen(
 
     Scaffold(
         topBar = {
-            SmallTopAppBarScreen(
+            SlevoTopAppBar(
                 title = stringResource(R.string.about_this_app),
                 onNavigateUp = onNavigateUp
             )

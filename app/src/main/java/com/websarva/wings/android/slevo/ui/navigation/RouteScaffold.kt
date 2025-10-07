@@ -13,7 +13,6 @@ import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,9 +37,13 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.DeleteGroupDialog
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
 import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import timber.log.Timber
@@ -61,13 +64,23 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     updateScrollPosition: (viewModel: ViewModel, tab: TabInfo, index: Int, offset: Int) -> Unit,
     currentPage: Int,
     onPageChange: (Int) -> Unit,
+    animateToPageFlow: Flow<Int>? = null,
     bottomBar: @Composable (
         viewModel: ViewModel,
         uiState: UiState,
         scrollBehavior: BottomAppBarScrollBehavior?,
         openTabListSheet: () -> Unit,
     ) -> Unit,
-    content: @Composable (viewModel: ViewModel, uiState: UiState, listState: LazyListState, modifier: Modifier, navController: NavHostController) -> Unit,
+    content: @Composable (
+        viewModel: ViewModel,
+        uiState: UiState,
+        listState: LazyListState,
+        modifier: Modifier,
+        navController: NavHostController,
+        showBottomBar: (() -> Unit)?,
+        openTabListSheet: () -> Unit,
+        openUrlDialog: () -> Unit,
+    ) -> Unit,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
@@ -93,6 +106,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 currentPage >= 0 -> currentPage.coerceIn(0, tabs.size - 1)
                 currentTabInfo != null -> tabs.indexOf(currentTabInfo).takeIf { it >= 0 }
                     ?: 0
+
                 else -> 0
             }
         }
@@ -112,10 +126,23 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             onPageChange(pagerState.currentPage)
         }
 
+        LaunchedEffect(animateToPageFlow, pagerState) {
+            animateToPageFlow?.let { flow ->
+                flow.collectLatest { target ->
+                    if (pagerState.pageCount <= 0) return@collectLatest
+                    val bounded = target.coerceIn(0, pagerState.pageCount - 1)
+                    if (bounded != pagerState.currentPage) {
+                        pagerState.animateScrollToPage(bounded)
+                    }
+                }
+            }
+        }
+
         // 共通で使うボトムシートの状態
         val bookmarkSheetState = rememberModalBottomSheetState()
         val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         var showTabListSheet by rememberSaveable { mutableStateOf(false) }
+        var showUrlDialog by rememberSaveable { mutableStateOf(false) }
 
         val pagerUserScrollEnabled = when (
             val currentUiState = currentTabInfo?.let { tabInfo ->
@@ -176,6 +203,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
             val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
             val swipeBlockerState = rememberDraggableState { _ -> }
+            val showBottomBar = bottomBehavior?.let { behavior ->
+                {
+                    behavior.state.heightOffset = 0f
+                }
+            }
+
             Scaffold(
                 modifier = Modifier
                     .let { modifier ->
@@ -205,7 +238,10 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     uiState,
                     listState,
                     contentModifier,
-                    navController
+                    navController,
+                    showBottomBar,
+                    { showTabListSheet = true },
+                    { showUrlDialog = true },
                 )
 
                 // 共通のボトムシートとダイアログ
@@ -298,6 +334,42 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 navController = navController,
                 onDismissRequest = { showTabListSheet = false },
                 initialPage = initialPage,
+            )
+        }
+
+        if (showUrlDialog) {
+            UrlOpenDialog(
+                onDismissRequest = { showUrlDialog = false },
+                onOpen = { url ->
+                    val thread = parseThreadUrl(url)
+                    if (thread != null) {
+                        val (host, board, key) = thread
+                        val boardUrl = "https://$host/$board/"
+                        val route = AppRoute.Thread(
+                            threadKey = key,
+                            boardUrl = boardUrl,
+                            boardName = board,
+                            threadTitle = url
+                        )
+                        navController.navigateToThread(
+                            route = route,
+                            tabsViewModel = tabsViewModel,
+                        )
+                    } else {
+                        parseBoardUrl(url)?.let { (host, board) ->
+                            val boardUrl = "https://$host/$board/"
+                            val route = AppRoute.Board(
+                                boardName = boardUrl,
+                                boardUrl = boardUrl,
+                            )
+                            navController.navigateToBoard(
+                                route = route,
+                                tabsViewModel = tabsViewModel,
+                            )
+                        }
+                    }
+                    showUrlDialog = false
+                }
             )
         }
     } else {

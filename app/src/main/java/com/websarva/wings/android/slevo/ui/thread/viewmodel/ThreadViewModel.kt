@@ -119,6 +119,11 @@ class ThreadViewModel @AssistedInject constructor(
                 _uiState.update { it.copy(showMinimapScrollbar = enabled) }
             }
         }
+        viewModelScope.launch {
+            settingsRepository.observeGestureSettings().collect { settings ->
+                _uiState.update { it.copy(gestureSettings = settings) }
+            }
+        }
     }
 
     internal val _postUiState = MutableStateFlow(PostUiState())

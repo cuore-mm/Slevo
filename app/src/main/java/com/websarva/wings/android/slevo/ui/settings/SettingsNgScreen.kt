@@ -34,7 +34,7 @@ import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.bottombar.BbsSelectBottomBar
 import com.websarva.wings.android.slevo.ui.common.SelectedTopBarScreen
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
-import com.websarva.wings.android.slevo.ui.topbar.SmallTopAppBarScreen
+import com.websarva.wings.android.slevo.ui.topbar.SlevoTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,7 +59,7 @@ fun SettingsNgScreen(
                     enter = fadeIn(),
                     exit = fadeOut()
                 ) {
-                    SmallTopAppBarScreen(
+                    SlevoTopAppBar(
                         title = "NG",
                         onNavigateUp = onNavigateUp,
                     )
