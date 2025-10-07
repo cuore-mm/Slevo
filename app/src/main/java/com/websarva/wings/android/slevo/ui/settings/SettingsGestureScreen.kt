@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
@@ -237,41 +235,6 @@ private fun GestureActionSelectionRow(
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(text = label)
-    }
-}
-
-// New reusable card for settings screen. It encapsulates common styling and click handling
-@Composable
-private fun SettingsCard(
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
-    content: @Composable () -> Unit,
-) {
-    val cardModifier = modifier
-        .fillMaxWidth()
-        .padding(horizontal = 8.dp, vertical = 8.dp)
-    val shape = MaterialTheme.shapes.extraLarge
-    val colors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
-    )
-
-    if (onClick != null) {
-        Card(
-            modifier = cardModifier,
-            onClick = onClick,
-            shape = shape,
-            colors = colors,
-        ) {
-            content()
-        }
-    } else {
-        Card(
-            modifier = cardModifier,
-            shape = shape,
-            colors = colors,
-        ) {
-            content()
-        }
     }
 }
 
