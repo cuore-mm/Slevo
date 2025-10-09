@@ -66,6 +66,9 @@ class SettingsRepository @Inject constructor(
     suspend fun setGestureEnabled(enabled: Boolean) =
         local.setGestureEnabled(enabled)
 
+    suspend fun setGestureShowActionHints(show: Boolean) =
+        local.setGestureShowActionHints(show)
+
     suspend fun setGestureAction(direction: GestureDirection, action: GestureAction?) =
         local.setGestureAction(direction, action)
 }

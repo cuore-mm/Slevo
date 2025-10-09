@@ -95,6 +95,7 @@
     <string name="switch_on">ON</string>
     <string name="switch_off">OFF</string>
     <string name="gesture_supporting_description">板・スレッドの閲覧画面でジェスチャー操作が使えます。</string>
+    <string name="gesture_show_action_hint">アクションのヒントを表示</string>
     <string name="gesture_action_unassigned">なし</string>
     <string name="gesture_action_unassigned_message">アクションなし</string>
     <string name="gesture_action_to_top">最上部までスクロール</string>

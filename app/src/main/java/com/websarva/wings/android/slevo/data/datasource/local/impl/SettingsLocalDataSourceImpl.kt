@@ -28,6 +28,7 @@ private val HEADER_TEXT_SCALE_KEY = floatPreferencesKey("header_text_scale")
 private val BODY_TEXT_SCALE_KEY = floatPreferencesKey("body_text_scale")
 private val LINE_HEIGHT_KEY = floatPreferencesKey("line_height")
 private val GESTURE_ENABLED_KEY = booleanPreferencesKey("gesture_enabled")
+private val GESTURE_SHOW_HINT_KEY = booleanPreferencesKey("gesture_show_action_hint")
 private val GESTURE_ACTION_KEYS = GestureDirection.entries.associateWith { direction ->
     stringPreferencesKey("gesture_action_${direction.name.lowercase(Locale.ROOT)}")
 }
@@ -120,18 +121,30 @@ class SettingsLocalDataSourceImpl @Inject constructor(
         context.dataStore.data
             .map { prefs ->
                 val isEnabled = prefs[GESTURE_ENABLED_KEY] ?: GestureSettings.DEFAULT.isEnabled
+                val showActionHints =
+                    prefs[GESTURE_SHOW_HINT_KEY] ?: GestureSettings.DEFAULT.showActionHints
                 val assignments = GestureDirection.entries.associateWith { direction ->
                     val key = GESTURE_ACTION_KEYS.getValue(direction)
                     prefs[key]?.let { value ->
                         GestureAction.entries.firstOrNull { it.name == value }
                     }
                 }
-                GestureSettings(isEnabled = isEnabled, assignments = assignments)
+                GestureSettings(
+                    isEnabled = isEnabled,
+                    showActionHints = showActionHints,
+                    assignments = assignments
+                )
             }
 
     override suspend fun setGestureEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[GESTURE_ENABLED_KEY] = enabled
+        }
+    }
+
+    override suspend fun setGestureShowActionHints(show: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[GESTURE_SHOW_HINT_KEY] = show
         }
     }
 

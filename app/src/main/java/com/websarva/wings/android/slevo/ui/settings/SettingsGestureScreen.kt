@@ -41,6 +41,7 @@ fun SettingsGestureScreen(
         uiState = uiState,
         onNavigateUp = onNavigateUp,
         toggleGesture = { viewModel.toggleGesture(it) },
+        toggleShowActionHints = { viewModel.toggleGestureShowActionHints(it) },
         onGestureItemClick = { viewModel.onGestureItemClick(it) },
         dismissGestureDialog = { viewModel.dismissGestureDialog() },
         assignGestureAction = { direction, action ->
@@ -58,6 +59,7 @@ fun SettingsGestureScreenContent(
     uiState: SettingsGestureUiState,
     onNavigateUp: () -> Unit,
     toggleGesture: (Boolean) -> Unit,
+    toggleShowActionHints: (Boolean) -> Unit,
     onGestureItemClick: (GestureDirection) -> Unit,
     dismissGestureDialog: () -> Unit,
     assignGestureAction: (GestureDirection, GestureAction?) -> Unit,
@@ -155,6 +157,37 @@ fun SettingsGestureScreenContent(
                     )
                 }
             }
+            item {
+                SettingsCardWithListItems(
+                    items = listOf(
+                        ListItemSpec(
+                            headlineContent = {
+                                Text(
+                                    text = stringResource(id = R.string.gesture_show_action_hint),
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            },
+                            trailingContent = {
+                                Switch(
+                                    modifier = Modifier.scale(0.8f),
+                                    checked = uiState.showActionHints,
+                                    onCheckedChange = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        toggleShowActionHints(it)
+                                    },
+                                    enabled = uiState.isGestureEnabled,
+                                )
+                            },
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                toggleShowActionHints(!uiState.showActionHints)
+                            }
+
+                        )
+                    ),
+                    cardEnabled = uiState.isGestureEnabled,
+                )
+            }
         }
     }
 
@@ -228,6 +261,7 @@ private fun SettingsGestureScreenPreview() {
             uiState = sampleState,
             onNavigateUp = {},
             toggleGesture = {},
+            toggleShowActionHints = {},
             onGestureItemClick = {},
             dismissGestureDialog = {},
             assignGestureAction = { _, _ -> }

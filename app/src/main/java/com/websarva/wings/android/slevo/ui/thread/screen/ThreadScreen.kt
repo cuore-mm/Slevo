@@ -495,7 +495,9 @@ fun ThreadScreen(
                     .rotate(arrowRotation)
             )
         }
-        GestureHintOverlay(state = gestureHint)
+        if (gestureSettings.showActionHints) {
+            GestureHintOverlay(state = gestureHint)
+        }
     }
 }
 

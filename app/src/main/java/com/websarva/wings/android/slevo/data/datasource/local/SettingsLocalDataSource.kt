@@ -60,6 +60,9 @@ interface SettingsLocalDataSource {
     /** ジェスチャー機能の有効/無効を保存する */
     suspend fun setGestureEnabled(enabled: Boolean)
 
+    /** ジェスチャーのアクションヒントの表示/非表示を保存する */
+    suspend fun setGestureShowActionHints(show: Boolean)
+
     /** 指定方向のジェスチャーアクションを保存する */
     suspend fun setGestureAction(direction: GestureDirection, action: GestureAction?)
 }

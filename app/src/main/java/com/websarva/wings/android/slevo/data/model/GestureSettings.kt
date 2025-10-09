@@ -9,6 +9,7 @@ import com.websarva.wings.android.slevo.R
  */
 data class GestureSettings(
     val isEnabled: Boolean,
+    val showActionHints: Boolean,
     val assignments: Map<GestureDirection, GestureAction?>
 ) {
     companion object {
@@ -25,6 +26,7 @@ data class GestureSettings(
 
         val DEFAULT = GestureSettings(
             isEnabled = false,
+            showActionHints = true,
             assignments = DEFAULT_ASSIGNMENTS
         )
     }
