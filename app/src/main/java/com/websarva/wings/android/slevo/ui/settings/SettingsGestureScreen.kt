@@ -8,8 +8,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -19,7 +17,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -178,15 +175,18 @@ fun SettingsGestureScreenContent(
                                     onCheckedChange = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         toggleShowActionHints(it)
-                                    }
+                                    },
+                                    enabled = uiState.isGestureEnabled,
                                 )
                             },
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 toggleShowActionHints(!uiState.showActionHints)
                             }
+
                         )
-                    )
+                    ),
+                    cardEnabled = uiState.isGestureEnabled,
                 )
             }
         }
@@ -237,7 +237,9 @@ private fun GestureDirectionGroupCard(
                     color = MaterialTheme.colorScheme.primary
                 )
             },
-            onClick = if (isGestureEnabled) { { onGestureItemClick(item.direction) } } else null,
+            onClick = if (isGestureEnabled) {
+                { onGestureItemClick(item.direction) }
+            } else null,
             enabled = isGestureEnabled,
         )
     }
