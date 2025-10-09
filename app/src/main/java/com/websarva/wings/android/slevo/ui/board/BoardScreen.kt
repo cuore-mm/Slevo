@@ -174,7 +174,9 @@ fun BoardScreen(
                 HorizontalDivider()
             }
         }
-        GestureHintOverlay(state = gestureHint)
+        if (gestureSettings.showActionHints) {
+            GestureHintOverlay(state = gestureHint)
+        }
     }
 }
 }

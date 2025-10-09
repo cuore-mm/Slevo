@@ -28,6 +28,7 @@ class SettingsGestureViewModel @Inject constructor(
                     _uiState.update { state ->
                         state.copy(
                             isGestureEnabled = settings.isEnabled,
+                            showActionHints = settings.showActionHints,
                             gestureItems = settings.toGestureItems(),
                         )
                     }
@@ -41,6 +42,12 @@ class SettingsGestureViewModel @Inject constructor(
         }
         viewModelScope.launch {
             repository.setGestureEnabled(enabled)
+        }
+    }
+
+    fun toggleGestureShowActionHints(show: Boolean) {
+        viewModelScope.launch {
+            repository.setGestureShowActionHints(show)
         }
     }
 
@@ -70,6 +77,7 @@ class SettingsGestureViewModel @Inject constructor(
 
 data class SettingsGestureUiState(
     val isGestureEnabled: Boolean = GestureSettings.DEFAULT.isEnabled,
+    val showActionHints: Boolean = GestureSettings.DEFAULT.showActionHints,
     val gestureItems: List<GestureItem> = GestureDirection.entries.map { direction ->
         GestureItem(direction = direction, action = GestureSettings.DEFAULT.assignments[direction])
     },
