@@ -238,7 +238,6 @@ private fun GestureDirectionGroupCard(
             onClick = if (isGestureEnabled) {
                 { onGestureItemClick(item.direction) }
             } else null,
-            enabled = isGestureEnabled,
         )
     }
 

@@ -195,3 +195,10 @@ kapt {
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
+
+aboutLibraries {
+    collect {
+        // ここ以下に置いたJSONをマージできる
+        configPath = file("aboutlibs")
+    }
+}

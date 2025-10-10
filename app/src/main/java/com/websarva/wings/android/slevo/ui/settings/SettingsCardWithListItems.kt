@@ -21,7 +21,6 @@ data class ListItemSpec(
     val supportingContent: (@Composable () -> Unit)? = null,
     val trailingContent: (@Composable () -> Unit)? = null,
     val onClick: (() -> Unit)? = null,
-    val enabled: Boolean = true,
 )
 
 /**
@@ -38,8 +37,7 @@ fun SettingsCardWithListItems(
     SettingsCard(enabled = cardEnabled) {
         Column {
             items.forEachIndexed { index, spec ->
-                val itemEnabled = cardEnabled && spec.enabled
-                val modifier = if (itemEnabled && spec.onClick != null) {
+                val modifier = if (cardEnabled && spec.onClick != null) {
                     Modifier
                         .fillMaxWidth()
                         .clickable { spec.onClick.invoke() }
