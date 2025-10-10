@@ -164,7 +164,7 @@ fun SettingsGestureScreenContent(
                             headlineContent = {
                                 Text(
                                     text = stringResource(id = R.string.gesture_show_action_hint),
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.Medium,
                                 )
                             },
                             trailingContent = {
@@ -226,7 +226,7 @@ private fun GestureDirectionGroupCard(
             headlineContent = {
                 Text(
                     text = directionLabel,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Medium,
                 )
             },
             supportingContent = {
