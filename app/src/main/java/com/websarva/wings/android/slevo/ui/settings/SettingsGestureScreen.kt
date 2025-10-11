@@ -9,13 +9,11 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -98,30 +96,20 @@ fun SettingsGestureScreenContent(
             item {
                 SettingsCardWithListItems(
                     items = listOf(
-                        ListItemSpec(
-                            headlineContent = {
-                                val stateText =
-                                    if (uiState.isGestureEnabled) stringResource(id = R.string.switch_on)
-                                    else stringResource(id = R.string.switch_off)
-                                Text(
-                                    text = stateText,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (uiState.isGestureEnabled) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurface
-                                )
-                            },
-                            trailingContent = {
-                                // Switch は個別にもタップ可能
-                                Switch(
-                                    modifier = Modifier
-                                        .scale(0.8f),
-                                    checked = uiState.isGestureEnabled,
-                                    onCheckedChange = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        toggleGesture(it)
-                                    }
-                                )
-                            },
+                        listItemSpecOfBasic(
+                            headlineText =
+                                if (uiState.isGestureEnabled) stringResource(id = R.string.switch_on)
+                                else stringResource(id = R.string.switch_off),
+                            headlineStyle = MaterialTheme.typography.bodyLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (uiState.isGestureEnabled) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface
+                            ),
+                            switchSpec = SwitchSpec(
+                                checked = uiState.isGestureEnabled,
+                                onCheckedChange = { toggleGesture(it) },
+                                enabled = true, // ジェスチャー設定全体の有効/無効に関わらず、常に切り替え可能にしておく
+                            ),
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 toggleGesture(!uiState.isGestureEnabled)
@@ -160,29 +148,17 @@ fun SettingsGestureScreenContent(
             item {
                 SettingsCardWithListItems(
                     items = listOf(
-                        ListItemSpec(
-                            headlineContent = {
-                                Text(
-                                    text = stringResource(id = R.string.gesture_show_action_hint),
-                                    fontWeight = FontWeight.Medium,
-                                )
-                            },
-                            trailingContent = {
-                                Switch(
-                                    modifier = Modifier.scale(0.8f),
-                                    checked = uiState.showActionHints,
-                                    onCheckedChange = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        toggleShowActionHints(it)
-                                    },
-                                    enabled = uiState.isGestureEnabled,
-                                )
-                            },
+                        listItemSpecOfBasic(
+                            headlineText = stringResource(id = R.string.gesture_show_action_hint),
+                            switchSpec = SwitchSpec(
+                                checked = uiState.showActionHints,
+                                onCheckedChange = { toggleShowActionHints(it) },
+                                enabled = uiState.isGestureEnabled,
+                            ),
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 toggleShowActionHints(!uiState.showActionHints)
                             }
-
                         )
                     ),
                     cardEnabled = uiState.isGestureEnabled,
@@ -215,7 +191,7 @@ private fun GestureDirectionGroupCard(
         val actionLabel = item.action?.let { stringResource(id = it.labelRes) }
             ?: stringResource(id = R.string.gesture_action_unassigned)
 
-        ListItemSpec(
+        listItemSpecOfBasic(
             leadingContent = {
                 Icon(
                     painter = painterResource(id = item.direction.iconRes),
@@ -223,18 +199,11 @@ private fun GestureDirectionGroupCard(
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             },
-            headlineContent = {
-                Text(
-                    text = directionLabel,
-                    fontWeight = FontWeight.Medium,
-                )
-            },
-            supportingContent = {
-                Text(
-                    text = actionLabel,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            },
+            headlineText = directionLabel,
+            supportingText = actionLabel,
+            supportingStyle = MaterialTheme.typography.labelLarge.copy(
+                color = MaterialTheme.colorScheme.primary
+            ),
             onClick = if (isGestureEnabled) {
                 { onGestureItemClick(item.direction) }
             } else null,
