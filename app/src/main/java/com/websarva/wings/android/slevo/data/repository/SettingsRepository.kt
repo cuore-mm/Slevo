@@ -71,4 +71,7 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setGestureAction(direction: GestureDirection, action: GestureAction?) =
         local.setGestureAction(direction, action)
+
+    suspend fun resetGestureSettings() =
+        local.resetGestureSettings()
 }

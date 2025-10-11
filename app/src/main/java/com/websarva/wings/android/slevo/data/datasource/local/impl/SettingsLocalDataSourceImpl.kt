@@ -158,4 +158,20 @@ class SettingsLocalDataSourceImpl @Inject constructor(
             }
         }
     }
+
+    override suspend fun resetGestureSettings() {
+        context.dataStore.edit { prefs ->
+            prefs[GESTURE_ENABLED_KEY] = GestureSettings.DEFAULT.isEnabled
+            prefs[GESTURE_SHOW_HINT_KEY] = GestureSettings.DEFAULT.showActionHints
+            GestureDirection.entries.forEach { direction ->
+                val key = GESTURE_ACTION_KEYS.getValue(direction)
+                val defaultAction = GestureSettings.DEFAULT.assignments[direction]
+                if (defaultAction == null) {
+                    prefs.remove(key)
+                } else {
+                    prefs[key] = defaultAction.name
+                }
+            }
+        }
+    }
 }

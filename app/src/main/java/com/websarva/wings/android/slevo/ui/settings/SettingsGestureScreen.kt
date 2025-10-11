@@ -1,18 +1,27 @@
 package com.websarva.wings.android.slevo.ui.settings
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -23,6 +32,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.ui.common.ConfirmBottomDialog
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
@@ -47,7 +57,8 @@ fun SettingsGestureScreen(
                 direction,
                 action
             )
-        }
+        },
+        resetGestureSettings = { viewModel.resetGestureSettings() },
     )
 }
 
@@ -61,13 +72,41 @@ fun SettingsGestureScreenContent(
     onGestureItemClick: (GestureDirection) -> Unit,
     dismissGestureDialog: () -> Unit,
     assignGestureAction: (GestureDirection, GestureAction?) -> Unit,
+    resetGestureSettings: () -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
+    var isMenuExpanded by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             SlevoTopAppBar(
                 title = stringResource(id = R.string.gesture_settings),
                 onNavigateUp = onNavigateUp,
+                actions = {
+                    Box {
+                        IconButton(onClick = { isMenuExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = stringResource(id = R.string.more)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = isMenuExpanded,
+                            onDismissRequest = { isMenuExpanded = false },
+                            shape = MaterialTheme.shapes.largeIncreased
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(text = stringResource(id = R.string.gesture_reset_settings),
+                                    style = MaterialTheme.typography.bodyLarge) },
+                                onClick = {
+                                    isMenuExpanded = false
+                                    showResetDialog = true
+                                },
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                            )
+                        }
+                    }
+                }
             )
         }
     ) { innerPadding ->
@@ -178,6 +217,32 @@ fun SettingsGestureScreenContent(
             onActionSelected = { action -> assignGestureAction(direction, action) }
         )
     }
+
+    if (showResetDialog) {
+        ResetGestureSettingsDialog(
+            onDismissRequest = { showResetDialog = false },
+            onConfirm = {
+                resetGestureSettings()
+                showResetDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun ResetGestureSettingsDialog(
+    onDismissRequest: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    ConfirmBottomDialog(
+        onDismissRequest = onDismissRequest,
+        onConfirm = onConfirm,
+        titleText = stringResource(id = R.string.gesture_reset_settings),
+        messageText = stringResource(id = R.string.gesture_reset_settings_description),
+        confirmLabel = stringResource(id = R.string.reset),
+        cancelLabel = stringResource(id = R.string.cancel),
+        confirmEnabled = true
+    )
 }
 
 @Composable
@@ -232,7 +297,8 @@ private fun SettingsGestureScreenPreview() {
             toggleShowActionHints = {},
             onGestureItemClick = {},
             dismissGestureDialog = {},
-            assignGestureAction = { _, _ -> }
+            assignGestureAction = { _, _ -> },
+            resetGestureSettings = {},
         )
     }
 }

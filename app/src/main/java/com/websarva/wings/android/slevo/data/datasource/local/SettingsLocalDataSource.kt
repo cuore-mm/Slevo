@@ -65,4 +65,7 @@ interface SettingsLocalDataSource {
 
     /** 指定方向のジェスチャーアクションを保存する */
     suspend fun setGestureAction(direction: GestureDirection, action: GestureAction?)
+
+    /** ジェスチャー設定を初期値にリセットする */
+    suspend fun resetGestureSettings()
 }
