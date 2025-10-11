@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.common
 
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -20,7 +21,8 @@ fun SlevoTopAppBar(
     modifier: Modifier = Modifier,
     title: String,
     onNavigateUp: (() -> Unit)? = null, // 戻る処理のためのコールバック
-    scrollBehavior: TopAppBarScrollBehavior? = null
+    scrollBehavior: TopAppBarScrollBehavior? = null,
+    actions: @Composable RowScope.() -> Unit = {},
 ) {
     TopAppBar(
         title = {
@@ -42,6 +44,7 @@ fun SlevoTopAppBar(
         },
         modifier = modifier,
         scrollBehavior = scrollBehavior,
+        actions = actions,
     )
 }
 

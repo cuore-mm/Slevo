@@ -66,6 +66,13 @@ class SettingsGestureViewModel @Inject constructor(
         }
     }
 
+    fun resetGestureSettings() {
+        _uiState.update { it.copy(selectedDirection = null) }
+        viewModelScope.launch {
+            repository.resetGestureSettings()
+        }
+    }
+
     private fun GestureSettings.toGestureItems(): List<GestureItem> =
         GestureDirection.entries.map { direction ->
             GestureItem(
