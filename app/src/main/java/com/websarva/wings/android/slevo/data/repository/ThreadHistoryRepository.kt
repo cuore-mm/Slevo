@@ -30,6 +30,10 @@ class ThreadHistoryRepository @Inject constructor(
         return dao.findByBoard(boardUrl).associate { it.threadId.threadKey to it.resCount }
     }
 
+    suspend fun deleteHistories(threadIds: Collection<ThreadId>) {
+        threadIds.forEach { dao.delete(it) }
+    }
+
     suspend fun recordHistory(
         boardInfo: BoardInfo,
         threadInfo: ThreadInfo,

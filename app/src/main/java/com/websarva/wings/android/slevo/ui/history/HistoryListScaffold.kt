@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.history
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -18,9 +19,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.threadKey
+import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
-import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
+import com.websarva.wings.android.slevo.ui.bottombar.BbsSelectBottomBar
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,13 +38,33 @@ fun HistoryListScaffold(
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
 
+    val isSelectionMode = uiState.selectedThreadIds.isNotEmpty()
+
+    BackHandler(enabled = isSelectionMode) {
+        viewModel.clearSelection()
+    }
+
     Scaffold(
         topBar = {
             SlevoTopAppBar(
                 title = stringResource(R.string.history),
-                onNavigateUp = { navController.popBackStack() },
+                onNavigateUp = {
+                    if (isSelectionMode) {
+                        viewModel.clearSelection()
+                    } else {
+                        navController.popBackStack()
+                    }
+                },
                 scrollBehavior = scrollBehavior
             )
+        },
+        bottomBar = {
+            if (isSelectionMode) {
+                BbsSelectBottomBar(
+                    onDelete = { viewModel.deleteSelectedHistories() },
+                    onOpen = {}
+                )
+            }
         },
         modifier = Modifier
     ) { innerPadding ->
@@ -54,7 +76,9 @@ fun HistoryListScaffold(
                 bottom = parentPadding.calculateBottomPadding()
             ),
             histories = uiState.histories,
-            onThreadClick = { history ->
+            selectedThreadIds = uiState.selectedThreadIds,
+            isSelectionMode = isSelectionMode,
+            onOpenThread = { history ->
                 val route = AppRoute.Thread(
                     threadKey = history.history.threadId.threadKey,
                     boardUrl = history.history.boardUrl,
@@ -67,7 +91,9 @@ fun HistoryListScaffold(
                     route = route,
                     tabsViewModel = tabsViewModel,
                 )
-            }
+            },
+            onToggleSelection = { viewModel.toggleSelection(it) },
+            onStartSelection = { viewModel.startSelection(it) }
         )
     }
 }
