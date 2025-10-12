@@ -26,7 +26,7 @@ if (localPropertiesFile.exists()) {
 
 android {
     namespace = "com.websarva.wings.android.slevo"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.websarva.wings.android.slevo"
