@@ -1,0 +1,8 @@
+{
+  "uniqueId": "font:noto-sans-jp",
+  "name": "Noto Sans JP",
+  "website": "https://fonts.google.com/noto/specimen/Noto+Sans+JP",
+  "description": "Japanese sans-serif font used by the app.",
+  "developers": [{ "name": "Google / Adobe" }],
+  "licenses": ["OFL-1.1"]
+}

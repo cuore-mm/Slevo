@@ -26,14 +26,14 @@ if (localPropertiesFile.exists()) {
 
 android {
     namespace = "com.websarva.wings.android.slevo"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.websarva.wings.android.slevo"
         minSdk = 24
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.2.1"
+        versionCode = 9
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -194,4 +194,11 @@ kapt {
 // KSP に対して Room の schema 出力先を指定
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+aboutLibraries {
+    collect {
+        // ここ以下に置いたJSONをマージできる
+        configPath = file("aboutlibs")
+    }
 }

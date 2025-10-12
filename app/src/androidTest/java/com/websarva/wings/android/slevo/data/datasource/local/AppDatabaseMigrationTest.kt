@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.data.datasource.local
 
+import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
@@ -7,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -166,6 +168,174 @@ class AppDatabaseMigrationTest {
 
         // （任意）thread_histories 側の置換や関連の追随もチェック
         // 例: thread_histories にも threadId 追加/置換したなら同様に PRAGMA / SELECT 検証
+
+        db.close()
+    }
+
+    @Test
+    fun migrate3To4_createsPostIdentityHistories() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.deleteDatabase(TEST_DB)
+
+        helper.createDatabase(TEST_DB, 3).apply {
+            execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS services (
+                    serviceId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    domain TEXT NOT NULL,
+                    displayName TEXT,
+                    menuUrl TEXT
+                )
+                """.trimIndent()
+            )
+            execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS boards (
+                    boardId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    serviceId INTEGER NOT NULL,
+                    url TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    FOREIGN KEY(serviceId) REFERENCES services(serviceId) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            execSQL("INSERT INTO services (serviceId, domain, displayName, menuUrl) VALUES (1, 'example.com', 'Example', NULL)")
+            execSQL("INSERT INTO boards (boardId, serviceId, url, name) VALUES (1, 1, 'https://example.com/board', 'Example Board')")
+            close()
+        }
+
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            4,
+            true,
+            AppDatabase.MIGRATION_3_4
+        )
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
+            .addMigrations(AppDatabase.MIGRATION_3_4)
+            .build()
+
+        val writable = db.openHelper.writableDatabase
+        writable.execSQL("PRAGMA foreign_keys=ON")
+
+        writable.query("PRAGMA table_info('post_identity_histories')").use { cursor ->
+            val columns = mutableListOf<String>()
+            while (cursor.moveToNext()) {
+                columns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
+            }
+            assertTrue(columns.containsAll(listOf("id", "boardId", "type", "value", "lastUsedAt")))
+        }
+
+        writable.execSQL(
+            "INSERT INTO post_identity_histories (boardId, type, value, lastUsedAt) VALUES (1, 'name', 'Alice', 1000)"
+        )
+        writable.execSQL(
+            "INSERT INTO post_identity_histories (boardId, type, value, lastUsedAt) VALUES (1, 'mail', 'alice@example.com', 1001)"
+        )
+
+        assertThrows(SQLiteConstraintException::class.java) {
+            writable.execSQL(
+                "INSERT INTO post_identity_histories (boardId, type, value, lastUsedAt) VALUES (1, 'name', 'Alice', 2000)"
+            )
+        }
+
+        assertThrows(SQLiteConstraintException::class.java) {
+            writable.execSQL(
+                "INSERT INTO post_identity_histories (boardId, type, value, lastUsedAt) VALUES (99, 'name', 'Ghost', 3000)"
+            )
+        }
+
+        db.close()
+    }
+
+    @Test
+    fun migrate4To5_createsPostLastIdentities() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.deleteDatabase(TEST_DB)
+
+        helper.createDatabase(TEST_DB, 4).apply {
+            execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS services (
+                    serviceId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    domain TEXT NOT NULL,
+                    displayName TEXT,
+                    menuUrl TEXT
+                )
+                """.trimIndent()
+            )
+            execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS boards (
+                    boardId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    serviceId INTEGER NOT NULL,
+                    url TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    FOREIGN KEY(serviceId) REFERENCES services(serviceId) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS post_identity_histories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    boardId INTEGER NOT NULL,
+                    type TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    lastUsedAt INTEGER NOT NULL,
+                    FOREIGN KEY(boardId) REFERENCES boards(boardId) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            execSQL("INSERT INTO services (serviceId, domain, displayName, menuUrl) VALUES (1, 'example.com', 'Example', NULL)")
+            execSQL("INSERT INTO boards (boardId, serviceId, url, name) VALUES (1, 1, 'https://example.com/board', 'Example Board')")
+            close()
+        }
+
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            5,
+            true,
+            AppDatabase.MIGRATION_4_5
+        )
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
+            .addMigrations(AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5)
+            .build()
+
+        val writable = db.openHelper.writableDatabase
+        writable.execSQL("PRAGMA foreign_keys=ON")
+
+        writable.query("PRAGMA table_info('post_last_identities')").use { cursor ->
+            val columns = mutableListOf<String>()
+            while (cursor.moveToNext()) {
+                columns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
+            }
+            assertTrue(columns.containsAll(listOf("boardId", "name", "email", "updatedAt")))
+        }
+
+        writable.execSQL(
+            "INSERT INTO post_last_identities (boardId, name, email, updatedAt) VALUES (1, 'Alice', 'alice@example.com', 1000)"
+        )
+
+        writable.query("SELECT name, email, updatedAt FROM post_last_identities WHERE boardId = 1").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("Alice", cursor.getString(0))
+            assertEquals("alice@example.com", cursor.getString(1))
+            assertEquals(1000, cursor.getLong(2))
+        }
+
+        assertThrows(SQLiteConstraintException::class.java) {
+            writable.execSQL(
+                "INSERT INTO post_last_identities (boardId, name, email, updatedAt) VALUES (1, 'Bob', 'bob@example.com', 2000)"
+            )
+        }
+
+        assertThrows(SQLiteConstraintException::class.java) {
+            writable.execSQL(
+                "INSERT INTO post_last_identities (boardId, name, email, updatedAt) VALUES (99, 'Ghost', 'ghost@example.com', 3000)"
+            )
+        }
 
         db.close()
     }

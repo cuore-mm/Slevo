@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.NgType
@@ -80,6 +81,11 @@ class ThreadViewModel @AssistedInject constructor(
     private var pendingPost: PendingPost? = null
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
+    private var nameHistoryJob: Job? = null
+    private var mailHistoryJob: Job? = null
+    private var latestNameHistories: List<String> = emptyList()
+    private var latestMailHistories: List<String> = emptyList()
+    private var observedIdentityBoardId: Long? = null
     private var lastAutoRefreshTime: Long = 0L
 
     init {
@@ -111,6 +117,11 @@ class ThreadViewModel @AssistedInject constructor(
         viewModelScope.launch {
             settingsRepository.observeIsThreadMinimapScrollbarEnabled().collect { enabled ->
                 _uiState.update { it.copy(showMinimapScrollbar = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.observeGestureSettings().collect { settings ->
+                _uiState.update { it.copy(gestureSettings = settings) }
             }
         }
     }
@@ -165,6 +176,31 @@ class ThreadViewModel @AssistedInject constructor(
                     state.copy(boardInfo = state.boardInfo.copy(noname = noname))
                 }
             }
+        }
+
+        viewModelScope.launch {
+            val ensuredId = boardRepository.ensureBoard(boardInfo)
+            if (ensuredId != boardInfo.boardId) {
+                _uiState.update { state ->
+                    state.copy(boardInfo = state.boardInfo.copy(boardId = ensuredId))
+                }
+            }
+            postHistoryRepository.getLastIdentity(ensuredId)?.let { identity ->
+                _postUiState.update { current ->
+                    val form = current.postFormState
+                    if (form.name.isEmpty() && form.mail.isEmpty()) {
+                        current.copy(
+                            postFormState = form.copy(
+                                name = identity.name,
+                                mail = identity.email
+                            )
+                        )
+                    } else {
+                        current
+                    }
+                }
+            }
+            startObservingIdentityHistories(ensuredId)
         }
 
         // Factoryを使ってBookmarkStateViewModelを生成
@@ -699,8 +735,104 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     fun onPostSuccess(resNum: Int?, message: String, name: String, mail: String) {
+        val boardId = uiState.value.boardInfo.boardId
+        if (boardId != 0L) {
+            viewModelScope.launch {
+                postHistoryRepository.recordIdentity(
+                    boardId = boardId,
+                    name = name,
+                    email = mail
+                )
+            }
+        }
+        _postUiState.update { state ->
+            state.copy(
+                postFormState = state.postFormState.copy(
+                    name = name,
+                    mail = mail,
+                    message = ""
+                )
+            )
+        }
         pendingPost = PendingPost(resNum, message, name, mail)
         reloadThread()
+    }
+
+    private fun startObservingIdentityHistories(boardId: Long) {
+        if (observedIdentityBoardId == boardId) {
+            refreshNameHistorySuggestions(_postUiState.value.postFormState.name)
+            refreshMailHistorySuggestions(_postUiState.value.postFormState.mail)
+            return
+        }
+        observedIdentityBoardId = boardId
+        nameHistoryJob?.cancel()
+        mailHistoryJob?.cancel()
+
+        latestNameHistories = emptyList()
+        latestMailHistories = emptyList()
+        refreshNameHistorySuggestions(_postUiState.value.postFormState.name)
+        refreshMailHistorySuggestions(_postUiState.value.postFormState.mail)
+
+        if (boardId == 0L) {
+            return
+        }
+
+        nameHistoryJob = viewModelScope.launch {
+            postHistoryRepository.observeIdentityHistories(boardId, PostIdentityType.NAME).collect { histories ->
+                latestNameHistories = histories
+                refreshNameHistorySuggestions(_postUiState.value.postFormState.name)
+            }
+        }
+        mailHistoryJob = viewModelScope.launch {
+            postHistoryRepository.observeIdentityHistories(boardId, PostIdentityType.EMAIL).collect { histories ->
+                latestMailHistories = histories
+                refreshMailHistorySuggestions(_postUiState.value.postFormState.mail)
+            }
+        }
+    }
+
+    internal fun refreshNameHistorySuggestions(query: String) {
+        val filtered = filterIdentityHistories(latestNameHistories, query)
+        _postUiState.update { it.copy(nameHistory = filtered) }
+    }
+
+    internal fun refreshMailHistorySuggestions(query: String) {
+        val filtered = filterIdentityHistories(latestMailHistories, query)
+        _postUiState.update { it.copy(mailHistory = filtered) }
+    }
+
+    internal fun deletePostIdentityHistory(type: PostIdentityType, value: String) {
+        val normalized = value.trim()
+        if (normalized.isEmpty()) {
+            return
+        }
+        when (type) {
+            PostIdentityType.NAME -> {
+                latestNameHistories = latestNameHistories.filterNot { it == normalized }
+                refreshNameHistorySuggestions(_postUiState.value.postFormState.name)
+            }
+
+            PostIdentityType.EMAIL -> {
+                latestMailHistories = latestMailHistories.filterNot { it == normalized }
+                refreshMailHistorySuggestions(_postUiState.value.postFormState.mail)
+            }
+        }
+        val boardId = _uiState.value.boardInfo.boardId
+        if (boardId == 0L) {
+            return
+        }
+        viewModelScope.launch {
+            postHistoryRepository.deleteIdentity(boardId, type, normalized)
+        }
+    }
+
+    private fun filterIdentityHistories(source: List<String>, query: String): List<String> {
+        val normalized = query.trim()
+        return if (normalized.isEmpty()) {
+            source
+        } else {
+            source.filter { it.contains(normalized, ignoreCase = true) }
+        }
     }
 
 

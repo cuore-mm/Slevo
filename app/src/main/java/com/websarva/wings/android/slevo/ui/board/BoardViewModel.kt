@@ -11,10 +11,13 @@ import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
+import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.PostResult
 import com.websarva.wings.android.slevo.data.repository.ThreadCreateRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
 import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
@@ -23,6 +26,7 @@ import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
@@ -35,8 +39,10 @@ class BoardViewModel @AssistedInject constructor(
     private val threadCreateRepository: ThreadCreateRepository,
     private val imageUploadRepository: ImageUploadRepository,
     private val historyRepository: ThreadHistoryRepository,
+    private val postHistoryRepository: PostHistoryRepository,
     private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
     private val ngRepository: NgRepository,
+    private val settingsRepository: SettingsRepository,
     @Assisted("viewModelKey") val viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
 
@@ -46,10 +52,23 @@ class BoardViewModel @AssistedInject constructor(
     private var currentHistoryMap: Map<String, Int> = emptyMap()
     private var isObservingThreads: Boolean = false
     private var initializedUrl: String? = null
+    private var createNameHistoryJob: Job? = null
+    private var createMailHistoryJob: Job? = null
+    private var latestCreateNameHistories: List<String> = emptyList()
+    private var latestCreateMailHistories: List<String> = emptyList()
+    private var observedCreateIdentityBoardId: Long? = null
 
     override val _uiState = MutableStateFlow(BoardUiState())
     private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
     private var threadTitleNg: List<Pair<Long?, Regex>> = emptyList()
+
+    init {
+        viewModelScope.launch {
+            settingsRepository.observeGestureSettings().collect { settings ->
+                _uiState.update { it.copy(gestureSettings = settings) }
+            }
+        }
+    }
 
     fun initializeBoard(boardInfo: BoardInfo) {
         if (initializedUrl == boardInfo.url) return
@@ -69,6 +88,23 @@ class BoardViewModel @AssistedInject constructor(
                     state.copy(boardInfo = state.boardInfo.copy(noname = noname))
                 }
             }
+
+            postHistoryRepository.getLastIdentity(ensuredId)?.let { identity ->
+                _uiState.update { state ->
+                    val form = state.createFormState
+                    if (form.name.isEmpty() && form.mail.isEmpty()) {
+                        state.copy(
+                            createFormState = form.copy(
+                                name = identity.name,
+                                mail = identity.email
+                            )
+                        )
+                    } else {
+                        state
+                    }
+                }
+            }
+            startObservingIdentityHistories(ensuredId)
         }
 
         viewModelScope.launch {
@@ -301,10 +337,12 @@ class BoardViewModel @AssistedInject constructor(
 
     fun updateCreateName(name: String) {
         _uiState.update { it.copy(createFormState = it.createFormState.copy(name = name)) }
+        updateCreateNameHistorySuggestions(name)
     }
 
     fun updateCreateMail(mail: String) {
         _uiState.update { it.copy(createFormState = it.createFormState.copy(mail = mail)) }
+        updateCreateMailHistorySuggestions(mail)
     }
 
     fun updateCreateTitle(title: String) {
@@ -313,6 +351,100 @@ class BoardViewModel @AssistedInject constructor(
 
     fun updateCreateMessage(message: String) {
         _uiState.update { it.copy(createFormState = it.createFormState.copy(message = message)) }
+    }
+
+    fun selectCreateNameHistory(name: String) {
+        _uiState.update { it.copy(createFormState = it.createFormState.copy(name = name)) }
+        updateCreateNameHistorySuggestions(name)
+    }
+
+    fun selectCreateMailHistory(mail: String) {
+        _uiState.update { it.copy(createFormState = it.createFormState.copy(mail = mail)) }
+        updateCreateMailHistorySuggestions(mail)
+    }
+
+    fun deleteCreateNameHistory(name: String) {
+        val normalized = name.trim()
+        if (normalized.isEmpty()) {
+            return
+        }
+        latestCreateNameHistories = latestCreateNameHistories.filterNot { it == normalized }
+        updateCreateNameHistorySuggestions(_uiState.value.createFormState.name)
+        val boardId = _uiState.value.boardInfo.boardId
+        if (boardId == 0L) {
+            return
+        }
+        viewModelScope.launch {
+            postHistoryRepository.deleteIdentity(boardId, PostIdentityType.NAME, normalized)
+        }
+    }
+
+    fun deleteCreateMailHistory(mail: String) {
+        val normalized = mail.trim()
+        if (normalized.isEmpty()) {
+            return
+        }
+        latestCreateMailHistories = latestCreateMailHistories.filterNot { it == normalized }
+        updateCreateMailHistorySuggestions(_uiState.value.createFormState.mail)
+        val boardId = _uiState.value.boardInfo.boardId
+        if (boardId == 0L) {
+            return
+        }
+        viewModelScope.launch {
+            postHistoryRepository.deleteIdentity(boardId, PostIdentityType.EMAIL, normalized)
+        }
+    }
+
+    private fun startObservingIdentityHistories(boardId: Long) {
+        if (observedCreateIdentityBoardId == boardId) {
+            updateCreateNameHistorySuggestions(_uiState.value.createFormState.name)
+            updateCreateMailHistorySuggestions(_uiState.value.createFormState.mail)
+            return
+        }
+        observedCreateIdentityBoardId = boardId
+        createNameHistoryJob?.cancel()
+        createMailHistoryJob?.cancel()
+
+        latestCreateNameHistories = emptyList()
+        latestCreateMailHistories = emptyList()
+        updateCreateNameHistorySuggestions(_uiState.value.createFormState.name)
+        updateCreateMailHistorySuggestions(_uiState.value.createFormState.mail)
+
+        if (boardId == 0L) {
+            return
+        }
+
+        createNameHistoryJob = viewModelScope.launch {
+            postHistoryRepository.observeIdentityHistories(boardId, PostIdentityType.NAME).collect { histories ->
+                latestCreateNameHistories = histories
+                updateCreateNameHistorySuggestions(_uiState.value.createFormState.name)
+            }
+        }
+        createMailHistoryJob = viewModelScope.launch {
+            postHistoryRepository.observeIdentityHistories(boardId, PostIdentityType.EMAIL).collect { histories ->
+                latestCreateMailHistories = histories
+                updateCreateMailHistorySuggestions(_uiState.value.createFormState.mail)
+            }
+        }
+    }
+
+    private fun updateCreateNameHistorySuggestions(query: String) {
+        val filtered = filterIdentityHistories(latestCreateNameHistories, query)
+        _uiState.update { it.copy(createNameHistory = filtered) }
+    }
+
+    private fun updateCreateMailHistorySuggestions(query: String) {
+        val filtered = filterIdentityHistories(latestCreateMailHistories, query)
+        _uiState.update { it.copy(createMailHistory = filtered) }
+    }
+
+    private fun filterIdentityHistories(source: List<String>, query: String): List<String> {
+        val normalized = query.trim()
+        return if (normalized.isEmpty()) {
+            source
+        } else {
+            source.filter { it.contains(normalized, ignoreCase = true) }
+        }
     }
 
     fun hideConfirmationScreen() {
@@ -344,10 +476,22 @@ class BoardViewModel @AssistedInject constructor(
             _uiState.update { it.copy(isPosting = false) }
             when (result) {
                 is PostResult.Success -> {
+                    val formState = uiState.value.createFormState
+                    val boardId = uiState.value.boardInfo.boardId
                     _uiState.update {
                         it.copy(
                             postResultMessage = "書き込みに成功しました。",
-                            createFormState = CreateThreadFormState()
+                            createFormState = CreateThreadFormState(
+                                name = formState.name,
+                                mail = formState.mail
+                            )
+                        )
+                    }
+                    if (boardId != 0L) {
+                        postHistoryRepository.recordIdentity(
+                            boardId = boardId,
+                            name = formState.name,
+                            email = formState.mail
                         )
                     }
                     refreshBoardData()
@@ -383,10 +527,22 @@ class BoardViewModel @AssistedInject constructor(
             _uiState.update { it.copy(isPosting = false) }
             when (result) {
                 is PostResult.Success -> {
+                    val formState = uiState.value.createFormState
+                    val boardId = uiState.value.boardInfo.boardId
                     _uiState.update {
                         it.copy(
                             postResultMessage = "書き込みに成功しました。",
-                            createFormState = CreateThreadFormState()
+                            createFormState = CreateThreadFormState(
+                                name = formState.name,
+                                mail = formState.mail
+                            )
+                        )
+                    }
+                    if (boardId != 0L) {
+                        postHistoryRepository.recordIdentity(
+                            boardId = boardId,
+                            name = formState.name,
+                            email = formState.mail
                         )
                     }
                     refreshBoardData()

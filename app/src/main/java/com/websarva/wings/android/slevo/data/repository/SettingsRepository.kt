@@ -1,6 +1,9 @@
 package com.websarva.wings.android.slevo.data.repository
 
 import com.websarva.wings.android.slevo.data.datasource.local.SettingsLocalDataSource
+import com.websarva.wings.android.slevo.data.model.GestureAction
+import com.websarva.wings.android.slevo.data.model.GestureDirection
+import com.websarva.wings.android.slevo.data.model.GestureSettings
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -56,4 +59,19 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setLineHeight(height: Float) =
         local.setLineHeight(height)
+
+    fun observeGestureSettings(): Flow<GestureSettings> =
+        local.observeGestureSettings()
+
+    suspend fun setGestureEnabled(enabled: Boolean) =
+        local.setGestureEnabled(enabled)
+
+    suspend fun setGestureShowActionHints(show: Boolean) =
+        local.setGestureShowActionHints(show)
+
+    suspend fun setGestureAction(direction: GestureDirection, action: GestureAction?) =
+        local.setGestureAction(direction, action)
+
+    suspend fun resetGestureSettings() =
+        local.resetGestureSettings()
 }

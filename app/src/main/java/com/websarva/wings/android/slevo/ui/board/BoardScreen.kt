@@ -21,20 +21,36 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.GestureAction
+import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThreadDate
-import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import java.text.DecimalFormat
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
+import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
+import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
+import com.websarva.wings.android.slevo.ui.util.GestureHint
+import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
+import com.websarva.wings.android.slevo.ui.thread.item.rememberHighlightedText
+import java.text.DecimalFormat
 import java.util.Calendar
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +60,11 @@ fun BoardScreen(
     onClick: (ThreadInfo) -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
-    listState: LazyListState = rememberLazyListState()
+    listState: LazyListState = rememberLazyListState(),
+    gestureSettings: GestureSettings = GestureSettings.DEFAULT,
+    showBottomBar: (() -> Unit)? = null,
+    onGestureAction: (GestureAction) -> Unit = {},
+    searchQuery: String,
 ) {
     val (momentumMean, momentumStd) = remember(threads) {
         val values = threads.filter {
@@ -59,12 +79,74 @@ fun BoardScreen(
         mean to std
     }
 
+    val coroutineScope = rememberCoroutineScope()
+
     PullToRefreshBox(
         modifier = modifier,
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        var gestureHint by remember { mutableStateOf<GestureHint>(GestureHint.Hidden) }
+        LaunchedEffect(gestureHint) {
+            if (gestureHint is GestureHint.Invalid) {
+                delay(1200)
+                gestureHint = GestureHint.Hidden
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .detectDirectionalGesture(
+                    enabled = gestureSettings.isEnabled,
+                    onGestureProgress = { direction ->
+                        gestureHint = direction?.let {
+                            GestureHint.Direction(it, gestureSettings.assignments[it])
+                        } ?: GestureHint.Hidden
+                    },
+                    onGestureInvalid = {
+                        gestureHint = GestureHint.Invalid
+                    },
+                ) { direction ->
+                    val action = gestureSettings.assignments[direction]
+                    if (action == null) {
+                        gestureHint = GestureHint.Direction(direction, null)
+                        return@detectDirectionalGesture
+                    }
+                    gestureHint = GestureHint.Hidden
+                    when (action) {
+                        GestureAction.ToTop -> {
+                            showBottomBar?.invoke()
+                            coroutineScope.launch {
+                                listState.scrollToItem(0)
+                            }
+                        }
+
+                        GestureAction.ToBottom -> {
+                            coroutineScope.launch {
+                                showBottomBar?.invoke()
+                                val prevViewportEnd = listState.layoutInfo.viewportEndOffset
+                                repeat(10) {
+                                    withFrameNanos { /* 1 フレーム待ち */ }
+                                    if (listState.layoutInfo.viewportEndOffset != prevViewportEnd) return@repeat
+                                }
+                                coroutineScope.launch {
+                                    val totalItems = listState.layoutInfo.totalItemsCount
+                                    val fallback = if (threads.isNotEmpty()) threads.size else 0
+                                    val targetIndex = when {
+                                        totalItems > 0 -> totalItems - 1
+                                        fallback > 0 -> fallback
+                                        else -> 0
+                                    }
+                                    listState.scrollToItem(targetIndex)
+                                }
+                            }
+                        }
+
+                        else -> onGestureAction(action)
+                    }
+                }
+        ) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize(),
@@ -84,12 +166,16 @@ fun BoardScreen(
                 ThreadCard(
                     threadInfo = thread,
                     onClick = onClick,
+                    searchQuery = searchQuery,
                     momentumMean = momentumMean,
                     momentumStd = momentumStd
                 )
                 // 各アイテムの下に区切り線を表示
                 HorizontalDivider()
             }
+        }
+        if (gestureSettings.showActionHints) {
+            GestureHintOverlay(state = gestureHint)
         }
     }
 }
@@ -99,6 +185,7 @@ fun BoardScreen(
 fun ThreadCard(
     threadInfo: ThreadInfo,
     onClick: (ThreadInfo) -> Unit,
+    searchQuery: String,
     momentumMean: Double,
     momentumStd: Double,
 ) {
@@ -122,8 +209,16 @@ fun ThreadCard(
             .clickable(onClick = { onClick(threadInfo) })
             .padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
+        val baseTitle = remember(threadInfo.title) { AnnotatedString(threadInfo.title) }
+        val highlightBackground = MaterialTheme.colorScheme.tertiaryContainer
+        val highlightedTitle = rememberHighlightedText(
+            baseText = baseTitle,
+            rawContent = threadInfo.title,
+            searchQuery = searchQuery,
+            highlightColor = highlightBackground
+        )
         Text(
-            text = threadInfo.title,
+            text = highlightedTitle,
             color = if (threadInfo.isVisited)
                 MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
         )
@@ -206,6 +301,7 @@ fun ThreadCardPreview() {
             isNew = true,
         ),
         onClick = {},
+        searchQuery = "",
         momentumMean = 1000.0,
         momentumStd = 100.0,
     )

@@ -18,8 +18,6 @@ import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,11 +31,10 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
@@ -118,6 +115,7 @@ fun BoardScaffold(
         },
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setBoardCurrentPage(it) },
+        animateToPageFlow = tabsViewModel.boardPageAnimation,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
             val keyboardController = LocalSoftwareKeyboardController.current
@@ -194,7 +192,7 @@ fun BoardScaffold(
                 }
             }
         },
-        content = { viewModel, uiState, listState, modifier, navController ->
+        content = { viewModel, uiState, listState, modifier, navController, showBottomBar, openTabListSheet, openUrlDialog ->
             LaunchedEffect(uiState.resetScroll) {
                 if (uiState.resetScroll) {
                     listState.scrollToItem(0)
@@ -221,7 +219,29 @@ fun BoardScaffold(
                 },
                 isRefreshing = uiState.isLoading,
                 onRefresh = { viewModel.refreshBoardData() },
-                listState = listState
+                listState = listState,
+                gestureSettings = uiState.gestureSettings,
+                showBottomBar = showBottomBar,
+                onGestureAction = { action ->
+                    when (action) {
+                        GestureAction.Refresh -> viewModel.refreshBoardData()
+                        GestureAction.PostOrCreateThread -> viewModel.showCreateDialog()
+                        GestureAction.Search -> viewModel.setSearchMode(true)
+                        GestureAction.OpenTabList -> openTabListSheet()
+                        GestureAction.OpenBookmarkList -> navController.navigate(AppRoute.BookmarkList)
+                        GestureAction.OpenBoardList -> navController.navigate(AppRoute.ServiceList)
+                        GestureAction.OpenHistory -> navController.navigate(AppRoute.HistoryList)
+                        GestureAction.OpenNewTab -> openUrlDialog()
+                        GestureAction.SwitchToNextTab -> tabsViewModel.animateBoardPage(1)
+                        GestureAction.SwitchToPreviousTab -> tabsViewModel.animateBoardPage(-1)
+                        GestureAction.CloseTab ->
+                            if (uiState.boardInfo.url.isNotBlank()) {
+                                tabsViewModel.closeBoardTabByUrl(uiState.boardInfo.url)
+                            }
+                        GestureAction.ToTop, GestureAction.ToBottom -> Unit
+                    }
+                },
+                searchQuery = uiState.searchQuery,
             )
             if (uiState.showInfoDialog) {
                 BoardInfoDialog(
@@ -254,9 +274,15 @@ fun BoardScaffold(
                     mail = uiState.createFormState.mail,
                     message = uiState.createFormState.message,
                     namePlaceholder = uiState.boardInfo.noname.ifBlank { stringResource(R.string.name) },
+                    nameHistory = uiState.createNameHistory,
+                    mailHistory = uiState.createMailHistory,
                     onNameChange = { viewModel.updateCreateName(it) },
                     onMailChange = { viewModel.updateCreateMail(it) },
                     onMessageChange = { viewModel.updateCreateMessage(it) },
+                    onNameHistorySelect = { viewModel.selectCreateNameHistory(it) },
+                    onMailHistorySelect = { viewModel.selectCreateMailHistory(it) },
+                    onNameHistoryDelete = { viewModel.deleteCreateNameHistory(it) },
+                    onMailHistoryDelete = { viewModel.deleteCreateMailHistory(it) },
                     onPostClick = {
                         parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                             viewModel.createThreadFirstPhase(

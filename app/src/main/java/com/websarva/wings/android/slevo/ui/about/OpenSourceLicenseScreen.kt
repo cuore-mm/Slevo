@@ -11,7 +11,7 @@ import androidx.compose.ui.res.stringResource
 import com.mikepenz.aboutlibraries.ui.compose.android.rememberLibraries
 import com.mikepenz.aboutlibraries.ui.compose.m3.LibrariesContainer
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.ui.topbar.SmallTopAppBarScreen
+import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -20,7 +20,7 @@ fun OpenSourceLicenseScreen(
 ) {
     Scaffold(
         topBar = {
-            SmallTopAppBarScreen(
+            SlevoTopAppBar(
                 title = stringResource(R.string.open_source_licenses),
                 onNavigateUp = onNavigateUp
             )

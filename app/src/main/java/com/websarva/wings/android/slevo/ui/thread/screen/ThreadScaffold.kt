@@ -28,6 +28,7 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
@@ -40,11 +41,15 @@ import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.deletePostMailHistory
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.deletePostNameHistory
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideConfirmationScreen
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideErrorWebView
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.hidePostDialog
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.postFirstPhase
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.postTo5chSecondPhase
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.selectPostMailHistory
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.selectPostNameHistory
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.showPostDialog
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.showReplyDialog
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMail
@@ -78,7 +83,10 @@ fun ThreadScaffold(
         ThreadId.of(host, board, threadRoute.threadKey)
     }
 
-    LaunchedEffect(threadRoute) {
+    LaunchedEffect(threadRoute, tabsUiState.threadLoaded) {
+        if (!tabsUiState.threadLoaded) {
+            return@LaunchedEffect
+        }
         val info = tabsViewModel.resolveBoardInfo(
             boardId = threadRoute.boardId,
             boardUrl = threadRoute.boardUrl,
@@ -129,6 +137,7 @@ fun ThreadScaffold(
         },
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setThreadCurrentPage(it) },
+        animateToPageFlow = tabsViewModel.threadPageAnimation,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
             val context = LocalContext.current
@@ -182,7 +191,7 @@ fun ThreadScaffold(
                 }
             }
         },
-        content = { viewModel, uiState, listState, modifier, navController ->
+        content = { viewModel, uiState, listState, modifier, navController, showBottomBar, openTabListSheet, openUrlDialog ->
             LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
                 if (
@@ -215,12 +224,33 @@ fun ThreadScaffold(
                 listState = listState,
                 navController = navController,
                 tabsViewModel = tabsViewModel,
+                showBottomBar = showBottomBar,
                 onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
                 onBottomRefresh = { viewModel.reloadThread() },
                 onLastRead = { resNum ->
                     routeThreadId?.let { viewModel.updateThreadLastRead(it, resNum) }
                 },
-                onReplyToPost = { viewModel.showReplyDialog(it) }
+                onReplyToPost = { viewModel.showReplyDialog(it) },
+                gestureSettings = uiState.gestureSettings,
+                onGestureAction = { action ->
+                    when (action) {
+                        GestureAction.Refresh -> viewModel.reloadThread()
+                        GestureAction.PostOrCreateThread -> viewModel.showPostDialog()
+                        GestureAction.Search -> viewModel.startSearch()
+                        GestureAction.OpenTabList -> openTabListSheet()
+                        GestureAction.OpenBookmarkList -> navController.navigate(AppRoute.BookmarkList)
+                        GestureAction.OpenBoardList -> navController.navigate(AppRoute.ServiceList)
+                        GestureAction.OpenHistory -> navController.navigate(AppRoute.HistoryList)
+                        GestureAction.OpenNewTab -> openUrlDialog()
+                        GestureAction.SwitchToNextTab -> tabsViewModel.animateThreadPage(1)
+                        GestureAction.SwitchToPreviousTab -> tabsViewModel.animateThreadPage(-1)
+                        GestureAction.CloseTab ->
+                            if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
+                                tabsViewModel.closeThreadTab(uiState.threadInfo.key, uiState.boardInfo.url)
+                            }
+                        GestureAction.ToTop, GestureAction.ToBottom -> Unit
+                    }
+                }
             )
         },
         optionalSheetContent = { viewModel, uiState ->
@@ -284,9 +314,15 @@ fun ThreadScaffold(
                     mail = postUiState.postFormState.mail,
                     message = postUiState.postFormState.message,
                     namePlaceholder = uiState.boardInfo.noname.ifBlank { "name" },
+                    nameHistory = postUiState.nameHistory,
+                    mailHistory = postUiState.mailHistory,
                     onNameChange = { viewModel.updatePostName(it) },
                     onMailChange = { viewModel.updatePostMail(it) },
                     onMessageChange = { viewModel.updatePostMessage(it) },
+                    onNameHistorySelect = { viewModel.selectPostNameHistory(it) },
+                    onMailHistorySelect = { viewModel.selectPostMailHistory(it) },
+                    onNameHistoryDelete = { viewModel.deletePostNameHistory(it) },
+                    onMailHistoryDelete = { viewModel.deletePostMailHistory(it) },
                     onPostClick = {
                         parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                             viewModel.postFirstPhase(
