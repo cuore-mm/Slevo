@@ -61,10 +61,12 @@ fun GestureActionDialogContent(
 ) {
     BoxWithConstraints {
         val maxH = this.maxHeight * 0.9f
-        Card(modifier = modifier.heightIn(max = maxH),
-            shape = MaterialTheme.shapes.extraLarge) {
+        Card(
+            modifier = modifier.heightIn(max = maxH),
+            shape = MaterialTheme.shapes.extraLarge
+        ) {
             Column(
-                modifier =Modifier
+                modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 16.dp, horizontal = 24.dp)
             ) {
@@ -75,13 +77,27 @@ fun GestureActionDialogContent(
                 )
                 HorizontalDivider()
 
-                val listState = rememberLazyListState()
+                // 初期表示時に見せたいアイテム位置を計算
+                val computedIndex = if (currentAction == null) {
+                    0
+                } else {
+                    val idx = actions.indexOf(currentAction)
+                    if (idx >= 0) idx else 0
+                }
+                // 総アイテム数（未割当ヘッダー + actions.size）
+                val totalItems = actions.size + 1
+                val initialIndex = computedIndex.coerceIn(0, (totalItems - 1).coerceAtLeast(0))
+
+                // 初期スクロール位置を指定して状態を作る（これにより最初からスクロール済みで描画される）
+                val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+
+
                 LazyColumnScrollbar(
                     state = listState,
                     settings = ScrollbarSettings.Default.copy(
                         selectionMode = ScrollbarSelectionMode.Disabled,
                         thumbUnselectedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                        thumbThickness   = 3.dp,                  // デフォルト 6.dp → 細く
+                        thumbThickness = 3.dp,                  // デフォルト 6.dp → 細く
                         scrollbarPadding = 0.dp,                  // デフォルト 8.dp → 端に寄せる
                     )
                 ) {

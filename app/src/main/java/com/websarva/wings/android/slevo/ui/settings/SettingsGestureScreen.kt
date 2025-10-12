@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.settings
 
+import android.R.attr.onClick
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -267,7 +268,8 @@ private fun GestureDirectionGroupCard(
             headlineText = directionLabel,
             supportingText = actionLabel,
             supportingStyle = MaterialTheme.typography.labelLarge.copy(
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Normal,
             ),
             onClick = if (isGestureEnabled) {
                 { onGestureItemClick(item.direction) }

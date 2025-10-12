@@ -98,7 +98,7 @@ fun OpenThreadsList(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = tab.title,
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.bodyLarge,
                                 // タイトルが長くなっても改行して全文表示されるようにする
                             )
                             Spacer(modifier = Modifier.height(4.dp))
