@@ -14,7 +14,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -49,66 +48,73 @@ fun SettingsScreen(
                 .fillMaxSize(),
             contentPadding = PaddingValues(8.dp)
         ) {
-            val generalGroup = listOf(
-                ListItemSpec(
-                    leadingContent = {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = stringResource(id = R.string.settings_general),
-                        )
-                    },
-                    headlineContent = { Text(stringResource(id = R.string.settings_general)) },
-                    onClick = onGeneralClick,
+            item {
+                val generalGroup = listOf(
+                    listItemSpecOfBasic(
+                        headlineText = stringResource(id = R.string.settings_general),
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = stringResource(id = R.string.settings_general),
+                            )
+                        },
+                        onClick = onGeneralClick,
+                    )
                 )
-            )
-            val threadGroup = listOf(
-                ListItemSpec(
-                    leadingContent = {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ViewList,
-                            contentDescription = stringResource(id = R.string.thread_display),
-                        )
-                    },
-                    headlineContent = { Text(stringResource(id = R.string.thread_display)) },
-                    onClick = onThreadClick,
-                ),
-                ListItemSpec(
-                    leadingContent = {
-                        Icon(
-                            imageVector = Icons.Default.Block,
-                            contentDescription = stringResource(id = R.string.ng_label),
-                        )
-                    },
-                    headlineContent = { Text(stringResource(id = R.string.ng_label)) },
-                    onClick = onNgClick,
-                ),
-                ListItemSpec(
-                    leadingContent = {
-                        Icon(
-                            imageVector = Icons.Default.Gesture,
-                            contentDescription = stringResource(id = R.string.gesture_settings),
-                        )
-                    },
-                    headlineContent = { Text(stringResource(id = R.string.gesture_settings)) },
-                    onClick = onGestureClick,
-                ),
-            )
-            val otherGroup = listOf(
-                ListItemSpec(
-                    leadingContent = {
-                        Icon(
-                            imageVector = Icons.Default.Cookie,
-                            contentDescription = stringResource(id = R.string.cookie_management),
-                        )
-                    },
-                    headlineContent = { Text(stringResource(id = R.string.cookie_management)) },
-                    onClick = onCookieClick,
-                )
-            )
+                SettingsCardWithListItems(items = generalGroup)
+            }
 
-            item { SettingsCardWithListItems(items = generalGroup) }
-            item { SettingsCardWithListItems(items = threadGroup) }
-            item { SettingsCardWithListItems(items = otherGroup) }
+            item {
+                val threadGroup = listOf(
+                    listItemSpecOfBasic(
+                        headlineText = stringResource(id = R.string.thread_display),
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ViewList,
+                                contentDescription = stringResource(id = R.string.thread_display),
+                            )
+                        },
+                        onClick = onThreadClick,
+                    ),
+                    listItemSpecOfBasic(
+                        headlineText = stringResource(id = R.string.ng_label),
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Default.Block,
+                                contentDescription = stringResource(id = R.string.ng_label),
+                            )
+                        },
+                        onClick = onNgClick,
+                    ),
+                    listItemSpecOfBasic(
+                        headlineText = stringResource(id = R.string.gesture_settings),
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Default.Gesture,
+                                contentDescription = stringResource(id = R.string.gesture_settings),
+                            )
+                        },
+                        onClick = onGestureClick,
+                    ),
+                )
+                SettingsCardWithListItems(items = threadGroup)
+            }
+
+            item {
+                val otherGroup = listOf(
+                    listItemSpecOfBasic(
+                        headlineText = stringResource(id = R.string.cookie_management),
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Default.Cookie,
+                                contentDescription = stringResource(id = R.string.cookie_management),
+                            )
+                        },
+                        onClick = onCookieClick,
+                    )
+                )
+                SettingsCardWithListItems(items = otherGroup)
+            }
         }
     }
 }

@@ -99,7 +99,7 @@
     <string name="gesture_action_unassigned">なし</string>
     <string name="gesture_action_unassigned_message">アクションなし</string>
     <string name="gesture_reset_settings">設定をリセット</string>
-    <string name="gesture_reset_settings_description">ジェスチャーの設定を初期値に戻します。</string>
+    <string name="gesture_reset_settings_description">ジェスチャーの設定を初期状態に戻します。</string>
     <string name="gesture_action_to_top">最上部までスクロール</string>
     <string name="gesture_action_to_bottom">最下部までスクロール</string>
     <string name="gesture_action_post_or_create_thread">書き込み / スレッド作成</string>

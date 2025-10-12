@@ -39,13 +39,13 @@ fun ConfirmBottomDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .padding(horizontal = 24.dp, vertical = 24.dp)
         ) {
             if (titleText != null) {
                 Text(
                     text = titleText,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Bold
                 )
             }
 
