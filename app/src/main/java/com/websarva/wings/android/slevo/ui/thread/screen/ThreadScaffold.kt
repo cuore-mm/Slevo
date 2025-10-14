@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
@@ -18,8 +17,8 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
-import com.websarva.wings.android.slevo.ui.navigation.BbsRouteBottomBar
+import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
+import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.DisplaySettingsBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
@@ -90,7 +89,7 @@ fun ThreadScaffold(
         )
     }
 
-    RouteScaffold(
+    BbsRouteScaffold(
         route = threadRoute,
         tabsViewModel = tabsViewModel,
         navController = navController,

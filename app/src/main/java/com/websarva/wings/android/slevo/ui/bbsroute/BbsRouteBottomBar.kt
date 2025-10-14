@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.navigation
+package com.websarva.wings.android.slevo.ui.bbsroute
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent

@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.navigation
+package com.websarva.wings.android.slevo.ui.bbsroute
 
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -29,12 +29,13 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.board.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.BoardViewModel
-import com.websarva.wings.android.slevo.ui.common.BaseUiState
-import com.websarva.wings.android.slevo.ui.common.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.AddGroupDialog
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheet
 import com.websarva.wings.android.slevo.ui.common.bookmark.DeleteGroupDialog
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenDialog
@@ -50,7 +51,7 @@ import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
-fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState>> RouteScaffold(
+fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState>> BbsRouteScaffold(
     route: AppRoute,
     tabsViewModel: TabsViewModel,
     navController: NavHostController,

@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.common
+package com.websarva.wings.android.slevo.ui.bbsroute
 
 interface BaseUiState<T> where T : BaseUiState<T> {
     val isLoading: Boolean

@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.common
+package com.websarva.wings.android.slevo.ui.bbsroute
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
