@@ -73,12 +73,6 @@ fun ThreadScaffold(
     val context = LocalContext.current
     val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
 
-    LaunchedEffect(tabsUiState.threadLoaded, tabsUiState.openThreadTabs) {
-        if (tabsUiState.threadLoaded && tabsUiState.openThreadTabs.isEmpty()) {
-            navController.navigateUp()
-        }
-    }
-
     val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, threadRoute.threadKey)
     }
@@ -115,6 +109,8 @@ fun ThreadScaffold(
         route = threadRoute,
         tabsViewModel = tabsViewModel,
         navController = navController,
+        isTabsLoaded = tabsUiState.threadLoaded,
+        onEmptyTabs = { navController.navigateUp() },
         openTabs = tabsUiState.openThreadTabs,
         currentRoutePredicate = { routeThreadId != null && it.id == routeThreadId },
         getViewModel = { tab -> tabsViewModel.getOrCreateThreadViewModel(tab.id.value) },

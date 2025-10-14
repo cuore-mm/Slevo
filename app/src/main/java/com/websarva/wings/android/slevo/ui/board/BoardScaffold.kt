@@ -64,12 +64,6 @@ fun BoardScaffold(
     val context = LocalContext.current
     val currentPage by tabsViewModel.boardCurrentPage.collectAsState()
 
-    LaunchedEffect(tabsUiState.boardLoaded, tabsUiState.openBoardTabs) {
-        if (tabsUiState.boardLoaded && tabsUiState.openBoardTabs.isEmpty()) {
-            navController.navigateUp()
-        }
-    }
-
     LaunchedEffect(boardRoute) {
         val info = tabsViewModel.resolveBoardInfo(
             boardId = boardRoute.boardId,
@@ -95,6 +89,8 @@ fun BoardScaffold(
         route = boardRoute,
         tabsViewModel = tabsViewModel,
         navController = navController,
+        isTabsLoaded = tabsUiState.boardLoaded,
+        onEmptyTabs = { navController.navigateUp() },
         openTabs = tabsUiState.openBoardTabs,
         currentRoutePredicate = { it.boardUrl == boardRoute.boardUrl },
         getViewModel = { tab -> tabsViewModel.getOrCreateBoardViewModel(tab.boardUrl) },

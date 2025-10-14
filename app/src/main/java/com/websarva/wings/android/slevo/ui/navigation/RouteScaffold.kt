@@ -54,6 +54,8 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     route: AppRoute,
     tabsViewModel: TabsViewModel,
     navController: NavHostController,
+    isTabsLoaded: Boolean,
+    onEmptyTabs: () -> Unit,
     openTabs: List<TabInfo>,
     currentRoutePredicate: (TabInfo) -> Boolean,
     getViewModel: (TabInfo) -> ViewModel,
@@ -89,12 +91,24 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     // - 各タブごとにViewModelとリストのスクロール位置を保持/復元する
     // - 共通のボトムシートやダイアログを表示する
 
+    LaunchedEffect(isTabsLoaded, openTabs) {
+        if (isTabsLoaded && openTabs.isEmpty()) {
+            onEmptyTabs()
+        }
+    }
+
     var cachedTabs by remember { mutableStateOf(openTabs) }
     // openTabsが空の場合に前回のタブ一覧をキャッシュしておくための処理
     if (openTabs.isNotEmpty()) {
         cachedTabs = openTabs
     }
-    val tabs = openTabs.ifEmpty { cachedTabs }
+    val tabs = if (openTabs.isNotEmpty()) {
+        openTabs
+    } else if (!isTabsLoaded) {
+        cachedTabs
+    } else {
+        emptyList()
+    }
     Timber.d("tabs: $tabs")
     val currentTabInfo = tabs.find(currentRoutePredicate)
 
