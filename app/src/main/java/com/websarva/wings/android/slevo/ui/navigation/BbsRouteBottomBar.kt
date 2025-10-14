@@ -14,7 +14,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun SearchableBottomBar(
+fun BbsRouteBottomBar(
     isSearchMode: Boolean,
     onCloseSearch: () -> Unit,
     animationLabel: String,

@@ -32,7 +32,7 @@ import com.websarva.wings.android.slevo.ui.common.TabToolBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
-import com.websarva.wings.android.slevo.ui.navigation.SearchableBottomBar
+import com.websarva.wings.android.slevo.ui.navigation.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -140,7 +140,7 @@ fun BoardScaffold(
                 ),
             )
 
-            SearchableBottomBar(
+            BbsRouteBottomBar(
                 isSearchMode = uiState.isSearchActive,
                 onCloseSearch = { viewModel.setSearchMode(false) },
                 animationLabel = "BoardBottomBarAnimation",

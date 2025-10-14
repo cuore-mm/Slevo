@@ -4,8 +4,6 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -24,7 +22,7 @@ import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
-import com.websarva.wings.android.slevo.ui.navigation.SearchableBottomBar
+import com.websarva.wings.android.slevo.ui.navigation.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.DisplaySettingsBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
@@ -140,7 +138,7 @@ fun ThreadScaffold(
             } else {
                 Modifier.imePadding()
             }
-            SearchableBottomBar(
+            BbsRouteBottomBar(
                 isSearchMode = uiState.isSearchMode,
                 onCloseSearch = { viewModel.closeSearch() },
                 animationLabel = "BottomBarAnimation",
@@ -155,7 +153,7 @@ fun ThreadScaffold(
                 },
                 defaultContent = {
                     ThreadToolBar(
-                        modifier = modifier,
+                        modifier = Modifier.navigationBarsPadding(),
                         uiState = uiState,
                         isTreeSort = uiState.sortType == ThreadSortType.TREE,
                         onSortClick = { viewModel.toggleSortType() },
