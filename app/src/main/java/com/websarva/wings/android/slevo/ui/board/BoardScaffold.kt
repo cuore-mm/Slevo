@@ -1,14 +1,6 @@
 package com.websarva.wings.android.slevo.ui.board
 
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
@@ -26,8 +18,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -42,6 +32,7 @@ import com.websarva.wings.android.slevo.ui.common.TabToolBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
+import com.websarva.wings.android.slevo.ui.navigation.SearchableBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -53,7 +44,7 @@ import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBeh
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BoardScaffold(
     boardRoute: AppRoute.Board,
@@ -118,8 +109,6 @@ fun BoardScaffold(
         animateToPageFlow = tabsViewModel.boardPageAnimation,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
-            val keyboardController = LocalSoftwareKeyboardController.current
-            val focusManager = LocalFocusManager.current
             val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
             val searchModifier = if (isThreeButtonBar) {
                 Modifier
@@ -151,29 +140,20 @@ fun BoardScaffold(
                 ),
             )
 
-            BackHandler(enabled = uiState.isSearchActive) {
-                keyboardController?.hide()
-                focusManager.clearFocus()
-                viewModel.setSearchMode(false)
-            }
-
-            AnimatedContent(
-                targetState = uiState.isSearchActive,
-                transitionSpec = {
-                    slideInVertically { it } + fadeIn() togetherWith
-                            slideOutVertically { it } + fadeOut()
-                },
-                label = "BoardBottomBarAnimation",
-            ) { isSearchMode ->
-                if (isSearchMode) {
+            SearchableBottomBar(
+                isSearchMode = uiState.isSearchActive,
+                onCloseSearch = { viewModel.setSearchMode(false) },
+                animationLabel = "BoardBottomBarAnimation",
+                searchContent = { closeSearch ->
                     SearchBottomBar(
                         modifier = searchModifier,
                         searchQuery = uiState.searchQuery,
                         onQueryChange = { viewModel.setSearchQuery(it) },
-                        onCloseSearch = { viewModel.setSearchMode(false) },
+                        onCloseSearch = closeSearch,
                         placeholderResId = R.string.search_in_board,
                     )
-                } else {
+                },
+                defaultContent = {
                     TabToolBar(
                         modifier = Modifier.navigationBarsPadding(),
                         title = uiState.boardInfo.name,
@@ -190,7 +170,7 @@ fun BoardScaffold(
                         titleTextAlign = TextAlign.Center,
                     )
                 }
-            }
+            )
         },
         content = { viewModel, uiState, listState, modifier, navController, showBottomBar, openTabListSheet, openUrlDialog ->
             LaunchedEffect(uiState.resetScroll) {

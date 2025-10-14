@@ -1,14 +1,6 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -21,8 +13,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
@@ -34,6 +24,7 @@ import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.RouteScaffold
+import com.websarva.wings.android.slevo.ui.navigation.SearchableBottomBar
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.DisplaySettingsBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
@@ -62,7 +53,7 @@ import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBeh
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadScaffold(
     threadRoute: AppRoute.Thread,
@@ -149,30 +140,20 @@ fun ThreadScaffold(
             } else {
                 Modifier.imePadding()
             }
-            val keyboardController = LocalSoftwareKeyboardController.current
-            val focusManager = LocalFocusManager.current
-            BackHandler(enabled = uiState.isSearchMode) {
-                keyboardController?.hide()
-                focusManager.clearFocus()
-                viewModel.closeSearch()
-            }
-            AnimatedContent(
-                targetState = uiState.isSearchMode,
-                transitionSpec = {
-                    slideInVertically { it } + fadeIn() togetherWith
-                            slideOutVertically { it } + fadeOut()
-                },
-                label = "BottomBarAnimation"
-            ) { isSearchMode ->
-                if (isSearchMode) {
+            SearchableBottomBar(
+                isSearchMode = uiState.isSearchMode,
+                onCloseSearch = { viewModel.closeSearch() },
+                animationLabel = "BottomBarAnimation",
+                searchContent = { closeSearch ->
                     SearchBottomBar(
                         modifier = modifier,
                         searchQuery = uiState.searchQuery,
                         onQueryChange = { viewModel.updateSearchQuery(it) },
-                        onCloseSearch = { viewModel.closeSearch() },
+                        onCloseSearch = closeSearch,
                         placeholderResId = R.string.search_in_thread,
                     )
-                } else {
+                },
+                defaultContent = {
                     ThreadToolBar(
                         modifier = modifier,
                         uiState = uiState,
@@ -189,7 +170,7 @@ fun ThreadScaffold(
                         scrollBehavior = barScrollBehavior,
                     )
                 }
-            }
+            )
         },
         content = { viewModel, uiState, listState, modifier, navController, showBottomBar, openTabListSheet, openUrlDialog ->
             LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
