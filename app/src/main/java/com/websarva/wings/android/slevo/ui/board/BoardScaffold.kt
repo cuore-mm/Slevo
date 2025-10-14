@@ -1,8 +1,6 @@
 package com.websarva.wings.android.slevo.ui.board
 
 import android.widget.Toast
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Create
@@ -15,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -37,7 +34,6 @@ import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
-import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
@@ -109,14 +105,6 @@ fun BoardScaffold(
         animateToPageFlow = tabsViewModel.boardPageAnimation,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
-            val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
-            val searchModifier = if (isThreeButtonBar) {
-                Modifier
-                    .navigationBarsPadding()
-                    .imePadding()
-            } else {
-                Modifier.imePadding()
-            }
             val actions = listOf(
                 TabToolBarAction(
                     icon = Icons.AutoMirrored.Filled.Sort,
@@ -144,18 +132,18 @@ fun BoardScaffold(
                 isSearchMode = uiState.isSearchActive,
                 onCloseSearch = { viewModel.setSearchMode(false) },
                 animationLabel = "BoardBottomBarAnimation",
-                searchContent = { closeSearch ->
+                searchContent = { modifier, closeSearch ->
                     SearchBottomBar(
-                        modifier = searchModifier,
+                        modifier = modifier,
                         searchQuery = uiState.searchQuery,
                         onQueryChange = { viewModel.setSearchQuery(it) },
                         onCloseSearch = closeSearch,
                         placeholderResId = R.string.search_in_board,
                     )
                 },
-                defaultContent = {
+                defaultContent = { modifier ->
                     TabToolBar(
-                        modifier = Modifier.navigationBarsPadding(),
+                        modifier = modifier,
                         title = uiState.boardInfo.name,
                         bookmarkState = uiState.singleBookmarkState,
                         onBookmarkClick = { viewModel.openBookmarkSheet() },

@@ -1,14 +1,11 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.widget.Toast
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -45,7 +42,6 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMail
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMessage
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostName
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.uploadImage
-import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import java.net.URLEncoder
@@ -129,20 +125,11 @@ fun ThreadScaffold(
         animateToPageFlow = tabsViewModel.threadPageAnimation,
         bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
         bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
-            val context = LocalContext.current
-            val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
-            val modifier = if (isThreeButtonBar) {
-                Modifier
-                    .navigationBarsPadding()
-                    .imePadding()
-            } else {
-                Modifier.imePadding()
-            }
             BbsRouteBottomBar(
                 isSearchMode = uiState.isSearchMode,
                 onCloseSearch = { viewModel.closeSearch() },
                 animationLabel = "BottomBarAnimation",
-                searchContent = { closeSearch ->
+                searchContent = { modifier, closeSearch ->
                     SearchBottomBar(
                         modifier = modifier,
                         searchQuery = uiState.searchQuery,
@@ -151,9 +138,9 @@ fun ThreadScaffold(
                         placeholderResId = R.string.search_in_thread,
                     )
                 },
-                defaultContent = {
+                defaultContent = { modifier ->
                     ThreadToolBar(
-                        modifier = Modifier.navigationBarsPadding(),
+                        modifier = modifier,
                         uiState = uiState,
                         isTreeSort = uiState.sortType == ThreadSortType.TREE,
                         onSortClick = { viewModel.toggleSortType() },
