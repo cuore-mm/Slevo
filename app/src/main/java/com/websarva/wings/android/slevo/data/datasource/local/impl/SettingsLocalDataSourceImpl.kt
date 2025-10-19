@@ -1,10 +1,14 @@
 package com.websarva.wings.android.slevo.data.datasource.local.impl
 
 import android.content.Context
+import androidx.datastore.core.DataMigration
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.toMutablePreferences
+import androidx.datastore.preferences.core.toPreferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.websarva.wings.android.slevo.data.datasource.local.SettingsLocalDataSource
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
@@ -18,7 +22,51 @@ import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.dataStore by preferencesDataStore(name = "settings")
+private val Context.dataStore by preferencesDataStore(
+    name = "settings",
+    produceMigrations = {
+        listOf(
+            object : DataMigration<Preferences> {
+                override suspend fun shouldMigrate(currentData: Preferences): Boolean {
+                    val hasEnabled = currentData.contains(GESTURE_ENABLED_KEY)
+                    val hasShowHints = currentData.contains(GESTURE_SHOW_HINT_KEY)
+                    val hasAllAssignments = GestureDirection.entries.all { direction ->
+                        val key = GESTURE_ACTION_KEYS.getValue(direction)
+                        currentData.contains(key)
+                    }
+                    return !hasEnabled || !hasShowHints || !hasAllAssignments
+                }
+
+                override suspend fun migrate(currentData: Preferences): Preferences {
+                    val mutablePreferences = currentData.toMutablePreferences()
+                    if (!mutablePreferences.contains(GESTURE_ENABLED_KEY)) {
+                        mutablePreferences[GESTURE_ENABLED_KEY] = GestureSettings.DEFAULT.isEnabled
+                    }
+                    if (!mutablePreferences.contains(GESTURE_SHOW_HINT_KEY)) {
+                        mutablePreferences[GESTURE_SHOW_HINT_KEY] =
+                            GestureSettings.DEFAULT.showActionHints
+                    }
+                    GestureDirection.entries.forEach { direction ->
+                        val key = GESTURE_ACTION_KEYS.getValue(direction)
+                        if (!mutablePreferences.contains(key)) {
+                            val defaultAction = GestureSettings.DEFAULT.assignments[direction]
+                            if (defaultAction == null) {
+                                mutablePreferences.remove(key)
+                            } else {
+                                mutablePreferences[key] = defaultAction.name
+                            }
+                        }
+                    }
+                    return mutablePreferences.toPreferences()
+                }
+
+                override suspend fun cleanUp() {
+                    // No-op
+                }
+            }
+        )
+    }
+)
 private val DARK_MODE_KEY = booleanPreferencesKey("dark_mode")
 private val TREE_SORT_KEY = booleanPreferencesKey("tree_sort")
 private val THREAD_MINIMAP_SCROLLBAR_KEY = booleanPreferencesKey("thread_minimap_scrollbar")
