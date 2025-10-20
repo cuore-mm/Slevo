@@ -4,6 +4,7 @@ import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
+import dagger.hilt.android.scopes.ViewModelScoped
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@ViewModelScoped
 class BoardTabsCoordinator @Inject constructor(
     private val tabsRepository: TabsRepository,
     private val bookmarkBoardRepository: BookmarkBoardRepository,

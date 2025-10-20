@@ -4,8 +4,10 @@ import com.websarva.wings.android.slevo.ui.board.BoardViewModel
 import com.websarva.wings.android.slevo.ui.board.BoardViewModelFactory
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModelFactory
+import dagger.hilt.android.scopes.ViewModelScoped
 import javax.inject.Inject
 
+@ViewModelScoped
 class TabViewModelRegistry @Inject constructor(
     private val threadViewModelFactory: ThreadViewModelFactory,
     private val boardViewModelFactory: BoardViewModelFactory,
