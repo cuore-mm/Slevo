@@ -19,6 +19,16 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * スレッドタブの集合を管理するコーディネータ。
+ *
+ * 主な責務:
+ * - 開いているスレッドタブの状態を保持・更新する
+ * - タブの追加/更新/削除、選択ページ管理、リフレッシュ処理を提供する
+ * - タブの永続化（リポジトリ経由）を行う
+ *
+ * スコープは外部から bind(...) で渡される ViewModel スコープを使用する。
+ */
 @ViewModelScoped
 class ThreadTabsCoordinator @Inject constructor(
     private val tabsRepository: TabsRepository,
@@ -46,6 +56,12 @@ class ThreadTabsCoordinator @Inject constructor(
 
     private var scope: CoroutineScope? = null
 
+    /**
+     * コーディネータを指定の CoroutineScope にバインドする。
+     *
+     * bind は一度だけ有効で、既にバインド済みの場合は何もしない。
+     * バインド時にリポジトリのフローを結合して、_openThreadTabs を更新する購読を開始する。
+     */
     fun bind(scope: CoroutineScope) {
         if (this.scope != null) return
         this.scope = scope
@@ -72,6 +88,10 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
+    /**
+     * 指定のルート情報に対応するスレッドタブを作成または更新し、タブのインデックスを返す。
+     * 失敗した場合は -1 を返す。
+     */
     fun ensureThreadTab(route: AppRoute.Thread): Int {
         val (host, board) = parseBoardUrl(route.boardUrl) ?: return -1
         val tabInfo = ThreadTabInfo(
@@ -85,6 +105,9 @@ class ThreadTabsCoordinator @Inject constructor(
         return upsertThreadTab(tabInfo)
     }
 
+    /**
+     * 指定の ThreadTabInfo を閉じる（ViewModel の解放、内部状態更新、永続化）。
+     */
     fun closeThreadTab(tab: ThreadTabInfo) {
         val key = tab.id.value
         tabViewModelRegistry.releaseThreadViewModel(key)
@@ -101,6 +124,9 @@ class ThreadTabsCoordinator @Inject constructor(
         saveThreadTabs(updatedTabs)
     }
 
+    /**
+     * threadKey と boardUrl からタブを特定して閉じる（存在しない場合は何もしない）。
+     */
     fun closeThreadTab(threadKey: String, boardUrl: String) {
         val (host, board) = parseBoardUrl(boardUrl) ?: return
         val id = ThreadId.of(host, board, threadKey)
@@ -109,10 +135,16 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
+    /**
+     * 現在のページ（タブのインデックス）をセットする。
+     */
     fun setThreadCurrentPage(page: Int) {
         _threadCurrentPage.value = page
     }
 
+    /**
+     * 現在ページから offset 分だけ移動する（範囲チェックあり）。
+     */
     fun moveThreadPage(offset: Int) {
         val tabs = _openThreadTabs.value
         if (tabs.isEmpty()) return
@@ -123,6 +155,9 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
+    /**
+     * ページ遷移のアニメーションを発行する（SharedFlow にインデックスを emit）。
+     */
     fun animateThreadPage(offset: Int) {
         val tabs = _openThreadTabs.value
         if (tabs.isEmpty()) return
@@ -133,11 +168,18 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
+    /**
+     * 指定スレッドの新着レスカウントをクリアする。
+     */
     fun clearNewResCount(threadId: ThreadId) {
         val key = threadId.value
         _newResCounts.update { it - key }
     }
 
+    /**
+     * 開いているタブをリフレッシュして、レス数の差分を計算し、_newResCounts と _openThreadTabs を更新する。
+     * 非同期処理のため scope が必要。完了時に永続化も行う。
+     */
     fun refreshOpenThreads() {
         val currentScope = scope ?: return
         currentScope.launch {
@@ -170,10 +212,17 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
+    /**
+     * 指定の ThreadId に対応する ThreadTabInfo を返す（存在しなければ null）。
+     */
     fun getTabInfo(threadId: ThreadId): ThreadTabInfo? {
         return _openThreadTabs.value.find { it.id == threadId }
     }
 
+    /**
+     * タブを挿入または更新し、そのタブのインデックスを返す。
+     * 保存は非同期で行われる。
+     */
     private fun upsertThreadTab(tabInfo: ThreadTabInfo): Int {
         var updatedTabs: List<ThreadTabInfo> = emptyList()
         var targetIndex = -1
@@ -204,10 +253,20 @@ class ThreadTabsCoordinator @Inject constructor(
         return targetIndex
     }
 
+    /**
+     * タブ一覧をリポジトリに保存する。scope がない場合は何もしない。
+     */
     private fun saveThreadTabs(tabs: List<ThreadTabInfo> = _openThreadTabs.value) {
         scope?.launch { tabsRepository.saveOpenThreadTabs(tabs) }
     }
 
+    /**
+     * タブ削除後に currentPage を調整するヘルパー。
+     * 挙動:
+     * - タブが空になったら -1 をセット
+     * - 削除したインデックスが現在ページと同じなら、最小値に合わせる
+     * - 削除前より current が大きければ 1 減らす
+     */
     private fun updateCurrentPageAfterRemoval(
         currentPageFlow: MutableStateFlow<Int>,
         removedIndex: Int,
