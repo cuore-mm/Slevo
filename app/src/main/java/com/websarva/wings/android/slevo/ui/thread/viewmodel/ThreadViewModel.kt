@@ -825,16 +825,6 @@ class ThreadViewModel @AssistedInject constructor(
         }
     }
 
-    private fun filterIdentityHistories(source: List<String>, query: String): List<String> {
-        val normalized = query.trim()
-        return if (normalized.isEmpty()) {
-            source
-        } else {
-            source.filter { it.contains(normalized, ignoreCase = true) }
-        }
-    }
-
-
     fun updateThreadTabInfo(threadId: ThreadId, title: String, resCount: Int) {
         viewModelScope.launch {
             val current = tabsRepository.observeOpenThreadTabs().first()

@@ -438,15 +438,6 @@ class BoardViewModel @AssistedInject constructor(
         _uiState.update { it.copy(createMailHistory = filtered) }
     }
 
-    private fun filterIdentityHistories(source: List<String>, query: String): List<String> {
-        val normalized = query.trim()
-        return if (normalized.isEmpty()) {
-            source
-        } else {
-            source.filter { it.contains(normalized, ignoreCase = true) }
-        }
-    }
-
     fun hideConfirmationScreen() {
         _uiState.update { it.copy(isConfirmationScreen = false) }
     }
