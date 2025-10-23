@@ -19,7 +19,6 @@ import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
-import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
@@ -59,7 +58,6 @@ class BoardViewModel @AssistedInject constructor(
     private var observedCreateIdentityBoardId: Long? = null
 
     override val _uiState = MutableStateFlow(BoardUiState())
-    private var singleBookmarkViewModel: SingleBookmarkViewModel? = null
     private var threadTitleNg: List<Pair<Long?, Regex>> = emptyList()
 
     init {
@@ -73,7 +71,8 @@ class BoardViewModel @AssistedInject constructor(
     fun initializeBoard(boardInfo: BoardInfo) {
         if (initializedUrl == boardInfo.url) return
         initializedUrl = boardInfo.url
-        singleBookmarkViewModel = singleBookmarkViewModelFactory.create(boardInfo, null)
+        val bookmarkVm = singleBookmarkViewModelFactory.create(boardInfo, null)
+        bookmarkViewModel = bookmarkVm
 
         val serviceName = parseServiceName(boardInfo.url)
         _uiState.update { it.copy(boardInfo = boardInfo, serviceName = serviceName) }
@@ -108,7 +107,7 @@ class BoardViewModel @AssistedInject constructor(
         }
 
         viewModelScope.launch {
-            singleBookmarkViewModel?.uiState?.collect { bkState ->
+            bookmarkVm.uiState.collect { bkState ->
                 _uiState.update { it.copy(singleBookmarkState = bkState) }
             }
         }
@@ -193,19 +192,19 @@ class BoardViewModel @AssistedInject constructor(
     }
 
     // --- お気に入り関連の処理はBookmarkStateViewModelに委譲 ---
-    fun saveBookmark(groupId: Long) = singleBookmarkViewModel?.saveBookmark(groupId)
-    fun unbookmarkBoard() = singleBookmarkViewModel?.unbookmark()
-    fun openAddGroupDialog() = singleBookmarkViewModel?.openAddGroupDialog()
-    fun openEditGroupDialog(group: Groupable) = singleBookmarkViewModel?.openEditGroupDialog(group)
-    fun closeAddGroupDialog() = singleBookmarkViewModel?.closeAddGroupDialog()
-    fun setEnteredGroupName(name: String) = singleBookmarkViewModel?.setEnteredGroupName(name)
-    fun setSelectedColor(color: String) = singleBookmarkViewModel?.setSelectedColor(color)
-    fun confirmGroup() = singleBookmarkViewModel?.confirmGroup()
-    fun requestDeleteGroup() = singleBookmarkViewModel?.requestDeleteGroup()
-    fun confirmDeleteGroup() = singleBookmarkViewModel?.confirmDeleteGroup()
-    fun closeDeleteGroupDialog() = singleBookmarkViewModel?.closeDeleteGroupDialog()
-    fun openBookmarkSheet() = singleBookmarkViewModel?.openBookmarkSheet()
-    fun closeBookmarkSheet() = singleBookmarkViewModel?.closeBookmarkSheet()
+    fun saveBookmark(groupId: Long) = bookmarkSaveBookmark(groupId)
+    fun unbookmarkBoard() = bookmarkUnbookmark()
+    fun openAddGroupDialog() = bookmarkOpenAddGroupDialog()
+    fun openEditGroupDialog(group: Groupable) = bookmarkOpenEditGroupDialog(group)
+    fun closeAddGroupDialog() = bookmarkCloseAddGroupDialog()
+    fun setEnteredGroupName(name: String) = bookmarkSetEnteredGroupName(name)
+    fun setSelectedColor(color: String) = bookmarkSetSelectedColor(color)
+    fun confirmGroup() = bookmarkConfirmGroup()
+    fun requestDeleteGroup() = bookmarkRequestDeleteGroup()
+    fun confirmDeleteGroup() = bookmarkConfirmDeleteGroup()
+    fun closeDeleteGroupDialog() = bookmarkCloseDeleteGroupDialog()
+    fun openBookmarkSheet() = bookmarkOpenBookmarkSheet()
+    fun closeBookmarkSheet() = bookmarkCloseBookmarkSheet()
 
     fun setSortKey(sortKey: ThreadSortKey) {
         _uiState.update { it.copy(currentSortKey = sortKey) }
