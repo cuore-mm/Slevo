@@ -16,6 +16,15 @@ abstract class BaseViewModel<S> : ViewModel() where S : BaseUiState<S> {
 
     private var isInitialized = false
 
+    protected fun filterIdentityHistories(source: List<String>, query: String): List<String> {
+        val normalized = query.trim()
+        return if (normalized.isEmpty()) {
+            source
+        } else {
+            source.filter { it.contains(normalized, ignoreCase = true) }
+        }
+    }
+
     /**
      * ViewModelの初期化を行う標準メソッド。
      * UI側からはこのメソッドを呼び出すように統一する。
