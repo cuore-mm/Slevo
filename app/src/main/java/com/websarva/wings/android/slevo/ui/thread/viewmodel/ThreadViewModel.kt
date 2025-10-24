@@ -78,11 +78,6 @@ class ThreadViewModel @AssistedInject constructor(
     private var pendingPost: PendingPost? = null
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
-    private var nameHistoryJob: Job? = null
-    private var mailHistoryJob: Job? = null
-    private var latestNameHistories: List<String> = emptyList()
-    private var latestMailHistories: List<String> = emptyList()
-    private var observedIdentityBoardId: Long? = null
     private var lastAutoRefreshTime: Long = 0L
 
     init {
@@ -182,22 +177,7 @@ class ThreadViewModel @AssistedInject constructor(
                     state.copy(boardInfo = state.boardInfo.copy(boardId = ensuredId))
                 }
             }
-            postHistoryRepository.getLastIdentity(ensuredId)?.let { identity ->
-                _postUiState.update { current ->
-                    val form = current.postFormState
-                    if (form.name.isEmpty() && form.mail.isEmpty()) {
-                        current.copy(
-                            postFormState = form.copy(
-                                name = identity.name,
-                                mail = identity.email
-                            )
-                        )
-                    } else {
-                        current
-                    }
-                }
-            }
-            startObservingIdentityHistories(ensuredId)
+            preparePostIdentityHistory(ensuredId)
         }
 
         // Factoryを使ってBookmarkStateViewModelを生成
@@ -756,72 +736,43 @@ class ThreadViewModel @AssistedInject constructor(
         reloadThread()
     }
 
-    private fun startObservingIdentityHistories(boardId: Long) {
-        if (observedIdentityBoardId == boardId) {
-            refreshNameHistorySuggestions(_postUiState.value.postFormState.name)
-            refreshMailHistorySuggestions(_postUiState.value.postFormState.mail)
-            return
-        }
-        observedIdentityBoardId = boardId
-        nameHistoryJob?.cancel()
-        mailHistoryJob?.cancel()
-
-        latestNameHistories = emptyList()
-        latestMailHistories = emptyList()
-        refreshNameHistorySuggestions(_postUiState.value.postFormState.name)
-        refreshMailHistorySuggestions(_postUiState.value.postFormState.mail)
-
-        if (boardId == 0L) {
-            return
-        }
-
-        nameHistoryJob = viewModelScope.launch {
-            postHistoryRepository.observeIdentityHistories(boardId, PostIdentityType.NAME).collect { histories ->
-                latestNameHistories = histories
-                refreshNameHistorySuggestions(_postUiState.value.postFormState.name)
-            }
-        }
-        mailHistoryJob = viewModelScope.launch {
-            postHistoryRepository.observeIdentityHistories(boardId, PostIdentityType.EMAIL).collect { histories ->
-                latestMailHistories = histories
-                refreshMailHistorySuggestions(_postUiState.value.postFormState.mail)
-            }
-        }
+    private fun preparePostIdentityHistory(boardId: Long) {
+        prepareIdentityHistory(
+            key = POST_IDENTITY_HISTORY_KEY,
+            boardId = boardId,
+            repository = postHistoryRepository,
+            onLastIdentity = { name, mail ->
+                _postUiState.update { current ->
+                    val form = current.postFormState
+                    if (form.name.isEmpty() && form.mail.isEmpty()) {
+                        current.copy(
+                            postFormState = form.copy(
+                                name = name,
+                                mail = mail,
+                            ),
+                        )
+                    } else {
+                        current
+                    }
+                }
+            },
+            onNameSuggestions = { suggestions ->
+                _postUiState.update { it.copy(nameHistory = suggestions) }
+            },
+            onMailSuggestions = { suggestions ->
+                _postUiState.update { it.copy(mailHistory = suggestions) }
+            },
+            nameQueryProvider = { _postUiState.value.postFormState.name },
+            mailQueryProvider = { _postUiState.value.postFormState.mail },
+        )
     }
 
-    internal fun refreshNameHistorySuggestions(query: String) {
-        val filtered = filterIdentityHistories(latestNameHistories, query)
-        _postUiState.update { it.copy(nameHistory = filtered) }
+    internal fun refreshPostIdentityHistory(type: PostIdentityType) {
+        refreshIdentityHistorySuggestions(POST_IDENTITY_HISTORY_KEY, type)
     }
 
-    internal fun refreshMailHistorySuggestions(query: String) {
-        val filtered = filterIdentityHistories(latestMailHistories, query)
-        _postUiState.update { it.copy(mailHistory = filtered) }
-    }
-
-    internal fun deletePostIdentityHistory(type: PostIdentityType, value: String) {
-        val normalized = value.trim()
-        if (normalized.isEmpty()) {
-            return
-        }
-        when (type) {
-            PostIdentityType.NAME -> {
-                latestNameHistories = latestNameHistories.filterNot { it == normalized }
-                refreshNameHistorySuggestions(_postUiState.value.postFormState.name)
-            }
-
-            PostIdentityType.EMAIL -> {
-                latestMailHistories = latestMailHistories.filterNot { it == normalized }
-                refreshMailHistorySuggestions(_postUiState.value.postFormState.mail)
-            }
-        }
-        val boardId = _uiState.value.boardInfo.boardId
-        if (boardId == 0L) {
-            return
-        }
-        viewModelScope.launch {
-            postHistoryRepository.deleteIdentity(boardId, type, normalized)
-        }
+    internal fun deletePostIdentity(type: PostIdentityType, value: String) {
+        deleteIdentityHistory(POST_IDENTITY_HISTORY_KEY, postHistoryRepository, type, value)
     }
 
     fun updateThreadTabInfo(threadId: ThreadId, title: String, resCount: Int) {
@@ -903,6 +854,8 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     companion object {
+        private const val POST_IDENTITY_HISTORY_KEY = "thread_post_identity"
+
         private val DATE_FORMAT = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN).apply {
             timeZone = TimeZone.getTimeZone("Asia/Tokyo")
         }

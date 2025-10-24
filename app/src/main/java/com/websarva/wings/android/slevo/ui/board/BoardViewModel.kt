@@ -25,7 +25,6 @@ import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
@@ -51,11 +50,6 @@ class BoardViewModel @AssistedInject constructor(
     private var currentHistoryMap: Map<String, Int> = emptyMap()
     private var isObservingThreads: Boolean = false
     private var initializedUrl: String? = null
-    private var createNameHistoryJob: Job? = null
-    private var createMailHistoryJob: Job? = null
-    private var latestCreateNameHistories: List<String> = emptyList()
-    private var latestCreateMailHistories: List<String> = emptyList()
-    private var observedCreateIdentityBoardId: Long? = null
 
     override val _uiState = MutableStateFlow(BoardUiState())
     private var threadTitleNg: List<Pair<Long?, Regex>> = emptyList()
@@ -88,22 +82,7 @@ class BoardViewModel @AssistedInject constructor(
                 }
             }
 
-            postHistoryRepository.getLastIdentity(ensuredId)?.let { identity ->
-                _uiState.update { state ->
-                    val form = state.createFormState
-                    if (form.name.isEmpty() && form.mail.isEmpty()) {
-                        state.copy(
-                            createFormState = form.copy(
-                                name = identity.name,
-                                mail = identity.email
-                            )
-                        )
-                    } else {
-                        state
-                    }
-                }
-            }
-            startObservingIdentityHistories(ensuredId)
+            prepareCreateIdentityHistory(ensuredId)
         }
 
         viewModelScope.launch {
@@ -336,12 +315,12 @@ class BoardViewModel @AssistedInject constructor(
 
     fun updateCreateName(name: String) {
         _uiState.update { it.copy(createFormState = it.createFormState.copy(name = name)) }
-        updateCreateNameHistorySuggestions(name)
+        refreshCreateIdentityHistory(PostIdentityType.NAME)
     }
 
     fun updateCreateMail(mail: String) {
         _uiState.update { it.copy(createFormState = it.createFormState.copy(mail = mail)) }
-        updateCreateMailHistorySuggestions(mail)
+        refreshCreateIdentityHistory(PostIdentityType.EMAIL)
     }
 
     fun updateCreateTitle(title: String) {
@@ -354,87 +333,59 @@ class BoardViewModel @AssistedInject constructor(
 
     fun selectCreateNameHistory(name: String) {
         _uiState.update { it.copy(createFormState = it.createFormState.copy(name = name)) }
-        updateCreateNameHistorySuggestions(name)
+        refreshCreateIdentityHistory(PostIdentityType.NAME)
     }
 
     fun selectCreateMailHistory(mail: String) {
         _uiState.update { it.copy(createFormState = it.createFormState.copy(mail = mail)) }
-        updateCreateMailHistorySuggestions(mail)
+        refreshCreateIdentityHistory(PostIdentityType.EMAIL)
     }
 
     fun deleteCreateNameHistory(name: String) {
-        val normalized = name.trim()
-        if (normalized.isEmpty()) {
-            return
-        }
-        latestCreateNameHistories = latestCreateNameHistories.filterNot { it == normalized }
-        updateCreateNameHistorySuggestions(_uiState.value.createFormState.name)
-        val boardId = _uiState.value.boardInfo.boardId
-        if (boardId == 0L) {
-            return
-        }
-        viewModelScope.launch {
-            postHistoryRepository.deleteIdentity(boardId, PostIdentityType.NAME, normalized)
-        }
+        deleteCreateIdentity(PostIdentityType.NAME, name)
     }
 
     fun deleteCreateMailHistory(mail: String) {
-        val normalized = mail.trim()
-        if (normalized.isEmpty()) {
-            return
-        }
-        latestCreateMailHistories = latestCreateMailHistories.filterNot { it == normalized }
-        updateCreateMailHistorySuggestions(_uiState.value.createFormState.mail)
-        val boardId = _uiState.value.boardInfo.boardId
-        if (boardId == 0L) {
-            return
-        }
-        viewModelScope.launch {
-            postHistoryRepository.deleteIdentity(boardId, PostIdentityType.EMAIL, normalized)
-        }
+        deleteCreateIdentity(PostIdentityType.EMAIL, mail)
     }
 
-    private fun startObservingIdentityHistories(boardId: Long) {
-        if (observedCreateIdentityBoardId == boardId) {
-            updateCreateNameHistorySuggestions(_uiState.value.createFormState.name)
-            updateCreateMailHistorySuggestions(_uiState.value.createFormState.mail)
-            return
-        }
-        observedCreateIdentityBoardId = boardId
-        createNameHistoryJob?.cancel()
-        createMailHistoryJob?.cancel()
-
-        latestCreateNameHistories = emptyList()
-        latestCreateMailHistories = emptyList()
-        updateCreateNameHistorySuggestions(_uiState.value.createFormState.name)
-        updateCreateMailHistorySuggestions(_uiState.value.createFormState.mail)
-
-        if (boardId == 0L) {
-            return
-        }
-
-        createNameHistoryJob = viewModelScope.launch {
-            postHistoryRepository.observeIdentityHistories(boardId, PostIdentityType.NAME).collect { histories ->
-                latestCreateNameHistories = histories
-                updateCreateNameHistorySuggestions(_uiState.value.createFormState.name)
-            }
-        }
-        createMailHistoryJob = viewModelScope.launch {
-            postHistoryRepository.observeIdentityHistories(boardId, PostIdentityType.EMAIL).collect { histories ->
-                latestCreateMailHistories = histories
-                updateCreateMailHistorySuggestions(_uiState.value.createFormState.mail)
-            }
-        }
+    private fun prepareCreateIdentityHistory(boardId: Long) {
+        prepareIdentityHistory(
+            key = CREATE_IDENTITY_HISTORY_KEY,
+            boardId = boardId,
+            repository = postHistoryRepository,
+            onLastIdentity = { name, mail ->
+                _uiState.update { state ->
+                    val form = state.createFormState
+                    if (form.name.isEmpty() && form.mail.isEmpty()) {
+                        state.copy(
+                            createFormState = form.copy(
+                                name = name,
+                                mail = mail,
+                            ),
+                        )
+                    } else {
+                        state
+                    }
+                }
+            },
+            onNameSuggestions = { suggestions ->
+                _uiState.update { it.copy(createNameHistory = suggestions) }
+            },
+            onMailSuggestions = { suggestions ->
+                _uiState.update { it.copy(createMailHistory = suggestions) }
+            },
+            nameQueryProvider = { _uiState.value.createFormState.name },
+            mailQueryProvider = { _uiState.value.createFormState.mail },
+        )
     }
 
-    private fun updateCreateNameHistorySuggestions(query: String) {
-        val filtered = filterIdentityHistories(latestCreateNameHistories, query)
-        _uiState.update { it.copy(createNameHistory = filtered) }
+    private fun refreshCreateIdentityHistory(type: PostIdentityType) {
+        refreshIdentityHistorySuggestions(CREATE_IDENTITY_HISTORY_KEY, type)
     }
 
-    private fun updateCreateMailHistorySuggestions(query: String) {
-        val filtered = filterIdentityHistories(latestCreateMailHistories, query)
-        _uiState.update { it.copy(createMailHistory = filtered) }
+    private fun deleteCreateIdentity(type: PostIdentityType, value: String) {
+        deleteIdentityHistory(CREATE_IDENTITY_HISTORY_KEY, postHistoryRepository, type, value)
     }
 
     fun hideConfirmationScreen() {
@@ -579,6 +530,10 @@ class BoardViewModel @AssistedInject constructor(
             runBlocking { repository.updateBaseline(boardId, System.currentTimeMillis()) }
         }
         super.onCleared()
+    }
+
+    private companion object {
+        private const val CREATE_IDENTITY_HISTORY_KEY = "board_create_identity"
     }
 }
 
