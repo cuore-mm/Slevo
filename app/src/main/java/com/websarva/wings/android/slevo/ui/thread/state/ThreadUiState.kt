@@ -15,9 +15,9 @@ enum class ThreadSortType {
 data class ThreadUiState(
     val threadInfo: ThreadInfo = ThreadInfo(),
     val posts: List<ReplyInfo>? = null,
-    val loadProgress: Float = 0f,
-    val boardInfo: BoardInfo = BoardInfo(0, "", ""),
-    val singleBookmarkState: SingleBookmarkState = SingleBookmarkState(),
+    override val loadProgress: Float = 0f,
+    override val boardInfo: BoardInfo = BoardInfo(0, "", ""),
+    override val singleBookmarkState: SingleBookmarkState = SingleBookmarkState(),
     override val isLoading: Boolean = false,
     val showThreadInfoSheet: Boolean = false,
     val showMoreSheet: Boolean = false,
@@ -45,12 +45,20 @@ data class ThreadUiState(
     val visiblePosts: List<DisplayPost> = emptyList(),
     val replyCounts: List<Int> = emptyList(),
     val firstAfterIndex: Int = -1,
-    val gestureSettings: GestureSettings = GestureSettings.DEFAULT,
+    override val gestureSettings: GestureSettings = GestureSettings.DEFAULT,
 ) : BaseUiState<ThreadUiState> {
     override fun copyState(
+        boardInfo: BoardInfo,
+        singleBookmarkState: SingleBookmarkState,
+        loadProgress: Float,
+        gestureSettings: GestureSettings,
         isLoading: Boolean,
     ): ThreadUiState {
         return this.copy(
+            boardInfo = boardInfo,
+            singleBookmarkState = singleBookmarkState,
+            loadProgress = loadProgress,
+            gestureSettings = gestureSettings,
             isLoading = isLoading,
         )
     }
