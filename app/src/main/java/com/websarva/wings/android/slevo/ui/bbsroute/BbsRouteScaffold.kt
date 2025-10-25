@@ -32,7 +32,6 @@ import com.websarva.wings.android.slevo.ui.board.BoardViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.AddGroupDialog
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheet
 import com.websarva.wings.android.slevo.ui.common.bookmark.DeleteGroupDialog
-import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
@@ -178,10 +177,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             val tab = tabs[page]
             val viewModel = getViewModel(tab)
             val uiState by viewModel.uiState.collectAsState()
-            // Board / Thread 用のブックマーク状態を統一的に取得
-            val bookmarkState = (uiState as? BoardUiState)?.singleBookmarkState
-                ?: (uiState as? ThreadUiState)?.singleBookmarkState
-                ?: SingleBookmarkState()
+            val bookmarkState = uiState.singleBookmarkState
 
 
             // 各タブごとにLazyListStateを復元する。キーに基づいてrememberするため
