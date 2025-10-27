@@ -1,8 +1,9 @@
-package com.websarva.wings.android.slevo.ui.board
+package com.websarva.wings.android.slevo.ui.board.viewmodel
 
 import android.content.Context
 import android.net.Uri
 import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
+import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject

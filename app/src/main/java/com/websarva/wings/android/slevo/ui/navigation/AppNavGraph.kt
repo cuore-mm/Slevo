@@ -12,7 +12,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.websarva.wings.android.slevo.ui.about.AboutScreen
 import com.websarva.wings.android.slevo.ui.about.OpenSourceLicenseScreen
-import com.websarva.wings.android.slevo.ui.board.BoardScaffold
+import com.websarva.wings.android.slevo.ui.board.screen.BoardScaffold
 import com.websarva.wings.android.slevo.ui.bookmarklist.BookmarkListScaffold
 import com.websarva.wings.android.slevo.ui.history.HistoryListScaffold
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel

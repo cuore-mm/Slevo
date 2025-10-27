@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.board
+package com.websarva.wings.android.slevo.ui.board.viewmodel
 
 import android.content.Context
 import android.net.Uri
@@ -13,6 +13,8 @@ import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
+import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
+import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.assisted.Assisted

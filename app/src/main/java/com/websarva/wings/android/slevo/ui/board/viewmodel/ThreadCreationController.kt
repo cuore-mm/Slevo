@@ -1,10 +1,12 @@
-package com.websarva.wings.android.slevo.ui.board
+package com.websarva.wings.android.slevo.ui.board.viewmodel
 
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.PostResult
 import com.websarva.wings.android.slevo.data.repository.ThreadCreateRepository
+import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
+import com.websarva.wings.android.slevo.ui.board.state.CreateThreadFormState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject

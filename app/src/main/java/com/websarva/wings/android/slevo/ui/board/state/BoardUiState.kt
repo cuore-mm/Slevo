@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.board
+package com.websarva.wings.android.slevo.ui.board.state
 
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.GestureSettings

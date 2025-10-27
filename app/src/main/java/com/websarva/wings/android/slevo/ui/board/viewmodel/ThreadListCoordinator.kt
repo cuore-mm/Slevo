@@ -1,9 +1,11 @@
-package com.websarva.wings.android.slevo.ui.board
+package com.websarva.wings.android.slevo.ui.board.viewmodel
 
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
+import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
