@@ -22,11 +22,9 @@ import kotlinx.coroutines.launch
 class SingleBookmarkViewModel @AssistedInject constructor(
     private val boardBookmarkRepo: BookmarkBoardRepository,
     private val threadBookmarkRepo: ThreadBookmarkRepository,
-    @Assisted boardInfo: BoardInfo,
+    @Assisted private var boardInfo: BoardInfo,
     @Assisted private val threadInfo: ThreadInfo? // スレッド画面の場合のみ渡される
 ) : ViewModel() {
-
-    private var boardInfo: BoardInfo = boardInfo
 
     private val _uiState = MutableStateFlow(SingleBookmarkState())
     val uiState: StateFlow<SingleBookmarkState> = _uiState.asStateFlow()
@@ -202,10 +200,12 @@ class SingleBookmarkViewModel @AssistedInject constructor(
             val groupName = _uiState.value.groups.find { it.id == groupId }?.name ?: return@launch
             val items = if (threadInfo == null) {
                 boardBookmarkRepo.observeGroupsWithBoards().first()
-                    .firstOrNull { it.group.groupId == groupId }?.boards?.map { it.name } ?: emptyList()
+                    .firstOrNull { it.group.groupId == groupId }?.boards?.map { it.name }
+                    ?: emptyList()
             } else {
                 threadBookmarkRepo.observeSortedGroupsWithThreadBookmarks().first()
-                    .firstOrNull { it.group.groupId == groupId }?.threads?.map { it.title } ?: emptyList()
+                    .firstOrNull { it.group.groupId == groupId }?.threads?.map { it.title }
+                    ?: emptyList()
             }
             _uiState.update {
                 it.copy(

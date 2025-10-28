@@ -127,7 +127,8 @@ class ThreadCreationController @AssistedInject constructor(
     ) {
         scope.launch {
             updateState { it.copy(isPosting = true, isConfirmationScreen = false) }
-            val result = threadCreateRepository.createThreadSecondPhase(host, board, confirmationData)
+            val result =
+                threadCreateRepository.createThreadSecondPhase(host, board, confirmationData)
             handlePostResult(result)
         }
     }

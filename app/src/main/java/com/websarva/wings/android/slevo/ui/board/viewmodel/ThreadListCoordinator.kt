@@ -72,7 +72,7 @@ class ThreadListCoordinator @AssistedInject constructor(
             val filteredList = searchFiltered.filterNot { thread ->
                 threadTitleNg.any { (boardId, regex) ->
                     (boardId == null || boardId == uiState.value.boardInfo.boardId) &&
-                        regex.containsMatchIn(thread.title)
+                            regex.containsMatchIn(thread.title)
                 }
             }
 
