@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.board
+package com.websarva.wings.android.slevo.ui.board.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -42,7 +42,6 @@ import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
 import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
@@ -51,6 +50,7 @@ import java.text.DecimalFormat
 import java.util.Calendar
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.sqrt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,7 +72,7 @@ fun BoardScreen(
         }.map { it.momentum }
         val mean = if (values.isNotEmpty()) values.average() else 0.0
         val std = if (values.size > 1) {
-            kotlin.math.sqrt(values.sumOf { (it - mean) * (it - mean) } / values.size)
+            sqrt(values.sumOf { (it - mean) * (it - mean) } / values.size)
         } else {
             0.0
         }

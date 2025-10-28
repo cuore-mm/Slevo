@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.board
+package com.websarva.wings.android.slevo.ui.board.screen
 
 import android.widget.Toast
 import androidx.compose.material.icons.Icons

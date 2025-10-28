@@ -27,8 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavHostController
-import com.websarva.wings.android.slevo.ui.board.BoardUiState
-import com.websarva.wings.android.slevo.ui.board.BoardViewModel
+import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
+import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.AddGroupDialog
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheet
 import com.websarva.wings.android.slevo.ui.common.bookmark.DeleteGroupDialog

@@ -6,7 +6,7 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
-import com.websarva.wings.android.slevo.ui.board.BoardViewModel
+import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel

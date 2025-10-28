@@ -1,7 +1,7 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
-import com.websarva.wings.android.slevo.ui.board.BoardViewModel
-import com.websarva.wings.android.slevo.ui.board.BoardViewModelFactory
+import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
+import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModelFactory
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModelFactory
 import dagger.hilt.android.scopes.ViewModelScoped
