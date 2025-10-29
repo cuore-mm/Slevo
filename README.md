@@ -41,3 +41,7 @@ SlevoはAndroid用のシンプルな5ちゃんねるビューアアプリです�
 ## Contributing
 
 バグ報告や機能改善の提案は、IssuesやPull requestsでいつでも歓迎します。
+
+### コード構成のメモ
+
+* `ThreadViewModel` は責務ごとにファイルを分割しています。投稿関連の処理は `ThreadViewModelPost.kt`、表示変換ロジックは `ThreadDisplayTransformers.kt` にまとめてあります。
