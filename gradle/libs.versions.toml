@@ -13,6 +13,7 @@ junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.5.1"
 kotlinxCoroutinesTest = "1.10.2"
+mockk = "1.13.13"
 androidxTestCore = "1.7.0"
 robolectric = "4.16"
 kotlinxSerializationJson = "1.7.3"
@@ -55,6 +56,7 @@ androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "j
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
