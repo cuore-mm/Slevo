@@ -113,6 +113,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockk)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.junit)
     testImplementation(libs.robolectric)

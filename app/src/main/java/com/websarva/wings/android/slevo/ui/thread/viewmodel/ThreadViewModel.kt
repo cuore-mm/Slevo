@@ -24,6 +24,7 @@ import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
@@ -61,11 +62,17 @@ class ThreadViewModel @AssistedInject constructor(
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
     private val tabsRepository: TabsRepository,
-    private val readStateRepository: ThreadReadStateRepository,
+    threadReadStateRepository: ThreadReadStateRepository,
     internal val postRepository: PostRepository,
     internal val imageUploadRepository: ImageUploadRepository,
     @Assisted @Suppress("unused") val viewModelKey: String,
 ) : BaseViewModel<ThreadUiState>() {
+
+    private val tabCoordinator = ThreadTabCoordinator(
+        scope = viewModelScope,
+        tabsRepository = tabsRepository,
+        readStateRepository = threadReadStateRepository,
+    )
 
     override val _uiState = MutableStateFlow(ThreadUiState())
     private var ngList: List<NgEntity> = emptyList()
@@ -576,43 +583,7 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     fun updateThreadTabInfo(threadId: ThreadId, title: String, resCount: Int) {
-        viewModelScope.launch {
-            val current = tabsRepository.observeOpenThreadTabs().first()
-            var target: ThreadTabInfo? = null
-            val updated = current.map { tab ->
-                if (tab.id == threadId) {
-                    val candidate = if (tab.lastReadResNo == 0) {
-                        null
-                    } else if (tab.firstNewResNo == null || tab.firstNewResNo <= tab.lastReadResNo) {
-                        tab.lastReadResNo + 1
-                    } else {
-                        tab.firstNewResNo
-                    }
-                    val newFirst = candidate?.let { if (it > resCount) null else candidate }
-                    val newTab = tab.copy(
-                        title = title,
-                        resCount = resCount,
-                        prevResCount = tab.resCount,
-                        firstNewResNo = newFirst,
-                    )
-                    target = newTab
-                    newTab
-                } else {
-                    tab
-                }
-            }
-            tabsRepository.saveOpenThreadTabs(updated)
-            target?.let {
-                readStateRepository.saveReadState(
-                    threadId,
-                    ThreadReadState(
-                        prevResCount = it.prevResCount,
-                        lastReadResNo = it.lastReadResNo,
-                        firstNewResNo = it.firstNewResNo,
-                    )
-                )
-            }
-        }
+        tabCoordinator.updateThreadTabInfo(threadId, title, resCount)
     }
 
     fun updateThreadScrollPosition(
@@ -620,37 +591,11 @@ class ThreadViewModel @AssistedInject constructor(
         firstVisibleIndex: Int,
         scrollOffset: Int
     ) {
-        viewModelScope.launch {
-            val current = tabsRepository.observeOpenThreadTabs().first()
-            val updated = current.map { tab ->
-                if (tab.id == threadId) {
-                    tab.copy(
-                        firstVisibleItemIndex = firstVisibleIndex,
-                        firstVisibleItemScrollOffset = scrollOffset
-                    )
-                } else {
-                    tab
-                }
-            }
-            tabsRepository.saveOpenThreadTabs(updated)
-        }
+        tabCoordinator.updateThreadScrollPosition(threadId, firstVisibleIndex, scrollOffset)
     }
 
     fun updateThreadLastRead(threadId: ThreadId, lastReadResNo: Int) {
-        viewModelScope.launch {
-            val current = tabsRepository.observeOpenThreadTabs().first()
-            val tab = current.find { it.id == threadId } ?: return@launch
-            if (lastReadResNo > tab.lastReadResNo) {
-                readStateRepository.saveReadState(
-                    threadId,
-                    ThreadReadState(
-                        prevResCount = tab.prevResCount,
-                        lastReadResNo = lastReadResNo,
-                        firstNewResNo = tab.firstNewResNo,
-                    )
-                )
-            }
-        }
+        tabCoordinator.updateThreadLastRead(threadId, lastReadResNo)
     }
 
     companion object {
