@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.navigation
+package com.websarva.wings.android.slevo.ui.bbsroute
 
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -27,14 +27,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavHostController
-import com.websarva.wings.android.slevo.ui.board.BoardUiState
-import com.websarva.wings.android.slevo.ui.board.BoardViewModel
-import com.websarva.wings.android.slevo.ui.common.BaseUiState
-import com.websarva.wings.android.slevo.ui.common.BaseViewModel
+import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
+import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.AddGroupDialog
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheet
 import com.websarva.wings.android.slevo.ui.common.bookmark.DeleteGroupDialog
-import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenDialog
@@ -50,10 +50,12 @@ import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
-fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState>> RouteScaffold(
+fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState>> BbsRouteScaffold(
     route: AppRoute,
     tabsViewModel: TabsViewModel,
     navController: NavHostController,
+    isTabsLoaded: Boolean,
+    onEmptyTabs: () -> Unit,
     openTabs: List<TabInfo>,
     currentRoutePredicate: (TabInfo) -> Boolean,
     getViewModel: (TabInfo) -> ViewModel,
@@ -89,12 +91,24 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     // - 各タブごとにViewModelとリストのスクロール位置を保持/復元する
     // - 共通のボトムシートやダイアログを表示する
 
+    LaunchedEffect(isTabsLoaded, openTabs) {
+        if (isTabsLoaded && openTabs.isEmpty()) {
+            onEmptyTabs()
+        }
+    }
+
     var cachedTabs by remember { mutableStateOf(openTabs) }
     // openTabsが空の場合に前回のタブ一覧をキャッシュしておくための処理
     if (openTabs.isNotEmpty()) {
         cachedTabs = openTabs
     }
-    val tabs = openTabs.ifEmpty { cachedTabs }
+    val tabs = if (openTabs.isNotEmpty()) {
+        openTabs
+    } else if (!isTabsLoaded) {
+        cachedTabs
+    } else {
+        emptyList()
+    }
     Timber.d("tabs: $tabs")
     val currentTabInfo = tabs.find(currentRoutePredicate)
 
@@ -163,10 +177,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             val tab = tabs[page]
             val viewModel = getViewModel(tab)
             val uiState by viewModel.uiState.collectAsState()
-            // Board / Thread 用のブックマーク状態を統一的に取得
-            val bookmarkState = (uiState as? BoardUiState)?.singleBookmarkState
-                ?: (uiState as? ThreadUiState)?.singleBookmarkState
-                ?: SingleBookmarkState()
+            val bookmarkState = uiState.singleBookmarkState
 
 
             // 各タブごとにLazyListStateを復元する。キーに基づいてrememberするため

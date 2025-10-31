@@ -1,22 +1,26 @@
 package com.websarva.wings.android.slevo.ui.history
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -24,7 +28,11 @@ import java.util.Locale
 @Composable
 fun HistoryListScreen(
     histories: List<ThreadHistoryDao.HistoryWithLastAccess>,
-    onThreadClick: (ThreadHistoryDao.HistoryWithLastAccess) -> Unit,
+    selectedThreadIds: Set<ThreadId>,
+    isSelectionMode: Boolean,
+    onOpenThread: (ThreadHistoryDao.HistoryWithLastAccess) -> Unit,
+    onToggleSelection: (ThreadHistoryDao.HistoryWithLastAccess) -> Unit,
+    onStartSelection: (ThreadHistoryDao.HistoryWithLastAccess) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (histories.isEmpty()) {
@@ -57,10 +65,35 @@ fun HistoryListScreen(
                 }
             }
             item(key = history.history.id) {
+                val isSelected = history.history.threadId in selectedThreadIds
                 ListItem(
                     modifier = Modifier
-                        .clickable { onThreadClick(history) }
+                        .combinedClickable(
+                            onClick = {
+                                if (isSelectionMode) {
+                                    onToggleSelection(history)
+                                } else {
+                                    onOpenThread(history)
+                                }
+                            },
+                            onLongClick = { onStartSelection(history) }
+                        )
                         .padding(horizontal = 8.dp),
+                    colors = ListItemDefaults.colors(
+                        containerColor = if (isSelected) {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        } else {
+                            Color.Transparent
+                        }
+                    ),
+                    leadingContent = {
+                        if (isSelectionMode) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { onToggleSelection(history) }
+                            )
+                        }
+                    },
                     headlineContent = { Text(history.history.title) },
                     supportingContent = {
                         Row(

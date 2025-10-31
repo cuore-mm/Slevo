@@ -1,16 +1,16 @@
-package com.websarva.wings.android.slevo.ui.board
+package com.websarva.wings.android.slevo.ui.board.state
 
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
-import com.websarva.wings.android.slevo.ui.common.BaseUiState
+import com.websarva.wings.android.slevo.ui.bbsroute.BaseUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
 
 data class BoardUiState(
     val threads: List<ThreadInfo>? = null,
-    val boardInfo: BoardInfo = BoardInfo(0, "", ""),
-    val singleBookmarkState: SingleBookmarkState = SingleBookmarkState(),
+    override val boardInfo: BoardInfo = BoardInfo(0, "", ""),
+    override val singleBookmarkState: SingleBookmarkState = SingleBookmarkState(),
     val showSortSheet: Boolean = false,
     val serviceName: String = "",
     val showInfoDialog: Boolean = false,
@@ -30,14 +30,22 @@ data class BoardUiState(
     val errorHtmlContent: String = "",
     val postResultMessage: String? = null,
     val resetScroll: Boolean = false,
-    val loadProgress: Float = 0f,
-    val gestureSettings: GestureSettings = GestureSettings.DEFAULT,
+    override val loadProgress: Float = 0f,
+    override val gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     override val isLoading: Boolean = false,
 ) : BaseUiState<BoardUiState> {
     override fun copyState(
+        boardInfo: BoardInfo,
+        singleBookmarkState: SingleBookmarkState,
+        loadProgress: Float,
+        gestureSettings: GestureSettings,
         isLoading: Boolean,
     ): BoardUiState {
         return this.copy(
+            boardInfo = boardInfo,
+            singleBookmarkState = singleBookmarkState,
+            loadProgress = loadProgress,
+            gestureSettings = gestureSettings,
             isLoading = isLoading,
         )
     }
