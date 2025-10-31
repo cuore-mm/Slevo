@@ -34,7 +34,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
@@ -46,7 +45,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
-import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnailGrid
@@ -60,7 +58,6 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
-import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.LocalDate
@@ -122,22 +119,13 @@ fun PostItem(
                 }
             }
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(IntrinsicSize.Min)
         ) {
-            if (isMyPost) {
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.primary)
-                )
-            }
             Column(
                 modifier = Modifier
-                    .weight(1f)
                     .fillMaxWidth()
                     .background(
                         if (isPressed) MaterialTheme.colorScheme.surfaceVariant
@@ -385,7 +373,11 @@ fun PostItem(
                                         contentLayout?.let { layout ->
                                             val pos = layout.getOffsetForPosition(offset)
                                             val urlAnn =
-                                                highlightedText.getStringAnnotations("URL", pos, pos)
+                                                highlightedText.getStringAnnotations(
+                                                    "URL",
+                                                    pos,
+                                                    pos
+                                                )
                                                     .firstOrNull()
                                             val replyAnn =
                                                 highlightedText.getStringAnnotations(
@@ -470,7 +462,11 @@ fun PostItem(
                                         contentLayout?.let { layout ->
                                             val pos = layout.getOffsetForPosition(offset)
                                             val urlAnn =
-                                                highlightedText.getStringAnnotations("URL", pos, pos)
+                                                highlightedText.getStringAnnotations(
+                                                    "URL",
+                                                    pos,
+                                                    pos
+                                                )
                                                     .firstOrNull()
                                             val replyAnn =
                                                 highlightedText.getStringAnnotations(
@@ -523,6 +519,15 @@ fun PostItem(
                         }
                     )
                 }
+            }
+
+            if (isMyPost) {
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.primary)
+                )
             }
         }
 
@@ -579,5 +584,6 @@ fun ReplyCardPreview() {
         bodyTextScale = 1f,
         lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
         searchQuery = "",
+        isMyPost = true,
     )
 }
