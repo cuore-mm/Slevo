@@ -1,13 +1,14 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -36,44 +37,44 @@ fun ImageViewerScreen(
 
     Dialog(
         onDismissRequest = dismissRequest,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
     ) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            topBar = {
-                TopAppBar(
-                    title = { /* 必要であればタイトル */ },
-                    navigationIcon = {
-                        IconButton(onClick = dismissRequest) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "戻る",
-                                tint = Color.White
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Black.copy(alpha = 0.5f)
-                    )
-                )
-            },
-            containerColor = Color.Black
-        ) { innerPadding ->
-            val zoomableState = rememberZoomableState(
-                zoomSpec = ZoomSpec(
-                    maxZoomFactor = 12f,                  // ← ここを例えば 8x や 12x に
-                    overzoomEffect = OverzoomEffect.RubberBanding // 端でビヨン効果（好みで）
-                )
+        val zoomableState = rememberZoomableState(
+            zoomSpec = ZoomSpec(
+                maxZoomFactor = 12f,
+                overzoomEffect = OverzoomEffect.RubberBanding
             )
-            val imageState = rememberZoomableImageState(zoomableState)
+        )
+        val imageState = rememberZoomableImageState(zoomableState)
 
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
             ZoomableAsyncImage(
                 model = imageUrl,
                 contentDescription = null,
                 state = imageState,
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize(),
+                modifier = Modifier.fillMaxSize(),
+            )
+
+            TopAppBar(
+                title = { /* 必要であればタイトル */ },
+                navigationIcon = {
+                    IconButton(onClick = dismissRequest) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "戻る",
+                            tint = Color.White
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Black.copy(alpha = 0.5f)
+                ),
+                windowInsets = WindowInsets.systemBars
             )
         }
     }
