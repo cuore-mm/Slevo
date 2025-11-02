@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -40,6 +41,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
@@ -50,6 +52,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
@@ -98,7 +101,7 @@ fun ThreadScreen(
     // 新着バーを表示するインデックス
     val firstAfterIndex = uiState.firstAfterIndex
     // ポップアップ表示用のスタック
-    val popupStack = remember { androidx.compose.runtime.mutableStateListOf<PopupInfo>() }
+    val popupStack = remember { mutableStateListOf<PopupInfo>() }
     // NG（非表示）対象の投稿番号リスト
     val ngNumbers = uiState.ngPostNumbers
     val density = LocalDensity.current
@@ -444,7 +447,7 @@ fun ThreadScreen(
                         awaitPointerEventScope {
                             while (true) {
                                 val event =
-                                    awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                    awaitPointerEvent(PointerEventPass.Initial)
                                 event.changes.forEach { it.consume() }
                             }
                         }
@@ -526,7 +529,7 @@ fun ThreadScreenPreview() {
     )
     val uiState = ThreadUiState(
         posts = previewPosts,
-        boardInfo = com.websarva.wings.android.slevo.data.model.BoardInfo(
+        boardInfo = BoardInfo(
             0L,
             "board",
             "https://example.com/"
