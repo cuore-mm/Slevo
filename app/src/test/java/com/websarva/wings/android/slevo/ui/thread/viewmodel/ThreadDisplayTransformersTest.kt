@@ -4,7 +4,6 @@ import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ThreadDisplayTransformersTest {
@@ -54,7 +53,7 @@ class ThreadDisplayTransformersTest {
     }
 
     @Test
-    fun buildOrderedPosts_handlesTreeAfterGrouping() {
+    fun buildOrderedPosts_appendsTreeSortedNewPosts() {
         val posts = listOf(
             reply(content = "root", id = "id1"),
             reply(content = ">>1 child", id = "id2"),
@@ -68,7 +67,6 @@ class ThreadDisplayTransformersTest {
             order = order,
             sortType = ThreadSortType.TREE,
             treeDepthMap = depthMap,
-            firstNewResNo = 4,
             prevResCount = 3
         )
 
@@ -76,11 +74,10 @@ class ThreadDisplayTransformersTest {
             DisplayPost(1, posts[0], dimmed = false, isAfter = false, depth = 0),
             DisplayPost(2, posts[1], dimmed = false, isAfter = false, depth = 1),
             DisplayPost(3, posts[2], dimmed = false, isAfter = false, depth = 2),
-            DisplayPost(1, posts[0], dimmed = true, isAfter = true, depth = 0),
             DisplayPost(4, posts[3], dimmed = false, isAfter = true, depth = 1)
         )
         assertEquals(expected, result)
-        assertTrue(result.drop(3).all { it.isAfter })
+        assertEquals(listOf(false, false, false, true), result.map { it.isAfter })
     }
 
     @Test
@@ -96,7 +93,6 @@ class ThreadDisplayTransformersTest {
             order = listOf(1, 2, 3),
             sortType = ThreadSortType.NUMBER,
             treeDepthMap = emptyMap(),
-            firstNewResNo = 3,
             prevResCount = 2
         )
 

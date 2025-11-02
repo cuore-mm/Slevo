@@ -73,91 +73,31 @@ internal fun buildOrderedPosts(
     order: List<Int>,
     sortType: ThreadSortType,
     treeDepthMap: Map<Int, Int>,
-    firstNewResNo: Int?,
     prevResCount: Int
 ): List<DisplayPost> {
-    if (sortType == ThreadSortType.TREE && firstNewResNo != null) {
-        val parentMap = mutableMapOf<Int, Int>()
-        val childrenMap = mutableMapOf<Int, MutableList<Int>>()
-        val stack = mutableListOf<Int>()
-        order.forEach { num ->
-            val depth = treeDepthMap[num] ?: 0
-            while (stack.size > depth) stack.removeAt(stack.lastIndex)
-            val parent = stack.lastOrNull() ?: 0
-            parentMap[num] = parent
-            childrenMap.getOrPut(parent) { mutableListOf() }.add(num)
-            stack.add(num)
-        }
-
-        val beforeSet = linkedSetOf<Int>()
-        val afterSet = linkedSetOf<Int>()
-        for (num in 1..posts.size) {
-            val parent = parentMap[num] ?: 0
-            if (num < firstNewResNo || (parent in 1 until firstNewResNo && num <= prevResCount)) {
-                beforeSet.add(num)
-            } else {
-                afterSet.add(num)
-            }
-        }
-
-        val before = mutableListOf<DisplayPost>()
-        order.forEach { num ->
-            if (beforeSet.contains(num)) {
+    val threshold = prevResCount.coerceIn(0, posts.size)
+    return if (sortType == ThreadSortType.TREE) {
+        val before = order
+            .filter { num -> num <= threshold }
+            .mapNotNull { num ->
                 posts.getOrNull(num - 1)?.let { post ->
                     val depth = treeDepthMap[num] ?: 0
-                    before.add(DisplayPost(num, post, dimmed = false, isAfter = false, depth = depth))
+                    DisplayPost(num, post, dimmed = false, isAfter = false, depth = depth)
                 }
             }
-        }
-
-        val after = mutableListOf<DisplayPost>()
-        val insertedParents = mutableSetOf<Int>()
-        val visited = mutableSetOf<Int>()
-
-        fun traverse(num: Int, shift: Int) {
-            val isAfter = afterSet.contains(num)
-            if (isAfter && !visited.add(num)) return
-
-            if (isAfter) {
+        val after = order
+            .filter { num -> num > threshold }
+            .mapNotNull { num ->
                 posts.getOrNull(num - 1)?.let { post ->
-                    val depth = (treeDepthMap[num] ?: 0) - shift
-                    after.add(DisplayPost(num, post, dimmed = false, isAfter = true, depth = depth))
+                    val depth = treeDepthMap[num] ?: 0
+                    DisplayPost(num, post, dimmed = false, isAfter = true, depth = depth)
                 }
             }
-            childrenMap[num]?.forEach { child -> traverse(child, shift) }
-        }
-
-        val afterNums = afterSet.toList().sorted()
-        afterNums.forEach { num ->
-            if (visited.contains(num)) return@forEach
-            val parent = parentMap[num] ?: 0
-            if (parent in beforeSet) {
-                if (insertedParents.add(parent)) {
-                    posts.getOrNull(parent - 1)?.let { p ->
-                        after.add(
-                            DisplayPost(
-                                parent,
-                                p,
-                                dimmed = true,
-                                isAfter = true,
-                                depth = 0
-                            )
-                        )
-                    }
-                }
-                val shift = treeDepthMap[parent] ?: 0
-                childrenMap[parent]?.forEach { child -> traverse(child, shift) }
-            } else {
-                val shift = treeDepthMap[num] ?: 0
-                traverse(num, shift)
-            }
-        }
-
-        return before + after
+        before + after
     } else {
-        return order.mapNotNull { num ->
+        order.mapNotNull { num ->
             posts.getOrNull(num - 1)?.let { post ->
-                val isAfter = firstNewResNo != null && num >= firstNewResNo
+                val isAfter = num > threshold
                 val depth = if (sortType == ThreadSortType.TREE) treeDepthMap[num] ?: 0 else 0
                 DisplayPost(num, post, false, isAfter, depth)
             }
