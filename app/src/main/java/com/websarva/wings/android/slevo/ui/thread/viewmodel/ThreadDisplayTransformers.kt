@@ -76,7 +76,13 @@ internal fun buildOrderedPosts(
     firstNewResNo: Int?,
     prevResCount: Int
 ): List<DisplayPost> {
-    if (sortType == ThreadSortType.TREE && firstNewResNo != null) {
+    val hasPrevCount = prevResCount > 0
+    val afterThreshold = when {
+        hasPrevCount -> prevResCount + 1
+        firstNewResNo != null -> firstNewResNo
+        else -> null
+    }
+    if (sortType == ThreadSortType.TREE && afterThreshold != null) {
         val parentMap = mutableMapOf<Int, Int>()
         val childrenMap = mutableMapOf<Int, MutableList<Int>>()
         val stack = mutableListOf<Int>()
@@ -92,11 +98,11 @@ internal fun buildOrderedPosts(
         val beforeSet = linkedSetOf<Int>()
         val afterSet = linkedSetOf<Int>()
         for (num in 1..posts.size) {
-            val parent = parentMap[num] ?: 0
-            if (num < firstNewResNo || (parent in 1 until firstNewResNo && num <= prevResCount)) {
-                beforeSet.add(num)
-            } else {
+            val isAfter = afterThreshold?.let { num >= it } ?: false
+            if (isAfter) {
                 afterSet.add(num)
+            } else {
+                beforeSet.add(num)
             }
         }
 
@@ -157,7 +163,7 @@ internal fun buildOrderedPosts(
     } else {
         return order.mapNotNull { num ->
             posts.getOrNull(num - 1)?.let { post ->
-                val isAfter = firstNewResNo != null && num >= firstNewResNo
+                val isAfter = afterThreshold?.let { num >= it } ?: false
                 val depth = if (sortType == ThreadSortType.TREE) treeDepthMap[num] ?: 0 else 0
                 DisplayPost(num, post, false, isAfter, depth)
             }

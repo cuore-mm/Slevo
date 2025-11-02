@@ -241,6 +241,22 @@ class ThreadViewModel @AssistedInject constructor(
                 // ツリー順と深さマップを導出
                 val tree = deriveTreeOrder(posts)
                 val resCount = posts.size
+                val previousPostsCount = uiState.value.posts?.size ?: 0
+                val previousTreeOrder = uiState.value.treeOrder
+                val mergedTreeOrder = if (
+                    previousPostsCount > 0 && previousTreeOrder.isNotEmpty()
+                ) {
+                    val preserved = previousTreeOrder.filter { it in 1..previousPostsCount }
+                    val appended = tree.first.filter { it > previousPostsCount }
+                    val merged = preserved + appended
+                    if (merged.size == resCount && merged.toSet().size == resCount) {
+                        merged
+                    } else {
+                        tree.first
+                    }
+                } else {
+                    tree.first
+                }
                 val keyLong = key.toLongOrNull()
                 val date = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD) {
                     calculateThreadDate(key)
@@ -269,7 +285,7 @@ class ThreadViewModel @AssistedInject constructor(
                         idCountMap = derived.first,
                         idIndexList = derived.second,
                         replySourceMap = derived.third,
-                        treeOrder = tree.first,
+                        treeOrder = mergedTreeOrder,
                         treeDepthMap = tree.second,
                     )
                 }
@@ -382,7 +398,11 @@ class ThreadViewModel @AssistedInject constructor(
         }
         val visiblePosts = filteredPosts.filterNot { it.num in uiState.value.ngPostNumbers }
         val replyCounts = visiblePosts.map { p -> uiState.value.replySourceMap[p.num]?.size ?: 0 }
-        val firstAfterIndex = visiblePosts.indexOfFirst { it.isAfter }
+        val firstAfterIndex = if (prevResCount > 0 && prevResCount < posts.size) {
+            visiblePosts.indexOfFirst { it.num > prevResCount }.takeIf { it >= 0 } ?: -1
+        } else {
+            -1
+        }
 
         _uiState.update {
             it.copy(

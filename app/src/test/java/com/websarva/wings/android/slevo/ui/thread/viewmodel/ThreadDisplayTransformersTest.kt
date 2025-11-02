@@ -108,6 +108,26 @@ class ThreadDisplayTransformersTest {
     }
 
     @Test
+    fun buildOrderedPosts_usesFirstNewWhenPrevCountZero() {
+        val posts = listOf(
+            reply(content = "first", id = "id1"),
+            reply(content = "second", id = "id2"),
+            reply(content = "third", id = "id3")
+        )
+
+        val ordered = buildOrderedPosts(
+            posts = posts,
+            order = listOf(1, 2, 3),
+            sortType = ThreadSortType.NUMBER,
+            treeDepthMap = emptyMap(),
+            firstNewResNo = 2,
+            prevResCount = 0
+        )
+
+        assertEquals(listOf(false, true, true), ordered.map { it.isAfter })
+    }
+
+    @Test
     fun parseDateToUnix_parsesWithFallback() {
         val timestamp = parseDateToUnix("2024/01/02 03:04:05.123")
         val expected = DATE_FORMAT.parse("2024/01/02 03:04:05")!!.time
