@@ -69,7 +69,8 @@ fun ReplyPopup(
     bodyTextScale: Float,
     lineHeight: Float,
     searchQuery: String = "",
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onImageClick: ((String) -> Unit)? = null
 ) {
     val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
 
@@ -208,7 +209,8 @@ fun ReplyPopup(
                                     if (targets.isNotEmpty()) {
                                         popupStack.add(PopupInfo(targets, offset))
                                     }
-                                }
+                                },
+                                onImageClick = onImageClick
                             )
                             if (i < info.posts.size - 1) {
                                 androidx.compose.material3.HorizontalDivider()

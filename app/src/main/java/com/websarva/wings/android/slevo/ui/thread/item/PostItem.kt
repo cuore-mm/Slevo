@@ -58,8 +58,6 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 import java.time.LocalDate
 
 @Composable
@@ -85,6 +83,7 @@ fun PostItem(
     onReplyClick: ((Int) -> Unit)? = null,
     onMenuReplyClick: ((Int) -> Unit)? = null,
     onIdClick: ((String) -> Unit)? = null,
+    onImageClick: ((String) -> Unit)? = null,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val dialogState = rememberPostItemDialogState()
@@ -508,14 +507,7 @@ fun PostItem(
                     ImageThumbnailGrid(
                         imageUrls = imageUrls,
                         onImageClick = { url ->
-                            navController.navigate(
-                                AppRoute.ImageViewer(
-                                    imageUrl = URLEncoder.encode(
-                                        url,
-                                        StandardCharsets.UTF_8.toString()
-                                    )
-                                )
-                            )
+                            onImageClick?.invoke(url)
                         }
                     )
                 }

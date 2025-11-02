@@ -20,10 +20,7 @@ import com.websarva.wings.android.slevo.ui.tabs.TabsScaffold
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.screen.ThreadScaffold
 import com.websarva.wings.android.slevo.ui.util.isInRoute
-import com.websarva.wings.android.slevo.ui.viewer.ImageViewerScreen
 import kotlinx.serialization.Serializable
-import java.net.URLDecoder
-import java.nio.charset.StandardCharsets
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -183,17 +180,6 @@ fun AppNavGraph(
                 onNavigateUp = { navController.navigateUp() }
             )
         }
-        //画像ビューア
-        composable<AppRoute.ImageViewer> { backStackEntry ->
-            val imageViewerRoute: AppRoute.ImageViewer = backStackEntry.toRoute()
-            // URLデコード処理
-            val decodedUrl =
-                URLDecoder.decode(imageViewerRoute.imageUrl, StandardCharsets.UTF_8.toString())
-            ImageViewerScreen(
-                imageUrl = decodedUrl,
-                onNavigateUp = { navController.navigateUp() }
-            )
-        }
     }
 }
 
@@ -262,10 +248,6 @@ sealed class AppRoute {
 
     @Serializable
     data object Tabs : AppRoute()
-
-
-    @Serializable
-    data class ImageViewer(val imageUrl: String) : AppRoute()
 
     @Serializable
     data object About : AppRoute()

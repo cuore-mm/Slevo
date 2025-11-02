@@ -43,8 +43,8 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostName
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.uploadImage
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
+import com.websarva.wings.android.slevo.ui.viewer.ImageViewerDialog
+import com.websarva.wings.android.slevo.ui.viewer.rememberImageViewerDialogState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +56,8 @@ fun ThreadScaffold(
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
+
+    val imageViewerState = rememberImageViewerDialogState()
 
     val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, threadRoute.threadKey)
@@ -211,7 +213,8 @@ fun ThreadScaffold(
                             }
                         GestureAction.ToTop, GestureAction.ToBottom -> Unit
                     }
-                }
+                },
+                onImageClick = { url -> imageViewerState.show(url) }
             )
         },
         optionalSheetContent = { viewModel, uiState ->
@@ -305,16 +308,7 @@ fun ThreadScaffold(
                     },
                     confirmButtonText = stringResource(R.string.post),
                     onImageSelect = { uri -> viewModel.uploadImage(context, uri) },
-                    onImageUrlClick = { url ->
-                        navController.navigate(
-                            AppRoute.ImageViewer(
-                                imageUrl = URLEncoder.encode(
-                                    url,
-                                    StandardCharsets.UTF_8.toString()
-                                )
-                            )
-                        )
-                    }
+                    onImageUrlClick = { url -> imageViewerState.show(url) }
                 )
             }
 
@@ -361,4 +355,6 @@ fun ThreadScaffold(
             }
         }
     )
+
+    ImageViewerDialog(state = imageViewerState)
 }

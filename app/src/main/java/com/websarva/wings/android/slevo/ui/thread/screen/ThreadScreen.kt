@@ -86,6 +86,7 @@ fun ThreadScreen(
     onReplyToPost: (Int) -> Unit = {},
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     onGestureAction: (GestureAction) -> Unit = {},
+    onImageClick: (String) -> Unit = {},
 ) {
     // 投稿一覧（nullの場合は空リスト）
     val posts = uiState.posts ?: emptyList()
@@ -382,7 +383,8 @@ fun ThreadScreen(
                             if (targets.isNotEmpty()) {
                                 popupStack.add(PopupInfo(targets, offset))
                             }
-                        }
+                        },
+                        onImageClick = onImageClick
                     )
                     HorizontalDivider(
                         modifier = Modifier.padding(
@@ -468,7 +470,8 @@ fun ThreadScreen(
             bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
             lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
             searchQuery = uiState.searchQuery,
-            onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) }
+            onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) },
+            onImageClick = onImageClick
         )
 
         val arrowRotation by animateFloatAsState(

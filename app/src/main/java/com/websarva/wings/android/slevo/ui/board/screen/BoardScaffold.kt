@@ -36,8 +36,8 @@ import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
+import com.websarva.wings.android.slevo.ui.viewer.ImageViewerDialog
+import com.websarva.wings.android.slevo.ui.viewer.rememberImageViewerDialogState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +70,8 @@ fun BoardScaffold(
             )
         )
     }
+
+    val imageViewerState = rememberImageViewerDialogState()
 
     BbsRouteScaffold(
         route = boardRoute,
@@ -262,16 +264,7 @@ fun BoardScaffold(
                     title = uiState.createFormState.title,
                     onTitleChange = { viewModel.updateCreateTitle(it) },
                     onImageSelect = { uri -> viewModel.uploadImage(context, uri) },
-                    onImageUrlClick = { url ->
-                        navController.navigate(
-                            AppRoute.ImageViewer(
-                                imageUrl = URLEncoder.encode(
-                                    url,
-                                    StandardCharsets.UTF_8.toString()
-                                )
-                            )
-                        )
-                    }
+                    onImageUrlClick = { url -> imageViewerState.show(url) }
                 )
             }
 
@@ -305,4 +298,6 @@ fun BoardScaffold(
             }
         }
     )
+
+    ImageViewerDialog(state = imageViewerState)
 }
