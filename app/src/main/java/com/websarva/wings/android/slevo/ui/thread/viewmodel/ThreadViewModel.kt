@@ -355,40 +355,61 @@ class ThreadViewModel @AssistedInject constructor(
         val posts = uiState.value.posts ?: return
         val firstNewResNo = uiState.value.firstNewResNo
         val prevResCount = uiState.value.prevResCount
-        val order = if (uiState.value.sortType == ThreadSortType.TREE) {
-            uiState.value.treeOrder
-        } else {
-            (1..posts.size).toList()
-        }
-        val orderedPosts = buildOrderedPosts(
-            posts = posts,
-            order = order,
-            sortType = uiState.value.sortType,
-            treeDepthMap = uiState.value.treeDepthMap,
-            firstNewResNo = firstNewResNo,
-            prevResCount = prevResCount
-        )
+        val sortType = uiState.value.sortType
+        val treeOrder = uiState.value.treeOrder
+        val treeDepthMap = uiState.value.treeDepthMap
+        val searchQuery = uiState.value.searchQuery
 
-        val query = uiState.value.searchQuery.toHiragana()
-        val filteredPosts = if (query.isNotBlank()) {
-            orderedPosts.filter {
-                it.post.content.toHiragana().contains(
-                    query,
-                    ignoreCase = true
-                )
+        val order = if (sortType == ThreadSortType.TREE) treeOrder else (1..posts.size).toList()
+
+        // 検索クエリがある場合、またはツリー表示でない初回ロード/更新の場合は、常にリスト全体を再構築します。
+        val shouldRebuildAll = searchQuery.isNotBlank() ||
+                sortType != ThreadSortType.TREE ||
+                firstNewResNo == null ||
+                prevResCount == 0
+
+        val nextVisiblePosts: List<DisplayPost>
+        val nextFirstAfterIndex: Int
+
+        if (shouldRebuildAll) {
+            val allPosts = buildOrderedPosts(
+                posts = posts,
+                order = order,
+                sortType = sortType,
+                treeDepthMap = treeDepthMap,
+                firstNewResNo = firstNewResNo,
+                prevResCount = prevResCount
+            )
+            val filtered = if (searchQuery.isNotBlank()) {
+                allPosts.filter { it.post.content.toHiragana().contains(searchQuery.toHiragana(), true) }
+            } else {
+                allPosts
             }
+            nextVisiblePosts = filtered.filterNot { it.num in uiState.value.ngPostNumbers }
+            nextFirstAfterIndex = nextVisiblePosts.indexOfFirst { it.isAfter }
         } else {
-            orderedPosts
+            // ツリー表示での増分更新
+            val newBlock = buildNewPostsBlock(
+                posts = posts,
+                order = order,
+                treeDepthMap = treeDepthMap,
+                firstNewResNo = firstNewResNo!!
+            )
+            val filteredNewBlock = newBlock.filterNot { it.num in uiState.value.ngPostNumbers }
+
+            // 既存のリストのisAfterフラグをリセットする必要はない（UIに影響しないため）
+            val currentVisiblePosts = uiState.value.visiblePosts
+            nextFirstAfterIndex = currentVisiblePosts.size
+            nextVisiblePosts = currentVisiblePosts + filteredNewBlock
         }
-        val visiblePosts = filteredPosts.filterNot { it.num in uiState.value.ngPostNumbers }
-        val replyCounts = visiblePosts.map { p -> uiState.value.replySourceMap[p.num]?.size ?: 0 }
-        val firstAfterIndex = visiblePosts.indexOfFirst { it.isAfter }
+
+        val replyCounts = nextVisiblePosts.map { p -> uiState.value.replySourceMap[p.num]?.size ?: 0 }
 
         _uiState.update {
             it.copy(
-                visiblePosts = visiblePosts,
+                visiblePosts = nextVisiblePosts,
                 replyCounts = replyCounts,
-                firstAfterIndex = firstAfterIndex
+                firstAfterIndex = nextFirstAfterIndex
             )
         }
     }

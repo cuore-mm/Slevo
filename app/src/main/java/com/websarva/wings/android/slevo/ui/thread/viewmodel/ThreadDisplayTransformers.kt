@@ -165,6 +165,67 @@ internal fun buildOrderedPosts(
     }
 }
 
+internal fun buildNewPostsBlock(
+    posts: List<ReplyInfo>,
+    order: List<Int>,
+    treeDepthMap: Map<Int, Int>,
+    firstNewResNo: Int
+): List<DisplayPost> {
+    val parentMap = mutableMapOf<Int, Int>()
+    val childrenMap = mutableMapOf<Int, MutableList<Int>>()
+    val stack = mutableListOf<Int>()
+    order.forEach { num ->
+        val depth = treeDepthMap[num] ?: 0
+        while (stack.size > depth) stack.removeAt(stack.lastIndex)
+        val parent = stack.lastOrNull() ?: 0
+        parentMap[num] = parent
+        childrenMap.getOrPut(parent) { mutableListOf() }.add(num)
+        stack.add(num)
+    }
+
+    val newPostsBlock = mutableListOf<DisplayPost>()
+    val insertedParents = mutableSetOf<Int>()
+    val visited = mutableSetOf<Int>()
+
+    fun traverse(num: Int, shift: Int) {
+        if (num < firstNewResNo || !visited.add(num)) return
+
+        posts.getOrNull(num - 1)?.let { post ->
+            val depth = (treeDepthMap[num] ?: 0) - shift
+            newPostsBlock.add(DisplayPost(num, post, dimmed = false, isAfter = true, depth = depth))
+        }
+        childrenMap[num]?.forEach { child -> traverse(child, shift) }
+    }
+
+    val newPostNumbers = (firstNewResNo..posts.size).toList()
+    val oldPostNumbers = (1 until firstNewResNo).toSet()
+
+    newPostNumbers.forEach { num ->
+        if (visited.contains(num)) return@forEach
+
+        val parent = parentMap[num] ?: 0
+        if (parent in oldPostNumbers) {
+            if (insertedParents.add(parent)) {
+                posts.getOrNull(parent - 1)?.let { p ->
+                    newPostsBlock.add(
+                        DisplayPost(parent, p, dimmed = true, isAfter = true, depth = 0)
+                    )
+                }
+            }
+            val shift = (treeDepthMap[parent] ?: 0)
+            childrenMap[parent]?.forEach { child ->
+                traverse(child, shift)
+            }
+        } else {
+            if (parent == 0 || parent !in newPostNumbers) {
+                val parentDepth = treeDepthMap[parent] ?: -1
+                traverse(num, parentDepth + 1)
+            }
+        }
+    }
+    return newPostsBlock
+}
+
 internal fun parseDateToUnix(dateString: String): Long {
     val sanitized = dateString
         .replace(Regex("\\([^)]*\\)"), "")
