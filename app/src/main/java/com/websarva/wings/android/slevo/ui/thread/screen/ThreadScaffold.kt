@@ -1,11 +1,19 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
@@ -44,9 +52,8 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.uploadImage
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import com.websarva.wings.android.slevo.ui.viewer.ImageViewerDialog
-import com.websarva.wings.android.slevo.ui.viewer.rememberImageViewerDialogState
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun ThreadScaffold(
     threadRoute: AppRoute.Thread,
@@ -56,8 +63,6 @@ fun ThreadScaffold(
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
-
-    val imageViewerState = rememberImageViewerDialogState()
 
     val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, threadRoute.threadKey)
@@ -155,67 +160,84 @@ fun ThreadScaffold(
             )
         },
         content = { viewModel, uiState, listState, modifier, navController, showBottomBar, openTabListSheet, openUrlDialog ->
-            LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
-                // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
-                if (
-                    !uiState.isLoading &&
-                    uiState.threadInfo.title.isNotEmpty() &&
-                    uiState.posts != null &&
-                    uiState.threadInfo.key.isNotEmpty()
-                ) {
-                    parseBoardUrl(uiState.boardInfo.url)?.let { (host, board) ->
-                        viewModel.updateThreadTabInfo(
-                            threadId = ThreadId.of(host, board, uiState.threadInfo.key),
-                            title = uiState.threadInfo.title,
-                            resCount = uiState.posts.size
-                        )
-                    }
-                }
-            }
+            SharedTransitionLayout {
+                var selectedImageUrl by remember { mutableStateOf<String?>(null) }
 
-            val tabInfo = tabsUiState.openThreadTabs.find {
-                it.threadKey == uiState.threadInfo.key && it.boardUrl == uiState.boardInfo.url
-            }
-            LaunchedEffect(tabInfo?.firstNewResNo, tabInfo?.prevResCount) {
-                tabInfo?.let {
-                    viewModel.setNewArrivalInfo(it.firstNewResNo, it.prevResCount)
+                LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
+                    // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
+                    if (
+                        !uiState.isLoading &&
+                        uiState.threadInfo.title.isNotEmpty() &&
+                        uiState.posts != null &&
+                        uiState.threadInfo.key.isNotEmpty()
+                    ) {
+                        parseBoardUrl(uiState.boardInfo.url)?.let { (host, board) ->
+                            viewModel.updateThreadTabInfo(
+                                threadId = ThreadId.of(host, board, uiState.threadInfo.key),
+                                title = uiState.threadInfo.title,
+                                resCount = uiState.posts.size
+                            )
+                        }
+                    }
+                }
+
+                val tabInfo = tabsUiState.openThreadTabs.find {
+                    it.threadKey == uiState.threadInfo.key && it.boardUrl == uiState.boardInfo.url
+                }
+                LaunchedEffect(tabInfo?.firstNewResNo, tabInfo?.prevResCount) {
+                    tabInfo?.let {
+                        viewModel.setNewArrivalInfo(it.firstNewResNo, it.prevResCount)
+                    }
+                }
+                ThreadScreen(
+                    modifier = modifier,
+                    uiState = uiState,
+                    listState = listState,
+                    navController = navController,
+                    tabsViewModel = tabsViewModel,
+                    showBottomBar = showBottomBar,
+                    onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
+                    onBottomRefresh = { viewModel.reloadThread() },
+                    onLastRead = { resNum ->
+                        routeThreadId?.let { viewModel.updateThreadLastRead(it, resNum) }
+                    },
+                    onReplyToPost = { viewModel.showReplyDialog(it) },
+                    gestureSettings = uiState.gestureSettings,
+                    onGestureAction = { action ->
+                        when (action) {
+                            GestureAction.Refresh -> viewModel.reloadThread()
+                            GestureAction.PostOrCreateThread -> viewModel.showPostDialog()
+                            GestureAction.Search -> viewModel.startSearch()
+                            GestureAction.OpenTabList -> openTabListSheet()
+                            GestureAction.OpenBookmarkList -> navController.navigate(AppRoute.BookmarkList)
+                            GestureAction.OpenBoardList -> navController.navigate(AppRoute.ServiceList)
+                            GestureAction.OpenHistory -> navController.navigate(AppRoute.HistoryList)
+                            GestureAction.OpenNewTab -> openUrlDialog()
+                            GestureAction.SwitchToNextTab -> tabsViewModel.animateThreadPage(1)
+                            GestureAction.SwitchToPreviousTab -> tabsViewModel.animateThreadPage(-1)
+                            GestureAction.CloseTab ->
+                                if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
+                                    tabsViewModel.closeThreadTab(uiState.threadInfo.key, uiState.boardInfo.url)
+                                }
+                            GestureAction.ToTop, GestureAction.ToBottom -> Unit
+                        }
+                    },
+                    onImageClick = { url ->
+                        selectedImageUrl = url
+                    },
+                    sharedTransitionScope = this,
+                    animatedVisibilityScope = this,
+                )
+
+                selectedImageUrl?.let {
+                    ImageViewerDialog(
+                        imageUrl = it,
+                        onDismissRequest = { selectedImageUrl = null },
+                        sharedTransitionScope = this,
+                        animatedVisibilityScope = this,
+                    )
                 }
             }
-            ThreadScreen(
-                modifier = modifier,
-                uiState = uiState,
-                listState = listState,
-                navController = navController,
-                tabsViewModel = tabsViewModel,
-                showBottomBar = showBottomBar,
-                onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
-                onBottomRefresh = { viewModel.reloadThread() },
-                onLastRead = { resNum ->
-                    routeThreadId?.let { viewModel.updateThreadLastRead(it, resNum) }
-                },
-                onReplyToPost = { viewModel.showReplyDialog(it) },
-                gestureSettings = uiState.gestureSettings,
-                onGestureAction = { action ->
-                    when (action) {
-                        GestureAction.Refresh -> viewModel.reloadThread()
-                        GestureAction.PostOrCreateThread -> viewModel.showPostDialog()
-                        GestureAction.Search -> viewModel.startSearch()
-                        GestureAction.OpenTabList -> openTabListSheet()
-                        GestureAction.OpenBookmarkList -> navController.navigate(AppRoute.BookmarkList)
-                        GestureAction.OpenBoardList -> navController.navigate(AppRoute.ServiceList)
-                        GestureAction.OpenHistory -> navController.navigate(AppRoute.HistoryList)
-                        GestureAction.OpenNewTab -> openUrlDialog()
-                        GestureAction.SwitchToNextTab -> tabsViewModel.animateThreadPage(1)
-                        GestureAction.SwitchToPreviousTab -> tabsViewModel.animateThreadPage(-1)
-                        GestureAction.CloseTab ->
-                            if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
-                                tabsViewModel.closeThreadTab(uiState.threadInfo.key, uiState.boardInfo.url)
-                            }
-                        GestureAction.ToTop, GestureAction.ToBottom -> Unit
-                    }
-                },
-                onImageClick = { url -> imageViewerState.show(url) }
-            )
         },
         optionalSheetContent = { viewModel, uiState ->
             val postUiState by viewModel.postUiState.collectAsState()

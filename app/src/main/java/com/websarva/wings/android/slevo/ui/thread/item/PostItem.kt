@@ -1,6 +1,9 @@
 package com.websarva.wings.android.slevo.ui.thread.item
 
 import android.os.Build
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -60,6 +63,7 @@ import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 import java.time.LocalDate
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PostItem(
     modifier: Modifier = Modifier,
@@ -79,11 +83,13 @@ fun PostItem(
     isMyPost: Boolean = false,
     dimmed: Boolean = false,
     searchQuery: String = "",
-    onReplyFromClick: ((List<Int>) -> Unit)? = null,
+    onReplyFromClick: ((List<Int>)- > Unit)? = null,
     onReplyClick: ((Int) -> Unit)? = null,
     onMenuReplyClick: ((Int) -> Unit)? = null,
     onIdClick: ((String) -> Unit)? = null,
-    onImageClick: ((String) -> Unit)? = null,
+    onImageClick: (String) -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val dialogState = rememberPostItemDialogState()
@@ -507,8 +513,10 @@ fun PostItem(
                     ImageThumbnailGrid(
                         imageUrls = imageUrls,
                         onImageClick = { url ->
-                            onImageClick?.invoke(url)
-                        }
+                            onImageClick(url)
+                        },
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope,
                     )
                 }
             }

@@ -18,11 +18,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ImageThumbnailGrid(
     imageUrls: List<String>,
     modifier: Modifier = Modifier,
     onImageClick: (String) -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         imageUrls.chunked(3).forEach { rowItems ->
@@ -36,6 +39,10 @@ fun ImageThumbnailGrid(
                             .weight(1f)
                             .aspectRatio(1f)
                             .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .sharedElement(
+                                sharedTransitionScope.rememberSharedContentState(key = "image/$url"),
+                                animatedVisibilityScope = animatedVisibilityScope
+                            )
                             .clickable { onImageClick(url) },
                         loading = {
                             Box(

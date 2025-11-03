@@ -2,6 +2,9 @@ package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
@@ -71,7 +74,7 @@ import my.nanihadesuka.compose.LazyColumnScrollbar
 import kotlin.math.min
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun ThreadScreen(
     modifier: Modifier = Modifier,
@@ -86,7 +89,9 @@ fun ThreadScreen(
     onReplyToPost: (Int) -> Unit = {},
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     onGestureAction: (GestureAction) -> Unit = {},
-    onImageClick: (String) -> Unit = {},
+    onImageClick: (String) -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     // 投稿一覧（nullの場合は空リスト）
     val posts = uiState.posts ?: emptyList()
@@ -384,7 +389,9 @@ fun ThreadScreen(
                                 popupStack.add(PopupInfo(targets, offset))
                             }
                         },
-                        onImageClick = onImageClick
+                        onImageClick = onImageClick,
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope,
                     )
                     HorizontalDivider(
                         modifier = Modifier.padding(

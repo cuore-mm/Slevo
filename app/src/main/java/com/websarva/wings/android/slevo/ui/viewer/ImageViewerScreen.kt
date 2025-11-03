@@ -1,5 +1,8 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -26,11 +29,13 @@ import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun ImageViewerScreen(
     imageUrl: String,
-    onDismissRequest: () -> Unit
+    onDismissRequest: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope
 ) {
     val dismissRequest by rememberUpdatedState(onDismissRequest)
 
@@ -73,7 +78,11 @@ fun ImageViewerScreen(
                 state = imageState,
                 modifier = Modifier
                     .padding(innerPadding)
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .sharedElement(
+                        sharedTransitionScope.rememberSharedContentState(key = "image/$imageUrl"),
+                        animatedVisibilityScope = animatedVisibilityScope
+                    ),
             )
         }
     }
@@ -92,16 +101,18 @@ class ImageViewerDialogState internal constructor() {
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun rememberImageViewerDialogState(): ImageViewerDialogState {
-    return remember { ImageViewerDialogState() }
-}
-
-@Composable
-fun ImageViewerDialog(state: ImageViewerDialogState) {
-    val imageUrl = state.imageUrl ?: return
+fun ImageViewerDialog(
+    imageUrl: String,
+    onDismissRequest: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+) {
     ImageViewerScreen(
         imageUrl = imageUrl,
-        onDismissRequest = { state.dismiss() }
+        onDismissRequest = onDismissRequest,
+        sharedTransitionScope = sharedTransitionScope,
+        animatedVisibilityScope = animatedVisibilityScope
     )
 }
