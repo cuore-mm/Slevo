@@ -1,18 +1,16 @@
 name: "Copilot Setup Steps"
 
 on:
-  # 手動実行もできるように
   workflow_dispatch:
 
 jobs:
   copilot-setup-steps:
     runs-on: ubuntu-latest
 
+    # ここでは式を使わず、素の環境変数名だけ定義する
     env:
-      ANDROID_SDK_ROOT: ${{ runner.temp }}/Android/sdk
-      ANDROID_HOME:     ${{ runner.temp }}/Android/sdk
-      # sdkmanager と platform-tools を通す
-      PATH: ${{ env.PATH }}:${{ runner.temp }}/Android/sdk/cmdline-tools/latest/bin:${{ runner.temp }}/Android/sdk/platform-tools
+      ANDROID_SDK_ROOT: $HOME/Android/sdk
+      ANDROID_HOME: $HOME/Android/sdk
 
     steps:
       - name: Check out
@@ -30,15 +28,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y wget unzip zip tar ca-certificates
 
-      - name: Install Android commandline-tools (jules style)
+      - name: Prepare Android SDK directory
         run: |
           set -euxo pipefail
           mkdir -p "$ANDROID_SDK_ROOT"
+
+      - name: Install Android commandline-tools (jules style)
+        run: |
+          set -euxo pipefail
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -O /tmp/tools.zip
           unzip -q /tmp/tools.zip -d /tmp/tools
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
           mv /tmp/tools/cmdline-tools/* "$ANDROID_SDK_ROOT/cmdline-tools/latest"
           rm -rf /tmp/tools /tmp/tools.zip
+
+      # PATH は $GITHUB_PATH に追記して反映する（env で PATH を上書きしない）
+      - name: Add Android tools to PATH
+        run: |
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
 
       - name: Accept licenses & Install SDK packages
         run: |
@@ -46,7 +54,6 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.1"
 
-      # Gradle キャッシュ（任意だが高速化に有効）
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
@@ -65,12 +72,11 @@ jobs:
 
       - name: Build (assemble + test)
         id: copilot-build
-        continue-on-error: true   # Copilot が前処理として完走できるように推奨
+        continue-on-error: true
         run: |
           set -euxo pipefail
           ./gradlew --no-daemon clean assembleDebug test
 
-      # 失敗時にログを残す（任意）
       - name: Upload build logs on failure
         if: steps.copilot-build.outcome == 'failure'
         uses: actions/upload-artifact@v4
