@@ -274,12 +274,11 @@ fun ThreadScaffold(
             )
 
             SharedTransitionLayout {
-                if (postUiState.postDialog) {
-                    val context = LocalContext.current
-                    AnimatedVisibility(
-                        visible = postUiState.postDialog,
-                        label = "PostDialogAnimation"
-                    ) {
+                val context = LocalContext.current
+                AnimatedVisibility(
+                    visible = postUiState.postDialog,
+                    label = "PostDialogAnimation"
+                ) {
                         PostDialog(
                             onDismissRequest = { viewModel.hidePostDialog() },
                             name = postUiState.postFormState.name,
@@ -321,7 +320,6 @@ fun ThreadScaffold(
                             animatedVisibilityScope = this@AnimatedVisibility
                         )
                     }
-                }
                 
                 AnimatedVisibility(
                     visible = imageViewerState.imageUrl != null,

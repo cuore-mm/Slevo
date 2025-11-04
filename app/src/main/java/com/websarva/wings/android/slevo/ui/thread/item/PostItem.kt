@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.item
 
 import android.os.Build
+import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -60,7 +61,7 @@ import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 import java.time.LocalDate
 
-@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PostItem(
     modifier: Modifier = Modifier,

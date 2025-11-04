@@ -235,12 +235,11 @@ fun BoardScaffold(
             }
 
             SharedTransitionLayout {
-                if (uiState.createDialog) {
-                    val context = LocalContext.current
-                    AnimatedVisibility(
-                        visible = uiState.createDialog,
-                        label = "PostDialogAnimation"
-                    ) {
+                val context = LocalContext.current
+                AnimatedVisibility(
+                    visible = uiState.createDialog,
+                    label = "PostDialogAnimation"
+                ) {
                         PostDialog(
                             onDismissRequest = { viewModel.hideCreateDialog() },
                             name = uiState.createFormState.name,
@@ -277,7 +276,6 @@ fun BoardScaffold(
                             animatedVisibilityScope = this@AnimatedVisibility
                         )
                     }
-                }
                 
                 AnimatedVisibility(
                     visible = imageViewerState.imageUrl != null,
