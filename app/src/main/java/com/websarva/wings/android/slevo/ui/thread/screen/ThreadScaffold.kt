@@ -273,9 +273,9 @@ fun ThreadScaffold(
                 onLineHeightChange = { viewModel.updateLineHeight(it) }
             )
 
-            if (postUiState.postDialog) {
-                val context = LocalContext.current
-                SharedTransitionLayout {
+            SharedTransitionLayout {
+                if (postUiState.postDialog) {
+                    val context = LocalContext.current
                     AnimatedVisibility(
                         visible = postUiState.postDialog,
                         label = "PostDialogAnimation"
@@ -321,17 +321,17 @@ fun ThreadScaffold(
                             animatedVisibilityScope = this@AnimatedVisibility
                         )
                     }
-                    
-                    AnimatedVisibility(
-                        visible = imageViewerState.imageUrl != null,
-                        label = "ImageViewerAnimation"
-                    ) {
-                        ImageViewerDialog(
-                            state = imageViewerState,
-                            sharedTransitionScope = this@SharedTransitionLayout,
-                            animatedVisibilityScope = this@AnimatedVisibility
-                        )
-                    }
+                }
+                
+                AnimatedVisibility(
+                    visible = imageViewerState.imageUrl != null,
+                    label = "ImageViewerAnimation"
+                ) {
+                    ImageViewerDialog(
+                        state = imageViewerState,
+                        sharedTransitionScope = this@SharedTransitionLayout,
+                        animatedVisibilityScope = this@AnimatedVisibility
+                    )
                 }
             }
 

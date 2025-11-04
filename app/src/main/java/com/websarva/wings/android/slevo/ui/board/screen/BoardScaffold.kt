@@ -234,9 +234,9 @@ fun BoardScaffold(
                 )
             }
 
-            if (uiState.createDialog) {
-                val context = LocalContext.current
-                SharedTransitionLayout {
+            SharedTransitionLayout {
+                if (uiState.createDialog) {
+                    val context = LocalContext.current
                     AnimatedVisibility(
                         visible = uiState.createDialog,
                         label = "PostDialogAnimation"
@@ -277,17 +277,17 @@ fun BoardScaffold(
                             animatedVisibilityScope = this@AnimatedVisibility
                         )
                     }
-                    
-                    AnimatedVisibility(
-                        visible = imageViewerState.imageUrl != null,
-                        label = "ImageViewerAnimation"
-                    ) {
-                        ImageViewerDialog(
-                            state = imageViewerState,
-                            sharedTransitionScope = this@SharedTransitionLayout,
-                            animatedVisibilityScope = this@AnimatedVisibility
-                        )
-                    }
+                }
+                
+                AnimatedVisibility(
+                    visible = imageViewerState.imageUrl != null,
+                    label = "ImageViewerAnimation"
+                ) {
+                    ImageViewerDialog(
+                        state = imageViewerState,
+                        sharedTransitionScope = this@SharedTransitionLayout,
+                        animatedVisibilityScope = this@AnimatedVisibility
+                    )
                 }
             }
 
