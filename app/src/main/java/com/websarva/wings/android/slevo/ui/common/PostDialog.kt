@@ -342,6 +342,7 @@ fun PostDialog(
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true)
 @Composable
 fun PostDialogPreview() {

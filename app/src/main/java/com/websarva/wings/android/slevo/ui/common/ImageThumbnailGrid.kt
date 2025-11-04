@@ -44,7 +44,7 @@ fun ImageThumbnailGrid(
                     val finalModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
                         with(sharedTransitionScope) {
                             imageModifier.sharedElement(
-                                state = rememberSharedContentState(key = "image-$url"),
+                                sharedContentState = rememberSharedContentState(key = "image-$url"),
                                 animatedVisibilityScope = animatedVisibilityScope,
                                 boundsTransform = { _, _ ->
                                     tween(durationMillis = 300)

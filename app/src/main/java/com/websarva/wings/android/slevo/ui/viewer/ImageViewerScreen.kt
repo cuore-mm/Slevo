@@ -52,7 +52,7 @@ fun ImageViewerScreen(
         val finalModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
             with(sharedTransitionScope) {
                 imageModifier.sharedElement(
-                    state = rememberSharedContentState(key = "image-$imageUrl"),
+                    sharedContentState = rememberSharedContentState(key = "image-$imageUrl"),
                     animatedVisibilityScope = animatedVisibilityScope,
                     boundsTransform = { _, _ ->
                         tween(durationMillis = 300)

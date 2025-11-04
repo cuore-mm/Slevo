@@ -60,6 +60,7 @@ import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 import java.time.LocalDate
 
+@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 @Composable
 fun PostItem(
     modifier: Modifier = Modifier,
