@@ -47,11 +47,9 @@ fun ImageViewerScreen(
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        val imageModifier = Modifier.fillMaxSize()
-        
-        val finalModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+        val imageModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
             with(sharedTransitionScope) {
-                imageModifier.sharedElement(
+                Modifier.fillMaxSize().sharedElement(
                     sharedContentState = rememberSharedContentState(key = "image-$imageUrl"),
                     animatedVisibilityScope = animatedVisibilityScope,
                     boundsTransform = { _, _ ->
@@ -60,14 +58,14 @@ fun ImageViewerScreen(
                 )
             }
         } else {
-            imageModifier
+            Modifier.fillMaxSize()
         }
         
         ZoomableAsyncImage(
             model = imageUrl,
             contentDescription = null,
             state = imageState,
-            modifier = finalModifier,
+            modifier = imageModifier,
         )
 
         TopAppBar(

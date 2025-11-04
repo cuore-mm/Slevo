@@ -35,31 +35,34 @@ fun ImageThumbnailGrid(
         imageUrls.chunked(3).forEach { rowItems ->
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 rowItems.forEach { url ->
-                    val imageModifier = Modifier
-                        .weight(1f)
-                        .aspectRatio(1f)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { onImageClick(url) }
-                    
-                    val finalModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+                    val imageModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
                         with(sharedTransitionScope) {
-                            imageModifier.sharedElement(
-                                sharedContentState = rememberSharedContentState(key = "image-$url"),
-                                animatedVisibilityScope = animatedVisibilityScope,
-                                boundsTransform = { _, _ ->
-                                    tween(durationMillis = 300)
-                                }
-                            )
+                            Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { onImageClick(url) }
+                                .sharedElement(
+                                    sharedContentState = rememberSharedContentState(key = "image-$url"),
+                                    animatedVisibilityScope = animatedVisibilityScope,
+                                    boundsTransform = { _, _ ->
+                                        tween(durationMillis = 300)
+                                    }
+                                )
                         }
                     } else {
-                        imageModifier
+                        Modifier
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { onImageClick(url) }
                     }
                     
                     SubcomposeAsyncImage(
                         model = url,
                         contentDescription = null,
                         contentScale = ContentScale.Fit,
-                        modifier = finalModifier,
+                        modifier = imageModifier,
                         loading = {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
