@@ -1,6 +1,9 @@
 package com.websarva.wings.android.slevo.ui.board.screen
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Create
@@ -39,7 +42,7 @@ import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBeh
 import com.websarva.wings.android.slevo.ui.viewer.ImageViewerDialog
 import com.websarva.wings.android.slevo.ui.viewer.rememberImageViewerDialogState
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun BoardScaffold(
     boardRoute: AppRoute.Board,
@@ -233,39 +236,59 @@ fun BoardScaffold(
 
             if (uiState.createDialog) {
                 val context = LocalContext.current
-                PostDialog(
-                    onDismissRequest = { viewModel.hideCreateDialog() },
-                    name = uiState.createFormState.name,
-                    mail = uiState.createFormState.mail,
-                    message = uiState.createFormState.message,
-                    namePlaceholder = uiState.boardInfo.noname.ifBlank { stringResource(R.string.name) },
-                    nameHistory = uiState.createNameHistory,
-                    mailHistory = uiState.createMailHistory,
-                    onNameChange = { viewModel.updateCreateName(it) },
-                    onMailChange = { viewModel.updateCreateMail(it) },
-                    onMessageChange = { viewModel.updateCreateMessage(it) },
-                    onNameHistorySelect = { viewModel.selectCreateNameHistory(it) },
-                    onMailHistorySelect = { viewModel.selectCreateMailHistory(it) },
-                    onNameHistoryDelete = { viewModel.deleteCreateNameHistory(it) },
-                    onMailHistoryDelete = { viewModel.deleteCreateMailHistory(it) },
-                    onPostClick = {
-                        parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                            viewModel.createThreadFirstPhase(
-                                host,
-                                boardKey,
-                                uiState.createFormState.title,
-                                uiState.createFormState.name,
-                                uiState.createFormState.mail,
-                                uiState.createFormState.message
-                            )
-                        }
-                    },
-                    confirmButtonText = stringResource(R.string.create_thread),
-                    title = uiState.createFormState.title,
-                    onTitleChange = { viewModel.updateCreateTitle(it) },
-                    onImageSelect = { uri -> viewModel.uploadImage(context, uri) },
-                    onImageUrlClick = { url -> imageViewerState.show(url) }
-                )
+                SharedTransitionLayout {
+                    AnimatedVisibility(
+                        visible = uiState.createDialog,
+                        label = "PostDialogAnimation"
+                    ) {
+                        PostDialog(
+                            onDismissRequest = { viewModel.hideCreateDialog() },
+                            name = uiState.createFormState.name,
+                            mail = uiState.createFormState.mail,
+                            message = uiState.createFormState.message,
+                            namePlaceholder = uiState.boardInfo.noname.ifBlank { stringResource(R.string.name) },
+                            nameHistory = uiState.createNameHistory,
+                            mailHistory = uiState.createMailHistory,
+                            onNameChange = { viewModel.updateCreateName(it) },
+                            onMailChange = { viewModel.updateCreateMail(it) },
+                            onMessageChange = { viewModel.updateCreateMessage(it) },
+                            onNameHistorySelect = { viewModel.selectCreateNameHistory(it) },
+                            onMailHistorySelect = { viewModel.selectCreateMailHistory(it) },
+                            onNameHistoryDelete = { viewModel.deleteCreateNameHistory(it) },
+                            onMailHistoryDelete = { viewModel.deleteCreateMailHistory(it) },
+                            onPostClick = {
+                                parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
+                                    viewModel.createThreadFirstPhase(
+                                        host,
+                                        boardKey,
+                                        uiState.createFormState.title,
+                                        uiState.createFormState.name,
+                                        uiState.createFormState.mail,
+                                        uiState.createFormState.message
+                                    )
+                                }
+                            },
+                            confirmButtonText = stringResource(R.string.create_thread),
+                            title = uiState.createFormState.title,
+                            onTitleChange = { viewModel.updateCreateTitle(it) },
+                            onImageSelect = { uri -> viewModel.uploadImage(context, uri) },
+                            onImageUrlClick = { url -> imageViewerState.show(url) },
+                            sharedTransitionScope = this@SharedTransitionLayout,
+                            animatedVisibilityScope = this@AnimatedVisibility
+                        )
+                    }
+                    
+                    AnimatedVisibility(
+                        visible = imageViewerState.imageUrl != null,
+                        label = "ImageViewerAnimation"
+                    ) {
+                        ImageViewerDialog(
+                            state = imageViewerState,
+                            sharedTransitionScope = this@SharedTransitionLayout,
+                            animatedVisibilityScope = this@AnimatedVisibility
+                        )
+                    }
+                }
             }
 
             if (uiState.isConfirmationScreen) {
@@ -298,6 +321,4 @@ fun BoardScaffold(
             }
         }
     )
-
-    ImageViewerDialog(state = imageViewerState)
 }

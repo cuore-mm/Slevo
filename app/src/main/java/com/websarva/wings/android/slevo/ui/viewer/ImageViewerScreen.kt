@@ -1,5 +1,9 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,11 +28,13 @@ import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun ImageViewerScreen(
     imageUrl: String,
-    onDismissRequest: () -> Unit
+    onDismissRequest: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     val zoomableState = rememberZoomableState(
         zoomSpec = ZoomSpec(
@@ -41,11 +47,27 @@ fun ImageViewerScreen(
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
+        val imageModifier = Modifier.fillMaxSize()
+        
+        val finalModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+            with(sharedTransitionScope) {
+                imageModifier.sharedElement(
+                    state = rememberSharedContentState(key = "image-$imageUrl"),
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    boundsTransform = { _, _ ->
+                        tween(durationMillis = 300)
+                    }
+                )
+            }
+        } else {
+            imageModifier
+        }
+        
         ZoomableAsyncImage(
             model = imageUrl,
             contentDescription = null,
             state = imageState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = finalModifier,
         )
 
         TopAppBar(
@@ -85,11 +107,18 @@ fun rememberImageViewerDialogState(): ImageViewerDialogState {
     return remember { ImageViewerDialogState() }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun ImageViewerDialog(state: ImageViewerDialogState) {
+fun ImageViewerDialog(
+    state: ImageViewerDialogState,
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
+) {
     val imageUrl = state.imageUrl ?: return
     ImageViewerScreen(
         imageUrl = imageUrl,
-        onDismissRequest = { state.dismiss() }
+        onDismissRequest = { state.dismiss() },
+        sharedTransitionScope = sharedTransitionScope,
+        animatedVisibilityScope = animatedVisibilityScope
     )
 }

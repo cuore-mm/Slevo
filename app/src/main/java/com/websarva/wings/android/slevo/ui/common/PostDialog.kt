@@ -2,6 +2,9 @@ package com.websarva.wings.android.slevo.ui.common
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -55,6 +58,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PostDialog(
     onDismissRequest: () -> Unit,
@@ -77,6 +81,8 @@ fun PostDialog(
     onTitleChange: ((String) -> Unit)? = null,
     onImageSelect: ((android.net.Uri) -> Unit)? = null,
     onImageUrlClick: ((String) -> Unit)? = null,
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     // Preview（Inspection）環境かどうか
     val isPreview = LocalInspectionMode.current
@@ -290,7 +296,9 @@ fun PostDialog(
                             modifier = Modifier
                                 .padding(horizontal = 8.dp),
                             imageUrls = imageUrls,
-                            onImageClick = { url -> onImageUrlClick?.invoke(url) }
+                            onImageClick = { url -> onImageUrlClick?.invoke(url) },
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedVisibilityScope = animatedVisibilityScope
                         )
                     }
                 }
