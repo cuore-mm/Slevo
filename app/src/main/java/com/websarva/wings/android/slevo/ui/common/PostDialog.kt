@@ -57,6 +57,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.PopupProperties
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
+import com.websarva.wings.android.slevo.ui.viewer.ImageViewerDialog
+import com.websarva.wings.android.slevo.ui.viewer.rememberImageViewerDialogState
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -80,9 +82,6 @@ fun PostDialog(
     title: String? = null,
     onTitleChange: ((String) -> Unit)? = null,
     onImageSelect: ((android.net.Uri) -> Unit)? = null,
-    onImageUrlClick: ((String) -> Unit)? = null,
-    sharedTransitionScope: SharedTransitionScope? = null,
-    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     // Preview（Inspection）環境かどうか
     val isPreview = LocalInspectionMode.current
@@ -93,7 +92,14 @@ fun PostDialog(
         }
     } else null
 
-    val content: @Composable () -> Unit = {
+    val imageViewerState = rememberImageViewerDialogState()
+
+    SharedTransitionLayout {
+        AnimatedVisibility(
+            visible = true,
+            label = "PostDialogAnimation"
+        ) {
+            val content: @Composable () -> Unit = {
         val focusRequester = remember { FocusRequester() }
         val keyboard = LocalSoftwareKeyboardController.current
 
@@ -296,9 +302,9 @@ fun PostDialog(
                             modifier = Modifier
                                 .padding(horizontal = 8.dp),
                             imageUrls = imageUrls,
-                            onImageClick = { url -> onImageUrlClick?.invoke(url) },
-                            sharedTransitionScope = sharedTransitionScope,
-                            animatedVisibilityScope = animatedVisibilityScope
+                            onImageClick = { url -> imageViewerState.show(url) },
+                            sharedTransitionScope = this@SharedTransitionLayout,
+                            animatedVisibilityScope = this@AnimatedVisibility
                         )
                     }
                 }
@@ -339,6 +345,19 @@ fun PostDialog(
         content()
     } else {
         Dialog(onDismissRequest = onDismissRequest) { content() }
+    }
+        }
+        
+        AnimatedVisibility(
+            visible = imageViewerState.imageUrl != null,
+            label = "ImageViewerAnimation"
+        ) {
+            ImageViewerDialog(
+                state = imageViewerState,
+                sharedTransitionScope = this@SharedTransitionLayout,
+                animatedVisibilityScope = this@AnimatedVisibility
+            )
+        }
     }
 }
 

@@ -1,9 +1,6 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,10 +43,8 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostName
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.uploadImage
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
-import com.websarva.wings.android.slevo.ui.viewer.ImageViewerDialog
-import com.websarva.wings.android.slevo.ui.viewer.rememberImageViewerDialogState
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadScaffold(
     threadRoute: AppRoute.Thread,
@@ -59,8 +54,6 @@ fun ThreadScaffold(
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
-
-    val imageViewerState = rememberImageViewerDialogState()
 
     val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, threadRoute.threadKey)
@@ -273,64 +266,45 @@ fun ThreadScaffold(
                 onLineHeightChange = { viewModel.updateLineHeight(it) }
             )
 
-            SharedTransitionLayout {
+            if (postUiState.postDialog) {
                 val context = LocalContext.current
-                AnimatedVisibility(
-                    visible = postUiState.postDialog,
-                    label = "PostDialogAnimation"
-                ) {
-                        PostDialog(
-                            onDismissRequest = { viewModel.hidePostDialog() },
-                            name = postUiState.postFormState.name,
-                            mail = postUiState.postFormState.mail,
-                            message = postUiState.postFormState.message,
-                            namePlaceholder = uiState.boardInfo.noname.ifBlank { "name" },
-                            nameHistory = postUiState.nameHistory,
-                            mailHistory = postUiState.mailHistory,
-                            onNameChange = { viewModel.updatePostName(it) },
-                            onMailChange = { viewModel.updatePostMail(it) },
-                            onMessageChange = { viewModel.updatePostMessage(it) },
-                            onNameHistorySelect = { viewModel.selectPostNameHistory(it) },
-                            onMailHistorySelect = { viewModel.selectPostMailHistory(it) },
-                            onNameHistoryDelete = { viewModel.deletePostNameHistory(it) },
-                            onMailHistoryDelete = { viewModel.deletePostMailHistory(it) },
-                            onPostClick = {
-                                parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                    viewModel.postFirstPhase(
-                                        host,
-                                        boardKey,
-                                        uiState.threadInfo.key,
-                                        postUiState.postFormState.name,
-                                        postUiState.postFormState.mail,
-                                        postUiState.postFormState.message
-                                    ) { resNum ->
-                                        viewModel.onPostSuccess(
-                                            resNum,
-                                            postUiState.postFormState.message,
-                                            postUiState.postFormState.name,
-                                            postUiState.postFormState.mail
-                                        )
-                                    }
-                                }
-                            },
-                            confirmButtonText = stringResource(R.string.post),
-                            onImageSelect = { uri -> viewModel.uploadImage(context, uri) },
-                            onImageUrlClick = { url -> imageViewerState.show(url) },
-                            sharedTransitionScope = this@SharedTransitionLayout,
-                            animatedVisibilityScope = this@AnimatedVisibility
-                        )
-                    }
-                
-                AnimatedVisibility(
-                    visible = imageViewerState.imageUrl != null,
-                    label = "ImageViewerAnimation"
-                ) {
-                    ImageViewerDialog(
-                        state = imageViewerState,
-                        sharedTransitionScope = this@SharedTransitionLayout,
-                        animatedVisibilityScope = this@AnimatedVisibility
-                    )
-                }
+                PostDialog(
+                    onDismissRequest = { viewModel.hidePostDialog() },
+                    name = postUiState.postFormState.name,
+                    mail = postUiState.postFormState.mail,
+                    message = postUiState.postFormState.message,
+                    namePlaceholder = uiState.boardInfo.noname.ifBlank { "name" },
+                    nameHistory = postUiState.nameHistory,
+                    mailHistory = postUiState.mailHistory,
+                    onNameChange = { viewModel.updatePostName(it) },
+                    onMailChange = { viewModel.updatePostMail(it) },
+                    onMessageChange = { viewModel.updatePostMessage(it) },
+                    onNameHistorySelect = { viewModel.selectPostNameHistory(it) },
+                    onMailHistorySelect = { viewModel.selectPostMailHistory(it) },
+                    onNameHistoryDelete = { viewModel.deletePostNameHistory(it) },
+                    onMailHistoryDelete = { viewModel.deletePostMailHistory(it) },
+                    onPostClick = {
+                        parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
+                            viewModel.postFirstPhase(
+                                host,
+                                boardKey,
+                                uiState.threadInfo.key,
+                                postUiState.postFormState.name,
+                                postUiState.postFormState.mail,
+                                postUiState.postFormState.message
+                            ) { resNum ->
+                                viewModel.onPostSuccess(
+                                    resNum,
+                                    postUiState.postFormState.message,
+                                    postUiState.postFormState.name,
+                                    postUiState.postFormState.mail
+                                )
+                            }
+                        }
+                    },
+                    confirmButtonText = stringResource(R.string.post),
+                    onImageSelect = { uri -> viewModel.uploadImage(context, uri) }
+                )
             }
 
             if (postUiState.isConfirmationScreen) {
