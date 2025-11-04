@@ -28,6 +28,8 @@ import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
 
+private const val SHARED_TRANSITION_DURATION_MS = 300
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun ImageViewerScreen(
@@ -53,7 +55,7 @@ fun ImageViewerScreen(
                     sharedContentState = rememberSharedContentState(key = "image-$imageUrl"),
                     animatedVisibilityScope = animatedVisibilityScope,
                     boundsTransform = { _, _ ->
-                        tween(durationMillis = 300)
+                        tween(durationMillis = SHARED_TRANSITION_DURATION_MS)
                     }
                 )
             }

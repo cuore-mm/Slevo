@@ -22,6 +22,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 
+private const val SHARED_TRANSITION_DURATION_MS = 300
+
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ImageThumbnailGrid(
@@ -35,27 +37,24 @@ fun ImageThumbnailGrid(
         imageUrls.chunked(3).forEach { rowItems ->
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 rowItems.forEach { url ->
+                    val baseModifier = Modifier
+                        .weight(1f)
+                        .aspectRatio(1f)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { onImageClick(url) }
+                    
                     val imageModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
                         with(sharedTransitionScope) {
-                            Modifier
-                                .weight(1f)
-                                .aspectRatio(1f)
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { onImageClick(url) }
-                                .sharedElement(
-                                    sharedContentState = rememberSharedContentState(key = "image-$url"),
-                                    animatedVisibilityScope = animatedVisibilityScope,
-                                    boundsTransform = { _, _ ->
-                                        tween(durationMillis = 300)
-                                    }
-                                )
+                            baseModifier.sharedElement(
+                                sharedContentState = rememberSharedContentState(key = "image-$url"),
+                                animatedVisibilityScope = animatedVisibilityScope,
+                                boundsTransform = { _, _ ->
+                                    tween(durationMillis = SHARED_TRANSITION_DURATION_MS)
+                                }
+                            )
                         }
                     } else {
-                        Modifier
-                            .weight(1f)
-                            .aspectRatio(1f)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable { onImageClick(url) }
+                        baseModifier
                     }
                     
                     SubcomposeAsyncImage(
