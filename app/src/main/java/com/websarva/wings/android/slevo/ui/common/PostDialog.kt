@@ -341,7 +341,7 @@ fun PostDialogPreview() {
         onDismissRequest = { /* ダイアログを閉じる処理 */ },
         name = "",
         mail = "",
-        message = "",
+        message = "https://i.imgur.com/Btor6RG.jpeg",
         namePlaceholder = "それでも動く名無し",
         nameHistory = listOf("太郎", "名無し"),
         mailHistory = listOf("sage", "mail@example.com"),

@@ -15,12 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import me.saket.telephoto.zoomable.OverzoomEffect
 import me.saket.telephoto.zoomable.ZoomSpec
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
@@ -33,50 +30,40 @@ fun ImageViewerScreen(
     imageUrl: String,
     onDismissRequest: () -> Unit
 ) {
-    val dismissRequest by rememberUpdatedState(onDismissRequest)
-
-    Dialog(
-        onDismissRequest = dismissRequest,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
+    val zoomableState = rememberZoomableState(
+        zoomSpec = ZoomSpec(
+            maxZoomFactor = 12f,
+            overzoomEffect = OverzoomEffect.RubberBanding
         )
+    )
+    val imageState = rememberZoomableImageState(zoomableState)
+
+    Box(
+        modifier = Modifier.fillMaxSize()
     ) {
-        val zoomableState = rememberZoomableState(
-            zoomSpec = ZoomSpec(
-                maxZoomFactor = 12f,
-                overzoomEffect = OverzoomEffect.RubberBanding
-            )
+        ZoomableAsyncImage(
+            model = imageUrl,
+            contentDescription = null,
+            state = imageState,
+            modifier = Modifier.fillMaxSize(),
         )
-        val imageState = rememberZoomableImageState(zoomableState)
 
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            ZoomableAsyncImage(
-                model = imageUrl,
-                contentDescription = null,
-                state = imageState,
-                modifier = Modifier.fillMaxSize(),
-            )
-
-            TopAppBar(
-                title = { /* 必要であればタイトル */ },
-                navigationIcon = {
-                    IconButton(onClick = dismissRequest) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "戻る",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Black.copy(alpha = 0.5f)
-                ),
-                windowInsets = WindowInsets.systemBars
-            )
-        }
+        TopAppBar(
+            title = { /* 必要であればタイトル */ },
+            navigationIcon = {
+                IconButton(onClick = onDismissRequest) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "戻る",
+                        tint = Color.White
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Black.copy(alpha = 0.5f)
+            ),
+            windowInsets = WindowInsets.systemBars
+        )
     }
 }
 
