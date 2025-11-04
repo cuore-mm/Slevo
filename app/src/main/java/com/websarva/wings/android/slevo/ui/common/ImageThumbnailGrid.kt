@@ -22,8 +22,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 
-private const val SHARED_TRANSITION_DURATION_MS = 300
-
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ImageThumbnailGrid(
