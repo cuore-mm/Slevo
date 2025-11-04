@@ -1,76 +1,81 @@
-# copilot-setup-steps.yml
-# 目的: 一時的な Linux 開発環境で Android プロジェクトをビルド可能にする
-# 前提: Gradle Wrapper 同梱 (./gradlew)
+name: "Copilot Setup Steps"
 
-version: 1
+on:
+  # 手動実行もできるように
+  workflow_dispatch:
 
-env:
-  ANDROID_SDK_ROOT: "${HOME}/Android/sdk"
-  ANDROID_HOME: "${HOME}/Android/sdk"
-  # PATH は末尾で追記（cmdline-tools, platform-tools を通す）
-  PATH: "${PATH}:${HOME}/Android/sdk/cmdline-tools/latest/bin:${HOME}/Android/sdk/platform-tools"
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Install OS prerequisites
-    shell: bash
-    run: |
-      set -euxo pipefail
-      if command -v apt-get >/dev/null 2>&1; then
-        sudo apt-get update
-        sudo apt-get install -y wget unzip zip tar ca-certificates
-      fi
+    env:
+      ANDROID_SDK_ROOT: ${{ runner.temp }}/Android/sdk
+      ANDROID_HOME:     ${{ runner.temp }}/Android/sdk
+      # sdkmanager と platform-tools を通す
+      PATH: ${{ env.PATH }}:${{ runner.temp }}/Android/sdk/cmdline-tools/latest/bin:${{ runner.temp }}/Android/sdk/platform-tools
 
-  - name: Install JDK 17 (for AGP/Gradle)
-    shell: bash
-    run: |
-      set -euxo pipefail
-      if command -v apt-get >/dev/null 2>&1; then
-        sudo apt-get install -y openjdk-17-jdk
-        echo "JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac))))" >> "$HOME/.env_java"
-        echo 'export JAVA_HOME' >> "$HOME/.env_java"
-        echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> "$HOME/.env_java"
-        # セッションに反映
-        source "$HOME/.env_java"
-      fi
-      java -version
-      javac -version
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
 
-  - name: Install Android commandline-tools
-    shell: bash
-    run: |
-      set -euxo pipefail
-      mkdir -p "$ANDROID_SDK_ROOT"
-      # ===== jules 例に合わせた取得・配置 =====
-      wget -q https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -O /tmp/tools.zip
-      unzip -q /tmp/tools.zip -d /tmp/tools
-      mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-      mv /tmp/tools/cmdline-tools/* "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-      rm -rf /tmp/tools /tmp/tools.zip
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-  - name: Install Android SDK packages
-    shell: bash
-    run: |
-      set -euxo pipefail
-      yes | sdkmanager --licenses
-      sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.1"
+      - name: Install OS prerequisites
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y wget unzip zip tar ca-certificates
 
-  - name: Gradle warmup
-    shell: bash
-    run: |
-      set -euxo pipefail
-      chmod +x ./gradlew
-      # CI/一時環境向け: デーモン無効 & コンソール簡潔化
-      ./gradlew --no-daemon --version
+      - name: Install Android commandline-tools (jules style)
+        run: |
+          set -euxo pipefail
+          mkdir -p "$ANDROID_SDK_ROOT"
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -O /tmp/tools.zip
+          unzip -q /tmp/tools.zip -d /tmp/tools
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          mv /tmp/tools/cmdline-tools/* "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          rm -rf /tmp/tools /tmp/tools.zip
 
-  - name: Build (assemble + test)
-    shell: bash
-    run: |
-      set -euxo pipefail
-      ./gradlew --no-daemon clean assembleDebug test
+      - name: Accept licenses & Install SDK packages
+        run: |
+          set -euxo pipefail
+          yes | sdkmanager --licenses
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.1"
 
-  # 必要に応じてリリースビルド（署名なし）:
-  # - name: Build release (unsigned)
-  #   shell: bash
-  #   run: |
-  #     set -euxo pipefail
-  #     ./gradlew --no-daemon assembleRelease
+      # Gradle キャッシュ（任意だが高速化に有効）
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Gradle warmup
+        run: |
+          set -euxo pipefail
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --version
+
+      - name: Build (assemble + test)
+        id: copilot-build
+        continue-on-error: true   # Copilot が前処理として完走できるように推奨
+        run: |
+          set -euxo pipefail
+          ./gradlew --no-daemon clean assembleDebug test
+
+      # 失敗時にログを残す（任意）
+      - name: Upload build logs on failure
+        if: steps.copilot-build.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-logs
+          path: |
+            **/build/reports/**
+            **/*.log
