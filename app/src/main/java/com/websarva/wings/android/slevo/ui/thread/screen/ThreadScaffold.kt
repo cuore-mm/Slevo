@@ -1,6 +1,9 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,12 +49,14 @@ import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBeh
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun ThreadScaffold(
     threadRoute: AppRoute.Thread,
     navController: NavHostController,
     tabsViewModel: TabsViewModel,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -193,6 +198,8 @@ fun ThreadScaffold(
                 },
                 onReplyToPost = { viewModel.showReplyDialog(it) },
                 gestureSettings = uiState.gestureSettings,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
                 onGestureAction = { action ->
                     when (action) {
                         GestureAction.Refresh -> viewModel.reloadThread()
@@ -314,7 +321,9 @@ fun ThreadScaffold(
                                 )
                             )
                         )
-                    }
+                    },
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope
                 )
             }
 

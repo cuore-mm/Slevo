@@ -2,6 +2,8 @@ package com.websarva.wings.android.slevo.ui.navigation
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarState
@@ -25,7 +27,7 @@ import kotlinx.serialization.Serializable
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun AppNavGraph(
     parentPadding: PaddingValues,
@@ -34,6 +36,7 @@ fun AppNavGraph(
     settingsViewModel: SettingsViewModel,
     openDrawer: () -> Unit,
     tabsViewModel: TabsViewModel,
+    sharedTransitionScope: SharedTransitionScope,
 ) {
     NavHost(
         navController = navController,
@@ -131,6 +134,8 @@ fun AppNavGraph(
                 boardRoute = boardRoute,
                 navController = navController,
                 tabsViewModel = tabsViewModel,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = this@composable,
             )
         }
         //スレッド画面
@@ -145,6 +150,8 @@ fun AppNavGraph(
                 threadRoute = threadRoute,
                 navController = navController,
                 tabsViewModel = tabsViewModel,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = this@composable,
             )
         }
         //タブ画面
@@ -191,7 +198,9 @@ fun AppNavGraph(
                 URLDecoder.decode(imageViewerRoute.imageUrl, StandardCharsets.UTF_8.toString())
             ImageViewerScreen(
                 imageUrl = decodedUrl,
-                onNavigateUp = { navController.navigateUp() }
+                onNavigateUp = { navController.navigateUp() },
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = this@composable
             )
         }
     }

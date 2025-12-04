@@ -2,6 +2,9 @@ package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
@@ -74,7 +77,7 @@ import my.nanihadesuka.compose.LazyColumnScrollbar
 import kotlin.math.min
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun ThreadScreen(
     modifier: Modifier = Modifier,
@@ -89,6 +92,8 @@ fun ThreadScreen(
     onReplyToPost: (Int) -> Unit = {},
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     onGestureAction: (GestureAction) -> Unit = {},
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     // 投稿一覧（nullの場合は空リスト）
     val posts = uiState.posts ?: emptyList()
@@ -334,6 +339,8 @@ fun ThreadScreen(
                         isMyPost = postNum in uiState.myPostNumbers,
                         dimmed = display.dimmed,
                         searchQuery = uiState.searchQuery,
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope,
                         onReplyFromClick = { nums ->
                             val offset = if (popupStack.isEmpty()) {
                                 itemOffsetHolder.value
@@ -471,7 +478,9 @@ fun ThreadScreen(
             bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
             lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
             searchQuery = uiState.searchQuery,
-            onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) }
+            onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) },
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope
         )
 
         val arrowRotation by animateFloatAsState(
@@ -504,6 +513,7 @@ fun ThreadScreen(
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Preview(showBackground = true)
 @Composable

@@ -2,6 +2,8 @@ package com.websarva.wings.android.slevo.ui
 
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -27,7 +29,7 @@ import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun AppScaffold(
     modifier: Modifier = Modifier,
@@ -67,14 +69,17 @@ fun AppScaffold(
         }
     ) { innerPadding ->
 
-        AppNavGraph(
-            parentPadding = innerPadding,
-            navController = navController,
-            topBarState = topBarState,
-            settingsViewModel = settingsViewModel,
-            openDrawer = openDrawer,
-            tabsViewModel = tabsViewModel
-        )
+        SharedTransitionLayout {
+            AppNavGraph(
+                parentPadding = innerPadding,
+                navController = navController,
+                topBarState = topBarState,
+                settingsViewModel = settingsViewModel,
+                openDrawer = openDrawer,
+                tabsViewModel = tabsViewModel,
+                sharedTransitionScope = this
+            )
+        }
     }
 
     if (showMoreMenu) {

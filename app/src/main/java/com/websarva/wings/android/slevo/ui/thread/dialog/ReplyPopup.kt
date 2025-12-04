@@ -5,6 +5,9 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -52,6 +55,7 @@ data class PopupInfo(
 private const val POPUP_ANIMATION_DURATION = 160
 
 @SuppressLint("ConfigurationScreenWidthHeight")
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ReplyPopup(
     popupStack: SnapshotStateList<PopupInfo>,
@@ -69,7 +73,9 @@ fun ReplyPopup(
     bodyTextScale: Float,
     lineHeight: Float,
     searchQuery: String = "",
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
 
@@ -170,6 +176,8 @@ fun ReplyPopup(
                                 bodyTextScale = bodyTextScale,
                                 lineHeight = lineHeight,
                                 searchQuery = searchQuery,
+                                sharedTransitionScope = sharedTransitionScope,
+                                animatedVisibilityScope = animatedVisibilityScope,
                                 isMyPost = postNum in myPostNumbers,
                                 replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers } ?: emptyList(),
                                 onReplyFromClick = { nums ->
@@ -221,6 +229,7 @@ fun ReplyPopup(
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @SuppressLint("UnrememberedMutableState")
 @Preview(showBackground = true)

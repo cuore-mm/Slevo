@@ -1,6 +1,9 @@
 package com.websarva.wings.android.slevo.ui.board.screen
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Create
@@ -39,12 +42,14 @@ import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBeh
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun BoardScaffold(
     boardRoute: AppRoute.Board,
     navController: NavHostController,
     tabsViewModel: TabsViewModel,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -271,7 +276,9 @@ fun BoardScaffold(
                                 )
                             )
                         )
-                    }
+                    },
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope
                 )
             }
 

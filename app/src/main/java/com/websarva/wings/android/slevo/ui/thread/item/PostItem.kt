@@ -1,6 +1,9 @@
 package com.websarva.wings.android.slevo.ui.thread.item
 
 import android.os.Build
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -62,6 +65,7 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.LocalDate
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PostItem(
     modifier: Modifier = Modifier,
@@ -85,6 +89,8 @@ fun PostItem(
     onReplyClick: ((Int) -> Unit)? = null,
     onMenuReplyClick: ((Int) -> Unit)? = null,
     onIdClick: ((String) -> Unit)? = null,
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val dialogState = rememberPostItemDialogState()
@@ -516,7 +522,9 @@ fun PostItem(
                                     )
                                 )
                             )
-                        }
+                        },
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope
                     )
                 }
             }
@@ -560,6 +568,7 @@ fun PostItem(
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true)
 @Composable
 fun ReplyCardPreview() {
