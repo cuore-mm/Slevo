@@ -2,8 +2,10 @@ package com.websarva.wings.android.slevo.ui.common
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -81,8 +83,8 @@ fun PostDialog(
     onTitleChange: ((String) -> Unit)? = null,
     onImageSelect: ((android.net.Uri) -> Unit)? = null,
     onImageUrlClick: ((String) -> Unit)? = null,
-    sharedTransitionScope: SharedTransitionScope? = null,
-    animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     // Preview（Inspection）環境かどうか
     val isPreview = LocalInspectionMode.current
@@ -346,23 +348,29 @@ fun PostDialog(
 @Preview(showBackground = true)
 @Composable
 fun PostDialogPreview() {
-    PostDialog(
-        onDismissRequest = { /* ダイアログを閉じる処理 */ },
-        name = "",
-        mail = "",
-        message = "",
-        namePlaceholder = "それでも動く名無し",
-        nameHistory = listOf("太郎", "名無し"),
-        mailHistory = listOf("sage", "mail@example.com"),
-        onNameChange = { /* 名前変更処理 */ },
-        onMailChange = { /* メール変更処理 */ },
-        onMessageChange = { /* メッセージ変更処理 */ },
-        onNameHistorySelect = {},
-        onMailHistorySelect = {},
-        onNameHistoryDelete = {},
-        onMailHistoryDelete = {},
-        onPostClick = { /* 投稿処理 */ },
-        confirmButtonText = "書き込み",
-        onImageSelect = { }
-    )
+    SharedTransitionLayout {
+        AnimatedVisibility(visible = true) {
+            PostDialog(
+                onDismissRequest = { /* ダイアログを閉じる処理 */ },
+                name = "",
+                mail = "",
+                message = "",
+                namePlaceholder = "それでも動く名無し",
+                nameHistory = listOf("太郎", "名無し"),
+                mailHistory = listOf("sage", "mail@example.com"),
+                onNameChange = { /* 名前変更処理 */ },
+                onMailChange = { /* メール変更処理 */ },
+                onMessageChange = { /* メッセージ変更処理 */ },
+                onNameHistorySelect = {},
+                onMailHistorySelect = {},
+                onNameHistoryDelete = {},
+                onMailHistoryDelete = {},
+                onPostClick = { /* 投稿処理 */ },
+                confirmButtonText = "書き込み",
+                onImageSelect = { },
+                sharedTransitionScope = this@SharedTransitionLayout,
+                animatedVisibilityScope = this
+            )
+        }
+    }
 }

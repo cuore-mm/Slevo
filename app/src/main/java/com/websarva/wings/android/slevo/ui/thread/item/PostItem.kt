@@ -1,8 +1,10 @@
 package com.websarva.wings.android.slevo.ui.thread.item
 
 import android.os.Build
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -89,8 +91,8 @@ fun PostItem(
     onReplyClick: ((Int) -> Unit)? = null,
     onMenuReplyClick: ((Int) -> Unit)? = null,
     onIdClick: ((String) -> Unit)? = null,
-    sharedTransitionScope: SharedTransitionScope? = null,
-    animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val dialogState = rememberPostItemDialogState()
@@ -572,6 +574,8 @@ fun PostItem(
 @Preview(showBackground = true)
 @Composable
 fun ReplyCardPreview() {
+    SharedTransitionLayout {
+        AnimatedVisibility(visible = true) {
     PostItem(
         post = ReplyInfo(
             name = "風吹けば名無し (ｵｰﾊﾟｲW ddad-g3Sx [2001:268:98f4:c793:*])",
@@ -594,5 +598,7 @@ fun ReplyCardPreview() {
         lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
         searchQuery = "",
         isMyPost = true,
-    )
+        sharedTransitionScope = this@SharedTransitionLayout,
+        animatedVisibilityScope = this
+    )}}
 }

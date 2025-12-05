@@ -27,43 +27,39 @@ fun ImageThumbnailGrid(
     imageUrls: List<String>,
     modifier: Modifier = Modifier,
     onImageClick: (String) -> Unit,
-    sharedTransitionScope: SharedTransitionScope? = null,
-    animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         imageUrls.chunked(3).forEach { rowItems ->
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 rowItems.forEach { url ->
-                    val sharedElementModifier =
-                        if (sharedTransitionScope != null && animatedVisibilityScope != null) {
-                            with(sharedTransitionScope) {
-                                Modifier.sharedElement(
-                                    sharedContentState = sharedTransitionScope.rememberSharedContentState(key = url),
+                    with(sharedTransitionScope) {
+                        SubcomposeAsyncImage(
+                            model = url,
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { onImageClick(url) }
+                                .sharedElement(
+                                    sharedContentState = sharedTransitionScope.rememberSharedContentState(
+                                        key = url
+                                    ),
                                     animatedVisibilityScope = animatedVisibilityScope
-                                )
-                            }
-                        } else {
-                            Modifier
-                        }
-
-                    SubcomposeAsyncImage(
-                        model = url,
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier = sharedElementModifier
-                            .weight(1f)
-                            .aspectRatio(1f)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable { onImageClick(url) },
-                        loading = {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                CircularProgressIndicator()
-                            }
-                        },
-                    )
+                                ),
+                            loading = {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            },
+                        )
+                    }
                 }
                 repeat(3 - rowItems.size) {
                     Spacer(modifier = Modifier.weight(1f))

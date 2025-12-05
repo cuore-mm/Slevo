@@ -41,10 +41,6 @@ fun AppNavGraph(
     NavHost(
         navController = navController,
         startDestination = AppRoute.Tabs,
-        enterTransition = { EnterTransition.None },
-        exitTransition = { ExitTransition.None },
-        popEnterTransition = { EnterTransition.None },
-        popExitTransition = { ExitTransition.None }
     ) {
         //お気に入り一覧
         composable<AppRoute.BookmarkList>(
@@ -140,10 +136,35 @@ fun AppNavGraph(
         }
         //スレッド画面
         composable<AppRoute.Thread>(
-            enterTransition = { defaultEnterTransition() },
-            exitTransition = { defaultExitTransition() },
-            popEnterTransition = { defaultPopEnterTransition() },
-            popExitTransition = { defaultPopExitTransition() }
+            enterTransition = {
+                if (initialState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER)) {
+                    null
+                } else {
+                    defaultEnterTransition()
+                }
+            },
+            exitTransition = {
+                // ImageViewer へ遷移するときは Nav アニメなし
+                if (targetState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER)) {
+                    null
+                } else {
+                    defaultExitTransition()
+                }
+            },
+            popEnterTransition = {
+                if (initialState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER)) {
+                    null
+                } else {
+                    defaultPopEnterTransition()
+                }
+            },
+            popExitTransition = {
+                if (targetState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER)) {
+                    null
+                } else {
+                    defaultPopExitTransition()
+                }
+            }
         ) { backStackEntry ->
             val threadRoute: AppRoute.Thread = backStackEntry.toRoute()
             ThreadScaffold(
@@ -155,7 +176,52 @@ fun AppNavGraph(
             )
         }
         //タブ画面
-        composable<AppRoute.Tabs> {
+        composable<AppRoute.Tabs>(
+            enterTransition = {
+                if (initialState.destination.isInRoute(
+                        AppRoute.RouteName.BOOKMARK_LIST,
+                        AppRoute.RouteName.BBS_SERVICE_GROUP
+                    )
+                ) {
+                    EnterTransition.None
+                } else {
+                    defaultEnterTransition()
+                }
+            },
+            exitTransition = {
+                if (targetState.destination.isInRoute(
+                        AppRoute.RouteName.BOOKMARK_LIST,
+                        AppRoute.RouteName.BBS_SERVICE_GROUP
+                    )
+                ) {
+                    ExitTransition.None
+                } else {
+                    defaultExitTransition()
+                }
+            },
+            popEnterTransition = {
+                if (initialState.destination.isInRoute(
+                        AppRoute.RouteName.BOOKMARK_LIST,
+                        AppRoute.RouteName.BBS_SERVICE_GROUP
+                    )
+                ) {
+                    EnterTransition.None
+                } else {
+                    defaultPopEnterTransition()
+                }
+            },
+            popExitTransition = {
+                if (targetState.destination.isInRoute(
+                        AppRoute.RouteName.BOOKMARK_LIST,
+                        AppRoute.RouteName.BBS_SERVICE_GROUP
+                    )
+                ) {
+                    ExitTransition.None
+                } else {
+                    defaultPopExitTransition()
+                }
+            }
+        ) {
             TabsScaffold(
                 parentPadding = parentPadding,
                 tabsViewModel = tabsViewModel,
@@ -301,5 +367,6 @@ sealed class AppRoute {
         const val HISTORY_LIST = "HistoryList"
         const val ABOUT = "About"
         const val OPEN_SOURCE_LICENSE = "OpenSourceLicense"
+        const val IMAGE_VIEWER = "ImageViewer"
     }
 }

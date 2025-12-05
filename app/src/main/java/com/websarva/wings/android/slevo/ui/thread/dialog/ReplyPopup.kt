@@ -7,35 +7,36 @@ import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
-import androidx.compose.material3.Card
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.navigation.NavHostController
@@ -74,8 +75,8 @@ fun ReplyPopup(
     lineHeight: Float,
     searchQuery: String = "",
     onClose: () -> Unit,
-    sharedTransitionScope: SharedTransitionScope? = null,
-    animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
 
@@ -128,8 +129,12 @@ fun ReplyPopup(
         ) {
             AnimatedVisibility(
                 visibleState = visibleState,
-                enter = fadeIn(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)) + scaleIn(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)),
-                exit = fadeOut(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)) + scaleOut(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION))
+                enter = fadeIn(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)) + scaleIn(
+                    animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)
+                ),
+                exit = fadeOut(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)) + scaleOut(
+                    animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)
+                )
             ) {
                 Card(
                     modifier = Modifier
@@ -145,7 +150,8 @@ fun ReplyPopup(
                                 Modifier.pointerInput(Unit) {
                                     awaitPointerEventScope {
                                         while (true) {
-                                            val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                            val event =
+                                                awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                                             event.changes.forEach { it.consume() }
                                         }
                                     }
@@ -179,15 +185,19 @@ fun ReplyPopup(
                                 sharedTransitionScope = sharedTransitionScope,
                                 animatedVisibilityScope = animatedVisibilityScope,
                                 isMyPost = postNum in myPostNumbers,
-                                replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers } ?: emptyList(),
+                                replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers }
+                                    ?: emptyList(),
                                 onReplyFromClick = { nums ->
                                     val off = IntOffset(
                                         popupStack[index].offset.x,
-                                        (popupStack[index].offset.y - popupStack[index].size.height).coerceAtLeast(0)
+                                        (popupStack[index].offset.y - popupStack[index].size.height).coerceAtLeast(
+                                            0
+                                        )
                                     )
-                                    val targets = nums.filterNot { it in ngPostNumbers }.mapNotNull { n ->
-                                        posts.getOrNull(n - 1)
-                                    }
+                                    val targets =
+                                        nums.filterNot { it in ngPostNumbers }.mapNotNull { n ->
+                                            posts.getOrNull(n - 1)
+                                        }
                                     if (targets.isNotEmpty()) {
                                         popupStack.add(PopupInfo(targets, off))
                                     }
@@ -262,21 +272,27 @@ fun ReplyPopupPreview() {
             offset = IntOffset(100, 400)
         )
     )
-    ReplyPopup(
-        popupStack = popupStack,
-        posts = dummyPosts,
-        replySourceMap = dummyReplySourceMap,
-        idCountMap = dummyIdCountMap,
-        idIndexList = dummyIdIndexList,
-        ngPostNumbers = dummyNgPostNumbers,
-        myPostNumbers = emptySet(),
-        navController = navController,
-        boardName = "test",
-        boardId = 1L,
-        headerTextScale = 0.85f,
-        bodyTextScale = 1f,
-        lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
-        onClose = {},
-        searchQuery = "",
-    )
+    SharedTransitionLayout {
+        AnimatedVisibility(visible = true) {
+            ReplyPopup(
+                popupStack = popupStack,
+                posts = dummyPosts,
+                replySourceMap = dummyReplySourceMap,
+                idCountMap = dummyIdCountMap,
+                idIndexList = dummyIdIndexList,
+                ngPostNumbers = dummyNgPostNumbers,
+                myPostNumbers = emptySet(),
+                navController = navController,
+                boardName = "test",
+                boardId = 1L,
+                headerTextScale = 0.85f,
+                bodyTextScale = 1f,
+                lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
+                onClose = {},
+                searchQuery = "",
+                sharedTransitionScope = this@SharedTransitionLayout,
+                animatedVisibilityScope = this
+            )
+        }
+    }
 }

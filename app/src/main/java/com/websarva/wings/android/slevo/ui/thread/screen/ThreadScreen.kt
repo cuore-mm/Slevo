@@ -2,8 +2,10 @@ package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.scrollBy
@@ -56,9 +58,11 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureSettings
-import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
+import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
+import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.PopupInfo
@@ -67,15 +71,13 @@ import com.websarva.wings.android.slevo.ui.thread.item.PostItem
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
 import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import my.nanihadesuka.compose.LazyColumnScrollbar
 import kotlin.math.min
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -92,8 +94,8 @@ fun ThreadScreen(
     onReplyToPost: (Int) -> Unit = {},
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     onGestureAction: (GestureAction) -> Unit = {},
-    sharedTransitionScope: SharedTransitionScope? = null,
-    animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     // 投稿一覧（nullの場合は空リスト）
     val posts = uiState.posts ?: emptyList()
@@ -161,8 +163,8 @@ fun ThreadScreen(
             val info = listState.layoutInfo
             val last = info.visibleItemsInfo.lastOrNull()
             val atEnd = last != null &&
-                last.index == info.totalItemsCount - 1 &&
-                last.offset + last.size <= info.viewportEndOffset + 1
+                    last.index == info.totalItemsCount - 1 &&
+                    last.offset + last.size <= info.viewportEndOffset + 1
 
             if (atEnd || consumed == 0f) {
                 onAutoScrollBottom()
@@ -402,9 +404,9 @@ fun ThreadScreen(
                             )
                         )
                     )
+                }
             }
         }
-    }
 
         if (uiState.showMinimapScrollbar) {
             Row(modifier = Modifier.fillMaxSize()) {
@@ -548,10 +550,16 @@ fun ThreadScreenPreview() {
         idIndexList = previewPosts.mapIndexed { i, _ -> i + 1 },
         replySourceMap = emptyMap()
     )
-    ThreadScreen(
-        uiState = uiState,
-        navController = NavHostController(LocalContext.current),
-        onAutoScrollBottom = {},
-        onBottomRefresh = {}
-    )
+    SharedTransitionLayout {
+        AnimatedVisibility(visible = true) {
+            ThreadScreen(
+                uiState = uiState,
+                navController = NavHostController(LocalContext.current),
+                onAutoScrollBottom = {},
+                onBottomRefresh = {},
+                sharedTransitionScope = this@SharedTransitionLayout,
+                animatedVisibilityScope = this
+            )
+        }
+    }
 }
