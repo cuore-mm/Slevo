@@ -16,7 +16,9 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.GestureAction
-import com.websarva.wings.android.slevo.ui.common.PostDialog
+import com.websarva.wings.android.slevo.ui.common.ReplyPostDialog
+import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
+import com.websarva.wings.android.slevo.ui.common.PostDialogConfig
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -276,42 +278,45 @@ fun ThreadScaffold(
 
             if (postUiState.postDialog) {
                 val context = LocalContext.current
-                PostDialog(
+                ReplyPostDialog(
+                    uiState = postUiState,
                     onDismissRequest = { viewModel.hidePostDialog() },
-                    name = postUiState.postFormState.name,
-                    mail = postUiState.postFormState.mail,
-                    message = postUiState.postFormState.message,
-                    namePlaceholder = uiState.boardInfo.noname.ifBlank { "name" },
-                    nameHistory = postUiState.nameHistory,
-                    mailHistory = postUiState.mailHistory,
-                    onNameChange = { viewModel.updatePostName(it) },
-                    onMailChange = { viewModel.updatePostMail(it) },
-                    onMessageChange = { viewModel.updatePostMessage(it) },
-                    onNameHistorySelect = { viewModel.selectPostNameHistory(it) },
-                    onMailHistorySelect = { viewModel.selectPostMailHistory(it) },
-                    onNameHistoryDelete = { viewModel.deletePostNameHistory(it) },
-                    onMailHistoryDelete = { viewModel.deletePostMailHistory(it) },
-                    onPostClick = {
-                        parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                            viewModel.postFirstPhase(
-                                host,
-                                boardKey,
-                                uiState.threadInfo.key,
-                                postUiState.postFormState.name,
-                                postUiState.postFormState.mail,
-                                postUiState.postFormState.message
-                            ) { resNum ->
-                                viewModel.onPostSuccess(
-                                    resNum,
-                                    postUiState.postFormState.message,
-                                    postUiState.postFormState.name,
-                                    postUiState.postFormState.mail
-                                )
+                    onAction = { action ->
+                        when (action) {
+                            is PostDialogAction.ChangeName -> viewModel.updatePostName(action.value)
+                            is PostDialogAction.ChangeMail -> viewModel.updatePostMail(action.value)
+                            is PostDialogAction.ChangeMessage -> viewModel.updatePostMessage(action.value)
+                            is PostDialogAction.SelectNameHistory -> viewModel.selectPostNameHistory(action.value)
+                            is PostDialogAction.SelectMailHistory -> viewModel.selectPostMailHistory(action.value)
+                            is PostDialogAction.DeleteNameHistory -> viewModel.deletePostNameHistory(action.value)
+                            is PostDialogAction.DeleteMailHistory -> viewModel.deletePostMailHistory(action.value)
+                            PostDialogAction.Post -> {
+                                parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
+                                    viewModel.postFirstPhase(
+                                        host,
+                                        boardKey,
+                                        uiState.threadInfo.key,
+                                        postUiState.postFormState.name,
+                                        postUiState.postFormState.mail,
+                                        postUiState.postFormState.message
+                                    ) { resNum ->
+                                        viewModel.onPostSuccess(
+                                            resNum,
+                                            postUiState.postFormState.message,
+                                            postUiState.postFormState.name,
+                                            postUiState.postFormState.mail
+                                        )
+                                    }
+                                }
                             }
+                            is PostDialogAction.ChangeTitle -> Unit
                         }
                     },
-                    confirmButtonText = stringResource(R.string.post),
-                    onImageSelect = { uri -> viewModel.uploadImage(context, uri) },
+                    config = PostDialogConfig(
+                        namePlaceholder = uiState.boardInfo.noname.ifBlank { "name" },
+                        confirmButtonText = stringResource(R.string.post)
+                    ),
+                    onImageUpload = { uri -> viewModel.uploadImage(context, uri) },
                     onImageUrlClick = { url ->
                         navController.navigate(
                             AppRoute.ImageViewer(

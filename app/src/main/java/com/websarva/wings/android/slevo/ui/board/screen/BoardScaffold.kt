@@ -24,7 +24,9 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.GestureAction
-import com.websarva.wings.android.slevo.ui.common.PostDialog
+import com.websarva.wings.android.slevo.ui.common.NewThreadPostDialog
+import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
+import com.websarva.wings.android.slevo.ui.common.PostDialogConfig
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBar
@@ -36,6 +38,8 @@ import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
+import com.websarva.wings.android.slevo.ui.thread.state.PostFormState
+import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
@@ -236,37 +240,48 @@ fun BoardScaffold(
 
             if (uiState.createDialog) {
                 val context = LocalContext.current
-                PostDialog(
-                    onDismissRequest = { viewModel.hideCreateDialog() },
-                    name = uiState.createFormState.name,
-                    mail = uiState.createFormState.mail,
-                    message = uiState.createFormState.message,
-                    namePlaceholder = uiState.boardInfo.noname.ifBlank { stringResource(R.string.name) },
+                val postDialogState = PostUiState(
+                    postFormState = PostFormState(
+                        name = uiState.createFormState.name,
+                        mail = uiState.createFormState.mail,
+                        title = uiState.createFormState.title,
+                        message = uiState.createFormState.message
+                    ),
                     nameHistory = uiState.createNameHistory,
-                    mailHistory = uiState.createMailHistory,
-                    onNameChange = { viewModel.updateCreateName(it) },
-                    onMailChange = { viewModel.updateCreateMail(it) },
-                    onMessageChange = { viewModel.updateCreateMessage(it) },
-                    onNameHistorySelect = { viewModel.selectCreateNameHistory(it) },
-                    onMailHistorySelect = { viewModel.selectCreateMailHistory(it) },
-                    onNameHistoryDelete = { viewModel.deleteCreateNameHistory(it) },
-                    onMailHistoryDelete = { viewModel.deleteCreateMailHistory(it) },
-                    onPostClick = {
-                        parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                            viewModel.createThreadFirstPhase(
-                                host,
-                                boardKey,
-                                uiState.createFormState.title,
-                                uiState.createFormState.name,
-                                uiState.createFormState.mail,
-                                uiState.createFormState.message
-                            )
+                    mailHistory = uiState.createMailHistory
+                )
+                NewThreadPostDialog(
+                    uiState = postDialogState,
+                    onDismissRequest = { viewModel.hideCreateDialog() },
+                    onAction = { action ->
+                        when (action) {
+                            is PostDialogAction.ChangeName -> viewModel.updateCreateName(action.value)
+                            is PostDialogAction.ChangeMail -> viewModel.updateCreateMail(action.value)
+                            is PostDialogAction.ChangeTitle -> viewModel.updateCreateTitle(action.value)
+                            is PostDialogAction.ChangeMessage -> viewModel.updateCreateMessage(action.value)
+                            is PostDialogAction.SelectNameHistory -> viewModel.selectCreateNameHistory(action.value)
+                            is PostDialogAction.SelectMailHistory -> viewModel.selectCreateMailHistory(action.value)
+                            is PostDialogAction.DeleteNameHistory -> viewModel.deleteCreateNameHistory(action.value)
+                            is PostDialogAction.DeleteMailHistory -> viewModel.deleteCreateMailHistory(action.value)
+                            PostDialogAction.Post -> {
+                                parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
+                                    viewModel.createThreadFirstPhase(
+                                        host,
+                                        boardKey,
+                                        uiState.createFormState.title,
+                                        uiState.createFormState.name,
+                                        uiState.createFormState.mail,
+                                        uiState.createFormState.message
+                                    )
+                                }
+                            }
                         }
                     },
-                    confirmButtonText = stringResource(R.string.create_thread),
-                    title = uiState.createFormState.title,
-                    onTitleChange = { viewModel.updateCreateTitle(it) },
-                    onImageSelect = { uri -> viewModel.uploadImage(context, uri) },
+                    config = PostDialogConfig(
+                        namePlaceholder = uiState.boardInfo.noname.ifBlank { stringResource(R.string.name) },
+                        confirmButtonText = stringResource(R.string.create_thread)
+                    ),
+                    onImageUpload = { uri -> viewModel.uploadImage(context, uri) },
                     onImageUrlClick = { url ->
                         navController.navigate(
                             AppRoute.ImageViewer(

@@ -61,66 +61,94 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.PopupProperties
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
+import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
+
+data class PostDialogConfig(
+    val namePlaceholder: String,
+    val confirmButtonText: String,
+)
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun PostDialog(
+fun ReplyPostDialog(
+    uiState: PostUiState,
     onDismissRequest: () -> Unit,
-    name: String,
-    mail: String,
-    message: String,
-    namePlaceholder: String,
-    nameHistory: List<String>,
-    mailHistory: List<String>,
-    onNameChange: (String) -> Unit,
-    onMailChange: (String) -> Unit,
-    onMessageChange: (String) -> Unit,
-    onNameHistorySelect: (String) -> Unit,
-    onMailHistorySelect: (String) -> Unit,
-    onNameHistoryDelete: (String) -> Unit,
-    onMailHistoryDelete: (String) -> Unit,
-    onPostClick: () -> Unit,
-    confirmButtonText: String,
-    title: String? = null,
-    onTitleChange: ((String) -> Unit)? = null,
-    onImageSelect: ((Uri) -> Unit)? = null,
-    onImageUrlClick: ((String) -> Unit)? = null,
+    onAction: (PostDialogAction) -> Unit,
+    config: PostDialogConfig,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
+    onImageUpload: ((Uri) -> Unit),
+    onImageUrlClick: ((String) -> Unit),
+) {
+    PostDialog(
+        uiState = uiState,
+        onDismissRequest = onDismissRequest,
+        onAction = onAction,
+        config = config,
+        sharedTransitionScope = sharedTransitionScope,
+        animatedVisibilityScope = animatedVisibilityScope,
+        onImageUpload = onImageUpload,
+        onImageUrlClick = onImageUrlClick,
+        showTitleField = false
+    )
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+fun NewThreadPostDialog(
+    uiState: PostUiState,
+    onDismissRequest: () -> Unit,
+    onAction: (PostDialogAction) -> Unit,
+    config: PostDialogConfig,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    onImageUpload: ((Uri) -> Unit),
+    onImageUrlClick: ((String) -> Unit),
+) {
+    PostDialog(
+        uiState = uiState,
+        onDismissRequest = onDismissRequest,
+        onAction = onAction,
+        config = config,
+        sharedTransitionScope = sharedTransitionScope,
+        animatedVisibilityScope = animatedVisibilityScope,
+        onImageUpload = onImageUpload,
+        onImageUrlClick = onImageUrlClick,
+        showTitleField = true
+    )
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun PostDialog(
+    uiState: PostUiState,
+    onDismissRequest: () -> Unit,
+    onAction: (PostDialogAction) -> Unit,
+    config: PostDialogConfig,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    onImageUpload: ((Uri) -> Unit),
+    onImageUrlClick: ((String) -> Unit),
+    showTitleField: Boolean,
 ) {
     val launcher = rememberImagePickerLauncher(
-        onImageSelect = onImageSelect
+        onImageSelect = onImageUpload
     )
 
-    val content: @Composable () -> Unit = {
+    Dialog(onDismissRequest = onDismissRequest) {
         PostDialogContent(
-            name = name,
-            mail = mail,
-            message = message,
-            namePlaceholder = namePlaceholder,
-            nameHistory = nameHistory,
-            mailHistory = mailHistory,
-            onNameChange = onNameChange,
-            onMailChange = onMailChange,
-            onMessageChange = onMessageChange,
-            onNameHistorySelect = onNameHistorySelect,
-            onMailHistorySelect = onMailHistorySelect,
-            onNameHistoryDelete = onNameHistoryDelete,
-            onMailHistoryDelete = onMailHistoryDelete,
-            onPostClick = onPostClick,
-            confirmButtonText = confirmButtonText,
-            title = title,
-            onTitleChange = onTitleChange,
+            uiState = uiState,
+            config = config,
+            onAction = onAction,
             onImageUrlClick = onImageUrlClick,
             launcher = launcher,
             sharedTransitionScope = sharedTransitionScope,
-            animatedVisibilityScope = animatedVisibilityScope
+            animatedVisibilityScope = animatedVisibilityScope,
+            showTitleField = showTitleField
         )
     }
-
-    Dialog(onDismissRequest = onDismissRequest) { content() }
-
 }
 
 @Composable
@@ -135,27 +163,14 @@ private fun rememberImagePickerLauncher(
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun PostDialogContent(
-    name: String,
-    mail: String,
-    message: String,
-    namePlaceholder: String,
-    nameHistory: List<String>,
-    mailHistory: List<String>,
-    onNameChange: (String) -> Unit,
-    onMailChange: (String) -> Unit,
-    onMessageChange: (String) -> Unit,
-    onNameHistorySelect: (String) -> Unit,
-    onMailHistorySelect: (String) -> Unit,
-    onNameHistoryDelete: (String) -> Unit,
-    onMailHistoryDelete: (String) -> Unit,
-    onPostClick: () -> Unit,
-    confirmButtonText: String,
-    title: String?,
-    onTitleChange: ((String) -> Unit)?,
+    uiState: PostUiState,
+    config: PostDialogConfig,
+    onAction: (PostDialogAction) -> Unit,
     onImageUrlClick: ((String) -> Unit)?,
     launcher: ManagedActivityResultLauncher<String, Uri?>?,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
+    showTitleField: Boolean,
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -178,23 +193,24 @@ private fun PostDialogContent(
                     .verticalScroll(scrollState)
             ) {
                 HeaderInputSection(
-                    name = name,
-                    mail = mail,
-                    namePlaceholder = namePlaceholder,
-                    nameHistory = nameHistory,
-                    mailHistory = mailHistory,
-                    onNameChange = onNameChange,
-                    onMailChange = onMailChange,
-                    onNameHistorySelect = onNameHistorySelect,
-                    onMailHistorySelect = onMailHistorySelect,
-                    onNameHistoryDelete = onNameHistoryDelete,
-                    onMailHistoryDelete = onMailHistoryDelete
+                    name = uiState.postFormState.name,
+                    mail = uiState.postFormState.mail,
+                    namePlaceholder = config.namePlaceholder,
+                    nameHistory = uiState.nameHistory,
+                    mailHistory = uiState.mailHistory,
+                    onNameChange = { onAction(PostDialogAction.ChangeName(it)) },
+                    onMailChange = { onAction(PostDialogAction.ChangeMail(it)) },
+                    onNameHistorySelect = { onAction(PostDialogAction.SelectNameHistory(it)) },
+                    onMailHistorySelect = { onAction(PostDialogAction.SelectMailHistory(it)) },
+                    onNameHistoryDelete = { onAction(PostDialogAction.DeleteNameHistory(it)) },
+                    onMailHistoryDelete = { onAction(PostDialogAction.DeleteMailHistory(it)) }
                 )
                 BodyInputSection(
-                    title = title,
-                    onTitleChange = onTitleChange,
-                    message = message,
-                    onMessageChange = onMessageChange,
+                    title = uiState.postFormState.title,
+                    showTitleField = showTitleField,
+                    onTitleChange = { onAction(PostDialogAction.ChangeTitle(it)) },
+                    message = uiState.postFormState.message,
+                    onMessageChange = { onAction(PostDialogAction.ChangeMessage(it)) },
                     focusRequester = focusRequester,
                     onImageUrlClick = onImageUrlClick,
                     sharedTransitionScope = sharedTransitionScope,
@@ -203,13 +219,13 @@ private fun PostDialogContent(
             }
             BottomActionRow(launcher = launcher)
             PostButton(
-                confirmButtonText = confirmButtonText,
-                isEnabled = if (title != null && onTitleChange != null) {
-                    title.isNotBlank() && message.isNotBlank()
+                confirmButtonText = config.confirmButtonText,
+                isEnabled = if (showTitleField) {
+                    uiState.postFormState.title.isNotBlank() && uiState.postFormState.message.isNotBlank()
                 } else {
-                    message.isNotBlank()
+                    uiState.postFormState.message.isNotBlank()
                 },
-                onPostClick = onPostClick
+                onPostClick = { onAction(PostDialogAction.Post) }
             )
         }
     }
@@ -290,9 +306,7 @@ private fun HistoryDropdownTextField(
                     isFocused = focusState.isFocused
                 }
                 .onGloballyPositioned { coordinates ->
-                    textFieldWidth = with(density) {
-                        coordinates.size.width.toDp()
-                    }
+                    textFieldWidth = with(density) { coordinates.size.width.toDp() }
                 },
             singleLine = true,
             keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
@@ -335,8 +349,9 @@ private fun HistoryDropdownTextField(
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun BodyInputSection(
-    title: String?,
-    onTitleChange: ((String) -> Unit)?,
+    title: String,
+    showTitleField: Boolean,
+    onTitleChange: (String) -> Unit,
     message: String,
     onMessageChange: (String) -> Unit,
     focusRequester: FocusRequester,
@@ -344,7 +359,7 @@ private fun BodyInputSection(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
-    if (title != null && onTitleChange != null) {
+    if (showTitleField) {
         OutlinedTextField(
             value = title,
             onValueChange = onTitleChange,
@@ -437,27 +452,17 @@ fun PostDialogPreview() {
     SharedTransitionLayout {
         AnimatedVisibility(visible = true) {
             PostDialogContent(
-                name = "",
-                mail = "",
-                message = "",
-                namePlaceholder = "風吹けば名無し",
-                nameHistory = listOf(""),
-                mailHistory = listOf("sage", "mail@example.com"),
-                onNameChange = { },
-                onMailChange = { },
-                onMessageChange = { },
-                onNameHistorySelect = {},
-                onMailHistorySelect = {},
-                onNameHistoryDelete = {},
-                onMailHistoryDelete = {},
-                onPostClick = { },
-                confirmButtonText = "",
+                uiState = PostUiState(),
+                onAction = {},
+                config = PostDialogConfig(
+                    namePlaceholder = "name",
+                    confirmButtonText = "Post"
+                ),
                 sharedTransitionScope = this@SharedTransitionLayout,
                 animatedVisibilityScope = this,
-                onTitleChange = null,
-                onImageUrlClick = null,
+                onImageUrlClick = {},
                 launcher = null,
-                title = null,
+                showTitleField = true
             )
         }
     }

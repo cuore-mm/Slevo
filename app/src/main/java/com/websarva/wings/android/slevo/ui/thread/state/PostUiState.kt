@@ -24,5 +24,18 @@ data class PostUiState(
 data class PostFormState(
     val name: String = "",
     val mail: String = "",
+    val title: String = "",
     val message: String = "",
 )
+
+sealed class PostDialogAction {
+    data class ChangeName(val value: String) : PostDialogAction()
+    data class ChangeMail(val value: String) : PostDialogAction()
+    data class ChangeTitle(val value: String) : PostDialogAction()
+    data class ChangeMessage(val value: String) : PostDialogAction()
+    data class SelectNameHistory(val value: String) : PostDialogAction()
+    data class SelectMailHistory(val value: String) : PostDialogAction()
+    data class DeleteNameHistory(val value: String) : PostDialogAction()
+    data class DeleteMailHistory(val value: String) : PostDialogAction()
+    object Post : PostDialogAction()
+}
