@@ -65,35 +65,24 @@ import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
 import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 
-data class PostDialogConfig(
-    val namePlaceholder: String,
-    val confirmButtonText: String,
-)
-
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PostDialog(
     uiState: PostUiState,
     onDismissRequest: () -> Unit,
     onAction: (PostDialogAction) -> Unit,
-    config: PostDialogConfig,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onImageUpload: ((Uri) -> Unit),
     onImageUrlClick: ((String) -> Unit),
     showTitleField: Boolean,
 ) {
-    val launcher = rememberImagePickerLauncher(
-        onImageSelect = onImageUpload
-    )
-
     Dialog(onDismissRequest = onDismissRequest) {
         PostDialogContent(
             uiState = uiState,
-            config = config,
             onAction = onAction,
+            onImageUpload = onImageUpload,
             onImageUrlClick = onImageUrlClick,
-            launcher = launcher,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope,
             showTitleField = showTitleField
@@ -101,29 +90,25 @@ fun PostDialog(
     }
 }
 
-@Composable
-private fun rememberImagePickerLauncher(
-    onImageSelect: ((Uri) -> Unit)?,
-): ManagedActivityResultLauncher<String, Uri?> {
-    return rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) onImageSelect?.invoke(uri)
-    }
-}
-
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun PostDialogContent(
     uiState: PostUiState,
-    config: PostDialogConfig,
     onAction: (PostDialogAction) -> Unit,
+    onImageUpload: (Uri) -> Unit,
     onImageUrlClick: ((String) -> Unit)?,
-    launcher: ManagedActivityResultLauncher<String, Uri?>?,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     showTitleField: Boolean,
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    val namePlaceholder = uiState.namePlaceholder.ifBlank { stringResource(R.string.name) }
+    val confirmButtonText = if (showTitleField) {
+        stringResource(R.string.create_thread)
+    } else {
+        stringResource(R.string.post)
+    }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -145,7 +130,7 @@ private fun PostDialogContent(
                 HeaderInputSection(
                     name = uiState.postFormState.name,
                     mail = uiState.postFormState.mail,
-                    namePlaceholder = config.namePlaceholder,
+                    namePlaceholder = namePlaceholder,
                     nameHistory = uiState.nameHistory,
                     mailHistory = uiState.mailHistory,
                     onNameChange = { onAction(PostDialogAction.ChangeName(it)) },
@@ -167,9 +152,9 @@ private fun PostDialogContent(
                     animatedVisibilityScope = animatedVisibilityScope
                 )
             }
-            BottomActionRow(launcher = launcher)
+            BottomActionRow(onImageUpload = onImageUpload)
             PostButton(
-                confirmButtonText = config.confirmButtonText,
+                confirmButtonText = confirmButtonText,
                 isEnabled = if (showTitleField) {
                     uiState.postFormState.title.isNotBlank() && uiState.postFormState.message.isNotBlank()
                 } else {
@@ -360,15 +345,19 @@ private fun BodyInputSection(
 
 @Composable
 private fun BottomActionRow(
-    launcher: ManagedActivityResultLauncher<String, Uri?>?,
+    onImageUpload: ((Uri) -> Unit),
 ) {
+    val launcher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) onImageUpload.invoke(uri)
+        }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Start
     ) {
         IconButton(
-            onClick = { launcher?.launch("image/*") },
-            enabled = launcher != null
+            onClick = { launcher.launch("image/*") },
         ) {
             Icon(
                 Icons.Filled.Image,
@@ -402,16 +391,12 @@ fun PostDialogPreview() {
     SharedTransitionLayout {
         AnimatedVisibility(visible = true) {
             PostDialogContent(
-                uiState = PostUiState(),
+                uiState = PostUiState(namePlaceholder = "name"),
                 onAction = {},
-                config = PostDialogConfig(
-                    namePlaceholder = "name",
-                    confirmButtonText = "Post"
-                ),
                 sharedTransitionScope = this@SharedTransitionLayout,
                 animatedVisibilityScope = this,
+                onImageUpload = {},
                 onImageUrlClick = {},
-                launcher = null,
                 showTitleField = true
             )
         }

@@ -25,7 +25,6 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
-import com.websarva.wings.android.slevo.ui.common.PostDialogConfig
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBar
@@ -247,6 +246,7 @@ fun BoardScaffold(
                         title = uiState.createFormState.title,
                         message = uiState.createFormState.message
                     ),
+                    namePlaceholder = uiState.boardInfo.noname.ifBlank { stringResource(R.string.name) },
                     nameHistory = uiState.createNameHistory,
                     mailHistory = uiState.createMailHistory
                 )
@@ -277,10 +277,6 @@ fun BoardScaffold(
                             }
                         }
                     },
-                    config = PostDialogConfig(
-                        namePlaceholder = uiState.boardInfo.noname.ifBlank { stringResource(R.string.name) },
-                        confirmButtonText = stringResource(R.string.create_thread)
-                    ),
                     onImageUpload = { uri -> viewModel.uploadImage(context, uri) },
                     onImageUrlClick = { url ->
                         navController.navigate(

@@ -8,6 +8,7 @@ import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 data class PostUiState(
     val postDialog: Boolean = false,
     val postFormState: PostFormState = PostFormState(),
+    val namePlaceholder: String = "",
     val nameHistory: List<String> = emptyList(),
     val mailHistory: List<String> = emptyList(),
     val isPosting: Boolean = false,

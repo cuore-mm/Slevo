@@ -17,7 +17,6 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
-import com.websarva.wings.android.slevo.ui.common.PostDialogConfig
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -312,10 +311,6 @@ fun ThreadScaffold(
                             is PostDialogAction.ChangeTitle -> Unit
                         }
                     },
-                    config = PostDialogConfig(
-                        namePlaceholder = uiState.boardInfo.noname.ifBlank { "name" },
-                        confirmButtonText = stringResource(R.string.post)
-                    ),
                     onImageUpload = { uri -> viewModel.uploadImage(context, uri) },
                     onImageUrlClick = { url ->
                         navController.navigate(
