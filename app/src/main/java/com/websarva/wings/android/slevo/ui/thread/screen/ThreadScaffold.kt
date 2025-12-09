@@ -16,7 +16,6 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.GestureAction
-import com.websarva.wings.android.slevo.ui.common.ReplyPostDialog
 import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
 import com.websarva.wings.android.slevo.ui.common.PostDialogConfig
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
@@ -24,6 +23,7 @@ import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
+import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.DisplaySettingsBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
@@ -278,7 +278,7 @@ fun ThreadScaffold(
 
             if (postUiState.postDialog) {
                 val context = LocalContext.current
-                ReplyPostDialog(
+                PostDialog(
                     uiState = postUiState,
                     onDismissRequest = { viewModel.hidePostDialog() },
                     onAction = { action ->
@@ -328,7 +328,8 @@ fun ThreadScaffold(
                         )
                     },
                     sharedTransitionScope = sharedTransitionScope,
-                    animatedVisibilityScope = animatedVisibilityScope
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    showTitleField = false
                 )
             }
 

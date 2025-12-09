@@ -24,7 +24,6 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.GestureAction
-import com.websarva.wings.android.slevo.ui.common.NewThreadPostDialog
 import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
 import com.websarva.wings.android.slevo.ui.common.PostDialogConfig
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
@@ -34,6 +33,7 @@ import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
+import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -250,7 +250,7 @@ fun BoardScaffold(
                     nameHistory = uiState.createNameHistory,
                     mailHistory = uiState.createMailHistory
                 )
-                NewThreadPostDialog(
+                PostDialog(
                     uiState = postDialogState,
                     onDismissRequest = { viewModel.hideCreateDialog() },
                     onAction = { action ->
@@ -293,7 +293,8 @@ fun BoardScaffold(
                         )
                     },
                     sharedTransitionScope = sharedTransitionScope,
-                    animatedVisibilityScope = animatedVisibilityScope
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    showTitleField = true
                 )
             }
 

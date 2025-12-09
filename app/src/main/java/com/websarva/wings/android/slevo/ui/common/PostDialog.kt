@@ -72,57 +72,7 @@ data class PostDialogConfig(
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun ReplyPostDialog(
-    uiState: PostUiState,
-    onDismissRequest: () -> Unit,
-    onAction: (PostDialogAction) -> Unit,
-    config: PostDialogConfig,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
-    onImageUpload: ((Uri) -> Unit),
-    onImageUrlClick: ((String) -> Unit),
-) {
-    PostDialog(
-        uiState = uiState,
-        onDismissRequest = onDismissRequest,
-        onAction = onAction,
-        config = config,
-        sharedTransitionScope = sharedTransitionScope,
-        animatedVisibilityScope = animatedVisibilityScope,
-        onImageUpload = onImageUpload,
-        onImageUrlClick = onImageUrlClick,
-        showTitleField = false
-    )
-}
-
-@OptIn(ExperimentalSharedTransitionApi::class)
-@Composable
-fun NewThreadPostDialog(
-    uiState: PostUiState,
-    onDismissRequest: () -> Unit,
-    onAction: (PostDialogAction) -> Unit,
-    config: PostDialogConfig,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
-    onImageUpload: ((Uri) -> Unit),
-    onImageUrlClick: ((String) -> Unit),
-) {
-    PostDialog(
-        uiState = uiState,
-        onDismissRequest = onDismissRequest,
-        onAction = onAction,
-        config = config,
-        sharedTransitionScope = sharedTransitionScope,
-        animatedVisibilityScope = animatedVisibilityScope,
-        onImageUpload = onImageUpload,
-        onImageUrlClick = onImageUrlClick,
-        showTitleField = true
-    )
-}
-
-@OptIn(ExperimentalSharedTransitionApi::class)
-@Composable
-private fun PostDialog(
+fun PostDialog(
     uiState: PostUiState,
     onDismissRequest: () -> Unit,
     onAction: (PostDialogAction) -> Unit,
