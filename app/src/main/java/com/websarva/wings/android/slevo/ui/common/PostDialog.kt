@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.common
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -8,11 +9,15 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -40,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusManager
@@ -57,8 +63,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.zIndex
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
 import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
@@ -81,7 +87,23 @@ fun PostDialog(
     onImageUrlClick: ((String) -> Unit),
     mode: PostDialogMode,
 ) {
-    Dialog(onDismissRequest = onDismissRequest) {
+    BackHandler(onBack = onDismissRequest)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(1f),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { onDismissRequest() }
+        )
         PostDialogContent(
             uiState = uiState,
             onAction = onAction,
@@ -89,7 +111,9 @@ fun PostDialog(
             onImageUrlClick = onImageUrlClick,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope,
-            mode = mode
+            mode = mode,
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 24.dp)
         )
     }
 }
@@ -104,6 +128,7 @@ private fun PostDialogContent(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     mode: PostDialogMode,
+    modifier: Modifier = Modifier,
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -116,7 +141,7 @@ private fun PostDialogContent(
 
     Card(
         shape = MaterialTheme.shapes.medium,
-        modifier = Modifier.imePadding()
+        modifier = modifier.imePadding()
     ) {
         Column {
             val scrollState = rememberScrollState()
