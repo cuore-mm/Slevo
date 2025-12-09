@@ -1,7 +1,6 @@
 package com.websarva.wings.android.slevo.ui.common
 
 import android.net.Uri
-import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -109,10 +108,6 @@ private fun PostDialogContent(
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val namePlaceholder = uiState.namePlaceholder.ifBlank { stringResource(R.string.name) }
-    val confirmButtonText = when (mode) {
-        PostDialogMode.NewThread -> stringResource(R.string.create_thread)
-        PostDialogMode.Reply -> stringResource(R.string.post)
-    }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -144,10 +139,13 @@ private fun PostDialogContent(
                     onNameHistoryDelete = { onAction(PostDialogAction.DeleteNameHistory(it)) },
                     onMailHistoryDelete = { onAction(PostDialogAction.DeleteMailHistory(it)) }
                 )
-                BodyInputSection(
-                    title = uiState.postFormState.title,
-                    mode = mode,
-                    onTitleChange = { onAction(PostDialogAction.ChangeTitle(it)) },
+                if (mode == PostDialogMode.NewThread) {
+                    TitleInputSection(
+                        title = uiState.postFormState.title,
+                        onTitleChange = { onAction(PostDialogAction.ChangeTitle(it)) }
+                    )
+                }
+                MessageInputSection(
                     message = uiState.postFormState.message,
                     onMessageChange = { onAction(PostDialogAction.ChangeMessage(it)) },
                     focusRequester = focusRequester,
@@ -158,10 +156,11 @@ private fun PostDialogContent(
             }
             BottomActionRow(onImageUpload = onImageUpload)
             PostButton(
-                confirmButtonText = confirmButtonText,
+                mode = mode,
                 isEnabled = when (mode) {
                     PostDialogMode.NewThread ->
                         uiState.postFormState.title.isNotBlank() && uiState.postFormState.message.isNotBlank()
+
                     PostDialogMode.Reply -> uiState.postFormState.message.isNotBlank()
                 },
                 onPostClick = { onAction(PostDialogAction.Post) }
@@ -193,13 +192,7 @@ private fun HeaderInputSection(
         HistoryDropdownTextField(
             value = name,
             onValueChange = onNameChange,
-            placeholder = {
-                Text(
-                    text = namePlaceholder,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            },
+            placeholderText = namePlaceholder,
             history = remember(nameHistory, name) { nameHistory.filter { it != name } },
             onHistorySelect = onNameHistorySelect,
             onHistoryDelete = onNameHistoryDelete,
@@ -210,7 +203,7 @@ private fun HeaderInputSection(
         HistoryDropdownTextField(
             value = mail,
             onValueChange = onMailChange,
-            placeholder = { Text(stringResource(R.string.e_mail)) },
+            placeholderText = stringResource(R.string.e_mail),
             history = remember(mailHistory, mail) { mailHistory.filter { it != mail } },
             onHistorySelect = onMailHistorySelect,
             onHistoryDelete = onMailHistoryDelete,
@@ -224,7 +217,7 @@ private fun HeaderInputSection(
 private fun HistoryDropdownTextField(
     value: String,
     onValueChange: (String) -> Unit,
-    placeholder: @Composable () -> Unit,
+    placeholderText: String,
     history: List<String>,
     onHistorySelect: (String) -> Unit,
     onHistoryDelete: (String) -> Unit,
@@ -238,7 +231,13 @@ private fun HistoryDropdownTextField(
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
-            placeholder = placeholder,
+            placeholder = {
+                Text(
+                    text = placeholderText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .onFocusChanged { focusState ->
@@ -285,12 +284,24 @@ private fun HistoryDropdownTextField(
     }
 }
 
+@Composable
+private fun TitleInputSection(
+    title: String,
+    onTitleChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = title,
+        onValueChange = onTitleChange,
+        placeholder = { Text(stringResource(R.string.title)) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+    )
+}
+
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun BodyInputSection(
-    title: String,
-    mode: PostDialogMode,
-    onTitleChange: (String) -> Unit,
+private fun MessageInputSection(
     message: String,
     onMessageChange: (String) -> Unit,
     focusRequester: FocusRequester,
@@ -298,17 +309,6 @@ private fun BodyInputSection(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
-    if (mode == PostDialogMode.NewThread) {
-        OutlinedTextField(
-            value = title,
-            onValueChange = onTitleChange,
-            placeholder = { Text(stringResource(R.string.title)) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
-        )
-    }
-
     var messageValue by remember { mutableStateOf(TextFieldValue(message)) }
     val targetMessageValue = remember(message) {
         TextFieldValue(
@@ -323,7 +323,6 @@ private fun BodyInputSection(
     OutlinedTextField(
         value = messageValue,
         onValueChange = {
-            messageValue = it
             onMessageChange(it.text)
         },
         placeholder = { Text(stringResource(R.string.post_message)) },
@@ -373,10 +372,15 @@ private fun BottomActionRow(
 
 @Composable
 private fun PostButton(
-    confirmButtonText: String,
+    mode: PostDialogMode,
     isEnabled: Boolean,
     onPostClick: () -> Unit,
 ) {
+    val confirmButtonText = when (mode) {
+        PostDialogMode.NewThread -> stringResource(R.string.create_thread)
+        PostDialogMode.Reply -> stringResource(R.string.post)
+    }
+
     Button(
         onClick = onPostClick,
         enabled = isEnabled,
