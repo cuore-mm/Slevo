@@ -334,7 +334,14 @@ private fun MessageInputSection(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
-    var messageValue by remember { mutableStateOf(TextFieldValue(message)) }
+    var messageValue by remember {
+        mutableStateOf(
+            TextFieldValue(
+                text = message,
+                selection = TextRange(message.length)
+            )
+        )
+    }
     val targetMessageValue = remember(message) {
         TextFieldValue(
             text = message,
