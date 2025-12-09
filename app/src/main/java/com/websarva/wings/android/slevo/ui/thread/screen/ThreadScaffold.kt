@@ -23,6 +23,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.common.PostDialog
+import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.DisplaySettingsBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
@@ -324,7 +325,7 @@ fun ThreadScaffold(
                     },
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,
-                    showTitleField = false
+                    mode = PostDialogMode.Reply
                 )
             }
 

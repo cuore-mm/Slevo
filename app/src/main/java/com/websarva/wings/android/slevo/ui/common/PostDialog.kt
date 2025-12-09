@@ -65,6 +65,11 @@ import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
 import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 
+enum class PostDialogMode {
+    Reply,
+    NewThread,
+}
+
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PostDialog(
@@ -75,7 +80,7 @@ fun PostDialog(
     animatedVisibilityScope: AnimatedVisibilityScope,
     onImageUpload: ((Uri) -> Unit),
     onImageUrlClick: ((String) -> Unit),
-    showTitleField: Boolean,
+    mode: PostDialogMode,
 ) {
     Dialog(onDismissRequest = onDismissRequest) {
         PostDialogContent(
@@ -85,7 +90,7 @@ fun PostDialog(
             onImageUrlClick = onImageUrlClick,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope,
-            showTitleField = showTitleField
+            mode = mode
         )
     }
 }
@@ -99,15 +104,14 @@ private fun PostDialogContent(
     onImageUrlClick: ((String) -> Unit)?,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
-    showTitleField: Boolean,
+    mode: PostDialogMode,
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val namePlaceholder = uiState.namePlaceholder.ifBlank { stringResource(R.string.name) }
-    val confirmButtonText = if (showTitleField) {
-        stringResource(R.string.create_thread)
-    } else {
-        stringResource(R.string.post)
+    val confirmButtonText = when (mode) {
+        PostDialogMode.NewThread -> stringResource(R.string.create_thread)
+        PostDialogMode.Reply -> stringResource(R.string.post)
     }
 
     LaunchedEffect(Unit) {
@@ -142,7 +146,7 @@ private fun PostDialogContent(
                 )
                 BodyInputSection(
                     title = uiState.postFormState.title,
-                    showTitleField = showTitleField,
+                    mode = mode,
                     onTitleChange = { onAction(PostDialogAction.ChangeTitle(it)) },
                     message = uiState.postFormState.message,
                     onMessageChange = { onAction(PostDialogAction.ChangeMessage(it)) },
@@ -155,10 +159,10 @@ private fun PostDialogContent(
             BottomActionRow(onImageUpload = onImageUpload)
             PostButton(
                 confirmButtonText = confirmButtonText,
-                isEnabled = if (showTitleField) {
-                    uiState.postFormState.title.isNotBlank() && uiState.postFormState.message.isNotBlank()
-                } else {
-                    uiState.postFormState.message.isNotBlank()
+                isEnabled = when (mode) {
+                    PostDialogMode.NewThread ->
+                        uiState.postFormState.title.isNotBlank() && uiState.postFormState.message.isNotBlank()
+                    PostDialogMode.Reply -> uiState.postFormState.message.isNotBlank()
                 },
                 onPostClick = { onAction(PostDialogAction.Post) }
             )
@@ -285,7 +289,7 @@ private fun HistoryDropdownTextField(
 @Composable
 private fun BodyInputSection(
     title: String,
-    showTitleField: Boolean,
+    mode: PostDialogMode,
     onTitleChange: (String) -> Unit,
     message: String,
     onMessageChange: (String) -> Unit,
@@ -294,7 +298,7 @@ private fun BodyInputSection(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
-    if (showTitleField) {
+    if (mode == PostDialogMode.NewThread) {
         OutlinedTextField(
             value = title,
             onValueChange = onTitleChange,
@@ -397,7 +401,7 @@ fun PostDialogPreview() {
                 animatedVisibilityScope = this,
                 onImageUpload = {},
                 onImageUrlClick = {},
-                showTitleField = true
+                mode = PostDialogMode.NewThread
             )
         }
     }

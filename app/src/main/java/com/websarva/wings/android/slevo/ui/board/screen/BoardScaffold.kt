@@ -290,7 +290,7 @@ fun BoardScaffold(
                     },
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,
-                    showTitleField = true
+                    mode = PostDialogMode.NewThread
                 )
             }
 
