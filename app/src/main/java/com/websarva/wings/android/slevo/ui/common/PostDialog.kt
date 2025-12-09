@@ -348,7 +348,8 @@ private fun MessageInputSection(
     OutlinedTextField(
         value = messageValue,
         onValueChange = {
-            onMessageChange(it.text)
+            messageValue = it
+            onMessageChange(messageValue.text)
         },
         placeholder = { Text(stringResource(R.string.post_message)) },
         modifier = Modifier
