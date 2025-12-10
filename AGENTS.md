@@ -16,6 +16,7 @@
 - Android Lint: `./gradlew :app:lintDebug`
 - Resolve all dependencies (CI/cache warm-up): `./gradlew resolveAllDependencies`
 - Example run via adb: `adb shell am start -n com.websarva.wings.android.slevo/.MainActivity`
+- **コードを変更した場合は、必ずローカルでビルド（少なくとも `./gradlew :app:assembleDebug`）を実行し、ビルドが通るまで修正すること。**
 
 ## Coding Style & Naming
 - Language: Kotlin with official style; use Android Studio formatter.

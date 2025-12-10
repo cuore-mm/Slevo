@@ -139,6 +139,7 @@ class ThreadViewModel @AssistedInject constructor(
             url = boardInfo.url
         )
         _uiState.update { it.copy(boardInfo = boardInfo, threadInfo = threadInfo) }
+        _postUiState.update { it.copy(namePlaceholder = boardInfo.noname) }
 
         viewModelScope.launch {
             val currentTabs = tabsRepository.observeOpenThreadTabs().first()
@@ -170,6 +171,7 @@ class ThreadViewModel @AssistedInject constructor(
                 _uiState.update { state ->
                     state.copy(boardInfo = state.boardInfo.copy(noname = noname))
                 }
+                _postUiState.update { state -> state.copy(namePlaceholder = noname) }
             }
         }
 

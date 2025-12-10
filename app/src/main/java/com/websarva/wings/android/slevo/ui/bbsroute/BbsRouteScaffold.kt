@@ -220,115 +220,117 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 }
             }
 
-            Scaffold(
-                modifier = Modifier
-                    .let { modifier ->
-                        bottomBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
-                            ?: modifier
-                    },
-                bottomBar = {
-                    bottomBar(
+            Box(modifier = Modifier.fillMaxSize()) {
+                Scaffold(
+                    modifier = Modifier
+                        .let { modifier ->
+                            bottomBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
+                                ?: modifier
+                        },
+                    bottomBar = {
+                        bottomBar(
+                            viewModel,
+                            uiState,
+                            bottomBehavior
+                        ) {
+                            showTabListSheet = true
+                        }
+                    }
+                ) { innerPadding ->
+                    val contentModifier = Modifier
+                        .padding(innerPadding)
+                        .draggable(
+                            state = swipeBlockerState,
+                            orientation = Orientation.Horizontal,
+                            enabled = true
+                        )
+                    // 各画面の実際のコンテンツを呼び出す
+                    content(
                         viewModel,
                         uiState,
-                        bottomBehavior
-                    ) {
-                        showTabListSheet = true
+                        listState,
+                        contentModifier,
+                        navController,
+                        showBottomBar,
+                        { showTabListSheet = true },
+                        { showUrlDialog = true },
+                    )
+
+                    // 共通のボトムシートとダイアログ
+                    if (bookmarkState.showBookmarkSheet) {
+                        BookmarkBottomSheet(
+                            sheetState = bookmarkSheetState,
+                            onDismissRequest = {
+                                // ViewModelの型に応じて適切なクローズ処理を呼ぶ
+                                (viewModel as? BoardViewModel)?.closeBookmarkSheet()
+                                    ?: (viewModel as? ThreadViewModel)?.closeBookmarkSheet()
+                            },
+                            groups = bookmarkState.groups,
+                            selectedGroupId = bookmarkState.selectedGroup?.id,
+                            onGroupSelected = {
+                                (viewModel as? BoardViewModel)?.saveBookmark(it)
+                                    ?: (viewModel as? ThreadViewModel)?.saveBookmark(it)
+                            },
+                            onUnbookmarkRequested = {
+                                (viewModel as? BoardViewModel)?.unbookmarkBoard()
+                                    ?: (viewModel as? ThreadViewModel)?.unbookmarkBoard()
+                            },
+                            onAddGroup = {
+                                (viewModel as? BoardViewModel)?.openAddGroupDialog()
+                                    ?: (viewModel as? ThreadViewModel)?.openAddGroupDialog()
+                            },
+                            onGroupLongClick = { group ->
+                                (viewModel as? BoardViewModel)?.openEditGroupDialog(group)
+                                    ?: (viewModel as? ThreadViewModel)?.openEditGroupDialog(group)
+                            }
+                        )
+                    }
+
+                    if (bookmarkState.showAddGroupDialog) {
+                        AddGroupDialog(
+                            onDismissRequest = {
+                                (viewModel as? BoardViewModel)?.closeAddGroupDialog()
+                                    ?: (viewModel as? ThreadViewModel)?.closeAddGroupDialog()
+                            },
+                            isEdit = bookmarkState.editingGroupId != null,
+                            onConfirm = {
+                                (viewModel as? BoardViewModel)?.confirmGroup()
+                                    ?: (viewModel as? ThreadViewModel)?.confirmGroup()
+                            },
+                            onDelete = {
+                                (viewModel as? BoardViewModel)?.requestDeleteGroup()
+                                    ?: (viewModel as? ThreadViewModel)?.requestDeleteGroup()
+                            },
+                            onValueChange = {
+                                (viewModel as? BoardViewModel)?.setEnteredGroupName(it)
+                                    ?: (viewModel as? ThreadViewModel)?.setEnteredGroupName(it)
+                            },
+                            enteredValue = bookmarkState.enteredGroupName,
+                            onColorSelected = {
+                                (viewModel as? BoardViewModel)?.setSelectedColor(it)
+                                    ?: (viewModel as? ThreadViewModel)?.setSelectedColor(it)
+                            },
+                            selectedColor = bookmarkState.selectedColor
+                        )
+                    }
+
+                    if (bookmarkState.showDeleteGroupDialog) {
+                        DeleteGroupDialog(
+                            groupName = bookmarkState.deleteGroupName,
+                            itemNames = bookmarkState.deleteGroupItems,
+                            isBoard = bookmarkState.deleteGroupIsBoard,
+                            onDismissRequest = {
+                                (viewModel as? BoardViewModel)?.closeDeleteGroupDialog()
+                                    ?: (viewModel as? ThreadViewModel)?.closeDeleteGroupDialog()
+                            },
+                            onConfirm = {
+                                (viewModel as? BoardViewModel)?.confirmDeleteGroup()
+                                    ?: (viewModel as? ThreadViewModel)?.confirmDeleteGroup()
+                            }
+                        )
                     }
                 }
-            ) { innerPadding ->
-                val contentModifier = Modifier
-                    .padding(innerPadding)
-                    .draggable(
-                        state = swipeBlockerState,
-                        orientation = Orientation.Horizontal,
-                        enabled = true
-                    )
-                // 各画面の実際のコンテンツを呼び出す
-                content(
-                    viewModel,
-                    uiState,
-                    listState,
-                    contentModifier,
-                    navController,
-                    showBottomBar,
-                    { showTabListSheet = true },
-                    { showUrlDialog = true },
-                )
-
-                // 共通のボトムシートとダイアログ
-                if (bookmarkState.showBookmarkSheet) {
-                    BookmarkBottomSheet(
-                        sheetState = bookmarkSheetState,
-                        onDismissRequest = {
-                            // ViewModelの型に応じて適切なクローズ処理を呼ぶ
-                            (viewModel as? BoardViewModel)?.closeBookmarkSheet()
-                                ?: (viewModel as? ThreadViewModel)?.closeBookmarkSheet()
-                        },
-                        groups = bookmarkState.groups,
-                        selectedGroupId = bookmarkState.selectedGroup?.id,
-                        onGroupSelected = {
-                            (viewModel as? BoardViewModel)?.saveBookmark(it)
-                                ?: (viewModel as? ThreadViewModel)?.saveBookmark(it)
-                        },
-                        onUnbookmarkRequested = {
-                            (viewModel as? BoardViewModel)?.unbookmarkBoard()
-                                ?: (viewModel as? ThreadViewModel)?.unbookmarkBoard()
-                        },
-                        onAddGroup = {
-                            (viewModel as? BoardViewModel)?.openAddGroupDialog()
-                                ?: (viewModel as? ThreadViewModel)?.openAddGroupDialog()
-                        },
-                        onGroupLongClick = { group ->
-                            (viewModel as? BoardViewModel)?.openEditGroupDialog(group)
-                                ?: (viewModel as? ThreadViewModel)?.openEditGroupDialog(group)
-                        }
-                    )
-                }
-
-                if (bookmarkState.showAddGroupDialog) {
-                    AddGroupDialog(
-                        onDismissRequest = {
-                            (viewModel as? BoardViewModel)?.closeAddGroupDialog()
-                                ?: (viewModel as? ThreadViewModel)?.closeAddGroupDialog()
-                        },
-                        isEdit = bookmarkState.editingGroupId != null,
-                        onConfirm = {
-                            (viewModel as? BoardViewModel)?.confirmGroup()
-                                ?: (viewModel as? ThreadViewModel)?.confirmGroup()
-                        },
-                        onDelete = {
-                            (viewModel as? BoardViewModel)?.requestDeleteGroup()
-                                ?: (viewModel as? ThreadViewModel)?.requestDeleteGroup()
-                        },
-                        onValueChange = {
-                            (viewModel as? BoardViewModel)?.setEnteredGroupName(it)
-                                ?: (viewModel as? ThreadViewModel)?.setEnteredGroupName(it)
-                        },
-                        enteredValue = bookmarkState.enteredGroupName,
-                        onColorSelected = {
-                            (viewModel as? BoardViewModel)?.setSelectedColor(it)
-                                ?: (viewModel as? ThreadViewModel)?.setSelectedColor(it)
-                        },
-                        selectedColor = bookmarkState.selectedColor
-                    )
-                }
-
-                if (bookmarkState.showDeleteGroupDialog) {
-                    DeleteGroupDialog(
-                        groupName = bookmarkState.deleteGroupName,
-                        itemNames = bookmarkState.deleteGroupItems,
-                        isBoard = bookmarkState.deleteGroupIsBoard,
-                        onDismissRequest = {
-                            (viewModel as? BoardViewModel)?.closeDeleteGroupDialog()
-                                ?: (viewModel as? ThreadViewModel)?.closeDeleteGroupDialog()
-                        },
-                        onConfirm = {
-                            (viewModel as? BoardViewModel)?.confirmDeleteGroup()
-                                ?: (viewModel as? ThreadViewModel)?.confirmDeleteGroup()
-                        }
-                    )
-                }
-                // 各画面固有のシート
+                // 各画面固有のシートやダイアログをScaffoldの外側に重ねることでボトムバーも覆う
                 optionalSheetContent(viewModel, uiState)
             }
         }
