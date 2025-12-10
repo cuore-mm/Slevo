@@ -1,12 +1,14 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -16,12 +18,15 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import com.websarva.wings.android.slevo.R
 import me.saket.telephoto.zoomable.OverzoomEffect
 import me.saket.telephoto.zoomable.ZoomSpec
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
 
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun ImageViewerScreen(
@@ -33,12 +38,12 @@ fun ImageViewerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { /* 必要であればタイトル */ },
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "戻る",
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
+                            contentDescription = stringResource(R.string.back),
                             tint = Color.White
                         )
                     }
@@ -48,8 +53,9 @@ fun ImageViewerScreen(
                 )
             )
         },
-        containerColor = Color.Black
-    ) { innerPadding ->
+        containerColor = Color.Black,
+        contentWindowInsets = WindowInsets(0)
+    ) { _ ->
         val zoomableState = rememberZoomableState(
             zoomSpec = ZoomSpec(
                 maxZoomFactor = 12f,                  // ← ここを例えば 8x や 12x に
@@ -68,7 +74,6 @@ fun ImageViewerScreen(
                         sharedContentState = sharedTransitionScope.rememberSharedContentState(key = imageUrl),
                         animatedVisibilityScope = animatedVisibilityScope
                     )
-                    .padding(innerPadding)
                     .fillMaxSize(),
             )
         }
