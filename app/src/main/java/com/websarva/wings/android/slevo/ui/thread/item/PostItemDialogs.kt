@@ -16,7 +16,7 @@ import com.websarva.wings.android.slevo.ui.common.CopyDialog
 import com.websarva.wings.android.slevo.ui.common.CopyItem
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgSelectDialog
-import com.websarva.wings.android.slevo.ui.thread.dialog.TextMenuDialog
+import com.websarva.wings.android.slevo.ui.thread.components.TextMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -118,7 +118,7 @@ fun PostItemDialogs(
 
     dialogState.textMenuData?.let { (text, type) ->
         val clipboard = LocalClipboard.current
-        TextMenuDialog(
+        TextMenuSheet(
             text = text,
             onCopyClick = {
                 scope.launch {
