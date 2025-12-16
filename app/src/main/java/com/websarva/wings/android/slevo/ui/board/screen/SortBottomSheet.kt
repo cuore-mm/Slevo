@@ -18,7 +18,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +29,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
+import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,7 +42,7 @@ fun SortBottomSheet(
     onSortKeySelected: (ThreadSortKey) -> Unit,
     onToggleSortOrder: () -> Unit,
 ) {
-    ModalBottomSheet(
+    SlevoBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
     ) {
@@ -87,7 +87,9 @@ private fun SortBottomSheetContent(
                     Icon(
                         imageVector = if (isSortAscending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
                         contentDescription = if (isSortAscending) "昇順" else "降順",
-                        tint = if (sortOrderButtonEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) // <--- 無効時の色
+                        tint = if (sortOrderButtonEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(
+                            alpha = 0.38f
+                        ) // <--- 無効時の色
                     )
                 }
             }
