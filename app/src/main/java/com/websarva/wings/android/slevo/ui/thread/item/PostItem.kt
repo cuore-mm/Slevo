@@ -58,7 +58,7 @@ import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.theme.idColor
 import com.websarva.wings.android.slevo.ui.theme.replyCountColor
-import com.websarva.wings.android.slevo.ui.thread.dialog.PostMenuDialog
+import com.websarva.wings.android.slevo.ui.thread.components.PostMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
@@ -542,7 +542,7 @@ fun PostItem(
         }
 
         if (menuExpanded) {
-            PostMenuDialog(
+            PostMenuSheet(
                 postNum = postNum,
                 onReplyClick = {
                     menuExpanded = false
