@@ -113,4 +113,38 @@ class ThreadDisplayTransformersTest {
         val expected = DATE_FORMAT.parse("2024/01/02 03:04:05")!!.time
         assertEquals(expected, timestamp)
     }
+
+    @Test
+    fun buildNewPostsBlock_createsCorrectBlock() {
+        val posts = listOf(
+            reply(content = "root 1", id = "id1"),
+            reply(content = "root 2", id = "id2"),
+            reply(content = ">>1 child 1", id = "id3"),
+            reply(content = ">>2 new child", id = "id4"),
+            reply(content = ">>4 new grand child", id = "id5"),
+            reply(content = "new root", id = "id6")
+        )
+        val (order, depthMap) = deriveTreeOrder(posts)
+
+        val result = buildNewPostsBlock(
+            posts = posts,
+            order = order,
+            treeDepthMap = depthMap,
+            firstNewResNo = 4
+        )
+
+        val expected = listOf(
+            // 親レスの再表示
+            DisplayPost(2, posts[1], dimmed = true, isAfter = true, depth = 0),
+            // 新着レス
+            DisplayPost(4, posts[3], dimmed = false, isAfter = true, depth = 1),
+            // 新着レスの子
+            DisplayPost(5, posts[4], dimmed = false, isAfter = true, depth = 2),
+            // 独立した新着レス
+            DisplayPost(6, posts[5], dimmed = false, isAfter = true, depth = 0)
+        )
+
+        assertEquals(expected, result)
+        assertTrue(result.all { it.isAfter })
+    }
 }
