@@ -65,9 +65,9 @@ import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
-import com.websarva.wings.android.slevo.ui.thread.dialog.PopupInfo
-import com.websarva.wings.android.slevo.ui.thread.dialog.ReplyPopup
-import com.websarva.wings.android.slevo.ui.thread.item.PostItem
+import com.websarva.wings.android.slevo.ui.thread.res.PopupInfo
+import com.websarva.wings.android.slevo.ui.thread.res.ReplyPopup
+import com.websarva.wings.android.slevo.ui.thread.res.PostItem
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState

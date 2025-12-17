@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.thread.dialog
+package com.websarva.wings.android.slevo.ui.thread.res
 
 import android.annotation.SuppressLint
 import android.os.Build
@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +29,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
@@ -43,7 +45,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import com.websarva.wings.android.slevo.ui.thread.item.PostItem
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 
 data class PopupInfo(
@@ -151,7 +152,7 @@ fun ReplyPopup(
                                     awaitPointerEventScope {
                                         while (true) {
                                             val event =
-                                                awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                                awaitPointerEvent(PointerEventPass.Initial)
                                             event.changes.forEach { it.consume() }
                                         }
                                     }
@@ -229,7 +230,7 @@ fun ReplyPopup(
                                 }
                             )
                             if (i < info.posts.size - 1) {
-                                androidx.compose.material3.HorizontalDivider()
+                                HorizontalDivider()
                             }
                         }
                     }

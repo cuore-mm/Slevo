@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.thread.item
+package com.websarva.wings.android.slevo.ui.thread.res
 
 import android.content.ClipData
 import androidx.compose.runtime.Composable
@@ -16,7 +16,7 @@ import com.websarva.wings.android.slevo.ui.common.CopyDialog
 import com.websarva.wings.android.slevo.ui.common.CopyItem
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgSelectDialog
-import com.websarva.wings.android.slevo.ui.thread.components.TextMenuSheet
+import com.websarva.wings.android.slevo.ui.thread.sheet.TextMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
