@@ -17,7 +17,7 @@ import com.websarva.wings.android.slevo.ui.common.CopyItem
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgSelectDialog
 import com.websarva.wings.android.slevo.ui.thread.sheet.TextMenuSheet
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -72,7 +72,7 @@ fun rememberPostItemDialogState(): PostItemDialogState {
 
 @Composable
 fun PostItemDialogs(
-    post: ReplyInfo,
+    post: ThreadPostUiModel,
     postNum: Int,
     boardName: String,
     boardId: Long,
@@ -82,17 +82,17 @@ fun PostItemDialogs(
     if (dialogState.copyDialogVisible) {
         val header = buildString {
             append(postNum)
-            if (post.name.isNotBlank()) append(" ${post.name}")
-            if (post.date.isNotBlank()) append(" ${post.date}")
-            if (post.id.isNotBlank()) append(" ID:${post.id}")
+            if (post.header.name.isNotBlank()) append(" ${post.header.name}")
+            if (post.header.date.isNotBlank()) append(" ${post.header.date}")
+            if (post.header.id.isNotBlank()) append(" ID:${post.header.id}")
         }
         CopyDialog(
             items = listOf(
                 CopyItem(postNum.toString(), stringResource(R.string.res_number_label)),
-                CopyItem(post.name, stringResource(R.string.name_label)),
-                CopyItem(post.id, stringResource(R.string.id_label)),
-                CopyItem(post.content, stringResource(R.string.post_message)),
-                CopyItem("$header\n${post.content}", stringResource(R.string.header_and_body)),
+                CopyItem(post.header.name, stringResource(R.string.name_label)),
+                CopyItem(post.header.id, stringResource(R.string.id_label)),
+                CopyItem(post.body.content, stringResource(R.string.post_message)),
+                CopyItem("$header\n${post.body.content}", stringResource(R.string.header_and_body)),
             ),
             onDismissRequest = { dialogState.hideCopyDialog() }
         )
@@ -102,15 +102,15 @@ fun PostItemDialogs(
         NgSelectDialog(
             onNgIdClick = {
                 dialogState.hideNgSelectDialog()
-                dialogState.openNgDialog(post.id, NgType.USER_ID)
+                dialogState.openNgDialog(post.header.id, NgType.USER_ID)
             },
             onNgNameClick = {
                 dialogState.hideNgSelectDialog()
-                dialogState.openNgDialog(post.name, NgType.USER_NAME)
+                dialogState.openNgDialog(post.header.name, NgType.USER_NAME)
             },
             onNgWordClick = {
                 dialogState.hideNgSelectDialog()
-                dialogState.openNgDialog(post.content, NgType.WORD)
+                dialogState.openNgDialog(post.body.content, NgType.WORD)
             },
             onDismiss = { dialogState.hideNgSelectDialog() }
         )

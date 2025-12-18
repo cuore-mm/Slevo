@@ -16,7 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnailGrid
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.slevo.data.model.ReplyInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -24,14 +25,14 @@ import java.nio.charset.StandardCharsets
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun PostItemMedia(
-    post: ReplyInfo,
+    post: ThreadPostUiModel,
     navController: NavHostController,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
-    val imageUrls = remember(post.content, post.urlFlags) {
-        if (post.urlFlags and ReplyInfo.HAS_IMAGE_URL != 0) {
-            extractImageUrls(post.content)
+    val imageUrls = remember(post.body.content, post.meta.urlFlags) {
+        if (post.meta.urlFlags and ReplyInfo.HAS_IMAGE_URL != 0) {
+            extractImageUrls(post.body.content)
         } else {
             emptyList()
         }
@@ -64,13 +65,19 @@ private fun PostItemMediaPreview() {
     SharedTransitionLayout {
         AnimatedVisibility(visible = true) {
             PostItemMedia(
-                post = ReplyInfo(
-                    name = "風吹けば名無し",
-                    email = "sage",
-                    date = "2025/12/16(火) 12:34:56.78",
-                    id = "testid",
-                    content = "画像 https://i.imgur.com/0KFBHTB.jpeg",
-                    urlFlags = ReplyInfo.HAS_IMAGE_URL,
+                post = ThreadPostUiModel(
+                    header = ThreadPostUiModel.Header(
+                        name = "風吹けば名無し",
+                        email = "sage",
+                        date = "2025/12/16(火) 12:34:56.78",
+                        id = "testid",
+                    ),
+                    body = ThreadPostUiModel.Body(
+                        content = "画像 https://i.imgur.com/0KFBHTB.jpeg",
+                    ),
+                    meta = ThreadPostUiModel.Meta(
+                        urlFlags = ReplyInfo.HAS_IMAGE_URL,
+                    ),
                 ),
                 navController = navController,
                 sharedTransitionScope = this@SharedTransitionLayout,

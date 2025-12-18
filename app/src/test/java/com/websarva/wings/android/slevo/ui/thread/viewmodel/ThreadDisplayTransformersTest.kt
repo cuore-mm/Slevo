@@ -1,7 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -9,26 +9,30 @@ import org.junit.Test
 
 class ThreadDisplayTransformersTest {
 
-    private fun reply(
+    private fun post(
         content: String,
         id: String,
         name: String = "name",
         email: String = "",
         date: String = "2024/01/01 00:00:00"
-    ) = ReplyInfo(
-        name = name,
-        email = email,
-        date = date,
-        id = id,
-        content = content
+    ) = ThreadPostUiModel(
+        header = ThreadPostUiModel.Header(
+            name = name,
+            email = email,
+            date = date,
+            id = id,
+        ),
+        body = ThreadPostUiModel.Body(
+            content = content,
+        ),
     )
 
     @Test
     fun deriveReplyMaps_collectsCountsAndSources() {
         val posts = listOf(
-            reply(content = ">>2 >>3", id = "id1"),
-            reply(content = "no ref", id = "id2"),
-            reply(content = ">>1", id = "id1")
+            post(content = ">>2 >>3", id = "id1"),
+            post(content = "no ref", id = "id2"),
+            post(content = ">>1", id = "id1")
         )
 
         val (idCountMap, idIndexList, replySourceMap) = deriveReplyMaps(posts)
@@ -41,10 +45,10 @@ class ThreadDisplayTransformersTest {
     @Test
     fun deriveTreeOrder_buildsDepthAndOrder() {
         val posts = listOf(
-            reply(content = "root", id = "id1"),
-            reply(content = ">>1 child", id = "id2"),
-            reply(content = ">>2 grand", id = "id3"),
-            reply(content = ">>1 sibling", id = "id4")
+            post(content = "root", id = "id1"),
+            post(content = ">>1 child", id = "id2"),
+            post(content = ">>2 grand", id = "id3"),
+            post(content = ">>1 sibling", id = "id4")
         )
 
         val (order, depthMap) = deriveTreeOrder(posts)
@@ -56,10 +60,10 @@ class ThreadDisplayTransformersTest {
     @Test
     fun buildOrderedPosts_handlesTreeAfterGrouping() {
         val posts = listOf(
-            reply(content = "root", id = "id1"),
-            reply(content = ">>1 child", id = "id2"),
-            reply(content = ">>2 grand", id = "id3"),
-            reply(content = ">>1 new child", id = "id4")
+            post(content = "root", id = "id1"),
+            post(content = ">>1 child", id = "id2"),
+            post(content = ">>2 grand", id = "id3"),
+            post(content = ">>1 new child", id = "id4")
         )
         val (order, depthMap) = deriveTreeOrder(posts)
 
@@ -86,9 +90,9 @@ class ThreadDisplayTransformersTest {
     @Test
     fun buildOrderedPosts_handlesNumberSortAndNgFiltering() {
         val posts = listOf(
-            reply(content = "first", id = "id1"),
-            reply(content = "second", id = "id2"),
-            reply(content = "third", id = "id3")
+            post(content = "first", id = "id1"),
+            post(content = "second", id = "id2"),
+            post(content = "third", id = "id3")
         )
 
         val ordered = buildOrderedPosts(

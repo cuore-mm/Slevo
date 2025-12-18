@@ -45,10 +45,10 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 
 data class PopupInfo(
-    val posts: List<ReplyInfo>,
+    val posts: List<ThreadPostUiModel>,
     val offset: IntOffset,
     val size: IntSize = IntSize.Zero,
 )
@@ -61,7 +61,7 @@ private const val POPUP_ANIMATION_DURATION = 160
 @Composable
 fun ReplyPopup(
     popupStack: SnapshotStateList<PopupInfo>,
-    posts: List<ReplyInfo>,
+    posts: List<ThreadPostUiModel>,
     replySourceMap: Map<Int, List<Int>>,
     idCountMap: Map<String, Int>,
     idIndexList: List<Int>,
@@ -174,7 +174,7 @@ fun ReplyPopup(
                                 post = p,
                                 postNum = postNum,
                                 idIndex = idIndexList[posts.indexOf(p)],
-                                idTotal = if (p.id.isBlank()) 1 else idCountMap[p.id] ?: 1,
+                                idTotal = if (p.header.id.isBlank()) 1 else idCountMap[p.header.id] ?: 1,
                                 navController = navController,
                                 tabsViewModel = tabsViewModel,
                                 boardName = boardName,
@@ -222,7 +222,7 @@ fun ReplyPopup(
                                     )
                                     val targets = posts.mapIndexedNotNull { idx, post ->
                                         val num = idx + 1
-                                        if (post.id == id && num !in ngPostNumbers) post else null
+                                        if (post.header.id == id && num !in ngPostNumbers) post else null
                                     }
                                     if (targets.isNotEmpty()) {
                                         popupStack.add(PopupInfo(targets, offset))
@@ -247,20 +247,28 @@ fun ReplyPopup(
 @Composable
 fun ReplyPopupPreview() {
     val dummyPosts = listOf(
-        ReplyInfo(
-            name = "名無しさん",
-            email = "sage",
-            date = "2025/08/23",
-            id = "ID:12345",
-            content = "これはテスト投稿です。",
+        ThreadPostUiModel(
+            header = ThreadPostUiModel.Header(
+                name = "名無しさん",
+                email = "sage",
+                date = "2025/08/23",
+                id = "ID:12345",
+            ),
+            body = ThreadPostUiModel.Body(
+                content = "これはテスト投稿です。",
+            ),
         ),
-        ReplyInfo(
-            name = "テストユーザー",
-            email = "",
-            date = "2025/08/23",
-            id = "ID:67890",
-            content = "2つ目の投稿。",
-        )
+        ThreadPostUiModel(
+            header = ThreadPostUiModel.Header(
+                name = "テストユーザー",
+                email = "",
+                date = "2025/08/23",
+                id = "ID:67890",
+            ),
+            body = ThreadPostUiModel.Body(
+                content = "2つ目の投稿。",
+            ),
+        ),
     )
     val dummyReplySourceMap = mapOf(1 to listOf(2), 2 to listOf(1))
     val dummyIdCountMap = mapOf("ID:12345" to 1, "ID:67890" to 1)

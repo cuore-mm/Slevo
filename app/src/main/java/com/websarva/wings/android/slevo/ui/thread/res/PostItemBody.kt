@@ -32,14 +32,15 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.item.rememberHighlightedText
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.slevo.data.model.ReplyInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 import kotlinx.coroutines.CoroutineScope
 
 @Composable
 internal fun PostItemBody(
-    post: ReplyInfo,
+    post: ThreadPostUiModel,
     bodyTextStyle: TextStyle,
     lineHeightEm: Float,
     searchQuery: String,
@@ -57,7 +58,7 @@ internal fun PostItemBody(
 ) {
     val uriHandler = LocalUriHandler.current
     val annotatedText = buildUrlAnnotatedString(
-        text = post.content,
+        text = post.body.content,
         onOpenUrl = { uriHandler.openUri(it) },
         pressedUrl = pressedUrl,
         pressedReply = pressedReply
@@ -65,16 +66,16 @@ internal fun PostItemBody(
     val highlightBackground = MaterialTheme.colorScheme.tertiaryContainer
     val highlightedText = rememberHighlightedText(
         baseText = annotatedText,
-        rawContent = post.content,
+        rawContent = post.body.content,
         searchQuery = searchQuery,
         highlightColor = highlightBackground
     )
     var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
 
     Column(horizontalAlignment = Alignment.Start) {
-        if (post.beIconUrl.isNotBlank()) {
+        if (post.header.beIconUrl.isNotBlank()) {
             AsyncImage(
-                model = post.beIconUrl,
+                model = post.header.beIconUrl,
                 contentDescription = null,
                 modifier = Modifier.size(32.dp)
             )
@@ -187,15 +188,21 @@ private fun PostItemBodyPreview() {
     var pressedReply by remember { mutableStateOf<String?>(null) }
 
     PostItemBody(
-        post = ReplyInfo(
-            name = "風吹けば名無し",
-            email = "sage",
-            date = "2025/12/16(火) 12:34:56.78",
-            id = "testid",
-            beRank = "PLT(2000)",
-            beIconUrl = "https://img.5ch.net/ico/1fu.gif",
-            content = "リンク https://example.com と >>12 を含む本文",
-            urlFlags = ReplyInfo.HAS_OTHER_URL or ReplyInfo.HAS_THREAD_URL
+        post = ThreadPostUiModel(
+            header = ThreadPostUiModel.Header(
+                name = "風吹けば名無し",
+                email = "sage",
+                date = "2025/12/16(火) 12:34:56.78",
+                id = "testid",
+                beRank = "PLT(2000)",
+                beIconUrl = "https://img.5ch.net/ico/1fu.gif",
+            ),
+            body = ThreadPostUiModel.Body(
+                content = "リンク https://example.com と >>12 を含む本文",
+            ),
+            meta = ThreadPostUiModel.Meta(
+                urlFlags = ReplyInfo.HAS_OTHER_URL or ReplyInfo.HAS_THREAD_URL
+            ),
         ),
         bodyTextStyle = MaterialTheme.typography.bodyMedium,
         lineHeightEm = 1.4f,

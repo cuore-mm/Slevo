@@ -1,7 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -14,13 +14,14 @@ internal val DATE_FORMAT = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN)
     timeZone = TimeZone.getTimeZone("Asia/Tokyo")
 }
 
-internal fun deriveReplyMaps(posts: List<ReplyInfo>): Triple<Map<String, Int>, List<Int>, Map<Int, List<Int>>> {
-    val idCountMap = posts.groupingBy { it.id }.eachCount()
+internal fun deriveReplyMaps(posts: List<ThreadPostUiModel>): Triple<Map<String, Int>, List<Int>, Map<Int, List<Int>>> {
+    val idCountMap = posts.groupingBy { it.header.id }.eachCount()
     val idIndexList = run {
         val indexMap = mutableMapOf<String, Int>()
         posts.map { reply ->
-            val idx = (indexMap[reply.id] ?: 0) + 1
-            indexMap[reply.id] = idx
+            val id = reply.header.id
+            val idx = (indexMap[id] ?: 0) + 1
+            indexMap[id] = idx
             idx
         }
     }
@@ -28,7 +29,7 @@ internal fun deriveReplyMaps(posts: List<ReplyInfo>): Triple<Map<String, Int>, L
         val map = mutableMapOf<Int, MutableList<Int>>()
         val regex = Regex(">>(\\d+)")
         posts.forEachIndexed { idx, reply ->
-            regex.findAll(reply.content).forEach { match ->
+            regex.findAll(reply.body.content).forEach { match ->
                 val num = match.groupValues[1].toIntOrNull() ?: return@forEach
                 if (num in 1..posts.size) {
                     map.getOrPut(num) { mutableListOf() }.add(idx + 1)
@@ -40,14 +41,14 @@ internal fun deriveReplyMaps(posts: List<ReplyInfo>): Triple<Map<String, Int>, L
     return Triple(idCountMap, idIndexList, replySourceMap)
 }
 
-internal fun deriveTreeOrder(posts: List<ReplyInfo>): Pair<List<Int>, Map<Int, Int>> {
+internal fun deriveTreeOrder(posts: List<ThreadPostUiModel>): Pair<List<Int>, Map<Int, Int>> {
     val children = mutableMapOf<Int, MutableList<Int>>()
     val parent = IntArray(posts.size + 1)
     val depthMap = mutableMapOf<Int, Int>()
     val regex = Regex("^>>(\\d+)")
     posts.forEachIndexed { idx, reply ->
         val current = idx + 1
-        val match = regex.find(reply.content)
+        val match = regex.find(reply.body.content)
         val p = match?.groupValues?.get(1)?.toIntOrNull()
         if (p != null && p in 1 until current) {
             parent[current] = p
@@ -69,7 +70,7 @@ internal fun deriveTreeOrder(posts: List<ReplyInfo>): Pair<List<Int>, Map<Int, I
 }
 
 internal fun buildOrderedPosts(
-    posts: List<ReplyInfo>,
+    posts: List<ThreadPostUiModel>,
     order: List<Int>,
     sortType: ThreadSortType,
     treeDepthMap: Map<Int, Int>,

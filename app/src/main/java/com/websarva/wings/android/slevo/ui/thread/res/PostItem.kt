@@ -16,13 +16,13 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PostItem(
     modifier: Modifier = Modifier,
-    post: ReplyInfo,
+    post: ThreadPostUiModel,
     postNum: Int,
     idIndex: Int,
     idTotal: Int,
@@ -64,11 +64,17 @@ fun PostItem(
         showMyPostIndicator = isMyPost,
     ) {
         PostItemHeader(
-            post = post,
-            postNum = postNum,
-            idIndex = idIndex,
-            idTotal = idTotal,
-            replyFromNumbers = replyFromNumbers,
+            uiModel = PostHeaderUiModel(
+                name = post.header.name,
+                email = post.header.email,
+                date = post.header.date,
+                id = post.header.id,
+                beRank = post.header.beRank,
+                postNum = postNum,
+                idIndex = idIndex,
+                idTotal = idTotal,
+                replyFromNumbers = replyFromNumbers,
+            ),
             headerTextStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = headerFontSize),
             lineHeightEm = lineHeight,
             pressedHeaderPart = interactionState.pressedHeaderPart,
@@ -143,15 +149,19 @@ private fun ReplyCardPreview() {
     SharedTransitionLayout {
         AnimatedVisibility(visible = true) {
             PostItem(
-                post = ReplyInfo(
-                    name = "風吹けば名無し (ｵｰﾊﾟｲW ddad-g3Sx [2001:268:98f4:c793:*])",
-                    email = "sage",
-                    date = "1/21(月) 15:43:45.34",
-                    id = "testnanjj",
-                    beLoginId = "12345",
-                    beRank = "PLT(2000)",
-                    beIconUrl = "https://img.5ch.net/ico/1fu.gif",
-                    content = "ガチで終わった模様"
+                post = ThreadPostUiModel(
+                    header = ThreadPostUiModel.Header(
+                        name = "風吹けば名無し (ｵｰﾊﾟｲW ddad-g3Sx [2001:268:98f4:c793:*])",
+                        email = "sage",
+                        date = "1/21(月) 15:43:45.34",
+                        id = "testnanjj",
+                        beLoginId = "12345",
+                        beRank = "PLT(2000)",
+                        beIconUrl = "https://img.5ch.net/ico/1fu.gif",
+                    ),
+                    body = ThreadPostUiModel.Body(
+                        content = "ガチで終わった模様"
+                    ),
                 ),
                 postNum = 1,
                 idIndex = 1,

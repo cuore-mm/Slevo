@@ -37,4 +37,4 @@ local.properties
 !**/src/**/baseline-prof.txt
 /result.json
 
-.codex/
+/AGENTS.override.md

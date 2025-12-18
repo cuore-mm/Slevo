@@ -68,7 +68,7 @@ import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
 import com.websarva.wings.android.slevo.ui.thread.res.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.res.ReplyPopup
 import com.websarva.wings.android.slevo.ui.thread.res.PostItem
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.util.GestureHint
@@ -327,7 +327,7 @@ fun ThreadScreen(
                         post = post,
                         postNum = postNum,
                         idIndex = uiState.idIndexList.getOrElse(index) { 1 },
-                        idTotal = if (post.id.isBlank()) 1 else uiState.idCountMap[post.id]
+                        idTotal = if (post.header.id.isBlank()) 1 else uiState.idCountMap[post.header.id]
                             ?: 1,
                         navController = navController,
                         tabsViewModel = tabsViewModel,
@@ -389,7 +389,7 @@ fun ThreadScreen(
                             }
                             val targets = posts.mapIndexedNotNull { idx, p ->
                                 val num = idx + 1
-                                if (p.id == id && num !in ngNumbers) p else null
+                                if (p.header.id == id && num !in ngNumbers) p else null
                             }
                             if (targets.isNotEmpty()) {
                                 popupStack.add(PopupInfo(targets, offset))
@@ -521,23 +521,31 @@ fun ThreadScreen(
 @Composable
 fun ThreadScreenPreview() {
     val previewPosts = listOf(
-        ReplyInfo(
-            name = "名無しさん",
-            email = "sage",
-            date = "2025/07/09(水) 19:40:25.769",
-            id = "test1",
-            beLoginId = "12345",
-            beRank = "DIA(20000)",
-            beIconUrl = "http://img.2ch.net/ico/hikky2.gif",
-            content = "これはテスト投稿です。"
+        ThreadPostUiModel(
+            header = ThreadPostUiModel.Header(
+                name = "名無しさん",
+                email = "sage",
+                date = "2025/07/09(水) 19:40:25.769",
+                id = "test1",
+                beLoginId = "12345",
+                beRank = "DIA(20000)",
+                beIconUrl = "http://img.2ch.net/ico/hikky2.gif",
+            ),
+            body = ThreadPostUiModel.Body(
+                content = "これはテスト投稿です。"
+            ),
         ),
-        ReplyInfo(
-            name = "名無しさん",
-            email = "sage",
-            date = "2025/07/09(水) 19:41:00.123",
-            id = "test2",
-            content = "別のテスト投稿です。"
-        )
+        ThreadPostUiModel(
+            header = ThreadPostUiModel.Header(
+                name = "名無しさん",
+                email = "sage",
+                date = "2025/07/09(水) 19:41:00.123",
+                id = "test2",
+            ),
+            body = ThreadPostUiModel.Body(
+                content = "別のテスト投稿です。"
+            ),
+        ),
     )
     val uiState = ThreadUiState(
         posts = previewPosts,
@@ -546,7 +554,7 @@ fun ThreadScreenPreview() {
             "board",
             "https://example.com/"
         ),
-        idCountMap = previewPosts.groupingBy { it.id }.eachCount(),
+        idCountMap = previewPosts.groupingBy { it.header.id }.eachCount(),
         idIndexList = previewPosts.mapIndexed { i, _ -> i + 1 },
         replySourceMap = emptyMap()
     )

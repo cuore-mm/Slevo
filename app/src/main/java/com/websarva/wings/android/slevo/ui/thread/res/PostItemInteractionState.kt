@@ -12,7 +12,7 @@ internal class PostItemInteractionState {
     var isContentPressed by mutableStateOf(false)
     var pressedUrl by mutableStateOf<String?>(null)
     var pressedReply by mutableStateOf<String?>(null)
-    var pressedHeaderPart by mutableStateOf<String?>(null)
+    var pressedHeaderPart by mutableStateOf<PostHeaderPart?>(null)
     var isMenuExpanded by mutableStateOf(false)
 }
 
@@ -20,4 +20,3 @@ internal class PostItemInteractionState {
 internal fun rememberPostItemInteractionState(): PostItemInteractionState {
     return remember { PostItemInteractionState() }
 }
-

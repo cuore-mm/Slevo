@@ -17,7 +17,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -29,198 +31,301 @@ import androidx.compose.ui.unit.em
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.theme.idColor
 import com.websarva.wings.android.slevo.ui.theme.replyCountColor
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import kotlinx.coroutines.CoroutineScope
 import java.time.LocalDate
 import java.util.Calendar
 
+internal enum class PostHeaderPart {
+    Name,
+    Id
+}
+
+internal data class PostHeaderUiModel(
+    val name: String,
+    val email: String,
+    val date: String,
+    val id: String,
+    val beRank: String,
+    val postNum: Int,
+    val idIndex: Int,
+    val idTotal: Int,
+    val replyFromNumbers: List<Int>,
+) {
+    val replyCount: Int
+        get() = replyFromNumbers.size
+
+    val idText: String
+        get() = if (idTotal > 1) "$id ($idIndex/$idTotal)" else id
+}
+
+private const val HeaderTagName = "NAME"
+private const val HeaderTagId = "ID"
+
+private data class PostHeaderTextColors(
+    val onSurfaceVariant: Color,
+    val pressed: Color,
+    val userId: Color,
+)
+
 @Composable
 internal fun PostItemHeader(
-    post: ReplyInfo,
-    postNum: Int,
-    idIndex: Int,
-    idTotal: Int,
-    replyFromNumbers: List<Int>,
+    uiModel: PostHeaderUiModel,
     headerTextStyle: TextStyle,
     lineHeightEm: Float,
-    pressedHeaderPart: String?,
+    pressedHeaderPart: PostHeaderPart?,
     scope: CoroutineScope,
     haptic: HapticFeedback,
-    onPressedHeaderPartChange: (String?) -> Unit,
+    onPressedHeaderPartChange: (PostHeaderPart?) -> Unit,
     onContentPressedChange: (Boolean) -> Unit,
     onRequestMenu: () -> Unit,
     onReplyFromClick: ((List<Int>) -> Unit)?,
     onIdClick: ((String) -> Unit)?,
     onShowTextMenu: (text: String, type: NgType) -> Unit,
 ) {
-    val idText = if (idTotal > 1) "${post.id} (${idIndex}/${idTotal})" else post.id
-    val userIdColor = idColor(idTotal)
+    val userIdColor = idColor(uiModel.idTotal)
+    val colors = PostHeaderTextColors(
+        onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant,
+        pressed = MaterialTheme.colorScheme.primary,
+        userId = userIdColor
+    )
 
     Row {
-        val replyCount = replyFromNumbers.size
-        val postNumColor =
-            if (replyCount > 0) replyCountColor(replyCount) else MaterialTheme.colorScheme.onSurfaceVariant
-        Text(
-            modifier = Modifier
-                .alignByBaseline()
-                .clickable(enabled = replyCount > 0) {
-                    onReplyFromClick?.invoke(replyFromNumbers)
-                },
-            text = if (replyCount > 0) "$postNum ($replyCount) " else "$postNum ",
-            style = headerTextStyle,
-            fontWeight = FontWeight.Bold,
-            color = postNumColor
+        PostNumberText(
+            modifier = Modifier.alignByBaseline(),
+            postNum = uiModel.postNum,
+            replyFromNumbers = uiModel.replyFromNumbers,
+            headerTextStyle = headerTextStyle,
+            onReplyFromClick = onReplyFromClick
         )
 
-        val headerText = buildAnnotatedString {
-            var first = true
-            fun appendSpaceIfNeeded() {
-                if (!first) append(" ") else first = false
-            }
+        val headerText = remember(uiModel, pressedHeaderPart, colors) {
+            buildHeaderText(
+                uiModel = uiModel,
+                pressedHeaderPart = pressedHeaderPart,
+                colors = colors
+            )
+        }
+        PostHeaderAnnotatedText(
+            modifier = Modifier.alignByBaseline(),
+            headerText = headerText,
+            headerTextStyle = headerTextStyle,
+            lineHeightEm = lineHeightEm,
+            id = uiModel.id,
+            scope = scope,
+            haptic = haptic,
+            onPressedHeaderPartChange = onPressedHeaderPartChange,
+            onContentPressedChange = onContentPressedChange,
+            onRequestMenu = onRequestMenu,
+            onIdClick = onIdClick,
+            onShowTextMenu = onShowTextMenu
+        )
+    }
+}
 
-            if (post.name.isNotBlank()) {
-                appendSpaceIfNeeded()
-                pushStringAnnotation(tag = "NAME", annotation = post.name)
-                withStyle(
-                    SpanStyle(
-                        color = if (pressedHeaderPart == "NAME") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        textDecoration = if (pressedHeaderPart == "NAME") TextDecoration.Underline else TextDecoration.None
-                    )
-                ) {
-                    append(post.name)
-                }
-                pop()
-            }
+@Composable
+private fun PostNumberText(
+    modifier: Modifier,
+    postNum: Int,
+    replyFromNumbers: List<Int>,
+    headerTextStyle: TextStyle,
+    onReplyFromClick: ((List<Int>) -> Unit)?,
+) {
+    val replyCount = replyFromNumbers.size
+    val postNumColor =
+        if (replyCount > 0) replyCountColor(replyCount) else MaterialTheme.colorScheme.onSurfaceVariant
+    Text(
+        modifier = modifier
+            .clickable(enabled = replyCount > 0) {
+                onReplyFromClick?.invoke(replyFromNumbers)
+            },
+        text = if (replyCount > 0) "$postNum ($replyCount) " else "$postNum ",
+        style = headerTextStyle,
+        fontWeight = FontWeight.Bold,
+        color = postNumColor
+    )
+}
 
-            val currentYearPrefix = run {
-                val year = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    LocalDate.now().year
-                } else {
-                    Calendar.getInstance().get(Calendar.YEAR)
-                }
-                "$year/"
-            }
-            val displayDate =
-                if (post.date.startsWith(currentYearPrefix)) {
-                    post.date.removePrefix(currentYearPrefix)
-                } else {
-                    post.date
-                }
-            val emailDate =
-                listOf(post.email, displayDate).filter { it.isNotBlank() }
-                    .joinToString(" ")
-            if (emailDate.isNotBlank()) {
-                appendSpaceIfNeeded()
-                withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
-                    append(emailDate)
-                }
-            }
+@Composable
+private fun PostHeaderAnnotatedText(
+    modifier: Modifier,
+    headerText: AnnotatedString,
+    headerTextStyle: TextStyle,
+    lineHeightEm: Float,
+    id: String,
+    scope: CoroutineScope,
+    haptic: HapticFeedback,
+    onPressedHeaderPartChange: (PostHeaderPart?) -> Unit,
+    onContentPressedChange: (Boolean) -> Unit,
+    onRequestMenu: () -> Unit,
+    onIdClick: ((String) -> Unit)?,
+    onShowTextMenu: (text: String, type: NgType) -> Unit,
+) {
+    var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    Text(
+        modifier = modifier
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = { offset ->
+                        headerLayout?.let { layout ->
+                            val pos = layout.getOffsetForPosition(offset)
+                            val nameAnn =
+                                headerText.getStringAnnotations(HeaderTagName, pos, pos)
+                                    .firstOrNull()
+                            val idAnn =
+                                headerText.getStringAnnotations(HeaderTagId, pos, pos).firstOrNull()
+                            when {
+                                nameAnn != null ->
+                                    handlePressFeedback(
+                                        scope = scope,
+                                        feedbackDelayMillis = 0L,
+                                        onFeedbackStart = {
+                                            onPressedHeaderPartChange(PostHeaderPart.Name)
+                                        },
+                                        onFeedbackEnd = { onPressedHeaderPartChange(null) },
+                                        awaitRelease = { awaitRelease() }
+                                    )
 
-            if (post.id.isNotBlank()) {
-                appendSpaceIfNeeded()
-                pushStringAnnotation(tag = "ID", annotation = post.id)
-                withStyle(
-                    SpanStyle(
-                        color = if (pressedHeaderPart == "ID") MaterialTheme.colorScheme.primary else userIdColor,
-                        textDecoration = if (pressedHeaderPart == "ID") TextDecoration.Underline else TextDecoration.None
-                    )
-                ) {
-                    append(idText)
-                }
-                pop()
-            }
+                                idAnn != null ->
+                                    handlePressFeedback(
+                                        scope = scope,
+                                        feedbackDelayMillis = 0L,
+                                        onFeedbackStart = {
+                                            onPressedHeaderPartChange(PostHeaderPart.Id)
+                                        },
+                                        onFeedbackEnd = { onPressedHeaderPartChange(null) },
+                                        awaitRelease = { awaitRelease() }
+                                    )
 
-            if (post.beRank.isNotBlank()) {
-                appendSpaceIfNeeded()
-                withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
-                    append(post.beRank)
-                }
+                                else ->
+                                    handlePressFeedback(
+                                        scope = scope,
+                                        onFeedbackStart = { onContentPressedChange(true) },
+                                        onFeedbackEnd = { onContentPressedChange(false) },
+                                        awaitRelease = { awaitRelease() }
+                                    )
+                            }
+                        } ?: handlePressFeedback(
+                            scope = scope,
+                            onFeedbackStart = { onContentPressedChange(true) },
+                            onFeedbackEnd = { onContentPressedChange(false) },
+                            awaitRelease = { awaitRelease() }
+                        )
+                    },
+                    onTap = { offset ->
+                        headerLayout?.let { layout ->
+                            val pos = layout.getOffsetForPosition(offset)
+                            headerText.getStringAnnotations(HeaderTagId, pos, pos)
+                                .firstOrNull()
+                                ?.let { onIdClick?.invoke(id) }
+                        }
+                    },
+                    onLongPress = { offset ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        headerLayout?.let { layout ->
+                            val pos = layout.getOffsetForPosition(offset)
+                            val nameAnn =
+                                headerText.getStringAnnotations(HeaderTagName, pos, pos)
+                                    .firstOrNull()
+                            val idAnn =
+                                headerText.getStringAnnotations(HeaderTagId, pos, pos).firstOrNull()
+                            when {
+                                nameAnn != null -> onShowTextMenu(
+                                    nameAnn.item,
+                                    NgType.USER_NAME
+                                )
+
+                                idAnn != null -> onShowTextMenu(idAnn.item, NgType.USER_ID)
+                                else -> onRequestMenu()
+                            }
+                        } ?: onRequestMenu()
+                    }
+                )
+            },
+        text = headerText,
+        style = headerTextStyle,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        lineHeight = lineHeightEm.em,
+        onTextLayout = { headerLayout = it }
+    )
+}
+
+private fun buildHeaderText(
+    uiModel: PostHeaderUiModel,
+    pressedHeaderPart: PostHeaderPart?,
+    colors: PostHeaderTextColors,
+): AnnotatedString {
+    val displayDate = formatDisplayDate(uiModel.date)
+    val emailDate = buildEmailDate(email = uiModel.email, displayDate = displayDate)
+    return buildAnnotatedString {
+        var first = true
+        fun appendSpaceIfNeeded() {
+            if (!first) append(" ") else first = false
+        }
+
+        if (uiModel.name.isNotBlank()) {
+            appendSpaceIfNeeded()
+            pushStringAnnotation(tag = HeaderTagName, annotation = uiModel.name)
+            withStyle(
+                SpanStyle(
+                    color = if (pressedHeaderPart == PostHeaderPart.Name) colors.pressed else colors.onSurfaceVariant,
+                    textDecoration = if (pressedHeaderPart == PostHeaderPart.Name) TextDecoration.Underline else TextDecoration.None
+                )
+            ) {
+                append(uiModel.name)
+            }
+            pop()
+        }
+
+        if (emailDate.isNotBlank()) {
+            appendSpaceIfNeeded()
+            withStyle(SpanStyle(color = colors.onSurfaceVariant)) {
+                append(emailDate)
             }
         }
 
-        var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
-        Text(
-            modifier = Modifier
-                .alignByBaseline()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onPress = { offset ->
-                            headerLayout?.let { layout ->
-                                val pos = layout.getOffsetForPosition(offset)
-                                val nameAnn =
-                                    headerText.getStringAnnotations("NAME", pos, pos).firstOrNull()
-                                val idAnn =
-                                    headerText.getStringAnnotations("ID", pos, pos).firstOrNull()
-                                when {
-                                    nameAnn != null ->
-                                        handlePressFeedback(
-                                            scope = scope,
-                                            feedbackDelayMillis = 0L,
-                                            onFeedbackStart = { onPressedHeaderPartChange("NAME") },
-                                            onFeedbackEnd = { onPressedHeaderPartChange(null) },
-                                            awaitRelease = { awaitRelease() }
-                                        )
+        if (uiModel.id.isNotBlank()) {
+            appendSpaceIfNeeded()
+            pushStringAnnotation(tag = HeaderTagId, annotation = uiModel.id)
+            withStyle(
+                SpanStyle(
+                    color = if (pressedHeaderPart == PostHeaderPart.Id) colors.pressed else colors.userId,
+                    textDecoration = if (pressedHeaderPart == PostHeaderPart.Id) TextDecoration.Underline else TextDecoration.None
+                )
+            ) {
+                append(uiModel.idText)
+            }
+            pop()
+        }
 
-                                    idAnn != null ->
-                                        handlePressFeedback(
-                                            scope = scope,
-                                            feedbackDelayMillis = 0L,
-                                            onFeedbackStart = { onPressedHeaderPartChange("ID") },
-                                            onFeedbackEnd = { onPressedHeaderPartChange(null) },
-                                            awaitRelease = { awaitRelease() }
-                                        )
-
-                                    else ->
-                                        handlePressFeedback(
-                                            scope = scope,
-                                            onFeedbackStart = { onContentPressedChange(true) },
-                                            onFeedbackEnd = { onContentPressedChange(false) },
-                                            awaitRelease = { awaitRelease() }
-                                        )
-                                }
-                            } ?: handlePressFeedback(
-                                scope = scope,
-                                onFeedbackStart = { onContentPressedChange(true) },
-                                onFeedbackEnd = { onContentPressedChange(false) },
-                                awaitRelease = { awaitRelease() }
-                            )
-                        },
-                        onTap = { offset ->
-                            headerLayout?.let { layout ->
-                                val pos = layout.getOffsetForPosition(offset)
-                                headerText.getStringAnnotations("ID", pos, pos)
-                                    .firstOrNull()
-                                    ?.let { onIdClick?.invoke(post.id) }
-                            }
-                        },
-                        onLongPress = { offset ->
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            headerLayout?.let { layout ->
-                                val pos = layout.getOffsetForPosition(offset)
-                                val nameAnn =
-                                    headerText.getStringAnnotations("NAME", pos, pos).firstOrNull()
-                                val idAnn =
-                                    headerText.getStringAnnotations("ID", pos, pos).firstOrNull()
-                                when {
-                                    nameAnn != null -> onShowTextMenu(
-                                        nameAnn.item,
-                                        NgType.USER_NAME
-                                    )
-
-                                    idAnn != null -> onShowTextMenu(idAnn.item, NgType.USER_ID)
-                                    else -> onRequestMenu()
-                                }
-                            } ?: onRequestMenu()
-                        }
-                    )
-                },
-            text = headerText,
-            style = headerTextStyle,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            lineHeight = lineHeightEm.em,
-            onTextLayout = { headerLayout = it }
-        )
+        if (uiModel.beRank.isNotBlank()) {
+            appendSpaceIfNeeded()
+            withStyle(SpanStyle(color = colors.onSurfaceVariant)) {
+                append(uiModel.beRank)
+            }
+        }
     }
+}
+
+private fun formatDisplayDate(date: String): String {
+    val currentYearPrefix = currentYearPrefix()
+    return if (date.startsWith(currentYearPrefix)) {
+        date.removePrefix(currentYearPrefix)
+    } else {
+        date
+    }
+}
+
+private fun buildEmailDate(email: String, displayDate: String): String {
+    return listOf(email, displayDate).filter { it.isNotBlank() }.joinToString(" ")
+}
+
+private fun currentYearPrefix(): String {
+    val year = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        LocalDate.now().year
+    } else {
+        Calendar.getInstance().get(Calendar.YEAR)
+    }
+    return "$year/"
 }
 
 @Preview(showBackground = true)
@@ -228,21 +333,20 @@ internal fun PostItemHeader(
 private fun PostItemHeaderPreview() {
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
-    var pressedHeaderPart by remember { mutableStateOf<String?>(null) }
+    var pressedHeaderPart by remember { mutableStateOf<PostHeaderPart?>(null) }
 
     PostItemHeader(
-        post = ReplyInfo(
+        uiModel = PostHeaderUiModel(
             name = "風吹けば名無し",
             email = "sage",
             date = "2025/12/16(火) 12:34:56.78",
             id = "testid",
             beRank = "PLT(2000)",
-            content = "本文"
+            postNum = 12,
+            idIndex = 1,
+            idTotal = 3,
+            replyFromNumbers = listOf(1, 2, 3),
         ),
-        postNum = 12,
-        idIndex = 1,
-        idTotal = 3,
-        replyFromNumbers = listOf(1, 2, 3),
         headerTextStyle = MaterialTheme.typography.bodyMedium,
         lineHeightEm = 1.4f,
         pressedHeaderPart = pressedHeaderPart,
