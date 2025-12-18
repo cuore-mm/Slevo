@@ -65,11 +65,7 @@ fun PostItem(
     ) {
         PostItemHeader(
             uiModel = PostHeaderUiModel(
-                name = post.header.name,
-                email = post.header.email,
-                date = post.header.date,
-                id = post.header.id,
-                beRank = post.header.beRank,
+                header = post.header,
                 postNum = postNum,
                 idIndex = idIndex,
                 idTotal = idTotal,

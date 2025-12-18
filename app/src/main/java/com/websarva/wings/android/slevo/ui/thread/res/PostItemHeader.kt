@@ -29,6 +29,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.em
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.theme.idColor
 import com.websarva.wings.android.slevo.ui.theme.replyCountColor
 import kotlinx.coroutines.CoroutineScope
@@ -41,11 +42,7 @@ internal enum class PostHeaderPart {
 }
 
 internal data class PostHeaderUiModel(
-    val name: String,
-    val email: String,
-    val date: String,
-    val id: String,
-    val beRank: String,
+    val header: ThreadPostUiModel.Header,
     val postNum: Int,
     val idIndex: Int,
     val idTotal: Int,
@@ -55,7 +52,7 @@ internal data class PostHeaderUiModel(
         get() = replyFromNumbers.size
 
     val idText: String
-        get() = if (idTotal > 1) "$id ($idIndex/$idTotal)" else id
+        get() = if (idTotal > 1) "${header.id} ($idIndex/$idTotal)" else header.id
 }
 
 private const val HeaderTagName = "NAME"
@@ -110,7 +107,7 @@ internal fun PostItemHeader(
             headerText = headerText,
             headerTextStyle = headerTextStyle,
             lineHeightEm = lineHeightEm,
-            id = uiModel.id,
+            id = uiModel.header.id,
             scope = scope,
             haptic = haptic,
             onPressedHeaderPartChange = onPressedHeaderPartChange,
@@ -254,24 +251,24 @@ private fun buildHeaderText(
     pressedHeaderPart: PostHeaderPart?,
     colors: PostHeaderTextColors,
 ): AnnotatedString {
-    val displayDate = formatDisplayDate(uiModel.date)
-    val emailDate = buildEmailDate(email = uiModel.email, displayDate = displayDate)
+    val displayDate = formatDisplayDate(uiModel.header.date)
+    val emailDate = buildEmailDate(email = uiModel.header.email, displayDate = displayDate)
     return buildAnnotatedString {
         var first = true
         fun appendSpaceIfNeeded() {
             if (!first) append(" ") else first = false
         }
 
-        if (uiModel.name.isNotBlank()) {
+        if (uiModel.header.name.isNotBlank()) {
             appendSpaceIfNeeded()
-            pushStringAnnotation(tag = HeaderTagName, annotation = uiModel.name)
+            pushStringAnnotation(tag = HeaderTagName, annotation = uiModel.header.name)
             withStyle(
                 SpanStyle(
                     color = if (pressedHeaderPart == PostHeaderPart.Name) colors.pressed else colors.onSurfaceVariant,
                     textDecoration = if (pressedHeaderPart == PostHeaderPart.Name) TextDecoration.Underline else TextDecoration.None
                 )
             ) {
-                append(uiModel.name)
+                append(uiModel.header.name)
             }
             pop()
         }
@@ -283,9 +280,9 @@ private fun buildHeaderText(
             }
         }
 
-        if (uiModel.id.isNotBlank()) {
+        if (uiModel.header.id.isNotBlank()) {
             appendSpaceIfNeeded()
-            pushStringAnnotation(tag = HeaderTagId, annotation = uiModel.id)
+            pushStringAnnotation(tag = HeaderTagId, annotation = uiModel.header.id)
             withStyle(
                 SpanStyle(
                     color = if (pressedHeaderPart == PostHeaderPart.Id) colors.pressed else colors.userId,
@@ -297,10 +294,10 @@ private fun buildHeaderText(
             pop()
         }
 
-        if (uiModel.beRank.isNotBlank()) {
+        if (uiModel.header.beRank.isNotBlank()) {
             appendSpaceIfNeeded()
             withStyle(SpanStyle(color = colors.onSurfaceVariant)) {
-                append(uiModel.beRank)
+                append(uiModel.header.beRank)
             }
         }
     }
@@ -337,11 +334,13 @@ private fun PostItemHeaderPreview() {
 
     PostItemHeader(
         uiModel = PostHeaderUiModel(
-            name = "風吹けば名無し",
-            email = "sage",
-            date = "2025/12/16(火) 12:34:56.78",
-            id = "testid",
-            beRank = "PLT(2000)",
+            header = ThreadPostUiModel.Header(
+                name = "風吹けば名無し",
+                email = "sage",
+                date = "2025/12/16(火) 12:34:56.78",
+                id = "testid",
+                beRank = "PLT(2000)",
+            ),
             postNum = 12,
             idIndex = 1,
             idTotal = 3,
