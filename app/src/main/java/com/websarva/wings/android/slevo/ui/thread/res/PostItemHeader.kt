@@ -75,7 +75,7 @@ internal fun PostItemHeader(
     onPressedHeaderPartChange: (PostHeaderPart?) -> Unit,
     onContentPressedChange: (Boolean) -> Unit,
     onRequestMenu: () -> Unit,
-    onReplyFromClick: ((List<Int>) -> Unit)?,
+    onReplyFromClick: ((List<Int>) -> Unit),
     onIdClick: ((String) -> Unit)?,
     onShowTextMenu: (text: String, type: NgType) -> Unit,
 ) {
@@ -125,7 +125,7 @@ private fun PostNumberText(
     postNum: Int,
     replyFromNumbers: List<Int>,
     headerTextStyle: TextStyle,
-    onReplyFromClick: ((List<Int>) -> Unit)?,
+    onReplyFromClick: ((List<Int>) -> Unit),
 ) {
     val replyCount = replyFromNumbers.size
     val postNumColor =
@@ -133,7 +133,7 @@ private fun PostNumberText(
     Text(
         modifier = modifier
             .clickable(enabled = replyCount > 0) {
-                onReplyFromClick?.invoke(replyFromNumbers)
+                onReplyFromClick.invoke(replyFromNumbers)
             },
         text = if (replyCount > 0) "$postNum ($replyCount) " else "$postNum ",
         style = headerTextStyle,

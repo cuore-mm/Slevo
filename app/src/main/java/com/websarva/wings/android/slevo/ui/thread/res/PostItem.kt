@@ -38,7 +38,7 @@ fun PostItem(
     isMyPost: Boolean = false,
     dimmed: Boolean = false,
     searchQuery: String = "",
-    onReplyFromClick: ((List<Int>) -> Unit)? = null,
+    onReplyFromClick: ((List<Int>) -> Unit),
     onReplyClick: ((Int) -> Unit)? = null,
     onMenuReplyClick: ((Int) -> Unit)? = null,
     onIdClick: ((String) -> Unit)? = null,
@@ -171,7 +171,11 @@ private fun ReplyCardPreview() {
                 searchQuery = "",
                 isMyPost = true,
                 sharedTransitionScope = this@SharedTransitionLayout,
-                animatedVisibilityScope = this
+                animatedVisibilityScope = this,
+                onReplyFromClick = {},
+                onReplyClick = {},
+                onMenuReplyClick = {},
+                onIdClick = {}
             )
         }
     }

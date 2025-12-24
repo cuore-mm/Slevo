@@ -343,7 +343,7 @@ fun ThreadScreen(
                         searchQuery = uiState.searchQuery,
                         sharedTransitionScope = sharedTransitionScope,
                         animatedVisibilityScope = animatedVisibilityScope,
-                        onReplyFromClick = { nums ->
+                        onReplyFromClick = { numbs ->
                             val offset = if (popupStack.isEmpty()) {
                                 itemOffsetHolder.value
                             } else {
@@ -353,7 +353,7 @@ fun ThreadScreen(
                                     (last.offset.y - last.size.height).coerceAtLeast(0)
                                 )
                             }
-                            val targets = nums.filterNot { it in ngNumbers }.mapNotNull { num ->
+                            val targets = numbs.filterNot { it in ngNumbers }.mapNotNull { num ->
                                 posts.getOrNull(num - 1)
                             }
                             if (targets.isNotEmpty()) {
