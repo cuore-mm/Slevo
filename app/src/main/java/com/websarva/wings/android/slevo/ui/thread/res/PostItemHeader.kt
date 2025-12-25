@@ -13,11 +13,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
@@ -48,9 +48,11 @@ internal data class PostHeaderUiModel(
     val idTotal: Int,
     val replyFromNumbers: List<Int>,
 ) {
+    // 返信元の番号数をUIに表示するための件数。
     val replyCount: Int
         get() = replyFromNumbers.size
 
+    // 複数ID表示時にインデックス/総数を付与したID文字列。
     val idText: String
         get() = if (idTotal > 1) "${header.id} ($idIndex/$idTotal)" else header.id
 }
@@ -64,6 +66,11 @@ private data class PostHeaderTextColors(
     val userId: Color,
 )
 
+private data class HeaderHit(
+    val part: PostHeaderPart?,
+    val text: String?,
+)
+
 @Composable
 internal fun PostItemHeader(
     uiModel: PostHeaderUiModel,
@@ -71,14 +78,14 @@ internal fun PostItemHeader(
     lineHeightEm: Float,
     pressedHeaderPart: PostHeaderPart?,
     scope: CoroutineScope,
-    haptic: HapticFeedback,
     onPressedHeaderPartChange: (PostHeaderPart?) -> Unit,
     onContentPressedChange: (Boolean) -> Unit,
     onRequestMenu: () -> Unit,
     onReplyFromClick: ((List<Int>) -> Unit),
-    onIdClick: ((String) -> Unit)?,
+    onIdClick: ((String) -> Unit),
     onShowTextMenu: (text: String, type: NgType) -> Unit,
 ) {
+    // --- 色設定 ---
     val userIdColor = idColor(uiModel.idTotal)
     val colors = PostHeaderTextColors(
         onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -87,6 +94,7 @@ internal fun PostItemHeader(
     )
 
     Row {
+        // --- 投稿番号 ---
         PostNumberText(
             modifier = Modifier.alignByBaseline(),
             postNum = uiModel.postNum,
@@ -95,6 +103,7 @@ internal fun PostItemHeader(
             onReplyFromClick = onReplyFromClick
         )
 
+        // --- ヘッダー本文 ---
         val headerText = remember(uiModel, pressedHeaderPart, colors) {
             buildHeaderText(
                 uiModel = uiModel,
@@ -109,7 +118,6 @@ internal fun PostItemHeader(
             lineHeightEm = lineHeightEm,
             id = uiModel.header.id,
             scope = scope,
-            haptic = haptic,
             onPressedHeaderPartChange = onPressedHeaderPartChange,
             onContentPressedChange = onContentPressedChange,
             onRequestMenu = onRequestMenu,
@@ -150,100 +158,111 @@ private fun PostHeaderAnnotatedText(
     lineHeightEm: Float,
     id: String,
     scope: CoroutineScope,
-    haptic: HapticFeedback,
     onPressedHeaderPartChange: (PostHeaderPart?) -> Unit,
     onContentPressedChange: (Boolean) -> Unit,
     onRequestMenu: () -> Unit,
-    onIdClick: ((String) -> Unit)?,
+    onIdClick: ((String) -> Unit),
     onShowTextMenu: (text: String, type: NgType) -> Unit,
 ) {
+    // --- フィードバック ---
+    val haptic = LocalHapticFeedback.current
+
+    // --- レイアウト参照 ---
     var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
     Text(
         modifier = modifier
             .pointerInput(Unit) {
+                // --- タップ判定 ---
                 detectTapGestures(
                     onPress = { offset ->
-                        headerLayout?.let { layout ->
-                            val pos = layout.getOffsetForPosition(offset)
-                            val nameAnn =
-                                headerText.getStringAnnotations(HeaderTagName, pos, pos)
-                                    .firstOrNull()
-                            val idAnn =
-                                headerText.getStringAnnotations(HeaderTagId, pos, pos).firstOrNull()
-                            when {
-                                nameAnn != null ->
-                                    handlePressFeedback(
-                                        scope = scope,
-                                        feedbackDelayMillis = 0L,
-                                        onFeedbackStart = {
-                                            onPressedHeaderPartChange(PostHeaderPart.Name)
-                                        },
-                                        onFeedbackEnd = { onPressedHeaderPartChange(null) },
-                                        awaitRelease = { awaitRelease() }
-                                    )
+                        val hit = headerLayout?.let { layout ->
+                            findHeaderHit(headerText = headerText, layout = layout, offset = offset)
+                        }
+                        when (hit?.part) {
+                            PostHeaderPart.Name ->
+                                handlePressFeedback(
+                                    scope = scope,
+                                    feedbackDelayMillis = 0L,
+                                    onFeedbackStart = {
+                                        onPressedHeaderPartChange(PostHeaderPart.Name)
+                                    },
+                                    onFeedbackEnd = { onPressedHeaderPartChange(null) },
+                                    awaitRelease = { awaitRelease() }
+                                )
 
-                                idAnn != null ->
-                                    handlePressFeedback(
-                                        scope = scope,
-                                        feedbackDelayMillis = 0L,
-                                        onFeedbackStart = {
-                                            onPressedHeaderPartChange(PostHeaderPart.Id)
-                                        },
-                                        onFeedbackEnd = { onPressedHeaderPartChange(null) },
-                                        awaitRelease = { awaitRelease() }
-                                    )
+                            PostHeaderPart.Id ->
+                                handlePressFeedback(
+                                    scope = scope,
+                                    feedbackDelayMillis = 0L,
+                                    onFeedbackStart = {
+                                        onPressedHeaderPartChange(PostHeaderPart.Id)
+                                    },
+                                    onFeedbackEnd = { onPressedHeaderPartChange(null) },
+                                    awaitRelease = { awaitRelease() }
+                                )
 
-                                else ->
-                                    handlePressFeedback(
-                                        scope = scope,
-                                        onFeedbackStart = { onContentPressedChange(true) },
-                                        onFeedbackEnd = { onContentPressedChange(false) },
-                                        awaitRelease = { awaitRelease() }
-                                    )
-                            }
-                        } ?: handlePressFeedback(
-                            scope = scope,
-                            onFeedbackStart = { onContentPressedChange(true) },
-                            onFeedbackEnd = { onContentPressedChange(false) },
-                            awaitRelease = { awaitRelease() }
-                        )
+                            // タップ対象外は本文押下扱いにする。
+                            null ->
+                                handlePressFeedback(
+                                    scope = scope,
+                                    onFeedbackStart = { onContentPressedChange(true) },
+                                    onFeedbackEnd = { onContentPressedChange(false) },
+                                    awaitRelease = { awaitRelease() }
+                                )
+                        }
                     },
                     onTap = { offset ->
-                        headerLayout?.let { layout ->
-                            val pos = layout.getOffsetForPosition(offset)
-                            headerText.getStringAnnotations(HeaderTagId, pos, pos)
-                                .firstOrNull()
-                                ?.let { onIdClick?.invoke(id) }
+                        val hit = headerLayout?.let { layout ->
+                            findHeaderHit(headerText = headerText, layout = layout, offset = offset)
+                        }
+                        if (hit?.part == PostHeaderPart.Id) {
+                            onIdClick.invoke(id)
                         }
                     },
                     onLongPress = { offset ->
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        headerLayout?.let { layout ->
-                            val pos = layout.getOffsetForPosition(offset)
-                            val nameAnn =
-                                headerText.getStringAnnotations(HeaderTagName, pos, pos)
-                                    .firstOrNull()
-                            val idAnn =
-                                headerText.getStringAnnotations(HeaderTagId, pos, pos).firstOrNull()
-                            when {
-                                nameAnn != null -> onShowTextMenu(
-                                    nameAnn.item,
-                                    NgType.USER_NAME
-                                )
+                        val hit = headerLayout?.let { layout ->
+                            findHeaderHit(headerText = headerText, layout = layout, offset = offset)
+                        }
+                        when (hit?.part) {
+                            PostHeaderPart.Name -> onShowTextMenu(
+                                hit.text.orEmpty(),
+                                NgType.USER_NAME
+                            )
 
-                                idAnn != null -> onShowTextMenu(idAnn.item, NgType.USER_ID)
-                                else -> onRequestMenu()
-                            }
-                        } ?: onRequestMenu()
+                            PostHeaderPart.Id -> onShowTextMenu(
+                                hit.text.orEmpty(),
+                                NgType.USER_ID
+                            )
+
+                            // 長押し対象外は投稿メニューを表示する。
+                            null -> onRequestMenu()
+                        }
                     }
                 )
             },
+        // --- テキスト描画 ---
         text = headerText,
         style = headerTextStyle,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         lineHeight = lineHeightEm.em,
         onTextLayout = { headerLayout = it }
     )
+}
+
+private fun findHeaderHit(
+    headerText: AnnotatedString,
+    layout: TextLayoutResult,
+    offset: Offset,
+): HeaderHit {
+    val pos = layout.getOffsetForPosition(offset)
+    val nameAnn = headerText.getStringAnnotations(HeaderTagName, pos, pos).firstOrNull()
+    val idAnn = headerText.getStringAnnotations(HeaderTagId, pos, pos).firstOrNull()
+    return when {
+        nameAnn != null -> HeaderHit(PostHeaderPart.Name, nameAnn.item)
+        idAnn != null -> HeaderHit(PostHeaderPart.Id, idAnn.item)
+        else -> HeaderHit(null, null)
+    }
 }
 
 private fun buildHeaderText(
@@ -254,11 +273,13 @@ private fun buildHeaderText(
     val displayDate = formatDisplayDate(uiModel.header.date)
     val emailDate = buildEmailDate(email = uiModel.header.email, displayDate = displayDate)
     return buildAnnotatedString {
+        // --- 連結ルール ---
         var first = true
         fun appendSpaceIfNeeded() {
             if (!first) append(" ") else first = false
         }
 
+        // --- 名前 ---
         if (uiModel.header.name.isNotBlank()) {
             appendSpaceIfNeeded()
             pushStringAnnotation(tag = HeaderTagName, annotation = uiModel.header.name)
@@ -273,6 +294,7 @@ private fun buildHeaderText(
             pop()
         }
 
+        // --- メールと日付 ---
         if (emailDate.isNotBlank()) {
             appendSpaceIfNeeded()
             withStyle(SpanStyle(color = colors.onSurfaceVariant)) {
@@ -280,6 +302,7 @@ private fun buildHeaderText(
             }
         }
 
+        // --- ID ---
         if (uiModel.header.id.isNotBlank()) {
             appendSpaceIfNeeded()
             pushStringAnnotation(tag = HeaderTagId, annotation = uiModel.header.id)
@@ -294,6 +317,7 @@ private fun buildHeaderText(
             pop()
         }
 
+        // --- BEランク ---
         if (uiModel.header.beRank.isNotBlank()) {
             appendSpaceIfNeeded()
             withStyle(SpanStyle(color = colors.onSurfaceVariant)) {
@@ -305,6 +329,7 @@ private fun buildHeaderText(
 
 private fun formatDisplayDate(date: String): String {
     val currentYearPrefix = currentYearPrefix()
+    // 今年の接頭辞は本文表示から省略する。
     return if (date.startsWith(currentYearPrefix)) {
         date.removePrefix(currentYearPrefix)
     } else {
@@ -329,7 +354,6 @@ private fun currentYearPrefix(): String {
 @Composable
 private fun PostItemHeaderPreview() {
     val scope = rememberCoroutineScope()
-    val haptic = LocalHapticFeedback.current
     var pressedHeaderPart by remember { mutableStateOf<PostHeaderPart?>(null) }
 
     PostItemHeader(
@@ -350,7 +374,6 @@ private fun PostItemHeaderPreview() {
         lineHeightEm = 1.4f,
         pressedHeaderPart = pressedHeaderPart,
         scope = scope,
-        haptic = haptic,
         onPressedHeaderPartChange = { pressedHeaderPart = it },
         onContentPressedChange = {},
         onRequestMenu = {},

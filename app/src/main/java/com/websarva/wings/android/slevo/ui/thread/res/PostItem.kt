@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
@@ -20,6 +19,33 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
+/**
+ * スレッドの投稿1件をヘッダー・本文・メディア・メニュー/ダイアログ込みで表示する。
+ *
+ * @param modifier 余白やサイズ調整のための修飾子。
+ * @param post 表示対象の投稿データ。
+ * @param postNum 投稿番号。
+ * @param idIndex 同一ID内の通番。
+ * @param idTotal 同一IDの総数。
+ * @param navController スレッド遷移に使用するナビゲーション。
+ * @param tabsViewModel タブ制御に使うViewModel。
+ * @param boardName 板名。
+ * @param boardId 板ID。
+ * @param headerTextScale ヘッダーテキストの拡大率。
+ * @param bodyTextScale 本文テキストの拡大率。
+ * @param lineHeight 行間の倍率。
+ * @param indentLevel インデントの段数。
+ * @param replyFromNumbers 返信元番号の一覧。
+ * @param isMyPost 自分の投稿かどうか。
+ * @param dimmed 文字を薄く表示するかどうか。
+ * @param searchQuery ハイライト対象の検索文字列。
+ * @param onReplyFromClick 返信元番号のタップ時コールバック。
+ * @param onReplyClick 本文内の返信番号タップ時コールバック。
+ * @param onMenuReplyClick メニューから返信を選んだ時のコールバック。
+ * @param onIdClick IDタップ時のコールバック。
+ * @param sharedTransitionScope 共有トランジションのスコープ。
+ * @param animatedVisibilityScope アニメーション表示のスコープ。
+ */
 fun PostItem(
     modifier: Modifier = Modifier,
     post: ThreadPostUiModel,
@@ -41,15 +67,16 @@ fun PostItem(
     onReplyFromClick: ((List<Int>) -> Unit),
     onReplyClick: ((Int) -> Unit)? = null,
     onMenuReplyClick: ((Int) -> Unit)? = null,
-    onIdClick: ((String) -> Unit)? = null,
+    onIdClick: ((String) -> Unit),
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
+    // --- 状態 ---
     val interactionState = rememberPostItemInteractionState()
     val dialogState = rememberPostItemDialogState()
     val scope = rememberCoroutineScope()
-    val haptic = LocalHapticFeedback.current
 
+    // --- 表示 ---
     val bodyFontSize = MaterialTheme.typography.bodyMedium.fontSize * bodyTextScale
     val headerFontSize = MaterialTheme.typography.bodyMedium.fontSize * headerTextScale
     PostItemContainer(
@@ -58,7 +85,6 @@ fun PostItem(
         dimmed = dimmed,
         isPressed = interactionState.isContentPressed,
         scope = scope,
-        haptic = haptic,
         onContentPressedChange = { interactionState.isContentPressed = it },
         onRequestMenu = { interactionState.isMenuExpanded = true },
         showMyPostIndicator = isMyPost,
@@ -75,7 +101,6 @@ fun PostItem(
             lineHeightEm = lineHeight,
             pressedHeaderPart = interactionState.pressedHeaderPart,
             scope = scope,
-            haptic = haptic,
             onPressedHeaderPartChange = { interactionState.pressedHeaderPart = it },
             onContentPressedChange = { interactionState.isContentPressed = it },
             onRequestMenu = { interactionState.isMenuExpanded = true },
@@ -92,7 +117,6 @@ fun PostItem(
             pressedUrl = interactionState.pressedUrl,
             pressedReply = interactionState.pressedReply,
             scope = scope,
-            haptic = haptic,
             onPressedUrlChange = { interactionState.pressedUrl = it },
             onPressedReplyChange = { interactionState.pressedReply = it },
             onContentPressedChange = { interactionState.isContentPressed = it },
@@ -110,6 +134,7 @@ fun PostItem(
         )
     }
 
+    // --- メニュー ---
     if (interactionState.isMenuExpanded) {
         PostMenuSheet(
             postNum = postNum,
@@ -128,6 +153,8 @@ fun PostItem(
             onDismiss = { interactionState.isMenuExpanded = false }
         )
     }
+
+    // --- ダイアログ ---
     PostItemDialogs(
         post = post,
         postNum = postNum,

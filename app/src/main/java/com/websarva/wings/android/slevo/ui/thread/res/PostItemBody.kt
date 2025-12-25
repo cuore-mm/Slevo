@@ -15,7 +15,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -47,7 +46,6 @@ internal fun PostItemBody(
     pressedUrl: String?,
     pressedReply: String?,
     scope: CoroutineScope,
-    haptic: HapticFeedback,
     onPressedUrlChange: (String?) -> Unit,
     onPressedReplyChange: (String?) -> Unit,
     onContentPressedChange: (Boolean) -> Unit,
@@ -56,6 +54,10 @@ internal fun PostItemBody(
     navController: NavHostController,
     tabsViewModel: TabsViewModel?,
 ) {
+    // --- フィードバック ---
+    val haptic = LocalHapticFeedback.current
+
+    // --- 文字列処理 ---
     val uriHandler = LocalUriHandler.current
     val annotatedText = buildUrlAnnotatedString(
         text = post.body.content,
@@ -70,9 +72,12 @@ internal fun PostItemBody(
         searchQuery = searchQuery,
         highlightColor = highlightBackground
     )
+
+    // --- レイアウト参照 ---
     var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
 
     Column(horizontalAlignment = Alignment.Start) {
+        // --- BEアイコン ---
         if (post.header.beIconUrl.isNotBlank()) {
             AsyncImage(
                 model = post.header.beIconUrl,
@@ -83,6 +88,7 @@ internal fun PostItemBody(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             modifier = Modifier.pointerInput(Unit) {
+                // --- タップ判定 ---
                 detectTapGestures(
                     onPress = { offset ->
                         contentLayout?.let { layout ->
@@ -119,12 +125,15 @@ internal fun PostItemBody(
                                     )
                                 }
                             }
-                        } ?: handlePressFeedback(
-                            scope = scope,
-                            onFeedbackStart = { onContentPressedChange(true) },
-                            onFeedbackEnd = { onContentPressedChange(false) },
-                            awaitRelease = { awaitRelease() }
-                        )
+                        } ?: run {
+                            // レイアウト未取得時は本文押下として扱う。
+                            handlePressFeedback(
+                                scope = scope,
+                                onFeedbackStart = { onContentPressedChange(true) },
+                                onFeedbackEnd = { onContentPressedChange(false) },
+                                awaitRelease = { awaitRelease() }
+                            )
+                        }
                     },
                     onTap = { offset ->
                         contentLayout?.let { layout ->
@@ -164,12 +173,14 @@ internal fun PostItemBody(
                                 onRequestMenu()
                             }
                         } ?: run {
+                            // レイアウト未取得時は長押しメニュー扱いにする。
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onRequestMenu()
                         }
                     }
                 )
             },
+            // --- テキスト描画 ---
             text = highlightedText,
             style = bodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
             lineHeight = lineHeightEm.em,
@@ -182,7 +193,6 @@ internal fun PostItemBody(
 @Composable
 private fun PostItemBodyPreview() {
     val scope = rememberCoroutineScope()
-    val haptic = LocalHapticFeedback.current
     val navController = NavHostController(LocalContext.current)
     var pressedUrl by remember { mutableStateOf<String?>(null) }
     var pressedReply by remember { mutableStateOf<String?>(null) }
@@ -210,7 +220,6 @@ private fun PostItemBodyPreview() {
         pressedUrl = pressedUrl,
         pressedReply = pressedReply,
         scope = scope,
-        haptic = haptic,
         onPressedUrlChange = { pressedUrl = it },
         onPressedReplyChange = { pressedReply = it },
         onContentPressedChange = {},

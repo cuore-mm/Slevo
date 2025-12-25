@@ -21,7 +21,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
@@ -34,12 +33,15 @@ internal fun PostItemContainer(
     dimmed: Boolean,
     isPressed: Boolean,
     scope: CoroutineScope,
-    haptic: HapticFeedback,
     onContentPressedChange: (Boolean) -> Unit,
     onRequestMenu: () -> Unit,
     showMyPostIndicator: Boolean,
     content: @Composable () -> Unit,
 ) {
+    // --- フィードバック ---
+    val haptic = LocalHapticFeedback.current
+
+    // --- 外枠 ---
     val boundaryColor = MaterialTheme.colorScheme.outlineVariant
     Box(
         modifier = modifier
@@ -63,6 +65,7 @@ internal fun PostItemContainer(
                 .fillMaxWidth()
                 .height(IntrinsicSize.Min)
         ) {
+            // --- 本文領域 ---
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -91,6 +94,7 @@ internal fun PostItemContainer(
                 content()
             }
 
+            // --- 自分の投稿マーカー ---
             if (showMyPostIndicator) {
                 Box(
                     modifier = Modifier
@@ -107,14 +111,12 @@ internal fun PostItemContainer(
 @Composable
 private fun PostItemContainerPreview() {
     val scope = rememberCoroutineScope()
-    val haptic = LocalHapticFeedback.current
     PostItemContainer(
         modifier = Modifier,
         indentLevel = 1,
         dimmed = false,
         isPressed = false,
         scope = scope,
-        haptic = haptic,
         onContentPressedChange = {},
         onRequestMenu = {},
         showMyPostIndicator = true,
