@@ -34,7 +34,7 @@ import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.item.rememberHighlightedText
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
-import com.websarva.wings.android.slevo.ui.util.buildUrlAnnotatedString
+import com.websarva.wings.android.slevo.ui.util.rememberUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 import kotlinx.coroutines.CoroutineScope
 import androidx.compose.ui.geometry.Offset
@@ -81,9 +81,8 @@ internal fun PostItemBody(
 
     // --- 文字列処理 ---
     val uriHandler = LocalUriHandler.current
-    val annotatedText = buildUrlAnnotatedString(
+    val annotatedText = rememberUrlAnnotatedString(
         text = post.body.content,
-        onOpenUrl = { uriHandler.openUri(it) },
         pressedUrl = pressedUrl,
         pressedReply = pressedReply
     )
@@ -132,47 +131,6 @@ internal fun PostItemBody(
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-private fun PostItemBodyPreview() {
-    val scope = rememberCoroutineScope()
-    val navController = NavHostController(LocalContext.current)
-    var pressedUrl by remember { mutableStateOf<String?>(null) }
-    var pressedReply by remember { mutableStateOf<String?>(null) }
-
-    PostItemBody(
-        post = ThreadPostUiModel(
-            header = ThreadPostUiModel.Header(
-                name = "風吹けば名無し",
-                email = "sage",
-                date = "2025/12/16(火) 12:34:56.78",
-                id = "testid",
-                beRank = "PLT(2000)",
-                beIconUrl = "https://img.5ch.net/ico/1fu.gif",
-            ),
-            body = ThreadPostUiModel.Body(
-                content = "リンク https://example.com と >>12 を含む本文",
-            ),
-            meta = ThreadPostUiModel.Meta(
-                urlFlags = ReplyInfo.HAS_OTHER_URL or ReplyInfo.HAS_THREAD_URL
-            ),
-        ),
-        bodyTextStyle = MaterialTheme.typography.bodyMedium,
-        lineHeightEm = 1.4f,
-        searchQuery = "本文",
-        pressedUrl = pressedUrl,
-        pressedReply = pressedReply,
-        scope = scope,
-        onPressedUrlChange = { pressedUrl = it },
-        onPressedReplyChange = { pressedReply = it },
-        onContentPressedChange = {},
-        onRequestMenu = {},
-        onReplyClick = {},
-        navController = navController,
-        tabsViewModel = null,
-    )
-}
-
 /**
  * 本文のタップ対象を判定する。
  *
@@ -219,36 +177,14 @@ private fun Modifier.postBodyGestures(
                 layoutProvider()?.let { layout ->
                     // --- ヒット判定 ---
                     val hit = findBodyHit(highlightedText, layout, offset)
-                    when {
-                        hit.url != null -> {
-                            handlePressFeedback(
-                                scope = scope,
-                                feedbackDelayMillis = 0L,
-                                onFeedbackStart = { onPressedUrlChange(hit.url) },
-                                onFeedbackEnd = { onPressedUrlChange(null) },
-                                awaitRelease = { awaitRelease() }
-                            )
-                        }
-
-                        hit.reply != null -> {
-                            handlePressFeedback(
-                                scope = scope,
-                                feedbackDelayMillis = 0L,
-                                onFeedbackStart = { onPressedReplyChange(hit.reply) },
-                                onFeedbackEnd = { onPressedReplyChange(null) },
-                                awaitRelease = { awaitRelease() }
-                            )
-                        }
-
-                        else -> {
-                            handlePressFeedback(
-                                scope = scope,
-                                onFeedbackStart = { onContentPressedChange(true) },
-                                onFeedbackEnd = { onContentPressedChange(false) },
-                                awaitRelease = { awaitRelease() }
-                            )
-                        }
-                    }
+                    handleBodyPressFeedback(
+                        scope = scope,
+                        hit = hit,
+                        onPressedUrlChange = onPressedUrlChange,
+                        onPressedReplyChange = onPressedReplyChange,
+                        onContentPressedChange = onContentPressedChange,
+                        awaitRelease = { awaitRelease() }
+                    )
                 } ?: run {
                     // レイアウト未取得時は本文押下として扱う。
                     handlePressFeedback(
@@ -297,4 +233,90 @@ private fun Modifier.postBodyGestures(
             }
         )
     }
+}
+
+/**
+ * 押下対象に応じたフィードバック処理を実行する。
+ *
+ * URL/返信/本文のどれを押したかに応じて押下状態を切り替える。
+ */
+private suspend fun handleBodyPressFeedback(
+    scope: CoroutineScope,
+    hit: BodyHit,
+    onPressedUrlChange: (String?) -> Unit,
+    onPressedReplyChange: (String?) -> Unit,
+    onContentPressedChange: (Boolean) -> Unit,
+    awaitRelease: suspend () -> Unit,
+) {
+    when {
+        hit.url != null -> {
+            handlePressFeedback(
+                scope = scope,
+                feedbackDelayMillis = 0L,
+                onFeedbackStart = { onPressedUrlChange(hit.url) },
+                onFeedbackEnd = { onPressedUrlChange(null) },
+                awaitRelease = awaitRelease
+            )
+        }
+
+        hit.reply != null -> {
+            handlePressFeedback(
+                scope = scope,
+                feedbackDelayMillis = 0L,
+                onFeedbackStart = { onPressedReplyChange(hit.reply) },
+                onFeedbackEnd = { onPressedReplyChange(null) },
+                awaitRelease = awaitRelease
+            )
+        }
+
+        else -> {
+            handlePressFeedback(
+                scope = scope,
+                onFeedbackStart = { onContentPressedChange(true) },
+                onFeedbackEnd = { onContentPressedChange(false) },
+                awaitRelease = awaitRelease
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PostItemBodyPreview() {
+    val scope = rememberCoroutineScope()
+    val navController = NavHostController(LocalContext.current)
+    var pressedUrl by remember { mutableStateOf<String?>(null) }
+    var pressedReply by remember { mutableStateOf<String?>(null) }
+
+    PostItemBody(
+        post = ThreadPostUiModel(
+            header = ThreadPostUiModel.Header(
+                name = "風吹けば名無し",
+                email = "sage",
+                date = "2025/12/16(火) 12:34:56.78",
+                id = "testid",
+                beRank = "PLT(2000)",
+                beIconUrl = "https://img.5ch.net/ico/1fu.gif",
+            ),
+            body = ThreadPostUiModel.Body(
+                content = "リンク https://example.com と >>12 を含む本文",
+            ),
+            meta = ThreadPostUiModel.Meta(
+                urlFlags = ReplyInfo.HAS_OTHER_URL or ReplyInfo.HAS_THREAD_URL
+            ),
+        ),
+        bodyTextStyle = MaterialTheme.typography.bodyMedium,
+        lineHeightEm = 1.4f,
+        searchQuery = "本文",
+        pressedUrl = pressedUrl,
+        pressedReply = pressedReply,
+        scope = scope,
+        onPressedUrlChange = { },
+        onPressedReplyChange = { },
+        onContentPressedChange = {},
+        onRequestMenu = {},
+        onReplyClick = {},
+        navController = navController,
+        tabsViewModel = null,
+    )
 }
