@@ -10,23 +10,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnailGrid
-import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
+/**
+ * 投稿本文に含まれる画像URLを抽出し、サムネイル一覧を表示する。
+ *
+ * 画像タップ時はURLをコールバックで通知する。
+ */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun PostItemMedia(
     post: ThreadPostUiModel,
-    navController: NavHostController,
+    onImageClick: (String) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -41,16 +41,7 @@ internal fun PostItemMedia(
         Spacer(modifier = Modifier.height(8.dp))
         ImageThumbnailGrid(
             imageUrls = imageUrls,
-            onImageClick = { url ->
-                navController.navigate(
-                    AppRoute.ImageViewer(
-                        imageUrl = URLEncoder.encode(
-                            url,
-                            StandardCharsets.UTF_8.toString()
-                        )
-                    )
-                )
-            },
+            onImageClick = onImageClick,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
         )
@@ -61,7 +52,6 @@ internal fun PostItemMedia(
 @Preview(showBackground = true)
 @Composable
 private fun PostItemMediaPreview() {
-    val navController = NavHostController(LocalContext.current)
     SharedTransitionLayout {
         AnimatedVisibility(visible = true) {
             PostItemMedia(
@@ -79,7 +69,7 @@ private fun PostItemMediaPreview() {
                         urlFlags = ReplyInfo.HAS_IMAGE_URL,
                     ),
                 ),
-                navController = navController,
+                onImageClick = {},
                 sharedTransitionScope = this@SharedTransitionLayout,
                 animatedVisibilityScope = this,
             )

@@ -52,6 +52,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
@@ -62,6 +63,8 @@ import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
@@ -77,6 +80,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import my.nanihadesuka.compose.LazyColumnScrollbar
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalSharedTransitionApi::class)
@@ -112,6 +117,26 @@ fun ThreadScreen(
     // NG（非表示）対象の投稿番号リスト
     val ngNumbers = uiState.ngPostNumbers
     val density = LocalDensity.current
+    val uriHandler = LocalUriHandler.current
+
+    // --- ナビゲーション ---
+    val onUrlClick: (String) -> Unit = { url -> uriHandler.openUri(url) }
+    val onThreadUrlClick: (AppRoute.Thread) -> Unit = { route ->
+        navController.navigateToThread(
+            route = route,
+            tabsViewModel = tabsViewModel,
+        )
+    }
+    val onImageClick: (String) -> Unit = { url ->
+        navController.navigate(
+            AppRoute.ImageViewer(
+                imageUrl = URLEncoder.encode(
+                    url,
+                    StandardCharsets.UTF_8.toString()
+                )
+            )
+        )
+    }
 
     LaunchedEffect(listState, visiblePosts, uiState.sortType) {
         snapshotFlow { listState.isScrollInProgress }
@@ -329,8 +354,6 @@ fun ThreadScreen(
                         idIndex = uiState.idIndexList.getOrElse(index) { 1 },
                         idTotal = if (post.header.id.isBlank()) 1 else uiState.idCountMap[post.header.id]
                             ?: 1,
-                        navController = navController,
-                        tabsViewModel = tabsViewModel,
                         boardName = uiState.boardInfo.name,
                         boardId = uiState.boardInfo.boardId,
                         headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
@@ -341,6 +364,9 @@ fun ThreadScreen(
                         isMyPost = postNum in uiState.myPostNumbers,
                         dimmed = display.dimmed,
                         searchQuery = uiState.searchQuery,
+                        onUrlClick = onUrlClick,
+                        onThreadUrlClick = onThreadUrlClick,
+                        onImageClick = onImageClick,
                         sharedTransitionScope = sharedTransitionScope,
                         animatedVisibilityScope = animatedVisibilityScope,
                         onReplyFromClick = { numbs ->

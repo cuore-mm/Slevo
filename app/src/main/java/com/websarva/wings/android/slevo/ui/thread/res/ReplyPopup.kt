@@ -33,6 +33,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -44,8 +45,12 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 data class PopupInfo(
     val posts: List<ThreadPostUiModel>,
@@ -80,6 +85,26 @@ fun ReplyPopup(
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
+    val uriHandler = LocalUriHandler.current
+
+    // --- ナビゲーション ---
+    val onUrlClick: (String) -> Unit = { url -> uriHandler.openUri(url) }
+    val onThreadUrlClick: (AppRoute.Thread) -> Unit = { route ->
+        navController.navigateToThread(
+            route = route,
+            tabsViewModel = tabsViewModel,
+        )
+    }
+    val onImageClick: (String) -> Unit = { url ->
+        navController.navigate(
+            AppRoute.ImageViewer(
+                imageUrl = URLEncoder.encode(
+                    url,
+                    StandardCharsets.UTF_8.toString()
+                )
+            )
+        )
+    }
 
     LaunchedEffect(popupStack.size) {
         while (visibilityStates.size < popupStack.size) {
@@ -175,14 +200,15 @@ fun ReplyPopup(
                                 postNum = postNum,
                                 idIndex = idIndexList[posts.indexOf(p)],
                                 idTotal = if (p.header.id.isBlank()) 1 else idCountMap[p.header.id] ?: 1,
-                                navController = navController,
-                                tabsViewModel = tabsViewModel,
                                 boardName = boardName,
                                 boardId = boardId,
                                 headerTextScale = headerTextScale,
                                 bodyTextScale = bodyTextScale,
                                 lineHeight = lineHeight,
                                 searchQuery = searchQuery,
+                                onUrlClick = onUrlClick,
+                                onThreadUrlClick = onThreadUrlClick,
+                                onImageClick = onImageClick,
                                 sharedTransitionScope = sharedTransitionScope,
                                 animatedVisibilityScope = animatedVisibilityScope,
                                 isMyPost = postNum in myPostNumbers,

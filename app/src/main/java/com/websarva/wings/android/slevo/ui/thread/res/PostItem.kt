@@ -9,15 +9,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 
 /**
  * スレッドの投稿1件をヘッダー・本文・メディア・メニュー/ダイアログ込みで表示する。
@@ -27,8 +23,6 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
  * @param postNum 投稿番号。
  * @param idIndex 同一ID内の通番。
  * @param idTotal 同一IDの総数。
- * @param navController スレッド遷移に使用するナビゲーション。
- * @param tabsViewModel タブ制御に使うViewModel。
  * @param boardName 板名。
  * @param boardId 板ID。
  * @param headerTextScale ヘッダーテキストの拡大率。
@@ -43,6 +37,9 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
  * @param onReplyClick 本文内の返信番号タップ時コールバック。
  * @param onMenuReplyClick メニューから返信を選んだ時のコールバック。
  * @param onIdClick IDタップ時のコールバック。
+ * @param onUrlClick URLタップ時のコールバック。
+ * @param onThreadUrlClick スレッドURLタップ時のコールバック。
+ * @param onImageClick 画像サムネイルタップ時のコールバック。
  * @param sharedTransitionScope 共有トランジションのスコープ。
  * @param animatedVisibilityScope アニメーション表示のスコープ。
  */
@@ -54,8 +51,6 @@ fun PostItem(
     postNum: Int,
     idIndex: Int,
     idTotal: Int,
-    navController: NavHostController,
-    tabsViewModel: TabsViewModel? = null,
     boardName: String,
     boardId: Long,
     headerTextScale: Float,
@@ -70,6 +65,9 @@ fun PostItem(
     onReplyClick: ((Int) -> Unit)? = null,
     onMenuReplyClick: ((Int) -> Unit)? = null,
     onIdClick: ((String) -> Unit),
+    onUrlClick: (String) -> Unit,
+    onThreadUrlClick: (AppRoute.Thread) -> Unit,
+    onImageClick: (String) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -77,7 +75,6 @@ fun PostItem(
     val interactionState = rememberPostItemInteractionState()
     val dialogState = rememberPostItemDialogState()
     val scope = rememberCoroutineScope()
-    val uriHandler = LocalUriHandler.current
 
     // --- 表示 ---
     val bodyFontSize = MaterialTheme.typography.bodyMedium.fontSize * bodyTextScale
@@ -125,18 +122,13 @@ fun PostItem(
             onContentPressedChange = { interactionState.isContentPressed = it },
             onRequestMenu = { interactionState.isMenuExpanded = true },
             onReplyClick = onReplyClick,
-            onUrlClick = { url -> uriHandler.openUri(url) },
-            onThreadUrlClick = { route ->
-                navController.navigateToThread(
-                    route = route,
-                    tabsViewModel = tabsViewModel,
-                )
-            },
+            onUrlClick = onUrlClick,
+            onThreadUrlClick = onThreadUrlClick,
         )
 
         PostItemMedia(
             post = post,
-            navController = navController,
+            onImageClick = onImageClick,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
         )
@@ -197,7 +189,6 @@ private fun ReplyCardPreview() {
                 postNum = 1,
                 idIndex = 1,
                 idTotal = 1,
-                navController = NavHostController(LocalContext.current),
                 boardName = "board",
                 boardId = 0L,
                 headerTextScale = 0.85f,
@@ -210,7 +201,10 @@ private fun ReplyCardPreview() {
                 onReplyFromClick = {},
                 onReplyClick = {},
                 onMenuReplyClick = {},
-                onIdClick = {}
+                onIdClick = {},
+                onUrlClick = {},
+                onThreadUrlClick = {},
+                onImageClick = {},
             )
         }
     }
