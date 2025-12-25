@@ -17,20 +17,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
-import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.item.rememberHighlightedText
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
@@ -39,7 +34,6 @@ import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 import kotlinx.coroutines.CoroutineScope
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.platform.UriHandler
 
 private const val BodyUrlTag = "URL"
 private const val BodyReplyTag = "REPLY"
@@ -73,14 +67,13 @@ internal fun PostItemBody(
     onContentPressedChange: (Boolean) -> Unit,
     onRequestMenu: () -> Unit,
     onReplyClick: ((Int) -> Unit)?,
-    navController: NavHostController,
-    tabsViewModel: TabsViewModel?,
+    onUrlClick: (String) -> Unit,
+    onThreadUrlClick: (AppRoute.Thread) -> Unit,
 ) {
     // --- フィードバック ---
     val haptic = LocalHapticFeedback.current
 
     // --- 文字列処理 ---
-    val uriHandler = LocalUriHandler.current
     val annotatedText = rememberUrlAnnotatedString(
         text = post.body.content,
         pressedUrl = pressedUrl,
@@ -113,14 +106,13 @@ internal fun PostItemBody(
                 layoutProvider = { contentLayout },
                 scope = scope,
                 haptic = haptic,
-                uriHandler = uriHandler,
                 onPressedUrlChange = onPressedUrlChange,
                 onPressedReplyChange = onPressedReplyChange,
                 onContentPressedChange = onContentPressedChange,
                 onRequestMenu = onRequestMenu,
                 onReplyClick = onReplyClick,
-                navController = navController,
-                tabsViewModel = tabsViewModel,
+                onUrlClick = onUrlClick,
+                onThreadUrlClick = onThreadUrlClick,
             ),
             // --- テキスト描画 ---
             text = highlightedText,
@@ -160,14 +152,13 @@ private fun Modifier.postBodyGestures(
     layoutProvider: () -> TextLayoutResult?,
     scope: CoroutineScope,
     haptic: HapticFeedback,
-    uriHandler: UriHandler,
     onPressedUrlChange: (String?) -> Unit,
     onPressedReplyChange: (String?) -> Unit,
     onContentPressedChange: (Boolean) -> Unit,
     onRequestMenu: () -> Unit,
     onReplyClick: ((Int) -> Unit)?,
-    navController: NavHostController,
-    tabsViewModel: TabsViewModel?,
+    onUrlClick: (String) -> Unit,
+    onThreadUrlClick: (AppRoute.Thread) -> Unit,
 ): Modifier {
     return pointerInput(Unit) {
         // --- タップ判定 ---
@@ -208,11 +199,11 @@ private fun Modifier.postBodyGestures(
                                 boardName = board,
                                 threadTitle = url
                             )
-                            navController.navigateToThread(
-                                route = route,
-                                tabsViewModel = tabsViewModel,
-                            )
-                        } ?: uriHandler.openUri(url)
+                            onThreadUrlClick(route)
+                        } ?: run {
+                            // スレッドURLでない場合は通常のURLとして開く。
+                            onUrlClick(url)
+                        }
                     }
                     hit.reply?.toIntOrNull()?.let { onReplyClick?.invoke(it) }
                 }
@@ -222,6 +213,7 @@ private fun Modifier.postBodyGestures(
                 layoutProvider()?.let { layout ->
                     val hit = findBodyHit(highlightedText, layout, offset)
                     if (hit.url == null && hit.reply == null) {
+                        // リンク/返信以外は投稿メニューを表示する。
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onRequestMenu()
                     }
@@ -284,7 +276,6 @@ private suspend fun handleBodyPressFeedback(
 @Composable
 private fun PostItemBodyPreview() {
     val scope = rememberCoroutineScope()
-    val navController = NavHostController(LocalContext.current)
     var pressedUrl by remember { mutableStateOf<String?>(null) }
     var pressedReply by remember { mutableStateOf<String?>(null) }
 
@@ -316,7 +307,7 @@ private fun PostItemBodyPreview() {
         onContentPressedChange = {},
         onRequestMenu = {},
         onReplyClick = {},
-        navController = navController,
-        tabsViewModel = null,
+        onUrlClick = {},
+        onThreadUrlClick = {},
     )
 }

@@ -10,15 +10,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 
-@OptIn(ExperimentalSharedTransitionApi::class)
-@Composable
 /**
  * スレッドの投稿1件をヘッダー・本文・メディア・メニュー/ダイアログ込みで表示する。
  *
@@ -46,6 +46,8 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
  * @param sharedTransitionScope 共有トランジションのスコープ。
  * @param animatedVisibilityScope アニメーション表示のスコープ。
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
 fun PostItem(
     modifier: Modifier = Modifier,
     post: ThreadPostUiModel,
@@ -75,6 +77,7 @@ fun PostItem(
     val interactionState = rememberPostItemInteractionState()
     val dialogState = rememberPostItemDialogState()
     val scope = rememberCoroutineScope()
+    val uriHandler = LocalUriHandler.current
 
     // --- 表示 ---
     val bodyFontSize = MaterialTheme.typography.bodyMedium.fontSize * bodyTextScale
@@ -122,8 +125,13 @@ fun PostItem(
             onContentPressedChange = { interactionState.isContentPressed = it },
             onRequestMenu = { interactionState.isMenuExpanded = true },
             onReplyClick = onReplyClick,
-            navController = navController,
-            tabsViewModel = tabsViewModel,
+            onUrlClick = { url -> uriHandler.openUri(url) },
+            onThreadUrlClick = { route ->
+                navController.navigateToThread(
+                    route = route,
+                    tabsViewModel = tabsViewModel,
+                )
+            },
         )
 
         PostItemMedia(
