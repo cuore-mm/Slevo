@@ -36,11 +36,23 @@ import kotlinx.coroutines.CoroutineScope
 import java.time.LocalDate
 import java.util.Calendar
 
-internal enum class PostHeaderPart {
-    Name,
-    Id
+/**
+ * 投稿ヘッダー内のタップ対象となる部位を表す。
+ *
+ * [tag] は AnnotatedString の注釈キーとして使用する。
+ */
+internal enum class PostHeaderPart(
+    val tag: String,
+) {
+    Name("NAME"),
+    Id("ID")
 }
 
+/**
+ * 投稿ヘッダー表示に必要な値をまとめたUIモデル。
+ *
+ * 表示用の派生値をプロパティとして提供する。
+ */
 internal data class PostHeaderUiModel(
     val header: ThreadPostUiModel.Header,
     val postNum: Int,
@@ -48,29 +60,33 @@ internal data class PostHeaderUiModel(
     val idTotal: Int,
     val replyFromNumbers: List<Int>,
 ) {
-    // 返信元の番号数をUIに表示するための件数。
-    val replyCount: Int
-        get() = replyFromNumbers.size
-
     // 複数ID表示時にインデックス/総数を付与したID文字列。
     val idText: String
         get() = if (idTotal > 1) "${header.id} ($idIndex/$idTotal)" else header.id
 }
 
-private const val HeaderTagName = "NAME"
-private const val HeaderTagId = "ID"
-
+/**
+ * 投稿ヘッダーで使用する文字色のセット。
+ */
 private data class PostHeaderTextColors(
     val onSurfaceVariant: Color,
     val pressed: Color,
     val userId: Color,
 )
 
+/**
+ * ヘッダー上のタップ位置に対応する部位と文字列。
+ */
 private data class HeaderHit(
     val part: PostHeaderPart?,
     val text: String?,
 )
 
+/**
+ * 投稿のヘッダー行を表示する。
+ *
+ * 投稿番号とヘッダーテキストを並べ、押下/長押しの結果を親へ通知する。
+ */
 @Composable
 internal fun PostItemHeader(
     uiModel: PostHeaderUiModel,
@@ -127,6 +143,11 @@ internal fun PostItemHeader(
     }
 }
 
+/**
+ * 投稿番号と返信数を表示する。
+ *
+ * 返信数がある場合のみタップ可能にする。
+ */
 @Composable
 private fun PostNumberText(
     modifier: Modifier,
@@ -150,6 +171,11 @@ private fun PostNumberText(
     )
 }
 
+/**
+ * ヘッダー本文のタップ判定と描画を担当する。
+ *
+ * 位置に応じた押下状態やメニュー表示を切り替える。
+ */
 @Composable
 private fun PostHeaderAnnotatedText(
     modifier: Modifier,
@@ -178,37 +204,22 @@ private fun PostHeaderAnnotatedText(
                         val hit = headerLayout?.let { layout ->
                             findHeaderHit(headerText = headerText, layout = layout, offset = offset)
                         }
-                        when (hit?.part) {
-                            PostHeaderPart.Name ->
-                                handlePressFeedback(
-                                    scope = scope,
-                                    feedbackDelayMillis = 0L,
-                                    onFeedbackStart = {
-                                        onPressedHeaderPartChange(PostHeaderPart.Name)
-                                    },
-                                    onFeedbackEnd = { onPressedHeaderPartChange(null) },
-                                    awaitRelease = { awaitRelease() }
-                                )
-
-                            PostHeaderPart.Id ->
-                                handlePressFeedback(
-                                    scope = scope,
-                                    feedbackDelayMillis = 0L,
-                                    onFeedbackStart = {
-                                        onPressedHeaderPartChange(PostHeaderPart.Id)
-                                    },
-                                    onFeedbackEnd = { onPressedHeaderPartChange(null) },
-                                    awaitRelease = { awaitRelease() }
-                                )
-
+                        val part = hit?.part
+                        if (part != null) {
+                            handleHeaderPartPress(
+                                scope = scope,
+                                part = part,
+                                onPressedHeaderPartChange = onPressedHeaderPartChange,
+                                awaitRelease = { awaitRelease() }
+                            )
+                        } else {
                             // タップ対象外は本文押下扱いにする。
-                            null ->
-                                handlePressFeedback(
-                                    scope = scope,
-                                    onFeedbackStart = { onContentPressedChange(true) },
-                                    onFeedbackEnd = { onContentPressedChange(false) },
-                                    awaitRelease = { awaitRelease() }
-                                )
+                            handlePressFeedback(
+                                scope = scope,
+                                onFeedbackStart = { onContentPressedChange(true) },
+                                onFeedbackEnd = { onContentPressedChange(false) },
+                                awaitRelease = { awaitRelease() }
+                            )
                         }
                     },
                     onTap = { offset ->
@@ -224,19 +235,15 @@ private fun PostHeaderAnnotatedText(
                         val hit = headerLayout?.let { layout ->
                             findHeaderHit(headerText = headerText, layout = layout, offset = offset)
                         }
-                        when (hit?.part) {
-                            PostHeaderPart.Name -> onShowTextMenu(
+                        val part = hit?.part
+                        if (part != null) {
+                            onShowTextMenu(
                                 hit.text.orEmpty(),
-                                NgType.USER_NAME
+                                part.toNgType()
                             )
-
-                            PostHeaderPart.Id -> onShowTextMenu(
-                                hit.text.orEmpty(),
-                                NgType.USER_ID
-                            )
-
+                        } else {
                             // 長押し対象外は投稿メニューを表示する。
-                            null -> onRequestMenu()
+                            onRequestMenu()
                         }
                     }
                 )
@@ -250,28 +257,63 @@ private fun PostHeaderAnnotatedText(
     )
 }
 
+/**
+ * タップ位置から該当するヘッダー部位を検出する。
+ *
+ * 注釈タグに一致した最初の部位を返す。
+ */
 private fun findHeaderHit(
     headerText: AnnotatedString,
     layout: TextLayoutResult,
     offset: Offset,
 ): HeaderHit {
     val pos = layout.getOffsetForPosition(offset)
-    val nameAnn = headerText.getStringAnnotations(HeaderTagName, pos, pos).firstOrNull()
-    val idAnn = headerText.getStringAnnotations(HeaderTagId, pos, pos).firstOrNull()
-    return when {
-        nameAnn != null -> HeaderHit(PostHeaderPart.Name, nameAnn.item)
-        idAnn != null -> HeaderHit(PostHeaderPart.Id, idAnn.item)
-        else -> HeaderHit(null, null)
+    return PostHeaderPart.entries
+        .firstNotNullOfOrNull { part ->
+            headerText.getStringAnnotations(part.tag, pos, pos).firstOrNull()
+                ?.let { HeaderHit(part, it.item) }
+        }
+        ?: HeaderHit(null, null)
+}
+
+/**
+ * 押下中の部位を保持し、リリース時に解除する。
+ */
+private suspend fun handleHeaderPartPress(
+    scope: CoroutineScope,
+    part: PostHeaderPart,
+    onPressedHeaderPartChange: (PostHeaderPart?) -> Unit,
+    awaitRelease: suspend () -> Unit,
+) {
+    handlePressFeedback(
+        scope = scope,
+        feedbackDelayMillis = 0L,
+        onFeedbackStart = { onPressedHeaderPartChange(part) },
+        onFeedbackEnd = { onPressedHeaderPartChange(null) },
+        awaitRelease = awaitRelease
+    )
+}
+
+/**
+ * ヘッダー部位に対応するNG種別を返す。
+ */
+private fun PostHeaderPart.toNgType(): NgType {
+    return when (this) {
+        PostHeaderPart.Name -> NgType.USER_NAME
+        PostHeaderPart.Id -> NgType.USER_ID
     }
 }
 
+/**
+ * ヘッダー表示用の AnnotatedString を構築する。
+ *
+ * 名前/メール+日付/ID/BEランクを順に連結し、タップ可能部位に注釈を付与する。
+ */
 private fun buildHeaderText(
     uiModel: PostHeaderUiModel,
     pressedHeaderPart: PostHeaderPart?,
     colors: PostHeaderTextColors,
 ): AnnotatedString {
-    val displayDate = formatDisplayDate(uiModel.header.date)
-    val emailDate = buildEmailDate(email = uiModel.header.email, displayDate = displayDate)
     return buildAnnotatedString {
         // --- 連結ルール ---
         var first = true
@@ -279,54 +321,79 @@ private fun buildHeaderText(
             if (!first) append(" ") else first = false
         }
 
-        // --- 名前 ---
-        if (uiModel.header.name.isNotBlank()) {
+        // --- 追加ルール ---
+        fun appendSegment(
+            text: String,
+            part: PostHeaderPart?,
+            color: Color,
+            isPressed: Boolean,
+            annotationText: String = text,
+        ) {
             appendSpaceIfNeeded()
-            pushStringAnnotation(tag = HeaderTagName, annotation = uiModel.header.name)
+            part?.let { partValue ->
+                pushStringAnnotation(tag = partValue.tag, annotation = annotationText)
+            }
             withStyle(
                 SpanStyle(
-                    color = if (pressedHeaderPart == PostHeaderPart.Name) colors.pressed else colors.onSurfaceVariant,
-                    textDecoration = if (pressedHeaderPart == PostHeaderPart.Name) TextDecoration.Underline else TextDecoration.None
+                    color = if (isPressed) colors.pressed else color,
+                    textDecoration = if (isPressed) TextDecoration.Underline else TextDecoration.None
                 )
             ) {
-                append(uiModel.header.name)
+                append(text)
             }
-            pop()
+            part?.let { pop() }
+        }
+
+        val displayDate = formatDisplayDate(uiModel.header.date)
+        val emailDate = buildEmailDate(email = uiModel.header.email, displayDate = displayDate)
+
+        // --- 名前 ---
+        if (uiModel.header.name.isNotBlank()) {
+            appendSegment(
+                text = uiModel.header.name,
+                part = PostHeaderPart.Name,
+                color = colors.onSurfaceVariant,
+                isPressed = pressedHeaderPart == PostHeaderPart.Name
+            )
         }
 
         // --- メールと日付 ---
         if (emailDate.isNotBlank()) {
-            appendSpaceIfNeeded()
-            withStyle(SpanStyle(color = colors.onSurfaceVariant)) {
-                append(emailDate)
-            }
+            appendSegment(
+                text = emailDate,
+                part = null,
+                color = colors.onSurfaceVariant,
+                isPressed = false
+            )
         }
 
         // --- ID ---
         if (uiModel.header.id.isNotBlank()) {
-            appendSpaceIfNeeded()
-            pushStringAnnotation(tag = HeaderTagId, annotation = uiModel.header.id)
-            withStyle(
-                SpanStyle(
-                    color = if (pressedHeaderPart == PostHeaderPart.Id) colors.pressed else colors.userId,
-                    textDecoration = if (pressedHeaderPart == PostHeaderPart.Id) TextDecoration.Underline else TextDecoration.None
-                )
-            ) {
-                append(uiModel.idText)
-            }
-            pop()
+            appendSegment(
+                text = uiModel.idText,
+                part = PostHeaderPart.Id,
+                color = colors.userId,
+                isPressed = pressedHeaderPart == PostHeaderPart.Id,
+                annotationText = uiModel.header.id
+            )
         }
 
         // --- BEランク ---
         if (uiModel.header.beRank.isNotBlank()) {
-            appendSpaceIfNeeded()
-            withStyle(SpanStyle(color = colors.onSurfaceVariant)) {
-                append(uiModel.header.beRank)
-            }
+            appendSegment(
+                text = uiModel.header.beRank,
+                part = null,
+                color = colors.onSurfaceVariant,
+                isPressed = false
+            )
         }
     }
 }
-
+/**
+ * 投稿日時の表示用テキストを整形する。
+ *
+ * 今年の年月日を示す接頭辞は省略する。
+ */
 private fun formatDisplayDate(date: String): String {
     val currentYearPrefix = currentYearPrefix()
     // 今年の接頭辞は本文表示から省略する。
@@ -337,10 +404,20 @@ private fun formatDisplayDate(date: String): String {
     }
 }
 
+/**
+ * メール欄と日付を結合した表示文字列を作成する。
+ *
+ * 空文字は除外し、スペース区切りで連結する。
+ */
 private fun buildEmailDate(email: String, displayDate: String): String {
     return listOf(email, displayDate).filter { it.isNotBlank() }.joinToString(" ")
 }
 
+/**
+ * 表示簡略化に使う当年の接頭辞を返す。
+ *
+ * 例: "2025/" の形式。
+ */
 private fun currentYearPrefix(): String {
     val year = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         LocalDate.now().year
@@ -350,6 +427,9 @@ private fun currentYearPrefix(): String {
     return "$year/"
 }
 
+/**
+ * 投稿ヘッダーのプレビューを表示する。
+ */
 @Preview(showBackground = true)
 @Composable
 private fun PostItemHeaderPreview() {
@@ -374,7 +454,7 @@ private fun PostItemHeaderPreview() {
         lineHeightEm = 1.4f,
         pressedHeaderPart = pressedHeaderPart,
         scope = scope,
-        onPressedHeaderPartChange = { pressedHeaderPart = it },
+        onPressedHeaderPartChange = { },
         onContentPressedChange = {},
         onRequestMenu = {},
         onReplyFromClick = {},
