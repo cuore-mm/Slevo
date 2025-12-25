@@ -20,6 +20,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,7 +37,28 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.util.buildUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 import kotlinx.coroutines.CoroutineScope
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.platform.UriHandler
 
+private const val BodyUrlTag = "URL"
+private const val BodyReplyTag = "REPLY"
+
+/**
+ * 本文内のタップ対象を表すヒット結果。
+ *
+ * URL/返信番号のどちらか一方のみを保持し、両方 null は未ヒット扱いとする。
+ */
+private data class BodyHit(
+    val url: String?,
+    val reply: String?,
+)
+
+/**
+ * 本文のタップ判定と描画を担当する。
+ *
+ * URL/返信番号/本文押下の状態を切り替える。
+ */
 @Composable
 internal fun PostItemBody(
     post: ThreadPostUiModel,
@@ -87,99 +109,20 @@ internal fun PostItemBody(
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            modifier = Modifier.pointerInput(Unit) {
-                // --- タップ判定 ---
-                detectTapGestures(
-                    onPress = { offset ->
-                        contentLayout?.let { layout ->
-                            val pos = layout.getOffsetForPosition(offset)
-                            val urlAnn = highlightedText.getStringAnnotations("URL", pos, pos).firstOrNull()
-                            val replyAnn = highlightedText.getStringAnnotations("REPLY", pos, pos).firstOrNull()
-                            when {
-                                urlAnn != null -> {
-                                    handlePressFeedback(
-                                        scope = scope,
-                                        feedbackDelayMillis = 0L,
-                                        onFeedbackStart = { onPressedUrlChange(urlAnn.item) },
-                                        onFeedbackEnd = { onPressedUrlChange(null) },
-                                        awaitRelease = { awaitRelease() }
-                                    )
-                                }
-
-                                replyAnn != null -> {
-                                    handlePressFeedback(
-                                        scope = scope,
-                                        feedbackDelayMillis = 0L,
-                                        onFeedbackStart = { onPressedReplyChange(replyAnn.item) },
-                                        onFeedbackEnd = { onPressedReplyChange(null) },
-                                        awaitRelease = { awaitRelease() }
-                                    )
-                                }
-
-                                else -> {
-                                    handlePressFeedback(
-                                        scope = scope,
-                                        onFeedbackStart = { onContentPressedChange(true) },
-                                        onFeedbackEnd = { onContentPressedChange(false) },
-                                        awaitRelease = { awaitRelease() }
-                                    )
-                                }
-                            }
-                        } ?: run {
-                            // レイアウト未取得時は本文押下として扱う。
-                            handlePressFeedback(
-                                scope = scope,
-                                onFeedbackStart = { onContentPressedChange(true) },
-                                onFeedbackEnd = { onContentPressedChange(false) },
-                                awaitRelease = { awaitRelease() }
-                            )
-                        }
-                    },
-                    onTap = { offset ->
-                        contentLayout?.let { layout ->
-                            val pos = layout.getOffsetForPosition(offset)
-                            highlightedText.getStringAnnotations("URL", pos, pos)
-                                .firstOrNull()
-                                ?.let { ann ->
-                                    val url = ann.item
-                                    parseThreadUrl(url)?.let { (host, board, key) ->
-                                        val boardUrl = "https://$host/$board/"
-                                        val route = AppRoute.Thread(
-                                            threadKey = key,
-                                            boardUrl = boardUrl,
-                                            boardName = board,
-                                            threadTitle = url
-                                        )
-                                        navController.navigateToThread(
-                                            route = route,
-                                            tabsViewModel = tabsViewModel,
-                                        )
-                                    } ?: uriHandler.openUri(url)
-                                }
-                            highlightedText.getStringAnnotations("REPLY", pos, pos)
-                                .firstOrNull()
-                                ?.let { ann ->
-                                    ann.item.toIntOrNull()?.let { onReplyClick?.invoke(it) }
-                                }
-                        }
-                    },
-                    onLongPress = { offset ->
-                        contentLayout?.let { layout ->
-                            val pos = layout.getOffsetForPosition(offset)
-                            val urlAnn = highlightedText.getStringAnnotations("URL", pos, pos).firstOrNull()
-                            val replyAnn = highlightedText.getStringAnnotations("REPLY", pos, pos).firstOrNull()
-                            if (urlAnn == null && replyAnn == null) {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onRequestMenu()
-                            }
-                        } ?: run {
-                            // レイアウト未取得時は長押しメニュー扱いにする。
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onRequestMenu()
-                        }
-                    }
-                )
-            },
+            modifier = Modifier.postBodyGestures(
+                highlightedText = highlightedText,
+                layoutProvider = { contentLayout },
+                scope = scope,
+                haptic = haptic,
+                uriHandler = uriHandler,
+                onPressedUrlChange = onPressedUrlChange,
+                onPressedReplyChange = onPressedReplyChange,
+                onContentPressedChange = onContentPressedChange,
+                onRequestMenu = onRequestMenu,
+                onReplyClick = onReplyClick,
+                navController = navController,
+                tabsViewModel = tabsViewModel,
+            ),
             // --- テキスト描画 ---
             text = highlightedText,
             style = bodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
@@ -228,4 +171,130 @@ private fun PostItemBodyPreview() {
         navController = navController,
         tabsViewModel = null,
     )
+}
+
+/**
+ * 本文のタップ対象を判定する。
+ *
+ * URL → 返信番号の順で検索し、見つからない場合は未ヒットを返す。
+ */
+private fun findBodyHit(
+    text: AnnotatedString,
+    layout: TextLayoutResult,
+    offset: Offset,
+): BodyHit {
+    val pos = layout.getOffsetForPosition(offset)
+    val url = text.getStringAnnotations(BodyUrlTag, pos, pos).firstOrNull()?.item
+    if (url != null) {
+        return BodyHit(url = url, reply = null)
+    }
+    val reply = text.getStringAnnotations(BodyReplyTag, pos, pos).firstOrNull()?.item
+    return BodyHit(url = null, reply = reply)
+}
+
+/**
+ * 本文のジェスチャー処理をまとめる。
+ *
+ * レイアウト未取得時は本文押下/長押しメニューとして扱う。
+ */
+private fun Modifier.postBodyGestures(
+    highlightedText: AnnotatedString,
+    layoutProvider: () -> TextLayoutResult?,
+    scope: CoroutineScope,
+    haptic: HapticFeedback,
+    uriHandler: UriHandler,
+    onPressedUrlChange: (String?) -> Unit,
+    onPressedReplyChange: (String?) -> Unit,
+    onContentPressedChange: (Boolean) -> Unit,
+    onRequestMenu: () -> Unit,
+    onReplyClick: ((Int) -> Unit)?,
+    navController: NavHostController,
+    tabsViewModel: TabsViewModel?,
+): Modifier {
+    return pointerInput(Unit) {
+        // --- タップ判定 ---
+        detectTapGestures(
+            // --- 押下 ---
+            onPress = { offset ->
+                layoutProvider()?.let { layout ->
+                    // --- ヒット判定 ---
+                    val hit = findBodyHit(highlightedText, layout, offset)
+                    when {
+                        hit.url != null -> {
+                            handlePressFeedback(
+                                scope = scope,
+                                feedbackDelayMillis = 0L,
+                                onFeedbackStart = { onPressedUrlChange(hit.url) },
+                                onFeedbackEnd = { onPressedUrlChange(null) },
+                                awaitRelease = { awaitRelease() }
+                            )
+                        }
+
+                        hit.reply != null -> {
+                            handlePressFeedback(
+                                scope = scope,
+                                feedbackDelayMillis = 0L,
+                                onFeedbackStart = { onPressedReplyChange(hit.reply) },
+                                onFeedbackEnd = { onPressedReplyChange(null) },
+                                awaitRelease = { awaitRelease() }
+                            )
+                        }
+
+                        else -> {
+                            handlePressFeedback(
+                                scope = scope,
+                                onFeedbackStart = { onContentPressedChange(true) },
+                                onFeedbackEnd = { onContentPressedChange(false) },
+                                awaitRelease = { awaitRelease() }
+                            )
+                        }
+                    }
+                } ?: run {
+                    // レイアウト未取得時は本文押下として扱う。
+                    handlePressFeedback(
+                        scope = scope,
+                        onFeedbackStart = { onContentPressedChange(true) },
+                        onFeedbackEnd = { onContentPressedChange(false) },
+                        awaitRelease = { awaitRelease() }
+                    )
+                }
+            },
+            // --- タップ ---
+            onTap = { offset ->
+                layoutProvider()?.let { layout ->
+                    val hit = findBodyHit(highlightedText, layout, offset)
+                    hit.url?.let { url ->
+                        parseThreadUrl(url)?.let { (host, board, key) ->
+                            val boardUrl = "https://$host/$board/"
+                            val route = AppRoute.Thread(
+                                threadKey = key,
+                                boardUrl = boardUrl,
+                                boardName = board,
+                                threadTitle = url
+                            )
+                            navController.navigateToThread(
+                                route = route,
+                                tabsViewModel = tabsViewModel,
+                            )
+                        } ?: uriHandler.openUri(url)
+                    }
+                    hit.reply?.toIntOrNull()?.let { onReplyClick?.invoke(it) }
+                }
+            },
+            // --- 長押し ---
+            onLongPress = { offset ->
+                layoutProvider()?.let { layout ->
+                    val hit = findBodyHit(highlightedText, layout, offset)
+                    if (hit.url == null && hit.reply == null) {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onRequestMenu()
+                    }
+                } ?: run {
+                    // レイアウト未取得時は長押しメニュー扱いにする。
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onRequestMenu()
+                }
+            }
+        )
+    }
 }
