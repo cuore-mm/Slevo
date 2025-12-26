@@ -62,15 +62,20 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureSettings
+import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
+import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
+import com.websarva.wings.android.slevo.ui.thread.res.PostItemDialogs
 import com.websarva.wings.android.slevo.ui.thread.res.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.res.ReplyPopup
 import com.websarva.wings.android.slevo.ui.thread.res.PostItem
+import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
+import com.websarva.wings.android.slevo.ui.thread.res.rememberPostItemDialogState
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
@@ -84,6 +89,11 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlin.math.min
 
+/**
+ * スレッド画面を構成し、投稿一覧と各種オーバーレイを表示する。
+ *
+ * 投稿メニューやダイアログは画面レベルで集約して制御する。
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun ThreadScreen(
@@ -117,6 +127,10 @@ fun ThreadScreen(
     // NG（非表示）対象の投稿番号リスト
     val ngNumbers = uiState.ngPostNumbers
     val density = LocalDensity.current
+    val dialogState = rememberPostItemDialogState()
+    var menuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
+    var dialogTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
+    val coroutineScope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
 
     // --- ナビゲーション ---
@@ -136,6 +150,12 @@ fun ThreadScreen(
                 )
             )
         )
+    }
+    val onRequestMenu: (PostDialogTarget) -> Unit = { target ->
+        menuTarget = target
+    }
+    val onShowTextMenu: (String, NgType) -> Unit = { text, type ->
+        dialogState.showTextMenu(text = text, type = type)
     }
 
     LaunchedEffect(listState, visiblePosts, uiState.sortType) {
@@ -237,8 +257,6 @@ fun ThreadScreen(
             }
         }
     }
-
-    val coroutineScope = rememberCoroutineScope()
 
     var gestureHint by remember { mutableStateOf<GestureHint>(GestureHint.Hidden) }
     LaunchedEffect(gestureHint) {
@@ -354,8 +372,6 @@ fun ThreadScreen(
                         idIndex = uiState.idIndexList.getOrElse(index) { 1 },
                         idTotal = if (post.header.id.isBlank()) 1 else uiState.idCountMap[post.header.id]
                             ?: 1,
-                        boardName = uiState.boardInfo.name,
-                        boardId = uiState.boardInfo.boardId,
                         headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
                         bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
                         lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
@@ -367,6 +383,8 @@ fun ThreadScreen(
                         onUrlClick = onUrlClick,
                         onThreadUrlClick = onThreadUrlClick,
                         onImageClick = onImageClick,
+                        onRequestMenu = onRequestMenu,
+                        onShowTextMenu = onShowTextMenu,
                         sharedTransitionScope = sharedTransitionScope,
                         animatedVisibilityScope = animatedVisibilityScope,
                         onReplyFromClick = { numbs ->
@@ -402,7 +420,6 @@ fun ThreadScreen(
                                 popupStack.add(PopupInfo(listOf(target), offset))
                             }
                         },
-                        onMenuReplyClick = { onReplyToPost(it) },
                         onIdClick = { id ->
                             val offset = if (popupStack.isEmpty()) {
                                 itemOffsetHolder.value
@@ -498,17 +515,50 @@ fun ThreadScreen(
             idIndexList = uiState.idIndexList,
             ngPostNumbers = ngNumbers,
             myPostNumbers = uiState.myPostNumbers,
-            navController = navController,
-            tabsViewModel = tabsViewModel,
-            boardName = uiState.boardInfo.name,
-            boardId = uiState.boardInfo.boardId,
             headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
             bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
             lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
             searchQuery = uiState.searchQuery,
+            onUrlClick = onUrlClick,
+            onThreadUrlClick = onThreadUrlClick,
+            onImageClick = onImageClick,
+            onMenuReplyClick = onReplyToPost,
+            boardName = uiState.boardInfo.name,
+            boardId = uiState.boardInfo.boardId,
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) },
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
+        )
+
+        // --- メニュー ---
+        menuTarget?.let { target ->
+            PostMenuSheet(
+                postNum = target.postNum,
+                onReplyClick = {
+                    menuTarget = null
+                    onReplyToPost(target.postNum)
+                },
+                onCopyClick = {
+                    menuTarget = null
+                    dialogTarget = target
+                    dialogState.showCopyDialog()
+                },
+                onNgClick = {
+                    menuTarget = null
+                    dialogTarget = target
+                    dialogState.showNgSelectDialog()
+                },
+                onDismiss = { menuTarget = null }
+            )
+        }
+
+        // --- ダイアログ ---
+        PostItemDialogs(
+            target = dialogTarget,
+            boardName = uiState.boardInfo.name,
+            boardId = uiState.boardInfo.boardId,
+            scope = coroutineScope,
+            dialogState = dialogState
         )
 
         val arrowRotation by animateFloatAsState(

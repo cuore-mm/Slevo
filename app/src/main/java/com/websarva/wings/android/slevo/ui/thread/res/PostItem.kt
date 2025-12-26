@@ -11,20 +11,19 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
-import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
-import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 
 /**
- * スレッドの投稿1件をヘッダー・本文・メディア・メニュー/ダイアログ込みで表示する。
+ * スレッドの投稿1件をヘッダー・本文・メディア込みで表示する。
  *
+ * メニューやダイアログの表示は呼び出し側へ委譲する。
  * @param modifier 余白やサイズ調整のための修飾子。
  * @param post 表示対象の投稿データ。
  * @param postNum 投稿番号。
  * @param idIndex 同一ID内の通番。
  * @param idTotal 同一IDの総数。
- * @param boardName 板名。
- * @param boardId 板ID。
  * @param headerTextScale ヘッダーテキストの拡大率。
  * @param bodyTextScale 本文テキストの拡大率。
  * @param lineHeight 行間の倍率。
@@ -35,11 +34,12 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
  * @param searchQuery ハイライト対象の検索文字列。
  * @param onReplyFromClick 返信元番号のタップ時コールバック。
  * @param onReplyClick 本文内の返信番号タップ時コールバック。
- * @param onMenuReplyClick メニューから返信を選んだ時のコールバック。
  * @param onIdClick IDタップ時のコールバック。
  * @param onUrlClick URLタップ時のコールバック。
  * @param onThreadUrlClick スレッドURLタップ時のコールバック。
  * @param onImageClick 画像サムネイルタップ時のコールバック。
+ * @param onRequestMenu 投稿メニュー表示のリクエスト。
+ * @param onShowTextMenu テキストメニュー表示のリクエスト。
  * @param sharedTransitionScope 共有トランジションのスコープ。
  * @param animatedVisibilityScope アニメーション表示のスコープ。
  */
@@ -51,8 +51,6 @@ fun PostItem(
     postNum: Int,
     idIndex: Int,
     idTotal: Int,
-    boardName: String,
-    boardId: Long,
     headerTextScale: Float,
     bodyTextScale: Float,
     lineHeight: Float,
@@ -63,18 +61,19 @@ fun PostItem(
     searchQuery: String = "",
     onReplyFromClick: ((List<Int>) -> Unit),
     onReplyClick: ((Int) -> Unit)? = null,
-    onMenuReplyClick: ((Int) -> Unit)? = null,
     onIdClick: ((String) -> Unit),
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onImageClick: (String) -> Unit,
+    onRequestMenu: (PostDialogTarget) -> Unit,
+    onShowTextMenu: (String, NgType) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     // --- 状態 ---
     val interactionState = rememberPostItemInteractionState()
-    val dialogState = rememberPostItemDialogState()
     val scope = rememberCoroutineScope()
+    val menuTarget = PostDialogTarget(post = post, postNum = postNum)
 
     // --- 表示 ---
     val bodyFontSize = MaterialTheme.typography.bodyMedium.fontSize * bodyTextScale
@@ -86,7 +85,7 @@ fun PostItem(
         isPressed = interactionState.isContentPressed,
         scope = scope,
         onContentPressedChange = { interactionState.isContentPressed = it },
-        onRequestMenu = { interactionState.isMenuExpanded = true },
+        onRequestMenu = { onRequestMenu(menuTarget) },
         showMyPostIndicator = isMyPost,
     ) {
         PostItemHeader(
@@ -103,10 +102,10 @@ fun PostItem(
             scope = scope,
             onPressedHeaderPartChange = { interactionState.pressedHeaderPart = it },
             onContentPressedChange = { interactionState.isContentPressed = it },
-            onRequestMenu = { interactionState.isMenuExpanded = true },
+            onRequestMenu = { onRequestMenu(menuTarget) },
             onReplyFromClick = onReplyFromClick,
             onIdClick = onIdClick,
-            onShowTextMenu = { text, type -> dialogState.showTextMenu(text = text, type = type) },
+            onShowTextMenu = { text, type -> onShowTextMenu(text, type) },
         )
 
         PostItemBody(
@@ -120,7 +119,7 @@ fun PostItem(
             onPressedUrlChange = { interactionState.pressedUrl = it },
             onPressedReplyChange = { interactionState.pressedReply = it },
             onContentPressedChange = { interactionState.isContentPressed = it },
-            onRequestMenu = { interactionState.isMenuExpanded = true },
+            onRequestMenu = { onRequestMenu(menuTarget) },
             onReplyClick = onReplyClick,
             onUrlClick = onUrlClick,
             onThreadUrlClick = onThreadUrlClick,
@@ -133,36 +132,6 @@ fun PostItem(
             animatedVisibilityScope = animatedVisibilityScope
         )
     }
-
-    // --- メニュー ---
-    if (interactionState.isMenuExpanded) {
-        PostMenuSheet(
-            postNum = postNum,
-            onReplyClick = {
-                interactionState.isMenuExpanded = false
-                onMenuReplyClick?.invoke(postNum)
-            },
-            onCopyClick = {
-                interactionState.isMenuExpanded = false
-                dialogState.showCopyDialog()
-            },
-            onNgClick = {
-                interactionState.isMenuExpanded = false
-                dialogState.showNgSelectDialog()
-            },
-            onDismiss = { interactionState.isMenuExpanded = false }
-        )
-    }
-
-    // --- ダイアログ ---
-    PostItemDialogs(
-        post = post,
-        postNum = postNum,
-        boardName = boardName,
-        boardId = boardId,
-        scope = scope,
-        dialogState = dialogState
-    )
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -189,8 +158,6 @@ private fun ReplyCardPreview() {
                 postNum = 1,
                 idIndex = 1,
                 idTotal = 1,
-                boardName = "board",
-                boardId = 0L,
                 headerTextScale = 0.85f,
                 bodyTextScale = 1f,
                 lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
@@ -200,11 +167,12 @@ private fun ReplyCardPreview() {
                 animatedVisibilityScope = this,
                 onReplyFromClick = {},
                 onReplyClick = {},
-                onMenuReplyClick = {},
                 onIdClick = {},
                 onUrlClick = {},
                 onThreadUrlClick = {},
                 onImageClick = {},
+                onRequestMenu = {},
+                onShowTextMenu = { _, _ -> },
             )
         }
     }

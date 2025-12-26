@@ -25,15 +25,18 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -42,16 +45,17 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
+import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
+import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
 
+/**
+ * 返信ポップアップ表示に必要な投稿と位置情報を保持する。
+ *
+ * 表示位置とサイズはポップアップのレイアウト計算に使用する。
+ */
 data class PopupInfo(
     val posts: List<ThreadPostUiModel>,
     val offset: IntOffset,
@@ -61,6 +65,11 @@ data class PopupInfo(
 // アニメーションの速度（ミリ秒）
 private const val POPUP_ANIMATION_DURATION = 160
 
+/**
+ * 返信ポップアップの表示と操作メニューを管理する。
+ *
+ * 投稿の長押しメニューやダイアログはポップアップ内で集約して扱う。
+ */
 @SuppressLint("ConfigurationScreenWidthHeight")
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -72,39 +81,31 @@ fun ReplyPopup(
     idIndexList: List<Int>,
     ngPostNumbers: Set<Int>,
     myPostNumbers: Set<Int>,
-    navController: NavHostController,
-    tabsViewModel: TabsViewModel? = null,
-    boardName: String,
-    boardId: Long,
     headerTextScale: Float,
     bodyTextScale: Float,
     lineHeight: Float,
     searchQuery: String = "",
+    onUrlClick: (String) -> Unit,
+    onThreadUrlClick: (AppRoute.Thread) -> Unit,
+    onImageClick: (String) -> Unit,
+    onMenuReplyClick: (Int) -> Unit,
+    boardName: String,
+    boardId: Long,
     onClose: () -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
-    val uriHandler = LocalUriHandler.current
-
-    // --- ナビゲーション ---
-    val onUrlClick: (String) -> Unit = { url -> uriHandler.openUri(url) }
-    val onThreadUrlClick: (AppRoute.Thread) -> Unit = { route ->
-        navController.navigateToThread(
-            route = route,
-            tabsViewModel = tabsViewModel,
-        )
+    val dialogState = rememberPostItemDialogState()
+    var menuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
+    var dialogTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
+    val onRequestMenu: (PostDialogTarget) -> Unit = { target ->
+        menuTarget = target
     }
-    val onImageClick: (String) -> Unit = { url ->
-        navController.navigate(
-            AppRoute.ImageViewer(
-                imageUrl = URLEncoder.encode(
-                    url,
-                    StandardCharsets.UTF_8.toString()
-                )
-            )
-        )
+    val onShowTextMenu: (String, NgType) -> Unit = { text, type ->
+        dialogState.showTextMenu(text = text, type = type)
     }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(popupStack.size) {
         while (visibilityStates.size < popupStack.size) {
@@ -200,8 +201,6 @@ fun ReplyPopup(
                                 postNum = postNum,
                                 idIndex = idIndexList[posts.indexOf(p)],
                                 idTotal = if (p.header.id.isBlank()) 1 else idCountMap[p.header.id] ?: 1,
-                                boardName = boardName,
-                                boardId = boardId,
                                 headerTextScale = headerTextScale,
                                 bodyTextScale = bodyTextScale,
                                 lineHeight = lineHeight,
@@ -209,6 +208,8 @@ fun ReplyPopup(
                                 onUrlClick = onUrlClick,
                                 onThreadUrlClick = onThreadUrlClick,
                                 onImageClick = onImageClick,
+                                onRequestMenu = onRequestMenu,
+                                onShowTextMenu = onShowTextMenu,
                                 sharedTransitionScope = sharedTransitionScope,
                                 animatedVisibilityScope = animatedVisibilityScope,
                                 isMyPost = postNum in myPostNumbers,
@@ -264,6 +265,37 @@ fun ReplyPopup(
             }
         }
     }
+
+    // --- メニュー ---
+    menuTarget?.let { target ->
+        PostMenuSheet(
+            postNum = target.postNum,
+            onReplyClick = {
+                menuTarget = null
+                onMenuReplyClick(target.postNum)
+            },
+            onCopyClick = {
+                menuTarget = null
+                dialogTarget = target
+                dialogState.showCopyDialog()
+            },
+            onNgClick = {
+                menuTarget = null
+                dialogTarget = target
+                dialogState.showNgSelectDialog()
+            },
+            onDismiss = { menuTarget = null }
+        )
+    }
+
+    // --- ダイアログ ---
+    PostItemDialogs(
+        target = dialogTarget,
+        boardName = boardName,
+        boardId = boardId,
+        scope = scope,
+        dialogState = dialogState
+    )
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -300,7 +332,6 @@ fun ReplyPopupPreview() {
     val dummyIdCountMap = mapOf("ID:12345" to 1, "ID:67890" to 1)
     val dummyIdIndexList = listOf(0, 1)
     val dummyNgPostNumbers = setOf<Int>()
-    val navController = rememberNavController()
     val popupStack = mutableStateListOf(
         PopupInfo(
             posts = dummyPosts,
@@ -317,12 +348,15 @@ fun ReplyPopupPreview() {
                 idIndexList = dummyIdIndexList,
                 ngPostNumbers = dummyNgPostNumbers,
                 myPostNumbers = emptySet(),
-                navController = navController,
                 boardName = "test",
                 boardId = 1L,
                 headerTextScale = 0.85f,
                 bodyTextScale = 1f,
                 lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
+                onUrlClick = {},
+                onThreadUrlClick = {},
+                onImageClick = {},
+                onMenuReplyClick = {},
                 onClose = {},
                 searchQuery = "",
                 sharedTransitionScope = this@SharedTransitionLayout,

@@ -17,10 +17,14 @@ import com.websarva.wings.android.slevo.ui.common.CopyItem
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgSelectDialog
 import com.websarva.wings.android.slevo.ui.thread.sheet.TextMenuSheet
-import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
+/**
+ * 投稿関連ダイアログの表示状態を保持する。
+ *
+ * コピー/NG選択/テキストメニュー/NG登録の表示制御をまとめて扱う。
+ */
 @Stable
 class PostItemDialogState internal constructor() {
     var copyDialogVisible by mutableStateOf(false)
@@ -65,21 +69,32 @@ class PostItemDialogState internal constructor() {
     }
 }
 
+/**
+ * 投稿関連ダイアログの状態を保持する。
+ */
 @Composable
 fun rememberPostItemDialogState(): PostItemDialogState {
     return remember { PostItemDialogState() }
 }
 
+/**
+ * 投稿に紐づくダイアログやメニューの表示をまとめて制御する。
+ *
+ * 対象投稿がない場合はコピー/NG選択ダイアログを表示しない。
+ */
 @Composable
 fun PostItemDialogs(
-    post: ThreadPostUiModel,
-    postNum: Int,
+    target: PostDialogTarget?,
     boardName: String,
     boardId: Long,
     scope: CoroutineScope,
     dialogState: PostItemDialogState
 ) {
-    if (dialogState.copyDialogVisible) {
+    val post = target?.post
+    val postNum = target?.postNum
+
+    // --- コピー ---
+    if (dialogState.copyDialogVisible && post != null && postNum != null) {
         val header = buildString {
             append(postNum)
             if (post.header.name.isNotBlank()) append(" ${post.header.name}")
@@ -98,7 +113,8 @@ fun PostItemDialogs(
         )
     }
 
-    if (dialogState.ngSelectDialogVisible) {
+    // --- NG選択 ---
+    if (dialogState.ngSelectDialogVisible && post != null) {
         NgSelectDialog(
             onNgIdClick = {
                 dialogState.hideNgSelectDialog()
@@ -116,6 +132,7 @@ fun PostItemDialogs(
         )
     }
 
+    // --- テキストメニュー ---
     dialogState.textMenuData?.let { (text, type) ->
         val clipboard = LocalClipboard.current
         TextMenuSheet(
@@ -135,6 +152,7 @@ fun PostItemDialogs(
         )
     }
 
+    // --- NGダイアログ ---
     dialogState.ngDialogData?.let { (text, type) ->
         NgDialogRoute(
             text = text,
