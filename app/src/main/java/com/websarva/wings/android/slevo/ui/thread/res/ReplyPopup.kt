@@ -17,8 +17,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
@@ -36,12 +39,9 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.zIndex
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -90,6 +90,7 @@ fun ReplyPopup(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
+    // --- 表示状態管理 ---
     val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
 
     LaunchedEffect(popupStack.size) {
@@ -101,44 +102,31 @@ fun ReplyPopup(
         }
     }
 
+    // --- 戻るハンドリング ---
     BackHandler(enabled = popupStack.isNotEmpty()) {
         if (visibilityStates.isNotEmpty()) {
             visibilityStates.last().targetState = false
         }
     }
 
+    // --- ポップアップ描画 ---
     val lastIndex = popupStack.lastIndex
-    popupStack.forEachIndexed { index, info ->
-        val isTop = index == lastIndex
-        val visibleState = visibilityStates.getOrNull(index)
-            ?: MutableTransitionState(false).apply { targetState = true }
+    Box(modifier = Modifier.fillMaxSize()) {
+        popupStack.forEachIndexed { index, info ->
+            val isTop = index == lastIndex
+            val visibleState = visibilityStates.getOrNull(index)
+                ?: MutableTransitionState(false).apply { targetState = true }
 
-        LaunchedEffect(visibleState.currentState, visibleState.targetState) {
-            if (!visibleState.currentState && !visibleState.targetState && index == popupStack.lastIndex) {
-                onClose()
-            }
-        }
-
-        Popup(
-            popupPositionProvider = object : PopupPositionProvider {
-                override fun calculatePosition(
-                    anchorBounds: IntRect,
-                    windowSize: IntSize,
-                    layoutDirection: LayoutDirection,
-                    popupContentSize: IntSize,
-                ): IntOffset {
-                    return IntOffset(
-                        info.offset.x,
-                        (info.offset.y - popupContentSize.height).coerceAtLeast(0)
-                    )
+            LaunchedEffect(visibleState.currentState, visibleState.targetState) {
+                if (!visibleState.currentState && !visibleState.targetState && index == popupStack.lastIndex) {
+                    onClose()
                 }
-            },
-            onDismissRequest = if (index == lastIndex) {
-                { visibleState.targetState = false }
-            } else {
-                {}
             }
-        ) {
+
+            val popupOffset = IntOffset(
+                info.offset.x,
+                (info.offset.y - info.size.height).coerceAtLeast(0)
+            )
             AnimatedVisibility(
                 visibleState = visibleState,
                 enter = fadeIn(animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)) + scaleIn(
@@ -150,6 +138,8 @@ fun ReplyPopup(
             ) {
                 Card(
                     modifier = Modifier
+                        .offset { popupOffset }
+                        .zIndex(index.toFloat())
                         .onGloballyPositioned { coords ->
                             val size = coords.size
                             if (size != info.size) {
@@ -159,6 +149,7 @@ fun ReplyPopup(
                         .border(width = 2.dp, color = MaterialTheme.colorScheme.primary)
                         .then(
                             if (!isTop) {
+                                // 上位のポップアップ以外は操作を無効化する。
                                 Modifier.pointerInput(Unit) {
                                     awaitPointerEventScope {
                                         while (true) {

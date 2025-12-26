@@ -49,7 +49,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
@@ -364,7 +364,7 @@ fun ThreadScreen(
                     }
                     PostItem(
                         modifier = Modifier.onGloballyPositioned { coords ->
-                            val pos = coords.positionInWindow()
+                            val pos = coords.positionInRoot()
                             itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
                         },
                         post = post,
