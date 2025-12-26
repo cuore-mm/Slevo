@@ -21,6 +21,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 
+/**
+ * 画像URL一覧をサムネイルのグリッドとして表示する。
+ *
+ * サムネイルには共有トランジション用の要素を付与する。
+ */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ImageThumbnailGrid(

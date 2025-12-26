@@ -522,9 +522,8 @@ fun ThreadScreen(
             onUrlClick = onUrlClick,
             onThreadUrlClick = onThreadUrlClick,
             onImageClick = onImageClick,
-            onMenuReplyClick = onReplyToPost,
-            boardName = uiState.boardInfo.name,
-            boardId = uiState.boardInfo.boardId,
+            onRequestMenu = onRequestMenu,
+            onShowTextMenu = onShowTextMenu,
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) },
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
