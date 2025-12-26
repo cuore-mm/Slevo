@@ -17,6 +17,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,7 +36,6 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
@@ -123,32 +125,7 @@ fun ReplyPopup(
                 modifier = Modifier
                     .fillMaxSize()
                     .pointerInput(popupStack.size) {
-                        awaitPointerEventScope {
-                            while (true) {
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                val change = event.changes.firstOrNull() ?: continue
-                                val topInfo = popupStack.lastOrNull() ?: continue
-                                val size = topInfo.size
-                                if (size == IntSize.Zero) {
-                                    // サイズ未確定時は閉じ判定を行わない。
-                                    continue
-                                }
-                                val topOffset = IntOffset(
-                                    topInfo.offset.x,
-                                    (topInfo.offset.y - topInfo.size.height).coerceAtLeast(0)
-                                )
-                                val position = change.position
-                                val insideX =
-                                    position.x >= topOffset.x && position.x < topOffset.x + size.width
-                                val insideY =
-                                    position.y >= topOffset.y && position.y < topOffset.y + size.height
-                                if (!insideX || !insideY) {
-                                    // 最上位の外側タップは閉じてイベントを遮断する。
-                                    event.changes.forEach { it.consume() }
-                                    closeTopPopup()
-                                }
-                            }
-                        }
+                        detectTapGestures(onTap = { closeTopPopup() })
                     }
             )
         }
@@ -193,10 +170,14 @@ fun ReplyPopup(
                                 Modifier.pointerInput(Unit) {
                                     awaitPointerEventScope {
                                         while (true) {
-                                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                                            val down = awaitFirstDown()
+                                            down.consume()
+                                            val up = waitForUpOrCancellation()
+                                            up?.consume()
                                             // 最上位以外のタップは最上位を閉じる。
-                                            event.changes.forEach { it.consume() }
-                                            closeTopPopup()
+                                            if (up != null) {
+                                                closeTopPopup()
+                                            }
                                         }
                                     }
                                 }
