@@ -109,6 +109,7 @@ fun ThreadScreen(
     onReplyToPost: (Int) -> Unit = {},
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     onGestureAction: (GestureAction) -> Unit = {},
+    onPopupVisibilityChange: (Boolean) -> Unit = {},
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -156,6 +157,10 @@ fun ThreadScreen(
     }
     val onShowTextMenu: (String, NgType) -> Unit = { text, type ->
         dialogState.showTextMenu(text = text, type = type)
+    }
+
+    LaunchedEffect(popupStack.size) {
+        onPopupVisibilityChange(popupStack.isNotEmpty())
     }
 
     LaunchedEffect(listState, visiblePosts, uiState.sortType) {

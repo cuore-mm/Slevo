@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -102,16 +103,47 @@ fun ReplyPopup(
         }
     }
 
-    // --- 戻るハンドリング ---
-    BackHandler(enabled = popupStack.isNotEmpty()) {
+    // --- 終了操作 ---
+    val closeTopPopup: () -> Unit = {
         if (visibilityStates.isNotEmpty()) {
             visibilityStates.last().targetState = false
         }
     }
 
+    // --- 戻るハンドリング ---
+    BackHandler(enabled = popupStack.isNotEmpty()) {
+        closeTopPopup()
+    }
+
     // --- ポップアップ描画 ---
     val lastIndex = popupStack.lastIndex
     Box(modifier = Modifier.fillMaxSize()) {
+        // --- 背景タップ ---
+        if (popupStack.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(popupStack.size) {
+                        detectTapGestures { offset ->
+                            val topInfo = popupStack.lastOrNull() ?: return@detectTapGestures
+                            val topOffset = IntOffset(
+                                topInfo.offset.x,
+                                (topInfo.offset.y - topInfo.size.height).coerceAtLeast(0)
+                            )
+                            val size = topInfo.size
+                            if (size != IntSize.Zero) {
+                                val insideX =
+                                    offset.x >= topOffset.x && offset.x < topOffset.x + size.width
+                                val insideY =
+                                    offset.y >= topOffset.y && offset.y < topOffset.y + size.height
+                                if (!insideX || !insideY) {
+                                    closeTopPopup()
+                                }
+                            }
+                        }
+                    }
+            )
+        }
         popupStack.forEachIndexed { index, info ->
             val isTop = index == lastIndex
             val visibleState = visibilityStates.getOrNull(index)
@@ -151,13 +183,9 @@ fun ReplyPopup(
                             if (!isTop) {
                                 // 上位のポップアップ以外は操作を無効化する。
                                 Modifier.pointerInput(Unit) {
-                                    awaitPointerEventScope {
-                                        while (true) {
-                                            val event =
-                                                awaitPointerEvent(PointerEventPass.Initial)
-                                            event.changes.forEach { it.consume() }
-                                        }
-                                    }
+                                    detectTapGestures(
+                                        onTap = { closeTopPopup() }
+                                    )
                                 }
                             } else {
                                 Modifier
