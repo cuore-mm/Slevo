@@ -18,8 +18,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,6 +34,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
@@ -125,7 +124,24 @@ fun ReplyPopup(
                 modifier = Modifier
                     .fillMaxSize()
                     .pointerInput(popupStack.size) {
-                        detectTapGestures(onTap = { closeTopPopup() })
+                        detectTapGestures { offset ->
+                            val topInfo = popupStack.lastOrNull() ?: return@detectTapGestures
+                            val size = topInfo.size
+                            if (size == IntSize.Zero) {
+                                return@detectTapGestures
+                            }
+                            val topOffset = IntOffset(
+                                topInfo.offset.x,
+                                (topInfo.offset.y - topInfo.size.height).coerceAtLeast(0)
+                            )
+                            val insideX =
+                                offset.x >= topOffset.x && offset.x < topOffset.x + size.width
+                            val insideY =
+                                offset.y >= topOffset.y && offset.y < topOffset.y + size.height
+                            if (!insideX || !insideY) {
+                                closeTopPopup()
+                            }
+                        }
                     }
             )
         }
@@ -170,14 +186,21 @@ fun ReplyPopup(
                                 Modifier.pointerInput(Unit) {
                                     awaitPointerEventScope {
                                         while (true) {
-                                            val down = awaitFirstDown()
-                                            down.consume()
-                                            val up = waitForUpOrCancellation()
-                                            up?.consume()
-                                            // 最上位以外のタップは最上位を閉じる。
-                                            if (up != null) {
-                                                closeTopPopup()
+                                            val downEvent = awaitPointerEvent(PointerEventPass.Initial)
+                                            downEvent.changes.forEach { it.consume() }
+                                            val down = downEvent.changes.firstOrNull { it.pressed }
+                                                ?: continue
+                                            var released = false
+                                            while (!released) {
+                                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                                event.changes.forEach { it.consume() }
+                                                val change = event.changes.firstOrNull { it.id == down.id }
+                                                if (change != null && !change.pressed) {
+                                                    released = true
+                                                }
                                             }
+                                            // 最上位以外のタップは最上位を閉じる。
+                                            closeTopPopup()
                                         }
                                     }
                                 }
