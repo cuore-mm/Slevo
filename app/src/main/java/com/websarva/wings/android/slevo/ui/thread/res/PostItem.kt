@@ -38,6 +38,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
  * @param onUrlClick URLタップ時のコールバック。
  * @param onThreadUrlClick スレッドURLタップ時のコールバック。
  * @param onImageClick 画像サムネイルタップ時のコールバック。
+ * @param onImageLongPress 画像サムネイル長押し時のコールバック。
  * @param onRequestMenu 投稿メニュー表示のリクエスト。
  * @param onShowTextMenu テキストメニュー表示のリクエスト。
  * @param sharedTransitionScope 共有トランジションのスコープ。
@@ -65,6 +66,7 @@ fun PostItem(
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onImageClick: (String) -> Unit,
+    onImageLongPress: (String) -> Unit,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
@@ -128,6 +130,7 @@ fun PostItem(
         PostItemMedia(
             post = post,
             onImageClick = onImageClick,
+            onImageLongPress = onImageLongPress,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
         )
@@ -171,6 +174,7 @@ private fun ReplyCardPreview() {
                 onUrlClick = {},
                 onThreadUrlClick = {},
                 onImageClick = {},
+                onImageLongPress = {},
                 onRequestMenu = {},
                 onShowTextMenu = { _, _ -> },
             )

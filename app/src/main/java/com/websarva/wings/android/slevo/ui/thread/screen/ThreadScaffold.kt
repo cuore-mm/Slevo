@@ -28,6 +28,7 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.sheet.DisplaySettingsBottomSheet
+import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
@@ -208,6 +209,7 @@ fun ThreadScaffold(
                 },
                 onReplyToPost = { viewModel.showReplyDialog(it) },
                 gestureSettings = uiState.gestureSettings,
+                onImageLongPress = { url -> viewModel.openImageMenu(url) },
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
                 onPopupVisibilityChange = { isPopupVisible = it },
@@ -242,6 +244,13 @@ fun ThreadScaffold(
                 boardInfo = uiState.boardInfo,
                 navController = navController,
                 tabsViewModel = tabsViewModel,
+            )
+
+            ImageMenuSheet(
+                show = uiState.showImageMenuSheet,
+                imageUrl = uiState.imageMenuTargetUrl,
+                onActionSelected = { viewModel.closeImageMenu() },
+                onDismissRequest = { viewModel.closeImageMenu() },
             )
 
             if (uiState.showMoreSheet) {
