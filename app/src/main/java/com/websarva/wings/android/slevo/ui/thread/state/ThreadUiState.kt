@@ -7,11 +7,21 @@ import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
 
+/**
+ * スレッド表示のソート種別。
+ *
+ * 画面上での並び順を決めるために利用する。
+ */
 enum class ThreadSortType {
     NUMBER,
     TREE
 }
 
+/**
+ * スレッド画面のUI状態。
+ *
+ * 画面描画に必要なデータと表示状態を保持する。
+ */
 data class ThreadUiState(
     val threadInfo: ThreadInfo = ThreadInfo(),
     val posts: List<ThreadPostUiModel>? = null,
@@ -22,6 +32,8 @@ data class ThreadUiState(
     val showThreadInfoSheet: Boolean = false,
     val showMoreSheet: Boolean = false,
     val showDisplaySettingsSheet: Boolean = false,
+    val showImageMenuSheet: Boolean = false,
+    val imageMenuTargetUrl: String? = null,
     val myPostNumbers: Set<Int> = emptySet(),
     // UI描画用の派生情報（ViewModelで算出）
     val idCountMap: Map<String, Int> = emptyMap(),

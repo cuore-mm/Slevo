@@ -45,6 +45,11 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import kotlin.math.max
 
+/**
+ * 投稿送信前に保持する入力内容。
+ *
+ * 返信番号や投稿本文など、送信に必要な要素をまとめる。
+ */
 private data class PendingPost(
     val resNum: Int?,
     val content: String,
@@ -52,6 +57,11 @@ private data class PendingPost(
     val email: String,
 )
 
+/**
+ * スレッド画面の状態を管理するViewModel。
+ *
+ * 投稿の表示や操作に関するUI状態を保持・更新する。
+ */
 class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
     private val boardRepository: BoardRepository,
@@ -466,6 +476,24 @@ class ThreadViewModel @AssistedInject constructor(
 
     fun closeDisplaySettingsSheet() {
         _uiState.update { it.copy(showDisplaySettingsSheet = false) }
+    }
+
+    /**
+     * 画像メニューを開いて対象URLを設定する。
+     */
+    fun openImageMenu(url: String) {
+        if (url.isBlank()) {
+            // 空URLはメニューを開かない。
+            return
+        }
+        _uiState.update { it.copy(showImageMenuSheet = true, imageMenuTargetUrl = url) }
+    }
+
+    /**
+     * 画像メニューを閉じて対象URLをクリアする。
+     */
+    fun closeImageMenu() {
+        _uiState.update { it.copy(showImageMenuSheet = false, imageMenuTargetUrl = null) }
     }
 
     fun updateTextScale(scale: Float) {
