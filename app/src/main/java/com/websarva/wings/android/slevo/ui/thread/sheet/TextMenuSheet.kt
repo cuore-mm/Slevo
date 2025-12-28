@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.thread.components
+package com.websarva.wings.android.slevo.ui.thread.sheet
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer

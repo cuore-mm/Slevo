@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.thread.item
+package com.websarva.wings.android.slevo.ui.thread.res
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

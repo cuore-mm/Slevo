@@ -1,7 +1,8 @@
 package com.websarva.wings.android.slevo.ui.util
 
-import androidx.compose.runtime.Composable
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -19,24 +20,24 @@ private val replyRegex: Pattern = Pattern.compile(">>(\\d+)")
 
 /**
  * 入力されたテキストからURLと返信アンカー（>>1など）を検出し、
- * それぞれクリック可能な注釈（Annotation）を付けたAnnotatedStringを生成します。
+ * クリック可能な注釈を付けた AnnotatedString を生成する。
  */
-@Composable
 fun buildUrlAnnotatedString(
     text: String,
-    onOpenUrl: (String) -> Unit,
-    replyColor: Color = replyColor(),
-    imageColor: Color = imageUrlColor(),
-    threadColor: Color = threadUrlColor(),
-    urlColor: Color = urlColor(),
+    replyColor: Color,
+    imageColor: Color,
+    threadColor: Color,
+    urlColor: Color,
     pressedUrl: String? = null,
     pressedReply: String? = null,
-    pressedColor: Color = MaterialTheme.colorScheme.primary,
+    pressedColor: Color,
 ): AnnotatedString {
     return buildAnnotatedString {
+        // --- パターン準備 ---
         var lastIndex = 0
         val pattern = Pattern.compile("${urlRegex.pattern()}|${replyRegex.pattern()}")
         val matcher = pattern.matcher(text)
+        // --- マッチ処理 ---
         while (matcher.find()) {
             val start = matcher.start()
             val end = matcher.end()
@@ -78,6 +79,7 @@ fun buildUrlAnnotatedString(
             }
             lastIndex = end
         }
+        // --- 末尾追加 ---
         if (lastIndex < text.length) {
             append(text.substring(lastIndex))
         }
@@ -85,6 +87,45 @@ fun buildUrlAnnotatedString(
 }
 
 private val imageExtensions = listOf("jpg", "jpeg", "png", "gif")
+
+/**
+ * テーマ色と押下状態に応じて本文の AnnotatedString をメモ化して返す。
+ *
+ * URL/返信アンカーの描画色が変わる場合のみ再計算する。
+ */
+@Composable
+fun rememberUrlAnnotatedString(
+    text: String,
+    pressedUrl: String? = null,
+    pressedReply: String? = null,
+): AnnotatedString {
+    val replyColor = replyColor()
+    val imageColor = imageUrlColor()
+    val threadColor = threadUrlColor()
+    val urlColor = urlColor()
+    val pressedColor = MaterialTheme.colorScheme.primary
+    return remember(
+        text,
+        pressedUrl,
+        pressedReply,
+        replyColor,
+        imageColor,
+        threadColor,
+        urlColor,
+        pressedColor
+    ) {
+        buildUrlAnnotatedString(
+            text = text,
+            replyColor = replyColor,
+            imageColor = imageColor,
+            threadColor = threadColor,
+            urlColor = urlColor,
+            pressedUrl = pressedUrl,
+            pressedReply = pressedReply,
+            pressedColor = pressedColor
+        )
+    }
+}
 
 /**
  * テキスト中の画像URLを抽出します。

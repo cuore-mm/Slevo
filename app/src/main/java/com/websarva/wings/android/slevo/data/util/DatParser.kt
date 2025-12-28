@@ -1,7 +1,7 @@
 package com.websarva.wings.android.slevo.data.util
 
 import androidx.core.text.HtmlCompat
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 
 fun parseDat(datContent: String): Pair<List<ReplyInfo>, String?> {

@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.thread.components
+package com.websarva.wings.android.slevo.ui.thread.sheet
 
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
