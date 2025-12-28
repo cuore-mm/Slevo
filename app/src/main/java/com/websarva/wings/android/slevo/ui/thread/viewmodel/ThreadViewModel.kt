@@ -27,7 +27,6 @@ import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.data.util.ThreadListParser.calculateThreadDate
@@ -238,11 +237,12 @@ class ThreadViewModel @AssistedInject constructor(
             if (threadData != null) {
                 // 正常に取得できた場合はパース結果を元に各種派生データを作成
                 val (posts, title) = threadData
+                val uiPosts = posts.map { it.toThreadPostUiModel() }
                 // ID カウント / インデックス / 返信ソースマップ を導出
-                val derived = deriveReplyMaps(posts)
+                val derived = deriveReplyMaps(uiPosts)
                 // ツリー順と深さマップを導出
-                val tree = deriveTreeOrder(posts)
-                val resCount = posts.size
+                val tree = deriveTreeOrder(uiPosts)
+                val resCount = uiPosts.size
                 val keyLong = key.toLongOrNull()
                 val date = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD) {
                     calculateThreadDate(key)
@@ -259,7 +259,7 @@ class ThreadViewModel @AssistedInject constructor(
                 // UI 状態に新しい投稿リスト等を反映（読み込みフラグ解除）
                 _uiState.update {
                     it.copy(
-                        posts = posts,
+                        posts = uiPosts,
                         isLoading = false,
                         loadProgress = 1f,
                         threadInfo = it.threadInfo.copy(
@@ -283,7 +283,7 @@ class ThreadViewModel @AssistedInject constructor(
                 val historyId = historyRepository.recordHistory(
                     uiState.value.boardInfo,
                     uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
-                    posts.size
+                    uiPosts.size
                 )
 
                 // 履歴 ID が変わっていれば、過去の自分の投稿番号観察を再登録
@@ -299,18 +299,18 @@ class ThreadViewModel @AssistedInject constructor(
 
                 // 保留していた投稿情報があれば履歴に記録（該当レス番号が有効な場合）
                 pendingPost?.let { pending ->
-                    val resNumber = pending.resNum ?: posts.size
-                    if (resNumber in 1..posts.size) {
-                        val p = posts[resNumber - 1]
+                    val resNumber = pending.resNum ?: uiPosts.size
+                    if (resNumber in 1..uiPosts.size) {
+                        val p = uiPosts[resNumber - 1]
                         postHistoryRepository.recordPost(
                             content = pending.content,
-                            date = parseDateToUnix(p.date),
+                            date = parseDateToUnix(p.header.date),
                             threadHistoryId = historyId,
                             boardId = uiState.value.boardInfo.boardId,
                             resNum = resNumber,
                             name = pending.name,
                             email = pending.email,
-                            postId = p.id
+                            postId = p.header.id
                         )
                     }
                     // 保留をクリア
@@ -334,9 +334,9 @@ class ThreadViewModel @AssistedInject constructor(
             val isNg = compiledNg.any { (bId, rx, type) ->
                 (bId == null || bId == boardId) && runCatching {
                     val target = when (type) {
-                        NgType.USER_ID -> post.id
-                        NgType.USER_NAME -> post.name
-                        NgType.WORD -> post.content
+                        NgType.USER_ID -> post.header.id
+                        NgType.USER_NAME -> post.header.name
+                        NgType.WORD -> post.body.content
                         else -> ""
                     }
                     rx.containsMatchIn(target)
@@ -374,7 +374,7 @@ class ThreadViewModel @AssistedInject constructor(
         val query = uiState.value.searchQuery.toHiragana()
         val filteredPosts = if (query.isNotBlank()) {
             orderedPosts.filter {
-                it.post.content.toHiragana().contains(
+                it.post.body.content.toHiragana().contains(
                     query,
                     ignoreCase = true
                 )

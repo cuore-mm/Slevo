@@ -9,6 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
@@ -24,8 +27,8 @@ import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import com.websarva.wings.android.slevo.ui.thread.components.DisplaySettingsBottomSheet
-import com.websarva.wings.android.slevo.ui.thread.components.ThreadInfoBottomSheet
+import com.websarva.wings.android.slevo.ui.thread.sheet.DisplaySettingsBottomSheet
+import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
@@ -62,6 +65,7 @@ fun ThreadScaffold(
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
+    var isPopupVisible by remember { mutableStateOf(false) }
 
     val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, threadRoute.threadKey)
@@ -124,7 +128,12 @@ fun ThreadScaffold(
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setThreadCurrentPage(it) },
         animateToPageFlow = tabsViewModel.threadPageAnimation,
-        bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
+        bottomBarScrollBehavior = { listState ->
+            rememberBottomBarShowOnBottomBehavior(
+                listState = listState,
+                scrollEnabled = !isPopupVisible
+            )
+        },
         bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
             BbsRouteBottomBar(
                 isSearchMode = uiState.isSearchMode,
@@ -201,6 +210,7 @@ fun ThreadScaffold(
                 gestureSettings = uiState.gestureSettings,
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
+                onPopupVisibilityChange = { isPopupVisible = it },
                 onGestureAction = { action ->
                     when (action) {
                         GestureAction.Refresh -> viewModel.reloadThread()

@@ -25,13 +25,14 @@ import com.websarva.wings.android.slevo.ui.theme.imageUrlColor
 import com.websarva.wings.android.slevo.ui.theme.replyCountColor
 import com.websarva.wings.android.slevo.ui.theme.threadUrlColor
 import com.websarva.wings.android.slevo.ui.theme.urlColor
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.slevo.data.model.ReplyInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import kotlinx.coroutines.launch
 
 @Composable
 fun MomentumBar(
     modifier: Modifier = Modifier,
-    posts: List<ReplyInfo>,
+    posts: List<ThreadPostUiModel>,
     replyCounts: List<Int>,
     lazyListState: LazyListState,
     firstAfterIndex: Int = -1,
@@ -99,7 +100,7 @@ fun MomentumBar(
                     val start = (index - windowSize / 2).coerceAtLeast(0)
                     val end = (index + windowSize / 2).coerceAtMost(posts.lastIndex)
                     val subList = posts.subList(start, end + 1)
-                    subList.map { it.momentum }.average().toFloat()
+                    subList.map { it.meta.momentum }.average().toFloat()
                 }
                 val maxFractionOfBar = 0.5f      // ← ここを 0.5 に。可変にしたければ引数化してもOK
                 val minFractionOfBar = 0.0f      // 必要なら最小太さも下駄履かせられる
@@ -142,20 +143,20 @@ fun MomentumBar(
             val dotSpacing = dotRadius * 1.3f // 重なりを減らすため間隔を広げる
             val rightMarginPx = 4.dp.toPx() // 右端の余白
             posts.forEachIndexed { index, post ->
-                if (post.urlFlags != 0) {
+                if (post.meta.urlFlags != 0) {
                     val y = index * postHeight + postHeight / 2f
                     val colors = buildList {
-                        if (post.urlFlags and ReplyInfo.HAS_IMAGE_URL != 0) add(
+                        if (post.meta.urlFlags and ReplyInfo.HAS_IMAGE_URL != 0) add(
                             imageColor.copy(
                                 alpha = 0.6f
                             )
                         )
-                        if (post.urlFlags and ReplyInfo.HAS_THREAD_URL != 0) add(
+                        if (post.meta.urlFlags and ReplyInfo.HAS_THREAD_URL != 0) add(
                             threadColor.copy(
                                 alpha = 0.6f
                             )
                         )
-                        if (post.urlFlags and ReplyInfo.HAS_OTHER_URL != 0) add(
+                        if (post.meta.urlFlags and ReplyInfo.HAS_OTHER_URL != 0) add(
                             otherColor.copy(
                                 alpha = 0.6f
                             )
@@ -230,14 +231,20 @@ fun MomentumBarPreview() {
             4 -> ReplyInfo.HAS_IMAGE_URL or ReplyInfo.HAS_THREAD_URL or ReplyInfo.HAS_OTHER_URL // 全部
             else -> 0
         }
-        ReplyInfo(
-            name = "User$i",
-            email = "user$i@example.com",
-            date = "2025/08/17",
-            id = "$i",
-            content = "Sample post $i",
-            momentum = (i % 10) / 10f,
-            urlFlags = urlFlags
+        ThreadPostUiModel(
+            header = ThreadPostUiModel.Header(
+                name = "User$i",
+                email = "user$i@example.com",
+                date = "2025/08/17",
+                id = "$i",
+            ),
+            body = ThreadPostUiModel.Body(
+                content = "Sample post $i",
+            ),
+            meta = ThreadPostUiModel.Meta(
+                momentum = (i % 10) / 10f,
+                urlFlags = urlFlags,
+            ),
         )
     }
     val listState = rememberLazyListState()
