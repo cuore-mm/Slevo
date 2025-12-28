@@ -161,13 +161,13 @@ fun ReplyPopup(
                     onShowTextMenu = onShowTextMenu,
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,
-                    onReplyFromClick = { nums ->
+                    onReplyFromClick = { numbs ->
                         addPopupForReplyFrom(
                             popupStack = popupStack,
                             baseOffsetProvider = { calculatePopupOffset(popupStack[index]) },
                             posts = posts,
                             ngPostNumbers = ngPostNumbers,
-                            replyNumbers = nums,
+                            replyNumbers = numbs,
                         )
                     },
                     onReplyClick = { num ->
@@ -279,7 +279,7 @@ private fun PopupCard(
                     }
                 }
                 .border(width = 2.dp, color = MaterialTheme.colorScheme.primary)
-                .then(disableInteractionOnUnderlay(isTop, onCloseTop))
+                .disableInteractionOnUnderlay(isTop, onCloseTop)
         ) {
             content()
         }
@@ -404,16 +404,16 @@ private fun isTapInsidePopup(
 /**
  * 最上位以外のポップアップ入力を消費し、最上位のクローズ動作に委譲する。
  */
-private fun disableInteractionOnUnderlay(
+private fun Modifier.disableInteractionOnUnderlay(
     isTop: Boolean,
     onCloseTop: () -> Unit,
 ): Modifier {
     if (isTop) {
         // 最上位のポップアップは通常通り操作を許可する。
-        return Modifier
+        return this
     }
     // 上位のポップアップ以外は操作を無効化する。
-    return Modifier.pointerInput(Unit) {
+    return this.pointerInput(Unit) {
         awaitPointerEventScope {
             while (true) {
                 val downEvent = awaitPointerEvent(PointerEventPass.Initial)
