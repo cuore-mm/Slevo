@@ -66,6 +66,8 @@
     <string name="image_menu_search_web">画像をwebで検索</string>
     <string name="image_menu_share_image">画像を共有</string>
     <string name="image_copy_failed">画像のコピーに失敗しました</string>
+    <string name="image_open_failed">画像を開けませんでした</string>
+    <string name="no_app_to_open_image">画像を開けるアプリが見つかりませんでした</string>
     <string name="ng_setting">NG設定</string>
     <string name="add_to_ng_id">NGIDに追加</string>
     <string name="add_to_ng_name">NGNameに追加</string>

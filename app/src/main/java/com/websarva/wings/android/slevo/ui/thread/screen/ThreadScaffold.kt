@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.content.ClipData
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -289,6 +290,37 @@ fun ThreadScaffold(
                                         Toast.makeText(
                                             context,
                                             R.string.image_copy_failed,
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            }
+                        }
+                        ImageMenuAction.OPEN_IN_OTHER_APP -> {
+                            // 空URLは開かない。
+                            if (targetUrl.isNotBlank()) {
+                                coroutineScope.launch {
+                                    val result = ImageCopyUtil.fetchImageUri(context, targetUrl)
+                                    result.onSuccess { uri ->
+                                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                                            setDataAndType(uri, "image/*")
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        if (intent.resolveActivity(context.packageManager) != null) {
+                                            context.startActivity(
+                                                Intent.createChooser(intent, null)
+                                            )
+                                        } else {
+                                            Toast.makeText(
+                                                context,
+                                                R.string.no_app_to_open_image,
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }.onFailure {
+                                        Toast.makeText(
+                                            context,
+                                            R.string.image_open_failed,
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }
