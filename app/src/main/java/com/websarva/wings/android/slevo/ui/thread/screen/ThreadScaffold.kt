@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
+import android.content.ClipData
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -11,8 +12,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.toClipEntry
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -56,6 +60,7 @@ import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -239,6 +244,8 @@ fun ThreadScaffold(
         },
         optionalSheetContent = { viewModel, uiState ->
             val postUiState by viewModel.postUiState.collectAsState()
+            val clipboard = LocalClipboard.current
+            val coroutineScope = rememberCoroutineScope()
 
             ThreadInfoBottomSheet(
                 showThreadInfoSheet = uiState.showThreadInfoSheet,
@@ -256,6 +263,15 @@ fun ThreadScaffold(
                     val targetUrl = uiState.imageMenuTargetUrl.orEmpty()
                     when (action) {
                         ImageMenuAction.ADD_NG -> viewModel.openImageNgDialog(targetUrl)
+                        ImageMenuAction.COPY_IMAGE_URL -> {
+                            // 空URLはコピーしない。
+                            if (targetUrl.isNotBlank()) {
+                                coroutineScope.launch {
+                                    val clip = ClipData.newPlainText("", targetUrl).toClipEntry()
+                                    clipboard.setClipEntry(clip)
+                                }
+                            }
+                        }
                         else -> Unit
                     }
                     viewModel.closeImageMenu()
