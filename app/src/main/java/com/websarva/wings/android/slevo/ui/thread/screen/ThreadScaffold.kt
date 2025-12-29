@@ -56,6 +56,7 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMail
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMessage
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostName
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.uploadImage
+import com.websarva.wings.android.slevo.ui.util.ImageCopyUtil
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import java.net.URLEncoder
@@ -269,6 +270,28 @@ fun ThreadScaffold(
                                 coroutineScope.launch {
                                     val clip = ClipData.newPlainText("", targetUrl).toClipEntry()
                                     clipboard.setClipEntry(clip)
+                                }
+                            }
+                        }
+                        ImageMenuAction.COPY_IMAGE -> {
+                            // 空URLはコピーしない。
+                            if (targetUrl.isNotBlank()) {
+                                coroutineScope.launch {
+                                    val result = ImageCopyUtil.fetchImageUri(context, targetUrl)
+                                    result.onSuccess { uri ->
+                                        val clip = ClipData.newUri(
+                                            context.contentResolver,
+                                            "",
+                                            uri
+                                        ).toClipEntry()
+                                        clipboard.setClipEntry(clip)
+                                    }.onFailure {
+                                        Toast.makeText(
+                                            context,
+                                            R.string.image_copy_failed,
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
                                 }
                             }
                         }
