@@ -352,6 +352,11 @@ fun ThreadScaffold(
                                         val intent = Intent(Intent.ACTION_SEND).apply {
                                             type = "image/*"
                                             putExtra(Intent.EXTRA_STREAM, uri)
+                                            clipData = ClipData.newUri(
+                                                context.contentResolver,
+                                                "",
+                                                uri
+                                            )
                                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                         }
                                         if (intent.resolveActivity(context.packageManager) != null) {
@@ -375,7 +380,6 @@ fun ThreadScaffold(
                                 }
                             }
                         }
-                        else -> Unit
                     }
                     viewModel.closeImageMenu()
                 },
