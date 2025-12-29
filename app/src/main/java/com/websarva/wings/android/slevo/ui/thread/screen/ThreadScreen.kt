@@ -110,6 +110,7 @@ fun ThreadScreen(
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     onGestureAction: (GestureAction) -> Unit = {},
     onPopupVisibilityChange: (Boolean) -> Unit = {},
+    onImageLongPress: (String) -> Unit = {},
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -388,6 +389,7 @@ fun ThreadScreen(
                         onUrlClick = onUrlClick,
                         onThreadUrlClick = onThreadUrlClick,
                         onImageClick = onImageClick,
+                        onImageLongPress = onImageLongPress,
                         onRequestMenu = onRequestMenu,
                         onShowTextMenu = onShowTextMenu,
                         sharedTransitionScope = sharedTransitionScope,
@@ -527,6 +529,7 @@ fun ThreadScreen(
             onUrlClick = onUrlClick,
             onThreadUrlClick = onThreadUrlClick,
             onImageClick = onImageClick,
+            onImageLongPress = onImageLongPress,
             onRequestMenu = onRequestMenu,
             onShowTextMenu = onShowTextMenu,
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) },

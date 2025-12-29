@@ -1,5 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
+import android.content.ClipData
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -11,11 +13,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.toClipEntry
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
@@ -28,8 +34,11 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.sheet.DisplaySettingsBottomSheet
+import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
+import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
+import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
@@ -48,10 +57,14 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMail
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMessage
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostName
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.uploadImage
+import com.websarva.wings.android.slevo.ui.util.CustomTabsUtil
+import com.websarva.wings.android.slevo.ui.util.ImageCopyUtil
+import com.websarva.wings.android.slevo.ui.util.buildLensSearchUrl
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -208,6 +221,7 @@ fun ThreadScaffold(
                 },
                 onReplyToPost = { viewModel.showReplyDialog(it) },
                 gestureSettings = uiState.gestureSettings,
+                onImageLongPress = { url -> viewModel.openImageMenu(url) },
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
                 onPopupVisibilityChange = { isPopupVisible = it },
@@ -234,6 +248,8 @@ fun ThreadScaffold(
         },
         optionalSheetContent = { viewModel, uiState ->
             val postUiState by viewModel.postUiState.collectAsState()
+            val clipboard = LocalClipboard.current
+            val coroutineScope = rememberCoroutineScope()
 
             ThreadInfoBottomSheet(
                 showThreadInfoSheet = uiState.showThreadInfoSheet,
@@ -243,6 +259,144 @@ fun ThreadScaffold(
                 navController = navController,
                 tabsViewModel = tabsViewModel,
             )
+
+            ImageMenuSheet(
+                show = uiState.showImageMenuSheet,
+                imageUrl = uiState.imageMenuTargetUrl,
+                onActionSelected = { action ->
+                    val targetUrl = uiState.imageMenuTargetUrl.orEmpty()
+                    when (action) {
+                        ImageMenuAction.ADD_NG -> viewModel.openImageNgDialog(targetUrl)
+                        ImageMenuAction.COPY_IMAGE_URL -> {
+                            // 空URLはコピーしない。
+                            if (targetUrl.isNotBlank()) {
+                                coroutineScope.launch {
+                                    val clip = ClipData.newPlainText("", targetUrl).toClipEntry()
+                                    clipboard.setClipEntry(clip)
+                                }
+                            }
+                        }
+                        ImageMenuAction.COPY_IMAGE -> {
+                            // 空URLはコピーしない。
+                            if (targetUrl.isNotBlank()) {
+                                coroutineScope.launch {
+                                    val result = ImageCopyUtil.fetchImageUri(context, targetUrl)
+                                    result.onSuccess { uri ->
+                                        val clip = ClipData.newUri(
+                                            context.contentResolver,
+                                            "",
+                                            uri
+                                        ).toClipEntry()
+                                        clipboard.setClipEntry(clip)
+                                    }.onFailure {
+                                        Toast.makeText(
+                                            context,
+                                            R.string.image_copy_failed,
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            }
+                        }
+                        ImageMenuAction.OPEN_IN_OTHER_APP -> {
+                            // 空URLは開かない。
+                            if (targetUrl.isNotBlank()) {
+                                coroutineScope.launch {
+                                    val result = ImageCopyUtil.fetchImageUri(context, targetUrl)
+                                    result.onSuccess { uri ->
+                                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                                            setDataAndType(uri, "image/*")
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        if (intent.resolveActivity(context.packageManager) != null) {
+                                            context.startActivity(
+                                                Intent.createChooser(intent, null)
+                                            )
+                                        } else {
+                                            Toast.makeText(
+                                                context,
+                                                R.string.no_app_to_open_image,
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }.onFailure {
+                                        Toast.makeText(
+                                            context,
+                                            R.string.image_open_failed,
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            }
+                        }
+                        ImageMenuAction.SEARCH_WEB -> {
+                            // 空URLは検索しない。
+                            if (targetUrl.isNotBlank()) {
+                                val searchUrl = buildLensSearchUrl(targetUrl)
+                                val opened = CustomTabsUtil.openCustomTab(context, searchUrl)
+                                if (!opened) {
+                                    Toast.makeText(
+                                        context,
+                                        R.string.image_search_failed,
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        }
+                        ImageMenuAction.SHARE_IMAGE -> {
+                            // 空URLは共有しない。
+                            if (targetUrl.isNotBlank()) {
+                                coroutineScope.launch {
+                                    val result = ImageCopyUtil.fetchImageUri(context, targetUrl)
+                                    result.onSuccess { uri ->
+                                        val intent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "image/*"
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            clipData = ClipData.newUri(
+                                                context.contentResolver,
+                                                "",
+                                                uri
+                                            )
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        if (intent.resolveActivity(context.packageManager) != null) {
+                                            context.startActivity(
+                                                Intent.createChooser(intent, null)
+                                            )
+                                        } else {
+                                            Toast.makeText(
+                                                context,
+                                                R.string.no_app_to_share_image,
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }.onFailure {
+                                        Toast.makeText(
+                                            context,
+                                            R.string.image_share_failed,
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    viewModel.closeImageMenu()
+                },
+                onDismissRequest = { viewModel.closeImageMenu() },
+            )
+
+            if (uiState.showImageNgDialog) {
+                uiState.imageNgTargetUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                    NgDialogRoute(
+                        text = url,
+                        type = NgType.WORD,
+                        boardName = uiState.boardInfo.name,
+                        boardId = uiState.boardInfo.boardId.takeIf { it != 0L },
+                        onDismiss = { viewModel.closeImageNgDialog() }
+                    )
+                }
+            }
 
             if (uiState.showMoreSheet) {
                 ThreadToolbarOverflowMenu(

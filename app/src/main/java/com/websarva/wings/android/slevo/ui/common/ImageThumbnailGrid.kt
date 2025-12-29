@@ -4,7 +4,7 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +24,7 @@ import coil3.compose.SubcomposeAsyncImage
 /**
  * 画像URL一覧をサムネイルのグリッドとして表示する。
  *
- * サムネイルには共有トランジション用の要素を付与する。
+ * タップと長押しを分岐して通知し、サムネイルには共有トランジション用の要素を付与する。
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -32,6 +32,7 @@ fun ImageThumbnailGrid(
     imageUrls: List<String>,
     modifier: Modifier = Modifier,
     onImageClick: (String) -> Unit,
+    onImageLongPress: ((String) -> Unit)? = null,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -48,7 +49,10 @@ fun ImageThumbnailGrid(
                                 .weight(1f)
                                 .aspectRatio(1f)
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { onImageClick(url) }
+                                .combinedClickable(
+                                    onClick = { onImageClick(url) },
+                                    onLongClick = onImageLongPress?.let { { it(url) } },
+                                )
                                 .sharedElement(
                                     sharedContentState = sharedTransitionScope.rememberSharedContentState(
                                         key = url
