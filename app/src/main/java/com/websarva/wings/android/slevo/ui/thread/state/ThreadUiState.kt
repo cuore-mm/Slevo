@@ -34,6 +34,8 @@ data class ThreadUiState(
     val showDisplaySettingsSheet: Boolean = false,
     val showImageMenuSheet: Boolean = false,
     val imageMenuTargetUrl: String? = null,
+    val showImageNgDialog: Boolean = false,
+    val imageNgTargetUrl: String? = null,
     val myPostNumbers: Set<Int> = emptySet(),
     // UI描画用の派生情報（ViewModelで算出）
     val idCountMap: Map<String, Int> = emptyMap(),

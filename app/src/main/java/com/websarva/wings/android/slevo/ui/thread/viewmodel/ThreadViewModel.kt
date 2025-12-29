@@ -496,6 +496,24 @@ class ThreadViewModel @AssistedInject constructor(
         _uiState.update { it.copy(showImageMenuSheet = false, imageMenuTargetUrl = null) }
     }
 
+    /**
+     * 画像URLを対象にNG登録ダイアログを開く。
+     */
+    fun openImageNgDialog(url: String) {
+        if (url.isBlank()) {
+            // 空URLはダイアログを開かない。
+            return
+        }
+        _uiState.update { it.copy(showImageNgDialog = true, imageNgTargetUrl = url) }
+    }
+
+    /**
+     * 画像URLのNG登録ダイアログを閉じて対象URLをクリアする。
+     */
+    fun closeImageNgDialog() {
+        _uiState.update { it.copy(showImageNgDialog = false, imageNgTargetUrl = null) }
+    }
+
     fun updateTextScale(scale: Float) {
         viewModelScope.launch {
             settingsRepository.setTextScale(scale)

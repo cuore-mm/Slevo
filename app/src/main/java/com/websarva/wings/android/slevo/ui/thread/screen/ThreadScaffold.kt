@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
@@ -28,9 +29,11 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.sheet.DisplaySettingsBottomSheet
+import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
+import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
@@ -249,9 +252,28 @@ fun ThreadScaffold(
             ImageMenuSheet(
                 show = uiState.showImageMenuSheet,
                 imageUrl = uiState.imageMenuTargetUrl,
-                onActionSelected = { viewModel.closeImageMenu() },
+                onActionSelected = { action ->
+                    val targetUrl = uiState.imageMenuTargetUrl.orEmpty()
+                    when (action) {
+                        ImageMenuAction.ADD_NG -> viewModel.openImageNgDialog(targetUrl)
+                        else -> Unit
+                    }
+                    viewModel.closeImageMenu()
+                },
                 onDismissRequest = { viewModel.closeImageMenu() },
             )
+
+            if (uiState.showImageNgDialog) {
+                uiState.imageNgTargetUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                    NgDialogRoute(
+                        text = url,
+                        type = NgType.WORD,
+                        boardName = uiState.boardInfo.name,
+                        boardId = uiState.boardInfo.boardId.takeIf { it != 0L },
+                        onDismiss = { viewModel.closeImageNgDialog() }
+                    )
+                }
+            }
 
             if (uiState.showMoreSheet) {
                 ThreadToolbarOverflowMenu(
