@@ -343,6 +343,38 @@ fun ThreadScaffold(
                                 }
                             }
                         }
+                        ImageMenuAction.SHARE_IMAGE -> {
+                            // 空URLは共有しない。
+                            if (targetUrl.isNotBlank()) {
+                                coroutineScope.launch {
+                                    val result = ImageCopyUtil.fetchImageUri(context, targetUrl)
+                                    result.onSuccess { uri ->
+                                        val intent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "image/*"
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        if (intent.resolveActivity(context.packageManager) != null) {
+                                            context.startActivity(
+                                                Intent.createChooser(intent, null)
+                                            )
+                                        } else {
+                                            Toast.makeText(
+                                                context,
+                                                R.string.no_app_to_share_image,
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }.onFailure {
+                                        Toast.makeText(
+                                            context,
+                                            R.string.image_share_failed,
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            }
+                        }
                         else -> Unit
                     }
                     viewModel.closeImageMenu()

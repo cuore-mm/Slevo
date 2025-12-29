@@ -69,6 +69,8 @@
     <string name="image_open_failed">画像を開けませんでした</string>
     <string name="no_app_to_open_image">画像を開けるアプリが見つかりませんでした</string>
     <string name="image_search_failed">画像検索を開けませんでした</string>
+    <string name="image_share_failed">画像を共有できませんでした</string>
+    <string name="no_app_to_share_image">画像を共有できるアプリが見つかりませんでした</string>
     <string name="ng_setting">NG設定</string>
     <string name="add_to_ng_id">NGIDに追加</string>
     <string name="add_to_ng_name">NGNameに追加</string>
