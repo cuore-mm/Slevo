@@ -1,13 +1,15 @@
 package com.websarva.wings.android.slevo.ui.util
 
 import androidx.core.net.toUri
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 fun keyToDatUrl(boardUrl:String, key: String): String {
     return "${boardUrl}dat/${key}.dat"
 }
 
 fun keyToOysterUrl(boardUrl: String, key: String): String {
-    val prefix = if (key.length >= 4) key.substring(0, 4) else key
+    val prefix = if (key.length >= 4) key.take(4) else key
     return "${boardUrl}oyster/$prefix/${key}.dat"
 }
 
@@ -65,4 +67,15 @@ fun parseThreadUrl(url: String): Triple<String, String, String>? {
     }
 
     return null
+}
+
+/**
+ * 画像URLをGoogle Lensの検索URLへ変換する。
+ *
+ * @param imageUrl 元の画像URL
+ * @return `lens.google.com/uploadbyurl` 形式の検索URL
+ */
+fun buildLensSearchUrl(imageUrl: String): String {
+    val encoded = URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
+    return "https://lens.google.com/uploadbyurl?url=$encoded"
 }

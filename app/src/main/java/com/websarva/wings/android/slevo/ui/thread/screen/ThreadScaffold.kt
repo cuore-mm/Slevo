@@ -57,7 +57,9 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMail
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMessage
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostName
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.uploadImage
+import com.websarva.wings.android.slevo.ui.util.CustomTabsUtil
 import com.websarva.wings.android.slevo.ui.util.ImageCopyUtil
+import com.websarva.wings.android.slevo.ui.util.buildLensSearchUrl
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import java.net.URLEncoder
@@ -324,6 +326,20 @@ fun ThreadScaffold(
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }
+                                }
+                            }
+                        }
+                        ImageMenuAction.SEARCH_WEB -> {
+                            // 空URLは検索しない。
+                            if (targetUrl.isNotBlank()) {
+                                val searchUrl = buildLensSearchUrl(targetUrl)
+                                val opened = CustomTabsUtil.openCustomTab(context, searchUrl)
+                                if (!opened) {
+                                    Toast.makeText(
+                                        context,
+                                        R.string.image_search_failed,
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 }
                             }
                         }
