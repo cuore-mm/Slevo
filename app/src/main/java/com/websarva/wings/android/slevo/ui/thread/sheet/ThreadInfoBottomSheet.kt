@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.thread.components
+package com.websarva.wings.android.slevo.ui.thread.sheet
 
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
@@ -14,13 +14,12 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -44,16 +43,17 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.CopyDialog
 import com.websarva.wings.android.slevo.ui.common.CopyItem
+import com.websarva.wings.android.slevo.ui.common.LabeledIconButton
+import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
-import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
-import com.websarva.wings.android.slevo.ui.common.LabeledIconButton
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.text.DecimalFormat
 
@@ -78,7 +78,7 @@ fun ThreadInfoBottomSheet(
     } ?: ""
 
     if (showThreadInfoSheet) {
-        ModalBottomSheet(
+        SlevoBottomSheet(
             onDismissRequest = onDismissRequest,
             sheetState = sheetState,
         ) {

@@ -2,7 +2,7 @@ package com.websarva.wings.android.slevo.data.repository
 
 import com.websarva.wings.android.slevo.data.datasource.remote.DatRemoteDataSource
 import com.websarva.wings.android.slevo.data.util.parseDat
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.ui.util.keyToDatUrl
 import com.websarva.wings.android.slevo.ui.util.keyToOysterUrl
 import kotlinx.coroutines.Dispatchers

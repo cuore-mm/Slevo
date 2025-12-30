@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.thread.components
+package com.websarva.wings.android.slevo.ui.thread.sheet
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -16,7 +16,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderColors
 import androidx.compose.material3.SliderDefaults
@@ -36,6 +35,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
+import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -61,7 +61,7 @@ fun DisplaySettingsBottomSheet(
 ) {
     if (show) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        SlevoBottomSheet(
             onDismissRequest = onDismissRequest,
             sheetState = sheetState,
         ) {

@@ -7,14 +7,24 @@ import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
 
+/**
+ * スレッド表示のソート種別。
+ *
+ * 画面上での並び順を決めるために利用する。
+ */
 enum class ThreadSortType {
     NUMBER,
     TREE
 }
 
+/**
+ * スレッド画面のUI状態。
+ *
+ * 画面描画に必要なデータと表示状態を保持する。
+ */
 data class ThreadUiState(
     val threadInfo: ThreadInfo = ThreadInfo(),
-    val posts: List<ReplyInfo>? = null,
+    val posts: List<ThreadPostUiModel>? = null,
     override val loadProgress: Float = 0f,
     override val boardInfo: BoardInfo = BoardInfo(0, "", ""),
     override val singleBookmarkState: SingleBookmarkState = SingleBookmarkState(),
@@ -22,6 +32,10 @@ data class ThreadUiState(
     val showThreadInfoSheet: Boolean = false,
     val showMoreSheet: Boolean = false,
     val showDisplaySettingsSheet: Boolean = false,
+    val showImageMenuSheet: Boolean = false,
+    val imageMenuTargetUrl: String? = null,
+    val showImageNgDialog: Boolean = false,
+    val imageNgTargetUrl: String? = null,
     val myPostNumbers: Set<Int> = emptySet(),
     // UI描画用の派生情報（ViewModelで算出）
     val idCountMap: Map<String, Int> = emptyMap(),
@@ -64,21 +78,3 @@ data class ThreadUiState(
     }
 }
 
-data class ReplyInfo(
-    val name: String,
-    val email: String,
-    val date: String,
-    val id: String,
-    val beLoginId: String = "",
-    val beRank: String = "",
-    val beIconUrl: String = "",
-    val content: String,
-    val momentum: Float = 0.0f,
-    val urlFlags: Int = 0
-) {
-    companion object {
-        const val HAS_IMAGE_URL = 1 shl 0
-        const val HAS_THREAD_URL = 1 shl 1
-        const val HAS_OTHER_URL = 1 shl 2
-    }
-}

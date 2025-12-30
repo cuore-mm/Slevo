@@ -1,5 +1,8 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -19,11 +22,13 @@ import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun ImageViewerScreen(
     imageUrl: String,
-    onNavigateUp: () -> Unit
+    onNavigateUp: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     Scaffold(
         topBar = {
@@ -53,13 +58,19 @@ fun ImageViewerScreen(
         )
         val imageState = rememberZoomableImageState(zoomableState)
 
-        ZoomableAsyncImage(
-            model = imageUrl,
-            contentDescription = null,
-            state = imageState,
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize(),
-        )
+        with(sharedTransitionScope) {
+            ZoomableAsyncImage(
+                model = imageUrl,
+                contentDescription = null,
+                state = imageState,
+                modifier = Modifier
+                    .sharedElement(
+                        sharedContentState = sharedTransitionScope.rememberSharedContentState(key = imageUrl),
+                        animatedVisibilityScope = animatedVisibilityScope
+                    )
+                    .padding(innerPadding)
+                    .fillMaxSize(),
+            )
+        }
     }
 }

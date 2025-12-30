@@ -27,7 +27,6 @@ import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.data.util.ThreadListParser.calculateThreadDate
@@ -46,6 +45,11 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import kotlin.math.max
 
+/**
+ * 投稿送信前に保持する入力内容。
+ *
+ * 返信番号や投稿本文など、送信に必要な要素をまとめる。
+ */
 private data class PendingPost(
     val resNum: Int?,
     val content: String,
@@ -53,6 +57,11 @@ private data class PendingPost(
     val email: String,
 )
 
+/**
+ * スレッド画面の状態を管理するViewModel。
+ *
+ * 投稿の表示や操作に関するUI状態を保持・更新する。
+ */
 class ThreadViewModel @AssistedInject constructor(
     private val datRepository: DatRepository,
     private val boardRepository: BoardRepository,
@@ -139,6 +148,7 @@ class ThreadViewModel @AssistedInject constructor(
             url = boardInfo.url
         )
         _uiState.update { it.copy(boardInfo = boardInfo, threadInfo = threadInfo) }
+        _postUiState.update { it.copy(namePlaceholder = boardInfo.noname) }
 
         viewModelScope.launch {
             val currentTabs = tabsRepository.observeOpenThreadTabs().first()
@@ -170,6 +180,7 @@ class ThreadViewModel @AssistedInject constructor(
                 _uiState.update { state ->
                     state.copy(boardInfo = state.boardInfo.copy(noname = noname))
                 }
+                _postUiState.update { state -> state.copy(namePlaceholder = noname) }
             }
         }
 
@@ -236,11 +247,12 @@ class ThreadViewModel @AssistedInject constructor(
             if (threadData != null) {
                 // 正常に取得できた場合はパース結果を元に各種派生データを作成
                 val (posts, title) = threadData
+                val uiPosts = posts.map { it.toThreadPostUiModel() }
                 // ID カウント / インデックス / 返信ソースマップ を導出
-                val derived = deriveReplyMaps(posts)
+                val derived = deriveReplyMaps(uiPosts)
                 // ツリー順と深さマップを導出
-                val tree = deriveTreeOrder(posts)
-                val resCount = posts.size
+                val tree = deriveTreeOrder(uiPosts)
+                val resCount = uiPosts.size
                 val keyLong = key.toLongOrNull()
                 val date = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD) {
                     calculateThreadDate(key)
@@ -257,7 +269,7 @@ class ThreadViewModel @AssistedInject constructor(
                 // UI 状態に新しい投稿リスト等を反映（読み込みフラグ解除）
                 _uiState.update {
                     it.copy(
-                        posts = posts,
+                        posts = uiPosts,
                         isLoading = false,
                         loadProgress = 1f,
                         threadInfo = it.threadInfo.copy(
@@ -281,7 +293,7 @@ class ThreadViewModel @AssistedInject constructor(
                 val historyId = historyRepository.recordHistory(
                     uiState.value.boardInfo,
                     uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
-                    posts.size
+                    uiPosts.size
                 )
 
                 // 履歴 ID が変わっていれば、過去の自分の投稿番号観察を再登録
@@ -297,18 +309,18 @@ class ThreadViewModel @AssistedInject constructor(
 
                 // 保留していた投稿情報があれば履歴に記録（該当レス番号が有効な場合）
                 pendingPost?.let { pending ->
-                    val resNumber = pending.resNum ?: posts.size
-                    if (resNumber in 1..posts.size) {
-                        val p = posts[resNumber - 1]
+                    val resNumber = pending.resNum ?: uiPosts.size
+                    if (resNumber in 1..uiPosts.size) {
+                        val p = uiPosts[resNumber - 1]
                         postHistoryRepository.recordPost(
                             content = pending.content,
-                            date = parseDateToUnix(p.date),
+                            date = parseDateToUnix(p.header.date),
                             threadHistoryId = historyId,
                             boardId = uiState.value.boardInfo.boardId,
                             resNum = resNumber,
                             name = pending.name,
                             email = pending.email,
-                            postId = p.id
+                            postId = p.header.id
                         )
                     }
                     // 保留をクリア
@@ -332,9 +344,9 @@ class ThreadViewModel @AssistedInject constructor(
             val isNg = compiledNg.any { (bId, rx, type) ->
                 (bId == null || bId == boardId) && runCatching {
                     val target = when (type) {
-                        NgType.USER_ID -> post.id
-                        NgType.USER_NAME -> post.name
-                        NgType.WORD -> post.content
+                        NgType.USER_ID -> post.header.id
+                        NgType.USER_NAME -> post.header.name
+                        NgType.WORD -> post.body.content
                         else -> ""
                     }
                     rx.containsMatchIn(target)
@@ -372,7 +384,7 @@ class ThreadViewModel @AssistedInject constructor(
         val query = uiState.value.searchQuery.toHiragana()
         val filteredPosts = if (query.isNotBlank()) {
             orderedPosts.filter {
-                it.post.content.toHiragana().contains(
+                it.post.body.content.toHiragana().contains(
                     query,
                     ignoreCase = true
                 )
@@ -464,6 +476,42 @@ class ThreadViewModel @AssistedInject constructor(
 
     fun closeDisplaySettingsSheet() {
         _uiState.update { it.copy(showDisplaySettingsSheet = false) }
+    }
+
+    /**
+     * 画像メニューを開いて対象URLを設定する。
+     */
+    fun openImageMenu(url: String) {
+        if (url.isBlank()) {
+            // 空URLはメニューを開かない。
+            return
+        }
+        _uiState.update { it.copy(showImageMenuSheet = true, imageMenuTargetUrl = url) }
+    }
+
+    /**
+     * 画像メニューを閉じて対象URLをクリアする。
+     */
+    fun closeImageMenu() {
+        _uiState.update { it.copy(showImageMenuSheet = false, imageMenuTargetUrl = null) }
+    }
+
+    /**
+     * 画像URLを対象にNG登録ダイアログを開く。
+     */
+    fun openImageNgDialog(url: String) {
+        if (url.isBlank()) {
+            // 空URLはダイアログを開かない。
+            return
+        }
+        _uiState.update { it.copy(showImageNgDialog = true, imageNgTargetUrl = url) }
+    }
+
+    /**
+     * 画像URLのNG登録ダイアログを閉じて対象URLをクリアする。
+     */
+    fun closeImageNgDialog() {
+        _uiState.update { it.copy(showImageNgDialog = false, imageNgTargetUrl = null) }
     }
 
     fun updateTextScale(scale: Float) {
