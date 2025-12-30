@@ -1,8 +1,13 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
+import android.Manifest
 import android.content.ClipData
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -18,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.toClipEntry
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -256,6 +262,42 @@ fun ThreadScaffold(
             val postUiState by viewModel.postUiState.collectAsState()
             val clipboard = LocalClipboard.current
             val coroutineScope = rememberCoroutineScope()
+            var pendingSaveImageUrl by remember { mutableStateOf<String?>(null) }
+            val imageSavePermissionLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestPermission()
+            ) { granted ->
+                val pendingUrl = pendingSaveImageUrl
+                if (granted && !pendingUrl.isNullOrBlank()) {
+                    Toast.makeText(
+                        context,
+                        R.string.image_save_in_progress,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    coroutineScope.launch {
+                        val result = ImageCopyUtil.saveImageToMediaStore(context, pendingUrl)
+                        result.onSuccess {
+                            Toast.makeText(
+                                context,
+                                R.string.image_save_success,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }.onFailure {
+                            Toast.makeText(
+                                context,
+                                R.string.image_save_failed,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                } else if (!granted) {
+                    Toast.makeText(
+                        context,
+                        R.string.image_save_permission_denied,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                pendingSaveImageUrl = null
+            }
 
             ThreadInfoBottomSheet(
                 showThreadInfoSheet = uiState.showThreadInfoSheet,
@@ -335,7 +377,48 @@ fun ThreadScaffold(
                                 }
                             }
                         }
-                        ImageMenuAction.SAVE_IMAGE -> Unit
+                        ImageMenuAction.SAVE_IMAGE -> {
+                            // 空URLは保存しない。
+                            if (targetUrl.isNotBlank()) {
+                                val needsPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+                                val permission = Manifest.permission.WRITE_EXTERNAL_STORAGE
+                                val hasPermission = !needsPermission ||
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                permission
+                            ) == PackageManager.PERMISSION_GRANTED
+                        if (!hasPermission) {
+                            // 権限付与後に保存を再試行できるようURLを保持する。
+                            pendingSaveImageUrl = targetUrl
+                            imageSavePermissionLauncher.launch(permission)
+                        } else {
+                            Toast.makeText(
+                                context,
+                                R.string.image_save_in_progress,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            coroutineScope.launch {
+                                val result = ImageCopyUtil.saveImageToMediaStore(
+                                    context,
+                                    targetUrl
+                                )
+                                        result.onSuccess {
+                                            Toast.makeText(
+                                                context,
+                                                R.string.image_save_success,
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }.onFailure {
+                                            Toast.makeText(
+                                                context,
+                                                R.string.image_save_failed,
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         ImageMenuAction.SEARCH_WEB -> {
                             // 空URLは検索しない。
                             if (targetUrl.isNotBlank()) {
