@@ -3,10 +3,10 @@ package com.websarva.wings.android.slevo.ui.thread.sheet
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -87,7 +87,7 @@ fun ImageMenuSheetContent(
         )
         BottomSheetListItem(
             text = stringResource(R.string.image_menu_open_in_other_app),
-            icon = Icons.Outlined.OpenInNew,
+            icon = Icons.AutoMirrored.Outlined.OpenInNew,
             onClick = { onActionSelected(ImageMenuAction.OPEN_IN_OTHER_APP) }
         )
         BottomSheetListItem(
