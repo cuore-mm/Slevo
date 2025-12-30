@@ -6,10 +6,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -30,6 +32,7 @@ enum class ImageMenuAction {
     COPY_IMAGE,
     COPY_IMAGE_URL,
     OPEN_IN_OTHER_APP,
+    SAVE_IMAGE,
     SEARCH_WEB,
     SHARE_IMAGE,
 }
@@ -75,6 +78,12 @@ fun ImageMenuSheetContent(
             icon = Icons.Outlined.Block,
             onClick = { onActionSelected(ImageMenuAction.ADD_NG) }
         )
+        HorizontalDivider()
+        BottomSheetListItem(
+            text = stringResource(R.string.image_menu_save_image),
+            icon = Icons.Outlined.Download,
+            onClick = { onActionSelected(ImageMenuAction.SAVE_IMAGE) }
+        )
         BottomSheetListItem(
             text = stringResource(R.string.image_menu_copy_image),
             icon = Icons.Outlined.ContentCopy,
@@ -85,6 +94,7 @@ fun ImageMenuSheetContent(
             icon = Icons.Outlined.Link,
             onClick = { onActionSelected(ImageMenuAction.COPY_IMAGE_URL) }
         )
+        HorizontalDivider()
         BottomSheetListItem(
             text = stringResource(R.string.image_menu_open_in_other_app),
             icon = Icons.AutoMirrored.Outlined.OpenInNew,

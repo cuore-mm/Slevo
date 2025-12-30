@@ -66,6 +66,12 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.launch
 
+/**
+ * スレッド画面の主要UIを構築する。
+ *
+ * タブ状態とボトムシートを統合して表示し、操作イベントを各 ViewModel へ委譲する。
+ */
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun ThreadScaffold(
@@ -329,6 +335,7 @@ fun ThreadScaffold(
                                 }
                             }
                         }
+                        ImageMenuAction.SAVE_IMAGE -> Unit
                         ImageMenuAction.SEARCH_WEB -> {
                             // 空URLは検索しない。
                             if (targetUrl.isNotBlank()) {
