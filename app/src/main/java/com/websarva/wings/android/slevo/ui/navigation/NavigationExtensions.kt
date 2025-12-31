@@ -12,7 +12,16 @@ fun NavHostController.navigateToBoard(
     tabsViewModel: TabsViewModel? = null,
     builder: NavOptionsBuilder.() -> Unit = {},
 ) {
-    // タブ保存はURL検証後に行うため、ここでは保存しない。
+    tabsViewModel?.let { viewModel ->
+        route.boardId?.takeIf { it != 0L }?.let {
+            // 既存板の場合のみ選択状態を更新する（無効URLは検証後に保存）。
+            viewModel.ensureBoardTab(route).let { index ->
+                if (index >= 0) {
+                    viewModel.setBoardCurrentPage(index)
+                }
+            }
+        }
+    }
     navigate(route) {
         launchSingleTop = true
         builder()
@@ -28,9 +37,12 @@ fun NavHostController.navigateToThread(
     builder: NavOptionsBuilder.() -> Unit = {},
 ) {
     tabsViewModel?.let { viewModel ->
-        viewModel.ensureThreadTab(route).let { index ->
-            if (index >= 0) {
-                viewModel.setThreadCurrentPage(index)
+        route.boardId?.takeIf { it != 0L }?.let {
+            // 既存スレの場合のみ選択状態を更新する（無効URLは検証後に保存）。
+            viewModel.ensureThreadTab(route).let { index ->
+                if (index >= 0) {
+                    viewModel.setThreadCurrentPage(index)
+                }
             }
         }
     }

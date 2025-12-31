@@ -44,7 +44,6 @@ fun OpenBoardsList(
     closeDrawer: () -> Unit,
     tabsViewModel: TabsViewModel? = null,
 ) {
-    // --- List ---
     Column(modifier = modifier.fillMaxSize()) {
         LazyColumn(modifier = Modifier.weight(1f)) {
             items(openTabs, key = { it.boardUrl }) { tab ->
@@ -72,18 +71,12 @@ fun OpenBoardsList(
                         modifier = Modifier
                             .weight(1f)
                             .clickable {
-                                // --- Navigate ---
                                 closeDrawer()
                                 val route = AppRoute.Board(
                                     boardId = tab.boardId,
                                     boardName = tab.boardName,
                                     boardUrl = tab.boardUrl
                                 )
-                                tabsViewModel?.ensureBoardTab(route)?.let { index ->
-                                    if (index >= 0) {
-                                        tabsViewModel.setBoardCurrentPage(index)
-                                    }
-                                }
                                 navController.navigateToBoard(
                                     route = route,
                                     tabsViewModel = tabsViewModel,
