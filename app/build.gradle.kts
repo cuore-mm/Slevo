@@ -32,8 +32,8 @@ android {
         applicationId = "com.websarva.wings.android.slevo"
         minSdk = 24
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.3.1"
+        versionCode = 11
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -103,6 +103,7 @@ android {
 dependencies {
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.browser)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
