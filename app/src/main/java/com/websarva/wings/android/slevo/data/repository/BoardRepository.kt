@@ -219,6 +219,11 @@ class BoardRepository @Inject constructor(
             // 既に登録済みのため、そのまま返す。
             return@withContext boardInfo.boardId
         }
+        // --- Existing lookup ---
+        boardDao.findBoardByUrl(boardInfo.url)?.let { existing ->
+            // 既存板がある場合は新規登録を行わない。
+            return@withContext existing.boardId
+        }
 
         // --- Service resolve ---
         val serviceName = parseServiceName(boardInfo.url)
