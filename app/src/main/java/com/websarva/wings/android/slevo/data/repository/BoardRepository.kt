@@ -214,33 +214,45 @@ class BoardRepository @Inject constructor(
      * @return 板ID
      */
     suspend fun ensureBoard(boardInfo: BoardInfo): Long = withContext(Dispatchers.IO) {
-        // 既存の板IDが0でなければそのまま返す
-        var bId = boardInfo.boardId
-        if (bId == 0L) {
-            // サービス名をURLから抽出
-            val serviceName = parseServiceName(boardInfo.url)
-            // サービス情報がDBに存在しなければ新規登録
-            val service = serviceDao.findByDomain(serviceName) ?: run {
-                val svc = BbsServiceEntity(
+        // --- Guard ---
+        if (boardInfo.boardId != 0L) {
+            // 既に登録済みのため、そのまま返す。
+            return@withContext boardInfo.boardId
+        }
+
+        // --- Service resolve ---
+        val serviceName = parseServiceName(boardInfo.url)
+        db.withTransaction {
+            val existingService = serviceDao.findByDomain(serviceName)
+            val service = existingService ?: run {
+                val newService = BbsServiceEntity(
                     domain = serviceName,
                     displayName = serviceName,
                     menuUrl = null
                 )
-                val id = serviceDao.upsert(svc)
-                svc.copy(serviceId = id)
+                serviceDao.insertService(newService)
+                // 再取得して最終的な serviceId を確定させる。
+                serviceDao.findByDomain(serviceName) ?: newService
             }
-            // 板情報をDBに登録（既存の場合はIDのみ取得）
-            val insertedId = boardDao.insertBoard(
-                BoardEntity(
-                    serviceId = service.serviceId,
-                    url = boardInfo.url,
-                    name = boardInfo.name
-                )
+
+            // --- Validation ---
+            if (service.serviceId == 0L) {
+                // サービス未確定のため、板登録は行わず 0 を返す。
+                return@withTransaction 0L
+            }
+
+            // --- Mapping ---
+            // BoardInfo を永続化用の BoardEntity に変換する（URLは一意扱い）。
+            val boardEntity = BoardEntity(
+                serviceId = service.serviceId,
+                url = boardInfo.url,
+                name = boardInfo.name
             )
-            // 挿入成功ならそのID、失敗ならURLで再検索
-            bId = if (insertedId != -1L) insertedId else boardDao.findBoardIdByUrl(boardInfo.url)
+
+            // --- Persistence ---
+            val insertedId = boardDao.insertBoard(boardEntity)
+            // 既存登録済みの場合は URL で再取得する。
+            if (insertedId != -1L) insertedId else boardDao.findBoardIdByUrl(boardInfo.url)
         }
-        // 板IDを返す
-        bId
     }
 }
