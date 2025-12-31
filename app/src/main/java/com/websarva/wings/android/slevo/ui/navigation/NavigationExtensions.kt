@@ -12,13 +12,7 @@ fun NavHostController.navigateToBoard(
     tabsViewModel: TabsViewModel? = null,
     builder: NavOptionsBuilder.() -> Unit = {},
 ) {
-    tabsViewModel?.let { viewModel ->
-        viewModel.ensureBoardTab(route).let { index ->
-            if (index >= 0) {
-                viewModel.setBoardCurrentPage(index)
-            }
-        }
-    }
+    // タブ保存はURL検証後に行うため、ここでは保存しない。
     navigate(route) {
         launchSingleTop = true
         builder()

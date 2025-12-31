@@ -40,6 +40,9 @@ import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 
+/**
+ * 開いているスレッドタブの一覧を表示し、選択されたタブへ遷移する。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OpenThreadsList(
@@ -54,11 +57,13 @@ fun OpenThreadsList(
     onItemClick: (ThreadTabInfo) -> Unit = {},
     tabsViewModel: TabsViewModel? = null,
 ) {
+    // --- Refresh container ---
     PullToRefreshBox(
         modifier = modifier,
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
     ) {
+        // --- List ---
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             items(openTabs, key = { it.id.value }) { tab ->
                 val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
@@ -75,6 +80,7 @@ fun OpenThreadsList(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
+                                // --- Navigate ---
                                 closeDrawer()
                                 onItemClick(tab)
                                 val route = AppRoute.Thread(
@@ -85,6 +91,11 @@ fun OpenThreadsList(
                                     threadTitle = tab.title,
                                     resCount = tab.resCount
                                 )
+                                tabsViewModel?.ensureThreadTab(route)?.let { index ->
+                                    if (index >= 0) {
+                                        tabsViewModel.setThreadCurrentPage(index)
+                                    }
+                                }
                                 navController.navigateToThread(
                                     route = route,
                                     tabsViewModel = tabsViewModel,
