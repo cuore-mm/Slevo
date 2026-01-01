@@ -27,6 +27,11 @@ import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 
+/**
+ * タブ一覧・URL入力のUIをまとめて提供する。
+ *
+ * URL入力は検証に失敗した場合、ダイアログ内にエラーを表示する。
+ */
 @Composable
 fun TabScreenContent(
     modifier: Modifier = Modifier,
@@ -36,14 +41,20 @@ fun TabScreenContent(
     initialPage: Int = 0,
     onPageChanged: (Int) -> Unit = {}
 ) {
+    // --- Dialog state ---
     var showUrlDialog by remember { mutableStateOf(false) }
+    var urlError by remember { mutableStateOf<String?>(null) }
     val uiState by tabsViewModel.uiState.collectAsState()
+    val invalidUrlMessage = stringResource(R.string.invalid_url)
 
     Scaffold(
         modifier = modifier,
         contentWindowInsets = WindowInsets(0),
         floatingActionButton = {
-            FloatingActionButton(onClick = { showUrlDialog = true }) {
+            FloatingActionButton(onClick = {
+                urlError = null
+                showUrlDialog = true
+            }) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = stringResource(R.string.open_url)
@@ -51,6 +62,7 @@ fun TabScreenContent(
             }
         }
     ) { innerPadding ->
+        // --- Content ---
         if (uiState.isLoading) {
             Box(Modifier
                 .fillMaxSize()
@@ -68,9 +80,20 @@ fun TabScreenContent(
             )
         }
 
+        // --- URL dialog ---
         if (showUrlDialog) {
             UrlOpenDialog(
-                onDismissRequest = { showUrlDialog = false },
+                onDismissRequest = {
+                    showUrlDialog = false
+                    urlError = null
+                },
+                isError = urlError != null,
+                errorMessage = urlError,
+                onValueChange = {
+                    if (urlError != null) {
+                        urlError = null
+                    }
+                },
                 onOpen = { url ->
                     val thread = parseThreadUrl(url)
                     if (thread != null) {
@@ -86,21 +109,28 @@ fun TabScreenContent(
                             route = route,
                             tabsViewModel = tabsViewModel,
                         )
-                    } else {
-                        parseBoardUrl(url)?.let { (host, board) ->
-                            val boardUrl = "https://$host/$board/"
-                            val route = AppRoute.Board(
-                                boardName = boardUrl,
-                                boardUrl = boardUrl
-                            )
-                            navController.navigateToBoard(
-                                route = route,
-                                tabsViewModel = tabsViewModel,
-                            )
-                        }
+                        urlError = null
+                        showUrlDialog = false
+                        closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
+                        return@UrlOpenDialog
                     }
-                    showUrlDialog = false
-                    closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
+                    parseBoardUrl(url)?.let { (host, board) ->
+                        val boardUrl = "https://$host/$board/"
+                        val route = AppRoute.Board(
+                            boardName = boardUrl,
+                            boardUrl = boardUrl
+                        )
+                        navController.navigateToBoard(
+                            route = route,
+                            tabsViewModel = tabsViewModel,
+                        )
+                        urlError = null
+                        showUrlDialog = false
+                        closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
+                        return@UrlOpenDialog
+                    }
+                    // URL解析に失敗したため、エラーを表示して閉じない。
+                    urlError = invalidUrlMessage
                 }
             )
         }

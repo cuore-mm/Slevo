@@ -46,8 +46,15 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
+import androidx.compose.ui.res.stringResource
+import com.websarva.wings.android.slevo.R
 import timber.log.Timber
 
+/**
+ * 板/スレ共通のタブUIと画面内シートを提供する。
+ *
+ * URL入力ダイアログは検証失敗時にエラー表示し、閉じずに再入力させる。
+ */
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
 fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState>> BbsRouteScaffold(
@@ -155,8 +162,11 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         // 共通で使うボトムシートの状態
         val bookmarkSheetState = rememberModalBottomSheetState()
         val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        // --- Dialog state ---
         var showTabListSheet by rememberSaveable { mutableStateOf(false) }
         var showUrlDialog by rememberSaveable { mutableStateOf(false) }
+        var urlError by rememberSaveable { mutableStateOf<String?>(null) }
+        val invalidUrlMessage = stringResource(R.string.invalid_url)
 
         val pagerUserScrollEnabled = when (
             val currentUiState = currentTabInfo?.let { tabInfo ->
@@ -253,7 +263,10 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         navController,
                         showBottomBar,
                         { showTabListSheet = true },
-                        { showUrlDialog = true },
+                        {
+                            urlError = null
+                            showUrlDialog = true
+                        },
                     )
 
                     // 共通のボトムシートとダイアログ
@@ -352,7 +365,17 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
         if (showUrlDialog) {
             UrlOpenDialog(
-                onDismissRequest = { showUrlDialog = false },
+                onDismissRequest = {
+                    showUrlDialog = false
+                    urlError = null
+                },
+                isError = urlError != null,
+                errorMessage = urlError,
+                onValueChange = {
+                    if (urlError != null) {
+                        urlError = null
+                    }
+                },
                 onOpen = { url ->
                     val thread = parseThreadUrl(url)
                     if (thread != null) {
@@ -368,20 +391,26 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                             route = route,
                             tabsViewModel = tabsViewModel,
                         )
-                    } else {
-                        parseBoardUrl(url)?.let { (host, board) ->
-                            val boardUrl = "https://$host/$board/"
-                            val route = AppRoute.Board(
-                                boardName = boardUrl,
-                                boardUrl = boardUrl,
-                            )
-                            navController.navigateToBoard(
-                                route = route,
-                                tabsViewModel = tabsViewModel,
-                            )
-                        }
+                        urlError = null
+                        showUrlDialog = false
+                        return@UrlOpenDialog
                     }
-                    showUrlDialog = false
+                    parseBoardUrl(url)?.let { (host, board) ->
+                        val boardUrl = "https://$host/$board/"
+                        val route = AppRoute.Board(
+                            boardName = boardUrl,
+                            boardUrl = boardUrl,
+                        )
+                        navController.navigateToBoard(
+                            route = route,
+                            tabsViewModel = tabsViewModel,
+                        )
+                        urlError = null
+                        showUrlDialog = false
+                        return@UrlOpenDialog
+                    }
+                    // URL解析に失敗したため、エラーを表示して閉じない。
+                    urlError = invalidUrlMessage
                 }
             )
         }

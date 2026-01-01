@@ -72,7 +72,7 @@ fun BoardScaffold(
         )
         if (info == null) {
             // URL検証に失敗したため、タブ保存を行わずに戻る。
-            Toast.makeText(context, R.string.invalid_board_url, Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, R.string.invalid_url, Toast.LENGTH_SHORT).show()
             navController.navigateUp()
             return@LaunchedEffect
         }

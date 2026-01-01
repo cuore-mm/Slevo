@@ -12,10 +12,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import com.websarva.wings.android.slevo.R
 
+/**
+ * URL入力用のダイアログを表示する。
+ *
+ * 入力エラーがある場合はテキストフィールドをエラー状態で表示する。
+ */
 @Composable
 fun UrlOpenDialog(
     onDismissRequest: () -> Unit,
-    onOpen: (String) -> Unit
+    onOpen: (String) -> Unit,
+    isError: Boolean = false,
+    errorMessage: String? = null,
+    onValueChange: (String) -> Unit = {}
 ) {
     var url by remember { mutableStateOf("") }
 
@@ -25,8 +33,17 @@ fun UrlOpenDialog(
         text = {
             TextField(
                 value = url,
-                onValueChange = { url = it },
-                label = { Text(stringResource(R.string.enter_url)) }
+                onValueChange = {
+                    url = it
+                    onValueChange(it)
+                },
+                label = { Text(stringResource(R.string.enter_url)) },
+                isError = isError,
+                supportingText = {
+                    if (!errorMessage.isNullOrBlank()) {
+                        Text(text = errorMessage)
+                    }
+                }
             )
         },
         confirmButton = {
