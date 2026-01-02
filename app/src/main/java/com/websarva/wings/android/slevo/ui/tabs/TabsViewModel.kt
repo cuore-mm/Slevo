@@ -14,6 +14,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -45,10 +46,13 @@ class TabsViewModel @Inject constructor(
         ThreadTabsState(openThreadTabs, threadLoaded, isRefreshing, newResCounts)
     }
 
+    private val urlValidationState = MutableStateFlow(false)
+
     val uiState: StateFlow<TabsUiState> = combine(
         boardTabsState,
         threadTabsState,
-    ) { boardState, threadState ->
+        urlValidationState,
+    ) { boardState, threadState, isUrlValidating ->
         TabsUiState(
             openThreadTabs = threadState.openThreadTabs,
             openBoardTabs = boardState.openBoardTabs,
@@ -56,6 +60,7 @@ class TabsViewModel @Inject constructor(
             threadLoaded = threadState.threadLoaded,
             isRefreshing = threadState.isRefreshing,
             newResCounts = threadState.newResCounts,
+            isUrlValidating = isUrlValidating,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, TabsUiState())
 
@@ -150,6 +155,14 @@ class TabsViewModel @Inject constructor(
 
     fun refreshOpenThreads() {
         threadTabsCoordinator.refreshOpenThreads()
+    }
+
+    fun startUrlValidation() {
+        urlValidationState.value = true
+    }
+
+    fun finishUrlValidation() {
+        urlValidationState.value = false
     }
 
     /**
