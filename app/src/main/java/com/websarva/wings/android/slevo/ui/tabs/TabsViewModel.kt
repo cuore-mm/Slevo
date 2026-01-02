@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.repository.BbsServiceRepository
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
@@ -22,6 +23,7 @@ import javax.inject.Inject
 class TabsViewModel @Inject constructor(
     private val tabsRepository: TabsRepository,
     private val boardRepository: BoardRepository,
+    private val bbsServiceRepository: BbsServiceRepository,
     private val boardTabsCoordinator: BoardTabsCoordinator,
     private val threadTabsCoordinator: ThreadTabsCoordinator,
     private val tabViewModelRegistry: TabViewModelRegistry,
@@ -148,6 +150,15 @@ class TabsViewModel @Inject constructor(
 
     fun refreshOpenThreads() {
         threadTabsCoordinator.refreshOpenThreads()
+    }
+
+    /**
+     * boardKey からホストを解決する。
+     * DBに無い場合は bbsmenu を参照して補完する。
+     */
+    suspend fun resolveBoardHost(boardKey: String): String? {
+        return boardRepository.resolveHostByBoardKey(boardKey)
+            ?: bbsServiceRepository.resolveHostByBoardKeyFromMenu(boardKey)
     }
 
     fun getTabInfo(threadId: ThreadId): ThreadTabInfo? {

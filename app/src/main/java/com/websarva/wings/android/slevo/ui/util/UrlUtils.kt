@@ -4,6 +4,16 @@ import androidx.core.net.toUri
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
+/**
+ * itest URLから抽出した板/スレ情報を保持する。
+ *
+ * threadKey が null の場合は板URLとして扱う。
+ */
+data class ItestUrlInfo(
+    val boardKey: String,
+    val threadKey: String?
+)
+
 fun keyToDatUrl(boardUrl:String, key: String): String {
     return "${boardUrl}dat/${key}.dat"
 }
@@ -67,6 +77,34 @@ fun parseThreadUrl(url: String): Triple<String, String, String>? {
     }
 
     return null
+}
+
+/**
+ * itest.5ch.net のURLから板/スレ情報を抽出する。
+ *
+ * スレURLの場合は threadKey を含めて返し、板URLの場合は threadKey を null とする。
+ */
+fun parseItestUrl(url: String): ItestUrlInfo? {
+    val uri = url.toUri()
+    val host = uri.host ?: return null
+    val allowedHosts = setOf("itest.5ch.net", "itest.bbspink.com")
+    if (host !in allowedHosts) return null
+    val segments = uri.pathSegments.filter { it.isNotEmpty() }
+    if (segments.isEmpty()) return null
+
+    val readIndex = segments.indexOf("read.cgi")
+    if (readIndex >= 0 && readIndex + 2 < segments.size) {
+        val boardKey = segments[readIndex + 1]
+        val threadKey = segments[readIndex + 2]
+        return ItestUrlInfo(boardKey = boardKey, threadKey = threadKey)
+    }
+
+    // subback/{boardKey} の形式は2番目のセグメントを板キーとして扱う。
+    if (segments[0] == "subback" && segments.size >= 2) {
+        return ItestUrlInfo(boardKey = segments[1], threadKey = null)
+    }
+
+    return ItestUrlInfo(boardKey = segments[0], threadKey = null)
 }
 
 /**

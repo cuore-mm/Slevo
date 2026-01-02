@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.data.repository
 
+import androidx.core.net.toUri
 import androidx.room.withTransaction
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.BbsServiceDao
@@ -206,6 +207,21 @@ class BoardRepository @Inject constructor(
      */
     suspend fun findBoardByUrl(boardUrl: String): BoardEntity? =
         boardDao.findBoardByUrl(boardUrl)
+
+    /**
+     * boardKey から既存板のホストを取得する。
+     * DB内のURL候補を検索し、最初に一致したホストを返す。
+     */
+    suspend fun resolveHostByBoardKey(boardKey: String): String? = withContext(Dispatchers.IO) {
+        // --- Query ---
+        val candidates = boardDao.findBoardsByUrlPattern("%/$boardKey/%")
+        // --- Match ---
+        val matched = candidates.firstOrNull { entity ->
+            val segments = entity.url.toUri().pathSegments
+            segments.firstOrNull() == boardKey
+        } ?: return@withContext null
+        matched.url.toUri().host
+    }
 
     /**
      * 指定した板情報をDBに登録し、そのIDを返す。

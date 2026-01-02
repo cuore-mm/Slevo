@@ -15,6 +15,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,7 +26,9 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.ui.util.parseItestUrl
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
+import kotlinx.coroutines.launch
 
 /**
  * タブ一覧・URL入力のUIをまとめて提供する。
@@ -46,6 +49,7 @@ fun TabScreenContent(
     var urlError by remember { mutableStateOf<String?>(null) }
     val uiState by tabsViewModel.uiState.collectAsState()
     val invalidUrlMessage = stringResource(R.string.invalid_url)
+    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
         modifier = modifier,
@@ -95,6 +99,45 @@ fun TabScreenContent(
                     }
                 },
                 onOpen = { url ->
+                    val itestInfo = parseItestUrl(url)
+                    if (itestInfo != null) {
+                        // itest URLはホスト解決が必要なため非同期で処理する。
+                        urlError = null
+                        coroutineScope.launch {
+                            val host = tabsViewModel.resolveBoardHost(itestInfo.boardKey)
+                            if (host != null) {
+                                val boardUrl = "https://$host/${itestInfo.boardKey}/"
+                                if (itestInfo.threadKey != null) {
+                                    val route = AppRoute.Thread(
+                                        threadKey = itestInfo.threadKey,
+                                        boardUrl = boardUrl,
+                                        boardName = itestInfo.boardKey,
+                                        threadTitle = url
+                                    )
+                                    navController.navigateToThread(
+                                        route = route,
+                                        tabsViewModel = tabsViewModel,
+                                    )
+                                } else {
+                                    val route = AppRoute.Board(
+                                        boardName = boardUrl,
+                                        boardUrl = boardUrl
+                                    )
+                                    navController.navigateToBoard(
+                                        route = route,
+                                        tabsViewModel = tabsViewModel,
+                                    )
+                                }
+                                urlError = null
+                                showUrlDialog = false
+                                closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
+                            } else {
+                                // URL解析に失敗したため、エラーを表示して閉じない。
+                                urlError = invalidUrlMessage
+                            }
+                        }
+                        return@UrlOpenDialog
+                    }
                     val thread = parseThreadUrl(url)
                     if (thread != null) {
                         val (host, board, key) = thread
