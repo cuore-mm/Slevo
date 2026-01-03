@@ -365,7 +365,6 @@ class ThreadViewModel @AssistedInject constructor(
 
     private fun updateDisplayPosts() {
         val posts = uiState.value.posts ?: return
-        val firstNewResNo = uiState.value.firstNewResNo
         val prevResCount = uiState.value.prevResCount
         val order = if (uiState.value.sortType == ThreadSortType.TREE) {
             uiState.value.treeOrder
@@ -377,7 +376,6 @@ class ThreadViewModel @AssistedInject constructor(
             order = order,
             sortType = uiState.value.sortType,
             treeDepthMap = uiState.value.treeDepthMap,
-            firstNewResNo = firstNewResNo,
             prevResCount = prevResCount
         )
 
@@ -394,7 +392,17 @@ class ThreadViewModel @AssistedInject constructor(
         }
         val visiblePosts = filteredPosts.filterNot { it.num in uiState.value.ngPostNumbers }
         val replyCounts = visiblePosts.map { p -> uiState.value.replySourceMap[p.num]?.size ?: 0 }
-        val firstAfterIndex = visiblePosts.indexOfFirst { it.isAfter }
+        val hasNewPosts = posts.size > prevResCount
+        val firstAfterIndex = if (hasNewPosts) {
+            val firstVisibleNew = visiblePosts.indexOfFirst { it.isAfter }
+            if (firstVisibleNew != -1) {
+                firstVisibleNew
+            } else {
+                visiblePosts.count { it.num <= prevResCount }
+            }
+        } else {
+            -1
+        }
 
         _uiState.update {
             it.copy(

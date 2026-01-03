@@ -456,6 +456,11 @@ fun ThreadScreen(
                     )
                 }
             }
+            if (firstAfterIndex == visiblePosts.size && firstAfterIndex != -1) {
+                item(key = "new_arrival_footer") {
+                    NewArrivalBar()
+                }
+            }
         }
 
         if (uiState.showMinimapScrollbar) {
