@@ -177,14 +177,19 @@ class BoardRepository @Inject constructor(
     }
 
     /**
-     * setting.txtから板名(BBS_TITLE)を取得する。
+     * setting.txtから板名を取得する。
      * @param settingUrl setting.txtのURL
      * @return 板名
      */
     suspend fun fetchBoardName(settingUrl: String): String? {
         val text = remote.fetchSettingTxt(settingUrl) ?: return null
-        return text.lines()
-            .firstOrNull { it.startsWith("BBS_TITLE=") }
+        val lines = text.lines()
+        // --- Primary key lookup ---
+        lines.firstOrNull { it.startsWith("BBS_TITLE_ORIG=") }
+            ?.substringAfter("=")
+            ?.let { return it }
+        // --- Fallback ---
+        return lines.firstOrNull { it.startsWith("BBS_TITLE=") }
             ?.substringAfter("=")
     }
 
