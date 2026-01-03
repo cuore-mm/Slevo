@@ -20,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -41,13 +42,22 @@ import com.websarva.wings.android.slevo.ui.tabs.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.ui.util.parseItestUrl
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import com.websarva.wings.android.slevo.R
 import timber.log.Timber
 
+/**
+ * 板/スレ共通のタブUIと画面内シートを提供する。
+ *
+ * URL入力ダイアログは検証失敗時にエラー表示し、閉じずに再入力させる。
+ */
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
 fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState>> BbsRouteScaffold(
@@ -155,8 +165,13 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         // 共通で使うボトムシートの状態
         val bookmarkSheetState = rememberModalBottomSheetState()
         val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        // --- Dialog state ---
         var showTabListSheet by rememberSaveable { mutableStateOf(false) }
         var showUrlDialog by rememberSaveable { mutableStateOf(false) }
+        var urlError by rememberSaveable { mutableStateOf<String?>(null) }
+        val invalidUrlMessage = stringResource(R.string.invalid_url)
+        val coroutineScope = rememberCoroutineScope()
+        val tabsUiState by tabsViewModel.uiState.collectAsState()
 
         val pagerUserScrollEnabled = when (
             val currentUiState = currentTabInfo?.let { tabInfo ->
@@ -253,7 +268,10 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         navController,
                         showBottomBar,
                         { showTabListSheet = true },
-                        { showUrlDialog = true },
+                        {
+                            urlError = null
+                            showUrlDialog = true
+                        },
                     )
 
                     // 共通のボトムシートとダイアログ
@@ -352,8 +370,64 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
         if (showUrlDialog) {
             UrlOpenDialog(
-                onDismissRequest = { showUrlDialog = false },
+                onDismissRequest = {
+                    showUrlDialog = false
+                    urlError = null
+                },
+                isError = urlError != null,
+                errorMessage = urlError,
+                isValidating = tabsUiState.isUrlValidating,
+                onValueChange = {
+                    if (urlError != null) {
+                        urlError = null
+                    }
+                },
                 onOpen = { url ->
+                    tabsViewModel.startUrlValidation()
+                    // --- itest handling ---
+                    val itestInfo = parseItestUrl(url)
+                    if (itestInfo != null) {
+                        // itest URLはホスト解決が必要なため非同期で処理する。
+                        urlError = null
+                        coroutineScope.launch {
+                            try {
+                                val host = tabsViewModel.resolveBoardHost(itestInfo.boardKey)
+                                if (host != null) {
+                                    val boardUrl = "https://$host/${itestInfo.boardKey}/"
+                                    if (itestInfo.threadKey != null) {
+                                        val route = AppRoute.Thread(
+                                            threadKey = itestInfo.threadKey,
+                                            boardUrl = boardUrl,
+                                            boardName = itestInfo.boardKey,
+                                            threadTitle = url
+                                        )
+                                        navController.navigateToThread(
+                                            route = route,
+                                            tabsViewModel = tabsViewModel,
+                                        )
+                                    } else {
+                                        val route = AppRoute.Board(
+                                            boardName = boardUrl,
+                                            boardUrl = boardUrl,
+                                        )
+                                        navController.navigateToBoard(
+                                            route = route,
+                                            tabsViewModel = tabsViewModel,
+                                        )
+                                    }
+                                    urlError = null
+                                    showUrlDialog = false
+                                } else {
+                                    // URL解析に失敗したため、エラーを表示して閉じない。
+                                    urlError = invalidUrlMessage
+                                }
+                            } finally {
+                                tabsViewModel.finishUrlValidation()
+                            }
+                        }
+                        return@UrlOpenDialog
+                    }
+                    // --- Thread URL handling ---
                     val thread = parseThreadUrl(url)
                     if (thread != null) {
                         val (host, board, key) = thread
@@ -368,20 +442,31 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                             route = route,
                             tabsViewModel = tabsViewModel,
                         )
-                    } else {
-                        parseBoardUrl(url)?.let { (host, board) ->
-                            val boardUrl = "https://$host/$board/"
-                            val route = AppRoute.Board(
-                                boardName = boardUrl,
-                                boardUrl = boardUrl,
-                            )
-                            navController.navigateToBoard(
-                                route = route,
-                                tabsViewModel = tabsViewModel,
-                            )
-                        }
+                        urlError = null
+                        showUrlDialog = false
+                        tabsViewModel.finishUrlValidation()
+                        return@UrlOpenDialog
                     }
-                    showUrlDialog = false
+                    // --- Board URL handling ---
+                    parseBoardUrl(url)?.let { (host, board) ->
+                        val boardUrl = "https://$host/$board/"
+                        val route = AppRoute.Board(
+                            boardName = boardUrl,
+                            boardUrl = boardUrl,
+                        )
+                        navController.navigateToBoard(
+                            route = route,
+                            tabsViewModel = tabsViewModel,
+                        )
+                        urlError = null
+                        showUrlDialog = false
+                        tabsViewModel.finishUrlValidation()
+                        return@UrlOpenDialog
+                    }
+                    // --- Invalid URL ---
+                    // URL解析に失敗したため、エラーを表示して閉じない。
+                    urlError = invalidUrlMessage
+                    tabsViewModel.finishUrlValidation()
                 }
             )
         }

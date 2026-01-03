@@ -24,29 +24,32 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.GestureAction
-import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
+import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
+import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
+import com.websarva.wings.android.slevo.ui.common.PostDialog
+import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
-import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
-import com.websarva.wings.android.slevo.ui.common.PostDialog
-import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
-import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
+import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
 import com.websarva.wings.android.slevo.ui.thread.state.PostFormState
 import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
-import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
+/**
+ * 板画面の表示とタブ解決をまとめて行う。
+ *
+ * URL検証に成功した場合のみタブを保存し、無効URLは保存せずに戻る。
+ */
 @Composable
 fun BoardScaffold(
     boardRoute: AppRoute.Board,
@@ -55,31 +58,37 @@ fun BoardScaffold(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
+    // --- Tab/state ---
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val currentPage by tabsViewModel.boardCurrentPage.collectAsState()
 
     LaunchedEffect(boardRoute) {
+        // --- Board resolution ---
         val info = tabsViewModel.resolveBoardInfo(
             boardId = boardRoute.boardId,
             boardUrl = boardRoute.boardUrl,
             boardName = boardRoute.boardName
         )
         if (info == null) {
-            Toast.makeText(context, R.string.invalid_board_url, Toast.LENGTH_SHORT).show()
+            // URL検証に失敗したため、タブ保存を行わずに戻る。
+            Toast.makeText(context, R.string.invalid_url, Toast.LENGTH_SHORT).show()
             navController.navigateUp()
             return@LaunchedEffect
         }
-        tabsViewModel.openBoardTab(
-            BoardTabInfo(
+        val index = tabsViewModel.ensureBoardTab(
+            AppRoute.Board(
                 boardId = info.boardId,
                 boardName = info.name,
-                boardUrl = info.url,
-                serviceName = parseServiceName(info.url)
+                boardUrl = info.url
             )
         )
+        if (index >= 0) {
+            tabsViewModel.setBoardCurrentPage(index)
+        }
     }
 
+    // --- Scaffold ---
     BbsRouteScaffold(
         route = boardRoute,
         tabsViewModel = tabsViewModel,
@@ -210,6 +219,7 @@ fun BoardScaffold(
                             if (uiState.boardInfo.url.isNotBlank()) {
                                 tabsViewModel.closeBoardTabByUrl(uiState.boardInfo.url)
                             }
+
                         GestureAction.ToTop, GestureAction.ToBottom -> Unit
                     }
                 },
@@ -259,11 +269,26 @@ fun BoardScaffold(
                             is PostDialogAction.ChangeName -> viewModel.updateCreateName(action.value)
                             is PostDialogAction.ChangeMail -> viewModel.updateCreateMail(action.value)
                             is PostDialogAction.ChangeTitle -> viewModel.updateCreateTitle(action.value)
-                            is PostDialogAction.ChangeMessage -> viewModel.updateCreateMessage(action.value)
-                            is PostDialogAction.SelectNameHistory -> viewModel.selectCreateNameHistory(action.value)
-                            is PostDialogAction.SelectMailHistory -> viewModel.selectCreateMailHistory(action.value)
-                            is PostDialogAction.DeleteNameHistory -> viewModel.deleteCreateNameHistory(action.value)
-                            is PostDialogAction.DeleteMailHistory -> viewModel.deleteCreateMailHistory(action.value)
+                            is PostDialogAction.ChangeMessage -> viewModel.updateCreateMessage(
+                                action.value
+                            )
+
+                            is PostDialogAction.SelectNameHistory -> viewModel.selectCreateNameHistory(
+                                action.value
+                            )
+
+                            is PostDialogAction.SelectMailHistory -> viewModel.selectCreateMailHistory(
+                                action.value
+                            )
+
+                            is PostDialogAction.DeleteNameHistory -> viewModel.deleteCreateNameHistory(
+                                action.value
+                            )
+
+                            is PostDialogAction.DeleteMailHistory -> viewModel.deleteCreateMailHistory(
+                                action.value
+                            )
+
                             PostDialogAction.Post -> {
                                 parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                                     viewModel.createThreadFirstPhase(

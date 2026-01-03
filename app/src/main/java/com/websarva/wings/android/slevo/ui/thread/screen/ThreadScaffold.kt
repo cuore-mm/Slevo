@@ -106,7 +106,7 @@ fun ThreadScaffold(
             boardName = threadRoute.boardName
         )
         if (info == null || routeThreadId == null) {
-            Toast.makeText(context, R.string.invalid_board_url, Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, R.string.invalid_url, Toast.LENGTH_SHORT).show()
             navController.navigateUp()
             return@LaunchedEffect
         }

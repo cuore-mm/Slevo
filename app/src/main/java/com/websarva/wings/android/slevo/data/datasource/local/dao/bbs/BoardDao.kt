@@ -26,6 +26,13 @@ interface BoardDao {
     @Query("SELECT * FROM boards WHERE url = :boardUrl LIMIT 1")
     suspend fun findBoardByUrl(boardUrl: String): BoardEntity?
 
+    /**
+     * URLパターンに一致する板一覧を取得する。
+     * boardKey を含むURL候補の取得に使用する。
+     */
+    @Query("SELECT * FROM boards WHERE url LIKE :pattern")
+    suspend fun findBoardsByUrlPattern(pattern: String): List<BoardEntity>
+
     @Query("DELETE FROM boards WHERE serviceId = :serviceId")
     suspend fun clearForService(serviceId: Long)
 

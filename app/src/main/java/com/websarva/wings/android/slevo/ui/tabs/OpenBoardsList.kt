@@ -32,6 +32,9 @@ import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 
+/**
+ * 開いている板タブの一覧を表示し、選択されたタブへ遷移する。
+ */
 @Composable
 fun OpenBoardsList(
     modifier: Modifier = Modifier,

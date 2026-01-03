@@ -15,6 +15,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,8 +26,15 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.ui.util.parseItestUrl
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
+import kotlinx.coroutines.launch
 
+/**
+ * タブ一覧・URL入力のUIをまとめて提供する。
+ *
+ * URL入力は検証に失敗した場合、ダイアログ内にエラーを表示する。
+ */
 @Composable
 fun TabScreenContent(
     modifier: Modifier = Modifier,
@@ -36,14 +44,21 @@ fun TabScreenContent(
     initialPage: Int = 0,
     onPageChanged: (Int) -> Unit = {}
 ) {
+    // --- Dialog state ---
     var showUrlDialog by remember { mutableStateOf(false) }
+    var urlError by remember { mutableStateOf<String?>(null) }
     val uiState by tabsViewModel.uiState.collectAsState()
+    val invalidUrlMessage = stringResource(R.string.invalid_url)
+    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
         modifier = modifier,
         contentWindowInsets = WindowInsets(0),
         floatingActionButton = {
-            FloatingActionButton(onClick = { showUrlDialog = true }) {
+            FloatingActionButton(onClick = {
+                urlError = null
+                showUrlDialog = true
+            }) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = stringResource(R.string.open_url)
@@ -51,6 +66,7 @@ fun TabScreenContent(
             }
         }
     ) { innerPadding ->
+        // --- Content ---
         if (uiState.isLoading) {
             Box(Modifier
                 .fillMaxSize()
@@ -68,10 +84,68 @@ fun TabScreenContent(
             )
         }
 
+        // --- URL dialog ---
         if (showUrlDialog) {
             UrlOpenDialog(
-                onDismissRequest = { showUrlDialog = false },
+                onDismissRequest = {
+                    showUrlDialog = false
+                    urlError = null
+                },
+                isError = urlError != null,
+                errorMessage = urlError,
+                isValidating = uiState.isUrlValidating,
+                onValueChange = {
+                    if (urlError != null) {
+                        urlError = null
+                    }
+                },
                 onOpen = { url ->
+                    tabsViewModel.startUrlValidation()
+                    // --- itest handling ---
+                    val itestInfo = parseItestUrl(url)
+                    if (itestInfo != null) {
+                        // itest URLはホスト解決が必要なため非同期で処理する。
+                        urlError = null
+                        coroutineScope.launch {
+                            try {
+                                val host = tabsViewModel.resolveBoardHost(itestInfo.boardKey)
+                                if (host != null) {
+                                    val boardUrl = "https://$host/${itestInfo.boardKey}/"
+                                    if (itestInfo.threadKey != null) {
+                                        val route = AppRoute.Thread(
+                                            threadKey = itestInfo.threadKey,
+                                            boardUrl = boardUrl,
+                                            boardName = itestInfo.boardKey,
+                                            threadTitle = url
+                                        )
+                                        navController.navigateToThread(
+                                            route = route,
+                                            tabsViewModel = tabsViewModel,
+                                        )
+                                    } else {
+                                        val route = AppRoute.Board(
+                                            boardName = boardUrl,
+                                            boardUrl = boardUrl
+                                        )
+                                        navController.navigateToBoard(
+                                            route = route,
+                                            tabsViewModel = tabsViewModel,
+                                        )
+                                    }
+                                    urlError = null
+                                    showUrlDialog = false
+                                    closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
+                                } else {
+                                    // URL解析に失敗したため、エラーを表示して閉じない。
+                                    urlError = invalidUrlMessage
+                                }
+                            } finally {
+                                tabsViewModel.finishUrlValidation()
+                            }
+                        }
+                        return@UrlOpenDialog
+                    }
+                    // --- Thread URL handling ---
                     val thread = parseThreadUrl(url)
                     if (thread != null) {
                         val (host, board, key) = thread
@@ -86,21 +160,33 @@ fun TabScreenContent(
                             route = route,
                             tabsViewModel = tabsViewModel,
                         )
-                    } else {
-                        parseBoardUrl(url)?.let { (host, board) ->
-                            val boardUrl = "https://$host/$board/"
-                            val route = AppRoute.Board(
-                                boardName = boardUrl,
-                                boardUrl = boardUrl
-                            )
-                            navController.navigateToBoard(
-                                route = route,
-                                tabsViewModel = tabsViewModel,
-                            )
-                        }
+                        urlError = null
+                        showUrlDialog = false
+                        closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
+                        tabsViewModel.finishUrlValidation()
+                        return@UrlOpenDialog
                     }
-                    showUrlDialog = false
-                    closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
+                    // --- Board URL handling ---
+                    parseBoardUrl(url)?.let { (host, board) ->
+                        val boardUrl = "https://$host/$board/"
+                        val route = AppRoute.Board(
+                            boardName = boardUrl,
+                            boardUrl = boardUrl
+                        )
+                        navController.navigateToBoard(
+                            route = route,
+                            tabsViewModel = tabsViewModel,
+                        )
+                        urlError = null
+                        showUrlDialog = false
+                        closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
+                        tabsViewModel.finishUrlValidation()
+                        return@UrlOpenDialog
+                    }
+                    // --- Invalid URL ---
+                    // URL解析に失敗したため、エラーを表示して閉じない。
+                    urlError = invalidUrlMessage
+                    tabsViewModel.finishUrlValidation()
                 }
             )
         }

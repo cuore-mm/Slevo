@@ -40,6 +40,9 @@ import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 
+/**
+ * 開いているスレッドタブの一覧を表示し、選択されたタブへ遷移する。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OpenThreadsList(
