@@ -1,13 +1,13 @@
-# Change: Refactor bookmark actions via interface delegation
+# Change: ブックマーク操作のインターフェース委譲へのリファクタリング
 
 ## Why
-Bookmark actions in BoardViewModel and ThreadViewModel are manually forwarded and invoked with concrete-type casts, which makes the bookmark API harder to reuse and evolve.
+BoardViewModel と ThreadViewModel のブックマーク操作が手動の転送と型キャストに依存しており、共通UIでの再利用性と拡張性を下げている。
 
 ## What Changes
-- Introduce a shared bookmark actions interface with a delegated implementation.
-- Update BoardViewModel and ThreadViewModel to implement the interface via delegation.
-- Replace concrete ViewModel casts in BbsRouteScaffold with the shared interface.
-- Keep SingleBookmarkState propagation behavior unchanged.
+- 共有のブックマーク操作インターフェースと委譲実装を導入する。
+- BoardViewModel と ThreadViewModel をインターフェース委譲で実装する。
+- BbsRouteScaffold の具体型キャストを共有インターフェース呼び出しに置き換える。
+- SingleBookmarkState の伝播挙動は変更しない。
 
 ## Impact
 - Affected specs: bookmark-actions

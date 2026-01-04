@@ -1,10 +1,10 @@
 ## 1. Implementation
-- [ ] 1.1 Create a BookmarkActions interface and a delegate wrapper around SingleBookmarkViewModel.
-- [ ] 1.2 Update BoardViewModel to initialize the delegate and implement BookmarkActions via delegation.
-- [ ] 1.3 Update ThreadViewModel to initialize the delegate and implement BookmarkActions via delegation.
-- [ ] 1.4 Replace bookmark action calls in BbsRouteScaffold with the shared interface.
-- [ ] 1.5 Remove or retire BaseViewModel bookmark forwarding helpers once unused.
+- [ ] 1.1 SingleBookmarkViewModel を包む BookmarkActions インターフェースと委譲ラッパを作成する。
+- [ ] 1.2 BoardViewModel に委譲の初期化とインターフェース委譲を組み込む。
+- [ ] 1.3 ThreadViewModel に委譲の初期化とインターフェース委譲を組み込む。
+- [ ] 1.4 BbsRouteScaffold のブックマーク操作呼び出しを共有インターフェースに置き換える。
+- [ ] 1.5 BaseViewModel のブックマーク転送ヘルパーを未使用になったら整理する。
 
 ## 2. Validation
-- [ ] 2.1 Run `./gradlew build`.
-- [ ] 2.2 Run `./gradlew test` (or `./gradlew testDebugUnitTest`).
+- [ ] 2.1 `./gradlew build` を実行する。
+- [ ] 2.2 `./gradlew test`（または `./gradlew testDebugUnitTest`）を実行する。
