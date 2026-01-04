@@ -6,17 +6,19 @@ BoardViewModel と ThreadViewModel は BaseViewModel のブックマーク補助
 - Non-Goals: ブックマークの挙動、永続化、UI状態の内容を変更しない。
 
 ## Decisions
-- Decision: SingleBookmarkViewModel を包む BookmarkActions インターフェースと委譲実装を定義する。
-- Decision: BoardViewModel と ThreadViewModel は初期化時に委譲実装を構築し、Kotlin の `by` でインターフェース委譲を公開する。
+- Decision: BookmarkActions インターフェースを定義し、SingleBookmarkViewModel がそれを実装する。
+- Decision: BoardViewModel と ThreadViewModel は ViewModel 生成時に SingleBookmarkViewModel を構築し、Kotlin の `by` でインターフェース委譲を公開する。
+- Decision: BoardViewModelFactory/ThreadViewModelFactory に BoardInfo/ThreadInfo を渡せるようにし、TabViewModelRegistry から生成時に供給する。
 - Decision: BbsRouteScaffold は具体型キャストではなく共有インターフェース経由で呼び出す。
 
 ## Risks / Trade-offs
-- Risk: 委譲の初期化順序により呼び出しが早すぎる可能性がある。対策: 既存の initializeBoard/initializeThread の流れを維持し、未初期化時のガードを置く。
+- Risk: ViewModel 生成時に必要な BoardInfo/ThreadInfo が不足する可能性がある。対策: TabViewModelRegistry で生成前に必要情報を組み立て、欠落時は生成を遅延させる。
 - Risk: 既存APIの変更で呼び出し側が崩れる可能性がある。対策: 既存のメソッド名とシグネチャを維持する。
 
 ## Migration Plan
-- インターフェースと委譲ラッパを追加する。
-- BoardViewModel と ThreadViewModel に委譲を組み込む。
+- BookmarkActions インターフェースを追加し、SingleBookmarkViewModel に実装する。
+- BoardViewModel と ThreadViewModel の生成時に SingleBookmarkViewModel を構築する。
+- ViewModel の生成シグネチャ変更に合わせて TabViewModelRegistry と呼び出し元を更新する。
 - BbsRouteScaffold の呼び出しを共有インターフェースへ置き換える。
 - build と unit test で検証する。
 
