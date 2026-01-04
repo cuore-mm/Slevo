@@ -29,7 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
-import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkActions
 import com.websarva.wings.android.slevo.ui.common.bookmark.AddGroupDialog
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheet
 import com.websarva.wings.android.slevo.ui.common.bookmark.DeleteGroupDialog
@@ -40,7 +40,6 @@ import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseItestUrl
 import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
@@ -60,7 +59,7 @@ import timber.log.Timber
  */
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
-fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState>> BbsRouteScaffold(
+fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel> BbsRouteScaffold(
     route: AppRoute,
     tabsViewModel: TabsViewModel,
     navController: NavHostController,
@@ -95,7 +94,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     ) -> Unit,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
-) {
+) where ViewModel : BaseViewModel<UiState>, ViewModel : BookmarkActions {
     // このComposableはタブベースの画面レイアウトを提供します。
     // - HorizontalPagerで複数タブを左右にスワイプできる
     // - 各タブごとにViewModelとリストのスクロール位置を保持/復元する
@@ -279,27 +278,21 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         BookmarkBottomSheet(
                             sheetState = bookmarkSheetState,
                             onDismissRequest = {
-                                // ViewModelの型に応じて適切なクローズ処理を呼ぶ
-                                (viewModel as? BoardViewModel)?.closeBookmarkSheet()
-                                    ?: (viewModel as? ThreadViewModel)?.closeBookmarkSheet()
+                                viewModel.closeBookmarkSheet()
                             },
                             groups = bookmarkState.groups,
                             selectedGroupId = bookmarkState.selectedGroup?.id,
                             onGroupSelected = {
-                                (viewModel as? BoardViewModel)?.saveBookmark(it)
-                                    ?: (viewModel as? ThreadViewModel)?.saveBookmark(it)
+                                viewModel.saveBookmark(it)
                             },
                             onUnbookmarkRequested = {
-                                (viewModel as? BoardViewModel)?.unbookmarkBoard()
-                                    ?: (viewModel as? ThreadViewModel)?.unbookmarkBoard()
+                                viewModel.unbookmarkBoard()
                             },
                             onAddGroup = {
-                                (viewModel as? BoardViewModel)?.openAddGroupDialog()
-                                    ?: (viewModel as? ThreadViewModel)?.openAddGroupDialog()
+                                viewModel.openAddGroupDialog()
                             },
                             onGroupLongClick = { group ->
-                                (viewModel as? BoardViewModel)?.openEditGroupDialog(group)
-                                    ?: (viewModel as? ThreadViewModel)?.openEditGroupDialog(group)
+                                viewModel.openEditGroupDialog(group)
                             }
                         )
                     }
@@ -307,26 +300,21 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     if (bookmarkState.showAddGroupDialog) {
                         AddGroupDialog(
                             onDismissRequest = {
-                                (viewModel as? BoardViewModel)?.closeAddGroupDialog()
-                                    ?: (viewModel as? ThreadViewModel)?.closeAddGroupDialog()
+                                viewModel.closeAddGroupDialog()
                             },
                             isEdit = bookmarkState.editingGroupId != null,
                             onConfirm = {
-                                (viewModel as? BoardViewModel)?.confirmGroup()
-                                    ?: (viewModel as? ThreadViewModel)?.confirmGroup()
+                                viewModel.confirmGroup()
                             },
                             onDelete = {
-                                (viewModel as? BoardViewModel)?.requestDeleteGroup()
-                                    ?: (viewModel as? ThreadViewModel)?.requestDeleteGroup()
+                                viewModel.requestDeleteGroup()
                             },
                             onValueChange = {
-                                (viewModel as? BoardViewModel)?.setEnteredGroupName(it)
-                                    ?: (viewModel as? ThreadViewModel)?.setEnteredGroupName(it)
+                                viewModel.setEnteredGroupName(it)
                             },
                             enteredValue = bookmarkState.enteredGroupName,
                             onColorSelected = {
-                                (viewModel as? BoardViewModel)?.setSelectedColor(it)
-                                    ?: (viewModel as? ThreadViewModel)?.setSelectedColor(it)
+                                viewModel.setSelectedColor(it)
                             },
                             selectedColor = bookmarkState.selectedColor
                         )
@@ -338,12 +326,10 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                             itemNames = bookmarkState.deleteGroupItems,
                             isBoard = bookmarkState.deleteGroupIsBoard,
                             onDismissRequest = {
-                                (viewModel as? BoardViewModel)?.closeDeleteGroupDialog()
-                                    ?: (viewModel as? ThreadViewModel)?.closeDeleteGroupDialog()
+                                viewModel.closeDeleteGroupDialog()
                             },
                             onConfirm = {
-                                (viewModel as? BoardViewModel)?.confirmDeleteGroup()
-                                    ?: (viewModel as? ThreadViewModel)?.confirmDeleteGroup()
+                                viewModel.confirmDeleteGroup()
                             }
                         )
                     }

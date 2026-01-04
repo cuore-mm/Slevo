@@ -5,7 +5,6 @@ import android.net.Uri
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
@@ -15,7 +14,8 @@ import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
-import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
+import com.websarva.wings.android.slevo.ui.common.bookmark.BoardBookmarkViewModelFactory
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkActions
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -26,23 +26,31 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
+/**
+ * 板画面の UI 状態と操作を管理する ViewModel。
+ *
+ * ブックマーク操作は共通インターフェースに委譲し、板固有の処理を担当する。
+ */
 @Suppress("unused")
 class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
-    private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
+    private val boardBookmarkViewModelFactory: BoardBookmarkViewModelFactory,
     threadListCoordinatorFactory: ThreadListCoordinator.Factory,
     threadCreationControllerFactory: ThreadCreationController.Factory,
     boardImageUploaderFactory: BoardImageUploader.Factory,
-    @Assisted("viewModelKey") viewModelKey: String
-) : BaseViewModel<BoardUiState>(), ThreadCreationController.IdentityHistoryDelegate {
+    @Assisted private val initialBoardInfo: BoardInfo,
+    @Assisted("viewModelKey") @Suppress("unused") viewModelKey: String
+) : BaseViewModel<BoardUiState>(),
+    ThreadCreationController.IdentityHistoryDelegate,
+    BookmarkActions by boardBookmarkViewModelFactory.create(initialBoardInfo) {
 
     // 初期化済みのボードURL（重複初期化を防ぐ）
     private var initializedUrl: String? = null
 
     // UI 状態の StateFlow（View 側で監視される）
-    override val _uiState = MutableStateFlow(BoardUiState())
+    override val _uiState = MutableStateFlow(BoardUiState(boardInfo = initialBoardInfo))
 
     // スレッド一覧の監視・ソート・フィルタを行うコーディネータ
     private val threadListCoordinator =
@@ -76,6 +84,11 @@ class BoardViewModel @AssistedInject constructor(
                 _uiState.update { it.copy(gestureSettings = settings) }
             }
         }
+        viewModelScope.launch {
+            bookmarkState.collect { bkState ->
+                _uiState.update { it.copy(singleBookmarkState = bkState) }
+            }
+        }
     }
 
     // ボード表示の初期化処理
@@ -83,10 +96,6 @@ class BoardViewModel @AssistedInject constructor(
         // 同じ URL なら再初期化しない
         if (initializedUrl == boardInfo.url) return
         initializedUrl = boardInfo.url
-
-        // お気に入り（ブックマーク） ViewModel を生成して参照を保持
-        val bookmarkVm = singleBookmarkViewModelFactory.create(boardInfo, null)
-        bookmarkViewModel = bookmarkVm
 
         // サービス名を URL から解析して UI に保持
         val serviceName = parseServiceName(boardInfo.url)
@@ -107,13 +116,6 @@ class BoardViewModel @AssistedInject constructor(
 
             // スレッド作成時の名前/メール履歴を準備
             threadCreationController.prepareCreateIdentityHistory(ensuredId)
-        }
-
-        // ブックマーク ViewModel の状態を監視して自身の UIState に反映
-        viewModelScope.launch {
-            bookmarkVm.uiState.collect { bkState ->
-                _uiState.update { it.copy(singleBookmarkState = bkState) }
-            }
         }
 
         // NG リストを監視し、スレッドタイトルのフィルタを更新する
@@ -184,21 +186,6 @@ class BoardViewModel @AssistedInject constructor(
     fun consumeResetScroll() {
         _uiState.update { it.copy(resetScroll = false) }
     }
-
-    // --- お気に入り関連の処理はBookmarkStateViewModelに委譲 ---
-    fun saveBookmark(groupId: Long) = bookmarkSaveBookmark(groupId)
-    fun unbookmarkBoard() = bookmarkUnbookmark()
-    fun openAddGroupDialog() = bookmarkOpenAddGroupDialog()
-    fun openEditGroupDialog(group: Groupable) = bookmarkOpenEditGroupDialog(group)
-    fun closeAddGroupDialog() = bookmarkCloseAddGroupDialog()
-    fun setEnteredGroupName(name: String) = bookmarkSetEnteredGroupName(name)
-    fun setSelectedColor(color: String) = bookmarkSetSelectedColor(color)
-    fun confirmGroup() = bookmarkConfirmGroup()
-    fun requestDeleteGroup() = bookmarkRequestDeleteGroup()
-    fun confirmDeleteGroup() = bookmarkConfirmDeleteGroup()
-    fun closeDeleteGroupDialog() = bookmarkCloseDeleteGroupDialog()
-    fun openBookmarkSheet() = bookmarkOpenBookmarkSheet()
-    fun closeBookmarkSheet() = bookmarkCloseBookmarkSheet()
 
     // ソート関連の操作
     fun setSortKey(sortKey: ThreadSortKey) = threadListCoordinator.setSortKey(sortKey)
@@ -331,9 +318,13 @@ class BoardViewModel @AssistedInject constructor(
 }
 
 
+/**
+ * BoardViewModel を生成する Assisted Factory。
+ */
 @AssistedFactory
 interface BoardViewModelFactory {
     fun create(
-        @Assisted("viewModelKey") viewModelKey: String
+        @Assisted("viewModelKey") viewModelKey: String,
+        @Assisted boardInfo: BoardInfo,
     ): BoardViewModel
 }

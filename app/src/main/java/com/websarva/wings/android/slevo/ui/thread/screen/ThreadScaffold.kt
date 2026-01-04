@@ -29,6 +29,7 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
@@ -116,7 +117,15 @@ fun ThreadScaffold(
                 boardName = info.name
             )
         )
-        val vm = tabsViewModel.getOrCreateThreadViewModel(routeThreadId.value)
+        val vm = tabsViewModel.getOrCreateThreadViewModel(
+            viewModelKey = routeThreadId.value,
+            boardInfo = info,
+            threadInfo = ThreadInfo(
+                key = threadRoute.threadKey,
+                title = threadRoute.threadTitle,
+                url = threadRoute.boardUrl,
+            ),
+        )
         vm.initializeThread(
             threadKey = threadRoute.threadKey,
             boardInfo = info,
@@ -132,7 +141,22 @@ fun ThreadScaffold(
         onEmptyTabs = { navController.navigateUp() },
         openTabs = tabsUiState.openThreadTabs,
         currentRoutePredicate = { routeThreadId != null && it.id == routeThreadId },
-        getViewModel = { tab -> tabsViewModel.getOrCreateThreadViewModel(tab.id.value) },
+        getViewModel = { tab ->
+            tabsViewModel.getOrCreateThreadViewModel(
+                viewModelKey = tab.id.value,
+                boardInfo = BoardInfo(
+                    name = tab.boardName,
+                    url = tab.boardUrl,
+                    boardId = tab.boardId,
+                ),
+                threadInfo = ThreadInfo(
+                    key = tab.threadKey,
+                    title = tab.title,
+                    url = tab.boardUrl,
+                    resCount = tab.resCount,
+                ),
+            )
+        },
         getKey = { it.id.value },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },

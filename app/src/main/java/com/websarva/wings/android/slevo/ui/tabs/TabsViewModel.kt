@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BbsServiceRepository
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
@@ -77,12 +78,16 @@ class TabsViewModel @Inject constructor(
         threadTabsCoordinator.bind(viewModelScope)
     }
 
-    fun getOrCreateThreadViewModel(viewModelKey: String): ThreadViewModel {
-        return tabViewModelRegistry.getOrCreateThreadViewModel(viewModelKey)
+    fun getOrCreateThreadViewModel(
+        viewModelKey: String,
+        boardInfo: BoardInfo,
+        threadInfo: ThreadInfo,
+    ): ThreadViewModel {
+        return tabViewModelRegistry.getOrCreateThreadViewModel(viewModelKey, boardInfo, threadInfo)
     }
 
-    fun getOrCreateBoardViewModel(boardUrl: String): BoardViewModel {
-        return tabViewModelRegistry.getOrCreateBoardViewModel(boardUrl)
+    fun getOrCreateBoardViewModel(boardInfo: BoardInfo): BoardViewModel {
+        return tabViewModelRegistry.getOrCreateBoardViewModel(boardInfo)
     }
 
     fun setLastSelectedPage(page: Int) {

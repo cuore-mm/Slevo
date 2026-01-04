@@ -3,6 +3,11 @@ package com.websarva.wings.android.slevo.ui.common.bookmark
 import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 
+/**
+ * ブックマークシートとグループ編集ダイアログの表示状態をまとめた UI 状態。
+ *
+ * 板/スレッド共通のブックマーク操作で利用する。
+ */
 data class SingleBookmarkState(
     val isBookmarked: Boolean = false,
     val groups: List<Groupable> = emptyList(),

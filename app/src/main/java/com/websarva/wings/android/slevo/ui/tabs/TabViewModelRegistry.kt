@@ -4,6 +4,8 @@ import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModelFactory
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModelFactory
+import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import dagger.hilt.android.scopes.ViewModelScoped
 import javax.inject.Inject
 
@@ -30,12 +32,12 @@ class TabViewModelRegistry @Inject constructor(
      * 指定した boardUrl に対応する BoardViewModel を返す。既にキャッシュに存在すればそれを返し、
      * なければ factory で生成してキャッシュに格納してから返す。
      *
-     * 入力: boardUrl
+     * 入力: boardInfo
      * 出力: BoardViewModel（常に非 null）
      */
-    fun getOrCreateBoardViewModel(boardUrl: String): BoardViewModel {
-        return boardViewModels.getOrPut(boardUrl) {
-            boardViewModelFactory.create(boardUrl)
+    fun getOrCreateBoardViewModel(boardInfo: BoardInfo): BoardViewModel {
+        return boardViewModels.getOrPut(boardInfo.url) {
+            boardViewModelFactory.create(boardInfo.url, boardInfo)
         }
     }
 
@@ -43,12 +45,16 @@ class TabViewModelRegistry @Inject constructor(
      * 指定した viewModelKey に対応する ThreadViewModel を返す。既にキャッシュに存在すればそれを返し、
      * なければ factory で生成してキャッシュに格納してから返す。
      *
-     * 入力: viewModelKey
+     * 入力: viewModelKey, boardInfo, threadInfo
      * 出力: ThreadViewModel（常に非 null）
      */
-    fun getOrCreateThreadViewModel(viewModelKey: String): ThreadViewModel {
+    fun getOrCreateThreadViewModel(
+        viewModelKey: String,
+        boardInfo: BoardInfo,
+        threadInfo: ThreadInfo,
+    ): ThreadViewModel {
         return threadViewModels.getOrPut(viewModelKey) {
-            threadViewModelFactory.create(viewModelKey)
+            threadViewModelFactory.create(viewModelKey, boardInfo, threadInfo)
         }
     }
 

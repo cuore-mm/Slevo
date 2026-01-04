@@ -4,7 +4,6 @@ import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
@@ -21,7 +20,8 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
-import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkActions
+import com.websarva.wings.android.slevo.ui.common.bookmark.ThreadBookmarkViewModelFactory
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
@@ -67,15 +67,18 @@ class ThreadViewModel @AssistedInject constructor(
     private val boardRepository: BoardRepository,
     private val historyRepository: ThreadHistoryRepository,
     private val postHistoryRepository: PostHistoryRepository,
-    private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
+    private val threadBookmarkViewModelFactory: ThreadBookmarkViewModelFactory,
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
     private val tabsRepository: TabsRepository,
     threadReadStateRepository: ThreadReadStateRepository,
     internal val postRepository: PostRepository,
     internal val imageUploadRepository: ImageUploadRepository,
+    @Assisted private val initialBoardInfo: BoardInfo,
+    @Assisted private val initialThreadInfo: ThreadInfo,
     @Assisted @Suppress("unused") val viewModelKey: String,
-) : BaseViewModel<ThreadUiState>() {
+) : BaseViewModel<ThreadUiState>(),
+    BookmarkActions by threadBookmarkViewModelFactory.create(initialBoardInfo, initialThreadInfo) {
 
     private val tabCoordinator = ThreadTabCoordinator(
         scope = viewModelScope,
@@ -83,7 +86,12 @@ class ThreadViewModel @AssistedInject constructor(
         readStateRepository = threadReadStateRepository,
     )
 
-    override val _uiState = MutableStateFlow(ThreadUiState())
+    override val _uiState = MutableStateFlow(
+        ThreadUiState(
+            boardInfo = initialBoardInfo,
+            threadInfo = initialThreadInfo,
+        ),
+    )
     private var ngList: List<NgEntity> = emptyList()
     private var compiledNg: List<Triple<Long?, Regex, NgType>> = emptyList()
     private var initializedKey: String? = null
@@ -128,6 +136,11 @@ class ThreadViewModel @AssistedInject constructor(
                 _uiState.update { it.copy(gestureSettings = settings) }
             }
         }
+        viewModelScope.launch {
+            bookmarkState.collect { bkState ->
+                _uiState.update { it.copy(singleBookmarkState = bkState) }
+            }
+        }
     }
 
     internal val _postUiState = MutableStateFlow(PostUiState())
@@ -142,12 +155,12 @@ class ThreadViewModel @AssistedInject constructor(
         val initKey = "$threadKey|${boardInfo.url}"
         if (initializedKey == initKey) return
         initializedKey = initKey
-        val threadInfo = ThreadInfo(
+        val updatedThreadInfo = ThreadInfo(
             key = threadKey,
             title = threadTitle,
             url = boardInfo.url
         )
-        _uiState.update { it.copy(boardInfo = boardInfo, threadInfo = threadInfo) }
+        _uiState.update { it.copy(boardInfo = boardInfo, threadInfo = updatedThreadInfo) }
         _postUiState.update { it.copy(namePlaceholder = boardInfo.noname) }
 
         viewModelScope.launch {
@@ -192,17 +205,6 @@ class ThreadViewModel @AssistedInject constructor(
                 }
             }
             preparePostIdentityHistory(ensuredId)
-        }
-
-        // Factoryを使ってBookmarkStateViewModelを生成
-        val bookmarkVm = singleBookmarkViewModelFactory.create(boardInfo, threadInfo)
-        bookmarkViewModel = bookmarkVm
-
-        // 状態をマージ
-        viewModelScope.launch {
-            bookmarkVm.uiState.collect { favState ->
-                _uiState.update { it.copy(singleBookmarkState = favState) }
-            }
         }
 
         viewModelScope.launch {
@@ -439,21 +441,6 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
 
-    // --- お気に入り関連の処理はBookmarkStateViewModelに委譲 ---
-    fun saveBookmark(groupId: Long) = bookmarkSaveBookmark(groupId)
-    fun unbookmarkBoard() = bookmarkUnbookmark()
-    fun openAddGroupDialog() = bookmarkOpenAddGroupDialog()
-    fun openEditGroupDialog(group: Groupable) = bookmarkOpenEditGroupDialog(group)
-    fun closeAddGroupDialog() = bookmarkCloseAddGroupDialog()
-    fun setEnteredGroupName(name: String) = bookmarkSetEnteredGroupName(name)
-    fun setSelectedColor(color: String) = bookmarkSetSelectedColor(color)
-    fun confirmGroup() = bookmarkConfirmGroup()
-    fun requestDeleteGroup() = bookmarkRequestDeleteGroup()
-    fun confirmDeleteGroup() = bookmarkConfirmDeleteGroup()
-    fun closeDeleteGroupDialog() = bookmarkCloseDeleteGroupDialog()
-    fun openBookmarkSheet() = bookmarkOpenBookmarkSheet()
-    fun closeBookmarkSheet() = bookmarkCloseBookmarkSheet()
-
     fun openThreadInfoSheet() {
         _uiState.update { it.copy(showThreadInfoSheet = true) }
     }
@@ -651,7 +638,14 @@ class ThreadViewModel @AssistedInject constructor(
     }
 }
 
+/**
+ * ThreadViewModel を生成する Assisted Factory。
+ */
 @AssistedFactory
 interface ThreadViewModelFactory {
-    fun create(viewModelKey: String): ThreadViewModel
+    fun create(
+        @Assisted viewModelKey: String,
+        @Assisted boardInfo: BoardInfo,
+        @Assisted threadInfo: ThreadInfo,
+    ): ThreadViewModel
 }

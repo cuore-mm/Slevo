@@ -97,7 +97,15 @@ fun BoardScaffold(
         onEmptyTabs = { navController.navigateUp() },
         openTabs = tabsUiState.openBoardTabs,
         currentRoutePredicate = { it.boardUrl == boardRoute.boardUrl },
-        getViewModel = { tab -> tabsViewModel.getOrCreateBoardViewModel(tab.boardUrl) },
+        getViewModel = { tab ->
+            tabsViewModel.getOrCreateBoardViewModel(
+                BoardInfo(
+                    boardId = tab.boardId,
+                    name = tab.boardName,
+                    url = tab.boardUrl,
+                ),
+            )
+        },
         getKey = { it.boardUrl },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
@@ -106,8 +114,8 @@ fun BoardScaffold(
                 boardInfo = BoardInfo(
                     boardId = tab.boardId,
                     name = tab.boardName,
-                    url = tab.boardUrl
-                )
+                    url = tab.boardUrl,
+                ),
             )
         },
         updateScrollPosition = { _, tab, index, offset ->
