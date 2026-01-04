@@ -5,7 +5,7 @@ BoardViewModel と ThreadViewModel のブックマーク操作が手動の転送
 
 ## What Changes
 - 共有のブックマーク操作インターフェースと委譲実装を導入する。
-- BoardViewModel と ThreadViewModel をインターフェース委譲で実装する。
+- BoardViewModel と ThreadViewModel を Kotlin の `by` を使ったインターフェース委譲で実装する。
 - BbsRouteScaffold の具体型キャストを共有インターフェース呼び出しに置き換える。
 - SingleBookmarkState の伝播挙動は変更しない。
 

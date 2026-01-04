@@ -7,7 +7,7 @@ BoardViewModel と ThreadViewModel は BaseViewModel のブックマーク補助
 
 ## Decisions
 - Decision: SingleBookmarkViewModel を包む BookmarkActions インターフェースと委譲実装を定義する。
-- Decision: BoardViewModel と ThreadViewModel は初期化時に委譲実装を構築し、インターフェース委譲で公開する。
+- Decision: BoardViewModel と ThreadViewModel は初期化時に委譲実装を構築し、Kotlin の `by` でインターフェース委譲を公開する。
 - Decision: BbsRouteScaffold は具体型キャストではなく共有インターフェース経由で呼び出す。
 
 ## Risks / Trade-offs
