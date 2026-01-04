@@ -8,13 +8,14 @@ BoardViewModel と ThreadViewModel は BaseViewModel のブックマーク補助
 ## Decisions
 - Decision: BookmarkActions インターフェースを定義し、BoardBookmarkViewModel と ThreadBookmarkViewModel がそれを実装する。
 - Decision: SingleBookmarkViewModel を分割し、板/スレッドごとの分岐はクラス分割で吸収する。
+- Decision: グループ編集・ダイアログ制御などの共通ロジックは共通ヘルパーに切り出し、各 ViewModel から合成して利用する。
 - Decision: BoardViewModel と ThreadViewModel は ViewModel 生成時に対応するブックマーク ViewModel を構築し、Kotlin の `by` でインターフェース委譲を公開する。
 - Decision: BoardViewModelFactory/ThreadViewModelFactory に BoardInfo/ThreadInfo を渡せるようにし、TabViewModelRegistry から生成時に供給する。
 - Decision: BbsRouteScaffold は具体型キャストではなく共有インターフェース経由で呼び出す。
 
 ## Risks / Trade-offs
 - Risk: ViewModel 生成時に必要な BoardInfo/ThreadInfo が不足する可能性がある。対策: TabViewModelRegistry で生成前に必要情報を組み立て、欠落時は生成を遅延させる。
-- Risk: 板/スレッド間で共通処理が分散し、重複が増える可能性がある。対策: 共通ロジックは共通ヘルパーまたは小さな委譲クラスへ集約する。
+- Risk: 板/スレッド間で共通処理が分散し、重複が増える可能性がある。対策: 共通ロジックは共通ヘルパーに集約する。
 - Risk: 既存APIの変更で呼び出し側が崩れる可能性がある。対策: 既存のメソッド名とシグネチャを維持する。
 
 ## Migration Plan

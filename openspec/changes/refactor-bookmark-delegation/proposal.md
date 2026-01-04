@@ -6,6 +6,7 @@ BoardViewModel と ThreadViewModel のブックマーク操作が手動の転送
 ## What Changes
 - 共有のブックマーク操作インターフェースを定義し、板用/スレッド用のブックマーク ViewModel が実装する。
 - SingleBookmarkViewModel を BoardBookmarkViewModel / ThreadBookmarkViewModel に分割する。
+- グループ編集とダイアログ制御などの共通ロジックは共通ヘルパーで合成する。
 - BoardViewModel と ThreadViewModel を Kotlin の `by` を使ったインターフェース委譲で実装する。
 - ViewModel の生成時にブックマーク ViewModel を構築できるように、BoardInfo/ThreadInfo をコンストラクタで受け取る設計へ変更する。
 - BbsRouteScaffold の具体型キャストを共有インターフェース呼び出しに置き換える。
