@@ -6,6 +6,7 @@ import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,30 +19,63 @@ import javax.inject.Inject
 /**
  * ブックマークシートの状態と操作をまとめて扱うステートホルダー。
  *
- * シート表示中のみ生成され、targetsのリストに対して同一処理を適用する。
+ * シートの開閉状態とtargetsのリストに対する同一処理を管理する。
  */
 class BookmarkBottomSheetStateHolder(
     private val boardRepo: BookmarkBoardRepository,
     private val threadRepo: ThreadBookmarkRepository,
     parentScope: CoroutineScope,
-    private val targets: List<BookmarkTarget>,
 ) {
 
     private val scopeJob = SupervisorJob()
     private val scope = CoroutineScope(parentScope.coroutineContext + scopeJob)
+    private var targets: List<BookmarkTarget> = emptyList()
+    private var groupsJob: Job? = null
 
-    private val _uiState = MutableStateFlow(
-        BookmarkSheetUiState(
-            selectedGroupId = resolveSelectedGroupId(),
-            deleteGroupIsBoard = isBoardTargets()
-        )
-    )
+    private val _uiState = MutableStateFlow(BookmarkSheetUiState())
     val uiState: StateFlow<BookmarkSheetUiState> = _uiState.asStateFlow()
 
-    init {
-        require(targets.isNotEmpty()) { "Bookmark targets must not be empty." }
-        require(!hasMixedTargets()) { "Board and thread targets must not be mixed." }
-        observeGroups()
+    /**
+     * シートを開いてtargetsを設定する。
+     */
+    fun open(targets: List<BookmarkTarget>) {
+        if (targets.isEmpty()) {
+            // 空の場合はシートを開かない。
+            return
+        }
+        require(!hasMixedTargets(targets)) { "Board and thread targets must not be mixed." }
+        this.targets = targets
+        val isBoardTargets = isBoardTargets(targets)
+        _uiState.update {
+            it.copy(
+                isVisible = true,
+                groups = emptyList(),
+                selectedGroupId = resolveSelectedGroupId(targets),
+                showAddGroupDialog = false,
+                enteredGroupName = "",
+                selectedColor = BookmarkColor.RED.value,
+                editingGroupId = null,
+                showDeleteGroupDialog = false,
+                deleteGroupName = "",
+                deleteGroupItems = emptyList(),
+                deleteGroupIsBoard = isBoardTargets
+            )
+        }
+        startObservingGroups(isBoardTargets)
+    }
+
+    /**
+     * シートを閉じて一時状態をリセットする。
+     */
+    fun close() {
+        if (!_uiState.value.isVisible) {
+            // すでに閉じている場合は更新しない。
+            return
+        }
+        groupsJob?.cancel()
+        groupsJob = null
+        targets = emptyList()
+        _uiState.update { BookmarkSheetUiState() }
     }
 
     /**
@@ -245,15 +279,17 @@ class BookmarkBottomSheetStateHolder(
      * ステートホルダーの購読とジョブを破棄する。
      */
     fun dispose() {
+        groupsJob?.cancel()
         scopeJob.cancel()
     }
 
     /**
      * 対象種別に応じたグループ一覧を購読してUI状態に反映する。
      */
-    private fun observeGroups() {
-        scope.launch {
-            val groupsFlow = if (isBoardTargets()) {
+    private fun startObservingGroups(isBoardTargets: Boolean) {
+        groupsJob?.cancel()
+        groupsJob = scope.launch {
+            val groupsFlow = if (isBoardTargets) {
                 boardRepo.observeGroups()
             } else {
                 threadRepo.observeAllGroups()
@@ -267,7 +303,7 @@ class BookmarkBottomSheetStateHolder(
     /**
      * targetsから共通のグループIDを抽出する。
      */
-    private fun resolveSelectedGroupId(): Long? {
+    private fun resolveSelectedGroupId(targets: List<BookmarkTarget>): Long? {
         val groupIds = targets.mapNotNull { it.currentGroupId }.distinct()
         return if (groupIds.size == 1) groupIds.first() else null
     }
@@ -275,12 +311,17 @@ class BookmarkBottomSheetStateHolder(
     /**
      * targetsが板対象かどうかを判定する。
      */
-    private fun isBoardTargets(): Boolean = targets.firstOrNull() is BoardTarget
+    private fun isBoardTargets(targets: List<BookmarkTarget>): Boolean = targets.firstOrNull() is BoardTarget
+
+    /**
+     * 現在のtargetsが板対象かどうかを判定する。
+     */
+    private fun isBoardTargets(): Boolean = isBoardTargets(targets)
 
     /**
      * 板とスレのtargetsが混在しているかを判定する。
      */
-    private fun hasMixedTargets(): Boolean {
+    private fun hasMixedTargets(targets: List<BookmarkTarget>): Boolean {
         val hasBoard = targets.any { it is BoardTarget }
         val hasThread = targets.any { it is ThreadTarget }
         return hasBoard && hasThread
@@ -318,17 +359,15 @@ class BookmarkBottomSheetStateHolderFactory @Inject constructor(
 ) {
 
     /**
-     * 指定したtargetsに対してステートホルダーを生成する。
+     * ステートホルダーを生成する。
      */
     fun create(
         parentScope: CoroutineScope,
-        targets: List<BookmarkTarget>,
     ): BookmarkBottomSheetStateHolder {
         return BookmarkBottomSheetStateHolder(
             boardRepo = boardRepo,
             threadRepo = threadRepo,
             parentScope = parentScope,
-            targets = targets,
         )
     }
 }

@@ -12,13 +12,11 @@ import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.ui.common.bookmark.BoardTarget
-import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolder
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkTarget
 import com.websarva.wings.android.slevo.ui.common.bookmark.ThreadTarget
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,8 +39,7 @@ class BookmarkViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(BookmarkUiState())
     val uiState: StateFlow<BookmarkUiState> = _uiState.asStateFlow()
 
-    private var bookmarkSheetHolder: BookmarkBottomSheetStateHolder? = null
-    private var bookmarkSheetJob: Job? = null
+    private val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
 
     // 初期化時にお気に入りリストを監視
     init {
@@ -61,6 +58,11 @@ class BookmarkViewModel @Inject constructor(
                 .collect { groupedThreads ->
                     _uiState.update { it.copy(groupedThreadBookmarks = groupedThreads) }
                 }
+        }
+        viewModelScope.launch {
+            bookmarkSheetHolder.uiState.collect { sheetState ->
+                _uiState.update { it.copy(bookmarkSheetState = sheetState) }
+            }
         }
     }
 
@@ -117,48 +119,22 @@ class BookmarkViewModel @Inject constructor(
             // 選択が空の場合は開かない。
             return
         }
-
-        bookmarkSheetHolder?.dispose()
-        bookmarkSheetJob?.cancel()
-
-        val holder = bookmarkSheetStateHolderFactory.create(viewModelScope, targets)
-        bookmarkSheetHolder = holder
-        bookmarkSheetJob = viewModelScope.launch {
-            holder.uiState.collect { sheetState ->
-                _uiState.update { it.copy(bookmarkSheetState = sheetState) }
-            }
-        }
-        _uiState.update {
-            it.copy(
-                showBookmarkSheet = true,
-                bookmarkSheetState = holder.uiState.value
-            )
-        }
+        bookmarkSheetHolder.open(targets)
     }
 
     /**
-     * ブックマークシートを閉じてステートホルダーを破棄する。
+     * ブックマークシートを閉じる。
      */
     fun closeEditSheet() {
-        _uiState.update {
-            it.copy(
-                showBookmarkSheet = false,
-                bookmarkSheetState = BookmarkSheetUiState()
-            )
-        }
-        bookmarkSheetJob?.cancel()
-        bookmarkSheetHolder?.dispose()
-        bookmarkSheetJob = null
-        bookmarkSheetHolder = null
+        bookmarkSheetHolder.close()
     }
 
     /**
      * 選択対象にグループを適用する。
      */
     fun applyGroupToSelection(groupId: Long) {
-        val holder = bookmarkSheetHolder ?: return
         viewModelScope.launch {
-            holder.applyGroup(groupId)
+            bookmarkSheetHolder.applyGroup(groupId)
             resetSelectionAndSheet()
         }
     }
@@ -167,9 +143,8 @@ class BookmarkViewModel @Inject constructor(
      * 選択対象のブックマークを解除する。
      */
     fun unbookmarkSelection() {
-        val holder = bookmarkSheetHolder ?: return
         viewModelScope.launch {
-            holder.unbookmarkTargets()
+            bookmarkSheetHolder.unbookmarkTargets()
             resetSelectionAndSheet()
         }
     }
@@ -264,7 +239,7 @@ class BookmarkViewModel @Inject constructor(
      * 選択状態とシート表示をリセットする。
      */
     private fun resetSelectionAndSheet() {
-        closeEditSheet()
+        bookmarkSheetHolder.close()
         _uiState.update {
             it.copy(
                 selectMode = false,
@@ -275,32 +250,31 @@ class BookmarkViewModel @Inject constructor(
     }
 
     fun openAddGroupDialog() {
-        bookmarkSheetHolder?.openAddGroupDialog()
+        bookmarkSheetHolder.openAddGroupDialog()
     }
 
     fun openEditGroupDialog(group: Groupable) {
-        bookmarkSheetHolder?.openEditGroupDialog(group)
+        bookmarkSheetHolder.openEditGroupDialog(group)
     }
 
     fun closeAddGroupDialog() {
-        bookmarkSheetHolder?.closeAddGroupDialog()
+        bookmarkSheetHolder.closeAddGroupDialog()
     }
 
     fun setEnteredGroupName(name: String) {
-        bookmarkSheetHolder?.setEnteredGroupName(name)
+        bookmarkSheetHolder.setEnteredGroupName(name)
     }
 
     fun setSelectedColor(color: String) {
-        bookmarkSheetHolder?.setSelectedColor(color)
+        bookmarkSheetHolder.setSelectedColor(color)
     }
 
     /**
      * グループ追加/編集を確定する。
      */
     fun confirmGroup() {
-        val holder = bookmarkSheetHolder ?: return
         viewModelScope.launch {
-            holder.confirmGroup()
+            bookmarkSheetHolder.confirmGroup()
         }
     }
 
@@ -308,9 +282,8 @@ class BookmarkViewModel @Inject constructor(
      * グループ削除確認ダイアログを開く。
      */
     fun requestDeleteGroup() {
-        val holder = bookmarkSheetHolder ?: return
         viewModelScope.launch {
-            holder.requestDeleteGroup()
+            bookmarkSheetHolder.requestDeleteGroup()
         }
     }
 
@@ -318,14 +291,21 @@ class BookmarkViewModel @Inject constructor(
      * グループ削除を確定する。
      */
     fun confirmDeleteGroup() {
-        val holder = bookmarkSheetHolder ?: return
         viewModelScope.launch {
-            holder.confirmDeleteGroup()
+            bookmarkSheetHolder.confirmDeleteGroup()
         }
     }
 
     fun closeDeleteGroupDialog() {
-        bookmarkSheetHolder?.closeDeleteGroupDialog()
+        bookmarkSheetHolder.closeDeleteGroupDialog()
+    }
+
+    /**
+     * ViewModel破棄時にステートホルダーのジョブを解放する。
+     */
+    override fun onCleared() {
+        bookmarkSheetHolder.dispose()
+        super.onCleared()
     }
 }
 
@@ -341,6 +321,5 @@ data class BookmarkUiState(
     val selectMode: Boolean = false,
     val selectedBoards: Set<Long> = emptySet(),
     val selectedThreads: Set<String> = emptySet(),
-    val showBookmarkSheet: Boolean = false,
     val bookmarkSheetState: BookmarkSheetUiState = BookmarkSheetUiState(),
 )

@@ -14,7 +14,6 @@ interface BaseUiState<T> where T : BaseUiState<T> {
     val boardInfo: BoardInfo
     val bookmarkStatusState: BookmarkStatusState
     val bookmarkSheetState: BookmarkSheetUiState
-    val showBookmarkSheet: Boolean
     val loadProgress: Float
     val gestureSettings: GestureSettings
     val isLoading: Boolean
@@ -24,7 +23,6 @@ interface BaseUiState<T> where T : BaseUiState<T> {
         boardInfo: BoardInfo = this.boardInfo,
         bookmarkStatusState: BookmarkStatusState = this.bookmarkStatusState,
         bookmarkSheetState: BookmarkSheetUiState = this.bookmarkSheetState,
-        showBookmarkSheet: Boolean = this.showBookmarkSheet,
         loadProgress: Float = this.loadProgress,
         gestureSettings: GestureSettings = this.gestureSettings,
         isLoading: Boolean = this.isLoading,

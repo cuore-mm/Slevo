@@ -275,7 +275,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     )
 
                     // 共通のボトムシートとダイアログ
-                    if (uiState.showBookmarkSheet) {
+                    if (bookmarkSheetUiState.isVisible) {
                         BookmarkBottomSheet(
                             sheetState = bookmarkSheetState,
                             onDismissRequest = {

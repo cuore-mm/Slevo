@@ -22,9 +22,7 @@ import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
-import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolder
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
-import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.common.bookmark.ThreadTarget
 import com.websarva.wings.android.slevo.ui.util.toHiragana
@@ -97,8 +95,7 @@ class ThreadViewModel @AssistedInject constructor(
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
     private var bookmarkStatusJob: Job? = null
-    private var bookmarkSheetJob: Job? = null
-    private var bookmarkSheetHolder: BookmarkBottomSheetStateHolder? = null
+    private val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
     private var lastAutoRefreshTime: Long = 0L
 
     init {
@@ -135,6 +132,11 @@ class ThreadViewModel @AssistedInject constructor(
         viewModelScope.launch {
             settingsRepository.observeGestureSettings().collect { settings ->
                 _uiState.update { it.copy(gestureSettings = settings) }
+            }
+        }
+        viewModelScope.launch {
+            bookmarkSheetHolder.uiState.collect { sheetState ->
+                _uiState.update { it.copy(bookmarkSheetState = sheetState) }
             }
         }
     }
@@ -458,7 +460,7 @@ class ThreadViewModel @AssistedInject constructor(
 
     // --- ブックマークシート関連 ---
     /**
-     * ブックマークシートを開き、ステートホルダーを生成する。
+     * ブックマークシートを開く。
      */
     fun openBookmarkSheet() {
         val boardInfo = uiState.value.boardInfo
@@ -468,10 +470,6 @@ class ThreadViewModel @AssistedInject constructor(
             return
         }
 
-        // --- Holder setup ---
-        bookmarkSheetHolder?.dispose()
-        bookmarkSheetJob?.cancel()
-
         val targets = listOf(
             ThreadTarget(
                 boardInfo = boardInfo,
@@ -479,45 +477,23 @@ class ThreadViewModel @AssistedInject constructor(
                 currentGroupId = uiState.value.bookmarkStatusState.selectedGroup?.id
             )
         )
-        val holder = bookmarkSheetStateHolderFactory.create(viewModelScope, targets)
-        bookmarkSheetHolder = holder
-        bookmarkSheetJob = viewModelScope.launch {
-            holder.uiState.collect { sheetState ->
-                _uiState.update { it.copy(bookmarkSheetState = sheetState) }
-            }
-        }
-        _uiState.update {
-            it.copy(
-                showBookmarkSheet = true,
-                bookmarkSheetState = holder.uiState.value
-            )
-        }
+        bookmarkSheetHolder.open(targets)
     }
 
     /**
-     * ブックマークシートを閉じてステートホルダーを破棄する。
+     * ブックマークシートを閉じる。
      */
     fun closeBookmarkSheet() {
-        _uiState.update {
-            it.copy(
-                showBookmarkSheet = false,
-                bookmarkSheetState = BookmarkSheetUiState()
-            )
-        }
-        bookmarkSheetJob?.cancel()
-        bookmarkSheetHolder?.dispose()
-        bookmarkSheetJob = null
-        bookmarkSheetHolder = null
+        bookmarkSheetHolder.close()
     }
 
     /**
      * ブックマークの保存を実行してシートを閉じる。
      */
     fun saveBookmark(groupId: Long) {
-        val holder = bookmarkSheetHolder ?: return
         viewModelScope.launch {
-            holder.applyGroup(groupId)
-            closeBookmarkSheet()
+            bookmarkSheetHolder.applyGroup(groupId)
+            bookmarkSheetHolder.close()
         }
     }
 
@@ -525,10 +501,9 @@ class ThreadViewModel @AssistedInject constructor(
      * ブックマークの解除を実行してシートを閉じる。
      */
     fun unbookmarkBoard() {
-        val holder = bookmarkSheetHolder ?: return
         viewModelScope.launch {
-            holder.unbookmarkTargets()
-            closeBookmarkSheet()
+            bookmarkSheetHolder.unbookmarkTargets()
+            bookmarkSheetHolder.close()
         }
     }
 
@@ -536,44 +511,43 @@ class ThreadViewModel @AssistedInject constructor(
      * グループ追加ダイアログを開く。
      */
     fun openAddGroupDialog() {
-        bookmarkSheetHolder?.openAddGroupDialog()
+        bookmarkSheetHolder.openAddGroupDialog()
     }
 
     /**
      * グループ編集ダイアログを開く。
      */
     fun openEditGroupDialog(group: Groupable) {
-        bookmarkSheetHolder?.openEditGroupDialog(group)
+        bookmarkSheetHolder.openEditGroupDialog(group)
     }
 
     /**
      * グループ追加/編集ダイアログを閉じる。
      */
     fun closeAddGroupDialog() {
-        bookmarkSheetHolder?.closeAddGroupDialog()
+        bookmarkSheetHolder.closeAddGroupDialog()
     }
 
     /**
      * 入力中のグループ名を更新する。
      */
     fun setEnteredGroupName(name: String) {
-        bookmarkSheetHolder?.setEnteredGroupName(name)
+        bookmarkSheetHolder.setEnteredGroupName(name)
     }
 
     /**
      * 入力中のグループ色を更新する。
      */
     fun setSelectedColor(color: String) {
-        bookmarkSheetHolder?.setSelectedColor(color)
+        bookmarkSheetHolder.setSelectedColor(color)
     }
 
     /**
      * グループ内容を確定する。
      */
     fun confirmGroup() {
-        val holder = bookmarkSheetHolder ?: return
         viewModelScope.launch {
-            holder.confirmGroup()
+            bookmarkSheetHolder.confirmGroup()
         }
     }
 
@@ -581,9 +555,8 @@ class ThreadViewModel @AssistedInject constructor(
      * グループ削除確認ダイアログを開く。
      */
     fun requestDeleteGroup() {
-        val holder = bookmarkSheetHolder ?: return
         viewModelScope.launch {
-            holder.requestDeleteGroup()
+            bookmarkSheetHolder.requestDeleteGroup()
         }
     }
 
@@ -591,9 +564,8 @@ class ThreadViewModel @AssistedInject constructor(
      * グループ削除を確定する。
      */
     fun confirmDeleteGroup() {
-        val holder = bookmarkSheetHolder ?: return
         viewModelScope.launch {
-            holder.confirmDeleteGroup()
+            bookmarkSheetHolder.confirmDeleteGroup()
         }
     }
 
@@ -601,7 +573,15 @@ class ThreadViewModel @AssistedInject constructor(
      * グループ削除ダイアログを閉じる。
      */
     fun closeDeleteGroupDialog() {
-        bookmarkSheetHolder?.closeDeleteGroupDialog()
+        bookmarkSheetHolder.closeDeleteGroupDialog()
+    }
+
+    /**
+     * ViewModel破棄時にステートホルダーのジョブを解放する。
+     */
+    override fun onCleared() {
+        bookmarkSheetHolder.dispose()
+        super.onCleared()
     }
 
     fun openThreadInfoSheet() {

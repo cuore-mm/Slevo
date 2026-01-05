@@ -6,9 +6,10 @@ import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 /**
  * ブックマークシートのUI状態を表すデータ。
  *
- * グループ一覧や編集ダイアログの表示状態を保持する。
+ * シートの開閉状態やグループ一覧、編集ダイアログの表示状態を保持する。
  */
 data class BookmarkSheetUiState(
+    val isVisible: Boolean = false,
     val groups: List<Groupable> = emptyList(),
     val selectedGroupId: Long? = null,
     val showAddGroupDialog: Boolean = false,

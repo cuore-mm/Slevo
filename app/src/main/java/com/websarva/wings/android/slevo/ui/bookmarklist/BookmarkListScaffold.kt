@@ -130,7 +130,7 @@ fun BookmarkListScaffold(
             bookmarkViewModel.toggleSelectMode(false)
         }
 
-        if (uiState.showBookmarkSheet) {
+        if (uiState.bookmarkSheetState.isVisible) {
             BookmarkBottomSheet(
                 sheetState = editSheetState,
                 onDismissRequest = { bookmarkViewModel.closeEditSheet() },
