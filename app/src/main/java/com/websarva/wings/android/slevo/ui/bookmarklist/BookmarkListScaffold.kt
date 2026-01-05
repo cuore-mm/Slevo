@@ -130,48 +130,39 @@ fun BookmarkListScaffold(
             bookmarkViewModel.toggleSelectMode(false)
         }
 
-        if (uiState.showEditSheet) {
-            val groups = if (uiState.selectedBoards.isNotEmpty()) {
-                uiState.boardList.map { it.group }
-            } else {
-                uiState.groupedThreadBookmarks.map { it.group }
-            }
+        if (uiState.showBookmarkSheet) {
             BookmarkBottomSheet(
                 sheetState = editSheetState,
                 onDismissRequest = { bookmarkViewModel.closeEditSheet() },
-                groups = groups,
-                selectedGroupId = uiState.selectedGroupId,
+                groups = uiState.bookmarkSheetState.groups,
+                selectedGroupId = uiState.bookmarkSheetState.selectedGroupId,
                 onGroupSelected = { bookmarkViewModel.applyGroupToSelection(it) },
                 onUnbookmarkRequested = { bookmarkViewModel.unbookmarkSelection() },
-                onAddGroup = {
-                    val isBoard = uiState.selectedBoards.isNotEmpty()
-                    bookmarkViewModel.openAddGroupDialog(isBoard)
-                },
+                onAddGroup = { bookmarkViewModel.openAddGroupDialog() },
                 onGroupLongClick = { group ->
-                    val isBoard = uiState.selectedBoards.isNotEmpty()
-                    bookmarkViewModel.openEditGroupDialog(group, isBoard)
+                    bookmarkViewModel.openEditGroupDialog(group)
                 }
             )
         }
 
-        if (uiState.showAddGroupDialog) {
+        if (uiState.bookmarkSheetState.showAddGroupDialog) {
             AddGroupDialog(
                 onDismissRequest = { bookmarkViewModel.closeAddGroupDialog() },
-                isEdit = uiState.editingGroupId != null,
+                isEdit = uiState.bookmarkSheetState.editingGroupId != null,
                 onConfirm = { bookmarkViewModel.confirmGroup() },
                 onDelete = { bookmarkViewModel.requestDeleteGroup() },
                 onValueChange = { bookmarkViewModel.setEnteredGroupName(it) },
-                enteredValue = uiState.enteredGroupName,
+                enteredValue = uiState.bookmarkSheetState.enteredGroupName,
                 onColorSelected = { bookmarkViewModel.setSelectedColor(it) },
-                selectedColor = uiState.selectedColor
+                selectedColor = uiState.bookmarkSheetState.selectedColor
             )
         }
 
-        if (uiState.showDeleteGroupDialog) {
+        if (uiState.bookmarkSheetState.showDeleteGroupDialog) {
             DeleteGroupDialog(
-                groupName = uiState.deleteGroupName,
-                itemNames = uiState.deleteGroupItems,
-                isBoard = uiState.deleteGroupIsBoard,
+                groupName = uiState.bookmarkSheetState.deleteGroupName,
+                itemNames = uiState.bookmarkSheetState.deleteGroupItems,
+                isBoard = uiState.bookmarkSheetState.deleteGroupIsBoard,
                 onDismissRequest = { bookmarkViewModel.closeDeleteGroupDialog() },
                 onConfirm = { bookmarkViewModel.confirmDeleteGroup() }
             )

@@ -7,6 +7,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.history.Pos
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.NgRepository
@@ -15,23 +16,34 @@ import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
-import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
+import com.websarva.wings.android.slevo.ui.common.bookmark.BoardTarget
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolder
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
+/**
+ * 板画面の表示と操作を担うViewModel。
+ *
+ * スレッド一覧やブックマーク状態などのUI状態を管理する。
+ */
 @Suppress("unused")
 class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
+    private val bookmarkBoardRepository: BookmarkBoardRepository,
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
-    private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
+    private val bookmarkSheetStateHolderFactory: BookmarkBottomSheetStateHolderFactory,
     threadListCoordinatorFactory: ThreadListCoordinator.Factory,
     threadCreationControllerFactory: ThreadCreationController.Factory,
     boardImageUploaderFactory: BoardImageUploader.Factory,
@@ -40,6 +52,10 @@ class BoardViewModel @AssistedInject constructor(
 
     // 初期化済みのボードURL（重複初期化を防ぐ）
     private var initializedUrl: String? = null
+
+    private var bookmarkStatusJob: Job? = null
+    private var bookmarkSheetJob: Job? = null
+    private var bookmarkSheetHolder: BookmarkBottomSheetStateHolder? = null
 
     // UI 状態の StateFlow（View 側で監視される）
     override val _uiState = MutableStateFlow(BoardUiState())
@@ -78,15 +94,13 @@ class BoardViewModel @AssistedInject constructor(
         }
     }
 
-    // ボード表示の初期化処理
+    /**
+     * 板画面の初期化処理を行う。
+     */
     fun initializeBoard(boardInfo: BoardInfo) {
         // 同じ URL なら再初期化しない
         if (initializedUrl == boardInfo.url) return
         initializedUrl = boardInfo.url
-
-        // お気に入り（ブックマーク） ViewModel を生成して参照を保持
-        val bookmarkVm = singleBookmarkViewModelFactory.create(boardInfo, null)
-        bookmarkViewModel = bookmarkVm
 
         // サービス名を URL から解析して UI に保持
         val serviceName = parseServiceName(boardInfo.url)
@@ -109,11 +123,21 @@ class BoardViewModel @AssistedInject constructor(
             threadCreationController.prepareCreateIdentityHistory(ensuredId)
         }
 
-        // ブックマーク ViewModel の状態を監視して自身の UIState に反映
-        viewModelScope.launch {
-            bookmarkVm.uiState.collect { bkState ->
-                _uiState.update { it.copy(singleBookmarkState = bkState) }
-            }
+        // ブックマーク状態を監視してツールバー表示に反映
+        bookmarkStatusJob?.cancel()
+        bookmarkStatusJob = viewModelScope.launch {
+            bookmarkBoardRepository.getBoardWithBookmarkAndGroupByUrlFlow(boardInfo.url)
+                .collect { boardWithBookmark ->
+                    val group = boardWithBookmark?.bookmarkWithGroup?.group
+                    _uiState.update {
+                        it.copy(
+                            bookmarkStatusState = BookmarkStatusState(
+                                isBookmarked = group != null,
+                                selectedGroup = group
+                            )
+                        )
+                    }
+                }
         }
 
         // NG リストを監視し、スレッドタイトルのフィルタを更新する
@@ -185,20 +209,151 @@ class BoardViewModel @AssistedInject constructor(
         _uiState.update { it.copy(resetScroll = false) }
     }
 
-    // --- お気に入り関連の処理はBookmarkStateViewModelに委譲 ---
-    fun saveBookmark(groupId: Long) = bookmarkSaveBookmark(groupId)
-    fun unbookmarkBoard() = bookmarkUnbookmark()
-    fun openAddGroupDialog() = bookmarkOpenAddGroupDialog()
-    fun openEditGroupDialog(group: Groupable) = bookmarkOpenEditGroupDialog(group)
-    fun closeAddGroupDialog() = bookmarkCloseAddGroupDialog()
-    fun setEnteredGroupName(name: String) = bookmarkSetEnteredGroupName(name)
-    fun setSelectedColor(color: String) = bookmarkSetSelectedColor(color)
-    fun confirmGroup() = bookmarkConfirmGroup()
-    fun requestDeleteGroup() = bookmarkRequestDeleteGroup()
-    fun confirmDeleteGroup() = bookmarkConfirmDeleteGroup()
-    fun closeDeleteGroupDialog() = bookmarkCloseDeleteGroupDialog()
-    fun openBookmarkSheet() = bookmarkOpenBookmarkSheet()
-    fun closeBookmarkSheet() = bookmarkCloseBookmarkSheet()
+    // --- ブックマークシート関連 ---
+    /**
+     * ブックマークシートを開き、ステートホルダーを生成する。
+     */
+    fun openBookmarkSheet() {
+        val boardInfo = uiState.value.boardInfo
+        if (boardInfo.url.isBlank()) {
+            // URLが空の場合はシートを開かない。
+            return
+        }
+
+        // --- Holder setup ---
+        bookmarkSheetHolder?.dispose()
+        bookmarkSheetJob?.cancel()
+
+        val targets = listOf(
+            BoardTarget(
+                boardInfo = boardInfo,
+                currentGroupId = uiState.value.bookmarkStatusState.selectedGroup?.id
+            )
+        )
+        val holder = bookmarkSheetStateHolderFactory.create(viewModelScope, targets)
+        bookmarkSheetHolder = holder
+        bookmarkSheetJob = viewModelScope.launch {
+            holder.uiState.collect { sheetState ->
+                _uiState.update { it.copy(bookmarkSheetState = sheetState) }
+            }
+        }
+        _uiState.update {
+            it.copy(
+                showBookmarkSheet = true,
+                bookmarkSheetState = holder.uiState.value
+            )
+        }
+    }
+
+    /**
+     * ブックマークシートを閉じてステートホルダーを破棄する。
+     */
+    fun closeBookmarkSheet() {
+        _uiState.update {
+            it.copy(
+                showBookmarkSheet = false,
+                bookmarkSheetState = BookmarkSheetUiState()
+            )
+        }
+        bookmarkSheetJob?.cancel()
+        bookmarkSheetHolder?.dispose()
+        bookmarkSheetJob = null
+        bookmarkSheetHolder = null
+    }
+
+    /**
+     * ブックマークの保存を実行してシートを閉じる。
+     */
+    fun saveBookmark(groupId: Long) {
+        val holder = bookmarkSheetHolder ?: return
+        viewModelScope.launch {
+            holder.applyGroup(groupId)
+            closeBookmarkSheet()
+        }
+    }
+
+    /**
+     * ブックマークの解除を実行してシートを閉じる。
+     */
+    fun unbookmarkBoard() {
+        val holder = bookmarkSheetHolder ?: return
+        viewModelScope.launch {
+            holder.unbookmarkTargets()
+            closeBookmarkSheet()
+        }
+    }
+
+    /**
+     * グループ追加ダイアログを開く。
+     */
+    fun openAddGroupDialog() {
+        bookmarkSheetHolder?.openAddGroupDialog()
+    }
+
+    /**
+     * グループ編集ダイアログを開く。
+     */
+    fun openEditGroupDialog(group: Groupable) {
+        bookmarkSheetHolder?.openEditGroupDialog(group)
+    }
+
+    /**
+     * グループ追加/編集ダイアログを閉じる。
+     */
+    fun closeAddGroupDialog() {
+        bookmarkSheetHolder?.closeAddGroupDialog()
+    }
+
+    /**
+     * 入力中のグループ名を更新する。
+     */
+    fun setEnteredGroupName(name: String) {
+        bookmarkSheetHolder?.setEnteredGroupName(name)
+    }
+
+    /**
+     * 入力中のグループ色を更新する。
+     */
+    fun setSelectedColor(color: String) {
+        bookmarkSheetHolder?.setSelectedColor(color)
+    }
+
+    /**
+     * グループ内容を確定する。
+     */
+    fun confirmGroup() {
+        val holder = bookmarkSheetHolder ?: return
+        viewModelScope.launch {
+            holder.confirmGroup()
+        }
+    }
+
+    /**
+     * グループ削除確認ダイアログを開く。
+     */
+    fun requestDeleteGroup() {
+        val holder = bookmarkSheetHolder ?: return
+        viewModelScope.launch {
+            holder.requestDeleteGroup()
+        }
+    }
+
+    /**
+     * グループ削除を確定する。
+     */
+    fun confirmDeleteGroup() {
+        val holder = bookmarkSheetHolder ?: return
+        viewModelScope.launch {
+            holder.confirmDeleteGroup()
+        }
+    }
+
+    /**
+     * グループ削除ダイアログを閉じる。
+     */
+    fun closeDeleteGroupDialog() {
+        bookmarkSheetHolder?.closeDeleteGroupDialog()
+    }
 
     // ソート関連の操作
     fun setSortKey(sortKey: ThreadSortKey) = threadListCoordinator.setSortKey(sortKey)

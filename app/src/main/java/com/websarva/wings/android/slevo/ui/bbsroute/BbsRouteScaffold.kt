@@ -192,7 +192,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             val tab = tabs[page]
             val viewModel = getViewModel(tab)
             val uiState by viewModel.uiState.collectAsState()
-            val bookmarkState = uiState.singleBookmarkState
+            val bookmarkSheetUiState = uiState.bookmarkSheetState
 
 
             // 各タブごとにLazyListStateを復元する。キーに基づいてrememberするため
@@ -275,7 +275,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     )
 
                     // 共通のボトムシートとダイアログ
-                    if (bookmarkState.showBookmarkSheet) {
+                    if (uiState.showBookmarkSheet) {
                         BookmarkBottomSheet(
                             sheetState = bookmarkSheetState,
                             onDismissRequest = {
@@ -283,8 +283,8 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                 (viewModel as? BoardViewModel)?.closeBookmarkSheet()
                                     ?: (viewModel as? ThreadViewModel)?.closeBookmarkSheet()
                             },
-                            groups = bookmarkState.groups,
-                            selectedGroupId = bookmarkState.selectedGroup?.id,
+                            groups = bookmarkSheetUiState.groups,
+                            selectedGroupId = bookmarkSheetUiState.selectedGroupId,
                             onGroupSelected = {
                                 (viewModel as? BoardViewModel)?.saveBookmark(it)
                                     ?: (viewModel as? ThreadViewModel)?.saveBookmark(it)
@@ -304,13 +304,13 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         )
                     }
 
-                    if (bookmarkState.showAddGroupDialog) {
+                    if (bookmarkSheetUiState.showAddGroupDialog) {
                         AddGroupDialog(
                             onDismissRequest = {
                                 (viewModel as? BoardViewModel)?.closeAddGroupDialog()
                                     ?: (viewModel as? ThreadViewModel)?.closeAddGroupDialog()
                             },
-                            isEdit = bookmarkState.editingGroupId != null,
+                            isEdit = bookmarkSheetUiState.editingGroupId != null,
                             onConfirm = {
                                 (viewModel as? BoardViewModel)?.confirmGroup()
                                     ?: (viewModel as? ThreadViewModel)?.confirmGroup()
@@ -323,20 +323,20 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                 (viewModel as? BoardViewModel)?.setEnteredGroupName(it)
                                     ?: (viewModel as? ThreadViewModel)?.setEnteredGroupName(it)
                             },
-                            enteredValue = bookmarkState.enteredGroupName,
+                            enteredValue = bookmarkSheetUiState.enteredGroupName,
                             onColorSelected = {
                                 (viewModel as? BoardViewModel)?.setSelectedColor(it)
                                     ?: (viewModel as? ThreadViewModel)?.setSelectedColor(it)
                             },
-                            selectedColor = bookmarkState.selectedColor
+                            selectedColor = bookmarkSheetUiState.selectedColor
                         )
                     }
 
-                    if (bookmarkState.showDeleteGroupDialog) {
+                    if (bookmarkSheetUiState.showDeleteGroupDialog) {
                         DeleteGroupDialog(
-                            groupName = bookmarkState.deleteGroupName,
-                            itemNames = bookmarkState.deleteGroupItems,
-                            isBoard = bookmarkState.deleteGroupIsBoard,
+                            groupName = bookmarkSheetUiState.deleteGroupName,
+                            itemNames = bookmarkSheetUiState.deleteGroupItems,
+                            isBoard = bookmarkSheetUiState.deleteGroupIsBoard,
                             onDismissRequest = {
                                 (viewModel as? BoardViewModel)?.closeDeleteGroupDialog()
                                     ?: (viewModel as? ThreadViewModel)?.closeDeleteGroupDialog()
