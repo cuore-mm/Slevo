@@ -1,38 +1,38 @@
-## Context
-Bookmark editing flows exist in three ViewModels and duplicate group-edit logic. A shared bookmark sheet ViewModel should unify these operations while keeping toolbar bookmark status accurate.
+## 背景
+ブックマーク編集の処理が複数のViewModelに分散しており、同等のロジックが重複している。シート表示時のみ必要な処理はViewModelではなく軽量なコントローラにまとめる。
 
-## Goals / Non-Goals
-- Goals:
-  - Single source of truth for bookmark sheet state and actions
-  - Support single-item (board/thread) and bulk-edit (bookmark list selection) flows
-  - Keep bookmark status available for toolbar icons even when the sheet is closed
-- Non-Goals:
-  - Redesign bookmark UI/UX
-  - Change repository APIs or database schema
+## 目標 / 非目標
+- 目標:
+  - シート専用の状態と処理を一箇所に集約する
+  - 単体編集（板/スレ）と一括編集（ブックマーク選択）の両方を同じ入口で扱う
+  - 画面側ViewModelから依存を渡して生成する方式に統一する
+- 非目標:
+  - ブックマークUI/UXの再設計
+  - Repository APIやDBスキーマの変更
 
-## Decisions
-- Decision: Create `BookmarkBottomSheetViewModel` with a `mode` field (`Single` or `Bulk`) and a single `UiState` that covers sheet/dialog state plus bookmark status.
-  - Rationale: Minimizes duplication and keeps UI bindings consistent across screens.
-- Decision: Instantiate the ViewModel in UI scope (screen-level) and bind context on demand.
-  - Rationale: Fits Compose usage and keeps bookmark status observable while the sheet is closed.
-- Decision: Replace `SingleBookmarkViewModel` and its usage in `BoardViewModel`/`ThreadViewModel`.
-  - Rationale: Avoid parallel state sources after refactor.
+## 決定事項
+- 決定: ViewModelではなく `BookmarkBottomSheetController`（仮名）を導入し、シート表示時にのみ生成する。
+  - 理由: シート表示中だけ必要な状態・処理のため軽量なライフサイクルで十分。
+- 決定: 依存は画面側ViewModelから渡す（UI層が直接DIに触れない）。
+  - 理由: 画面の責務を保ちつつDIの露出を避ける。
+- 決定: ツールバーの星表示など常駐が必要な状態は別途保持する。
+  - 理由: シート非表示中でもブックマーク状態を更新し続ける必要があるため。
 
-## Alternatives considered
-- Keep `SingleBookmarkViewModel` and add an adapter layer for `BookmarkListViewModel`.
-  - Rejected: Still keeps two code paths and duplicated group-edit logic.
-- Create a repository-level use case layer and keep current ViewModels.
-  - Rejected: Does not reduce UI/state duplication or bottom sheet orchestration.
+## 代替案
+- `hiltViewModel()` でシート用ViewModelを作る
+  - 却下: 画面に紐づき短命にならず、シート表示時だけの生成/破棄にならない。
+- 既存 `SingleBookmarkViewModel` を残してラップする
+  - 却下: 重複ロジックが残る。
 
-## Risks / Trade-offs
-- A single ViewModel with multiple modes can grow complex; mitigate with sealed mode types and clear state sections.
-- UI-scoped instantiation requires consistent lifecycle management; ensure it is tied to the screen and not recreated on each recomposition.
+## リスク / トレードオフ
+- シート用コントローラが短命になるため、回転等で入力状態が消える可能性がある。
+  - 対策: 必要なら画面側ViewModelで一時値を保持する。
 
-## Migration Plan
-1. Introduce the shared ViewModel and wire it to repositories.
-2. Update board/thread/list scaffolds to use the shared ViewModel state.
-3. Remove `SingleBookmarkViewModel` and related wiring once references are gone.
+## 移行手順
+1. コントローラと `UiState` を追加する。
+2. 画面ViewModelが依存を渡してコントローラを生成する流れに置き換える。
+3. `ThreadViewModel` / `BoardViewModel` / `BookmarkListViewModel` のブックマーク処理を委譲に切り替える。
+4. 旧 `SingleBookmarkViewModel` を削除する。
 
-## Open Questions
-- Should bulk mode allow mixed board + thread selection, or enforce one type at a time?
-- Does the bookmark status shown in toolbars need to update while the sheet is closed (current behavior)?
+## 未決事項
+- 一括編集で「板とスレの混在選択」を許可するか。

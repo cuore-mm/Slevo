@@ -1,21 +1,21 @@
 ## ADDED Requirements
-### Requirement: Bookmark sheet ViewModel
-The system SHALL provide a dedicated ViewModel that owns bookmark sheet state and actions for bookmark editing.
+### Requirement: ブックマークシート用コントローラ
+システムはブックマークシートの状態と操作を管理するコントローラを提供することを SHALL 要求する。
 
-#### Scenario: Open sheet from a thread
-- **WHEN** the user opens the bookmark sheet from a thread screen
-- **THEN** the shared ViewModel provides the groups list, selected group, and actions for that thread
+#### Scenario: スレッド画面からシートを開く
+- **WHEN** ユーザーがスレッド画面でブックマークシートを開く
+- **THEN** コントローラは該当スレッドのグループ一覧と選択状態を提供する
 
-### Requirement: Context-driven bookmark editing
-The system SHALL support both single-item and bulk-edit contexts within the shared bookmark sheet ViewModel.
+### Requirement: コンテキスト切替による編集
+システムは単体編集と一括編集のコンテキストをコントローラで切り替えられることを SHALL 要求する。
 
-#### Scenario: Apply a group to selected items
-- **WHEN** the user opens the sheet from the bookmark list with a bulk selection
-- **THEN** applying a group updates all selected items and closes the sheet
+#### Scenario: 一括選択にグループを適用する
+- **WHEN** ユーザーがブックマーク一覧の一括選択でグループを適用する
+- **THEN** 選択された全件にグループが反映されシートが閉じる
 
-### Requirement: Bookmark status exposure
-The system SHALL expose bookmark status and selected group data for toolbar rendering independently of sheet visibility.
+### Requirement: シート外のブックマーク状態保持
+システムはシート非表示時でもブックマーク状態を表示できるように状態を保持することを SHALL 要求する。
 
-#### Scenario: Toolbar shows bookmarked state while sheet is closed
-- **WHEN** a board or thread is bookmarked
-- **THEN** the toolbar displays the bookmarked state without requiring the sheet to be open
+#### Scenario: シート非表示でも星アイコンが更新される
+- **WHEN** 板またはスレッドがブックマークされる
+- **THEN** シートが閉じていても星アイコンが更新される

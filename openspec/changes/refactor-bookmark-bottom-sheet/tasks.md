@@ -1,11 +1,11 @@
-## 1. Implementation
-- [ ] 1.1 Define `BookmarkBottomSheetViewModel` and its `UiState`/mode types for single and bulk contexts
-- [ ] 1.2 Wire repositories and context binding (board/thread/bulk selection) into the new ViewModel
-- [ ] 1.3 Replace bookmark operations in `BoardViewModel` and `ThreadViewModel` with delegation to the shared ViewModel
-- [ ] 1.4 Replace bookmark operations in `BookmarkListViewModel` with delegation to the shared ViewModel (bulk mode)
-- [ ] 1.5 Update `BbsRouteScaffold` and `BookmarkListScaffold` to consume the shared ViewModel state
-- [ ] 1.6 Remove or deprecate `SingleBookmarkViewModel` and related state if no longer referenced
+## 1. 実装
+- [ ] 1.1 `BookmarkBottomSheetController` と `UiState` / mode 型を定義する
+- [ ] 1.2 画面ViewModelから依存を渡してコントローラを生成する流れを追加する
+- [ ] 1.3 `BoardViewModel` / `ThreadViewModel` のブックマーク処理をコントローラ委譲に置換する
+- [ ] 1.4 `BookmarkListViewModel` の一括編集をコントローラ委譲に置換する
+- [ ] 1.5 `BbsRouteScaffold` と `BookmarkListScaffold` を新しい状態に合わせて更新する
+- [ ] 1.6 `SingleBookmarkViewModel` と関連状態を削除する
 
-## 2. Validation
-- [ ] 2.1 Run unit tests
-- [ ] 2.2 Run build
+## 2. 検証
+- [ ] 2.1 ユニットテストを実行する
+- [ ] 2.2 ビルドを実行する
