@@ -81,63 +81,71 @@ class BookmarkBottomSheetStateHolder(
     /**
      * targetsへ指定グループを適用する。
      */
-    suspend fun applyGroup(groupId: Long) {
-        if (targets.isEmpty()) {
+    fun applyGroup(groupId: Long) {
+        val targetsSnapshot = targets
+        if (targetsSnapshot.isEmpty()) {
             // 空の場合は処理を行わない。
             return
         }
 
-        if (isBoardTargets()) {
-            // --- Persistence ---
-            targets.filterIsInstance<BoardTarget>().forEach { target ->
-                boardRepo.upsertBookmark(target.boardInfo, groupId)
-            }
-        } else {
-            // --- Persistence ---
-            targets.filterIsInstance<ThreadTarget>().forEach { target ->
-                // --- Mapping ---
-                // ThreadInfo と BoardInfo を BookmarkThreadEntity に変換する。
-                threadRepo.insertBookmark(
-                    BookmarkThreadEntity(
-                        threadKey = target.threadInfo.key,
-                        boardUrl = target.boardInfo.url,
-                        boardId = target.boardInfo.boardId,
-                        groupId = groupId,
-                        title = target.threadInfo.title,
-                        boardName = target.boardInfo.name,
-                        resCount = target.threadInfo.resCount
+        val isBoardTargets = isBoardTargets(targetsSnapshot)
+        scope.launch {
+            if (isBoardTargets) {
+                // --- Persistence ---
+                targetsSnapshot.filterIsInstance<BoardTarget>().forEach { target ->
+                    boardRepo.upsertBookmark(target.boardInfo, groupId)
+                }
+            } else {
+                // --- Persistence ---
+                targetsSnapshot.filterIsInstance<ThreadTarget>().forEach { target ->
+                    // --- Mapping ---
+                    // ThreadInfo と BoardInfo を BookmarkThreadEntity に変換する。
+                    threadRepo.insertBookmark(
+                        BookmarkThreadEntity(
+                            threadKey = target.threadInfo.key,
+                            boardUrl = target.boardInfo.url,
+                            boardId = target.boardInfo.boardId,
+                            groupId = groupId,
+                            title = target.threadInfo.title,
+                            boardName = target.boardInfo.name,
+                            resCount = target.threadInfo.resCount
+                        )
                     )
-                )
+                }
             }
-        }
 
-        _uiState.update { it.copy(selectedGroupId = groupId) }
+            _uiState.update { it.copy(selectedGroupId = groupId) }
+        }
     }
 
     /**
      * targetsのブックマークを解除する。
      */
-    suspend fun unbookmarkTargets() {
-        if (targets.isEmpty()) {
+    fun unbookmarkTargets() {
+        val targetsSnapshot = targets
+        if (targetsSnapshot.isEmpty()) {
             // 空の場合は処理を行わない。
             return
         }
 
-        if (isBoardTargets()) {
-            targets.filterIsInstance<BoardTarget>().forEach { target ->
-                if (target.boardInfo.boardId == 0L) {
-                    // 未登録のboardIdは削除できないためスキップする。
-                    return@forEach
+        val isBoardTargets = isBoardTargets(targetsSnapshot)
+        scope.launch {
+            if (isBoardTargets) {
+                targetsSnapshot.filterIsInstance<BoardTarget>().forEach { target ->
+                    if (target.boardInfo.boardId == 0L) {
+                        // 未登録のboardIdは削除できないためスキップする。
+                        return@forEach
+                    }
+                    boardRepo.deleteBookmark(target.boardInfo.boardId)
                 }
-                boardRepo.deleteBookmark(target.boardInfo.boardId)
+            } else {
+                targetsSnapshot.filterIsInstance<ThreadTarget>().forEach { target ->
+                    threadRepo.deleteBookmark(target.threadInfo.key, target.boardInfo.url)
+                }
             }
-        } else {
-            targets.filterIsInstance<ThreadTarget>().forEach { target ->
-                threadRepo.deleteBookmark(target.threadInfo.key, target.boardInfo.url)
-            }
-        }
 
-        _uiState.update { it.copy(selectedGroupId = null) }
+            _uiState.update { it.copy(selectedGroupId = null) }
+        }
     }
 
     /**
@@ -199,7 +207,7 @@ class BookmarkBottomSheetStateHolder(
     /**
      * 入力中のグループ内容を保存する。
      */
-    suspend fun confirmGroup() {
+    fun confirmGroup() {
         val name = _uiState.value.enteredGroupName
         if (name.isBlank()) {
             // 空入力は確定しない。
@@ -207,65 +215,71 @@ class BookmarkBottomSheetStateHolder(
         }
         val color = _uiState.value.selectedColor
         val editId = _uiState.value.editingGroupId
-        if (editId == null) {
-            addGroup(name, color)
-        } else {
-            updateGroup(editId, name, color)
+        scope.launch {
+            if (editId == null) {
+                addGroup(name, color)
+            } else {
+                updateGroup(editId, name, color)
+            }
+            closeAddGroupDialog()
         }
-        closeAddGroupDialog()
     }
 
     /**
      * グループ削除ダイアログを開く。
      */
-    suspend fun requestDeleteGroup() {
+    fun requestDeleteGroup() {
         val groupId = _uiState.value.editingGroupId
         if (groupId == null) {
             // 編集対象が未設定の場合は開かない。
             return
         }
 
-        // --- Load ---
-        val (groupName, items) = if (isBoardTargets()) {
-            val group = boardRepo.observeGroupsWithBoards().first()
-                .firstOrNull { it.group.groupId == groupId }
-                ?: return
-            val itemNames = group.boards.map { it.name }
-            group.group.name to itemNames
-        } else {
-            val group = threadRepo.observeSortedGroupsWithThreadBookmarks().first()
-                .firstOrNull { it.group.groupId == groupId }
-                ?: return
-            val itemNames = group.threads.map { it.title }
-            group.group.name to itemNames
-        }
+        scope.launch {
+            // --- Load ---
+            val (groupName, items) = if (isBoardTargets()) {
+                val group = boardRepo.observeGroupsWithBoards().first()
+                    .firstOrNull { it.group.groupId == groupId }
+                    ?: return@launch
+                val itemNames = group.boards.map { it.name }
+                group.group.name to itemNames
+            } else {
+                val group = threadRepo.observeSortedGroupsWithThreadBookmarks().first()
+                    .firstOrNull { it.group.groupId == groupId }
+                    ?: return@launch
+                val itemNames = group.threads.map { it.title }
+                group.group.name to itemNames
+            }
 
-        _uiState.update {
-            it.copy(
-                showDeleteGroupDialog = true,
-                deleteGroupName = groupName,
-                deleteGroupItems = items,
-                deleteGroupIsBoard = isBoardTargets()
-            )
+            _uiState.update {
+                it.copy(
+                    showDeleteGroupDialog = true,
+                    deleteGroupName = groupName,
+                    deleteGroupItems = items,
+                    deleteGroupIsBoard = isBoardTargets()
+                )
+            }
         }
     }
 
     /**
      * グループ削除を確定する。
      */
-    suspend fun confirmDeleteGroup() {
+    fun confirmDeleteGroup() {
         val groupId = _uiState.value.editingGroupId
         if (groupId == null) {
             // 編集対象が未設定の場合は削除しない。
             return
         }
-        if (isBoardTargets()) {
-            boardRepo.deleteGroup(groupId)
-        } else {
-            threadRepo.deleteGroup(groupId)
+        scope.launch {
+            if (isBoardTargets()) {
+                boardRepo.deleteGroup(groupId)
+            } else {
+                threadRepo.deleteGroup(groupId)
+            }
+            _uiState.update { it.copy(showDeleteGroupDialog = false) }
+            closeAddGroupDialog()
         }
-        _uiState.update { it.copy(showDeleteGroupDialog = false) }
-        closeAddGroupDialog()
     }
 
     /**

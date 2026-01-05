@@ -290,19 +290,15 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                             groups = bookmarkSheetUiState.groups,
                             selectedGroupId = bookmarkSheetUiState.selectedGroupId,
                             onGroupSelected = {
-                                bookmarkSheetHolder?.let { holder ->
-                                    coroutineScope.launch {
-                                        holder.applyGroup(it)
-                                        holder.close()
-                                    }
+                                bookmarkSheetHolder?.apply {
+                                    applyGroup(it)
+                                    close()
                                 }
                             },
                             onUnbookmarkRequested = {
-                                bookmarkSheetHolder?.let { holder ->
-                                    coroutineScope.launch {
-                                        holder.unbookmarkTargets()
-                                        holder.close()
-                                    }
+                                bookmarkSheetHolder?.apply {
+                                    unbookmarkTargets()
+                                    close()
                                 }
                             },
                             onAddGroup = {
@@ -321,18 +317,10 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                             },
                             isEdit = bookmarkSheetUiState.editingGroupId != null,
                             onConfirm = {
-                                bookmarkSheetHolder?.let { holder ->
-                                    coroutineScope.launch {
-                                        holder.confirmGroup()
-                                    }
-                                }
+                                bookmarkSheetHolder?.confirmGroup()
                             },
                             onDelete = {
-                                bookmarkSheetHolder?.let { holder ->
-                                    coroutineScope.launch {
-                                        holder.requestDeleteGroup()
-                                    }
-                                }
+                                bookmarkSheetHolder?.requestDeleteGroup()
                             },
                             onValueChange = {
                                 bookmarkSheetHolder?.setEnteredGroupName(it)
@@ -354,11 +342,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                 bookmarkSheetHolder?.closeDeleteGroupDialog()
                             },
                             onConfirm = {
-                                bookmarkSheetHolder?.let { holder ->
-                                    coroutineScope.launch {
-                                        holder.confirmDeleteGroup()
-                                    }
-                                }
+                                bookmarkSheetHolder?.confirmDeleteGroup()
                             }
                         )
                     }

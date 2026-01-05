@@ -19,7 +19,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,7 +31,6 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,7 +47,6 @@ fun BookmarkListScaffold(
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
 
     val editSheetState = rememberModalBottomSheetState()
-    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -142,16 +139,12 @@ fun BookmarkListScaffold(
                 groups = uiState.bookmarkSheetState.groups,
                 selectedGroupId = uiState.bookmarkSheetState.selectedGroupId,
                 onGroupSelected = { groupId ->
-                    coroutineScope.launch {
-                        bookmarkSheetHolder.applyGroup(groupId)
-                        bookmarkViewModel.toggleSelectMode(false)
-                    }
+                    bookmarkSheetHolder.applyGroup(groupId)
+                    bookmarkViewModel.toggleSelectMode(false)
                 },
                 onUnbookmarkRequested = {
-                    coroutineScope.launch {
-                        bookmarkSheetHolder.unbookmarkTargets()
-                        bookmarkViewModel.toggleSelectMode(false)
-                    }
+                    bookmarkSheetHolder.unbookmarkTargets()
+                    bookmarkViewModel.toggleSelectMode(false)
                 },
                 onAddGroup = { bookmarkSheetHolder.openAddGroupDialog() },
                 onGroupLongClick = { group ->
@@ -164,16 +157,8 @@ fun BookmarkListScaffold(
             AddGroupDialog(
                 onDismissRequest = { bookmarkSheetHolder.closeAddGroupDialog() },
                 isEdit = uiState.bookmarkSheetState.editingGroupId != null,
-                onConfirm = {
-                    coroutineScope.launch {
-                        bookmarkSheetHolder.confirmGroup()
-                    }
-                },
-                onDelete = {
-                    coroutineScope.launch {
-                        bookmarkSheetHolder.requestDeleteGroup()
-                    }
-                },
+                onConfirm = { bookmarkSheetHolder.confirmGroup() },
+                onDelete = { bookmarkSheetHolder.requestDeleteGroup() },
                 onValueChange = { bookmarkSheetHolder.setEnteredGroupName(it) },
                 enteredValue = uiState.bookmarkSheetState.enteredGroupName,
                 onColorSelected = { bookmarkSheetHolder.setSelectedColor(it) },
@@ -187,11 +172,7 @@ fun BookmarkListScaffold(
                 itemNames = uiState.bookmarkSheetState.deleteGroupItems,
                 isBoard = uiState.bookmarkSheetState.deleteGroupIsBoard,
                 onDismissRequest = { bookmarkSheetHolder.closeDeleteGroupDialog() },
-                onConfirm = {
-                    coroutineScope.launch {
-                        bookmarkSheetHolder.confirmDeleteGroup()
-                    }
-                }
+                onConfirm = { bookmarkSheetHolder.confirmDeleteGroup() }
             )
         }
     }
