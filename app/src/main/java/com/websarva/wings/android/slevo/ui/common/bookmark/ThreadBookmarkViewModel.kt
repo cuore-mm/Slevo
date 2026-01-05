@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.BookmarkThreadEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import dagger.assisted.Assisted
@@ -20,7 +19,7 @@ import kotlinx.coroutines.launch
 /**
  * スレッド向けのブックマーク操作と状態を管理する ViewModel。
  *
- * グループ編集は共通ヘルパーに委譲し、スレッド固有の保存/解除のみを担当する。
+ * グループ編集は共通コントローラに委譲し、スレッド固有の保存/解除のみを担当する。
  */
 class ThreadBookmarkViewModel @AssistedInject constructor(
     private val bookmarkRepository: ThreadBookmarkRepository,
@@ -31,27 +30,41 @@ class ThreadBookmarkViewModel @AssistedInject constructor(
     private val _uiState = MutableStateFlow(SingleBookmarkState())
     override val bookmarkState: StateFlow<SingleBookmarkState> = _uiState.asStateFlow()
 
-    private val groupEditor = BookmarkGroupEditor(
+    private val groupDialogController = GroupDialogController(
         scope = viewModelScope,
         state = _uiState,
-        config = BookmarkGroupEditor.Config(
-            isBoard = false,
-            observeGroups = { bookmarkRepository.observeAllGroups() },
-            addGroup = { name, color -> bookmarkRepository.addGroupAtEnd(name, color) },
-            updateGroup = { id, name, color -> bookmarkRepository.updateGroup(id, name, color) },
-            deleteGroup = { id -> bookmarkRepository.deleteGroup(id) },
-            loadDeleteItems = { groupId ->
-                bookmarkRepository.observeSortedGroupsWithThreadBookmarks().first()
+        getDialogState = { it.groupDialogState },
+        setDialogState = { state, dialog -> state.copy(groupDialogState = dialog) },
+        config = GroupDialogController.Config(
+            addGroup = { _, name, color -> bookmarkRepository.addGroupAtEnd(name, color) },
+            updateGroup = { _, id, name, color -> bookmarkRepository.updateGroup(id, name, color) },
+            deleteGroup = { _, id -> bookmarkRepository.deleteGroup(id) },
+            loadDeleteDialogData = { _, groupId ->
+                val group = bookmarkRepository.observeSortedGroupsWithThreadBookmarks().first()
                     .firstOrNull { it.group.groupId == groupId }
-                    ?.threads
-                    ?.map { it.title }
-                    ?: emptyList()
+                    ?: return@loadDeleteDialogData null
+                GroupDialogController.DeleteDialogData(
+                    groupName = group.group.name,
+                    items = group.threads.map { it.title },
+                )
             },
         ),
     )
 
     init {
+        observeGroups()
         observeThreadBookmark()
+    }
+
+    /**
+     * グループ一覧を監視して UI 状態へ反映する。
+     */
+    private fun observeGroups() {
+        viewModelScope.launch {
+            bookmarkRepository.observeAllGroups().collect { groups ->
+                _uiState.update { it.copy(groups = groups) }
+            }
+        }
     }
 
     /**
@@ -111,15 +124,16 @@ class ThreadBookmarkViewModel @AssistedInject constructor(
         _uiState.update { it.copy(showBookmarkSheet = false) }
     }
 
-    override fun openAddGroupDialog() = groupEditor.openAddGroupDialog()
-    override fun openEditGroupDialog(group: Groupable) = groupEditor.openEditGroupDialog(group)
-    override fun closeAddGroupDialog() = groupEditor.closeAddGroupDialog()
-    override fun setEnteredGroupName(name: String) = groupEditor.setEnteredGroupName(name)
-    override fun setSelectedColor(color: String) = groupEditor.setSelectedColor(color)
-    override fun confirmGroup() = groupEditor.confirmGroup()
-    override fun requestDeleteGroup() = groupEditor.requestDeleteGroup()
-    override fun confirmDeleteGroup() = groupEditor.confirmDeleteGroup()
-    override fun closeDeleteGroupDialog() = groupEditor.closeDeleteGroupDialog()
+    override fun openAddGroupDialog() = groupDialogController.openAddGroupDialog(false)
+    override fun openEditGroupDialog(group: com.websarva.wings.android.slevo.data.model.Groupable) =
+        groupDialogController.openEditGroupDialog(group, false)
+    override fun closeAddGroupDialog() = groupDialogController.closeAddGroupDialog()
+    override fun setEnteredGroupName(name: String) = groupDialogController.setEnteredGroupName(name)
+    override fun setSelectedColor(color: String) = groupDialogController.setSelectedColor(color)
+    override fun confirmGroup() = groupDialogController.confirmGroup()
+    override fun requestDeleteGroup() = groupDialogController.requestDeleteGroup()
+    override fun confirmDeleteGroup() = groupDialogController.confirmDeleteGroup()
+    override fun closeDeleteGroupDialog() = groupDialogController.closeDeleteGroupDialog()
 }
 
 /**

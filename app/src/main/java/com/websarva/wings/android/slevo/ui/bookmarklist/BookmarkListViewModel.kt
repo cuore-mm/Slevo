@@ -9,6 +9,8 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.Bo
 import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
+import com.websarva.wings.android.slevo.ui.common.bookmark.GroupDialogController
+import com.websarva.wings.android.slevo.ui.common.bookmark.GroupDialogState
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +21,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ブックマーク一覧画面の状態と選択操作を管理する ViewModel。
+ *
+ * グループ編集とダイアログ制御は共通コントローラへ委譲する。
+ */
 @HiltViewModel
 class BookmarkViewModel @Inject constructor(
     private val boardRepo: BookmarkBoardRepository,
@@ -27,6 +34,56 @@ class BookmarkViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(BookmarkUiState())
     val uiState: StateFlow<BookmarkUiState> = _uiState.asStateFlow()
+
+    private val groupDialogController = GroupDialogController(
+        scope = viewModelScope,
+        state = _uiState,
+        getDialogState = { it.groupDialogState },
+        setDialogState = { state, dialog -> state.copy(groupDialogState = dialog) },
+        config = GroupDialogController.Config(
+            addGroup = { isBoard, name, color ->
+                if (isBoard) {
+                    boardRepo.addGroupAtEnd(name, color)
+                } else {
+                    threadBookmarkRepo.addGroupAtEnd(name, color)
+                }
+            },
+            updateGroup = { isBoard, id, name, color ->
+                if (isBoard) {
+                    boardRepo.updateGroup(id, name, color)
+                } else {
+                    threadBookmarkRepo.updateGroup(id, name, color)
+                }
+            },
+            deleteGroup = { isBoard, id ->
+                if (isBoard) {
+                    boardRepo.deleteGroup(id)
+                } else {
+                    threadBookmarkRepo.deleteGroup(id)
+                }
+            },
+            loadDeleteDialogData = { isBoard, groupId ->
+                if (isBoard) {
+                    val group = boardRepo.observeGroupsWithBoards().first()
+                        .firstOrNull { it.group.groupId == groupId }
+                        ?: return@loadDeleteDialogData null
+                    GroupDialogController.DeleteDialogData(
+                        groupName = group.group.name,
+                        items = group.boards.map { it.name },
+                    )
+                } else {
+                    val group = threadBookmarkRepo.observeSortedGroupsWithThreadBookmarks().first()
+                        .firstOrNull { it.group.groupId == groupId }
+                        ?: return@loadDeleteDialogData null
+                    GroupDialogController.DeleteDialogData(
+                        groupName = group.group.name,
+                        items = group.threads.map { it.title },
+                    )
+                }
+            },
+            defaultColorName = BookmarkColor.RED.value,
+        ),
+    )
 
     // 初期化時にお気に入りリストを監視
     init {
@@ -48,6 +105,9 @@ class BookmarkViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 選択モードの有効/無効を切り替える。
+     */
     fun toggleSelectMode(enabled: Boolean) {
         _uiState.update { state ->
             state.copy(
@@ -58,6 +118,9 @@ class BookmarkViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 指定の板を選択状態に切り替える。
+     */
     fun toggleBoardSelect(boardId: Long) {
         _uiState.update { state ->
             val next = state.selectedBoards.toMutableSet().apply {
@@ -67,6 +130,9 @@ class BookmarkViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 指定のスレッドを選択状態に切り替える。
+     */
     fun toggleThreadSelect(id: String) {
         _uiState.update { state ->
             val next = state.selectedThreads.toMutableSet().apply {
@@ -76,6 +142,9 @@ class BookmarkViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 選択中のグループを推測して編集シートを開く。
+     */
     fun openEditSheet() {
         val groupId = computeSelectedGroupId()
         _uiState.update { it.copy(showEditSheet = true, selectedGroupId = groupId) }
@@ -85,6 +154,9 @@ class BookmarkViewModel @Inject constructor(
         _uiState.update { it.copy(showEditSheet = false, selectedGroupId = null) }
     }
 
+    /**
+     * 選択中の板/スレッドへグループを一括適用する。
+     */
     fun applyGroupToSelection(groupId: Long) {
         val current = _uiState.value
         viewModelScope.launch {
@@ -108,6 +180,9 @@ class BookmarkViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 選択中の板/スレッドのブックマークを一括解除する。
+     */
     fun unbookmarkSelection() {
         val current = _uiState.value
         viewModelScope.launch {
@@ -131,6 +206,9 @@ class BookmarkViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 選択中のグループが1つに定まる場合、その ID を返す。
+     */
     private fun computeSelectedGroupId(): Long? {
         val state = _uiState.value
         if (state.selectedBoards.isNotEmpty()) {
@@ -144,6 +222,9 @@ class BookmarkViewModel @Inject constructor(
         return null
     }
 
+    /**
+     * 板IDから所属グループIDを探索する。
+     */
     private fun findBoardGroupId(boardId: Long): Long? {
         _uiState.value.boardList.forEach { g ->
             if (g.boards.any { it.boardId == boardId }) return g.group.groupId
@@ -153,6 +234,9 @@ class BookmarkViewModel @Inject constructor(
 
     private fun findThreadGroupId(key: String): Long? = findThreadEntity(key)?.groupId
 
+    /**
+     * UI状態内のスレッド一覧からエンティティを探索する。
+     */
     private fun findThreadEntity(key: String): BookmarkThreadEntity? {
         _uiState.value.groupedThreadBookmarks.forEach { g ->
             g.threads.forEach { t ->
@@ -162,130 +246,31 @@ class BookmarkViewModel @Inject constructor(
         return null
     }
 
-    fun openAddGroupDialog(isBoard: Boolean) {
-        _uiState.update {
-            it.copy(
-                showAddGroupDialog = true,
-                enteredGroupName = "",
-                selectedColor = BookmarkColor.RED.value,
-                editingGroupId = null,
-                groupDialogIsBoard = isBoard
-            )
-        }
-    }
+    fun openAddGroupDialog(isBoard: Boolean) = groupDialogController.openAddGroupDialog(isBoard)
 
-    fun openEditGroupDialog(group: Groupable, isBoard: Boolean) {
-        _uiState.update {
-            it.copy(
-                showAddGroupDialog = true,
-                enteredGroupName = group.name,
-                selectedColor = group.colorName,
-                editingGroupId = group.id,
-                groupDialogIsBoard = isBoard
-            )
-        }
-    }
+    fun openEditGroupDialog(group: Groupable, isBoard: Boolean) =
+        groupDialogController.openEditGroupDialog(group, isBoard)
 
-    fun closeAddGroupDialog() {
-        _uiState.update {
-            it.copy(
-                showAddGroupDialog = false,
-                enteredGroupName = "",
-                selectedColor = BookmarkColor.RED.value,
-                editingGroupId = null
-            )
-        }
-    }
+    fun closeAddGroupDialog() = groupDialogController.closeAddGroupDialog()
 
-    fun setEnteredGroupName(name: String) {
-        _uiState.update { it.copy(enteredGroupName = name) }
-    }
+    fun setEnteredGroupName(name: String) = groupDialogController.setEnteredGroupName(name)
 
-    fun setSelectedColor(color: String) {
-        _uiState.update { it.copy(selectedColor = color) }
-    }
+    fun setSelectedColor(color: String) = groupDialogController.setSelectedColor(color)
 
-    private suspend fun addGroup(isBoard: Boolean, name: String, color: String) {
-        if (isBoard) {
-            boardRepo.addGroupAtEnd(name, color)
-        } else {
-            threadBookmarkRepo.addGroupAtEnd(name, color)
-        }
-    }
+    fun confirmGroup() = groupDialogController.confirmGroup()
 
-    private suspend fun updateGroup(isBoard: Boolean, id: Long, name: String, color: String) {
-        if (isBoard) {
-            boardRepo.updateGroup(id, name, color)
-        } else {
-            threadBookmarkRepo.updateGroup(id, name, color)
-        }
-    }
+    fun requestDeleteGroup() = groupDialogController.requestDeleteGroup()
 
-    fun confirmGroup() {
-        viewModelScope.launch {
-            val name = _uiState.value.enteredGroupName.takeIf { it.isNotBlank() } ?: return@launch
-            val color = _uiState.value.selectedColor
-            val isBoard = _uiState.value.groupDialogIsBoard
-            val editId = _uiState.value.editingGroupId
-            if (editId == null) {
-                addGroup(isBoard, name, color)
-            } else {
-                updateGroup(isBoard, editId, name, color)
-            }
-            closeAddGroupDialog()
-        }
-    }
+    fun confirmDeleteGroup() = groupDialogController.confirmDeleteGroup()
 
-    fun requestDeleteGroup() {
-        val groupId = _uiState.value.editingGroupId ?: return
-        viewModelScope.launch {
-            val isBoard = _uiState.value.groupDialogIsBoard
-            val groupName = if (isBoard) {
-                boardRepo.observeGroupsWithBoards().first()
-                    .firstOrNull { it.group.groupId == groupId }?.group?.name
-            } else {
-                threadBookmarkRepo.observeSortedGroupsWithThreadBookmarks().first()
-                    .firstOrNull { it.group.groupId == groupId }?.group?.name
-            } ?: return@launch
-
-            val items = if (isBoard) {
-                boardRepo.observeGroupsWithBoards().first()
-                    .firstOrNull { it.group.groupId == groupId }?.boards?.map { it.name } ?: emptyList()
-            } else {
-                threadBookmarkRepo.observeSortedGroupsWithThreadBookmarks().first()
-                    .firstOrNull { it.group.groupId == groupId }?.threads?.map { it.title } ?: emptyList()
-            }
-
-            _uiState.update {
-                it.copy(
-                    showDeleteGroupDialog = true,
-                    deleteGroupName = groupName,
-                    deleteGroupItems = items,
-                    deleteGroupIsBoard = isBoard
-                )
-            }
-        }
-    }
-
-    fun confirmDeleteGroup() {
-        val groupId = _uiState.value.editingGroupId ?: return
-        val isBoard = _uiState.value.groupDialogIsBoard
-        viewModelScope.launch {
-            if (isBoard) {
-                boardRepo.deleteGroup(groupId)
-            } else {
-                threadBookmarkRepo.deleteGroup(groupId)
-            }
-            _uiState.update { it.copy(showDeleteGroupDialog = false) }
-            closeAddGroupDialog()
-        }
-    }
-
-    fun closeDeleteGroupDialog() {
-        _uiState.update { it.copy(showDeleteGroupDialog = false) }
-    }
+    fun closeDeleteGroupDialog() = groupDialogController.closeDeleteGroupDialog()
 }
 
+/**
+ * ブックマーク一覧画面の UI 状態。
+ *
+ * 一覧表示とグループ編集の状態をまとめる。
+ */
 data class BookmarkUiState(
     val isLoading: Boolean = false,
     val boardList: List<GroupWithBoards> = emptyList(),
@@ -295,13 +280,5 @@ data class BookmarkUiState(
     val selectedThreads: Set<String> = emptySet(),
     val showEditSheet: Boolean = false,
     val selectedGroupId: Long? = null,
-    val showAddGroupDialog: Boolean = false,
-    val enteredGroupName: String = "",
-    val selectedColor: String = BookmarkColor.RED.value,
-    val editingGroupId: Long? = null,
-    val showDeleteGroupDialog: Boolean = false,
-    val deleteGroupName: String = "",
-    val deleteGroupItems: List<String> = emptyList(),
-    val deleteGroupIsBoard: Boolean = true,
-    val groupDialogIsBoard: Boolean = true,
+    val groupDialogState: GroupDialogState = GroupDialogState(),
 )

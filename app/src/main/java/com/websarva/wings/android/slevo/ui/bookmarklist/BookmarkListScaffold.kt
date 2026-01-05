@@ -43,6 +43,7 @@ fun BookmarkListScaffold(
 ) {
     val bookmarkViewModel: BookmarkViewModel = hiltViewModel()
     val uiState by bookmarkViewModel.uiState.collectAsState()
+    val dialogState = uiState.groupDialogState
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
 
@@ -154,24 +155,24 @@ fun BookmarkListScaffold(
             )
         }
 
-        if (uiState.showAddGroupDialog) {
+        if (dialogState.showAddGroupDialog) {
             AddGroupDialog(
                 onDismissRequest = { bookmarkViewModel.closeAddGroupDialog() },
-                isEdit = uiState.editingGroupId != null,
+                isEdit = dialogState.editingGroupId != null,
                 onConfirm = { bookmarkViewModel.confirmGroup() },
                 onDelete = { bookmarkViewModel.requestDeleteGroup() },
                 onValueChange = { bookmarkViewModel.setEnteredGroupName(it) },
-                enteredValue = uiState.enteredGroupName,
+                enteredValue = dialogState.enteredGroupName,
                 onColorSelected = { bookmarkViewModel.setSelectedColor(it) },
-                selectedColor = uiState.selectedColor
+                selectedColor = dialogState.selectedColor
             )
         }
 
-        if (uiState.showDeleteGroupDialog) {
+        if (dialogState.showDeleteGroupDialog) {
             DeleteGroupDialog(
-                groupName = uiState.deleteGroupName,
-                itemNames = uiState.deleteGroupItems,
-                isBoard = uiState.deleteGroupIsBoard,
+                groupName = dialogState.deleteGroupName,
+                itemNames = dialogState.deleteGroupItems,
+                isBoard = dialogState.dialogTargetIsBoard,
                 onDismissRequest = { bookmarkViewModel.closeDeleteGroupDialog() },
                 onConfirm = { bookmarkViewModel.confirmDeleteGroup() }
             )

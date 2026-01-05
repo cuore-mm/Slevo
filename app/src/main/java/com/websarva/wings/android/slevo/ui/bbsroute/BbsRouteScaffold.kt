@@ -192,6 +192,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel> BbsRouteScaffold(
             val viewModel = getViewModel(tab)
             val uiState by viewModel.uiState.collectAsState()
             val bookmarkState = uiState.singleBookmarkState
+            val dialogState = bookmarkState.groupDialogState
 
 
             // 各タブごとにLazyListStateを復元する。キーに基づいてrememberするため
@@ -297,12 +298,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel> BbsRouteScaffold(
                         )
                     }
 
-                    if (bookmarkState.showAddGroupDialog) {
+                    if (dialogState.showAddGroupDialog) {
                         AddGroupDialog(
                             onDismissRequest = {
                                 viewModel.closeAddGroupDialog()
                             },
-                            isEdit = bookmarkState.editingGroupId != null,
+                            isEdit = dialogState.editingGroupId != null,
                             onConfirm = {
                                 viewModel.confirmGroup()
                             },
@@ -312,19 +313,19 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel> BbsRouteScaffold(
                             onValueChange = {
                                 viewModel.setEnteredGroupName(it)
                             },
-                            enteredValue = bookmarkState.enteredGroupName,
+                            enteredValue = dialogState.enteredGroupName,
                             onColorSelected = {
                                 viewModel.setSelectedColor(it)
                             },
-                            selectedColor = bookmarkState.selectedColor
+                            selectedColor = dialogState.selectedColor
                         )
                     }
 
-                    if (bookmarkState.showDeleteGroupDialog) {
+                    if (dialogState.showDeleteGroupDialog) {
                         DeleteGroupDialog(
-                            groupName = bookmarkState.deleteGroupName,
-                            itemNames = bookmarkState.deleteGroupItems,
-                            isBoard = bookmarkState.deleteGroupIsBoard,
+                            groupName = dialogState.deleteGroupName,
+                            itemNames = dialogState.deleteGroupItems,
+                            isBoard = dialogState.dialogTargetIsBoard,
                             onDismissRequest = {
                                 viewModel.closeDeleteGroupDialog()
                             },
