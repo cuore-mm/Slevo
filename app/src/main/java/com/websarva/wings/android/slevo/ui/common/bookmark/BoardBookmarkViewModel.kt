@@ -38,7 +38,7 @@ class BoardBookmarkViewModel @AssistedInject constructor(
             addGroup = { _, name, color -> bookmarkRepository.addGroupAtEnd(name, color) },
             updateGroup = { _, id, name, color -> bookmarkRepository.updateGroup(id, name, color) },
             deleteGroup = { _, id -> bookmarkRepository.deleteGroup(id) },
-            loadDeleteDialogData = { _, groupId ->
+            loadDeleteDialogData = loadDeleteDialogData@{ _, groupId ->
                 val group = bookmarkRepository.observeGroupsWithBoards().first()
                     .firstOrNull { it.group.groupId == groupId }
                     ?: return@loadDeleteDialogData null

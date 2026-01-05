@@ -62,11 +62,11 @@ class BookmarkViewModel @Inject constructor(
                     threadBookmarkRepo.deleteGroup(id)
                 }
             },
-            loadDeleteDialogData = { isBoard, groupId ->
+            loadDeleteDialogData = loadDeleteDialogData@{ isBoard, groupId ->
                 if (isBoard) {
                     val group = boardRepo.observeGroupsWithBoards().first()
                         .firstOrNull { it.group.groupId == groupId }
-                        ?: return@loadDeleteDialogData null
+                    ?: return@loadDeleteDialogData null
                     GroupDialogController.DeleteDialogData(
                         groupName = group.group.name,
                         items = group.boards.map { it.name },
@@ -74,7 +74,7 @@ class BookmarkViewModel @Inject constructor(
                 } else {
                     val group = threadBookmarkRepo.observeSortedGroupsWithThreadBookmarks().first()
                         .firstOrNull { it.group.groupId == groupId }
-                        ?: return@loadDeleteDialogData null
+                    ?: return@loadDeleteDialogData null
                     GroupDialogController.DeleteDialogData(
                         groupName = group.group.name,
                         items = group.threads.map { it.title },
