@@ -193,6 +193,11 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             val viewModel = getViewModel(tab)
             val uiState by viewModel.uiState.collectAsState()
             val bookmarkSheetUiState = uiState.bookmarkSheetState
+            val bookmarkSheetHolder = when (viewModel) {
+                is BoardViewModel -> viewModel.bookmarkSheetHolder
+                is ThreadViewModel -> viewModel.bookmarkSheetHolder
+                else -> null
+            }
 
 
             // 各タブごとにLazyListStateを復元する。キーに基づいてrememberするため
@@ -280,26 +285,31 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                             sheetState = bookmarkSheetState,
                             onDismissRequest = {
                                 // ViewModelの型に応じて適切なクローズ処理を呼ぶ
-                                (viewModel as? BoardViewModel)?.closeBookmarkSheet()
-                                    ?: (viewModel as? ThreadViewModel)?.closeBookmarkSheet()
+                                bookmarkSheetHolder?.close()
                             },
                             groups = bookmarkSheetUiState.groups,
                             selectedGroupId = bookmarkSheetUiState.selectedGroupId,
                             onGroupSelected = {
-                                (viewModel as? BoardViewModel)?.saveBookmark(it)
-                                    ?: (viewModel as? ThreadViewModel)?.saveBookmark(it)
+                                bookmarkSheetHolder?.let { holder ->
+                                    coroutineScope.launch {
+                                        holder.applyGroup(it)
+                                        holder.close()
+                                    }
+                                }
                             },
                             onUnbookmarkRequested = {
-                                (viewModel as? BoardViewModel)?.unbookmarkBoard()
-                                    ?: (viewModel as? ThreadViewModel)?.unbookmarkBoard()
+                                bookmarkSheetHolder?.let { holder ->
+                                    coroutineScope.launch {
+                                        holder.unbookmarkTargets()
+                                        holder.close()
+                                    }
+                                }
                             },
                             onAddGroup = {
-                                (viewModel as? BoardViewModel)?.openAddGroupDialog()
-                                    ?: (viewModel as? ThreadViewModel)?.openAddGroupDialog()
+                                bookmarkSheetHolder?.openAddGroupDialog()
                             },
                             onGroupLongClick = { group ->
-                                (viewModel as? BoardViewModel)?.openEditGroupDialog(group)
-                                    ?: (viewModel as? ThreadViewModel)?.openEditGroupDialog(group)
+                                bookmarkSheetHolder?.openEditGroupDialog(group)
                             }
                         )
                     }
@@ -307,26 +317,29 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     if (bookmarkSheetUiState.showAddGroupDialog) {
                         AddGroupDialog(
                             onDismissRequest = {
-                                (viewModel as? BoardViewModel)?.closeAddGroupDialog()
-                                    ?: (viewModel as? ThreadViewModel)?.closeAddGroupDialog()
+                                bookmarkSheetHolder?.closeAddGroupDialog()
                             },
                             isEdit = bookmarkSheetUiState.editingGroupId != null,
                             onConfirm = {
-                                (viewModel as? BoardViewModel)?.confirmGroup()
-                                    ?: (viewModel as? ThreadViewModel)?.confirmGroup()
+                                bookmarkSheetHolder?.let { holder ->
+                                    coroutineScope.launch {
+                                        holder.confirmGroup()
+                                    }
+                                }
                             },
                             onDelete = {
-                                (viewModel as? BoardViewModel)?.requestDeleteGroup()
-                                    ?: (viewModel as? ThreadViewModel)?.requestDeleteGroup()
+                                bookmarkSheetHolder?.let { holder ->
+                                    coroutineScope.launch {
+                                        holder.requestDeleteGroup()
+                                    }
+                                }
                             },
                             onValueChange = {
-                                (viewModel as? BoardViewModel)?.setEnteredGroupName(it)
-                                    ?: (viewModel as? ThreadViewModel)?.setEnteredGroupName(it)
+                                bookmarkSheetHolder?.setEnteredGroupName(it)
                             },
                             enteredValue = bookmarkSheetUiState.enteredGroupName,
                             onColorSelected = {
-                                (viewModel as? BoardViewModel)?.setSelectedColor(it)
-                                    ?: (viewModel as? ThreadViewModel)?.setSelectedColor(it)
+                                bookmarkSheetHolder?.setSelectedColor(it)
                             },
                             selectedColor = bookmarkSheetUiState.selectedColor
                         )
@@ -338,12 +351,14 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                             itemNames = bookmarkSheetUiState.deleteGroupItems,
                             isBoard = bookmarkSheetUiState.deleteGroupIsBoard,
                             onDismissRequest = {
-                                (viewModel as? BoardViewModel)?.closeDeleteGroupDialog()
-                                    ?: (viewModel as? ThreadViewModel)?.closeDeleteGroupDialog()
+                                bookmarkSheetHolder?.closeDeleteGroupDialog()
                             },
                             onConfirm = {
-                                (viewModel as? BoardViewModel)?.confirmDeleteGroup()
-                                    ?: (viewModel as? ThreadViewModel)?.confirmDeleteGroup()
+                                bookmarkSheetHolder?.let { holder ->
+                                    coroutineScope.launch {
+                                        holder.confirmDeleteGroup()
+                                    }
+                                }
                             }
                         )
                     }

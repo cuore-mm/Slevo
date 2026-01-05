@@ -4,7 +4,6 @@ import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
@@ -95,7 +94,7 @@ class ThreadViewModel @AssistedInject constructor(
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
     private var bookmarkStatusJob: Job? = null
-    private val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
+    val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
     private var lastAutoRefreshTime: Long = 0L
 
     init {
@@ -478,102 +477,6 @@ class ThreadViewModel @AssistedInject constructor(
             )
         )
         bookmarkSheetHolder.open(targets)
-    }
-
-    /**
-     * ブックマークシートを閉じる。
-     */
-    fun closeBookmarkSheet() {
-        bookmarkSheetHolder.close()
-    }
-
-    /**
-     * ブックマークの保存を実行してシートを閉じる。
-     */
-    fun saveBookmark(groupId: Long) {
-        viewModelScope.launch {
-            bookmarkSheetHolder.applyGroup(groupId)
-            bookmarkSheetHolder.close()
-        }
-    }
-
-    /**
-     * ブックマークの解除を実行してシートを閉じる。
-     */
-    fun unbookmarkBoard() {
-        viewModelScope.launch {
-            bookmarkSheetHolder.unbookmarkTargets()
-            bookmarkSheetHolder.close()
-        }
-    }
-
-    /**
-     * グループ追加ダイアログを開く。
-     */
-    fun openAddGroupDialog() {
-        bookmarkSheetHolder.openAddGroupDialog()
-    }
-
-    /**
-     * グループ編集ダイアログを開く。
-     */
-    fun openEditGroupDialog(group: Groupable) {
-        bookmarkSheetHolder.openEditGroupDialog(group)
-    }
-
-    /**
-     * グループ追加/編集ダイアログを閉じる。
-     */
-    fun closeAddGroupDialog() {
-        bookmarkSheetHolder.closeAddGroupDialog()
-    }
-
-    /**
-     * 入力中のグループ名を更新する。
-     */
-    fun setEnteredGroupName(name: String) {
-        bookmarkSheetHolder.setEnteredGroupName(name)
-    }
-
-    /**
-     * 入力中のグループ色を更新する。
-     */
-    fun setSelectedColor(color: String) {
-        bookmarkSheetHolder.setSelectedColor(color)
-    }
-
-    /**
-     * グループ内容を確定する。
-     */
-    fun confirmGroup() {
-        viewModelScope.launch {
-            bookmarkSheetHolder.confirmGroup()
-        }
-    }
-
-    /**
-     * グループ削除確認ダイアログを開く。
-     */
-    fun requestDeleteGroup() {
-        viewModelScope.launch {
-            bookmarkSheetHolder.requestDeleteGroup()
-        }
-    }
-
-    /**
-     * グループ削除を確定する。
-     */
-    fun confirmDeleteGroup() {
-        viewModelScope.launch {
-            bookmarkSheetHolder.confirmDeleteGroup()
-        }
-    }
-
-    /**
-     * グループ削除ダイアログを閉じる。
-     */
-    fun closeDeleteGroupDialog() {
-        bookmarkSheetHolder.closeDeleteGroupDialog()
     }
 
     /**

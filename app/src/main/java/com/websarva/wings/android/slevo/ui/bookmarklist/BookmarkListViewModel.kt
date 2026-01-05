@@ -7,7 +7,6 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.Gr
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.GroupWithThreadBookmarks
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.BookmarkThreadEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
@@ -39,7 +38,7 @@ class BookmarkViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(BookmarkUiState())
     val uiState: StateFlow<BookmarkUiState> = _uiState.asStateFlow()
 
-    private val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
+    val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
 
     // 初期化時にお気に入りリストを監視
     init {
@@ -125,28 +124,8 @@ class BookmarkViewModel @Inject constructor(
     /**
      * ブックマークシートを閉じる。
      */
-    fun closeEditSheet() {
+    private fun closeEditSheet() {
         bookmarkSheetHolder.close()
-    }
-
-    /**
-     * 選択対象にグループを適用する。
-     */
-    fun applyGroupToSelection(groupId: Long) {
-        viewModelScope.launch {
-            bookmarkSheetHolder.applyGroup(groupId)
-            resetSelectionAndSheet()
-        }
-    }
-
-    /**
-     * 選択対象のブックマークを解除する。
-     */
-    fun unbookmarkSelection() {
-        viewModelScope.launch {
-            bookmarkSheetHolder.unbookmarkTargets()
-            resetSelectionAndSheet()
-        }
     }
 
     /**
@@ -233,71 +212,6 @@ class BookmarkViewModel @Inject constructor(
             }
         }
         return null
-    }
-
-    /**
-     * 選択状態とシート表示をリセットする。
-     */
-    private fun resetSelectionAndSheet() {
-        bookmarkSheetHolder.close()
-        _uiState.update {
-            it.copy(
-                selectMode = false,
-                selectedBoards = emptySet(),
-                selectedThreads = emptySet()
-            )
-        }
-    }
-
-    fun openAddGroupDialog() {
-        bookmarkSheetHolder.openAddGroupDialog()
-    }
-
-    fun openEditGroupDialog(group: Groupable) {
-        bookmarkSheetHolder.openEditGroupDialog(group)
-    }
-
-    fun closeAddGroupDialog() {
-        bookmarkSheetHolder.closeAddGroupDialog()
-    }
-
-    fun setEnteredGroupName(name: String) {
-        bookmarkSheetHolder.setEnteredGroupName(name)
-    }
-
-    fun setSelectedColor(color: String) {
-        bookmarkSheetHolder.setSelectedColor(color)
-    }
-
-    /**
-     * グループ追加/編集を確定する。
-     */
-    fun confirmGroup() {
-        viewModelScope.launch {
-            bookmarkSheetHolder.confirmGroup()
-        }
-    }
-
-    /**
-     * グループ削除確認ダイアログを開く。
-     */
-    fun requestDeleteGroup() {
-        viewModelScope.launch {
-            bookmarkSheetHolder.requestDeleteGroup()
-        }
-    }
-
-    /**
-     * グループ削除を確定する。
-     */
-    fun confirmDeleteGroup() {
-        viewModelScope.launch {
-            bookmarkSheetHolder.confirmDeleteGroup()
-        }
-    }
-
-    fun closeDeleteGroupDialog() {
-        bookmarkSheetHolder.closeDeleteGroupDialog()
     }
 
     /**

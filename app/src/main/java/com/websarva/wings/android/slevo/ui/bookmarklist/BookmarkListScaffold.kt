@@ -19,6 +19,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -47,6 +48,7 @@ fun BookmarkListScaffold(
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
 
     val editSheetState = rememberModalBottomSheetState()
+    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -130,30 +132,50 @@ fun BookmarkListScaffold(
             bookmarkViewModel.toggleSelectMode(false)
         }
 
+        val bookmarkSheetHolder = bookmarkViewModel.bookmarkSheetHolder
+
         if (uiState.bookmarkSheetState.isVisible) {
             BookmarkBottomSheet(
                 sheetState = editSheetState,
-                onDismissRequest = { bookmarkViewModel.closeEditSheet() },
+                onDismissRequest = { bookmarkSheetHolder.close() },
                 groups = uiState.bookmarkSheetState.groups,
                 selectedGroupId = uiState.bookmarkSheetState.selectedGroupId,
-                onGroupSelected = { bookmarkViewModel.applyGroupToSelection(it) },
-                onUnbookmarkRequested = { bookmarkViewModel.unbookmarkSelection() },
-                onAddGroup = { bookmarkViewModel.openAddGroupDialog() },
+                onGroupSelected = { groupId ->
+                    coroutineScope.launch {
+                        bookmarkSheetHolder.applyGroup(groupId)
+                        bookmarkViewModel.toggleSelectMode(false)
+                    }
+                },
+                onUnbookmarkRequested = {
+                    coroutineScope.launch {
+                        bookmarkSheetHolder.unbookmarkTargets()
+                        bookmarkViewModel.toggleSelectMode(false)
+                    }
+                },
+                onAddGroup = { bookmarkSheetHolder.openAddGroupDialog() },
                 onGroupLongClick = { group ->
-                    bookmarkViewModel.openEditGroupDialog(group)
+                    bookmarkSheetHolder.openEditGroupDialog(group)
                 }
             )
         }
 
         if (uiState.bookmarkSheetState.showAddGroupDialog) {
             AddGroupDialog(
-                onDismissRequest = { bookmarkViewModel.closeAddGroupDialog() },
+                onDismissRequest = { bookmarkSheetHolder.closeAddGroupDialog() },
                 isEdit = uiState.bookmarkSheetState.editingGroupId != null,
-                onConfirm = { bookmarkViewModel.confirmGroup() },
-                onDelete = { bookmarkViewModel.requestDeleteGroup() },
-                onValueChange = { bookmarkViewModel.setEnteredGroupName(it) },
+                onConfirm = {
+                    coroutineScope.launch {
+                        bookmarkSheetHolder.confirmGroup()
+                    }
+                },
+                onDelete = {
+                    coroutineScope.launch {
+                        bookmarkSheetHolder.requestDeleteGroup()
+                    }
+                },
+                onValueChange = { bookmarkSheetHolder.setEnteredGroupName(it) },
                 enteredValue = uiState.bookmarkSheetState.enteredGroupName,
-                onColorSelected = { bookmarkViewModel.setSelectedColor(it) },
+                onColorSelected = { bookmarkSheetHolder.setSelectedColor(it) },
                 selectedColor = uiState.bookmarkSheetState.selectedColor
             )
         }
@@ -163,8 +185,12 @@ fun BookmarkListScaffold(
                 groupName = uiState.bookmarkSheetState.deleteGroupName,
                 itemNames = uiState.bookmarkSheetState.deleteGroupItems,
                 isBoard = uiState.bookmarkSheetState.deleteGroupIsBoard,
-                onDismissRequest = { bookmarkViewModel.closeDeleteGroupDialog() },
-                onConfirm = { bookmarkViewModel.confirmDeleteGroup() }
+                onDismissRequest = { bookmarkSheetHolder.closeDeleteGroupDialog() },
+                onConfirm = {
+                    coroutineScope.launch {
+                        bookmarkSheetHolder.confirmDeleteGroup()
+                    }
+                }
             )
         }
     }
