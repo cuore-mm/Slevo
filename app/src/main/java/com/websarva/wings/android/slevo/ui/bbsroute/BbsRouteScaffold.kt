@@ -30,9 +30,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
-import com.websarva.wings.android.slevo.ui.common.bookmark.AddGroupDialog
-import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheet
-import com.websarva.wings.android.slevo.ui.common.bookmark.DeleteGroupDialog
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
@@ -192,7 +190,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             val tab = tabs[page]
             val viewModel = getViewModel(tab)
             val uiState by viewModel.uiState.collectAsState()
-            val bookmarkState = uiState.singleBookmarkState
+            val bookmarkSheetUiState = uiState.bookmarkSheetState
+            val bookmarkSheetHolder = when (viewModel) {
+                is BoardViewModel -> viewModel.bookmarkSheetHolder
+                is ThreadViewModel -> viewModel.bookmarkSheetHolder
+                else -> null
+            }
 
 
             // 各タブごとにLazyListStateを復元する。キーに基づいてrememberするため
@@ -275,78 +278,11 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     )
 
                     // 共通のボトムシートとダイアログ
-                    if (bookmarkState.showBookmarkSheet) {
-                        BookmarkBottomSheet(
-                            sheetState = bookmarkSheetState,
-                            onDismissRequest = {
-                                // ViewModelの型に応じて適切なクローズ処理を呼ぶ
-                                (viewModel as? BoardViewModel)?.closeBookmarkSheet()
-                                    ?: (viewModel as? ThreadViewModel)?.closeBookmarkSheet()
-                            },
-                            groups = bookmarkState.groups,
-                            selectedGroupId = bookmarkState.selectedGroup?.id,
-                            onGroupSelected = {
-                                (viewModel as? BoardViewModel)?.saveBookmark(it)
-                                    ?: (viewModel as? ThreadViewModel)?.saveBookmark(it)
-                            },
-                            onUnbookmarkRequested = {
-                                (viewModel as? BoardViewModel)?.unbookmarkBoard()
-                                    ?: (viewModel as? ThreadViewModel)?.unbookmarkBoard()
-                            },
-                            onAddGroup = {
-                                (viewModel as? BoardViewModel)?.openAddGroupDialog()
-                                    ?: (viewModel as? ThreadViewModel)?.openAddGroupDialog()
-                            },
-                            onGroupLongClick = { group ->
-                                (viewModel as? BoardViewModel)?.openEditGroupDialog(group)
-                                    ?: (viewModel as? ThreadViewModel)?.openEditGroupDialog(group)
-                            }
-                        )
-                    }
-
-                    if (bookmarkState.showAddGroupDialog) {
-                        AddGroupDialog(
-                            onDismissRequest = {
-                                (viewModel as? BoardViewModel)?.closeAddGroupDialog()
-                                    ?: (viewModel as? ThreadViewModel)?.closeAddGroupDialog()
-                            },
-                            isEdit = bookmarkState.editingGroupId != null,
-                            onConfirm = {
-                                (viewModel as? BoardViewModel)?.confirmGroup()
-                                    ?: (viewModel as? ThreadViewModel)?.confirmGroup()
-                            },
-                            onDelete = {
-                                (viewModel as? BoardViewModel)?.requestDeleteGroup()
-                                    ?: (viewModel as? ThreadViewModel)?.requestDeleteGroup()
-                            },
-                            onValueChange = {
-                                (viewModel as? BoardViewModel)?.setEnteredGroupName(it)
-                                    ?: (viewModel as? ThreadViewModel)?.setEnteredGroupName(it)
-                            },
-                            enteredValue = bookmarkState.enteredGroupName,
-                            onColorSelected = {
-                                (viewModel as? BoardViewModel)?.setSelectedColor(it)
-                                    ?: (viewModel as? ThreadViewModel)?.setSelectedColor(it)
-                            },
-                            selectedColor = bookmarkState.selectedColor
-                        )
-                    }
-
-                    if (bookmarkState.showDeleteGroupDialog) {
-                        DeleteGroupDialog(
-                            groupName = bookmarkState.deleteGroupName,
-                            itemNames = bookmarkState.deleteGroupItems,
-                            isBoard = bookmarkState.deleteGroupIsBoard,
-                            onDismissRequest = {
-                                (viewModel as? BoardViewModel)?.closeDeleteGroupDialog()
-                                    ?: (viewModel as? ThreadViewModel)?.closeDeleteGroupDialog()
-                            },
-                            onConfirm = {
-                                (viewModel as? BoardViewModel)?.confirmDeleteGroup()
-                                    ?: (viewModel as? ThreadViewModel)?.confirmDeleteGroup()
-                            }
-                        )
-                    }
+                    BookmarkSheetHost(
+                        sheetState = bookmarkSheetState,
+                        holder = bookmarkSheetHolder,
+                        uiState = bookmarkSheetUiState,
+                    )
                 }
                 // 各画面固有のシートやダイアログをScaffoldの外側に重ねることでボトムバーも覆う
                 optionalSheetContent(viewModel, uiState)

@@ -158,7 +158,7 @@ fun BoardScaffold(
                     TabToolBar(
                         modifier = modifier,
                         title = uiState.boardInfo.name,
-                        bookmarkState = uiState.singleBookmarkState,
+                        bookmarkState = uiState.bookmarkStatusState,
                         onBookmarkClick = { viewModel.openBookmarkSheet() },
                         actions = actions,
                         scrollBehavior = barScrollBehavior,

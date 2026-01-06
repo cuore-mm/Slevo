@@ -38,7 +38,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
@@ -55,7 +55,7 @@ data class TabToolBarAction(
 fun TabToolBar(
     modifier: Modifier = Modifier,
     title: String,
-    bookmarkState: SingleBookmarkState,
+    bookmarkState: BookmarkStatusState,
     onBookmarkClick: () -> Unit,
     actions: List<TabToolBarAction>,
     scrollBehavior: BottomAppBarScrollBehavior? = null,
@@ -182,7 +182,7 @@ fun ThreadToolBarPreview() {
             threadInfo = ThreadInfo(
                 title = "スレッドのタイトル"
             ),
-            singleBookmarkState = SingleBookmarkState(
+            bookmarkStatusState = BookmarkStatusState(
                 isBookmarked = false,
                 selectedGroup = null
             )

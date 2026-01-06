@@ -3,19 +3,20 @@ package com.websarva.wings.android.slevo.ui.bbsroute
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
-import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
-import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
+/**
+ * 共通の初期化フローと履歴監視を提供する基底ViewModel。
+ *
+ * 画面ごとのUI状態を扱い、必要な補助処理を共通化する。
+ */
 abstract class BaseViewModel<S> : ViewModel() where S : BaseUiState<S> {
     protected abstract val _uiState: MutableStateFlow<S>
     val uiState: StateFlow<S> get() = _uiState
-
-    protected var bookmarkViewModel: SingleBookmarkViewModel? = null
 
     private val identityHistoryObservers = mutableMapOf<String, IdentityHistoryObserver>()
 
@@ -53,32 +54,6 @@ abstract class BaseViewModel<S> : ViewModel() where S : BaseUiState<S> {
     fun release() {
         onCleared()
     }
-
-    protected fun bookmarkSaveBookmark(groupId: Long) = bookmarkViewModel?.saveBookmark(groupId)
-
-    protected fun bookmarkUnbookmark() = bookmarkViewModel?.unbookmark()
-
-    protected fun bookmarkOpenAddGroupDialog() = bookmarkViewModel?.openAddGroupDialog()
-
-    protected fun bookmarkOpenEditGroupDialog(group: Groupable) = bookmarkViewModel?.openEditGroupDialog(group)
-
-    protected fun bookmarkCloseAddGroupDialog() = bookmarkViewModel?.closeAddGroupDialog()
-
-    protected fun bookmarkSetEnteredGroupName(name: String) = bookmarkViewModel?.setEnteredGroupName(name)
-
-    protected fun bookmarkSetSelectedColor(color: String) = bookmarkViewModel?.setSelectedColor(color)
-
-    protected fun bookmarkConfirmGroup() = bookmarkViewModel?.confirmGroup()
-
-    protected fun bookmarkRequestDeleteGroup() = bookmarkViewModel?.requestDeleteGroup()
-
-    protected fun bookmarkConfirmDeleteGroup() = bookmarkViewModel?.confirmDeleteGroup()
-
-    protected fun bookmarkCloseDeleteGroupDialog() = bookmarkViewModel?.closeDeleteGroupDialog()
-
-    protected fun bookmarkOpenBookmarkSheet() = bookmarkViewModel?.openBookmarkSheet()
-
-    protected fun bookmarkCloseBookmarkSheet() = bookmarkViewModel?.closeBookmarkSheet()
 
     protected fun prepareIdentityHistory(
         key: String,

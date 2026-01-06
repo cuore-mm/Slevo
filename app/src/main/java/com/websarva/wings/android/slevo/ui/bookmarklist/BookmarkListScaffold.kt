@@ -24,9 +24,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.common.SelectedTopBarScreen
-import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheet
-import com.websarva.wings.android.slevo.ui.common.bookmark.AddGroupDialog
-import com.websarva.wings.android.slevo.ui.common.bookmark.DeleteGroupDialog
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
@@ -130,51 +128,14 @@ fun BookmarkListScaffold(
             bookmarkViewModel.toggleSelectMode(false)
         }
 
-        if (uiState.showEditSheet) {
-            val groups = if (uiState.selectedBoards.isNotEmpty()) {
-                uiState.boardList.map { it.group }
-            } else {
-                uiState.groupedThreadBookmarks.map { it.group }
-            }
-            BookmarkBottomSheet(
-                sheetState = editSheetState,
-                onDismissRequest = { bookmarkViewModel.closeEditSheet() },
-                groups = groups,
-                selectedGroupId = uiState.selectedGroupId,
-                onGroupSelected = { bookmarkViewModel.applyGroupToSelection(it) },
-                onUnbookmarkRequested = { bookmarkViewModel.unbookmarkSelection() },
-                onAddGroup = {
-                    val isBoard = uiState.selectedBoards.isNotEmpty()
-                    bookmarkViewModel.openAddGroupDialog(isBoard)
-                },
-                onGroupLongClick = { group ->
-                    val isBoard = uiState.selectedBoards.isNotEmpty()
-                    bookmarkViewModel.openEditGroupDialog(group, isBoard)
-                }
-            )
-        }
+        val bookmarkSheetHolder = bookmarkViewModel.bookmarkSheetHolder
 
-        if (uiState.showAddGroupDialog) {
-            AddGroupDialog(
-                onDismissRequest = { bookmarkViewModel.closeAddGroupDialog() },
-                isEdit = uiState.editingGroupId != null,
-                onConfirm = { bookmarkViewModel.confirmGroup() },
-                onDelete = { bookmarkViewModel.requestDeleteGroup() },
-                onValueChange = { bookmarkViewModel.setEnteredGroupName(it) },
-                enteredValue = uiState.enteredGroupName,
-                onColorSelected = { bookmarkViewModel.setSelectedColor(it) },
-                selectedColor = uiState.selectedColor
-            )
-        }
-
-        if (uiState.showDeleteGroupDialog) {
-            DeleteGroupDialog(
-                groupName = uiState.deleteGroupName,
-                itemNames = uiState.deleteGroupItems,
-                isBoard = uiState.deleteGroupIsBoard,
-                onDismissRequest = { bookmarkViewModel.closeDeleteGroupDialog() },
-                onConfirm = { bookmarkViewModel.confirmDeleteGroup() }
-            )
-        }
+        BookmarkSheetHost(
+            sheetState = editSheetState,
+            holder = bookmarkSheetHolder,
+            uiState = uiState.bookmarkSheetState,
+            onAfterApply = { bookmarkViewModel.toggleSelectMode(false) },
+            onAfterUnbookmark = { bookmarkViewModel.toggleSelectMode(false) },
+        )
     }
 }

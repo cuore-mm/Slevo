@@ -4,7 +4,6 @@ import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
@@ -18,10 +17,13 @@ import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.PostRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
-import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
+import com.websarva.wings.android.slevo.ui.common.bookmark.ThreadTarget
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
@@ -67,7 +69,8 @@ class ThreadViewModel @AssistedInject constructor(
     private val boardRepository: BoardRepository,
     private val historyRepository: ThreadHistoryRepository,
     private val postHistoryRepository: PostHistoryRepository,
-    private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
+    private val threadBookmarkRepository: ThreadBookmarkRepository,
+    private val bookmarkSheetStateHolderFactory: BookmarkBottomSheetStateHolderFactory,
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
     private val tabsRepository: TabsRepository,
@@ -90,6 +93,8 @@ class ThreadViewModel @AssistedInject constructor(
     private var pendingPost: PendingPost? = null
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
+    private var bookmarkStatusJob: Job? = null
+    val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
     private var lastAutoRefreshTime: Long = 0L
 
     init {
@@ -128,12 +133,19 @@ class ThreadViewModel @AssistedInject constructor(
                 _uiState.update { it.copy(gestureSettings = settings) }
             }
         }
+        viewModelScope.launch {
+            bookmarkSheetHolder.uiState.collect { sheetState ->
+                _uiState.update { it.copy(bookmarkSheetState = sheetState) }
+            }
+        }
     }
 
     internal val _postUiState = MutableStateFlow(PostUiState())
     val postUiState: StateFlow<PostUiState> = _postUiState.asStateFlow()
 
-    //画面遷移した最初に行う初期処理
+    /**
+     * 画面遷移時の初期処理を行う。
+     */
     fun initializeThread(
         threadKey: String,
         boardInfo: BoardInfo,
@@ -194,15 +206,21 @@ class ThreadViewModel @AssistedInject constructor(
             preparePostIdentityHistory(ensuredId)
         }
 
-        // Factoryを使ってBookmarkStateViewModelを生成
-        val bookmarkVm = singleBookmarkViewModelFactory.create(boardInfo, threadInfo)
-        bookmarkViewModel = bookmarkVm
-
-        // 状態をマージ
-        viewModelScope.launch {
-            bookmarkVm.uiState.collect { favState ->
-                _uiState.update { it.copy(singleBookmarkState = favState) }
-            }
+        // ブックマーク状態を監視してツールバー表示に反映
+        bookmarkStatusJob?.cancel()
+        bookmarkStatusJob = viewModelScope.launch {
+            threadBookmarkRepository.getBookmarkWithGroup(threadKey, boardInfo.url)
+                .collect { threadWithBookmark ->
+                    val group = threadWithBookmark?.group
+                    _uiState.update {
+                        it.copy(
+                            bookmarkStatusState = BookmarkStatusState(
+                                isBookmarked = group != null,
+                                selectedGroup = group
+                            )
+                        )
+                    }
+                }
         }
 
         viewModelScope.launch {
@@ -439,20 +457,35 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
 
-    // --- お気に入り関連の処理はBookmarkStateViewModelに委譲 ---
-    fun saveBookmark(groupId: Long) = bookmarkSaveBookmark(groupId)
-    fun unbookmarkBoard() = bookmarkUnbookmark()
-    fun openAddGroupDialog() = bookmarkOpenAddGroupDialog()
-    fun openEditGroupDialog(group: Groupable) = bookmarkOpenEditGroupDialog(group)
-    fun closeAddGroupDialog() = bookmarkCloseAddGroupDialog()
-    fun setEnteredGroupName(name: String) = bookmarkSetEnteredGroupName(name)
-    fun setSelectedColor(color: String) = bookmarkSetSelectedColor(color)
-    fun confirmGroup() = bookmarkConfirmGroup()
-    fun requestDeleteGroup() = bookmarkRequestDeleteGroup()
-    fun confirmDeleteGroup() = bookmarkConfirmDeleteGroup()
-    fun closeDeleteGroupDialog() = bookmarkCloseDeleteGroupDialog()
-    fun openBookmarkSheet() = bookmarkOpenBookmarkSheet()
-    fun closeBookmarkSheet() = bookmarkCloseBookmarkSheet()
+    // --- ブックマークシート関連 ---
+    /**
+     * ブックマークシートを開く。
+     */
+    fun openBookmarkSheet() {
+        val boardInfo = uiState.value.boardInfo
+        val threadInfo = uiState.value.threadInfo
+        if (boardInfo.url.isBlank() || threadInfo.key.isBlank()) {
+            // 必要情報が欠けている場合はシートを開かない。
+            return
+        }
+
+        val targets = listOf(
+            ThreadTarget(
+                boardInfo = boardInfo,
+                threadInfo = threadInfo,
+                currentGroupId = uiState.value.bookmarkStatusState.selectedGroup?.id
+            )
+        )
+        bookmarkSheetHolder.open(targets)
+    }
+
+    /**
+     * ViewModel破棄時にステートホルダーのジョブを解放する。
+     */
+    override fun onCleared() {
+        bookmarkSheetHolder.dispose()
+        super.onCleared()
+    }
 
     fun openThreadInfoSheet() {
         _uiState.update { it.copy(showThreadInfoSheet = true) }

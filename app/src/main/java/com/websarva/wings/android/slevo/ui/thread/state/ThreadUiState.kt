@@ -5,7 +5,8 @@ import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseUiState
-import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 
 /**
  * スレッド表示のソート種別。
@@ -27,7 +28,8 @@ data class ThreadUiState(
     val posts: List<ThreadPostUiModel>? = null,
     override val loadProgress: Float = 0f,
     override val boardInfo: BoardInfo = BoardInfo(0, "", ""),
-    override val singleBookmarkState: SingleBookmarkState = SingleBookmarkState(),
+    override val bookmarkStatusState: BookmarkStatusState = BookmarkStatusState(),
+    override val bookmarkSheetState: BookmarkSheetUiState = BookmarkSheetUiState(),
     override val isLoading: Boolean = false,
     val showThreadInfoSheet: Boolean = false,
     val showMoreSheet: Boolean = false,
@@ -63,18 +65,19 @@ data class ThreadUiState(
 ) : BaseUiState<ThreadUiState> {
     override fun copyState(
         boardInfo: BoardInfo,
-        singleBookmarkState: SingleBookmarkState,
+        bookmarkStatusState: BookmarkStatusState,
+        bookmarkSheetState: BookmarkSheetUiState,
         loadProgress: Float,
         gestureSettings: GestureSettings,
         isLoading: Boolean,
     ): ThreadUiState {
         return this.copy(
             boardInfo = boardInfo,
-            singleBookmarkState = singleBookmarkState,
+            bookmarkStatusState = bookmarkStatusState,
+            bookmarkSheetState = bookmarkSheetState,
             loadProgress = loadProgress,
             gestureSettings = gestureSettings,
             isLoading = isLoading,
         )
     }
 }
-

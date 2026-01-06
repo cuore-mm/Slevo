@@ -2,31 +2,43 @@ package com.websarva.wings.android.slevo.ui.bookmarklist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BoardEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.GroupWithBoards
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.GroupWithThreadBookmarks
-import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.BookmarkBoardEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.BookmarkThreadEntity
-import com.websarva.wings.android.slevo.data.model.Groupable
+import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
-import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
+import com.websarva.wings.android.slevo.ui.common.bookmark.BoardTarget
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkTarget
+import com.websarva.wings.android.slevo.ui.common.bookmark.ThreadTarget
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ブックマーク一覧画面のUI状態を管理するViewModel。
+ *
+ * 一覧の選択状態とブックマークシートの操作を扱う。
+ */
 @HiltViewModel
 class BookmarkViewModel @Inject constructor(
     private val boardRepo: BookmarkBoardRepository,
-    private val threadBookmarkRepo: ThreadBookmarkRepository
+    private val threadBookmarkRepo: ThreadBookmarkRepository,
+    private val bookmarkSheetStateHolderFactory: BookmarkBottomSheetStateHolderFactory,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BookmarkUiState())
     val uiState: StateFlow<BookmarkUiState> = _uiState.asStateFlow()
+
+    val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
 
     // 初期化時にお気に入りリストを監視
     init {
@@ -46,8 +58,16 @@ class BookmarkViewModel @Inject constructor(
                     _uiState.update { it.copy(groupedThreadBookmarks = groupedThreads) }
                 }
         }
+        viewModelScope.launch {
+            bookmarkSheetHolder.uiState.collect { sheetState ->
+                _uiState.update { it.copy(bookmarkSheetState = sheetState) }
+            }
+        }
     }
 
+    /**
+     * 選択モードの有効/無効を切り替える。
+     */
     fun toggleSelectMode(enabled: Boolean) {
         _uiState.update { state ->
             state.copy(
@@ -56,94 +76,125 @@ class BookmarkViewModel @Inject constructor(
                 selectedThreads = if (enabled) state.selectedThreads else emptySet()
             )
         }
+        if (!enabled) {
+            closeEditSheet()
+        }
     }
 
+    /**
+     * 板の選択状態を切り替える。
+     */
     fun toggleBoardSelect(boardId: Long) {
         _uiState.update { state ->
             val next = state.selectedBoards.toMutableSet().apply {
                 if (!add(boardId)) remove(boardId)
             }
-            state.copy(selectedBoards = next)
+            // 板とスレの混在選択を避けるため、スレ選択はクリアする。
+            val clearedThreads = if (state.selectedThreads.isNotEmpty()) emptySet() else state.selectedThreads
+            state.copy(selectedBoards = next, selectedThreads = clearedThreads)
         }
     }
 
+    /**
+     * スレッドの選択状態を切り替える。
+     */
     fun toggleThreadSelect(id: String) {
         _uiState.update { state ->
             val next = state.selectedThreads.toMutableSet().apply {
                 if (!add(id)) remove(id)
             }
-            state.copy(selectedThreads = next)
+            // 板とスレの混在選択を避けるため、板選択はクリアする。
+            val clearedBoards = if (state.selectedBoards.isNotEmpty()) emptySet() else state.selectedBoards
+            state.copy(selectedBoards = clearedBoards, selectedThreads = next)
         }
     }
 
+    /**
+     * 選択中の対象を元にブックマークシートを開く。
+     */
     fun openEditSheet() {
-        val groupId = computeSelectedGroupId()
-        _uiState.update { it.copy(showEditSheet = true, selectedGroupId = groupId) }
-    }
-
-    fun closeEditSheet() {
-        _uiState.update { it.copy(showEditSheet = false, selectedGroupId = null) }
-    }
-
-    fun applyGroupToSelection(groupId: Long) {
-        val current = _uiState.value
-        viewModelScope.launch {
-            current.selectedBoards.forEach { id ->
-                boardRepo.upsertBookmark(BookmarkBoardEntity(boardId = id, groupId = groupId))
-            }
-            current.selectedThreads.forEach { key ->
-                findThreadEntity(key)?.let { thread ->
-                    threadBookmarkRepo.insertBookmark(thread.copy(groupId = groupId))
-                }
-            }
-            _uiState.update {
-                it.copy(
-                    selectMode = false,
-                    selectedBoards = emptySet(),
-                    selectedThreads = emptySet(),
-                    showEditSheet = false,
-                    selectedGroupId = null
-                )
-            }
+        val targets = buildTargetsForSelection()
+        if (targets.isEmpty()) {
+            // 選択が空の場合は開かない。
+            return
         }
+        bookmarkSheetHolder.open(targets)
     }
 
-    fun unbookmarkSelection() {
-        val current = _uiState.value
-        viewModelScope.launch {
-            current.selectedBoards.forEach { id ->
-                boardRepo.deleteBookmark(id)
-            }
-            current.selectedThreads.forEach { key ->
-                findThreadEntity(key)?.let { thread ->
-                    threadBookmarkRepo.deleteBookmark(thread.threadKey, thread.boardUrl)
-                }
-            }
-            _uiState.update {
-                it.copy(
-                    selectMode = false,
-                    selectedBoards = emptySet(),
-                    selectedThreads = emptySet(),
-                    showEditSheet = false,
-                    selectedGroupId = null
-                )
-            }
-        }
+    /**
+     * ブックマークシートを閉じる。
+     */
+    private fun closeEditSheet() {
+        bookmarkSheetHolder.close()
     }
 
-    private fun computeSelectedGroupId(): Long? {
+    /**
+     * 選択中の対象からブックマークシート用targetsを組み立てる。
+     */
+    private fun buildTargetsForSelection(): List<BookmarkTarget> {
         val state = _uiState.value
+        if (state.selectedBoards.isNotEmpty() && state.selectedThreads.isNotEmpty()) {
+            // 板とスレの混在選択は許可しない。
+            return emptyList()
+        }
         if (state.selectedBoards.isNotEmpty()) {
-            val groups = state.selectedBoards.mapNotNull { findBoardGroupId(it) }.distinct()
-            return if (groups.size == 1) groups.first() else null
+            return state.selectedBoards.mapNotNull { id -> buildBoardTarget(id) }
         }
         if (state.selectedThreads.isNotEmpty()) {
-            val groups = state.selectedThreads.mapNotNull { findThreadGroupId(it) }.distinct()
-            return if (groups.size == 1) groups.first() else null
+            return state.selectedThreads.mapNotNull { key -> buildThreadTarget(key) }
+        }
+        return emptyList()
+    }
+
+    /**
+     * 板選択からtargetを生成する。
+     */
+    private fun buildBoardTarget(boardId: Long): BookmarkTarget? {
+        val board = findBoardEntity(boardId) ?: return null
+        val groupId = findBoardGroupId(boardId)
+        return BoardTarget(
+            boardInfo = BoardInfo(
+                boardId = board.boardId,
+                name = board.name,
+                url = board.url
+            ),
+            currentGroupId = groupId
+        )
+    }
+
+    /**
+     * スレ選択からtargetを生成する。
+     */
+    private fun buildThreadTarget(key: String): BookmarkTarget? {
+        val thread = findThreadEntity(key) ?: return null
+        return ThreadTarget(
+            boardInfo = BoardInfo(
+                boardId = thread.boardId,
+                name = thread.boardName,
+                url = thread.boardUrl
+            ),
+            threadInfo = ThreadInfo(
+                title = thread.title,
+                key = thread.threadKey,
+                resCount = thread.resCount
+            ),
+            currentGroupId = thread.groupId
+        )
+    }
+
+    /**
+     * 指定したboardIdに一致するBoardEntityを検索する。
+     */
+    private fun findBoardEntity(boardId: Long): BoardEntity? {
+        _uiState.value.boardList.forEach { g ->
+            g.boards.firstOrNull { it.boardId == boardId }?.let { return it }
         }
         return null
     }
 
+    /**
+     * 指定したboardIdに紐づくグループIDを取得する。
+     */
     private fun findBoardGroupId(boardId: Long): Long? {
         _uiState.value.boardList.forEach { g ->
             if (g.boards.any { it.boardId == boardId }) return g.group.groupId
@@ -151,8 +202,9 @@ class BookmarkViewModel @Inject constructor(
         return null
     }
 
-    private fun findThreadGroupId(key: String): Long? = findThreadEntity(key)?.groupId
-
+    /**
+     * 指定したキーに一致するスレッドブックマークを検索する。
+     */
     private fun findThreadEntity(key: String): BookmarkThreadEntity? {
         _uiState.value.groupedThreadBookmarks.forEach { g ->
             g.threads.forEach { t ->
@@ -162,130 +214,20 @@ class BookmarkViewModel @Inject constructor(
         return null
     }
 
-    fun openAddGroupDialog(isBoard: Boolean) {
-        _uiState.update {
-            it.copy(
-                showAddGroupDialog = true,
-                enteredGroupName = "",
-                selectedColor = BookmarkColor.RED.value,
-                editingGroupId = null,
-                groupDialogIsBoard = isBoard
-            )
-        }
-    }
-
-    fun openEditGroupDialog(group: Groupable, isBoard: Boolean) {
-        _uiState.update {
-            it.copy(
-                showAddGroupDialog = true,
-                enteredGroupName = group.name,
-                selectedColor = group.colorName,
-                editingGroupId = group.id,
-                groupDialogIsBoard = isBoard
-            )
-        }
-    }
-
-    fun closeAddGroupDialog() {
-        _uiState.update {
-            it.copy(
-                showAddGroupDialog = false,
-                enteredGroupName = "",
-                selectedColor = BookmarkColor.RED.value,
-                editingGroupId = null
-            )
-        }
-    }
-
-    fun setEnteredGroupName(name: String) {
-        _uiState.update { it.copy(enteredGroupName = name) }
-    }
-
-    fun setSelectedColor(color: String) {
-        _uiState.update { it.copy(selectedColor = color) }
-    }
-
-    private suspend fun addGroup(isBoard: Boolean, name: String, color: String) {
-        if (isBoard) {
-            boardRepo.addGroupAtEnd(name, color)
-        } else {
-            threadBookmarkRepo.addGroupAtEnd(name, color)
-        }
-    }
-
-    private suspend fun updateGroup(isBoard: Boolean, id: Long, name: String, color: String) {
-        if (isBoard) {
-            boardRepo.updateGroup(id, name, color)
-        } else {
-            threadBookmarkRepo.updateGroup(id, name, color)
-        }
-    }
-
-    fun confirmGroup() {
-        viewModelScope.launch {
-            val name = _uiState.value.enteredGroupName.takeIf { it.isNotBlank() } ?: return@launch
-            val color = _uiState.value.selectedColor
-            val isBoard = _uiState.value.groupDialogIsBoard
-            val editId = _uiState.value.editingGroupId
-            if (editId == null) {
-                addGroup(isBoard, name, color)
-            } else {
-                updateGroup(isBoard, editId, name, color)
-            }
-            closeAddGroupDialog()
-        }
-    }
-
-    fun requestDeleteGroup() {
-        val groupId = _uiState.value.editingGroupId ?: return
-        viewModelScope.launch {
-            val isBoard = _uiState.value.groupDialogIsBoard
-            val groupName = if (isBoard) {
-                boardRepo.observeGroupsWithBoards().first()
-                    .firstOrNull { it.group.groupId == groupId }?.group?.name
-            } else {
-                threadBookmarkRepo.observeSortedGroupsWithThreadBookmarks().first()
-                    .firstOrNull { it.group.groupId == groupId }?.group?.name
-            } ?: return@launch
-
-            val items = if (isBoard) {
-                boardRepo.observeGroupsWithBoards().first()
-                    .firstOrNull { it.group.groupId == groupId }?.boards?.map { it.name } ?: emptyList()
-            } else {
-                threadBookmarkRepo.observeSortedGroupsWithThreadBookmarks().first()
-                    .firstOrNull { it.group.groupId == groupId }?.threads?.map { it.title } ?: emptyList()
-            }
-
-            _uiState.update {
-                it.copy(
-                    showDeleteGroupDialog = true,
-                    deleteGroupName = groupName,
-                    deleteGroupItems = items,
-                    deleteGroupIsBoard = isBoard
-                )
-            }
-        }
-    }
-
-    fun confirmDeleteGroup() {
-        val groupId = _uiState.value.editingGroupId ?: return
-        val isBoard = _uiState.value.groupDialogIsBoard
-        viewModelScope.launch {
-            if (isBoard) {
-                boardRepo.deleteGroup(groupId)
-            } else {
-                threadBookmarkRepo.deleteGroup(groupId)
-            }
-            _uiState.update { it.copy(showDeleteGroupDialog = false) }
-            closeAddGroupDialog()
-        }
-    }
-
-    fun closeDeleteGroupDialog() {
-        _uiState.update { it.copy(showDeleteGroupDialog = false) }
+    /**
+     * ViewModel破棄時にステートホルダーのジョブを解放する。
+     */
+    override fun onCleared() {
+        bookmarkSheetHolder.dispose()
+        super.onCleared()
     }
 }
 
+/**
+ * ブックマーク一覧画面のUI状態。
+ *
+ * 一覧表示とシート表示の状態を保持する。
+ */
 data class BookmarkUiState(
     val isLoading: Boolean = false,
     val boardList: List<GroupWithBoards> = emptyList(),
@@ -293,15 +235,5 @@ data class BookmarkUiState(
     val selectMode: Boolean = false,
     val selectedBoards: Set<Long> = emptySet(),
     val selectedThreads: Set<String> = emptySet(),
-    val showEditSheet: Boolean = false,
-    val selectedGroupId: Long? = null,
-    val showAddGroupDialog: Boolean = false,
-    val enteredGroupName: String = "",
-    val selectedColor: String = BookmarkColor.RED.value,
-    val editingGroupId: Long? = null,
-    val showDeleteGroupDialog: Boolean = false,
-    val deleteGroupName: String = "",
-    val deleteGroupItems: List<String> = emptyList(),
-    val deleteGroupIsBoard: Boolean = true,
-    val groupDialogIsBoard: Boolean = true,
+    val bookmarkSheetState: BookmarkSheetUiState = BookmarkSheetUiState(),
 )

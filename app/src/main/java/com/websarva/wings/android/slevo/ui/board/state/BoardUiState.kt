@@ -5,12 +5,19 @@ import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseUiState
-import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkState
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 
+/**
+ * 板画面のUI状態。
+ *
+ * 画面描画に必要なデータと表示状態を保持する。
+ */
 data class BoardUiState(
     val threads: List<ThreadInfo>? = null,
     override val boardInfo: BoardInfo = BoardInfo(0, "", ""),
-    override val singleBookmarkState: SingleBookmarkState = SingleBookmarkState(),
+    override val bookmarkStatusState: BookmarkStatusState = BookmarkStatusState(),
+    override val bookmarkSheetState: BookmarkSheetUiState = BookmarkSheetUiState(),
     val showSortSheet: Boolean = false,
     val serviceName: String = "",
     val showInfoDialog: Boolean = false,
@@ -36,14 +43,16 @@ data class BoardUiState(
 ) : BaseUiState<BoardUiState> {
     override fun copyState(
         boardInfo: BoardInfo,
-        singleBookmarkState: SingleBookmarkState,
+        bookmarkStatusState: BookmarkStatusState,
+        bookmarkSheetState: BookmarkSheetUiState,
         loadProgress: Float,
         gestureSettings: GestureSettings,
         isLoading: Boolean,
     ): BoardUiState {
         return this.copy(
             boardInfo = boardInfo,
-            singleBookmarkState = singleBookmarkState,
+            bookmarkStatusState = bookmarkStatusState,
+            bookmarkSheetState = bookmarkSheetState,
             loadProgress = loadProgress,
             gestureSettings = gestureSettings,
             isLoading = isLoading,
