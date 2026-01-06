@@ -229,11 +229,8 @@ class BookmarkBottomSheetStateHolder(
      * グループ削除ダイアログを開く。
      */
     fun requestDeleteGroup() {
-        val groupId = _uiState.value.editingGroupId
-        if (groupId == null) {
-            // 編集対象が未設定の場合は開かない。
-            return
-        }
+        // 編集対象が未設定の場合は開かない。
+        val groupId = _uiState.value.editingGroupId ?: return
 
         scope.launch {
             // --- Load ---
@@ -266,11 +263,8 @@ class BookmarkBottomSheetStateHolder(
      * グループ削除を確定する。
      */
     fun confirmDeleteGroup() {
-        val groupId = _uiState.value.editingGroupId
-        if (groupId == null) {
-            // 編集対象が未設定の場合は削除しない。
-            return
-        }
+        // 編集対象が未設定の場合は削除しない。
+        val groupId = _uiState.value.editingGroupId ?: return
         scope.launch {
             if (isBoardTargets()) {
                 boardRepo.deleteGroup(groupId)
