@@ -30,9 +30,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
-import com.websarva.wings.android.slevo.ui.common.bookmark.AddGroupDialog
-import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheet
-import com.websarva.wings.android.slevo.ui.common.bookmark.DeleteGroupDialog
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
@@ -280,72 +278,11 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     )
 
                     // 共通のボトムシートとダイアログ
-                    if (bookmarkSheetUiState.isVisible) {
-                        BookmarkBottomSheet(
-                            sheetState = bookmarkSheetState,
-                            onDismissRequest = {
-                                // ViewModelの型に応じて適切なクローズ処理を呼ぶ
-                                bookmarkSheetHolder?.close()
-                            },
-                            groups = bookmarkSheetUiState.groups,
-                            selectedGroupId = bookmarkSheetUiState.selectedGroupId,
-                            onGroupSelected = {
-                                bookmarkSheetHolder?.apply {
-                                    applyGroup(it)
-                                    close()
-                                }
-                            },
-                            onUnbookmarkRequested = {
-                                bookmarkSheetHolder?.apply {
-                                    unbookmarkTargets()
-                                    close()
-                                }
-                            },
-                            onAddGroup = {
-                                bookmarkSheetHolder?.openAddGroupDialog()
-                            },
-                            onGroupLongClick = { group ->
-                                bookmarkSheetHolder?.openEditGroupDialog(group)
-                            }
-                        )
-                    }
-
-                    if (bookmarkSheetUiState.showAddGroupDialog) {
-                        AddGroupDialog(
-                            onDismissRequest = {
-                                bookmarkSheetHolder?.closeAddGroupDialog()
-                            },
-                            isEdit = bookmarkSheetUiState.editingGroupId != null,
-                            onConfirm = {
-                                bookmarkSheetHolder?.confirmGroup()
-                            },
-                            onDelete = {
-                                bookmarkSheetHolder?.requestDeleteGroup()
-                            },
-                            onValueChange = {
-                                bookmarkSheetHolder?.setEnteredGroupName(it)
-                            },
-                            enteredValue = bookmarkSheetUiState.enteredGroupName,
-                            onColorSelected = {
-                                bookmarkSheetHolder?.setSelectedColor(it)
-                            },
-                            selectedColor = bookmarkSheetUiState.selectedColor
-                        )
-                    }
-
-                    if (bookmarkSheetUiState.showDeleteGroupDialog) {
-                        DeleteGroupDialog(
-                            groupName = bookmarkSheetUiState.deleteGroupName,
-                            itemNames = bookmarkSheetUiState.deleteGroupItems,
-                            isBoard = bookmarkSheetUiState.deleteGroupIsBoard,
-                            onDismissRequest = {
-                                bookmarkSheetHolder?.closeDeleteGroupDialog()
-                            },
-                            onConfirm = {
-                                bookmarkSheetHolder?.confirmDeleteGroup()
-                            }
-                        )
-                    }
+                    BookmarkSheetHost(
+                        sheetState = bookmarkSheetState,
+                        holder = bookmarkSheetHolder,
+                        uiState = bookmarkSheetUiState,
+                    )
                 }
                 // 各画面固有のシートやダイアログをScaffoldの外側に重ねることでボトムバーも覆う
                 optionalSheetContent(viewModel, uiState)
