@@ -12,6 +12,11 @@ import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
+import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
+import com.websarva.wings.android.slevo.ui.thread.state.PostFormState
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
@@ -42,10 +47,11 @@ class BoardViewModel @AssistedInject constructor(
     private val settingsRepository: SettingsRepository,
     private val bookmarkSheetStateHolderFactory: BookmarkBottomSheetStateHolderFactory,
     threadListCoordinatorFactory: ThreadListCoordinator.Factory,
-    threadCreationControllerFactory: ThreadCreationController.Factory,
+    postDialogControllerFactory: PostDialogController.Factory,
+    private val threadCreatePostDialogExecutor: ThreadCreatePostDialogExecutor,
     boardImageUploaderFactory: BoardImageUploader.Factory,
     @Assisted("viewModelKey") viewModelKey: String
-) : BaseViewModel<BoardUiState>(), ThreadCreationController.IdentityHistoryDelegate {
+) : BaseViewModel<BoardUiState>(), PostDialogController.IdentityHistoryDelegate {
 
     // 初期化済みのボードURL（重複初期化を防ぐ）
     private var initializedUrl: String? = null
@@ -60,13 +66,15 @@ class BoardViewModel @AssistedInject constructor(
     private val threadListCoordinator =
         threadListCoordinatorFactory.create(_uiState, viewModelScope)
 
-    // スレッド作成に関する操作をまとめるコントローラ
-    private val threadCreationController = threadCreationControllerFactory.create(
+    // PostDialogの状態/操作を共通化するコントローラ
+    private val postDialogController = postDialogControllerFactory.create(
         scope = viewModelScope,
-        stateProvider = { uiState.value },
-        updateState = ::updateUiState,
+        stateAdapter = BoardPostDialogStateAdapter(_uiState),
         identityHistoryDelegate = this,
-        refreshBoard = ::refreshBoardData
+        identityHistoryKey = CREATE_IDENTITY_HISTORY_KEY,
+        executor = threadCreatePostDialogExecutor,
+        boardIdProvider = { uiState.value.boardInfo.boardId },
+        onPostSuccess = { refreshBoardData() },
     )
 
     // 画像アップロード処理（非同期）
@@ -121,7 +129,7 @@ class BoardViewModel @AssistedInject constructor(
             }
 
             // スレッド作成時の名前/メール履歴を準備
-            threadCreationController.prepareCreateIdentityHistory(ensuredId)
+            postDialogController.prepareIdentityHistory(ensuredId)
         }
 
         // ブックマーク状態を監視してツールバー表示に反映
@@ -250,56 +258,52 @@ class BoardViewModel @AssistedInject constructor(
     fun closeInfoDialog() = _uiState.update { it.copy(showInfoDialog = false) }
 
     // --- スレッド作成関連 ---
-    fun showCreateDialog() = threadCreationController.showCreateDialog()
+    fun showCreateDialog() = postDialogController.showDialog()
 
-    fun hideCreateDialog() = threadCreationController.hideCreateDialog()
+    fun hideCreateDialog() = postDialogController.hideDialog()
 
-    fun updateCreateName(name: String) = threadCreationController.updateCreateName(name)
+    fun updateCreateName(name: String) = postDialogController.updateName(name)
 
-    fun updateCreateMail(mail: String) = threadCreationController.updateCreateMail(mail)
+    fun updateCreateMail(mail: String) = postDialogController.updateMail(mail)
 
-    fun updateCreateTitle(title: String) = threadCreationController.updateCreateTitle(title)
+    fun updateCreateTitle(title: String) = postDialogController.updateTitle(title)
 
-    fun updateCreateMessage(message: String) = threadCreationController.updateCreateMessage(message)
+    fun updateCreateMessage(message: String) = postDialogController.updateMessage(message)
 
     fun selectCreateNameHistory(name: String) =
-        threadCreationController.selectCreateNameHistory(name)
+        postDialogController.selectNameHistory(name)
 
     fun selectCreateMailHistory(mail: String) =
-        threadCreationController.selectCreateMailHistory(mail)
+        postDialogController.selectMailHistory(mail)
 
     fun deleteCreateNameHistory(name: String) =
-        threadCreationController.deleteCreateNameHistory(name)
+        postDialogController.deleteNameHistory(name)
 
     fun deleteCreateMailHistory(mail: String) =
-        threadCreationController.deleteCreateMailHistory(mail)
+        postDialogController.deleteMailHistory(mail)
 
     // 確認画面を閉じる
     fun hideConfirmationScreen() {
-        _uiState.update { it.copy(isConfirmationScreen = false) }
+        postDialogController.hideConfirmationScreen()
     }
 
     // エラーページ（WebView）を閉じる
     fun hideErrorWebView() {
-        _uiState.update { it.copy(showErrorWebView = false, errorHtmlContent = "") }
+        postDialogController.hideErrorWebView()
     }
 
     // スレッド作成フェーズ（第一段階：確認画面へ遷移）
     fun createThreadFirstPhase(
         host: String,
         board: String,
-        title: String,
-        name: String,
-        mail: String,
-        message: String,
-    ) = threadCreationController.createThreadFirstPhase(host, board, title, name, mail, message)
+    ) = postDialogController.postFirstPhase(host, board, threadKey = null)
 
     // スレッド作成フェーズ（第二段階：投稿処理）
     fun createThreadSecondPhase(
         host: String,
         board: String,
         confirmationData: ConfirmationData,
-    ) = threadCreationController.createThreadSecondPhase(host, board, confirmationData)
+    ) = postDialogController.postSecondPhase(host, board, threadKey = null, confirmationData = confirmationData)
 
     // 画像アップロード（選択された URI を渡して非同期アップロード）
     fun uploadImage(context: Context, uri: Uri) {
@@ -359,6 +363,92 @@ class BoardViewModel @AssistedInject constructor(
         super.onCleared()
     }
 
+    /**
+     * 投稿履歴の識別キーを定義する。
+     */
+    companion object {
+        private const val CREATE_IDENTITY_HISTORY_KEY = "board_create_identity"
+    }
+}
+
+/**
+ * Board画面の投稿状態をPostDialogStateへ変換するアダプタ。
+ *
+ * CreateThreadFormStateをPostFormStateへ写像し、共通コントローラの更新を反映する。
+ */
+private class BoardPostDialogStateAdapter(
+    private val stateFlow: MutableStateFlow<BoardUiState>,
+) : PostDialogStateAdapter {
+
+    /**
+     * 現在のBoardUiStateをPostDialogStateへ変換して返す。
+     */
+    override fun readState(): PostDialogState {
+        val state = stateFlow.value
+        return PostDialogState(
+            isDialogVisible = state.createDialog,
+            formState = PostFormState(
+                name = state.createFormState.name,
+                mail = state.createFormState.mail,
+                title = state.createFormState.title,
+                message = state.createFormState.message,
+            ),
+            nameHistory = state.createNameHistory,
+            mailHistory = state.createMailHistory,
+            isPosting = state.isPosting,
+            postConfirmation = state.postConfirmation,
+            isConfirmationScreen = state.isConfirmationScreen,
+            showErrorWebView = state.showErrorWebView,
+            errorHtmlContent = state.errorHtmlContent,
+            postResultMessage = state.postResultMessage,
+        )
+    }
+
+    /**
+     * PostDialogStateの更新結果をBoardUiStateへ反映する。
+     */
+    override fun updateState(transform: (PostDialogState) -> PostDialogState) {
+        stateFlow.update { current ->
+            // --- Mapping ---
+            // CreateThreadFormState を PostDialogState に変換し、更新結果を再マッピングする。
+            val updated = transform(
+                PostDialogState(
+                    isDialogVisible = current.createDialog,
+                    formState = PostFormState(
+                        name = current.createFormState.name,
+                        mail = current.createFormState.mail,
+                        title = current.createFormState.title,
+                        message = current.createFormState.message,
+                    ),
+                    nameHistory = current.createNameHistory,
+                    mailHistory = current.createMailHistory,
+                    isPosting = current.isPosting,
+                    postConfirmation = current.postConfirmation,
+                    isConfirmationScreen = current.isConfirmationScreen,
+                    showErrorWebView = current.showErrorWebView,
+                    errorHtmlContent = current.errorHtmlContent,
+                    postResultMessage = current.postResultMessage,
+                )
+            )
+            current.copy(
+                createDialog = updated.isDialogVisible,
+                createFormState = CreateThreadFormState(
+                    name = updated.formState.name,
+                    mail = updated.formState.mail,
+                    title = updated.formState.title,
+                    message = updated.formState.message,
+                ),
+                createNameHistory = updated.nameHistory,
+                createMailHistory = updated.mailHistory,
+                isPosting = updated.isPosting,
+                postConfirmation = updated.postConfirmation,
+                isConfirmationScreen = updated.isConfirmationScreen,
+                showErrorWebView = updated.showErrorWebView,
+                errorHtmlContent = updated.errorHtmlContent,
+                postResultMessage = updated.postResultMessage,
+            )
+        }
+    }
 }
 
 

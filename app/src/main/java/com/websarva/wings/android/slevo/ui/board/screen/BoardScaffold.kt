@@ -293,11 +293,7 @@ fun BoardScaffold(
                                 parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                                     viewModel.createThreadFirstPhase(
                                         host,
-                                        boardKey,
-                                        uiState.createFormState.title,
-                                        uiState.createFormState.name,
-                                        uiState.createFormState.mail,
-                                        uiState.createFormState.message
+                                        boardKey
                                     )
                                 }
                             }

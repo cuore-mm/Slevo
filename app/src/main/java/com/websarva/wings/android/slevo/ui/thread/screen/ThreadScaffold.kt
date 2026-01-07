@@ -548,18 +548,8 @@ fun ThreadScaffold(
                                     viewModel.postFirstPhase(
                                         host,
                                         boardKey,
-                                        uiState.threadInfo.key,
-                                        postUiState.postFormState.name,
-                                        postUiState.postFormState.mail,
-                                        postUiState.postFormState.message
-                                    ) { resNum ->
-                                        viewModel.onPostSuccess(
-                                            resNum,
-                                            postUiState.postFormState.message,
-                                            postUiState.postFormState.name,
-                                            postUiState.postFormState.mail
-                                        )
-                                    }
+                                        uiState.threadInfo.key
+                                    )
                                 }
                             }
                             is PostDialogAction.ChangeTitle -> Unit
@@ -594,15 +584,7 @@ fun ThreadScaffold(
                                     boardKey,
                                     uiState.threadInfo.key,
                                     confirmationData
-                                ) { resNum ->
-                                    val form = postUiState.postFormState
-                                    viewModel.onPostSuccess(
-                                        resNum,
-                                        form.message,
-                                        form.name,
-                                        form.mail
-                                    )
-                                }
+                                )
                             }
                         },
                         title = "書き込み確認",

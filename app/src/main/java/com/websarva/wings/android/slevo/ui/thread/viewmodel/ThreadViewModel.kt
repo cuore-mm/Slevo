@@ -14,7 +14,6 @@ import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
-import com.websarva.wings.android.slevo.data.repository.PostRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
@@ -24,6 +23,10 @@ import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.common.bookmark.ThreadTarget
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
+import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
@@ -75,10 +78,11 @@ class ThreadViewModel @AssistedInject constructor(
     private val settingsRepository: SettingsRepository,
     private val tabsRepository: TabsRepository,
     threadReadStateRepository: ThreadReadStateRepository,
-    internal val postRepository: PostRepository,
     internal val imageUploadRepository: ImageUploadRepository,
+    private val postDialogControllerFactory: PostDialogController.Factory,
+    private val replyPostDialogExecutor: ThreadReplyPostDialogExecutor,
     @Assisted @Suppress("unused") val viewModelKey: String,
-) : BaseViewModel<ThreadUiState>() {
+) : BaseViewModel<ThreadUiState>(), PostDialogController.IdentityHistoryDelegate {
 
     private val tabCoordinator = ThreadTabCoordinator(
         scope = viewModelScope,
@@ -142,6 +146,22 @@ class ThreadViewModel @AssistedInject constructor(
 
     internal val _postUiState = MutableStateFlow(PostUiState())
     val postUiState: StateFlow<PostUiState> = _postUiState.asStateFlow()
+    internal val postDialogController = postDialogControllerFactory.create(
+        scope = viewModelScope,
+        stateAdapter = ThreadPostDialogStateAdapter(_postUiState),
+        identityHistoryDelegate = this,
+        identityHistoryKey = POST_IDENTITY_HISTORY_KEY,
+        executor = replyPostDialogExecutor,
+        boardIdProvider = { uiState.value.boardInfo.boardId },
+        onPostSuccess = { success ->
+            onPostSuccess(
+                success.resNum,
+                success.message,
+                success.name,
+                success.mail,
+            )
+        },
+    )
 
     /**
      * 画面遷移時の初期処理を行う。
@@ -203,7 +223,7 @@ class ThreadViewModel @AssistedInject constructor(
                     state.copy(boardInfo = state.boardInfo.copy(boardId = ensuredId))
                 }
             }
-            preparePostIdentityHistory(ensuredId)
+            postDialogController.prepareIdentityHistory(ensuredId)
         }
 
         // ブックマーク状態を監視してツールバー表示に反映
@@ -600,67 +620,54 @@ class ThreadViewModel @AssistedInject constructor(
         updateDisplayPosts()
     }
 
+    /**
+     * 投稿成功時に画面固有の後処理を実行する。
+     */
     fun onPostSuccess(resNum: Int?, message: String, name: String, mail: String) {
-        val boardId = uiState.value.boardInfo.boardId
-        if (boardId != 0L) {
-            viewModelScope.launch {
-                postHistoryRepository.recordIdentity(
-                    boardId = boardId,
-                    name = name,
-                    email = mail
-                )
-            }
-        }
-        _postUiState.update { state ->
-            state.copy(
-                postFormState = state.postFormState.copy(
-                    name = name,
-                    mail = mail,
-                    message = ""
-                )
-            )
-        }
         pendingPost = PendingPost(resNum, message, name, mail)
         reloadThread()
     }
 
-    private fun preparePostIdentityHistory(boardId: Long) {
-        prepareIdentityHistory(
-            key = POST_IDENTITY_HISTORY_KEY,
-            boardId = boardId,
-            repository = postHistoryRepository,
-            onLastIdentity = { name, mail ->
-                _postUiState.update { current ->
-                    val form = current.postFormState
-                    if (form.name.isEmpty() && form.mail.isEmpty()) {
-                        current.copy(
-                            postFormState = form.copy(
-                                name = name,
-                                mail = mail,
-                            ),
-                        )
-                    } else {
-                        current
-                    }
-                }
-            },
-            onNameSuggestions = { suggestions ->
-                _postUiState.update { it.copy(nameHistory = suggestions) }
-            },
-            onMailSuggestions = { suggestions ->
-                _postUiState.update { it.copy(mailHistory = suggestions) }
-            },
-            nameQueryProvider = { _postUiState.value.postFormState.name },
-            mailQueryProvider = { _postUiState.value.postFormState.mail },
+    // --- IdentityHistoryDelegate 実装（履歴関連のイベント） ---
+    override fun onPrepareIdentityHistory(
+        key: String,
+        boardId: Long,
+        repository: PostHistoryRepository,
+        onLastIdentity: ((String, String) -> Unit)?,
+        onNameSuggestions: (List<String>) -> Unit,
+        onMailSuggestions: (List<String>) -> Unit,
+        nameQueryProvider: () -> String,
+        mailQueryProvider: () -> String,
+    ) {
+        // 親クラスの履歴準備処理を呼び出す（具体的ロジックは Base に委譲）
+        super.prepareIdentityHistory(
+            key,
+            boardId,
+            repository,
+            onLastIdentity,
+            onNameSuggestions,
+            onMailSuggestions,
+            nameQueryProvider,
+            mailQueryProvider,
         )
     }
 
-    internal fun refreshPostIdentityHistory(type: PostIdentityType) {
-        refreshIdentityHistorySuggestions(POST_IDENTITY_HISTORY_KEY, type)
+    override fun onRefreshIdentityHistorySuggestions(
+        key: String,
+        type: PostIdentityType?,
+    ) {
+        // 履歴候補の更新を親に委譲
+        super.refreshIdentityHistorySuggestions(key, type)
     }
 
-    internal fun deletePostIdentity(type: PostIdentityType, value: String) {
-        deleteIdentityHistory(POST_IDENTITY_HISTORY_KEY, postHistoryRepository, type, value)
+    override fun onDeleteIdentityHistory(
+        key: String,
+        repository: PostHistoryRepository,
+        type: PostIdentityType,
+        value: String,
+    ) {
+        // 履歴削除を親に委譲
+        super.deleteIdentityHistory(key, repository, type, value)
     }
 
     fun updateThreadTabInfo(threadId: ThreadId, title: String, resCount: Int) {
@@ -679,8 +686,76 @@ class ThreadViewModel @AssistedInject constructor(
         tabCoordinator.updateThreadLastRead(threadId, lastReadResNo)
     }
 
+    /**
+     * 投稿履歴の識別キーを定義する。
+     */
     companion object {
         private const val POST_IDENTITY_HISTORY_KEY = "thread_post_identity"
+    }
+}
+
+/**
+ * Thread画面の投稿状態をPostDialogStateへ変換するアダプタ。
+ *
+ * PostUiStateの投稿関連フィールドのみを抽出して共通状態へ写像する。
+ */
+private class ThreadPostDialogStateAdapter(
+    private val stateFlow: MutableStateFlow<PostUiState>,
+) : PostDialogStateAdapter {
+
+    /**
+     * 現在のPostUiStateをPostDialogStateへ変換して返す。
+     */
+    override fun readState(): PostDialogState {
+        val state = stateFlow.value
+        return PostDialogState(
+            isDialogVisible = state.postDialog,
+            formState = state.postFormState,
+            nameHistory = state.nameHistory,
+            mailHistory = state.mailHistory,
+            isPosting = state.isPosting,
+            postConfirmation = state.postConfirmation,
+            isConfirmationScreen = state.isConfirmationScreen,
+            showErrorWebView = state.showErrorWebView,
+            errorHtmlContent = state.errorHtmlContent,
+            postResultMessage = state.postResultMessage,
+        )
+    }
+
+    /**
+     * PostDialogStateの更新結果をPostUiStateへ反映する。
+     */
+    override fun updateState(transform: (PostDialogState) -> PostDialogState) {
+        stateFlow.update { current ->
+            // --- Mapping ---
+            // PostUiState の投稿関連フィールドを PostDialogState に写像して更新する。
+            val updated = transform(
+                PostDialogState(
+                    isDialogVisible = current.postDialog,
+                    formState = current.postFormState,
+                    nameHistory = current.nameHistory,
+                    mailHistory = current.mailHistory,
+                    isPosting = current.isPosting,
+                    postConfirmation = current.postConfirmation,
+                    isConfirmationScreen = current.isConfirmationScreen,
+                    showErrorWebView = current.showErrorWebView,
+                    errorHtmlContent = current.errorHtmlContent,
+                    postResultMessage = current.postResultMessage,
+                )
+            )
+            current.copy(
+                postDialog = updated.isDialogVisible,
+                postFormState = updated.formState,
+                nameHistory = updated.nameHistory,
+                mailHistory = updated.mailHistory,
+                isPosting = updated.isPosting,
+                postConfirmation = updated.postConfirmation,
+                isConfirmationScreen = updated.isConfirmationScreen,
+                showErrorWebView = updated.showErrorWebView,
+                errorHtmlContent = updated.errorHtmlContent,
+                postResultMessage = updated.postResultMessage,
+            )
+        }
     }
 }
 
