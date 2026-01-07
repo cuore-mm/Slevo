@@ -3,10 +3,10 @@ package com.websarva.wings.android.slevo.ui.board.state
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 
 /**
  * 板画面のUI状態。
@@ -26,16 +26,7 @@ data class BoardUiState(
     val sortKeys: List<ThreadSortKey> = ThreadSortKey.entries,
     val isSearchActive: Boolean = false,
     val searchQuery: String = "",
-    val createDialog: Boolean = false,
-    val createFormState: CreateThreadFormState = CreateThreadFormState(),
-    val createNameHistory: List<String> = emptyList(),
-    val createMailHistory: List<String> = emptyList(),
-    val isPosting: Boolean = false,
-    val postConfirmation: ConfirmationData? = null,
-    val isConfirmationScreen: Boolean = false,
-    val showErrorWebView: Boolean = false,
-    val errorHtmlContent: String = "",
-    val postResultMessage: String? = null,
+    val postDialogState: PostDialogState = PostDialogState(),
     val resetScroll: Boolean = false,
     override val loadProgress: Float = 0f,
     override val gestureSettings: GestureSettings = GestureSettings.DEFAULT,
@@ -60,17 +51,12 @@ data class BoardUiState(
     }
 }
 
-// 並び替え基準の定義
+/**
+ * 板画面のスレッド並び替え基準。
+ */
 enum class ThreadSortKey(val displayName: String) {
     DEFAULT("デフォルト"), // サーバーから返ってきた順
     MOMENTUM("勢い"),
     RES_COUNT("レス数"),
     DATE_CREATED("作成日時") // スレッドキー順
 }
-
-data class CreateThreadFormState(
-    val name: String = "",
-    val mail: String = "",
-    val title: String = "",
-    val message: String = "",
-)

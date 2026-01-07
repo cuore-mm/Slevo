@@ -17,7 +17,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.navigation.NavHostController
@@ -36,20 +35,18 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
-import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
-import com.websarva.wings.android.slevo.ui.thread.state.PostFormState
-import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 /**
  * 板画面の表示とタブ解決をまとめて行う。
  *
  * URL検証に成功した場合のみタブを保存し、無効URLは保存せずに戻る。
  */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun BoardScaffold(
     boardRoute: AppRoute.Board,
@@ -137,7 +134,7 @@ fun BoardScaffold(
                 TabToolBarAction(
                     icon = Icons.Filled.Create,
                     contentDescriptionRes = R.string.create_thread,
-                    onClick = { viewModel.showCreateDialog() },
+                    onClick = { viewModel.postDialogActions.showDialog() },
                 ),
             )
 
@@ -206,7 +203,7 @@ fun BoardScaffold(
                 onGestureAction = { action ->
                     when (action) {
                         GestureAction.Refresh -> viewModel.refreshBoardData()
-                        GestureAction.PostOrCreateThread -> viewModel.showCreateDialog()
+                        GestureAction.PostOrCreateThread -> viewModel.postDialogActions.showDialog()
                         GestureAction.Search -> viewModel.setSearchMode(true)
                         GestureAction.OpenTabList -> openTabListSheet()
                         GestureAction.OpenBookmarkList -> navController.navigate(AppRoute.BookmarkList)
@@ -248,56 +245,43 @@ fun BoardScaffold(
                 )
             }
 
-            if (uiState.createDialog) {
+            val postDialogState = uiState.postDialogState
+            if (postDialogState.isDialogVisible) {
                 val context = LocalContext.current
-                val postDialogState = PostUiState(
-                    postFormState = PostFormState(
-                        name = uiState.createFormState.name,
-                        mail = uiState.createFormState.mail,
-                        title = uiState.createFormState.title,
-                        message = uiState.createFormState.message
-                    ),
-                    namePlaceholder = uiState.boardInfo.noname.ifBlank { stringResource(R.string.name) },
-                    nameHistory = uiState.createNameHistory,
-                    mailHistory = uiState.createMailHistory
-                )
                 PostDialog(
                     uiState = postDialogState,
-                    onDismissRequest = { viewModel.hideCreateDialog() },
+                    onDismissRequest = { viewModel.postDialogActions.hideDialog() },
                     onAction = { action ->
                         when (action) {
-                            is PostDialogAction.ChangeName -> viewModel.updateCreateName(action.value)
-                            is PostDialogAction.ChangeMail -> viewModel.updateCreateMail(action.value)
-                            is PostDialogAction.ChangeTitle -> viewModel.updateCreateTitle(action.value)
-                            is PostDialogAction.ChangeMessage -> viewModel.updateCreateMessage(
+                            is PostDialogAction.ChangeName -> viewModel.postDialogActions.updateName(action.value)
+                            is PostDialogAction.ChangeMail -> viewModel.postDialogActions.updateMail(action.value)
+                            is PostDialogAction.ChangeTitle -> viewModel.postDialogActions.updateTitle(action.value)
+                            is PostDialogAction.ChangeMessage -> viewModel.postDialogActions.updateMessage(
                                 action.value
                             )
 
-                            is PostDialogAction.SelectNameHistory -> viewModel.selectCreateNameHistory(
+                            is PostDialogAction.SelectNameHistory -> viewModel.postDialogActions.selectNameHistory(
                                 action.value
                             )
 
-                            is PostDialogAction.SelectMailHistory -> viewModel.selectCreateMailHistory(
+                            is PostDialogAction.SelectMailHistory -> viewModel.postDialogActions.selectMailHistory(
                                 action.value
                             )
 
-                            is PostDialogAction.DeleteNameHistory -> viewModel.deleteCreateNameHistory(
+                            is PostDialogAction.DeleteNameHistory -> viewModel.postDialogActions.deleteNameHistory(
                                 action.value
                             )
 
-                            is PostDialogAction.DeleteMailHistory -> viewModel.deleteCreateMailHistory(
+                            is PostDialogAction.DeleteMailHistory -> viewModel.postDialogActions.deleteMailHistory(
                                 action.value
                             )
 
                             PostDialogAction.Post -> {
                                 parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                    viewModel.createThreadFirstPhase(
+                                    viewModel.postDialogActions.postFirstPhase(
                                         host,
                                         boardKey,
-                                        uiState.createFormState.title,
-                                        uiState.createFormState.name,
-                                        uiState.createFormState.mail,
-                                        uiState.createFormState.message
+                                        threadKey = null,
                                     )
                                 }
                             }
@@ -320,14 +304,19 @@ fun BoardScaffold(
                 )
             }
 
-            if (uiState.isConfirmationScreen) {
-                uiState.postConfirmation?.let { confirmationData ->
+            if (postDialogState.isConfirmationScreen) {
+                postDialogState.postConfirmation?.let { confirmationData ->
                     ResponseWebViewDialog(
                         htmlContent = confirmationData.html,
-                        onDismissRequest = { viewModel.hideConfirmationScreen() },
+                        onDismissRequest = { viewModel.postDialogActions.hideConfirmationScreen() },
                         onConfirm = {
                             parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                viewModel.createThreadSecondPhase(host, boardKey, confirmationData)
+                                viewModel.postDialogActions.postSecondPhase(
+                                    host,
+                                    boardKey,
+                                    threadKey = null,
+                                    confirmationData = confirmationData,
+                                )
                             }
                         },
                         title = "書き込み確認",
@@ -336,16 +325,16 @@ fun BoardScaffold(
                 }
             }
 
-            if (uiState.showErrorWebView) {
+            if (postDialogState.showErrorWebView) {
                 ResponseWebViewDialog(
-                    htmlContent = uiState.errorHtmlContent,
-                    onDismissRequest = { viewModel.hideErrorWebView() },
+                    htmlContent = postDialogState.errorHtmlContent,
+                    onDismissRequest = { viewModel.postDialogActions.hideErrorWebView() },
                     title = "応答結果",
                     onConfirm = null
                 )
             }
 
-            if (uiState.isPosting) {
+            if (postDialogState.isPosting) {
                 PostingDialog()
             }
         }
