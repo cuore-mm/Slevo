@@ -19,6 +19,7 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDia
 import com.websarva.wings.android.slevo.ui.thread.state.PostFormState
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
+import com.websarva.wings.android.slevo.ui.board.state.CreateThreadFormState
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
 import com.websarva.wings.android.slevo.ui.common.bookmark.BoardTarget
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
