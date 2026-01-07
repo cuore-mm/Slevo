@@ -137,7 +137,7 @@ fun BoardScaffold(
                 TabToolBarAction(
                     icon = Icons.Filled.Create,
                     contentDescriptionRes = R.string.create_thread,
-                    onClick = { viewModel.showCreateDialog() },
+                    onClick = { viewModel.postDialogActions.showDialog() },
                 ),
             )
 
@@ -206,7 +206,7 @@ fun BoardScaffold(
                 onGestureAction = { action ->
                     when (action) {
                         GestureAction.Refresh -> viewModel.refreshBoardData()
-                        GestureAction.PostOrCreateThread -> viewModel.showCreateDialog()
+                        GestureAction.PostOrCreateThread -> viewModel.postDialogActions.showDialog()
                         GestureAction.Search -> viewModel.setSearchMode(true)
                         GestureAction.OpenTabList -> openTabListSheet()
                         GestureAction.OpenBookmarkList -> navController.navigate(AppRoute.BookmarkList)
@@ -263,37 +263,38 @@ fun BoardScaffold(
                 )
                 PostDialog(
                     uiState = postDialogState,
-                    onDismissRequest = { viewModel.hideCreateDialog() },
+                    onDismissRequest = { viewModel.postDialogActions.hideDialog() },
                     onAction = { action ->
                         when (action) {
-                            is PostDialogAction.ChangeName -> viewModel.updateCreateName(action.value)
-                            is PostDialogAction.ChangeMail -> viewModel.updateCreateMail(action.value)
-                            is PostDialogAction.ChangeTitle -> viewModel.updateCreateTitle(action.value)
-                            is PostDialogAction.ChangeMessage -> viewModel.updateCreateMessage(
+                            is PostDialogAction.ChangeName -> viewModel.postDialogActions.updateName(action.value)
+                            is PostDialogAction.ChangeMail -> viewModel.postDialogActions.updateMail(action.value)
+                            is PostDialogAction.ChangeTitle -> viewModel.postDialogActions.updateTitle(action.value)
+                            is PostDialogAction.ChangeMessage -> viewModel.postDialogActions.updateMessage(
                                 action.value
                             )
 
-                            is PostDialogAction.SelectNameHistory -> viewModel.selectCreateNameHistory(
+                            is PostDialogAction.SelectNameHistory -> viewModel.postDialogActions.selectNameHistory(
                                 action.value
                             )
 
-                            is PostDialogAction.SelectMailHistory -> viewModel.selectCreateMailHistory(
+                            is PostDialogAction.SelectMailHistory -> viewModel.postDialogActions.selectMailHistory(
                                 action.value
                             )
 
-                            is PostDialogAction.DeleteNameHistory -> viewModel.deleteCreateNameHistory(
+                            is PostDialogAction.DeleteNameHistory -> viewModel.postDialogActions.deleteNameHistory(
                                 action.value
                             )
 
-                            is PostDialogAction.DeleteMailHistory -> viewModel.deleteCreateMailHistory(
+                            is PostDialogAction.DeleteMailHistory -> viewModel.postDialogActions.deleteMailHistory(
                                 action.value
                             )
 
                             PostDialogAction.Post -> {
                                 parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                    viewModel.createThreadFirstPhase(
+                                    viewModel.postDialogActions.postFirstPhase(
                                         host,
-                                        boardKey
+                                        boardKey,
+                                        threadKey = null,
                                     )
                                 }
                             }
@@ -320,10 +321,15 @@ fun BoardScaffold(
                 uiState.postConfirmation?.let { confirmationData ->
                     ResponseWebViewDialog(
                         htmlContent = confirmationData.html,
-                        onDismissRequest = { viewModel.hideConfirmationScreen() },
+                        onDismissRequest = { viewModel.postDialogActions.hideConfirmationScreen() },
                         onConfirm = {
                             parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                viewModel.createThreadSecondPhase(host, boardKey, confirmationData)
+                                viewModel.postDialogActions.postSecondPhase(
+                                    host,
+                                    boardKey,
+                                    threadKey = null,
+                                    confirmationData = confirmationData,
+                                )
                             }
                         },
                         title = "書き込み確認",
@@ -335,7 +341,7 @@ fun BoardScaffold(
             if (uiState.showErrorWebView) {
                 ResponseWebViewDialog(
                     htmlContent = uiState.errorHtmlContent,
-                    onDismissRequest = { viewModel.hideErrorWebView() },
+                    onDismissRequest = { viewModel.postDialogActions.hideErrorWebView() },
                     title = "応答結果",
                     onConfirm = null
                 )

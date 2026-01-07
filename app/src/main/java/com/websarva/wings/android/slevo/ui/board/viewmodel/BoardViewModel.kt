@@ -8,7 +8,6 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
-import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
@@ -77,6 +76,12 @@ class BoardViewModel @AssistedInject constructor(
         boardIdProvider = { uiState.value.boardInfo.boardId },
         onPostSuccess = { refreshBoardData() },
     )
+
+    /**
+     * PostDialogの操作をUIへ公開する。
+     */
+    val postDialogActions: PostDialogController
+        get() = postDialogController
 
     // 画像アップロード処理（非同期）
     private val boardImageUploader = boardImageUploaderFactory.create(
@@ -257,54 +262,6 @@ class BoardViewModel @AssistedInject constructor(
     fun openInfoDialog() = _uiState.update { it.copy(showInfoDialog = true) }
 
     fun closeInfoDialog() = _uiState.update { it.copy(showInfoDialog = false) }
-
-    // --- スレッド作成関連 ---
-    fun showCreateDialog() = postDialogController.showDialog()
-
-    fun hideCreateDialog() = postDialogController.hideDialog()
-
-    fun updateCreateName(name: String) = postDialogController.updateName(name)
-
-    fun updateCreateMail(mail: String) = postDialogController.updateMail(mail)
-
-    fun updateCreateTitle(title: String) = postDialogController.updateTitle(title)
-
-    fun updateCreateMessage(message: String) = postDialogController.updateMessage(message)
-
-    fun selectCreateNameHistory(name: String) =
-        postDialogController.selectNameHistory(name)
-
-    fun selectCreateMailHistory(mail: String) =
-        postDialogController.selectMailHistory(mail)
-
-    fun deleteCreateNameHistory(name: String) =
-        postDialogController.deleteNameHistory(name)
-
-    fun deleteCreateMailHistory(mail: String) =
-        postDialogController.deleteMailHistory(mail)
-
-    // 確認画面を閉じる
-    fun hideConfirmationScreen() {
-        postDialogController.hideConfirmationScreen()
-    }
-
-    // エラーページ（WebView）を閉じる
-    fun hideErrorWebView() {
-        postDialogController.hideErrorWebView()
-    }
-
-    // スレッド作成フェーズ（第一段階：確認画面へ遷移）
-    fun createThreadFirstPhase(
-        host: String,
-        board: String,
-    ) = postDialogController.postFirstPhase(host, board, threadKey = null)
-
-    // スレッド作成フェーズ（第二段階：投稿処理）
-    fun createThreadSecondPhase(
-        host: String,
-        board: String,
-        confirmationData: ConfirmationData,
-    ) = postDialogController.postSecondPhase(host, board, threadKey = null, confirmationData = confirmationData)
 
     // 画像アップロード（選択された URI を渡して非同期アップロード）
     fun uploadImage(context: Context, uri: Uri) {
