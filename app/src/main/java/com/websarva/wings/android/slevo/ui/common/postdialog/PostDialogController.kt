@@ -4,7 +4,6 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.history.Pos
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.PostResult
-import com.websarva.wings.android.slevo.ui.thread.state.PostFormState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject

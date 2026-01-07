@@ -7,6 +7,7 @@ import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 
 /**
  * スレッド表示のソート種別。
@@ -31,6 +32,7 @@ data class ThreadUiState(
     override val bookmarkStatusState: BookmarkStatusState = BookmarkStatusState(),
     override val bookmarkSheetState: BookmarkSheetUiState = BookmarkSheetUiState(),
     override val isLoading: Boolean = false,
+    val postDialogState: PostDialogState = PostDialogState(),
     val showThreadInfoSheet: Boolean = false,
     val showMoreSheet: Boolean = false,
     val showDisplaySettingsSheet: Boolean = false,

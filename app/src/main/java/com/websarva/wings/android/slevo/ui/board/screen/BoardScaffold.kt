@@ -17,7 +17,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.navigation.NavHostController
@@ -36,20 +35,18 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
-import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
-import com.websarva.wings.android.slevo.ui.thread.state.PostFormState
-import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 /**
  * 板画面の表示とタブ解決をまとめて行う。
  *
  * URL検証に成功した場合のみタブを保存し、無効URLは保存せずに戻る。
  */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun BoardScaffold(
     boardRoute: AppRoute.Board,
@@ -248,19 +245,9 @@ fun BoardScaffold(
                 )
             }
 
-            if (uiState.createDialog) {
+            val postDialogState = uiState.postDialogState
+            if (postDialogState.isDialogVisible) {
                 val context = LocalContext.current
-                val postDialogState = PostUiState(
-                    postFormState = PostFormState(
-                        name = uiState.createFormState.name,
-                        mail = uiState.createFormState.mail,
-                        title = uiState.createFormState.title,
-                        message = uiState.createFormState.message
-                    ),
-                    namePlaceholder = uiState.boardInfo.noname.ifBlank { stringResource(R.string.name) },
-                    nameHistory = uiState.createNameHistory,
-                    mailHistory = uiState.createMailHistory
-                )
                 PostDialog(
                     uiState = postDialogState,
                     onDismissRequest = { viewModel.postDialogActions.hideDialog() },
@@ -317,8 +304,8 @@ fun BoardScaffold(
                 )
             }
 
-            if (uiState.isConfirmationScreen) {
-                uiState.postConfirmation?.let { confirmationData ->
+            if (postDialogState.isConfirmationScreen) {
+                postDialogState.postConfirmation?.let { confirmationData ->
                     ResponseWebViewDialog(
                         htmlContent = confirmationData.html,
                         onDismissRequest = { viewModel.postDialogActions.hideConfirmationScreen() },
@@ -338,16 +325,16 @@ fun BoardScaffold(
                 }
             }
 
-            if (uiState.showErrorWebView) {
+            if (postDialogState.showErrorWebView) {
                 ResponseWebViewDialog(
-                    htmlContent = uiState.errorHtmlContent,
+                    htmlContent = postDialogState.errorHtmlContent,
                     onDismissRequest = { viewModel.postDialogActions.hideErrorWebView() },
                     title = "応答結果",
                     onConfirm = null
                 )
             }
 
-            if (uiState.isPosting) {
+            if (postDialogState.isPosting) {
                 PostingDialog()
             }
         }

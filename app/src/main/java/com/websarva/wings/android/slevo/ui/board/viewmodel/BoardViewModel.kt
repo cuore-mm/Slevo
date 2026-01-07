@@ -15,10 +15,8 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogControlle
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
-import com.websarva.wings.android.slevo.ui.thread.state.PostFormState
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
-import com.websarva.wings.android.slevo.ui.board.state.CreateThreadFormState
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
 import com.websarva.wings.android.slevo.ui.common.bookmark.BoardTarget
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
@@ -119,7 +117,13 @@ class BoardViewModel @AssistedInject constructor(
 
         // サービス名を URL から解析して UI に保持
         val serviceName = parseServiceName(boardInfo.url)
-        _uiState.update { it.copy(boardInfo = boardInfo, serviceName = serviceName) }
+        _uiState.update { state ->
+            state.copy(
+                boardInfo = boardInfo,
+                serviceName = serviceName,
+                postDialogState = state.postDialogState.copy(namePlaceholder = boardInfo.noname),
+            )
+        }
 
         // ボード情報を DB に登録（未登録なら登録）し、noname ファイルを取得する
         viewModelScope.launch {
@@ -130,7 +134,10 @@ class BoardViewModel @AssistedInject constructor(
             // SETTING.TXT から noname を取得して UI に反映
             repository.fetchBoardNoname("${boardInfo.url}SETTING.TXT")?.let { noname ->
                 _uiState.update { state ->
-                    state.copy(boardInfo = state.boardInfo.copy(noname = noname))
+                    state.copy(
+                        boardInfo = state.boardInfo.copy(noname = noname),
+                        postDialogState = state.postDialogState.copy(namePlaceholder = noname),
+                    )
                 }
             }
 
@@ -330,36 +337,19 @@ class BoardViewModel @AssistedInject constructor(
 }
 
 /**
- * Board画面の投稿状態をPostDialogStateへ変換するアダプタ。
+ * Board画面の投稿状態をPostDialogStateへ橋渡しするアダプタ。
  *
- * CreateThreadFormStateをPostFormStateへ写像し、共通コントローラの更新を反映する。
+ * BoardUiState.postDialogStateを読み書きし、共通コントローラの更新を反映する。
  */
 private class BoardPostDialogStateAdapter(
     private val stateFlow: MutableStateFlow<BoardUiState>,
 ) : PostDialogStateAdapter {
 
     /**
-     * 現在のBoardUiStateをPostDialogStateへ変換して返す。
+     * 現在のBoardUiStateからPostDialogStateを取得する。
      */
     override fun readState(): PostDialogState {
-        val state = stateFlow.value
-        return PostDialogState(
-            isDialogVisible = state.createDialog,
-            formState = PostFormState(
-                name = state.createFormState.name,
-                mail = state.createFormState.mail,
-                title = state.createFormState.title,
-                message = state.createFormState.message,
-            ),
-            nameHistory = state.createNameHistory,
-            mailHistory = state.createMailHistory,
-            isPosting = state.isPosting,
-            postConfirmation = state.postConfirmation,
-            isConfirmationScreen = state.isConfirmationScreen,
-            showErrorWebView = state.showErrorWebView,
-            errorHtmlContent = state.errorHtmlContent,
-            postResultMessage = state.postResultMessage,
-        )
+        return stateFlow.value.postDialogState
     }
 
     /**
@@ -367,49 +357,15 @@ private class BoardPostDialogStateAdapter(
      */
     override fun updateState(transform: (PostDialogState) -> PostDialogState) {
         stateFlow.update { current ->
-            // --- Mapping ---
-            // CreateThreadFormState を PostDialogState に変換し、更新結果を再マッピングする。
-            val updated = transform(
-                PostDialogState(
-                    isDialogVisible = current.createDialog,
-                    formState = PostFormState(
-                        name = current.createFormState.name,
-                        mail = current.createFormState.mail,
-                        title = current.createFormState.title,
-                        message = current.createFormState.message,
-                    ),
-                    nameHistory = current.createNameHistory,
-                    mailHistory = current.createMailHistory,
-                    isPosting = current.isPosting,
-                    postConfirmation = current.postConfirmation,
-                    isConfirmationScreen = current.isConfirmationScreen,
-                    showErrorWebView = current.showErrorWebView,
-                    errorHtmlContent = current.errorHtmlContent,
-                    postResultMessage = current.postResultMessage,
-                )
-            )
-            current.copy(
-                createDialog = updated.isDialogVisible,
-                createFormState = CreateThreadFormState(
-                    name = updated.formState.name,
-                    mail = updated.formState.mail,
-                    title = updated.formState.title,
-                    message = updated.formState.message,
-                ),
-                createNameHistory = updated.nameHistory,
-                createMailHistory = updated.mailHistory,
-                isPosting = updated.isPosting,
-                postConfirmation = updated.postConfirmation,
-                isConfirmationScreen = updated.isConfirmationScreen,
-                showErrorWebView = updated.showErrorWebView,
-                errorHtmlContent = updated.errorHtmlContent,
-                postResultMessage = updated.postResultMessage,
-            )
+            current.copy(postDialogState = transform(current.postDialogState))
         }
     }
 }
 
 
+/**
+ * BoardViewModel を生成するためのファクトリ。
+ */
 @AssistedFactory
 interface BoardViewModelFactory {
     fun create(

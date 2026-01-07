@@ -2,7 +2,6 @@ package com.websarva.wings.android.slevo.ui.common.postdialog
 
 import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.PostResult
-import com.websarva.wings.android.slevo.ui.thread.state.PostFormState
 
 /**
  * PostDialogの投稿処理を差し替えるための実行インターフェース。

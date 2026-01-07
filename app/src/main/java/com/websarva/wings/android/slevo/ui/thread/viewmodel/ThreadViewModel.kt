@@ -33,7 +33,6 @@ import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
-import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.data.util.ThreadListParser.calculateThreadDate
@@ -44,9 +43,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -148,11 +145,9 @@ class ThreadViewModel @AssistedInject constructor(
         }
     }
 
-    internal val _postUiState = MutableStateFlow(PostUiState())
-    val postUiState: StateFlow<PostUiState> = _postUiState.asStateFlow()
     internal val postDialogController = postDialogControllerFactory.create(
         scope = viewModelScope,
-        stateAdapter = ThreadPostDialogStateAdapter(_postUiState),
+        stateAdapter = ThreadPostDialogStateAdapter(_uiState),
         identityHistoryDelegate = this,
         identityHistoryKey = POST_IDENTITY_HISTORY_KEY,
         executor = replyPostDialogExecutor,
@@ -189,8 +184,13 @@ class ThreadViewModel @AssistedInject constructor(
             title = threadTitle,
             url = boardInfo.url
         )
-        _uiState.update { it.copy(boardInfo = boardInfo, threadInfo = threadInfo) }
-        _postUiState.update { it.copy(namePlaceholder = boardInfo.noname) }
+        _uiState.update { state ->
+            state.copy(
+                boardInfo = boardInfo,
+                threadInfo = threadInfo,
+                postDialogState = state.postDialogState.copy(namePlaceholder = boardInfo.noname),
+            )
+        }
 
         viewModelScope.launch {
             val currentTabs = tabsRepository.observeOpenThreadTabs().first()
@@ -222,7 +222,9 @@ class ThreadViewModel @AssistedInject constructor(
                 _uiState.update { state ->
                     state.copy(boardInfo = state.boardInfo.copy(noname = noname))
                 }
-                _postUiState.update { state -> state.copy(namePlaceholder = noname) }
+                _uiState.update { state ->
+                    state.copy(postDialogState = state.postDialogState.copy(namePlaceholder = noname))
+                }
             }
         }
 
@@ -651,10 +653,14 @@ class ThreadViewModel @AssistedInject constructor(
             bytes?.let {
                 val url = imageUploadRepository.uploadImage(it)
                 if (url != null) {
-                    val msg = postUiState.value.postFormState.message
-                    _postUiState.update { current ->
+                    val msg = uiState.value.postDialogState.formState.message
+                    _uiState.update { current ->
                         current.copy(
-                            postFormState = current.postFormState.copy(message = msg + "\n" + url),
+                            postDialogState = current.postDialogState.copy(
+                                formState = current.postDialogState.formState.copy(
+                                    message = msg + "\n" + url
+                                ),
+                            ),
                         )
                     }
                 }
@@ -729,70 +735,36 @@ class ThreadViewModel @AssistedInject constructor(
 }
 
 /**
- * Thread画面の投稿状態をPostDialogStateへ変換するアダプタ。
+ * Thread画面の投稿状態をPostDialogStateへ橋渡しするアダプタ。
  *
- * PostUiStateの投稿関連フィールドのみを抽出して共通状態へ写像する。
+ * ThreadUiState.postDialogStateを読み書きし、共通コントローラの更新を反映する。
  */
 private class ThreadPostDialogStateAdapter(
-    private val stateFlow: MutableStateFlow<PostUiState>,
+    private val stateFlow: MutableStateFlow<ThreadUiState>,
 ) : PostDialogStateAdapter {
 
     /**
-     * 現在のPostUiStateをPostDialogStateへ変換して返す。
+     * 現在のThreadUiStateからPostDialogStateを取得する。
      */
     override fun readState(): PostDialogState {
-        val state = stateFlow.value
-        return PostDialogState(
-            isDialogVisible = state.postDialog,
-            formState = state.postFormState,
-            nameHistory = state.nameHistory,
-            mailHistory = state.mailHistory,
-            isPosting = state.isPosting,
-            postConfirmation = state.postConfirmation,
-            isConfirmationScreen = state.isConfirmationScreen,
-            showErrorWebView = state.showErrorWebView,
-            errorHtmlContent = state.errorHtmlContent,
-            postResultMessage = state.postResultMessage,
-        )
+        return stateFlow.value.postDialogState
     }
 
     /**
-     * PostDialogStateの更新結果をPostUiStateへ反映する。
+     * PostDialogStateの更新結果をThreadUiStateへ反映する。
      */
     override fun updateState(transform: (PostDialogState) -> PostDialogState) {
         stateFlow.update { current ->
-            // --- Mapping ---
-            // PostUiState の投稿関連フィールドを PostDialogState に写像して更新する。
-            val updated = transform(
-                PostDialogState(
-                    isDialogVisible = current.postDialog,
-                    formState = current.postFormState,
-                    nameHistory = current.nameHistory,
-                    mailHistory = current.mailHistory,
-                    isPosting = current.isPosting,
-                    postConfirmation = current.postConfirmation,
-                    isConfirmationScreen = current.isConfirmationScreen,
-                    showErrorWebView = current.showErrorWebView,
-                    errorHtmlContent = current.errorHtmlContent,
-                    postResultMessage = current.postResultMessage,
-                )
-            )
             current.copy(
-                postDialog = updated.isDialogVisible,
-                postFormState = updated.formState,
-                nameHistory = updated.nameHistory,
-                mailHistory = updated.mailHistory,
-                isPosting = updated.isPosting,
-                postConfirmation = updated.postConfirmation,
-                isConfirmationScreen = updated.isConfirmationScreen,
-                showErrorWebView = updated.showErrorWebView,
-                errorHtmlContent = updated.errorHtmlContent,
-                postResultMessage = updated.postResultMessage,
+                postDialogState = transform(current.postDialogState),
             )
         }
     }
 }
 
+/**
+ * ThreadViewModel を生成するためのファクトリ。
+ */
 @AssistedFactory
 interface ThreadViewModelFactory {
     fun create(viewModelKey: String): ThreadViewModel

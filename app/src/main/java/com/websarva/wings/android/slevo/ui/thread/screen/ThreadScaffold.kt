@@ -30,7 +30,7 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.GestureAction
-import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -244,7 +244,6 @@ fun ThreadScaffold(
             )
         },
         optionalSheetContent = { viewModel, uiState ->
-            val postUiState by viewModel.postUiState.collectAsState()
             val clipboard = LocalClipboard.current
             val coroutineScope = rememberCoroutineScope()
             var pendingSaveImageUrl by remember { mutableStateOf<String?>(null) }
@@ -514,10 +513,11 @@ fun ThreadScaffold(
                 onLineHeightChange = { viewModel.updateLineHeight(it) }
             )
 
-            if (postUiState.postDialog) {
+            val postDialogState = uiState.postDialogState
+            if (postDialogState.isDialogVisible) {
                 val context = LocalContext.current
                 PostDialog(
-                    uiState = postUiState,
+                    uiState = postDialogState,
                     onDismissRequest = { viewModel.postDialogActions.hideDialog() },
                     onAction = { action ->
                         when (action) {
@@ -564,8 +564,8 @@ fun ThreadScaffold(
                 )
             }
 
-            if (postUiState.isConfirmationScreen) {
-                postUiState.postConfirmation?.let { confirmationData ->
+            if (postDialogState.isConfirmationScreen) {
+                postDialogState.postConfirmation?.let { confirmationData ->
                     ResponseWebViewDialog(
                         htmlContent = confirmationData.html,
                         onDismissRequest = { viewModel.postDialogActions.hideConfirmationScreen() },
@@ -585,16 +585,16 @@ fun ThreadScaffold(
                 }
             }
 
-            if (postUiState.showErrorWebView) {
+            if (postDialogState.showErrorWebView) {
                 ResponseWebViewDialog(
-                    htmlContent = postUiState.errorHtmlContent,
+                    htmlContent = postDialogState.errorHtmlContent,
                     onDismissRequest = { viewModel.postDialogActions.hideErrorWebView() },
                     title = "応答結果",
                     onConfirm = null // 確認ボタンは不要なのでnull
                 )
             }
 
-            if (postUiState.isPosting) {
+            if (postDialogState.isPosting) {
                 PostingDialog()
             }
         }
