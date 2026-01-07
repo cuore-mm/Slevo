@@ -10,6 +10,7 @@ import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUploader
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
@@ -45,7 +46,7 @@ class BoardViewModel @AssistedInject constructor(
     threadListCoordinatorFactory: ThreadListCoordinator.Factory,
     postDialogControllerFactory: PostDialogController.Factory,
     private val threadCreatePostDialogExecutor: ThreadCreatePostDialogExecutor,
-    boardImageUploaderFactory: BoardImageUploader.Factory,
+    postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
     @Assisted("viewModelKey") viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
 
@@ -79,16 +80,10 @@ class BoardViewModel @AssistedInject constructor(
         get() = postDialogController
 
     // 画像アップロード処理（非同期）
-    private val boardImageUploader = boardImageUploaderFactory.create(
+    private val postDialogImageUploader = postDialogImageUploaderFactory.create(
         scope = viewModelScope,
         dispatcher = Dispatchers.IO,
-        updateState = ::updateUiState
     )
-
-    // UI 状態更新ヘルパー
-    private fun updateUiState(transform: (BoardUiState) -> BoardUiState) {
-        _uiState.update(transform)
-    }
 
     init {
         // 設定（ジェスチャー等）の変更を監視して UI 状態に反映する
@@ -267,9 +262,13 @@ class BoardViewModel @AssistedInject constructor(
 
     fun closeInfoDialog() = _uiState.update { it.copy(showInfoDialog = false) }
 
-    // 画像アップロード（選択された URI を渡して非同期アップロード）
+    /**
+     * 画像をアップロードし、成功時に本文へURLを挿入する。
+     */
     fun uploadImage(context: Context, uri: Uri) {
-        boardImageUploader.uploadImage(context, uri)
+        postDialogImageUploader.uploadImage(context, uri) { url ->
+            postDialogActions.appendImageUrl(url)
+        }
     }
 
     // ViewModel が破棄される直前に呼ばれる（アプリ停止や画面遷移時）

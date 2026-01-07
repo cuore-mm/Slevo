@@ -111,6 +111,19 @@ class PostDialogController @AssistedInject constructor(
     }
 
     /**
+     * 画像URLを本文末尾に追記する。
+     */
+    fun appendImageUrl(url: String) {
+        updateState { current ->
+            current.copy(
+                formState = current.formState.copy(
+                    message = current.formState.message + "\n" + url
+                ),
+            )
+        }
+    }
+
+    /**
      * 名前履歴を選択してフォームへ反映する。
      */
     fun selectNameHistory(name: String) {

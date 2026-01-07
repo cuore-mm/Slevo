@@ -1,9 +1,8 @@
-package com.websarva.wings.android.slevo.ui.board.viewmodel
+package com.websarva.wings.android.slevo.ui.common.postdialog
 
 import android.content.Context
 import android.net.Uri
 import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
-import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -13,20 +12,25 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 板画面の投稿フォーム向けに画像アップロードを行うヘルパー。
+ * PostDialog向けの画像アップロードを共通化するヘルパー。
+ *
+ * 画像取得とアップロードを行い、成功時にURLを返す。
  */
-class BoardImageUploader @AssistedInject constructor(
+class PostDialogImageUploader @AssistedInject constructor(
     private val imageUploadRepository: ImageUploadRepository,
     @Assisted private val scope: CoroutineScope,
     @Assisted private val dispatcher: CoroutineDispatcher,
-    @Assisted private val updateState: ((BoardUiState) -> BoardUiState) -> Unit,
 ) {
-
     /**
-     * 画像をアップロードし、成功時に投稿本文へURLを追記する。
+     * 画像をアップロードし、成功時にURLをコールバックで渡す。
      */
-    fun uploadImage(context: Context, uri: Uri) {
+    fun uploadImage(
+        context: Context,
+        uri: Uri,
+        onUploaded: (String) -> Unit,
+    ) {
         scope.launch {
+            // --- IO ---
             val bytes = withContext(dispatcher) {
                 context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
             }
@@ -34,29 +38,20 @@ class BoardImageUploader @AssistedInject constructor(
             bytes?.let {
                 val url = imageUploadRepository.uploadImage(it)
                 if (url != null) {
-                    updateState { current ->
-                        val currentMessage = current.postDialogState.formState.message
-                        val appended = currentMessage + "\n" + url
-                        current.copy(
-                            postDialogState = current.postDialogState.copy(
-                                formState = current.postDialogState.formState.copy(message = appended),
-                            ),
-                        )
-                    }
+                    onUploaded(url)
                 }
             }
         }
     }
 
     /**
-     * BoardImageUploader を生成するためのファクトリ。
+     * PostDialogImageUploader を生成するためのファクトリ。
      */
     @AssistedFactory
     interface Factory {
         fun create(
             scope: CoroutineScope,
             dispatcher: CoroutineDispatcher,
-            updateState: ((BoardUiState) -> BoardUiState) -> Unit,
-        ): BoardImageUploader
+        ): PostDialogImageUploader
     }
 }

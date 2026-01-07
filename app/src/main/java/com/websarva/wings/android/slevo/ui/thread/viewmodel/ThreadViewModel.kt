@@ -12,7 +12,6 @@ import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.DatRepository
 import android.content.Context
 import android.net.Uri
-import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
@@ -25,6 +24,7 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetSt
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.common.bookmark.ThreadTarget
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUploader
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
@@ -46,7 +46,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import timber.log.Timber
 import kotlin.math.max
 
@@ -78,7 +77,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val settingsRepository: SettingsRepository,
     private val tabsRepository: TabsRepository,
     threadReadStateRepository: ThreadReadStateRepository,
-    internal val imageUploadRepository: ImageUploadRepository,
+    private val postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
     private val postDialogControllerFactory: PostDialogController.Factory,
     private val replyPostDialogExecutor: ThreadReplyPostDialogExecutor,
     @Assisted @Suppress("unused") val viewModelKey: String,
@@ -99,6 +98,10 @@ class ThreadViewModel @AssistedInject constructor(
     private var postHistoryCollectJob: Job? = null
     private var bookmarkStatusJob: Job? = null
     val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
+    private val postDialogImageUploader = postDialogImageUploaderFactory.create(
+        scope = viewModelScope,
+        dispatcher = Dispatchers.IO,
+    )
     private var lastAutoRefreshTime: Long = 0L
 
     init {
@@ -642,27 +645,8 @@ class ThreadViewModel @AssistedInject constructor(
      * 画像をアップロードし、成功時に本文へURLを挿入する。
      */
     fun uploadImage(context: Context, uri: Uri) {
-        viewModelScope.launch {
-            // --- IO ---
-            val bytes = withContext(Dispatchers.IO) {
-                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            }
-            // 画像取得失敗時は何もしない。
-            bytes?.let {
-                val url = imageUploadRepository.uploadImage(it)
-                if (url != null) {
-                    val msg = uiState.value.postDialogState.formState.message
-                    _uiState.update { current ->
-                        current.copy(
-                            postDialogState = current.postDialogState.copy(
-                                formState = current.postDialogState.formState.copy(
-                                    message = msg + "\n" + url
-                                ),
-                            ),
-                        )
-                    }
-                }
-            }
+        postDialogImageUploader.uploadImage(context, uri) { url ->
+            postDialogActions.appendImageUrl(url)
         }
     }
 
