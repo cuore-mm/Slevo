@@ -48,21 +48,6 @@ import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.deletePostMailHistory
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.deletePostNameHistory
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideConfirmationScreen
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.hideErrorWebView
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.hidePostDialog
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.postFirstPhase
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.postTo5chSecondPhase
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.selectPostMailHistory
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.selectPostNameHistory
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.showPostDialog
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.showReplyDialog
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMail
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostMessage
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.updatePostName
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.uploadImage
 import com.websarva.wings.android.slevo.ui.util.CustomTabsUtil
 import com.websarva.wings.android.slevo.ui.util.ImageCopyUtil
 import com.websarva.wings.android.slevo.ui.util.buildLensSearchUrl
@@ -179,7 +164,7 @@ fun ThreadScaffold(
                         uiState = uiState,
                         isTreeSort = uiState.sortType == ThreadSortType.TREE,
                         onSortClick = { viewModel.toggleSortType() },
-                        onPostClick = { viewModel.showPostDialog() },
+                        onPostClick = { viewModel.postDialogActions.showDialog() },
                         onTabListClick = openTabListSheet,
                         onRefreshClick = { viewModel.reloadThread() },
                         onSearchClick = { viewModel.startSearch() },
@@ -231,7 +216,7 @@ fun ThreadScaffold(
                 onLastRead = { resNum ->
                     routeThreadId?.let { viewModel.updateThreadLastRead(it, resNum) }
                 },
-                onReplyToPost = { viewModel.showReplyDialog(it) },
+                onReplyToPost = { viewModel.postDialogActions.showReplyDialog(it) },
                 gestureSettings = uiState.gestureSettings,
                 onImageLongPress = { url -> viewModel.openImageMenu(url) },
                 sharedTransitionScope = sharedTransitionScope,
@@ -240,7 +225,7 @@ fun ThreadScaffold(
                 onGestureAction = { action ->
                     when (action) {
                         GestureAction.Refresh -> viewModel.reloadThread()
-                        GestureAction.PostOrCreateThread -> viewModel.showPostDialog()
+                        GestureAction.PostOrCreateThread -> viewModel.postDialogActions.showDialog()
                         GestureAction.Search -> viewModel.startSearch()
                         GestureAction.OpenTabList -> openTabListSheet()
                         GestureAction.OpenBookmarkList -> navController.navigate(AppRoute.BookmarkList)
@@ -533,22 +518,29 @@ fun ThreadScaffold(
                 val context = LocalContext.current
                 PostDialog(
                     uiState = postUiState,
-                    onDismissRequest = { viewModel.hidePostDialog() },
+                    onDismissRequest = { viewModel.postDialogActions.hideDialog() },
                     onAction = { action ->
                         when (action) {
-                            is PostDialogAction.ChangeName -> viewModel.updatePostName(action.value)
-                            is PostDialogAction.ChangeMail -> viewModel.updatePostMail(action.value)
-                            is PostDialogAction.ChangeMessage -> viewModel.updatePostMessage(action.value)
-                            is PostDialogAction.SelectNameHistory -> viewModel.selectPostNameHistory(action.value)
-                            is PostDialogAction.SelectMailHistory -> viewModel.selectPostMailHistory(action.value)
-                            is PostDialogAction.DeleteNameHistory -> viewModel.deletePostNameHistory(action.value)
-                            is PostDialogAction.DeleteMailHistory -> viewModel.deletePostMailHistory(action.value)
+                            is PostDialogAction.ChangeName ->
+                                viewModel.postDialogActions.updateName(action.value)
+                            is PostDialogAction.ChangeMail ->
+                                viewModel.postDialogActions.updateMail(action.value)
+                            is PostDialogAction.ChangeMessage ->
+                                viewModel.postDialogActions.updateMessage(action.value)
+                            is PostDialogAction.SelectNameHistory ->
+                                viewModel.postDialogActions.selectNameHistory(action.value)
+                            is PostDialogAction.SelectMailHistory ->
+                                viewModel.postDialogActions.selectMailHistory(action.value)
+                            is PostDialogAction.DeleteNameHistory ->
+                                viewModel.postDialogActions.deleteNameHistory(action.value)
+                            is PostDialogAction.DeleteMailHistory ->
+                                viewModel.postDialogActions.deleteMailHistory(action.value)
                             PostDialogAction.Post -> {
                                 parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                    viewModel.postFirstPhase(
+                                    viewModel.postDialogActions.postFirstPhase(
                                         host,
                                         boardKey,
-                                        uiState.threadInfo.key
+                                        threadKey = uiState.threadInfo.key,
                                     )
                                 }
                             }
@@ -576,14 +568,14 @@ fun ThreadScaffold(
                 postUiState.postConfirmation?.let { confirmationData ->
                     ResponseWebViewDialog(
                         htmlContent = confirmationData.html,
-                        onDismissRequest = { viewModel.hideConfirmationScreen() },
+                        onDismissRequest = { viewModel.postDialogActions.hideConfirmationScreen() },
                         onConfirm = {
                             parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                viewModel.postTo5chSecondPhase(
+                                viewModel.postDialogActions.postSecondPhase(
                                     host,
                                     boardKey,
-                                    uiState.threadInfo.key,
-                                    confirmationData
+                                    threadKey = uiState.threadInfo.key,
+                                    confirmationData = confirmationData,
                                 )
                             }
                         },
@@ -596,7 +588,7 @@ fun ThreadScaffold(
             if (postUiState.showErrorWebView) {
                 ResponseWebViewDialog(
                     htmlContent = postUiState.errorHtmlContent,
-                    onDismissRequest = { viewModel.hideErrorWebView() },
+                    onDismissRequest = { viewModel.postDialogActions.hideErrorWebView() },
                     title = "応答結果",
                     onConfirm = null // 確認ボタンは不要なのでnull
                 )

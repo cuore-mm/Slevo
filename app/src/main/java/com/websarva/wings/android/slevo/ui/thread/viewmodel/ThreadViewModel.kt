@@ -11,6 +11,8 @@ import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.DatRepository
+import android.content.Context
+import android.net.Uri
 import com.websarva.wings.android.slevo.data.repository.ImageUploadRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
@@ -47,6 +49,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import kotlin.math.max
 
@@ -162,6 +166,12 @@ class ThreadViewModel @AssistedInject constructor(
             )
         },
     )
+
+    /**
+     * PostDialogの操作をUIへ公開する。
+     */
+    val postDialogActions: PostDialogController
+        get() = postDialogController
 
     /**
      * 画面遷移時の初期処理を行う。
@@ -626,6 +636,30 @@ class ThreadViewModel @AssistedInject constructor(
     fun onPostSuccess(resNum: Int?, message: String, name: String, mail: String) {
         pendingPost = PendingPost(resNum, message, name, mail)
         reloadThread()
+    }
+
+    /**
+     * 画像をアップロードし、成功時に本文へURLを挿入する。
+     */
+    fun uploadImage(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            // --- IO ---
+            val bytes = withContext(Dispatchers.IO) {
+                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            }
+            // 画像取得失敗時は何もしない。
+            bytes?.let {
+                val url = imageUploadRepository.uploadImage(it)
+                if (url != null) {
+                    val msg = postUiState.value.postFormState.message
+                    _postUiState.update { current ->
+                        current.copy(
+                            postFormState = current.postFormState.copy(message = msg + "\n" + url),
+                        )
+                    }
+                }
+            }
+        }
     }
 
     // --- IdentityHistoryDelegate 実装（履歴関連のイベント） ---
