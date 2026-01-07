@@ -2,34 +2,21 @@ package com.websarva.wings.android.slevo.ui.bbsroute
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
-import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /**
- * 共通の初期化フローと履歴監視を提供する基底ViewModel。
+ * 共通の初期化フローを提供する基底ViewModel。
  *
- * 画面ごとのUI状態を扱い、必要な補助処理を共通化する。
+ * 画面ごとのUI状態を扱い、初期化の補助処理を共通化する。
  */
 abstract class BaseViewModel<S> : ViewModel() where S : BaseUiState<S> {
     protected abstract val _uiState: MutableStateFlow<S>
     val uiState: StateFlow<S> get() = _uiState
 
-    private val identityHistoryObservers = mutableMapOf<String, IdentityHistoryObserver>()
-
     private var isInitialized = false
 
-    protected fun filterIdentityHistories(source: List<String>, query: String): List<String> {
-        val normalized = query.trim()
-        return if (normalized.isEmpty()) {
-            source
-        } else {
-            source.filter { it.contains(normalized, ignoreCase = true) }
-        }
-    }
 
     /**
      * ViewModelの初期化を行う標準メソッド。
@@ -53,122 +40,5 @@ abstract class BaseViewModel<S> : ViewModel() where S : BaseUiState<S> {
 
     fun release() {
         onCleared()
-    }
-
-    protected fun prepareIdentityHistory(
-        key: String,
-        boardId: Long,
-        repository: PostHistoryRepository,
-        onLastIdentity: ((String, String) -> Unit)? = null,
-        onNameSuggestions: (List<String>) -> Unit,
-        onMailSuggestions: (List<String>) -> Unit,
-        nameQueryProvider: () -> String,
-        mailQueryProvider: () -> String,
-    ) {
-        val observer = identityHistoryObservers.getOrPut(key) {
-            IdentityHistoryObserver(
-                onLastIdentity = onLastIdentity,
-                onNameSuggestions = onNameSuggestions,
-                onMailSuggestions = onMailSuggestions,
-                nameQueryProvider = nameQueryProvider,
-                mailQueryProvider = mailQueryProvider,
-            )
-        }.apply {
-            this.onLastIdentity = onLastIdentity
-            this.onNameSuggestions = onNameSuggestions
-            this.onMailSuggestions = onMailSuggestions
-            this.nameQueryProvider = nameQueryProvider
-            this.mailQueryProvider = mailQueryProvider
-        }
-
-        if (observer.boardId == boardId) {
-            refreshIdentityHistorySuggestions(key)
-            return
-        }
-
-        observer.boardId = boardId
-        observer.nameJob?.cancel()
-        observer.mailJob?.cancel()
-        observer.latestNames = emptyList()
-        observer.latestMails = emptyList()
-        refreshIdentityHistorySuggestions(key)
-
-        if (boardId == 0L) {
-            return
-        }
-
-        viewModelScope.launch {
-            repository.getLastIdentity(boardId)?.let { identity ->
-                observer.onLastIdentity?.invoke(identity.name, identity.email)
-            }
-        }
-
-        observer.nameJob = viewModelScope.launch {
-            repository.observeIdentityHistories(boardId, PostIdentityType.NAME).collect { histories ->
-                observer.latestNames = histories
-                refreshIdentityHistorySuggestions(key, PostIdentityType.NAME)
-            }
-        }
-        observer.mailJob = viewModelScope.launch {
-            repository.observeIdentityHistories(boardId, PostIdentityType.EMAIL).collect { histories ->
-                observer.latestMails = histories
-                refreshIdentityHistorySuggestions(key, PostIdentityType.EMAIL)
-            }
-        }
-    }
-
-    protected fun refreshIdentityHistorySuggestions(
-        key: String,
-        type: PostIdentityType? = null,
-    ) {
-        val observer = identityHistoryObservers[key] ?: return
-        if (type == null || type == PostIdentityType.NAME) {
-            val suggestions = filterIdentityHistories(observer.latestNames, observer.nameQueryProvider())
-            observer.onNameSuggestions.invoke(suggestions)
-        }
-        if (type == null || type == PostIdentityType.EMAIL) {
-            val suggestions = filterIdentityHistories(observer.latestMails, observer.mailQueryProvider())
-            observer.onMailSuggestions.invoke(suggestions)
-        }
-    }
-
-    protected fun deleteIdentityHistory(
-        key: String,
-        repository: PostHistoryRepository,
-        type: PostIdentityType,
-        value: String,
-    ) {
-        val observer = identityHistoryObservers[key] ?: return
-        val normalized = value.trim()
-        if (normalized.isEmpty()) return
-        when (type) {
-            PostIdentityType.NAME -> {
-                observer.latestNames = observer.latestNames.filterNot { it == normalized }
-            }
-
-            PostIdentityType.EMAIL -> {
-                observer.latestMails = observer.latestMails.filterNot { it == normalized }
-            }
-        }
-        refreshIdentityHistorySuggestions(key, type)
-        val boardId = observer.boardId
-        if (boardId == 0L) return
-        viewModelScope.launch {
-            repository.deleteIdentity(boardId, type, normalized)
-        }
-    }
-
-    private class IdentityHistoryObserver(
-        var onLastIdentity: ((String, String) -> Unit)?,
-        var onNameSuggestions: (List<String>) -> Unit,
-        var onMailSuggestions: (List<String>) -> Unit,
-        var nameQueryProvider: () -> String,
-        var mailQueryProvider: () -> String,
-    ) {
-        var boardId: Long = -1L
-        var nameJob: Job? = null
-        var mailJob: Job? = null
-        var latestNames: List<String> = emptyList()
-        var latestMails: List<String> = emptyList()
     }
 }

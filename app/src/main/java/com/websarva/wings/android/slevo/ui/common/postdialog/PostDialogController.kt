@@ -8,23 +8,25 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 /**
  * PostDialogの状態更新と投稿処理を共通化するコントローラ。
  *
- * 状態はアダプタ経由で反映し、投稿実行は差し替えインターフェースに委譲する。
+ * 状態はアダプタ経由で反映し、投稿実行と履歴管理を差し替え可能な構成で扱う。
  */
 class PostDialogController @AssistedInject constructor(
     private val postHistoryRepository: PostHistoryRepository,
     @Assisted private val scope: CoroutineScope,
     @Assisted private val stateAdapter: PostDialogStateAdapter,
-    @Assisted private val identityHistoryDelegate: IdentityHistoryDelegate,
     @Assisted private val identityHistoryKey: String,
     @Assisted private val executor: PostDialogExecutor,
     @Assisted private val boardIdProvider: () -> Long,
     @Assisted private val onPostSuccess: (PostDialogSuccess) -> Unit,
 ) {
+    private val identityHistoryObservers = mutableMapOf<String, IdentityHistoryObserver>()
 
     /**
      * PostDialogを表示する。
@@ -142,10 +144,16 @@ class PostDialogController @AssistedInject constructor(
      * 投稿履歴候補の監視を準備する。
      */
     fun prepareIdentityHistory(boardId: Long) {
-        identityHistoryDelegate.onPrepareIdentityHistory(
-            key = identityHistoryKey,
-            boardId = boardId,
-            repository = postHistoryRepository,
+        // --- Observer setup ---
+        val observer = identityHistoryObservers.getOrPut(identityHistoryKey) {
+            IdentityHistoryObserver(
+                onLastIdentity = null,
+                onNameSuggestions = { },
+                onMailSuggestions = { },
+                nameQueryProvider = { "" },
+                mailQueryProvider = { "" },
+            )
+        }.apply {
             onLastIdentity = { name, mail ->
                 updateState { current ->
                     val form = current.formState
@@ -161,16 +169,57 @@ class PostDialogController @AssistedInject constructor(
                         current
                     }
                 }
-            },
+            }
             onNameSuggestions = { suggestions ->
                 updateState { it.copy(nameHistory = suggestions) }
-            },
+            }
             onMailSuggestions = { suggestions ->
                 updateState { it.copy(mailHistory = suggestions) }
-            },
-            nameQueryProvider = { stateAdapter.readState().formState.name },
-            mailQueryProvider = { stateAdapter.readState().formState.mail },
-        )
+            }
+            nameQueryProvider = { stateAdapter.readState().formState.name }
+            mailQueryProvider = { stateAdapter.readState().formState.mail }
+        }
+
+        // --- Board change handling ---
+        if (observer.boardId == boardId) {
+            // ボードが同一の場合は候補のみ再計算する。
+            refreshIdentityHistorySuggestions(identityHistoryKey)
+            return
+        }
+
+        observer.boardId = boardId
+        observer.nameJob?.cancel()
+        observer.mailJob?.cancel()
+        observer.latestNames = emptyList()
+        observer.latestMails = emptyList()
+        refreshIdentityHistorySuggestions(identityHistoryKey)
+
+        // --- Guard ---
+        if (boardId == 0L) {
+            // 未登録のboardIdでは履歴監視を開始しない。
+            return
+        }
+
+        // --- Last identity ---
+        scope.launch {
+            postHistoryRepository.getLastIdentity(boardId)?.let { identity ->
+                observer.onLastIdentity?.invoke(identity.name, identity.email)
+            }
+        }
+
+        // --- Observation ---
+        observer.nameJob = scope.launch {
+            postHistoryRepository.observeIdentityHistories(boardId, PostIdentityType.NAME).collect { histories ->
+                observer.latestNames = histories
+                refreshIdentityHistorySuggestions(identityHistoryKey, PostIdentityType.NAME)
+            }
+        }
+        observer.mailJob = scope.launch {
+            postHistoryRepository.observeIdentityHistories(boardId, PostIdentityType.EMAIL).collect { histories ->
+                observer.latestMails = histories
+                refreshIdentityHistorySuggestions(identityHistoryKey, PostIdentityType.EMAIL)
+            }
+        }
     }
 
     /**
@@ -270,19 +319,14 @@ class PostDialogController @AssistedInject constructor(
      * 投稿履歴候補の再計算を委譲する。
      */
     private fun refreshIdentityHistory(type: PostIdentityType) {
-        identityHistoryDelegate.onRefreshIdentityHistorySuggestions(identityHistoryKey, type)
+        refreshIdentityHistorySuggestions(identityHistoryKey, type)
     }
 
     /**
      * 投稿履歴の削除を委譲する。
      */
     private fun deleteIdentityHistory(type: PostIdentityType, value: String) {
-        identityHistoryDelegate.onDeleteIdentityHistory(
-            identityHistoryKey,
-            postHistoryRepository,
-            type,
-            value,
-        )
+        deleteIdentityHistory(identityHistoryKey, type, value)
     }
 
     /**
@@ -308,43 +352,6 @@ class PostDialogController @AssistedInject constructor(
     }
 
     /**
-     * PostDialogControllerが履歴管理処理を委譲するためのインターフェース。
-     */
-    interface IdentityHistoryDelegate {
-        /**
-         * 履歴監視の準備処理を委譲する。
-         */
-        fun onPrepareIdentityHistory(
-            key: String,
-            boardId: Long,
-            repository: PostHistoryRepository,
-            onLastIdentity: ((String, String) -> Unit)?,
-            onNameSuggestions: (List<String>) -> Unit,
-            onMailSuggestions: (List<String>) -> Unit,
-            nameQueryProvider: () -> String,
-            mailQueryProvider: () -> String,
-        )
-
-        /**
-         * 履歴候補の更新処理を委譲する。
-         */
-        fun onRefreshIdentityHistorySuggestions(
-            key: String,
-            type: PostIdentityType?,
-        )
-
-        /**
-         * 履歴削除処理を委譲する。
-         */
-        fun onDeleteIdentityHistory(
-            key: String,
-            repository: PostHistoryRepository,
-            type: PostIdentityType,
-            value: String,
-        )
-    }
-
-    /**
      * PostDialogControllerを生成するためのファクトリ。
      */
     @AssistedFactory
@@ -355,11 +362,91 @@ class PostDialogController @AssistedInject constructor(
         fun create(
             scope: CoroutineScope,
             stateAdapter: PostDialogStateAdapter,
-            identityHistoryDelegate: IdentityHistoryDelegate,
             identityHistoryKey: String,
             executor: PostDialogExecutor,
             boardIdProvider: () -> Long,
             onPostSuccess: (PostDialogSuccess) -> Unit,
         ): PostDialogController
+    }
+
+    /**
+     * 投稿履歴候補を検索条件で絞り込む。
+     */
+    private fun filterIdentityHistories(source: List<String>, query: String): List<String> {
+        val normalized = query.trim()
+        return if (normalized.isEmpty()) {
+            source
+        } else {
+            source.filter { it.contains(normalized, ignoreCase = true) }
+        }
+    }
+
+    /**
+     * 投稿履歴候補の再計算を行う。
+     */
+    private fun refreshIdentityHistorySuggestions(
+        key: String,
+        type: PostIdentityType? = null,
+    ) {
+        val observer = identityHistoryObservers[key] ?: return
+        if (type == null || type == PostIdentityType.NAME) {
+            val suggestions = filterIdentityHistories(observer.latestNames, observer.nameQueryProvider())
+            observer.onNameSuggestions.invoke(suggestions)
+        }
+        if (type == null || type == PostIdentityType.EMAIL) {
+            val suggestions = filterIdentityHistories(observer.latestMails, observer.mailQueryProvider())
+            observer.onMailSuggestions.invoke(suggestions)
+        }
+    }
+
+    /**
+     * 投稿履歴の削除処理を行う。
+     */
+    private fun deleteIdentityHistory(
+        key: String,
+        type: PostIdentityType,
+        value: String,
+    ) {
+        val observer = identityHistoryObservers[key] ?: return
+        val normalized = value.trim()
+        if (normalized.isEmpty()) {
+            // 空入力は削除対象にしない。
+            return
+        }
+        when (type) {
+            PostIdentityType.NAME -> {
+                observer.latestNames = observer.latestNames.filterNot { it == normalized }
+            }
+
+            PostIdentityType.EMAIL -> {
+                observer.latestMails = observer.latestMails.filterNot { it == normalized }
+            }
+        }
+        refreshIdentityHistorySuggestions(key, type)
+        val boardId = observer.boardId
+        if (boardId == 0L) {
+            // 未登録のboardIdでは永続削除を行わない。
+            return
+        }
+        scope.launch {
+            postHistoryRepository.deleteIdentity(boardId, type, normalized)
+        }
+    }
+
+    /**
+     * 投稿履歴の監視状態を保持する。
+     */
+    private class IdentityHistoryObserver(
+        var onLastIdentity: ((String, String) -> Unit)?,
+        var onNameSuggestions: (List<String>) -> Unit,
+        var onMailSuggestions: (List<String>) -> Unit,
+        var nameQueryProvider: () -> String,
+        var mailQueryProvider: () -> String,
+    ) {
+        var boardId: Long = -1L
+        var nameJob: Job? = null
+        var mailJob: Job? = null
+        var latestNames: List<String> = emptyList()
+        var latestMails: List<String> = emptyList()
     }
 }

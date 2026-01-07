@@ -3,13 +3,11 @@ package com.websarva.wings.android.slevo.ui.board.viewmodel
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
-import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
@@ -49,7 +47,7 @@ class BoardViewModel @AssistedInject constructor(
     private val threadCreatePostDialogExecutor: ThreadCreatePostDialogExecutor,
     boardImageUploaderFactory: BoardImageUploader.Factory,
     @Assisted("viewModelKey") viewModelKey: String
-) : BaseViewModel<BoardUiState>(), PostDialogController.IdentityHistoryDelegate {
+) : BaseViewModel<BoardUiState>() {
 
     // 初期化済みのボードURL（重複初期化を防ぐ）
     private var initializedUrl: String? = null
@@ -68,7 +66,6 @@ class BoardViewModel @AssistedInject constructor(
     private val postDialogController = postDialogControllerFactory.create(
         scope = viewModelScope,
         stateAdapter = BoardPostDialogStateAdapter(_uiState),
-        identityHistoryDelegate = this,
         identityHistoryKey = CREATE_IDENTITY_HISTORY_KEY,
         executor = threadCreatePostDialogExecutor,
         boardIdProvider = { uiState.value.boardInfo.boardId },
@@ -273,48 +270,6 @@ class BoardViewModel @AssistedInject constructor(
     // 画像アップロード（選択された URI を渡して非同期アップロード）
     fun uploadImage(context: Context, uri: Uri) {
         boardImageUploader.uploadImage(context, uri)
-    }
-
-    // --- IdentityHistoryDelegate 実装（履歴関連のイベント） ---
-    override fun onPrepareIdentityHistory(
-        key: String,
-        boardId: Long,
-        repository: PostHistoryRepository,
-        onLastIdentity: ((String, String) -> Unit)?,
-        onNameSuggestions: (List<String>) -> Unit,
-        onMailSuggestions: (List<String>) -> Unit,
-        nameQueryProvider: () -> String,
-        mailQueryProvider: () -> String,
-    ) {
-        // 親クラスの履歴準備処理を呼び出す（具体的ロジックは Base に委譲）
-        super.prepareIdentityHistory(
-            key,
-            boardId,
-            repository,
-            onLastIdentity,
-            onNameSuggestions,
-            onMailSuggestions,
-            nameQueryProvider,
-            mailQueryProvider,
-        )
-    }
-
-    override fun onRefreshIdentityHistorySuggestions(
-        key: String,
-        type: PostIdentityType?,
-    ) {
-        // 履歴候補の更新を親に委譲
-        super.refreshIdentityHistorySuggestions(key, type)
-    }
-
-    override fun onDeleteIdentityHistory(
-        key: String,
-        repository: PostHistoryRepository,
-        type: PostIdentityType,
-        value: String,
-    ) {
-        // 履歴削除を親に委譲
-        super.deleteIdentityHistory(key, repository, type, value)
     }
 
     // ViewModel が破棄される直前に呼ばれる（アプリ停止や画面遷移時）

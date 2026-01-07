@@ -2,7 +2,6 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
-import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadDate
@@ -83,7 +82,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val postDialogControllerFactory: PostDialogController.Factory,
     private val replyPostDialogExecutor: ThreadReplyPostDialogExecutor,
     @Assisted @Suppress("unused") val viewModelKey: String,
-) : BaseViewModel<ThreadUiState>(), PostDialogController.IdentityHistoryDelegate {
+) : BaseViewModel<ThreadUiState>() {
 
     private val tabCoordinator = ThreadTabCoordinator(
         scope = viewModelScope,
@@ -148,7 +147,6 @@ class ThreadViewModel @AssistedInject constructor(
     internal val postDialogController = postDialogControllerFactory.create(
         scope = viewModelScope,
         stateAdapter = ThreadPostDialogStateAdapter(_uiState),
-        identityHistoryDelegate = this,
         identityHistoryKey = POST_IDENTITY_HISTORY_KEY,
         executor = replyPostDialogExecutor,
         boardIdProvider = { uiState.value.boardInfo.boardId },
@@ -666,48 +664,6 @@ class ThreadViewModel @AssistedInject constructor(
                 }
             }
         }
-    }
-
-    // --- IdentityHistoryDelegate 実装（履歴関連のイベント） ---
-    override fun onPrepareIdentityHistory(
-        key: String,
-        boardId: Long,
-        repository: PostHistoryRepository,
-        onLastIdentity: ((String, String) -> Unit)?,
-        onNameSuggestions: (List<String>) -> Unit,
-        onMailSuggestions: (List<String>) -> Unit,
-        nameQueryProvider: () -> String,
-        mailQueryProvider: () -> String,
-    ) {
-        // 親クラスの履歴準備処理を呼び出す（具体的ロジックは Base に委譲）
-        super.prepareIdentityHistory(
-            key,
-            boardId,
-            repository,
-            onLastIdentity,
-            onNameSuggestions,
-            onMailSuggestions,
-            nameQueryProvider,
-            mailQueryProvider,
-        )
-    }
-
-    override fun onRefreshIdentityHistorySuggestions(
-        key: String,
-        type: PostIdentityType?,
-    ) {
-        // 履歴候補の更新を親に委譲
-        super.refreshIdentityHistorySuggestions(key, type)
-    }
-
-    override fun onDeleteIdentityHistory(
-        key: String,
-        repository: PostHistoryRepository,
-        type: PostIdentityType,
-        value: String,
-    ) {
-        // 履歴削除を親に委譲
-        super.deleteIdentityHistory(key, repository, type, value)
     }
 
     fun updateThreadTabInfo(threadId: ThreadId, title: String, resCount: Int) {
