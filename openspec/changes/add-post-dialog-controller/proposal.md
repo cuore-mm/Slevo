@@ -8,6 +8,7 @@ PostDialogの投稿処理はThreadViewModel側とBoardViewModel側で重複し�
 ## What Changes
 - PostDialogの状態/操作/投稿フローを管理する共通コントローラを追加する
 - 返信とスレ立ての差分（使用するRepository）は実行インターフェースで差し替える
+- 投稿成功時の履歴記録など共通後処理をコントローラに集約する
 - ThreadViewModel/BoardViewModelの投稿関連処理をコントローラへ委譲する
 - UIコンポーザブル（PostDialog）は変更せず、接続のみ整理する
 

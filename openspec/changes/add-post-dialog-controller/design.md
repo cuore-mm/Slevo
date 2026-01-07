@@ -17,7 +17,8 @@ PostDialogはThread画面の返信とBoard画面の新規スレ立てで共通UI
 - PostDialogControllerをViewModel内で保持するコントローラとして実装する
 - コントローラはUI状態を直接持たず、StateAdapterでBoard/Threadの状態へ書き戻す
 - 投稿処理はPostDialogExecutorで差し替え、成功/確認/失敗の結果をコントローラが反映する
-- 投稿成功後の追加処理（スレ再読み込み/履歴記録/リスト更新）はコールバックで呼び出す
+- 投稿成功時の履歴記録はコントローラに集約する
+- 投稿成功後の画面固有処理（スレ再読み込み/リスト更新）はコールバックで呼び出す
 
 ## Risks / Trade-offs
 - Adapterの実装が増え、マッピングミスが起きる可能性がある
