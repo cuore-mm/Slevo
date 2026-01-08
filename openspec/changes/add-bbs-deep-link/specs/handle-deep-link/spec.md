@@ -5,7 +5,6 @@
 - *.bbspink.com
 - *.5ch.net
 - *.2ch.sc
-- itest.5ch.net
 
 #### Scenario: http のDeep Linkを受け付ける
 - **WHEN** ユーザーがhttpのDeep Linkを開く
