@@ -35,6 +35,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
+import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
@@ -195,6 +196,9 @@ fun BoardScaffold(
                         tabsViewModel = tabsViewModel,
                     )
                 },
+                onLongClick = { threadInfo ->
+                    viewModel.openThreadInfoSheet(threadInfo)
+                },
                 isRefreshing = uiState.isLoading,
                 onRefresh = { viewModel.refreshBoardData() },
                 listState = listState,
@@ -221,6 +225,14 @@ fun BoardScaffold(
                     }
                 },
                 searchQuery = uiState.searchQuery,
+            )
+            ThreadInfoBottomSheet(
+                showThreadInfoSheet = uiState.showThreadInfoSheet,
+                onDismissRequest = { viewModel.closeThreadInfoSheet() },
+                threadInfo = uiState.threadInfoSheetTarget,
+                boardInfo = uiState.boardInfo,
+                navController = navController,
+                tabsViewModel = tabsViewModel,
             )
             if (uiState.showInfoDialog) {
                 BoardInfoDialog(
