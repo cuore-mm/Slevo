@@ -29,6 +29,20 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" android:host="*.bbspink.com" />
+                <data android:scheme="https" android:host="*.bbspink.com" />
+                <data android:scheme="http" android:host="*.5ch.net" />
+                <data android:scheme="https" android:host="*.5ch.net" />
+                <data android:scheme="http" android:host="*.2ch.sc" />
+                <data android:scheme="https" android:host="*.2ch.sc" />
+            </intent-filter>
         </activity>
 
         <provider

@@ -11,6 +11,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,21 +24,29 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.ui.bottombar.MoreMenuDialog
 import com.websarva.wings.android.slevo.ui.bottombar.RenderBottomBar
+import com.websarva.wings.android.slevo.ui.navigation.DeepLinkHandler
 import com.websarva.wings.android.slevo.ui.navigation.AppNavGraph
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.StateFlow
 
+/**
+ * Hosts the main app scaffold and reacts to Deep Link events.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun AppScaffold(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
     settingsViewModel: SettingsViewModel,
-    tabsViewModel: TabsViewModel
+    tabsViewModel: TabsViewModel,
+    deepLinkUrlFlow: StateFlow<String?>,
+    onDeepLinkConsumed: () -> Unit
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val deepLinkUrl by deepLinkUrlFlow.collectAsState()
 
     /* ① 共有する TopAppBarState を用意 */
     val topBarState = rememberTopAppBarState()
@@ -55,6 +64,13 @@ fun AppScaffold(
     }
 
     var showMoreMenu by remember { mutableStateOf(false) }
+
+    DeepLinkHandler(
+        deepLinkUrl = deepLinkUrl,
+        navController = navController,
+        tabsViewModel = tabsViewModel,
+        onConsumed = onDeepLinkConsumed
+    )
 
     Scaffold(
         bottomBar = {
