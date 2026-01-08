@@ -1,125 +1,125 @@
-# URL Handling (Developer Notes)
+# URL処理の現状まとめ（開発者向け）
 
-This document summarizes the current URL handling paths and the exact parsing rules used in code.
-It covers three entry points:
-- Deep links (external intents)
-- User-entered URLs (URL dialog)
-- URLs tapped inside threads
+このドキュメントは、現在のURL処理フローと判定ルールを開発者向けに整理したものです。
+対象は以下の3つの入口です。
+- Deep Link（外部インテント）
+- ユーザー入力URL（URL入力ダイアログ）
+- スレ内リンクのタップ
 
-All behavior below reflects the current implementation, not desired behavior.
+ここに記載した挙動は「現在の実装」を示します。
 
-## Shared helpers (app/src/main/java/com/websarva/wings/android/slevo/ui/util/UrlUtils.kt)
+## 共通ヘルパー（app/src/main/java/com/websarva/wings/android/slevo/ui/util/UrlUtils.kt）
 
 - `parseThreadUrl(url: String): Triple<String, String, String>?`
-  - Accepts any host.
-  - Matches either:
-    - `/test/read.cgi/{board}/{thread}/` (segments[0] == "test" && segments[1] == "read.cgi")
-    - `/{board}/dat/{thread}.dat` (segments[1] == "dat")
-  - Returns `(host, boardKey, threadKey)` or null.
+  - hostの制限なし。
+  - 以下のいずれかに一致した場合にスレと判定。
+    - `/test/read.cgi/{board}/{thread}/`（segments[0] == "test" && segments[1] == "read.cgi"）
+    - `/{board}/dat/{thread}.dat`（segments[1] == "dat"）
+  - 戻り値は `(host, boardKey, threadKey)`。
 
 - `parseBoardUrl(url: String): Pair<String, String>?`
-  - Accepts any host.
-  - Requires at least one path segment.
-  - Returns `(host, boardKey)` using the first path segment.
+  - hostの制限なし。
+  - パスセグメントが1つ以上必要。
+  - 先頭セグメントを板キーとして `(host, boardKey)` を返す。
 
 - `parseItestUrl(url: String): ItestUrlInfo?`
-  - Only matches host `itest.5ch.net` or `itest.bbspink.com`.
-  - If path contains `read.cgi`, returns board/thread from the segments after it.
-  - If path starts with `subback/{board}`, returns board only.
-  - Otherwise uses the first path segment as board (threadKey = null).
+  - 対象ホストは `itest.5ch.net` と `itest.bbspink.com` のみ。
+  - `read.cgi` が含まれる場合は、後続セグメントから板/スレを抽出。
+  - `subback/{board}` の場合は板として扱う。
+  - それ以外は先頭セグメントを板として扱い、`threadKey = null`。
 
-## Deep link handling
+## Deep Link の処理
 
-Entry point:
-- `DeepLinkHandler` (`app/src/main/java/com/websarva/wings/android/slevo/ui/navigation/DeepLinkHandler.kt`)
+エントリポイント:
+- `DeepLinkHandler`（`app/src/main/java/com/websarva/wings/android/slevo/ui/navigation/DeepLinkHandler.kt`）
 
-Flow (functions in `app/src/main/java/com/websarva/wings/android/slevo/ui/util/DeepLinkUtils.kt`):
+フロー（`app/src/main/java/com/websarva/wings/android/slevo/ui/util/DeepLinkUtils.kt` 内）:
 1. `normalizeDeepLinkUrl(url)`
-   - If scheme is `http`, rewrites to `https` (keeps host/path/query/fragment).
+   - scheme が `http` の場合、`https` に書き換える（host/path/query/fragmentは維持）。
 2. `parseDeepLinkTarget(url)`
-   - Rejects if host is missing or not in allowed suffixes:
-     - `bbspink.com`, `5ch.net`, `2ch.sc` (suffix match).
-   - Rejects dat format for deep links:
-     - `/{board}/dat/{thread}.dat` (checked by `isDatThreadUrl`).
-   - Resolution order:
+   - host が空、または許可サフィックス外の場合は拒否。
+     - 許可サフィックス: `bbspink.com`, `5ch.net`, `2ch.sc`（サフィックス一致）
+   - dat 形式はDeep Linkでは拒否。
+     - `/{board}/dat/{thread}.dat`（`isDatThreadUrl` で判定）
+   - 判定順序:
      1) `parseItestUrl`
      2) `parseThreadUrl`
      3) `parseBoardUrl`
-3. Navigation:
-   - Itest:
-     - `TabsViewModel.resolveBoardHost(boardKey)`
-     - If success: open board or thread.
-     - If fail: show toast (`R.string.invalid_url`).
-   - Thread / Board:
-     - Directly open with `navigateToThread` / `navigateToBoard`.
+3. 遷移:
+   - itest:
+     - `TabsViewModel.resolveBoardHost(boardKey)` でホスト解決。
+     - 成功: 板またはスレを開く。
+     - 失敗: トースト表示（`R.string.invalid_url`）。
+   - thread / board:
+     - `navigateToThread` / `navigateToBoard` で遷移。
 
-Deep link error UX:
-- Any parse failure or unsupported URL => toast (`R.string.invalid_url`).
+Deep Link のエラー表示:
+- 解析失敗／対象外URLはトースト（`R.string.invalid_url`）。
 
-Deep link URL patterns (accepted):
-- Board:
-  - `https://{host}/{board}/` (allowed host suffixes only)
-- Thread:
-  - `https://{host}/test/read.cgi/{board}/{thread}/` (allowed host suffixes only)
-- Itest:
+Deep Link 対応URL（受け付ける）:
+- 板:
+  - `https://{host}/{board}/`（許可サフィックスのみ）
+- スレ:
+  - `https://{host}/test/read.cgi/{board}/{thread}/`（許可サフィックスのみ）
+- itest:
   - `https://itest.5ch.net/{board}/`
   - `https://itest.5ch.net/test/read.cgi/{board}/{thread}`
   - `https://itest.5ch.net/subback/{board}`
 
-Deep link URL patterns (rejected):
-- Dat threads:
-  - `https://{host}/{board}/dat/{thread}.dat` (explicitly rejected)
+Deep Link 対応外URL（拒否）:
+- dat 形式:
+  - `https://{host}/{board}/dat/{thread}.dat`（明示的に拒否）
 
-## User-entered URL handling
+## ユーザー入力URLの処理
 
-Entry point:
-- `TabScreenContent` URL dialog (`app/src/main/java/com/websarva/wings/android/slevo/ui/tabs/TabScreenContent.kt`)
+エントリポイント:
+- `TabScreenContent` URL入力ダイアログ（`app/src/main/java/com/websarva/wings/android/slevo/ui/tabs/TabScreenContent.kt`）
 
-Flow (inside `UrlOpenDialog.onOpen`):
+フロー（`UrlOpenDialog.onOpen` 内）:
 1. `parseItestUrl(url)`
-   - If matched:
-     - Resolve host via `TabsViewModel.resolveBoardHost`.
-     - On success, open board or thread.
-     - On failure, show error in dialog (`urlError`).
+   - 一致:
+     - `TabsViewModel.resolveBoardHost` でホスト解決。
+     - 成功: 板またはスレを開く。
+     - 失敗: ダイアログ内にエラー表示（`urlError`）。
 2. `parseThreadUrl(url)`
-   - If matched: open thread.
+   - 一致: スレを開く。
 3. `parseBoardUrl(url)`
-   - If matched: open board.
-4. Otherwise: show error in dialog (`urlError`).
+   - 一致: 板を開く。
+4. それ以外: ダイアログ内にエラー表示（`urlError`）。
 
-URL input error UX:
-- Errors are shown inside the URL dialog (no toast).
+URL入力のエラー表示:
+- ダイアログ内にエラーを表示（トーストは出さない）。
 
-URL input URL patterns (accepted):
-- Itest (see helpers above).
-- Thread:
+URL入力の対応URL（受け付ける）:
+- itest: 上記の `parseItestUrl` と同じ。
+- スレ:
   - `https://{host}/test/read.cgi/{board}/{thread}/`
   - `https://{host}/{board}/dat/{thread}.dat`
-- Board:
+- 板:
   - `https://{host}/{board}/`
 
-URL input URL patterns (treated as board):
-- Oyster format is not parsed as thread, so it falls through to `parseBoardUrl`:
+URL入力で板扱いになるURL:
+- oyster 形式はスレ判定されないため `parseBoardUrl` に落ちる:
   - `https://{host}/{board}/oyster/{prefix}/{thread}.dat`
 
-URL input scheme handling:
-- There is no explicit http->https normalization here.
-- Navigation always constructs `boardUrl` as `https://{host}/{board}/`.
+URL入力のスキーム取り扱い:
+- 明示的な `http -> https` 正規化はなし。
+- 遷移に使う `boardUrl` は常に `https://{host}/{board}/` で構築する。
 
-## In-thread URL handling
+## スレ内リンクの処理
 
-Entry point:
-- `PostItemBody` tap handler (`app/src/main/java/com/websarva/wings/android/slevo/ui/thread/res/PostItemBody.kt`)
+エントリポイント:
+- `PostItemBody` のタップ処理（`app/src/main/java/com/websarva/wings/android/slevo/ui/thread/res/PostItemBody.kt`）
 
-Flow:
+フロー:
 1. `parseThreadUrl(url)`
-   - If matched: navigate to thread in-app.
-2. Otherwise:
-   - `ThreadScreen` uses `LocalUriHandler.openUri(url)` (external browser).
+   - 一致: アプリ内でスレ遷移。
+2. それ以外:
+   - `ThreadScreen` の `LocalUriHandler.openUri(url)` で外部ブラウザに委譲。
 
-In-thread URL patterns (in-app thread navigation):
+スレ内リンクの対応URL（アプリ内遷移）:
 - `https://{host}/test/read.cgi/{board}/{thread}/`
 - `https://{host}/{board}/dat/{thread}.dat`
 
-In-thread URL patterns (external browser):
-- Anything not matching `parseThreadUrl`, including oyster URLs and most itest URLs.
+スレ内リンクの対応外URL（外部ブラウザ）:
+- `parseThreadUrl` に一致しないもの（oysterやitestの多くを含む）。
