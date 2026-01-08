@@ -6,7 +6,7 @@
 - ユーザー入力URL（URL入力ダイアログ）
 - スレ内リンクのタップ
 
-ここに記載した挙動は「現在の実装」を示します。
+ここに記載した挙動は「 2026/01/08 時点の実装」を示します。
 
 ## 共通ヘルパー（app/src/main/java/com/websarva/wings/android/slevo/ui/util/UrlUtils.kt）
 
