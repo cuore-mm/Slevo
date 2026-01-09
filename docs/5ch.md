@@ -10,15 +10,15 @@
 *   **板トップ**
     *   `https://<server>.5ch.net/<board>/`
 *   **スレッド (現行)**
-    *   `https://<server>.5ch.net/test/read.cgi/<board>/<threadKey>/<option?>`
+    *   `https://<server>.5ch.net/test/read.cgi/<board>/<threadKey>/[option]`
 *   **スレッド (過去ログ)**
-    *   `https://kako.5ch.net/test/read.cgi/<board>/<threadKey>/<option?>`
+    *   `https://kako.5ch.net/test/read.cgi/<board>/<threadKey>/[option]`
 
 ### スマートフォンブラウザ向け (itest)
 *   **板トップ (subback)**
     *   `https://itest.5ch.net/subback/<board>`
 *   **スレッド**
-    *   `https://itest.5ch.net/<server>/test/read.cgi/<board>/<threadKey>/<option?>`
+    *   `https://itest.5ch.net/<server>/test/read.cgi/<board>/<threadKey>/[option]`
 
 ### 専用ブラウザ・データ取得向け
 *   **スレッド一覧 (subject.txt)**
@@ -34,133 +34,126 @@
 
 ## 2. データ取得仕様詳細
 
-このセクションでは **「ユーザーが入力するHTMLのURL」** を起点に、  
-アプリ（専ブラ）が **取得に適したエンドポイント** へ変換してデータを取得するための詳細仕様をまとめる。
+このセクションでは、ユーザーが入力する **「一般的なブラウザ向けURL (PC/HTML)」** および **「スマートフォンブラウザ向けURL (itest)」** を起点に、アプリがデータを取得するためのエンドポイント（`dat` や `subject.txt`）へ変換するロジックを定義する。
 
-対象は以下の系統：
-
-- スレ一覧（`subject.txt`）
-- 現行スレ本文（`dat`）
-- 過去ログ本文（`oyster` の `dat`）
-- 板設定（`SETTING.TXT`）
+**※ 本仕様では、`dat` や `subject.txt` のURLが直接入力されるケースは考慮しない。**
 
 ---
 
 ### 2.0 前提：識別子とURLパーツ
 
-- `host` : サーバ（例：`agree.5ch.net`）
+内部処理においては以下の識別子を抽出し、データ取得用URLを組み立てる。
+
+- `server` (host): サーバ名（例：`agree`） ※ドメイン `5ch.net` は省略して扱う場合がある
 - `board` : 板キー（例：`operate`）
 - `threadKey` : スレッドID（UNIX時刻由来の数値文字列）
-- `option` : `read.cgi` の表示オプション（取得では使用しない）
 - `prefix` : 過去ログ（`oyster`）のディレクトリ名（`threadKey` 先頭4桁）
 
 ---
 
-### 2.1 まずやること：URLの種類を判定する
+### 2.1 入力URLのパターン判定
 
-アプリが受け取る可能性が高いURL（人間向け）を起点に、次のどれかに分類してから変換する。
+ユーザー入力URLを以下の4パターンに分類する。
 
-#### A. 板URL（HTML）
-- `https://<host>/<board>/`
+#### A. PC版・板URL
+- パターン: `https://<server>.5ch.net/<board>/`
+- 例: `https://agree.5ch.net/operate/`
 
-#### B. 現行スレURL（HTML / read.cgi）
-- `https://<host>/test/read.cgi/<board>/<threadKey>/<option?>`
+#### B. PC版・スレURL
+- パターン: `https://<server>.5ch.net/test/read.cgi/<board>/<threadKey>/[option]`
+- 例: `https://agree.5ch.net/test/read.cgi/operate/1767525739/`
+- 備考: `kako.5ch.net` の場合も含むが、取得ロジックとしてはサーバー名が `kako` となるだけである。
 
-#### C. DAT URL（専ブラ向け）
-- `https://<host>/<board>/dat/<threadKey>.dat`
+#### C. itest版・板URL (subback)
+- パターン: `https://itest.5ch.net/subback/<board>`
+- 例: `https://itest.5ch.net/subback/operate`
+- **注意**: URL内に `server` 情報が含まれない。
 
-> 以降はこの分類ごとに「どこへ変換して何を取るか」を定義する。
-
----
-
-### 2.2 URL変換の中心ルール（アプリ内部で統一して扱う）
-
-#### 2.2.1 板URL（HTML）→ スレ一覧（subject.txt）
-ユーザーが板URLを開く/入力したとき、スレ一覧は `subject.txt` から取得する。
-
-- 入力（板URL）  
-  `https://<host>/<board>/`
-
-- 取得（スレ一覧）  
-  `https://<host>/<board>/subject.txt`
-
-**変換規則**
-- 「板URLの末尾に `subject.txt` を付与」  
-  末尾スラッシュの有無は実装側で正規化してから付与する（`.../<board>/subject.txt` になるようにする）
+#### D. itest版・スレURL
+- パターン: `https://itest.5ch.net/<server>/test/read.cgi/<board>/<threadKey>/[option]`
+- 例: `https://itest.5ch.net/agree/test/read.cgi/operate/1767525739/l50`
 
 ---
 
-#### 2.2.2 現行スレURL（HTML / read.cgi）→ 本文（dat）
-ユーザーが `read.cgi` のURLを開く/入力したとき、本文は `dat` で取得する。
+### 2.2 データ取得URLへの変換ルール
 
-- 入力（現行スレHTML）  
-  `https://<host>/test/read.cgi/<board>/<threadKey>/<option?>`
+入力パターンごとに、データ取得用URL（`subject.txt` または `dat`）への変換を行う。
 
-- 取得（本文 / 専ブラ向け）  
-  `https://<host>/<board>/dat/<threadKey>.dat`
+#### 2.2.1 板の閲覧（PC版 A / itest版 C）→ スレ一覧 (subject.txt)
 
-**変換規則**
-- `host` / `board` / `threadKey` を抽出し、`dat` URL を再構成する  
-  `option` は取得には不要のため破棄する
+板が開かれた場合、スレッド一覧 `subject.txt` を取得する。
 
----
+**変換ロジック**
 
-#### 2.2.3 DAT URL（専ブラ向け）は変換しない
-DAT URL を直接入力された場合は、そのまま取得する。
-
----
-
-#### 2.2.4 過去ログは `oyster` へフォールバック
-`dat` 取得に失敗した場合、過去ログとして `oyster` を試す。
-
-- 取得（過去ログ dat）  
-  `https://<host>/<board>/oyster/<prefix>/<threadKey>.dat`
-
-**変換規則**
-- `prefix` は `threadKey` の先頭4桁（4桁未満なら全体）  
-  例：`threadKey = 1234567890` → `prefix = 1234`
+1.  **`<board>` の特定**
+    *   (A) PC版: URLパスから抽出。
+    *   (C) itest版: URLパス `subback/` の後ろから抽出。
+2.  **`<server>` の特定**
+    *   (A) PC版: ドメイン部分 `<server>.5ch.net` から抽出。
+    *   (C) itest版: **URLに含まれないため、アプリ内の板一覧データ（BBSMENU等）を参照し、`<board>` に対応する `<server>` を解決する。**
+3.  **URL生成**
+    *   `https://<server>.5ch.net/<board>/subject.txt`
 
 ---
 
-## 3. 取得フロー
+#### 2.2.2 スレッドの閲覧（PC版 B / itest版 D）→ 本文 (dat)
 
-### 3.1 板を開く（板URLが起点）
-1) 入力URLが板URL（A）か判定  
-2) `subject.txt` に変換して取得  
-3) スレ一覧をパースして `threadKey` を得る  
-4) スレURLを組み立てる場合は「アプリ内部表現」として `<host>/<board>/<threadKey>` を保持しておく
+スレッドが開かれた場合、スレッドデータ `dat` を取得する。
 
----
+**変換ロジック**
 
-
-### 3.2 現行スレを開く（read.cgi URLが起点）
-1) 入力URLが現行スレ（B）か判定  
-2) `dat` に変換して取得  
-3) datレスポンスをパースして表示  
-4) 取得失敗時は **`oyster` へフォールバック**（3.3へ）
-
----
-
-### 3.3 過去ログを開く（`oyster` が起点、またはフォールバック）
-1) `oyster` の `dat` を取得  
-2) datレスポンスをパースして表示
+1.  **各パーツの抽出**
+    *   (B) PC版:
+        *   `<server>`: ドメインから抽出。
+        *   `<board>`, `<threadKey>`: パス `/test/read.cgi/<board>/<threadKey>` から抽出。
+    *   (D) itest版:
+        *   `<server>`: パス先頭 `/<server>/test/...` から抽出。
+        *   `<board>`, `<threadKey>`: パス後続部分から抽出。
+2.  **URL生成**
+    *   `https://<server>.5ch.net/<board>/dat/<threadKey>.dat`
 
 ---
 
+### 2.3 過去ログへのフォールバック
+
+上記 2.2.2 で生成した `dat` URL での取得に失敗した場合（404 Not Found 等）、過去ログ倉庫 (`oyster`) を試行する。
+
+- **フォールバック先URL:**
+  `https://<server>.5ch.net/<board>/oyster/<prefix>/<threadKey>.dat`
+  - `<prefix>`: `threadKey` の先頭4桁
+
+---
+
+## 3. 取得フローまとめ
+
+### 3.1 板URL (PC/itest) が入力された場合
+1.  URLパターン判定 (A or C)。
+2.  `<board>` を抽出。itest (C) の場合は板マスタから `<server>` を補完。
+3.  `subject.txt` (`https://<server>.5ch.net/<board>/subject.txt`) を取得。
+4.  スレ一覧をパースして表示。
+
+### 3.2 スレURL (PC/itest) が入力された場合
+1.  URLパターン判定 (B or D)。
+2.  `<server>`, `<board>`, `<threadKey>` を抽出。
+3.  現行 `dat` (`https://<server>.5ch.net/<board>/dat/<threadKey>.dat`) の取得を試行。
+4.  **成功:** パースして表示。
+5.  **失敗:** 過去ログ `oyster` (`.../oyster/<prefix>/<threadKey>.dat`) の取得を試行。
+
+---
 
 ## 4. エンドポイント仕様
 
 ### 4.1 スレ一覧（subject.txt）
 
 **URL**
-- `https://<host>/<board>/subject.txt`
+- `https://<server>.5ch.net/<board>/subject.txt`
 
 **文字コード**
 - Shift_JIS
 
 **フォーマット**
 - 1行につき1スレッド  
-- 書式：`[スレッド番号].dat<>[スレッドタイトル] ([レス数])`
+-書式：`[スレッド番号].dat<>[スレッドタイトル] ([レス数])`
 
 **例**
 ```
@@ -180,7 +173,7 @@ DAT URL を直接入力された場合は、そのまま取得する。
 ### 4.2 現行スレ本文（dat）
 
 **URL**
-- `https://<host>/<board>/dat/<threadKey>.dat`
+- `https://<server>.5ch.net/<board>/dat/<threadKey>.dat`
 
 **文字コード**
 - Shift_JIS
@@ -202,8 +195,7 @@ DAT URL を直接入力された場合は、そのまま取得する。
 - `名前` にHTMLタグが混ざることがある  
 - `本文` は `<br>` 改行やHTMLエンティティ（例：`&amp;`）を含むことがある  
 - 推奨整形：  
-  - `<br>` → `
-`  
+  - `<br>` → `\n`  
   - HTMLエンティティをデコード  
   - タグ除去（リンク/アンカーを保持するかはUI方針で決める）
 
@@ -213,7 +205,7 @@ DAT URL を直接入力された場合は、そのまま取得する。
 ### 4.3 過去ログ本文（oyster / dat）
 
 **URL**
-- `https://<host>/<board>/oyster/<prefix>/<threadKey>.dat`
+- `https://<server>.5ch.net/<board>/oyster/<prefix>/<threadKey>.dat`
 
 **文字コード / フォーマット**
 - 現行 `dat` と同様
@@ -224,7 +216,7 @@ DAT URL を直接入力された場合は、そのまま取得する。
 ### 4.4 掲示板設定（SETTING.TXT）
 
 **URL**
-- `https://<host>/<board>/SETTING.TXT`
+- `https://<server>.5ch.net/<board>/SETTING.TXT`
 
 **文字コード**
 - Shift_JIS
