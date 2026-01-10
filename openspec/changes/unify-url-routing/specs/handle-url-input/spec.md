@@ -20,7 +20,7 @@
 - **THEN** システムは該当スレを表示する
 
 ### Requirement: URL入力の対象外判定
-システムはdat/oyster形式やパターン不一致のURLを入力された場合、ダイアログ内でエラーを表示することを SHALL 要求する。
+システムは入力パターン A〜D に一致しないURLを入力された場合、ダイアログ内でエラーを表示することを SHALL 要求する。
 
 #### Scenario: dat形式のURLを入力する
 - **WHEN** `https://<server>.5ch.net/<board>/dat/<threadKey>.dat` を入力する

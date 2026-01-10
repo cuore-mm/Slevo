@@ -12,7 +12,7 @@
 - **THEN** システムは板ホストを解決し該当板を表示する
 
 ### Requirement: Deep Link の対象外判定
-システムは許可ドメイン外、またはdat/oyster形式のDeep Linkを受け取った場合、遷移を行わずエラートーストで通知することを SHALL 要求する。
+システムは許可ドメイン外、または入力パターンに一致しないDeep Linkを受け取った場合、遷移を行わずエラートーストで通知することを SHALL 要求する。
 
 #### Scenario: dat形式のURLを開く
 - **WHEN** `https://{host}/{board}/dat/{thread}.dat` のDeep Linkを開く
