@@ -48,14 +48,14 @@
     - `reason: String`（判定失敗や未対応理由の識別）
 - `UrlSource` は廃止し、種別で itest の板URLを明示する。
 - 解析時に `server` が未解決（itest板URL）の場合は `null` を返し、入口側でホスト解決を行う。
-- 正規化（http → https）は Deep Link 側の責務として維持し、リゾルバは URL 文字列をそのまま解析する。
+- 正規化（http → https）は行わず、リゾルバは入力URLをそのまま解析する。
 
 ## 入口別のポリシー例
 - Deep Link
   - 追加制約: 許可ドメイン（`*.5ch.net`, `*.bbspink.com`, `*.2ch.sc`）のみ。
   - 許可: `Board` / `ItestBoard` / `Thread`
   - 不許可: `Unknown`
-  - http → https 正規化は Deep Link 側で継続。
+  - http/https は受け付けるが正規化は行わない。
 - URL入力
   - `docs/external/5ch.md` の A〜D のみを許可。
   - `Unknown` は不許可。
