@@ -50,8 +50,8 @@ class BoardViewModel @AssistedInject constructor(
     @Assisted("viewModelKey") viewModelKey: String
 ) : BaseViewModel<BoardUiState>() {
 
-    // 初期化済みのボードURL（重複初期化を防ぐ）
-    private var initializedUrl: String? = null
+    // 初期化済みのキー（重複初期化を防ぐ）
+    private var initializedKey: String? = null
 
     private var bookmarkStatusJob: Job? = null
     val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
@@ -103,11 +103,16 @@ class BoardViewModel @AssistedInject constructor(
      * 板画面の初期化処理を行う。
      */
     fun initializeBoard(boardInfo: BoardInfo) {
-        // 同じ URL なら再初期化しない
-        if (initializedUrl == boardInfo.url) return
-        initializedUrl = boardInfo.url
+        // --- Guard ---
+        val initKey = boardInfo.url
+        if (initializedKey == initKey) {
+            // 同一キーの重複初期化は行わない。
+            return
+        }
+        initializedKey = initKey
 
-        // サービス名を URL から解析して UI に保持
+        // --- UI state ---
+        // サービス名を URL から解析して UI に保持する。
         val serviceName = parseServiceName(boardInfo.url)
         _uiState.update { state ->
             state.copy(
@@ -117,13 +122,14 @@ class BoardViewModel @AssistedInject constructor(
             )
         }
 
-        // ボード情報を DB に登録（未登録なら登録）し、noname ファイルを取得する
+        // --- Data complement ---
+        // ボード情報を DB に登録（未登録なら登録）し、noname ファイルを取得する。
         viewModelScope.launch {
             val ensuredId = repository.ensureBoard(boardInfo)
             val ensuredInfo = boardInfo.copy(boardId = ensuredId)
             _uiState.update { it.copy(boardInfo = ensuredInfo) }
 
-            // SETTING.TXT から noname を取得して UI に反映
+            // SETTING.TXT から noname を取得して UI に反映する。
             repository.fetchBoardNoname("${boardInfo.url}SETTING.TXT")?.let { noname ->
                 _uiState.update { state ->
                     state.copy(
@@ -133,11 +139,12 @@ class BoardViewModel @AssistedInject constructor(
                 }
             }
 
-            // スレッド作成時の名前/メール履歴を準備
+            // スレッド作成時の名前/メール履歴を準備する。
             postDialogController.prepareIdentityHistory(ensuredId)
         }
 
-        // ブックマーク状態を監視してツールバー表示に反映
+        // --- Observers ---
+        // ブックマーク状態を監視してツールバー表示に反映する。
         bookmarkStatusJob?.cancel()
         bookmarkStatusJob = viewModelScope.launch {
             bookmarkBoardRepository.getBoardWithBookmarkAndGroupByUrlFlow(boardInfo.url)
@@ -154,7 +161,7 @@ class BoardViewModel @AssistedInject constructor(
                 }
         }
 
-        // NG リストを監視し、スレッドタイトルのフィルタを更新する
+        // NG リストを監視し、スレッドタイトルのフィルタを更新する。
         viewModelScope.launch {
             ngRepository.observeNgs().collect { list ->
                 val filters = list.filter { it.type == NgType.THREAD_TITLE }
@@ -172,8 +179,9 @@ class BoardViewModel @AssistedInject constructor(
             }
         }
 
-        // BaseViewModel の初期化（データロード等）を開始
-        initialize() // BaseViewModelの初期化処理を呼び出す
+        // --- Initial load ---
+        // BaseViewModel の初期化（データロード等）を開始する。
+        initialize()
     }
 
     // データ読み込み（スレッド一覧を取得）

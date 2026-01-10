@@ -177,9 +177,15 @@ class ThreadViewModel @AssistedInject constructor(
         boardInfo: BoardInfo,
         threadTitle: String
     ) {
+        // --- Guard ---
         val initKey = "$threadKey|${boardInfo.url}"
-        if (initializedKey == initKey) return
+        if (initializedKey == initKey) {
+            // 同一キーの重複初期化は行わない。
+            return
+        }
         initializedKey = initKey
+
+        // --- UI state ---
         val threadInfo = ThreadInfo(
             key = threadKey,
             title = threadTitle,
@@ -193,7 +199,13 @@ class ThreadViewModel @AssistedInject constructor(
             )
         }
 
+        // --- Data complement ---
         viewModelScope.launch {
+            val ensuredId = boardRepository.ensureBoard(boardInfo)
+            _uiState.update { state ->
+                state.copy(boardInfo = state.boardInfo.copy(boardId = ensuredId))
+            }
+
             val currentTabs = tabsRepository.observeOpenThreadTabs().first()
             val tabIndex =
                 currentTabs.indexOfFirst { it.threadKey == threadKey && it.boardUrl == boardInfo.url }
@@ -202,44 +214,38 @@ class ThreadViewModel @AssistedInject constructor(
                     this[tabIndex] = this[tabIndex].copy(
                         title = threadTitle,
                         boardName = boardInfo.name,
-                        boardId = boardInfo.boardId
+                        boardId = ensuredId
                     )
                 }
             } else {
-                val (host, board) = parseBoardUrl(boardInfo.url) ?: return@launch
-                currentTabs + ThreadTabInfo(
-                    id = ThreadId.of(host, board, threadKey),
-                    title = threadTitle,
-                    boardName = boardInfo.name,
-                    boardUrl = boardInfo.url,
-                    boardId = boardInfo.boardId
-                )
+                val parsed = parseBoardUrl(boardInfo.url)
+                parsed?.let { (host, board) ->
+                    currentTabs + ThreadTabInfo(
+                        id = ThreadId.of(host, board, threadKey),
+                        title = threadTitle,
+                        boardName = boardInfo.name,
+                        boardUrl = boardInfo.url,
+                        boardId = ensuredId
+                    )
+                }
             }
-            tabsRepository.saveOpenThreadTabs(updated)
-        }
+            if (updated != null) {
+                tabsRepository.saveOpenThreadTabs(updated)
+            }
 
-        viewModelScope.launch {
             boardRepository.fetchBoardNoname("${boardInfo.url}SETTING.TXT")?.let { noname ->
                 _uiState.update { state ->
-                    state.copy(boardInfo = state.boardInfo.copy(noname = noname))
-                }
-                _uiState.update { state ->
-                    state.copy(postDialogState = state.postDialogState.copy(namePlaceholder = noname))
-                }
-            }
-        }
-
-        viewModelScope.launch {
-            val ensuredId = boardRepository.ensureBoard(boardInfo)
-            if (ensuredId != boardInfo.boardId) {
-                _uiState.update { state ->
-                    state.copy(boardInfo = state.boardInfo.copy(boardId = ensuredId))
+                    state.copy(
+                        boardInfo = state.boardInfo.copy(noname = noname),
+                        postDialogState = state.postDialogState.copy(namePlaceholder = noname)
+                    )
                 }
             }
             postDialogController.prepareIdentityHistory(ensuredId)
         }
 
-        // ブックマーク状態を監視してツールバー表示に反映
+        // --- Observers ---
+        // ブックマーク状態を監視してツールバー表示に反映する。
         bookmarkStatusJob?.cancel()
         bookmarkStatusJob = viewModelScope.launch {
             threadBookmarkRepository.getBookmarkWithGroup(threadKey, boardInfo.url)
@@ -274,6 +280,7 @@ class ThreadViewModel @AssistedInject constructor(
             }
         }
 
+        // --- Initial load ---
         viewModelScope.launch {
             val isTree = settingsRepository.observeIsTreeSort().first()
             _uiState.update { state ->

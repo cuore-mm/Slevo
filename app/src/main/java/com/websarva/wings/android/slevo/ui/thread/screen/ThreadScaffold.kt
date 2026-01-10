@@ -95,18 +95,15 @@ fun ThreadScaffold(
             navController.navigateUp()
             return@LaunchedEffect
         }
-        tabsViewModel.ensureThreadTab(
+        val index = tabsViewModel.ensureThreadTab(
             threadRoute.copy(
                 boardId = info.boardId,
                 boardName = info.name
             )
         )
-        val vm = tabsViewModel.getOrCreateThreadViewModel(routeThreadId.value)
-        vm.initializeThread(
-            threadKey = threadRoute.threadKey,
-            boardInfo = info,
-            threadTitle = threadRoute.threadTitle
-        )
+        if (index >= 0) {
+            tabsViewModel.setThreadCurrentPage(index)
+        }
     }
 
     BbsRouteScaffold(
