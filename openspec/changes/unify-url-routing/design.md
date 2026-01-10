@@ -22,37 +22,38 @@
 
 ## 共有リゾルバの責務
 - URLを以下の観点で解析し、`ResolvedUrl` を返す。
-  - 種別: `Board` / `Thread` / `Unknown`
-  - 入力系統: `Pc` / `Itest`（必要なら）
+  - 種別: `Board` / `ItestBoard` / `Thread` / `Unknown`
   - 抽出パーツ: `server` / `boardKey` / `threadKey`
 - `docs/external/5ch.md` の入力パターンA〜Dに沿った解析を提供する。
-- itest URLで `server` が含まれない場合は `server = null` とし、解決は入口側が行う。
+- itest板URLは `ItestBoard` として返し、ホスト解決は入口側で行う。
 - dat / oyster 形式は `Unknown` として扱う。
 
 ## ResolvedUrl の実装案（具体化）
 - `ResolvedUrl` を sealed interface とし、以下の形を想定する。
   - `ResolvedUrl.Board`:
     - `rawUrl: String`
-    - `source: UrlSource`（`Pc` / `Itest`）
-    - `server: String?`（itest板URLでは `null`）
+    - `server: String`
     - `boardKey: String`
+  - `ResolvedUrl.ItestBoard`:
+    - `rawUrl: String`
+    - `boardKey: String`
+    - `server: String?`（未解決のため `null`）
   - `ResolvedUrl.Thread`:
     - `rawUrl: String`
-    - `source: UrlSource`
     - `server: String`
     - `boardKey: String`
     - `threadKey: String`
   - `ResolvedUrl.Unknown`:
     - `rawUrl: String`
     - `reason: String`（判定失敗や未対応理由の識別）
-- `UrlSource` は入力パターンの区別のみ担う（`Pc` / `Itest`）。`Kako` など追加が必要になった場合は拡張する。
+- `UrlSource` は廃止し、種別で itest の板URLを明示する。
 - 解析時に `server` が未解決（itest板URL）の場合は `null` を返し、入口側でホスト解決を行う。
 - 正規化（http → https）は Deep Link 側の責務として維持し、リゾルバは URL 文字列をそのまま解析する。
 
 ## 入口別のポリシー例
 - Deep Link
   - 追加制約: 許可ドメイン（`*.5ch.net`, `*.bbspink.com`, `*.2ch.sc`）のみ。
-  - 許可: `Board` / `Thread`
+  - 許可: `Board` / `ItestBoard` / `Thread`
   - 不許可: `Unknown`
   - http → https 正規化は Deep Link 側で継続。
 - URL入力
