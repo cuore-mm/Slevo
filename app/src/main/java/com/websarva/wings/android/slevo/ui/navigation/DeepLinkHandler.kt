@@ -8,9 +8,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import com.websarva.wings.android.slevo.ui.util.DeepLinkTarget
-import com.websarva.wings.android.slevo.ui.util.normalizeDeepLinkUrl
-import com.websarva.wings.android.slevo.ui.util.parseDeepLinkTarget
+import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
+import com.websarva.wings.android.slevo.ui.util.resolveDeepLinkUrl
 
 /**
  * Handles Deep Links and navigates to board/thread screens.
@@ -31,12 +30,9 @@ fun DeepLinkHandler(
         }
 
         try {
-            // --- Normalize ---
-            val normalizedUrl = normalizeDeepLinkUrl(deepLinkUrl)
-
             // --- Routing ---
             val handled = handleDeepLinkUrl(
-                url = normalizedUrl,
+                url = deepLinkUrl,
                 navController = navController,
                 tabsViewModel = tabsViewModel
             )
@@ -59,37 +55,24 @@ private suspend fun handleDeepLinkUrl(
     tabsViewModel: TabsViewModel
 ): Boolean {
     // --- Target resolution ---
-    val target = parseDeepLinkTarget(url) ?: return false // 対象外URLは処理しない。
+    val target = resolveDeepLinkUrl(url) ?: return false // 対象外URLは処理しない。
 
     // --- Navigation ---
     return when (target) {
-        is DeepLinkTarget.Itest -> {
+        is ResolvedUrl.ItestBoard -> {
             val host = tabsViewModel.resolveBoardHost(target.boardKey) ?: return false
             val boardUrl = "https://$host/${target.boardKey}/"
-            if (target.threadKey != null) {
-                val route = AppRoute.Thread(
-                    threadKey = target.threadKey,
-                    boardUrl = boardUrl,
-                    boardName = target.boardKey,
-                    threadTitle = url
-                )
-                navController.navigateToThread(
-                    route = route,
-                    tabsViewModel = tabsViewModel
-                )
-            } else {
-                val route = AppRoute.Board(
-                    boardName = boardUrl,
-                    boardUrl = boardUrl
-                )
-                navController.navigateToBoard(
-                    route = route,
-                    tabsViewModel = tabsViewModel
-                )
-            }
+            val route = AppRoute.Board(
+                boardName = boardUrl,
+                boardUrl = boardUrl
+            )
+            navController.navigateToBoard(
+                route = route,
+                tabsViewModel = tabsViewModel
+            )
             true
         }
-        is DeepLinkTarget.Thread -> {
+        is ResolvedUrl.Thread -> {
             val boardUrl = "https://${target.host}/${target.boardKey}/"
             val route = AppRoute.Thread(
                 threadKey = target.threadKey,
@@ -103,7 +86,7 @@ private suspend fun handleDeepLinkUrl(
             )
             true
         }
-        is DeepLinkTarget.Board -> {
+        is ResolvedUrl.Board -> {
             val boardUrl = "https://${target.host}/${target.boardKey}/"
             val route = AppRoute.Board(
                 boardName = boardUrl,
@@ -112,8 +95,9 @@ private suspend fun handleDeepLinkUrl(
             navController.navigateToBoard(
                 route = route,
                 tabsViewModel = tabsViewModel
-            )
+                )
             true
         }
+        is ResolvedUrl.Unknown -> false
     }
 }
