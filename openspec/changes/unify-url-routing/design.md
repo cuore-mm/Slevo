@@ -23,7 +23,7 @@
 ## 共有リゾルバの責務
 - URLを以下の観点で解析し、`ResolvedUrl` を返す。
   - 種別: `Board` / `ItestBoard` / `Thread` / `Unknown`
-  - 抽出パーツ: `server` / `boardKey` / `threadKey`
+  - 抽出パーツ: `host` / `boardKey` / `threadKey`
 - `docs/external/5ch.md` の入力パターンA〜Dに沿った解析を提供する。
 - itest板URLは `ItestBoard` として返し、ホスト解決は入口側で行う。
 - dat / oyster 形式は `Unknown` として扱う。
@@ -32,22 +32,23 @@
 - `ResolvedUrl` を sealed interface とし、以下の形を想定する。
   - `ResolvedUrl.Board`:
     - `rawUrl: String`
-    - `server: String`
+    - `host: String`
     - `boardKey: String`
   - `ResolvedUrl.ItestBoard`:
     - `rawUrl: String`
     - `boardKey: String`
-    - `server: String?`（未解決のため `null`）
+    - `host: String?`（未解決のため `null`）
   - `ResolvedUrl.Thread`:
     - `rawUrl: String`
-    - `server: String`
+    - `host: String`
     - `boardKey: String`
     - `threadKey: String`
   - `ResolvedUrl.Unknown`:
     - `rawUrl: String`
     - `reason: String`（判定失敗や未対応理由の識別）
 - `UrlSource` は廃止し、種別で itest の板URLを明示する。
-- 解析時に `server` が未解決（itest板URL）の場合は `null` を返し、入口側でホスト解決を行う。
+- 解析時に `host` が未解決（itest板URL）の場合は `null` を返し、入口側でホスト解決を行う。
+- itestスレURLは `/<server>/test/read.cgi/...` から `server` を抽出し、`itest.{domain}` のドメインサフィックスと連結して `host` を構築する。
 - 正規化（http → https）は行わず、リゾルバは入力URLをそのまま解析する。
 
 ## 入口別のポリシー例
