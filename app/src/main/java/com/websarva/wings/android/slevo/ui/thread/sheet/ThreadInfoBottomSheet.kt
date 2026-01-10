@@ -18,7 +18,9 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -174,6 +176,9 @@ private fun ThreadInfoBottomSheetContent(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
         )
+        HorizontalDivider(
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
         Text(
             text = buildAnnotatedString {
                 append(stringResource(R.string.res_count_prefix) + " ")
@@ -181,7 +186,6 @@ private fun ThreadInfoBottomSheetContent(
                     append(threadInfo.resCount.toString())
                 }
             },
-            modifier = Modifier.padding(top = 8.dp),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center
         )
@@ -239,30 +243,33 @@ private fun ThreadInfoBottomSheetContent(
         val totalSlots = THREAD_INFO_GRID_COLUMNS * THREAD_INFO_GRID_ROWS
         val placeholders = (totalSlots - actionButtons.size).coerceAtLeast(0)
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(THREAD_INFO_GRID_COLUMNS),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            userScrollEnabled = false,
-            contentPadding = PaddingValues(horizontal = 16.dp)
-        ) {
-            items(actionButtons) { action ->
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    LabeledIconButton(
-                        icon = action.icon,
-                        label = action.label,
-                        onClick = action.onClick,
-                    )
+        Spacer(modifier = Modifier.padding(8.dp))
+        Card {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(THREAD_INFO_GRID_COLUMNS),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                userScrollEnabled = false,
+                contentPadding = PaddingValues(horizontal = 16.dp)
+            ) {
+                items(actionButtons) { action ->
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        LabeledIconButton(
+                            icon = action.icon,
+                            label = action.label,
+                            onClick = action.onClick,
+                        )
+                    }
                 }
-            }
-            items(placeholders) {
-                Box(modifier = Modifier.fillMaxWidth())
+                items(placeholders) {
+                    Box(modifier = Modifier.fillMaxWidth())
+                }
             }
         }
     }
