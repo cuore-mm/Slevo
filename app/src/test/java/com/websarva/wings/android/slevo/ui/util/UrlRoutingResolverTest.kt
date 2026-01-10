@@ -5,7 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for the shared URL resolver.
+ * 共通URLリゾルバのユニットテスト。
  */
 class UrlRoutingResolverTest {
     @Test

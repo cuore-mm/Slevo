@@ -3,11 +3,11 @@ package com.websarva.wings.android.slevo.ui.util
 import java.net.URI
 
 /**
- * Resolved URL information for board or thread navigation.
+ * 板/スレ遷移に必要なURL解析結果を表す。
  */
 sealed interface ResolvedUrl {
     /**
-     * Represents a board URL with a resolved host.
+     * ホストが解決済みの板URLを表す。
      */
     data class Board(
         val rawUrl: String,
@@ -16,7 +16,7 @@ sealed interface ResolvedUrl {
     ) : ResolvedUrl
 
     /**
-     * Represents an itest board URL that needs host resolution.
+     * ホスト解決が必要な itest 板URLを表す。
      */
     data class ItestBoard(
         val rawUrl: String,
@@ -25,7 +25,7 @@ sealed interface ResolvedUrl {
     ) : ResolvedUrl
 
     /**
-     * Represents a thread URL with a resolved host.
+     * ホストが解決済みのスレURLを表す。
      */
     data class Thread(
         val rawUrl: String,
@@ -35,7 +35,7 @@ sealed interface ResolvedUrl {
     ) : ResolvedUrl
 
     /**
-     * Represents an unsupported or invalid URL.
+     * 非対応または無効なURLを表す。
      */
     data class Unknown(
         val rawUrl: String,
@@ -44,19 +44,19 @@ sealed interface ResolvedUrl {
 }
 
 /**
- * Resolves a URL into board/thread navigation targets based on 5ch patterns.
+ * 5ch系URLを板/スレの遷移対象として解決する。
  */
 fun resolveUrl(rawUrl: String): ResolvedUrl {
     // --- Parse URI ---
-    val uri = parseUriOrNull(rawUrl) ?: return ResolvedUrl.Unknown(rawUrl, "invalid_uri") // Invalid URL.
+    val uri = parseUriOrNull(rawUrl) ?: return ResolvedUrl.Unknown(rawUrl, "invalid_uri") // URLが不正な場合は対象外とする。
     val scheme = uri.scheme?.lowercase()
-    // Non-http(s) schemes are not supported in this resolver.
+    // http(s)以外のスキームは対象外とする。
     if (scheme != null && scheme != "http" && scheme != "https") {
-        // Reject unsupported schemes early.
+        // 想定外スキームは早期に除外する。
         return ResolvedUrl.Unknown(rawUrl, "unsupported_scheme")
     }
     val host = uri.host?.lowercase()
-        ?: return ResolvedUrl.Unknown(rawUrl, "missing_host") // Host is required.
+        ?: return ResolvedUrl.Unknown(rawUrl, "missing_host") // hostが無いURLは対象外とする。
     val segments = pathSegments(uri)
 
     // --- itest handling ---
@@ -73,7 +73,7 @@ fun resolveUrl(rawUrl: String): ResolvedUrl {
             val boardKey = segments[3]
             val threadKey = segments[4]
             val threadHost = buildItestThreadHost(host, server)
-                ?: return ResolvedUrl.Unknown(rawUrl, "invalid_itest_host") // Failed to build thread host.
+                ?: return ResolvedUrl.Unknown(rawUrl, "invalid_itest_host") // itestホストの構築に失敗した場合は対象外とする。
             return ResolvedUrl.Thread(
                 rawUrl = rawUrl,
                 host = threadHost,
@@ -81,7 +81,7 @@ fun resolveUrl(rawUrl: String): ResolvedUrl {
                 threadKey = threadKey
             )
         }
-        // Reject unsupported itest paths.
+        // itestの想定パスに一致しない場合は対象外とする。
         return ResolvedUrl.Unknown(rawUrl, "unsupported_itest_path")
     }
 
@@ -101,12 +101,12 @@ fun resolveUrl(rawUrl: String): ResolvedUrl {
             boardKey = segments[0]
         )
     }
-    // Reject unsupported paths.
+    // 想定パスに一致しない場合は対象外とする。
     return ResolvedUrl.Unknown(rawUrl, "unsupported_path")
 }
 
 /**
- * Builds a thread host for itest thread URLs.
+ * itestスレURLからスレ用ホストを構築する。
  */
 private fun buildItestThreadHost(itestHost: String, server: String): String? {
     val suffix = itestHost.removePrefix(ITEST_HOST_PREFIX)
@@ -117,7 +117,7 @@ private fun buildItestThreadHost(itestHost: String, server: String): String? {
 }
 
 /**
- * Safely parses a URL string into a URI.
+ * URL文字列を安全にURIへ変換する。
  */
 private fun parseUriOrNull(url: String): URI? {
     return try {
@@ -128,7 +128,7 @@ private fun parseUriOrNull(url: String): URI? {
 }
 
 /**
- * Splits a URI path into non-empty segments.
+ * URIのパスをセグメントに分割して返す。
  */
 private fun pathSegments(uri: URI): List<String> {
     val path = uri.path ?: return emptyList()

@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for Deep Link resolution utilities.
+ * Deep Link解決処理のユニットテスト。
  */
 class DeepLinkUtilsTest {
     @Test

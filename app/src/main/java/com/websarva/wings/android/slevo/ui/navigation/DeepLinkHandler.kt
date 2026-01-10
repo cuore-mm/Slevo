@@ -12,7 +12,7 @@ import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
 import com.websarva.wings.android.slevo.ui.util.resolveDeepLinkUrl
 
 /**
- * Handles Deep Links and navigates to board/thread screens.
+ * Deep Linkを受け取り、板/スレ画面へ遷移する。
  */
 @Composable
 fun DeepLinkHandler(
@@ -47,7 +47,7 @@ fun DeepLinkHandler(
 }
 
 /**
- * Resolves a Deep Link URL into navigation and returns true on success.
+ * Deep LinkのURLを解析して遷移し、成功時にtrueを返す。
  */
 private suspend fun handleDeepLinkUrl(
     url: String,
