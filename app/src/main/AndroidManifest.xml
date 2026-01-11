@@ -22,12 +22,77 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.Slevo">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- 板（PC） -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="*.5ch.net" />
+                <data android:host="*.bbspink.com" />
+                <data android:host="*.2ch.sc" />
+
+                <data android:pathPattern="/.*/" />
+            </intent-filter>
+
+            <!-- スレ（PC） -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="*.5ch.net" />
+                <data android:host="*.bbspink.com" />
+                <data android:host="*.2ch.sc" />
+
+                <data android:pathPrefix="/test/read.cgi/" />
+            </intent-filter>
+
+            <!-- 板（itest） -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="itest.5ch.net" />
+                <data android:host="itest.bbspink.com" />
+
+                <data android:pathPrefix="/subback/" />
+            </intent-filter>
+
+            <!-- スレ（itest） -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="itest.5ch.net" />
+                <data android:host="itest.bbspink.com" />
+
+                <data android:pathPattern="/.*/test/read.cgi/.*" />
             </intent-filter>
         </activity>
 
@@ -41,5 +106,18 @@
                 android:resource="@xml/file_paths" />
         </provider>
     </application>
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="http" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
 
 </manifest>

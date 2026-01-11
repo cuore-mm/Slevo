@@ -25,6 +25,7 @@ class BbsServiceRepository @Inject constructor(
 ) {
     companion object {
         private const val TAG = "BbsServiceRepository"
+        private const val DEFAULT_MENU_URL = "https://menu.5ch.net/bbsmenu.json"
     }
 
     /** サービス一覧＋板数 */
@@ -104,4 +105,22 @@ class BbsServiceRepository @Inject constructor(
      */
     fun getBoards(serviceId: Long): Flow<List<BoardEntity>> =
         local.observeBoards(serviceId)
+
+    /**
+     * bbsmenu から boardKey に対応するホストを取得する。
+     * DBへの保存は行わず、URL変換用途のみに利用する。
+     */
+    suspend fun resolveHostByBoardKeyFromMenu(boardKey: String): String? =
+        withContext(Dispatchers.IO) {
+            val menu = remote.fetchBbsMenu(DEFAULT_MENU_URL) ?: return@withContext null
+            val target = menu.asSequence()
+                .flatMap { it.boards.asSequence() }
+                .mapNotNull { board ->
+                    val uri = board.url.toUri()
+                    val segment = uri.pathSegments.firstOrNull()
+                    if (segment == boardKey) uri else null
+                }
+                .firstOrNull()
+            target?.host
+        }
 }

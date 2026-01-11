@@ -15,10 +15,23 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface BbsServiceDao {
     /**
-     * サービスを登録または更新
+     * サービスを登録する（既存の場合は挿入を無視）。
      */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(service: BbsServiceEntity): Long
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertService(service: BbsServiceEntity): Long
+
+    /**
+     * 既存サービスの表示名とメニューURLを更新する。
+     */
+    @Query(
+        """
+        UPDATE services
+           SET displayName = :displayName,
+               menuUrl = :menuUrl
+         WHERE serviceId = :serviceId
+        """
+    )
+    suspend fun updateServiceMeta(serviceId: Long, displayName: String?, menuUrl: String?)
 
     /**
      * サービス一覧を板数付きで取得

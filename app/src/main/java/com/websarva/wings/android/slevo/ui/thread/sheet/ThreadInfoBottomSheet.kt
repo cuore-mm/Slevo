@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.sheet
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +19,9 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -31,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -54,9 +56,15 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
+import com.websarva.wings.android.slevo.ui.util.ExternalBrowserUtil
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.text.DecimalFormat
 
+/**
+ * スレッド情報を表示するボトムシートを制御する。
+ *
+ * showBoardAction が false の場合は板遷移ボタンを表示しない。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadInfoBottomSheet(
@@ -66,17 +74,21 @@ fun ThreadInfoBottomSheet(
     boardInfo: BoardInfo,
     navController: NavHostController,
     tabsViewModel: TabsViewModel? = null,
+    showBoardAction: Boolean = true,
 ) {
+    // --- Sheet state ---
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showCopyDialog by remember { mutableStateOf(false) }
     var showNgDialog by remember { mutableStateOf(false) }
-    val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
 
+    // --- Thread URL ---
     val threadUrl = parseBoardUrl(threadInfo.url)?.let { (host, boardKey) ->
         "https://$host/test/read.cgi/$boardKey/${threadInfo.key}/"
     } ?: ""
+    val noBrowserMessage = stringResource(R.string.no_browser_app_found)
 
+    // --- Sheet content ---
     if (showThreadInfoSheet) {
         SlevoBottomSheet(
             onDismissRequest = onDismissRequest,
@@ -85,6 +97,7 @@ fun ThreadInfoBottomSheet(
             ThreadInfoBottomSheetContent(
                 threadInfo = threadInfo,
                 boardName = boardInfo.name,
+                showBoardAction = showBoardAction,
                 onBoardClick = {
                     val route = AppRoute.Board(
                         boardId = boardInfo.boardId,
@@ -98,7 +111,19 @@ fun ThreadInfoBottomSheet(
                     onDismissRequest()
                 },
                 onOpenBrowserClick = {
-                    uriHandler.openUri(threadUrl)
+                    if (threadUrl.isBlank()) {
+                        Toast.makeText(context, R.string.invalid_url, Toast.LENGTH_SHORT).show()
+                        onDismissRequest()
+                        return@ThreadInfoBottomSheetContent
+                    }
+                    val opened = ExternalBrowserUtil.openBrowserChooser(
+                        context = context,
+                        url = threadUrl,
+                        chooserTitle = null
+                    )
+                    if (!opened) {
+                        Toast.makeText(context, noBrowserMessage, Toast.LENGTH_SHORT).show()
+                    }
                     onDismissRequest()
                 },
                 onCopyClick = {
@@ -121,6 +146,7 @@ fun ThreadInfoBottomSheet(
             )
         }
     }
+    // --- Dialogs ---
     if (showCopyDialog) {
         CopyDialog(
             items = listOf(
@@ -151,16 +177,21 @@ fun ThreadInfoBottomSheet(
     }
 }
 
+/**
+ * スレッド情報シートの本文を描画し、操作ボタンを並べる。
+ */
 @Composable
 private fun ThreadInfoBottomSheetContent(
     threadInfo: ThreadInfo,
     boardName: String,
+    showBoardAction: Boolean = true,
     onBoardClick: () -> Unit,
     onOpenBrowserClick: () -> Unit,
     onCopyClick: () -> Unit,
     onNgClick: () -> Unit,
     onShareClick: () -> Unit,
 ) {
+    // --- Summary data ---
     val momentumFormatter = remember { DecimalFormat("0.0") }
     val date = threadInfo.date
     Column(
@@ -174,6 +205,10 @@ private fun ThreadInfoBottomSheetContent(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
         )
+        HorizontalDivider(
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+        // --- Counts & meta ---
         Text(
             text = buildAnnotatedString {
                 append(stringResource(R.string.res_count_prefix) + " ")
@@ -181,7 +216,6 @@ private fun ThreadInfoBottomSheetContent(
                     append(threadInfo.resCount.toString())
                 }
             },
-            modifier = Modifier.padding(top = 8.dp),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center
         )
@@ -209,60 +243,77 @@ private fun ThreadInfoBottomSheetContent(
                 textAlign = TextAlign.Center
             )
         }
-        val actionButtons = listOf(
-            ThreadInfoActionButton(
-                icon = Icons.AutoMirrored.Filled.Article,
-                label = boardName,
-                onClick = onBoardClick
-            ),
-            ThreadInfoActionButton(
-                icon = Icons.Filled.ContentCopy,
-                label = stringResource(R.string.copy),
-                onClick = onCopyClick
-            ),
-            ThreadInfoActionButton(
-                icon = Icons.Filled.Block,
-                label = stringResource(R.string.ng_registration),
-                onClick = onNgClick
-            ),
-            ThreadInfoActionButton(
-                icon = Icons.Filled.OpenInBrowser,
-                label = stringResource(R.string.open_in_external_browser),
-                onClick = onOpenBrowserClick
-            ),
-            ThreadInfoActionButton(
-                icon = Icons.Filled.Share,
-                label = stringResource(R.string.share),
-                onClick = onShareClick
+        // --- Actions ---
+        val actionButtons = buildList {
+            // 板画面から開いた場合は板遷移ボタンを省略する。
+            if (showBoardAction) {
+                add(
+                    ThreadInfoActionButton(
+                        icon = Icons.AutoMirrored.Filled.Article,
+                        label = boardName,
+                        onClick = onBoardClick
+                    )
+                )
+            }
+            add(
+                ThreadInfoActionButton(
+                    icon = Icons.Filled.ContentCopy,
+                    label = stringResource(R.string.copy),
+                    onClick = onCopyClick
+                )
             )
-        )
+            add(
+                ThreadInfoActionButton(
+                    icon = Icons.Filled.Block,
+                    label = stringResource(R.string.ng_registration),
+                    onClick = onNgClick
+                )
+            )
+            add(
+                ThreadInfoActionButton(
+                    icon = Icons.Filled.OpenInBrowser,
+                    label = stringResource(R.string.open_in_external_browser),
+                    onClick = onOpenBrowserClick
+                )
+            )
+            add(
+                ThreadInfoActionButton(
+                    icon = Icons.Filled.Share,
+                    label = stringResource(R.string.share),
+                    onClick = onShareClick
+                )
+            )
+        }
         val totalSlots = THREAD_INFO_GRID_COLUMNS * THREAD_INFO_GRID_ROWS
         val placeholders = (totalSlots - actionButtons.size).coerceAtLeast(0)
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(THREAD_INFO_GRID_COLUMNS),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            userScrollEnabled = false,
-            contentPadding = PaddingValues(horizontal = 16.dp)
-        ) {
-            items(actionButtons) { action ->
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    LabeledIconButton(
-                        icon = action.icon,
-                        label = action.label,
-                        onClick = action.onClick,
-                    )
+        Spacer(modifier = Modifier.padding(8.dp))
+        Card {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(THREAD_INFO_GRID_COLUMNS),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                userScrollEnabled = false,
+                contentPadding = PaddingValues(horizontal = 16.dp)
+            ) {
+                items(actionButtons) { action ->
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        LabeledIconButton(
+                            icon = action.icon,
+                            label = action.label,
+                            onClick = action.onClick,
+                        )
+                    }
                 }
-            }
-            items(placeholders) {
-                Box(modifier = Modifier.fillMaxWidth())
+                items(placeholders) {
+                    Box(modifier = Modifier.fillMaxWidth())
+                }
             }
         }
     }
@@ -271,6 +322,9 @@ private fun ThreadInfoBottomSheetContent(
 private const val THREAD_INFO_GRID_COLUMNS = 4
 private const val THREAD_INFO_GRID_ROWS = 2
 
+/**
+ * スレッド情報シートで使うアクションボタンの表示情報。
+ */
 private data class ThreadInfoActionButton(
     val icon: ImageVector,
     val label: String,
