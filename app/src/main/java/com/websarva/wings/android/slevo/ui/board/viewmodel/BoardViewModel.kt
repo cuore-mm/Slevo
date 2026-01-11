@@ -14,7 +14,7 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUplo
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
-import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
+import com.websarva.wings.android.slevo.ui.bbsroute.InitFlowViewModel
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
 import com.websarva.wings.android.slevo.ui.common.bookmark.BoardTarget
@@ -30,6 +30,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+
+/**
+ * BoardViewModel の初期化に必要な入力。
+ *
+ * BoardInfo を初期化フローで利用する。
+ */
+private data class BoardInitArgs(
+    val boardInfo: BoardInfo,
+)
 
 /**
  * 板画面の表示と操作を担うViewModel。
@@ -48,10 +57,7 @@ class BoardViewModel @AssistedInject constructor(
     private val threadCreatePostDialogExecutor: ThreadCreatePostDialogExecutor,
     postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
     @Assisted("viewModelKey") viewModelKey: String
-) : BaseViewModel<BoardUiState>() {
-
-    // 初期化済みのキー（重複初期化を防ぐ）
-    private var initializedKey: String? = null
+) : InitFlowViewModel<BoardUiState, BoardInitArgs>() {
 
     private var bookmarkStatusJob: Job? = null
     val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
@@ -103,16 +109,21 @@ class BoardViewModel @AssistedInject constructor(
      * 板画面の初期化処理を行う。
      */
     fun initializeBoard(boardInfo: BoardInfo) {
-        // --- Guard ---
-        val initKey = boardInfo.url
-        if (initializedKey == initKey) {
-            // 同一キーの重複初期化は行わない。
-            return
-        }
-        initializedKey = initKey
+        initializeFlow(BoardInitArgs(boardInfo))
+    }
 
-        // --- UI state ---
-        // サービス名を URL から解析して UI に保持する。
+    /**
+     * 初期化キーを作成する。
+     */
+    override fun buildInitKey(args: BoardInitArgs): String {
+        return args.boardInfo.url
+    }
+
+    /**
+     * UIState に初期値を反映する。
+     */
+    override fun applyInitialUiState(args: BoardInitArgs) {
+        val boardInfo = args.boardInfo
         val serviceName = parseServiceName(boardInfo.url)
         _uiState.update { state ->
             state.copy(
@@ -121,9 +132,13 @@ class BoardViewModel @AssistedInject constructor(
                 postDialogState = state.postDialogState.copy(namePlaceholder = boardInfo.noname),
             )
         }
+    }
 
-        // --- Data complement ---
-        // ボード情報を DB に登録（未登録なら登録）し、noname ファイルを取得する。
+    /**
+     * ボード情報の永続化と補完を行う。
+     */
+    override fun launchDataComplement(args: BoardInitArgs) {
+        val boardInfo = args.boardInfo
         viewModelScope.launch {
             val ensuredId = repository.ensureBoard(boardInfo)
             val ensuredInfo = boardInfo.copy(boardId = ensuredId)
@@ -142,9 +157,13 @@ class BoardViewModel @AssistedInject constructor(
             // スレッド作成時の名前/メール履歴を準備する。
             postDialogController.prepareIdentityHistory(ensuredId)
         }
+    }
 
-        // --- Observers ---
-        // ブックマーク状態を監視してツールバー表示に反映する。
+    /**
+     * ブックマークとNG監視を開始する。
+     */
+    override fun startObservers(args: BoardInitArgs) {
+        val boardInfo = args.boardInfo
         bookmarkStatusJob?.cancel()
         bookmarkStatusJob = viewModelScope.launch {
             bookmarkBoardRepository.getBoardWithBookmarkAndGroupByUrlFlow(boardInfo.url)
@@ -178,10 +197,6 @@ class BoardViewModel @AssistedInject constructor(
                 threadListCoordinator.updateThreadTitleNg(filters)
             }
         }
-
-        // --- Initial load ---
-        // BaseViewModel の初期化（データロード等）を開始する。
-        initialize()
     }
 
     // データ読み込み（スレッド一覧を取得）
