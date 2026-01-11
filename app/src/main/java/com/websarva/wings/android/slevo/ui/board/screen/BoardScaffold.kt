@@ -233,6 +233,7 @@ fun BoardScaffold(
                 boardInfo = uiState.boardInfo,
                 navController = navController,
                 tabsViewModel = tabsViewModel,
+                showBoardAction = false,
             )
             if (uiState.showInfoDialog) {
                 BoardInfoDialog(
