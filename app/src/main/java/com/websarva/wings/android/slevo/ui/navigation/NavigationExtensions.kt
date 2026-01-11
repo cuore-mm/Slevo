@@ -37,12 +37,10 @@ fun NavHostController.navigateToThread(
     builder: NavOptionsBuilder.() -> Unit = {},
 ) {
     tabsViewModel?.let { viewModel ->
-        route.boardId?.takeIf { it != 0L }?.let {
-            // 既存スレの場合のみ選択状態を更新する（無効URLは検証後に保存）。
-            viewModel.ensureThreadTab(route).let { index ->
-                if (index >= 0) {
-                    viewModel.setThreadCurrentPage(index)
-                }
+        // boardId 未解決でもタブを登録し、選択状態を更新する。
+        viewModel.ensureThreadTab(route).let { index ->
+            if (index >= 0) {
+                viewModel.setThreadCurrentPage(index)
             }
         }
     }

@@ -62,6 +62,17 @@ private data class PendingPost(
 )
 
 /**
+ * ThreadViewModel の初期化に必要な入力。
+ *
+ * スレッド識別子と表示情報を初期化フローで利用する。
+ */
+data class ThreadInitArgs(
+    val threadKey: String,
+    val boardInfo: BoardInfo,
+    val threadTitle: String,
+)
+
+/**
  * スレッド画面の状態を管理するViewModel。
  *
  * 投稿の表示や操作に関するUI状態を保持・更新する。
@@ -81,7 +92,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val postDialogControllerFactory: PostDialogController.Factory,
     private val replyPostDialogExecutor: ThreadReplyPostDialogExecutor,
     @Assisted @Suppress("unused") val viewModelKey: String,
-) : BaseViewModel<ThreadUiState>() {
+) : BaseViewModel<ThreadUiState, ThreadInitArgs>() {
 
     private val tabCoordinator = ThreadTabCoordinator(
         scope = viewModelScope,
@@ -92,7 +103,6 @@ class ThreadViewModel @AssistedInject constructor(
     override val _uiState = MutableStateFlow(ThreadUiState())
     private var ngList: List<NgEntity> = emptyList()
     private var compiledNg: List<Triple<Long?, Regex, NgType>> = emptyList()
-    private var initializedKey: String? = null
     private var pendingPost: PendingPost? = null
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
@@ -177,72 +187,79 @@ class ThreadViewModel @AssistedInject constructor(
         boardInfo: BoardInfo,
         threadTitle: String
     ) {
-        val initKey = "$threadKey|${boardInfo.url}"
-        if (initializedKey == initKey) return
-        initializedKey = initKey
+        initializeFlow(
+            ThreadInitArgs(
+                threadKey = threadKey,
+                boardInfo = boardInfo,
+                threadTitle = threadTitle,
+            )
+        )
+    }
+
+    /**
+     * 初期化キーを作成する。
+     */
+    override fun buildInitKey(args: ThreadInitArgs): String {
+        return "${args.threadKey}|${args.boardInfo.url}"
+    }
+
+    /**
+     * UIState にスレッド情報を反映する。
+     */
+    override fun applyInitialUiState(args: ThreadInitArgs) {
         val threadInfo = ThreadInfo(
-            key = threadKey,
-            title = threadTitle,
-            url = boardInfo.url
+            key = args.threadKey,
+            title = args.threadTitle,
+            url = args.boardInfo.url
         )
         _uiState.update { state ->
             state.copy(
-                boardInfo = boardInfo,
+                boardInfo = args.boardInfo,
                 threadInfo = threadInfo,
-                postDialogState = state.postDialogState.copy(namePlaceholder = boardInfo.noname),
+                postDialogState = state.postDialogState.copy(namePlaceholder = args.boardInfo.noname),
             )
         }
+    }
 
+    /**
+     * タブ情報とBoard情報の補完処理を開始する。
+     */
+    override fun launchDataComplement(args: ThreadInitArgs) {
         viewModelScope.launch {
+            val ensuredId = boardRepository.ensureBoard(args.boardInfo)
+            _uiState.update { state ->
+                state.copy(boardInfo = state.boardInfo.copy(boardId = ensuredId))
+            }
+
             val currentTabs = tabsRepository.observeOpenThreadTabs().first()
-            val tabIndex =
-                currentTabs.indexOfFirst { it.threadKey == threadKey && it.boardUrl == boardInfo.url }
-            val updated = if (tabIndex != -1) {
-                currentTabs.toMutableList().apply {
-                    this[tabIndex] = this[tabIndex].copy(
-                        title = threadTitle,
-                        boardName = boardInfo.name,
-                        boardId = boardInfo.boardId
+            val updatedTabs = updateThreadTabs(
+                currentTabs = currentTabs,
+                ensuredBoardId = ensuredId,
+                args = args,
+            )
+            if (updatedTabs != null) {
+                tabsRepository.saveOpenThreadTabs(updatedTabs)
+            }
+
+            boardRepository.fetchBoardNoname("${args.boardInfo.url}SETTING.TXT")?.let { noname ->
+                _uiState.update { state ->
+                    state.copy(
+                        boardInfo = state.boardInfo.copy(noname = noname),
+                        postDialogState = state.postDialogState.copy(namePlaceholder = noname)
                     )
-                }
-            } else {
-                val (host, board) = parseBoardUrl(boardInfo.url) ?: return@launch
-                currentTabs + ThreadTabInfo(
-                    id = ThreadId.of(host, board, threadKey),
-                    title = threadTitle,
-                    boardName = boardInfo.name,
-                    boardUrl = boardInfo.url,
-                    boardId = boardInfo.boardId
-                )
-            }
-            tabsRepository.saveOpenThreadTabs(updated)
-        }
-
-        viewModelScope.launch {
-            boardRepository.fetchBoardNoname("${boardInfo.url}SETTING.TXT")?.let { noname ->
-                _uiState.update { state ->
-                    state.copy(boardInfo = state.boardInfo.copy(noname = noname))
-                }
-                _uiState.update { state ->
-                    state.copy(postDialogState = state.postDialogState.copy(namePlaceholder = noname))
-                }
-            }
-        }
-
-        viewModelScope.launch {
-            val ensuredId = boardRepository.ensureBoard(boardInfo)
-            if (ensuredId != boardInfo.boardId) {
-                _uiState.update { state ->
-                    state.copy(boardInfo = state.boardInfo.copy(boardId = ensuredId))
                 }
             }
             postDialogController.prepareIdentityHistory(ensuredId)
         }
+    }
 
-        // ブックマーク状態を監視してツールバー表示に反映
+    /**
+     * ブックマーク・NG監視を開始する。
+     */
+    override fun startObservers(args: ThreadInitArgs) {
         bookmarkStatusJob?.cancel()
         bookmarkStatusJob = viewModelScope.launch {
-            threadBookmarkRepository.getBookmarkWithGroup(threadKey, boardInfo.url)
+            threadBookmarkRepository.getBookmarkWithGroup(args.threadKey, args.boardInfo.url)
                 .collect { threadWithBookmark ->
                     val group = threadWithBookmark?.group
                     _uiState.update {
@@ -273,14 +290,57 @@ class ThreadViewModel @AssistedInject constructor(
                 updateNgPostNumbers()
             }
         }
+    }
 
+    /**
+     * 並び順の設定を反映して初期ロードを開始する。
+     */
+    override fun startInitialLoad(force: Boolean) {
         viewModelScope.launch {
             val isTree = settingsRepository.observeIsTreeSort().first()
             _uiState.update { state ->
                 state.copy(sortType = if (isTree) ThreadSortType.TREE else ThreadSortType.NUMBER)
             }
-            initialize() // BaseViewModelの初期化処理を呼び出す
+            initialize(force)
         }
+    }
+
+    /**
+     * スレッドタブの状態を更新する。
+     */
+    private fun updateThreadTabs(
+        currentTabs: List<ThreadTabInfo>,
+        ensuredBoardId: Long,
+        args: ThreadInitArgs,
+    ): List<ThreadTabInfo>? {
+        // --- Update existing ---
+        val tabIndex = currentTabs.indexOfFirst {
+            it.threadKey == args.threadKey && it.boardUrl == args.boardInfo.url
+        }
+        if (tabIndex != -1) {
+            return currentTabs.toMutableList().apply {
+                this[tabIndex] = this[tabIndex].copy(
+                    title = args.threadTitle,
+                    boardName = args.boardInfo.name,
+                    boardId = ensuredBoardId
+                )
+            }
+        }
+
+        // --- Add new ---
+        val parsed = parseBoardUrl(args.boardInfo.url)
+        if (parsed == null) {
+            // URL解析に失敗した場合はタブ追加を行わない。
+            return null
+        }
+        val (host, board) = parsed
+        return currentTabs + ThreadTabInfo(
+            id = ThreadId.of(host, board, args.threadKey),
+            title = args.threadTitle,
+            boardName = args.boardInfo.name,
+            boardUrl = args.boardInfo.url,
+            boardId = ensuredBoardId
+        )
     }
 
     override suspend fun loadData(isRefresh: Boolean) {

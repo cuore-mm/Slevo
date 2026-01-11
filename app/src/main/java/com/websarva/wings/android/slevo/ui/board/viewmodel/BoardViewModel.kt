@@ -33,6 +33,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 /**
+ * BoardViewModel の初期化に必要な入力。
+ *
+ * BoardInfo を初期化フローで利用する。
+ */
+data class BoardInitArgs(
+    val boardInfo: BoardInfo,
+)
+
+/**
  * 板画面の表示と操作を担うViewModel。
  *
  * スレッド一覧やブックマーク状態などのUI状態を管理する。
@@ -49,10 +58,7 @@ class BoardViewModel @AssistedInject constructor(
     private val threadCreatePostDialogExecutor: ThreadCreatePostDialogExecutor,
     postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
     @Assisted("viewModelKey") viewModelKey: String
-) : BaseViewModel<BoardUiState>() {
-
-    // 初期化済みのボードURL（重複初期化を防ぐ）
-    private var initializedUrl: String? = null
+) : BaseViewModel<BoardUiState, BoardInitArgs>() {
 
     private var bookmarkStatusJob: Job? = null
     val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
@@ -104,11 +110,21 @@ class BoardViewModel @AssistedInject constructor(
      * 板画面の初期化処理を行う。
      */
     fun initializeBoard(boardInfo: BoardInfo) {
-        // 同じ URL なら再初期化しない
-        if (initializedUrl == boardInfo.url) return
-        initializedUrl = boardInfo.url
+        initializeFlow(BoardInitArgs(boardInfo))
+    }
 
-        // サービス名を URL から解析して UI に保持
+    /**
+     * 初期化キーを作成する。
+     */
+    override fun buildInitKey(args: BoardInitArgs): String {
+        return args.boardInfo.url
+    }
+
+    /**
+     * UIState に初期値を反映する。
+     */
+    override fun applyInitialUiState(args: BoardInitArgs) {
+        val boardInfo = args.boardInfo
         val serviceName = parseServiceName(boardInfo.url)
         _uiState.update { state ->
             state.copy(
@@ -117,14 +133,19 @@ class BoardViewModel @AssistedInject constructor(
                 postDialogState = state.postDialogState.copy(namePlaceholder = boardInfo.noname),
             )
         }
+    }
 
-        // ボード情報を DB に登録（未登録なら登録）し、noname ファイルを取得する
+    /**
+     * ボード情報の永続化と補完を行う。
+     */
+    override fun launchDataComplement(args: BoardInitArgs) {
+        val boardInfo = args.boardInfo
         viewModelScope.launch {
             val ensuredId = repository.ensureBoard(boardInfo)
             val ensuredInfo = boardInfo.copy(boardId = ensuredId)
             _uiState.update { it.copy(boardInfo = ensuredInfo) }
 
-            // SETTING.TXT から noname を取得して UI に反映
+            // SETTING.TXT から noname を取得して UI に反映する。
             repository.fetchBoardNoname("${boardInfo.url}SETTING.TXT")?.let { noname ->
                 _uiState.update { state ->
                     state.copy(
@@ -134,11 +155,16 @@ class BoardViewModel @AssistedInject constructor(
                 }
             }
 
-            // スレッド作成時の名前/メール履歴を準備
+            // スレッド作成時の名前/メール履歴を準備する。
             postDialogController.prepareIdentityHistory(ensuredId)
         }
+    }
 
-        // ブックマーク状態を監視してツールバー表示に反映
+    /**
+     * ブックマークとNG監視を開始する。
+     */
+    override fun startObservers(args: BoardInitArgs) {
+        val boardInfo = args.boardInfo
         bookmarkStatusJob?.cancel()
         bookmarkStatusJob = viewModelScope.launch {
             bookmarkBoardRepository.getBoardWithBookmarkAndGroupByUrlFlow(boardInfo.url)
@@ -155,7 +181,7 @@ class BoardViewModel @AssistedInject constructor(
                 }
         }
 
-        // NG リストを監視し、スレッドタイトルのフィルタを更新する
+        // NG リストを監視し、スレッドタイトルのフィルタを更新する。
         viewModelScope.launch {
             ngRepository.observeNgs().collect { list ->
                 val filters = list.filter { it.type == NgType.THREAD_TITLE }
@@ -172,9 +198,6 @@ class BoardViewModel @AssistedInject constructor(
                 threadListCoordinator.updateThreadTitleNg(filters)
             }
         }
-
-        // BaseViewModel の初期化（データロード等）を開始
-        initialize() // BaseViewModelの初期化処理を呼び出す
     }
 
     // データ読み込み（スレッド一覧を取得）
