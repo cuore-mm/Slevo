@@ -16,9 +16,9 @@
   - 例: `ExternalBrowserUtil.openBrowserChooser(context, url)`
   - 処理手順:
     1. `Intent(Intent.ACTION_VIEW, Uri.parse(url))` に `CATEGORY_BROWSABLE` を付与。
-    2. `PackageManager.queryIntentActivities(..., MATCH_DEFAULT_ONLY)` で候補取得。
+    2. `PackageManager.queryIntentActivities(..., 0)` で候補取得。
     3. `context.packageName` を除外。
-    4. 残った候補を `Intent` に `setPackage` / `setComponent` して明示的 Intent を構築。
+    4. 残った候補を `Intent` に `setComponent` して明示的 Intent を構築。
     5. 候補が 0 件ならトースト通知して終了。
     6. 1 件以上なら `Intent.createChooser` で選択ダイアログを表示。
 - 呼び出し箇所
