@@ -59,13 +59,6 @@ class DeepLinkUtilsTest {
     }
 
     @Test
-    fun resolveDeepLinkUrl_rejectsItestThreadOn2chSc() {
-        val target = resolveDeepLinkUrl("https://itest.2ch.sc/agree/test/read.cgi/operate/1234567890/")
-
-        assertNull(target)
-    }
-
-    @Test
     fun resolveDeepLinkUrl_rejectsUnknownHost() {
         val target = resolveDeepLinkUrl("https://example.com/test/read.cgi/operate/1234567890/")
 

@@ -13,25 +13,16 @@ fun resolveDeepLinkUrl(url: String): ResolvedUrl? {
         return null
     }
 
-    // --- Original host check ---
-    val originalHost = extractHost(url)?.lowercase() ?: return null // 判定には入力ホストが必要。
-
     // --- Host allowlist ---
     val host = when (resolved) {
         is ResolvedUrl.Board -> resolved.host
         is ResolvedUrl.Thread -> resolved.host
-        is ResolvedUrl.ItestBoard -> originalHost
+        is ResolvedUrl.ItestBoard -> extractHost(url)
         is ResolvedUrl.Unknown -> null
     } ?: return null // 許可判定にはhostが必要。
 
     if (!isAllowedDeepLinkHost(host.lowercase())) {
         // 許可サフィックス外は対象外とする。
-        return null
-    }
-
-    // --- itest domain restriction ---
-    if (originalHost.startsWith(ITEST_HOST_PREFIX) && !isAllowedItestHost(originalHost)) {
-        // itest対応ドメイン外は対象外とする。
         return null
     }
     return resolved
@@ -54,15 +45,6 @@ private fun isAllowedDeepLinkHost(host: String): Boolean {
 }
 
 /**
- * itestで許可されるホストかを判定する。
- */
-private fun isAllowedItestHost(host: String): Boolean {
-    return ALLOWED_ITEST_SUFFIXES.any { suffix ->
-        host == "$ITEST_HOST_PREFIX$suffix"
-    }
-}
-
-/**
  * URL文字列を安全にURIへ変換する。
  */
 private fun parseUriOrNull(url: String): URI? {
@@ -78,10 +60,3 @@ private val ALLOWED_HOST_SUFFIXES = listOf(
     "5ch.net",
     "2ch.sc"
 )
-
-private val ALLOWED_ITEST_SUFFIXES = listOf(
-    "bbspink.com",
-    "5ch.net"
-)
-
-private const val ITEST_HOST_PREFIX = "itest."
