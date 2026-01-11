@@ -36,12 +36,110 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="http" android:host="*.bbspink.com" />
-                <data android:scheme="https" android:host="*.bbspink.com" />
-                <data android:scheme="http" android:host="*.5ch.net" />
-                <data android:scheme="https" android:host="*.5ch.net" />
-                <data android:scheme="http" android:host="*.2ch.sc" />
-                <data android:scheme="https" android:host="*.2ch.sc" />
+                <data
+                    android:scheme="http"
+                    android:host="*.bbspink.com"
+                    android:pathPattern="/*/" />
+                <data
+                    android:scheme="https"
+                    android:host="*.bbspink.com"
+                    android:pathPattern="/*/" />
+                <data
+                    android:scheme="http"
+                    android:host="*.5ch.net"
+                    android:pathPattern="/*/" />
+                <data
+                    android:scheme="https"
+                    android:host="*.5ch.net"
+                    android:pathPattern="/*/" />
+                <data
+                    android:scheme="http"
+                    android:host="*.2ch.sc"
+                    android:pathPattern="/*/" />
+                <data
+                    android:scheme="https"
+                    android:host="*.2ch.sc"
+                    android:pathPattern="/*/" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="http"
+                    android:host="*.bbspink.com"
+                    android:pathPrefix="/test/read.cgi/" />
+                <data
+                    android:scheme="https"
+                    android:host="*.bbspink.com"
+                    android:pathPrefix="/test/read.cgi/" />
+                <data
+                    android:scheme="http"
+                    android:host="*.5ch.net"
+                    android:pathPrefix="/test/read.cgi/" />
+                <data
+                    android:scheme="https"
+                    android:host="*.5ch.net"
+                    android:pathPrefix="/test/read.cgi/" />
+                <data
+                    android:scheme="http"
+                    android:host="*.2ch.sc"
+                    android:pathPrefix="/test/read.cgi/" />
+                <data
+                    android:scheme="https"
+                    android:host="*.2ch.sc"
+                    android:pathPrefix="/test/read.cgi/" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="http"
+                    android:host="itest.bbspink.com"
+                    android:pathPrefix="/subback/" />
+                <data
+                    android:scheme="https"
+                    android:host="itest.bbspink.com"
+                    android:pathPrefix="/subback/" />
+                <data
+                    android:scheme="http"
+                    android:host="itest.5ch.net"
+                    android:pathPrefix="/subback/" />
+                <data
+                    android:scheme="https"
+                    android:host="itest.5ch.net"
+                    android:pathPrefix="/subback/" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="http"
+                    android:host="itest.bbspink.com"
+                    android:pathPattern="/*/test/read.cgi/*" />
+                <data
+                    android:scheme="https"
+                    android:host="itest.bbspink.com"
+                    android:pathPattern="/*/test/read.cgi/*" />
+                <data
+                    android:scheme="http"
+                    android:host="itest.5ch.net"
+                    android:pathPattern="/*/test/read.cgi/*" />
+                <data
+                    android:scheme="https"
+                    android:host="itest.5ch.net"
+                    android:pathPattern="/*/test/read.cgi/*" />
             </intent-filter>
         </activity>
 
