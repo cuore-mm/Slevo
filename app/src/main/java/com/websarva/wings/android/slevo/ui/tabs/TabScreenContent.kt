@@ -25,9 +25,8 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
-import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
-import com.websarva.wings.android.slevo.ui.util.parseItestUrl
-import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
+import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
+import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import kotlinx.coroutines.launch
 
 /**
@@ -101,37 +100,24 @@ fun TabScreenContent(
                 },
                 onOpen = { url ->
                     tabsViewModel.startUrlValidation()
-                    // --- itest handling ---
-                    val itestInfo = parseItestUrl(url)
-                    if (itestInfo != null) {
+                    val resolved = resolveUrl(url)
+                    // --- itest board handling ---
+                    if (resolved is ResolvedUrl.ItestBoard) {
                         // itest URLはホスト解決が必要なため非同期で処理する。
                         urlError = null
                         coroutineScope.launch {
                             try {
-                                val host = tabsViewModel.resolveBoardHost(itestInfo.boardKey)
+                                val host = tabsViewModel.resolveBoardHost(resolved.boardKey)
                                 if (host != null) {
-                                    val boardUrl = "https://$host/${itestInfo.boardKey}/"
-                                    if (itestInfo.threadKey != null) {
-                                        val route = AppRoute.Thread(
-                                            threadKey = itestInfo.threadKey,
-                                            boardUrl = boardUrl,
-                                            boardName = itestInfo.boardKey,
-                                            threadTitle = url
-                                        )
-                                        navController.navigateToThread(
-                                            route = route,
-                                            tabsViewModel = tabsViewModel,
-                                        )
-                                    } else {
-                                        val route = AppRoute.Board(
-                                            boardName = boardUrl,
-                                            boardUrl = boardUrl
-                                        )
-                                        navController.navigateToBoard(
-                                            route = route,
-                                            tabsViewModel = tabsViewModel,
-                                        )
-                                    }
+                                    val boardUrl = "https://$host/${resolved.boardKey}/"
+                                    val route = AppRoute.Board(
+                                        boardName = boardUrl,
+                                        boardUrl = boardUrl
+                                    )
+                                    navController.navigateToBoard(
+                                        route = route,
+                                        tabsViewModel = tabsViewModel,
+                                    )
                                     urlError = null
                                     showUrlDialog = false
                                     closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
@@ -146,14 +132,12 @@ fun TabScreenContent(
                         return@UrlOpenDialog
                     }
                     // --- Thread URL handling ---
-                    val thread = parseThreadUrl(url)
-                    if (thread != null) {
-                        val (host, board, key) = thread
-                        val boardUrl = "https://$host/$board/"
+                    if (resolved is ResolvedUrl.Thread) {
+                        val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
                         val route = AppRoute.Thread(
-                            threadKey = key,
+                            threadKey = resolved.threadKey,
                             boardUrl = boardUrl,
-                            boardName = board,
+                            boardName = resolved.boardKey,
                             threadTitle = url
                         )
                         navController.navigateToThread(
@@ -167,8 +151,8 @@ fun TabScreenContent(
                         return@UrlOpenDialog
                     }
                     // --- Board URL handling ---
-                    parseBoardUrl(url)?.let { (host, board) ->
-                        val boardUrl = "https://$host/$board/"
+                    if (resolved is ResolvedUrl.Board) {
+                        val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
                         val route = AppRoute.Board(
                             boardName = boardUrl,
                             boardUrl = boardUrl

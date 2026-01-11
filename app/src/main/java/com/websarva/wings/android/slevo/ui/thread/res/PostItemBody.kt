@@ -30,7 +30,8 @@ import com.websarva.wings.android.slevo.ui.thread.item.rememberHighlightedText
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.util.rememberUrlAnnotatedString
-import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
+import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
+import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import kotlinx.coroutines.CoroutineScope
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedback
@@ -191,16 +192,17 @@ private fun Modifier.postBodyGestures(
                 layoutProvider()?.let { layout ->
                     val hit = findBodyHit(highlightedText, layout, offset)
                     hit.url?.let { url ->
-                        parseThreadUrl(url)?.let { (host, board, key) ->
-                            val boardUrl = "https://$host/$board/"
+                        val resolved = resolveUrl(url)
+                        if (resolved is ResolvedUrl.Thread) {
+                            val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
                             val route = AppRoute.Thread(
-                                threadKey = key,
+                                threadKey = resolved.threadKey,
                                 boardUrl = boardUrl,
-                                boardName = board,
+                                boardName = resolved.boardKey,
                                 threadTitle = url
                             )
                             onThreadUrlClick(route)
-                        } ?: run {
+                        } else {
                             // スレッドURLでない場合は通常のURLとして開く。
                             onUrlClick(url)
                         }

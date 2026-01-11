@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.sheet
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -56,6 +56,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
+import com.websarva.wings.android.slevo.ui.util.ExternalBrowserUtil
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import java.text.DecimalFormat
 
@@ -79,13 +80,13 @@ fun ThreadInfoBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showCopyDialog by remember { mutableStateOf(false) }
     var showNgDialog by remember { mutableStateOf(false) }
-    val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
 
     // --- Thread URL ---
     val threadUrl = parseBoardUrl(threadInfo.url)?.let { (host, boardKey) ->
         "https://$host/test/read.cgi/$boardKey/${threadInfo.key}/"
     } ?: ""
+    val noBrowserMessage = stringResource(R.string.no_browser_app_found)
 
     // --- Sheet content ---
     if (showThreadInfoSheet) {
@@ -110,7 +111,19 @@ fun ThreadInfoBottomSheet(
                     onDismissRequest()
                 },
                 onOpenBrowserClick = {
-                    uriHandler.openUri(threadUrl)
+                    if (threadUrl.isBlank()) {
+                        Toast.makeText(context, R.string.invalid_url, Toast.LENGTH_SHORT).show()
+                        onDismissRequest()
+                        return@ThreadInfoBottomSheetContent
+                    }
+                    val opened = ExternalBrowserUtil.openBrowserChooser(
+                        context = context,
+                        url = threadUrl,
+                        chooserTitle = null
+                    )
+                    if (!opened) {
+                        Toast.makeText(context, noBrowserMessage, Toast.LENGTH_SHORT).show()
+                    }
                     onDismissRequest()
                 },
                 onCopyClick = {
