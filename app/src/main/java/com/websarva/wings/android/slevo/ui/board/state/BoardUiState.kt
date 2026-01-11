@@ -19,6 +19,8 @@ data class BoardUiState(
     override val bookmarkStatusState: BookmarkStatusState = BookmarkStatusState(),
     override val bookmarkSheetState: BookmarkSheetUiState = BookmarkSheetUiState(),
     val showSortSheet: Boolean = false,
+    val showThreadInfoSheet: Boolean = false,
+    val threadInfoSheetTarget: ThreadInfo = ThreadInfo(),
     val serviceName: String = "",
     val showInfoDialog: Boolean = false,
     val currentSortKey: ThreadSortKey = ThreadSortKey.DEFAULT,

@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
@@ -256,6 +257,29 @@ class BoardViewModel @AssistedInject constructor(
     fun openSortBottomSheet() = _uiState.update { it.copy(showSortSheet = true) }
 
     fun closeSortBottomSheet() = _uiState.update { it.copy(showSortSheet = false) }
+
+    /**
+     * スレッド情報シートを開く。
+     */
+    fun openThreadInfoSheet(threadInfo: ThreadInfo) {
+        val boardUrl = uiState.value.boardInfo.url
+        if (boardUrl.isBlank()) {
+            // URLが空の場合はシートを開かない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(
+                showThreadInfoSheet = true,
+                // シート側でスレURLを組み立てられるよう、板URLを注入する。
+                threadInfoSheetTarget = threadInfo.copy(url = boardUrl),
+            )
+        }
+    }
+
+    /**
+     * スレッド情報シートを閉じる。
+     */
+    fun closeThreadInfoSheet() = _uiState.update { it.copy(showThreadInfoSheet = false) }
 
     // Info ダイアログ表示/非表示
     fun openInfoDialog() = _uiState.update { it.copy(showInfoDialog = true) }
