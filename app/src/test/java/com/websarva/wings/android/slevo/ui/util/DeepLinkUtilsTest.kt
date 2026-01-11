@@ -41,8 +41,26 @@ class DeepLinkUtilsTest {
     }
 
     @Test
+    fun resolveDeepLinkUrl_returnsItestThreadTarget() {
+        val target = resolveDeepLinkUrl("https://itest.5ch.net/agree/test/read.cgi/operate/1234567890/")
+
+        assertTrue(target is ResolvedUrl.Thread)
+        target as ResolvedUrl.Thread
+        assertEquals("agree.5ch.net", target.host)
+        assertEquals("operate", target.boardKey)
+        assertEquals("1234567890", target.threadKey)
+    }
+
+    @Test
     fun resolveDeepLinkUrl_rejectsDatThreadUrl() {
         val target = resolveDeepLinkUrl("https://agree.5ch.net/operate/dat/1234567890.dat")
+
+        assertNull(target)
+    }
+
+    @Test
+    fun resolveDeepLinkUrl_rejectsItestThreadOn2chSc() {
+        val target = resolveDeepLinkUrl("https://itest.2ch.sc/agree/test/read.cgi/operate/1234567890/")
 
         assertNull(target)
     }
