@@ -19,7 +19,7 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
-import com.websarva.wings.android.slevo.ui.bbsroute.InitFlowViewModel
+import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.common.bookmark.ThreadTarget
@@ -92,7 +92,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val postDialogControllerFactory: PostDialogController.Factory,
     private val replyPostDialogExecutor: ThreadReplyPostDialogExecutor,
     @Assisted @Suppress("unused") val viewModelKey: String,
-) : InitFlowViewModel<ThreadUiState, ThreadInitArgs>() {
+) : BaseViewModel<ThreadUiState, ThreadInitArgs>() {
 
     private val tabCoordinator = ThreadTabCoordinator(
         scope = viewModelScope,

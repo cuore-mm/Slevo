@@ -14,7 +14,7 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUplo
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
-import com.websarva.wings.android.slevo.ui.bbsroute.InitFlowViewModel
+import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
 import com.websarva.wings.android.slevo.ui.common.bookmark.BoardTarget
@@ -57,7 +57,7 @@ class BoardViewModel @AssistedInject constructor(
     private val threadCreatePostDialogExecutor: ThreadCreatePostDialogExecutor,
     postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
     @Assisted("viewModelKey") viewModelKey: String
-) : InitFlowViewModel<BoardUiState, BoardInitArgs>() {
+) : BaseViewModel<BoardUiState, BoardInitArgs>() {
 
     private var bookmarkStatusJob: Job? = null
     val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)

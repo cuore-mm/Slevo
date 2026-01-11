@@ -9,13 +9,14 @@ import kotlinx.coroutines.launch
 /**
  * 共通の初期化フローを提供する基底ViewModel。
  *
- * 画面ごとのUI状態を扱い、初期化の補助処理を共通化する。
+ * 画面ごとのUI状態を扱い、初期化フローのテンプレートを提供する。
  */
-abstract class BaseViewModel<S> : ViewModel() where S : BaseUiState<S> {
+abstract class BaseViewModel<S, Args> : ViewModel() where S : BaseUiState<S> {
     protected abstract val _uiState: MutableStateFlow<S>
     val uiState: StateFlow<S> get() = _uiState
 
     private var isInitialized = false
+    private var initializedKey: String? = null
 
 
     /**
@@ -38,25 +39,6 @@ abstract class BaseViewModel<S> : ViewModel() where S : BaseUiState<S> {
     protected fun resetInitialization() {
         isInitialized = false
     }
-
-    /**
-     * データの読み込み処理。具象クラスで必ず実装する。
-     * @param isRefresh trueの場合はキャッシュを無視した強制的な更新を意図する
-     */
-    protected abstract suspend fun loadData(isRefresh: Boolean)
-
-    fun release() {
-        onCleared()
-    }
-}
-
-/**
- * 画面固有の初期化フローをフェーズ順で統一するための基底ViewModel。
- *
- * 初期化の順序を固定し、画面ごとの差分は各フェーズで実装する。
- */
-abstract class InitFlowViewModel<S, Args> : BaseViewModel<S>() where S : BaseUiState<S> {
-    private var initializedKey: String? = null
 
     /**
      * 初期化フローを決められた順序で実行する。
@@ -92,29 +74,41 @@ abstract class InitFlowViewModel<S, Args> : BaseViewModel<S>() where S : BaseUiS
     }
 
     /**
+     * データの読み込み処理。具象クラスで必ず実装する。
+     * @param isRefresh trueの場合はキャッシュを無視した強制的な更新を意図する
+     */
+    protected abstract suspend fun loadData(isRefresh: Boolean)
+
+    /**
      * 初期化キーを生成する。
      */
-    protected abstract fun buildInitKey(args: Args): String
+    protected open fun buildInitKey(args: Args): String {
+        return args.toString()
+    }
 
     /**
      * UIState の初期値を反映する。
      */
-    protected abstract fun applyInitialUiState(args: Args)
+    protected open fun applyInitialUiState(args: Args) = Unit
 
     /**
      * 永続データの補完や追加取得を開始する。
      */
-    protected abstract fun launchDataComplement(args: Args)
+    protected open fun launchDataComplement(args: Args) = Unit
 
     /**
      * 監視系のフローを開始する。
      */
-    protected abstract fun startObservers(args: Args)
+    protected open fun startObservers(args: Args) = Unit
 
     /**
      * 初期ロードを開始する。
      */
     protected open fun startInitialLoad(force: Boolean) {
         initialize(force)
+    }
+
+    fun release() {
+        onCleared()
     }
 }

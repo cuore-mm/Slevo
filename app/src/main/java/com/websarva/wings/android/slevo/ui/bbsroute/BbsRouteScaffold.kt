@@ -58,7 +58,7 @@ import timber.log.Timber
  */
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
-fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState>> BbsRouteScaffold(
+fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState, *>> BbsRouteScaffold(
     route: AppRoute,
     tabsViewModel: TabsViewModel,
     navController: NavHostController,
