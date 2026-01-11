@@ -7,7 +7,7 @@ Instructions for AI coding assistants using OpenSpec for spec-driven development
 - Search existing work: `openspec spec list --long`, `openspec list` (use `rg` only for full-text search)
 - Decide scope: new capability vs modify existing capability
 - Pick a unique `change-id`: kebab-case, verb-led (`add-`, `update-`, `remove-`, `refactor-`)
-- Scaffold: `proposal.md`, `tasks.md`, `design.md` (only if needed), and delta specs per affected capability
+- Scaffold: `proposal.md`, `tasks.md`, `design.md`, and delta specs per affected capability
 - Write deltas: use `## ADDED|MODIFIED|REMOVED|RENAMED Requirements`; include at least one `#### Scenario:` per requirement
 - Validate: `openspec validate [change-id] --strict` and fix issues
 - Request approval: Do not start implementation until proposal is approved
@@ -43,14 +43,14 @@ Skip proposal for:
 
 **Workflow**
 1. Review `openspec/project.md`, `openspec list`, and `openspec list --specs` to understand current context.
-2. Choose a unique verb-led `change-id` and scaffold `proposal.md`, `tasks.md`, optional `design.md`, and spec deltas under `openspec/changes/<id>/`.
+2. Choose a unique verb-led `change-id` and scaffold `proposal.md`, `tasks.md`, `design.md`, and spec deltas under `openspec/changes/<id>/`.
 3. Draft spec deltas using `## ADDED|MODIFIED|REMOVED Requirements` with at least one `#### Scenario:` per requirement.
 4. Run `openspec validate <id> --strict` and resolve any issues before sharing the proposal.
 
 ### Stage 2: Implementing Changes
 Track these steps as TODOs and complete them one by one.
 1. **Read proposal.md** - Understand what's being built
-2. **Read design.md** (if exists) - Review technical decisions
+2. **Read design.md** - Review technical decisions
 3. **Read tasks.md** - Get implementation checklist
 4. **Implement tasks sequentially** - Complete in order
 5. **Confirm completion** - Ensure every item in `tasks.md` is finished before updating statuses
@@ -134,7 +134,7 @@ openspec/
 │   ├── [change-name]/
 │   │   ├── proposal.md     # Why, what, impact
 │   │   ├── tasks.md        # Implementation checklist
-│   │   ├── design.md       # Technical decisions (optional; see criteria)
+│   │   ├── design.md       # Technical decisions
 │   │   └── specs/          # Delta changes
 │   │       └── [capability]/
 │   │           └── spec.md # ADDED/MODIFIED/REMOVED
@@ -205,8 +205,8 @@ If multiple capabilities are affected, create multiple delta files under `change
 - [ ] 1.4 Write tests
 ```
 
-5. **Create design.md when needed:**
-Create `design.md` if any of the following apply; otherwise omit it:
+5. **Create design.md:**
+Always create `design.md` for every change proposal. Make it more detailed if any of the following apply:
 - Cross-cutting change (multiple services/modules) or a new architectural pattern
 - New external dependency or significant data model changes
 - Security, performance, or migration complexity
