@@ -66,7 +66,7 @@ private data class PendingPost(
  *
  * スレッド識別子と表示情報を初期化フローで利用する。
  */
-private data class ThreadInitArgs(
+data class ThreadInitArgs(
     val threadKey: String,
     val boardInfo: BoardInfo,
     val threadTitle: String,

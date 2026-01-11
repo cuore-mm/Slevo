@@ -36,7 +36,7 @@ import kotlinx.coroutines.runBlocking
  *
  * BoardInfo を初期化フローで利用する。
  */
-private data class BoardInitArgs(
+data class BoardInitArgs(
     val boardInfo: BoardInfo,
 )
 
