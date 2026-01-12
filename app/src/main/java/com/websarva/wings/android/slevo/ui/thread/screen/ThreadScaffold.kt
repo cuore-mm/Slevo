@@ -2,7 +2,6 @@ package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.Manifest
 import android.content.ClipData
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -52,42 +51,11 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.util.CustomTabsUtil
 import com.websarva.wings.android.slevo.ui.util.ImageCopyUtil
 import com.websarva.wings.android.slevo.ui.util.buildLensSearchUrl
-import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.launch
-
-/**
- * 画像保存の成功・失敗件数を表す集計結果。
- *
- * まとめ保存時の通知に利用する。
- */
-private data class ImageSaveSummary(
-    val successCount: Int,
-    val failureCount: Int,
-)
-
-/**
- * 画像URLを順次保存し、成功/失敗件数を集計して返す。
- */
-private suspend fun saveImageUrlsToMediaStore(
-    context: Context,
-    imageUrls: List<String>,
-): ImageSaveSummary {
-    var successCount = 0
-    var failureCount = 0
-    for (url in imageUrls) {
-        val result = ImageCopyUtil.saveImageToMediaStore(context, url)
-        if (result.isSuccess) {
-            successCount += 1
-        } else {
-            failureCount += 1
-        }
-    }
-    return ImageSaveSummary(successCount = successCount, failureCount = failureCount)
-}
 
 /**
  * スレッド画面の主要UIを構築する。
@@ -275,7 +243,6 @@ fun ThreadScaffold(
         optionalSheetContent = { viewModel, uiState ->
             val clipboard = LocalClipboard.current
             val coroutineScope = rememberCoroutineScope()
-            var pendingSaveImageUrls by remember { mutableStateOf<List<String>?>(null) }
             val launchSaveImages: (List<String>) -> Unit = launchSaveImages@{ urls ->
                 // 空URLは保存しない。
                 if (urls.isEmpty()) {
@@ -293,7 +260,7 @@ fun ThreadScaffold(
                     Toast.LENGTH_SHORT
                 ).show()
                 coroutineScope.launch {
-                    val summary = saveImageUrlsToMediaStore(context, urls)
+                    val summary = viewModel.saveImageUrls(context, urls)
                     if (isBatchSave) {
                         Toast.makeText(
                             context,
@@ -322,7 +289,7 @@ fun ThreadScaffold(
             val imageSavePermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission()
             ) { granted ->
-                val pendingUrls = pendingSaveImageUrls
+                val pendingUrls = viewModel.consumePendingImageSaveUrls()
                 if (granted && !pendingUrls.isNullOrEmpty()) {
                     launchSaveImages(pendingUrls)
                 } else if (!granted) {
@@ -332,10 +299,9 @@ fun ThreadScaffold(
                         Toast.LENGTH_SHORT
                     ).show()
                 }
-                pendingSaveImageUrls = null
             }
             val requestImageSave: (List<String>) -> Unit = requestImageSave@{ urls ->
-                val targetUrls = distinctImageUrls(urls).filter { it.isNotBlank() }
+                val targetUrls = viewModel.normalizeImageSaveUrls(urls)
                 if (targetUrls.isEmpty()) {
                     // 空URLのみの場合は保存しない。
                     return@requestImageSave
@@ -346,10 +312,10 @@ fun ThreadScaffold(
                     ContextCompat.checkSelfPermission(
                         context,
                         permission
-                    ) == PackageManager.PERMISSION_GRANTED
+                ) == PackageManager.PERMISSION_GRANTED
                 if (!hasPermission) {
                     // 権限付与後に保存を再試行できるようURLを保持する。
-                    pendingSaveImageUrls = targetUrls
+                    viewModel.setPendingImageSaveUrls(targetUrls)
                     imageSavePermissionLauncher.launch(permission)
                 } else {
                     launchSaveImages(targetUrls)
