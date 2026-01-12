@@ -248,8 +248,7 @@ fun ThreadScaffold(
                 if (urls.isEmpty()) {
                     return@launchSaveImages
                 }
-                val isBatchSave = urls.size >= 2
-                val inProgressMessage = if (isBatchSave) {
+                val inProgressMessage = if (urls.size >= 2) {
                     R.string.image_save_all_in_progress
                 } else {
                     R.string.image_save_in_progress
@@ -261,29 +260,32 @@ fun ThreadScaffold(
                 ).show()
                 coroutineScope.launch {
                     val summary = viewModel.saveImageUrls(context, urls)
-                    if (isBatchSave) {
-                        Toast.makeText(
-                            context,
+                    val message = when {
+                        summary.failureCount == 0 -> {
                             context.getString(
-                                R.string.image_save_all_result,
+                                R.string.image_save_result_success,
                                 summary.successCount,
-                                summary.failureCount
-                            ),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    } else if (summary.failureCount == 0) {
-                        Toast.makeText(
-                            context,
-                            R.string.image_save_success,
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    } else {
-                        Toast.makeText(
-                            context,
-                            R.string.image_save_failed,
-                            Toast.LENGTH_SHORT
-                        ).show()
+                            )
+                        }
+                        summary.successCount == 0 -> {
+                            context.getString(
+                                R.string.image_save_result_all_failed,
+                                summary.failureCount,
+                            )
+                        }
+                        else -> {
+                            context.getString(
+                                R.string.image_save_result_partial,
+                                summary.successCount,
+                                summary.failureCount,
+                            )
+                        }
                     }
+                    Toast.makeText(
+                        context,
+                        message,
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
             val imageSavePermissionLauncher = rememberLauncherForActivityResult(

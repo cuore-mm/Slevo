@@ -65,7 +65,7 @@ fun ImageMenuSheet(
     ) {
         ImageMenuSheetContent(
             onActionSelected = onActionSelected,
-            showSaveAllImages = imageUrls.size >= 2,
+            saveAllImageCount = imageUrls.size,
         )
     }
 }
@@ -78,7 +78,7 @@ fun ImageMenuSheet(
 @Composable
 fun ImageMenuSheetContent(
     onActionSelected: (ImageMenuAction) -> Unit,
-    showSaveAllImages: Boolean,
+    saveAllImageCount: Int,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         BottomSheetListItem(
@@ -92,9 +92,12 @@ fun ImageMenuSheetContent(
             icon = Icons.Outlined.Download,
             onClick = { onActionSelected(ImageMenuAction.SAVE_IMAGE) }
         )
-        if (showSaveAllImages) {
+        if (saveAllImageCount >= 2) {
             BottomSheetListItem(
-                text = stringResource(R.string.image_menu_save_all_images),
+                text = stringResource(
+                    R.string.image_menu_save_all_images_with_count,
+                    saveAllImageCount,
+                ),
                 icon = Icons.Outlined.Download,
                 onClick = { onActionSelected(ImageMenuAction.SAVE_ALL_IMAGES) }
             )
