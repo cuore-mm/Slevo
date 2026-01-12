@@ -235,10 +235,12 @@ private fun PostHeaderAnnotatedText(
                         val hit = headerLayout?.let { layout ->
                             findHeaderHit(headerText = headerText, layout = layout, offset = offset)
                         }
-                        if (hit?.part == PostHeaderPart.Id) {
-                            onIdClick.invoke(id)
-                        } else {
-                            onHeaderClick?.invoke()
+                        when (hit?.part) {
+                            PostHeaderPart.Id -> onIdClick.invoke(id)
+                            PostHeaderPart.Name -> {
+                                // 名前タップは従来通り反応させない。
+                            }
+                            else -> onHeaderClick?.invoke()
                         }
                     },
                     onLongPress = { offset ->
