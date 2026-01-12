@@ -8,12 +8,14 @@ import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import kotlinx.coroutines.launch
 
 /**
  * スレッドの投稿1件をヘッダー・本文・メディア込みで表示する。
@@ -78,6 +80,28 @@ fun PostItem(
     val interactionState = rememberPostItemInteractionState()
     val scope = rememberCoroutineScope()
     val menuTarget = PostDialogTarget(post = post, postNum = postNum)
+    val markTapHandled: () -> Unit = {
+        interactionState.isTapHandled = true
+        scope.launch {
+            // --- 入力完了後にタップ処理済みフラグをクリアする ---
+            withFrameNanos { }
+            interactionState.isTapHandled = false
+        }
+    }
+    val handleContentClick: (() -> Unit)? = onContentClick?.let { click ->
+        {
+            markTapHandled()
+            click()
+        }
+    }
+    val onImageClickWrapper: (String) -> Unit = { url ->
+        markTapHandled()
+        onImageClick(url)
+    }
+    val onImageLongPressWrapper: (String) -> Unit = { url ->
+        markTapHandled()
+        onImageLongPress(url)
+    }
 
     // --- 表示 ---
     val bodyFontSize = MaterialTheme.typography.bodyMedium.fontSize * bodyTextScale
@@ -91,6 +115,9 @@ fun PostItem(
         onContentPressedChange = { interactionState.isContentPressed = it },
         onRequestMenu = { onRequestMenu(menuTarget) },
         showMyPostIndicator = isMyPost,
+        onContentClick = handleContentClick,
+        isTapHandled = { interactionState.isTapHandled },
+        onTapHandledReset = { interactionState.isTapHandled = false },
     ) {
         PostItemHeader(
             uiModel = PostHeaderUiModel(
@@ -109,7 +136,8 @@ fun PostItem(
             onRequestMenu = { onRequestMenu(menuTarget) },
             onReplyFromClick = onReplyFromClick,
             onIdClick = onIdClick,
-            onHeaderClick = onContentClick,
+            onHeaderClick = handleContentClick,
+            onTapHandled = markTapHandled,
             onShowTextMenu = { text, type -> onShowTextMenu(text, type) },
         )
 
@@ -128,13 +156,15 @@ fun PostItem(
             onReplyClick = onReplyClick,
             onUrlClick = onUrlClick,
             onThreadUrlClick = onThreadUrlClick,
-            onBodyClick = onContentClick,
+            onBodyClick = handleContentClick,
+            onTapHandled = markTapHandled,
         )
 
         PostItemMedia(
             post = post,
-            onImageClick = onImageClick,
-            onImageLongPress = onImageLongPress,
+            onImageClick = onImageClickWrapper,
+            onImageLongPress = onImageLongPressWrapper,
+            onMediaPress = markTapHandled,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
         )

@@ -25,7 +25,14 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 
+/**
+ * 投稿1件の外枠を描画し、押下/長押し/通常タップの入力をまとめて処理する。
+ *
+ * 本文/ヘッダーの詳細タップ判定は子側で行い、未処理のタップのみ通知する。
+ */
 @Composable
 internal fun PostItemContainer(
     modifier: Modifier,
@@ -36,10 +43,16 @@ internal fun PostItemContainer(
     onContentPressedChange: (Boolean) -> Unit,
     onRequestMenu: () -> Unit,
     showMyPostIndicator: Boolean,
+    onContentClick: (() -> Unit)?,
+    isTapHandled: () -> Boolean,
+    onTapHandledReset: () -> Unit,
     content: @Composable () -> Unit,
 ) {
     // --- フィードバック ---
     val haptic = LocalHapticFeedback.current
+    val currentOnContentClick by rememberUpdatedState(onContentClick)
+    val currentIsTapHandled by rememberUpdatedState(isTapHandled)
+    val currentOnTapHandledReset by rememberUpdatedState(onTapHandledReset)
 
     // --- 外枠 ---
     val boundaryColor = MaterialTheme.colorScheme.outlineVariant
@@ -83,6 +96,14 @@ internal fun PostItemContainer(
                                     awaitRelease = { awaitRelease() }
                                 )
                             },
+                            onTap = {
+                                val handler = currentOnContentClick ?: return@detectTapGestures
+                                if (currentIsTapHandled()) {
+                                    currentOnTapHandledReset()
+                                    return@detectTapGestures
+                                }
+                                handler()
+                            },
                             onLongPress = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onRequestMenu()
@@ -120,6 +141,9 @@ private fun PostItemContainerPreview() {
         onContentPressedChange = {},
         onRequestMenu = {},
         showMyPostIndicator = true,
+        onContentClick = {},
+        isTapHandled = { false },
+        onTapHandledReset = {},
     ) {
         Text(text = "コンテナプレビュー")
     }

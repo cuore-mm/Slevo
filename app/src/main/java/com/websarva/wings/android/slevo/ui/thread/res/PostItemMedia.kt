@@ -12,6 +12,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.awaitPointerEventScope
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnailGrid
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
@@ -21,6 +25,8 @@ import com.websarva.wings.android.slevo.ui.util.extractImageUrls
  * 投稿本文に含まれる画像URLを抽出し、サムネイル一覧を表示する。
  *
  * 画像タップ/長押し時はURLをコールバックで通知する。
+ *
+ * [onMediaPress] は画像領域が押下されたことを上位へ通知する。
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -28,6 +34,7 @@ internal fun PostItemMedia(
     post: ThreadPostUiModel,
     onImageClick: (String) -> Unit,
     onImageLongPress: (String) -> Unit,
+    onMediaPress: (() -> Unit)? = null,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -39,8 +46,22 @@ internal fun PostItemMedia(
         }
     }
     if (imageUrls.isNotEmpty()) {
+        val pressModifier = if (onMediaPress != null) {
+            Modifier.pointerInput(onMediaPress) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitFirstDown(requireUnconsumed = false)
+                        onMediaPress.invoke()
+                        waitForUpOrCancellation()
+                    }
+                }
+            }
+        } else {
+            Modifier
+        }
         Spacer(modifier = Modifier.height(8.dp))
         ImageThumbnailGrid(
+            modifier = pressModifier,
             imageUrls = imageUrls,
             onImageClick = onImageClick,
             onImageLongPress = onImageLongPress,
@@ -73,6 +94,7 @@ private fun PostItemMediaPreview() {
                 ),
                 onImageClick = {},
                 onImageLongPress = {},
+                onMediaPress = null,
                 sharedTransitionScope = this@SharedTransitionLayout,
                 animatedVisibilityScope = this,
             )
