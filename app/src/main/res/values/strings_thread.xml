@@ -8,4 +8,6 @@
     <string name="momentum">勢い</string>
     <string name="title_and_url">タイトル + URL</string>
     <string name="header_and_body">ヘッダー + 本文</string>
+    <string name="number_order">番号順</string>
+    <string name="tree_order">ツリー順</string>
 </resources>

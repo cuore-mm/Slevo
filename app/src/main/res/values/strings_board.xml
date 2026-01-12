@@ -2,8 +2,6 @@
     <!-- Boards, tabs, and grouping -->
     <string name="create_thread">スレッド作成</string>
     <string name="sort">並び替え</string>
-    <string name="number_order">番号順</string>
-    <string name="tree_order">ツリー順</string>
     <string name="add_board">板を追加</string>
     <string name="prompt_enter_bbs_menu_or_board_url">BBSMenuのURLを入力してください</string>
     <string name="dialog_confirm_delete_bbs">件の掲示板を削除しますか？</string>

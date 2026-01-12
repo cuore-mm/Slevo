@@ -19,7 +19,6 @@
     <string name="image_save_permission_denied">画像の保存にはストレージ権限が必要です</string>
     <string name="image_open_failed">画像を開けませんでした</string>
     <string name="no_app_to_open_image">画像を開けるアプリが見つかりませんでした</string>
-    <string name="no_browser_app_found">ブラウザが見つかりませんでした</string>
     <string name="image_search_failed">画像検索を開けませんでした</string>
     <string name="image_share_failed">画像を共有できませんでした</string>
     <string name="no_app_to_share_image">画像を共有できるアプリが見つかりませんでした</string>
