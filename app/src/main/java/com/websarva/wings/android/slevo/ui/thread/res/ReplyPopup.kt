@@ -52,11 +52,13 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
  * 返信ポップアップ表示に必要な投稿と位置情報を保持する。
  *
  * 表示位置とサイズはポップアップのレイアウト計算に使用する。
+ * [indentLevels] は投稿リストに対応するインデント段数を保持する。
  */
 data class PopupInfo(
     val posts: List<ThreadPostUiModel>,
     val offset: IntOffset,
     val size: IntSize = IntSize.Zero,
+    val indentLevels: List<Int> = emptyList(),
 )
 
 // アニメーションの速度（ミリ秒）
@@ -329,6 +331,7 @@ private fun PopupPostList(
         info.posts.forEachIndexed { i, p ->
             val postIndex = posts.indexOf(p)
             val postNum = postIndex + 1
+            val indentLevel = info.indentLevels.getOrElse(i) { 0 }
             PostItem(
                 post = p,
                 postNum = postNum,
@@ -337,6 +340,7 @@ private fun PopupPostList(
                 headerTextScale = headerTextScale,
                 bodyTextScale = bodyTextScale,
                 lineHeight = lineHeight,
+                indentLevel = indentLevel,
                 searchQuery = searchQuery,
                 onUrlClick = onUrlClick,
                 onThreadUrlClick = onThreadUrlClick,

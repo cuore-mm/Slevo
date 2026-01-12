@@ -82,6 +82,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.deriveTreePopupSelection
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -617,73 +618,49 @@ fun ThreadScreen(
         if (gestureSettings.showActionHints) {
             GestureHintOverlay(state = gestureHint)
         }
-    }
-}
-
-/**
- * 指定レスが属するツリー全体の投稿番号を抽出する。
- *
- * ツリー順と深さマップを使い、最上位祖先から全子孫までを返す。
- */
-private fun collectTreeNumbers(
-    postNumber: Int,
-    treeOrder: List<Int>,
-    treeDepthMap: Map<Int, Int>,
-): List<Int> {
-    if (treeOrder.isEmpty()) {
-        // ツリー順がない場合は抽出できない。
-        return emptyList()
-    }
-    val index = treeOrder.indexOf(postNumber)
-    if (index == -1) {
-        // 対象レスがツリー順に含まれない場合は抽出しない。
-        return emptyList()
-    }
-
-    var rootIndex = index
-    while (rootIndex > 0) {
-        val depth = treeDepthMap[treeOrder[rootIndex]] ?: 0
-        if (depth == 0) break
-        rootIndex--
-    }
-
-    val result = mutableListOf<Int>()
-    for (i in rootIndex until treeOrder.size) {
-        val num = treeOrder[i]
-        val depth = treeDepthMap[num] ?: 0
-        if (i != rootIndex && depth == 0) {
-            break
         }
-        result.add(num)
     }
-    return result
-}
 
-/**
- * 指定レスが属するツリー全体をポップアップとして追加する。
- */
-private fun addPopupForTree(
-    popupStack: SnapshotStateList<PopupInfo>,
+    /**
+     * 指定レスが属するツリー全体をポップアップとして追加する。
+     */
+    private fun addPopupForTree(
+        popupStack: SnapshotStateList<PopupInfo>,
     baseOffsetProvider: () -> IntOffset,
-    posts: List<ThreadPostUiModel>,
-    ngPostNumbers: Set<Int>,
-    treeOrder: List<Int>,
-    treeDepthMap: Map<Int, Int>,
-    postNumber: Int,
-) {
-    val targets = collectTreeNumbers(
-        postNumber = postNumber,
-        treeOrder = treeOrder,
-        treeDepthMap = treeDepthMap,
-    )
-        .filterNot { it in ngPostNumbers }
-        .mapNotNull { num -> posts.getOrNull(num - 1) }
-    if (targets.size <= 1) {
-        // ツリーが構築できない場合は表示しない。
-        return
+        posts: List<ThreadPostUiModel>,
+        ngPostNumbers: Set<Int>,
+        treeOrder: List<Int>,
+        treeDepthMap: Map<Int, Int>,
+        postNumber: Int,
+    ) {
+        val selection = deriveTreePopupSelection(
+            postNumber = postNumber,
+            treeOrder = treeOrder,
+            treeDepthMap = treeDepthMap,
+        ) ?: return
+
+        val targets = mutableListOf<ThreadPostUiModel>()
+        val indentLevels = mutableListOf<Int>()
+        selection.numbers.zip(selection.indentLevels).forEach { (num, depth) ->
+            if (num in ngPostNumbers) {
+                return@forEach
+            }
+            val post = posts.getOrNull(num - 1) ?: return@forEach
+            targets.add(post)
+            indentLevels.add(depth)
+        }
+        if (targets.size <= 1) {
+            // NG除外後に単独になった場合は表示しない。
+            return
+        }
+        popupStack.add(
+            PopupInfo(
+                posts = targets,
+                offset = baseOffsetProvider(),
+                indentLevels = indentLevels,
+            )
+        )
     }
-    popupStack.add(PopupInfo(targets, baseOffsetProvider()))
-}
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
