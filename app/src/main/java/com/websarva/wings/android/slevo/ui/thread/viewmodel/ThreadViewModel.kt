@@ -28,6 +28,8 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUplo
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
+import com.websarva.wings.android.slevo.ui.util.ImageCopyUtil
+import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
@@ -61,6 +63,14 @@ private data class PendingPost(
     val content: String,
     val name: String,
     val email: String,
+)
+
+/**
+ * 画像保存の成功/失敗件数を表す結果。
+ */
+data class ImageSaveSummary(
+    val successCount: Int,
+    val failureCount: Int,
 )
 
 /**
@@ -106,6 +116,7 @@ class ThreadViewModel @AssistedInject constructor(
     private var ngList: List<NgEntity> = emptyList()
     private var compiledNg: List<Triple<Long?, Regex, NgType>> = emptyList()
     private var pendingPost: PendingPost? = null
+    private var pendingImageSaveUrls: List<String>? = null
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
     private var bookmarkStatusJob: Job? = null
@@ -724,21 +735,101 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     /**
-     * 画像メニューを開いて対象URLを設定する。
+     * 画像メニューを開いて対象URLとレス内画像一覧を設定する。
      */
-    fun openImageMenu(url: String) {
+    fun openImageMenu(url: String, imageUrls: List<String>) {
         if (url.isBlank()) {
             // 空URLはメニューを開かない。
             return
         }
-        _uiState.update { it.copy(showImageMenuSheet = true, imageMenuTargetUrl = url) }
+        val menuUrls = buildImageMenuUrls(url, imageUrls)
+        _uiState.update {
+            it.copy(
+                showImageMenuSheet = true,
+                imageMenuTargetUrl = url,
+                imageMenuTargetUrls = menuUrls,
+            )
+        }
     }
 
     /**
      * 画像メニューを閉じて対象URLをクリアする。
      */
     fun closeImageMenu() {
-        _uiState.update { it.copy(showImageMenuSheet = false, imageMenuTargetUrl = null) }
+        _uiState.update {
+            it.copy(
+                showImageMenuSheet = false,
+                imageMenuTargetUrl = null,
+                imageMenuTargetUrls = emptyList(),
+            )
+        }
+    }
+
+    /**
+     * 画像保存対象のURLを正規化して返す。
+     *
+     * 空URLを除外し、重複を除いた順序で返す。
+     */
+    fun normalizeImageSaveUrls(urls: List<String>): List<String> {
+        return distinctImageUrls(urls)
+            .filter { it.isNotBlank() }
+    }
+
+    /**
+     * 権限付与後に再実行するための保存対象URLを保持する。
+     */
+    fun setPendingImageSaveUrls(urls: List<String>) {
+        pendingImageSaveUrls = urls
+    }
+
+    /**
+     * 保持していた保存対象URLを取り出し、保持状態をリセットする。
+     */
+    fun consumePendingImageSaveUrls(): List<String>? {
+        val urls = pendingImageSaveUrls
+        pendingImageSaveUrls = null
+        return urls
+    }
+
+    /**
+     * 画像URL一覧を順次保存し、成功/失敗件数を集計する。
+     */
+    suspend fun saveImageUrls(context: Context, urls: List<String>): ImageSaveSummary {
+        // --- Guard ---
+        if (urls.isEmpty()) {
+            return ImageSaveSummary(successCount = 0, failureCount = 0)
+        }
+
+        // --- Save loop ---
+        var successCount = 0
+        var failureCount = 0
+        for (url in urls) {
+            val result = ImageCopyUtil.saveImageToMediaStore(context, url)
+            if (result.isSuccess) {
+                successCount += 1
+            } else {
+                failureCount += 1
+            }
+        }
+        return ImageSaveSummary(successCount = successCount, failureCount = failureCount)
+    }
+
+    /**
+     * 画像メニューで扱うURL一覧を整形する。
+     *
+     * 空URLは除外し、重複を取り除いたうえで長押し対象を先頭に揃える。
+     */
+    private fun buildImageMenuUrls(primaryUrl: String, imageUrls: List<String>): List<String> {
+        // --- 正規化 ---
+        val normalized = distinctImageUrls(imageUrls)
+            .filter { it.isNotBlank() }
+            .toMutableList()
+
+        // --- フォールバック ---
+        if (primaryUrl.isNotBlank() && primaryUrl !in normalized) {
+            normalized.add(0, primaryUrl)
+        }
+        return normalized
     }
 
     /**
