@@ -28,6 +28,7 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUplo
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
+import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
@@ -605,21 +606,52 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     /**
-     * 画像メニューを開いて対象URLを設定する。
+     * 画像メニューを開いて対象URLとレス内画像一覧を設定する。
      */
-    fun openImageMenu(url: String) {
+    fun openImageMenu(url: String, imageUrls: List<String>) {
         if (url.isBlank()) {
             // 空URLはメニューを開かない。
             return
         }
-        _uiState.update { it.copy(showImageMenuSheet = true, imageMenuTargetUrl = url) }
+        val menuUrls = buildImageMenuUrls(url, imageUrls)
+        _uiState.update {
+            it.copy(
+                showImageMenuSheet = true,
+                imageMenuTargetUrl = url,
+                imageMenuTargetUrls = menuUrls,
+            )
+        }
     }
 
     /**
      * 画像メニューを閉じて対象URLをクリアする。
      */
     fun closeImageMenu() {
-        _uiState.update { it.copy(showImageMenuSheet = false, imageMenuTargetUrl = null) }
+        _uiState.update {
+            it.copy(
+                showImageMenuSheet = false,
+                imageMenuTargetUrl = null,
+                imageMenuTargetUrls = emptyList(),
+            )
+        }
+    }
+
+    /**
+     * 画像メニューで扱うURL一覧を整形する。
+     *
+     * 空URLは除外し、重複を取り除いたうえで長押し対象を先頭に揃える。
+     */
+    private fun buildImageMenuUrls(primaryUrl: String, imageUrls: List<String>): List<String> {
+        // --- 正規化 ---
+        val normalized = distinctImageUrls(imageUrls)
+            .filter { it.isNotBlank() }
+            .toMutableList()
+
+        // --- フォールバック ---
+        if (primaryUrl.isNotBlank() && primaryUrl !in normalized) {
+            normalized.add(0, primaryUrl)
+        }
+        return normalized
     }
 
     /**

@@ -32,6 +32,7 @@ enum class ImageMenuAction {
     COPY_IMAGE,
     COPY_IMAGE_URL,
     OPEN_IN_OTHER_APP,
+    SAVE_ALL_IMAGES,
     SAVE_IMAGE,
     SEARCH_WEB,
     SHARE_IMAGE,
@@ -41,12 +42,15 @@ enum class ImageMenuAction {
  * 画像メニューのボトムシートを表示する。
  *
  * 表示条件を満たす場合のみメニューを描画し、選択アクションを通知する。
+ *
+ * レス内画像が複数ある場合は一括保存の項目を追加する。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImageMenuSheet(
     show: Boolean,
     imageUrl: String?,
+    imageUrls: List<String>,
     onActionSelected: (ImageMenuAction) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
@@ -59,7 +63,10 @@ fun ImageMenuSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
     ) {
-        ImageMenuSheetContent(onActionSelected = onActionSelected)
+        ImageMenuSheetContent(
+            onActionSelected = onActionSelected,
+            showSaveAllImages = imageUrls.size >= 2,
+        )
     }
 }
 
@@ -71,6 +78,7 @@ fun ImageMenuSheet(
 @Composable
 fun ImageMenuSheetContent(
     onActionSelected: (ImageMenuAction) -> Unit,
+    showSaveAllImages: Boolean,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         BottomSheetListItem(
@@ -84,6 +92,13 @@ fun ImageMenuSheetContent(
             icon = Icons.Outlined.Download,
             onClick = { onActionSelected(ImageMenuAction.SAVE_IMAGE) }
         )
+        if (showSaveAllImages) {
+            BottomSheetListItem(
+                text = stringResource(R.string.image_menu_save_all_images),
+                icon = Icons.Outlined.Download,
+                onClick = { onActionSelected(ImageMenuAction.SAVE_ALL_IMAGES) }
+            )
+        }
         BottomSheetListItem(
             text = stringResource(R.string.image_menu_copy_image),
             icon = Icons.Outlined.ContentCopy,
@@ -121,6 +136,10 @@ private fun ImageMenuSheetPreview() {
         ImageMenuSheet(
             show = true,
             imageUrl = "https://example.com/image.png",
+            imageUrls = listOf(
+                "https://example.com/image.png",
+                "https://example.com/image2.png",
+            ),
             onActionSelected = {},
             onDismissRequest = {},
         )

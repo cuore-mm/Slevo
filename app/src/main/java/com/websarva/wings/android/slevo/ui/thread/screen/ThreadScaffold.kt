@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.thread.screen
 
 import android.Manifest
 import android.content.ClipData
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -51,11 +52,42 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.util.CustomTabsUtil
 import com.websarva.wings.android.slevo.ui.util.ImageCopyUtil
 import com.websarva.wings.android.slevo.ui.util.buildLensSearchUrl
+import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.launch
+
+/**
+ * 画像保存の成功・失敗件数を表す集計結果。
+ *
+ * まとめ保存時の通知に利用する。
+ */
+private data class ImageSaveSummary(
+    val successCount: Int,
+    val failureCount: Int,
+)
+
+/**
+ * 画像URLを順次保存し、成功/失敗件数を集計して返す。
+ */
+private suspend fun saveImageUrlsToMediaStore(
+    context: Context,
+    imageUrls: List<String>,
+): ImageSaveSummary {
+    var successCount = 0
+    var failureCount = 0
+    for (url in imageUrls) {
+        val result = ImageCopyUtil.saveImageToMediaStore(context, url)
+        if (result.isSuccess) {
+            successCount += 1
+        } else {
+            failureCount += 1
+        }
+    }
+    return ImageSaveSummary(successCount = successCount, failureCount = failureCount)
+}
 
 /**
  * スレッド画面の主要UIを構築する。
@@ -215,7 +247,7 @@ fun ThreadScaffold(
                 },
                 onReplyToPost = { viewModel.postDialogActions.showReplyDialog(it) },
                 gestureSettings = uiState.gestureSettings,
-                onImageLongPress = { url -> viewModel.openImageMenu(url) },
+                onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
                 onPopupVisibilityChange = { isPopupVisible = it },
@@ -243,33 +275,56 @@ fun ThreadScaffold(
         optionalSheetContent = { viewModel, uiState ->
             val clipboard = LocalClipboard.current
             val coroutineScope = rememberCoroutineScope()
-            var pendingSaveImageUrl by remember { mutableStateOf<String?>(null) }
+            var pendingSaveImageUrls by remember { mutableStateOf<List<String>?>(null) }
+            val launchSaveImages: (List<String>) -> Unit = { urls ->
+                // 空URLは保存しない。
+                if (urls.isEmpty()) {
+                    return@launchSaveImages
+                }
+                val isBatchSave = urls.size >= 2
+                val inProgressMessage = if (isBatchSave) {
+                    R.string.image_save_all_in_progress
+                } else {
+                    R.string.image_save_in_progress
+                }
+                Toast.makeText(
+                    context,
+                    inProgressMessage,
+                    Toast.LENGTH_SHORT
+                ).show()
+                coroutineScope.launch {
+                    val summary = saveImageUrlsToMediaStore(context, urls)
+                    if (isBatchSave) {
+                        Toast.makeText(
+                            context,
+                            context.getString(
+                                R.string.image_save_all_result,
+                                summary.successCount,
+                                summary.failureCount
+                            ),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else if (summary.failureCount == 0) {
+                        Toast.makeText(
+                            context,
+                            R.string.image_save_success,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        Toast.makeText(
+                            context,
+                            R.string.image_save_failed,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
             val imageSavePermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission()
             ) { granted ->
-                val pendingUrl = pendingSaveImageUrl
-                if (granted && !pendingUrl.isNullOrBlank()) {
-                    Toast.makeText(
-                        context,
-                        R.string.image_save_in_progress,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    coroutineScope.launch {
-                        val result = ImageCopyUtil.saveImageToMediaStore(context, pendingUrl)
-                        result.onSuccess {
-                            Toast.makeText(
-                                context,
-                                R.string.image_save_success,
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }.onFailure {
-                            Toast.makeText(
-                                context,
-                                R.string.image_save_failed,
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
+                val pendingUrls = pendingSaveImageUrls
+                if (granted && !pendingUrls.isNullOrEmpty()) {
+                    launchSaveImages(pendingUrls)
                 } else if (!granted) {
                     Toast.makeText(
                         context,
@@ -277,7 +332,28 @@ fun ThreadScaffold(
                         Toast.LENGTH_SHORT
                     ).show()
                 }
-                pendingSaveImageUrl = null
+                pendingSaveImageUrls = null
+            }
+            val requestImageSave: (List<String>) -> Unit = { urls ->
+                val targetUrls = distinctImageUrls(urls).filter { it.isNotBlank() }
+                if (targetUrls.isEmpty()) {
+                    // 空URLのみの場合は保存しない。
+                    return@requestImageSave
+                }
+                val needsPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+                val permission = Manifest.permission.WRITE_EXTERNAL_STORAGE
+                val hasPermission = !needsPermission ||
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        permission
+                    ) == PackageManager.PERMISSION_GRANTED
+                if (!hasPermission) {
+                    // 権限付与後に保存を再試行できるようURLを保持する。
+                    pendingSaveImageUrls = targetUrls
+                    imageSavePermissionLauncher.launch(permission)
+                } else {
+                    launchSaveImages(targetUrls)
+                }
             }
 
             ThreadInfoBottomSheet(
@@ -292,6 +368,7 @@ fun ThreadScaffold(
             ImageMenuSheet(
                 show = uiState.showImageMenuSheet,
                 imageUrl = uiState.imageMenuTargetUrl,
+                imageUrls = uiState.imageMenuTargetUrls,
                 onActionSelected = { action ->
                     val targetUrl = uiState.imageMenuTargetUrl.orEmpty()
                     when (action) {
@@ -361,43 +438,13 @@ fun ThreadScaffold(
                         ImageMenuAction.SAVE_IMAGE -> {
                             // 空URLは保存しない。
                             if (targetUrl.isNotBlank()) {
-                                val needsPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-                                val permission = Manifest.permission.WRITE_EXTERNAL_STORAGE
-                                val hasPermission = !needsPermission ||
-                                    ContextCompat.checkSelfPermission(
-                                        context,
-                                permission
-                            ) == PackageManager.PERMISSION_GRANTED
-                        if (!hasPermission) {
-                            // 権限付与後に保存を再試行できるようURLを保持する。
-                            pendingSaveImageUrl = targetUrl
-                            imageSavePermissionLauncher.launch(permission)
-                        } else {
-                            Toast.makeText(
-                                context,
-                                R.string.image_save_in_progress,
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            coroutineScope.launch {
-                                val result = ImageCopyUtil.saveImageToMediaStore(
-                                    context,
-                                    targetUrl
-                                )
-                                        result.onSuccess {
-                                            Toast.makeText(
-                                                context,
-                                                R.string.image_save_success,
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }.onFailure {
-                                            Toast.makeText(
-                                                context,
-                                                R.string.image_save_failed,
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    }
-                                }
+                                requestImageSave(listOf(targetUrl))
+                            }
+                        }
+                        ImageMenuAction.SAVE_ALL_IMAGES -> {
+                            // レス内画像が2件以上ある場合のみ処理する。
+                            if (uiState.imageMenuTargetUrls.size >= 2) {
+                                requestImageSave(uiState.imageMenuTargetUrls)
                             }
                         }
                         ImageMenuAction.SEARCH_WEB -> {

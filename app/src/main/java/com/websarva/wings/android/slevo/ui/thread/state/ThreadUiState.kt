@@ -38,6 +38,7 @@ data class ThreadUiState(
     val showDisplaySettingsSheet: Boolean = false,
     val showImageMenuSheet: Boolean = false,
     val imageMenuTargetUrl: String? = null,
+    val imageMenuTargetUrls: List<String> = emptyList(),
     val showImageNgDialog: Boolean = false,
     val imageNgTargetUrl: String? = null,
     val myPostNumbers: Set<Int> = emptySet(),
