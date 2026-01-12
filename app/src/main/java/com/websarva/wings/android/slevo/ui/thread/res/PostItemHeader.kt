@@ -100,7 +100,6 @@ internal fun PostItemHeader(
     onReplyFromClick: ((List<Int>) -> Unit),
     onIdClick: ((String) -> Unit),
     onHeaderClick: (() -> Unit)?,
-    onTapHandled: (() -> Unit)? = null,
     onShowTextMenu: (text: String, type: NgType) -> Unit,
 ) {
     // --- 色設定 ---
@@ -120,7 +119,6 @@ internal fun PostItemHeader(
             headerTextStyle = headerTextStyle,
             onReplyFromClick = onReplyFromClick,
             onHeaderClick = onHeaderClick,
-            onTapHandled = onTapHandled,
         )
 
         // --- ヘッダー本文 ---
@@ -143,7 +141,6 @@ internal fun PostItemHeader(
             onRequestMenu = onRequestMenu,
             onIdClick = onIdClick,
             onHeaderClick = onHeaderClick,
-            onTapHandled = onTapHandled,
             onShowTextMenu = onShowTextMenu
         )
     }
@@ -162,16 +159,12 @@ private fun PostNumberText(
     headerTextStyle: TextStyle,
     onReplyFromClick: ((List<Int>) -> Unit),
     onHeaderClick: (() -> Unit)?,
-    onTapHandled: (() -> Unit)? = null,
 ) {
     val replyCount = replyFromNumbers.size
     val postNumColor =
         if (replyCount > 0) replyCountColor(replyCount) else MaterialTheme.colorScheme.onSurfaceVariant
     val tapModifier = when {
-        replyCount > 0 -> modifier.clickable {
-            onTapHandled?.invoke()
-            onReplyFromClick.invoke(replyFromNumbers)
-        }
+        replyCount > 0 -> modifier.clickable { onReplyFromClick.invoke(replyFromNumbers) }
         onHeaderClick != null -> modifier.pointerInput(Unit) {
             detectTapGestures(onTap = { onHeaderClick.invoke() })
         }
@@ -204,7 +197,6 @@ private fun PostHeaderAnnotatedText(
     onRequestMenu: () -> Unit,
     onIdClick: ((String) -> Unit),
     onHeaderClick: (() -> Unit)?,
-    onTapHandled: (() -> Unit)? = null,
     onShowTextMenu: (text: String, type: NgType) -> Unit,
 ) {
     // --- フィードバック ---
@@ -244,7 +236,6 @@ private fun PostHeaderAnnotatedText(
                             findHeaderHit(headerText = headerText, layout = layout, offset = offset)
                         }
                         if (hit?.part == PostHeaderPart.Id) {
-                            onTapHandled?.invoke()
                             onIdClick.invoke(id)
                         } else {
                             onHeaderClick?.invoke()
@@ -480,7 +471,6 @@ private fun PostItemHeaderPreview() {
         onReplyFromClick = {},
         onIdClick = {},
         onHeaderClick = null,
-        onTapHandled = null,
         onShowTextMenu = { _, _ -> },
     )
 }

@@ -71,7 +71,6 @@ internal fun PostItemBody(
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onBodyClick: (() -> Unit)? = null,
-    onTapHandled: (() -> Unit)? = null,
 ) {
     // --- フィードバック ---
     val haptic = LocalHapticFeedback.current
@@ -117,7 +116,6 @@ internal fun PostItemBody(
                 onUrlClick = onUrlClick,
                 onThreadUrlClick = onThreadUrlClick,
                 onBodyClick = onBodyClick,
-                onTapHandled = onTapHandled,
             ),
             // --- テキスト描画 ---
             text = highlightedText,
@@ -165,7 +163,6 @@ private fun Modifier.postBodyGestures(
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onBodyClick: (() -> Unit)?,
-    onTapHandled: (() -> Unit)? = null,
 ): Modifier {
     return pointerInput(Unit) {
         // --- タップ判定 ---
@@ -198,7 +195,6 @@ private fun Modifier.postBodyGestures(
                 layoutProvider()?.let { layout ->
                     val hit = findBodyHit(highlightedText, layout, offset)
                     hit.url?.let { url ->
-                        onTapHandled?.invoke()
                         val resolved = resolveUrl(url)
                         if (resolved is ResolvedUrl.Thread) {
                             val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
@@ -214,10 +210,7 @@ private fun Modifier.postBodyGestures(
                             onUrlClick(url)
                         }
                     }
-                    hit.reply?.toIntOrNull()?.let {
-                        onTapHandled?.invoke()
-                        onReplyClick?.invoke(it)
-                    }
+                    hit.reply?.toIntOrNull()?.let { onReplyClick?.invoke(it) }
                     if (hit.url == null && hit.reply == null) {
                         onBodyClick?.invoke()
                     }
@@ -324,6 +317,5 @@ private fun PostItemBodyPreview() {
         onReplyClick = {},
         onUrlClick = {},
         onThreadUrlClick = {},
-        onTapHandled = null,
     )
 }

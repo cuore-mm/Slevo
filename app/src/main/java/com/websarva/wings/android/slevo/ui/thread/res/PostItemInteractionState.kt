@@ -18,7 +18,6 @@ internal class PostItemInteractionState {
     var pressedUrl by mutableStateOf<String?>(null)
     var pressedReply by mutableStateOf<String?>(null)
     var pressedHeaderPart by mutableStateOf<PostHeaderPart?>(null)
-    var isTapHandled by mutableStateOf(false)
 }
 
 @Composable

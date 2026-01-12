@@ -21,7 +21,6 @@ import com.websarva.wings.android.slevo.ui.util.extractImageUrls
  * 投稿本文に含まれる画像URLを抽出し、サムネイル一覧を表示する。
  *
  * 画像タップ/長押し時はURLをコールバックで通知する。
- *
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
