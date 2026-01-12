@@ -261,6 +261,15 @@ fun ThreadScaffold(
                 coroutineScope.launch {
                     val summary = viewModel.saveImageUrls(context, urls)
                     val message = when {
+                        // 画像が1枚のみの場合は件数表示を省略する。
+                        urls.size == 1 && summary.failureCount == 0 -> {
+                            context.getString(R.string.image_save_result_single_success)
+                        }
+
+                        urls.size == 1 && summary.successCount == 0 -> {
+                            context.getString(R.string.image_save_result_single_failed)
+                        }
+
                         summary.failureCount == 0 -> {
                             context.getString(
                                 R.string.image_save_result_success,

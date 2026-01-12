@@ -70,8 +70,10 @@
     <string name="image_copy_failed">画像のコピーに失敗しました</string>
     <string name="image_save_in_progress">画像を保存中…</string>
     <string name="image_save_result_success">%1$d件の画像を保存しました</string>
+    <string name="image_save_result_single_success">画像を保存しました</string>
     <string name="image_save_result_partial">%1$d件の画像を保存しました（%2$d件失敗）</string>
     <string name="image_save_result_all_failed">画像を保存できませんでした（%1$d件）</string>
+    <string name="image_save_result_single_failed">画像を保存できませんでした</string>
     <string name="image_save_permission_denied">画像の保存にはストレージ権限が必要です</string>
     <string name="image_open_failed">画像を開けませんでした</string>
     <string name="no_app_to_open_image">画像を開けるアプリが見つかりませんでした</string>
