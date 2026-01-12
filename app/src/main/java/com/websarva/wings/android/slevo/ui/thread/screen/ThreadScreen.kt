@@ -39,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -368,11 +369,11 @@ fun ThreadScreen(
                     if (firstAfterIndex != -1 && idx == firstAfterIndex) {
                         NewArrivalBar()
                     }
-                    PostItem(
-                        modifier = Modifier.onGloballyPositioned { coords ->
-                            val pos = coords.positionInRoot()
-                            itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
-                        },
+                PostItem(
+                    modifier = Modifier.onGloballyPositioned { coords ->
+                        val pos = coords.positionInRoot()
+                        itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
+                    },
                         post = post,
                         postNum = postNum,
                         idIndex = uiState.idIndexList.getOrElse(index) { 1 },
@@ -388,15 +389,36 @@ fun ThreadScreen(
                         searchQuery = uiState.searchQuery,
                         onUrlClick = onUrlClick,
                         onThreadUrlClick = onThreadUrlClick,
-                        onImageClick = onImageClick,
-                        onImageLongPress = onImageLongPress,
-                        onRequestMenu = onRequestMenu,
-                        onShowTextMenu = onShowTextMenu,
-                        sharedTransitionScope = sharedTransitionScope,
-                        animatedVisibilityScope = animatedVisibilityScope,
-                        onReplyFromClick = { numbs ->
-                            val offset = if (popupStack.isEmpty()) {
-                                itemOffsetHolder.value
+                    onImageClick = onImageClick,
+                    onImageLongPress = onImageLongPress,
+                    onRequestMenu = onRequestMenu,
+                    onShowTextMenu = onShowTextMenu,
+                    onContentClick = {
+                        addPopupForTree(
+                            popupStack = popupStack,
+                            baseOffsetProvider = {
+                                if (popupStack.isEmpty()) {
+                                    itemOffsetHolder.value
+                                } else {
+                                    val last = popupStack.last()
+                                    IntOffset(
+                                        last.offset.x,
+                                        (last.offset.y - last.size.height).coerceAtLeast(0)
+                                    )
+                                }
+                            },
+                            posts = posts,
+                            ngPostNumbers = ngNumbers,
+                            treeOrder = uiState.treeOrder,
+                            treeDepthMap = uiState.treeDepthMap,
+                            postNumber = postNum,
+                        )
+                    },
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    onReplyFromClick = { numbs ->
+                        val offset = if (popupStack.isEmpty()) {
+                            itemOffsetHolder.value
                             } else {
                                 val last = popupStack.last()
                                 IntOffset(
@@ -596,6 +618,71 @@ fun ThreadScreen(
             GestureHintOverlay(state = gestureHint)
         }
     }
+}
+
+/**
+ * 指定レスが属するツリー全体の投稿番号を抽出する。
+ *
+ * ツリー順と深さマップを使い、最上位祖先から全子孫までを返す。
+ */
+private fun collectTreeNumbers(
+    postNumber: Int,
+    treeOrder: List<Int>,
+    treeDepthMap: Map<Int, Int>,
+): List<Int> {
+    if (treeOrder.isEmpty()) {
+        // ツリー順がない場合は抽出できない。
+        return emptyList()
+    }
+    val index = treeOrder.indexOf(postNumber)
+    if (index == -1) {
+        // 対象レスがツリー順に含まれない場合は抽出しない。
+        return emptyList()
+    }
+
+    var rootIndex = index
+    while (rootIndex > 0) {
+        val depth = treeDepthMap[treeOrder[rootIndex]] ?: 0
+        if (depth == 0) break
+        rootIndex--
+    }
+
+    val result = mutableListOf<Int>()
+    for (i in rootIndex until treeOrder.size) {
+        val num = treeOrder[i]
+        val depth = treeDepthMap[num] ?: 0
+        if (i != rootIndex && depth == 0) {
+            break
+        }
+        result.add(num)
+    }
+    return result
+}
+
+/**
+ * 指定レスが属するツリー全体をポップアップとして追加する。
+ */
+private fun addPopupForTree(
+    popupStack: SnapshotStateList<PopupInfo>,
+    baseOffsetProvider: () -> IntOffset,
+    posts: List<ThreadPostUiModel>,
+    ngPostNumbers: Set<Int>,
+    treeOrder: List<Int>,
+    treeDepthMap: Map<Int, Int>,
+    postNumber: Int,
+) {
+    val targets = collectTreeNumbers(
+        postNumber = postNumber,
+        treeOrder = treeOrder,
+        treeDepthMap = treeDepthMap,
+    )
+        .filterNot { it in ngPostNumbers }
+        .mapNotNull { num -> posts.getOrNull(num - 1) }
+    if (targets.size <= 1) {
+        // ツリーが構築できない場合は表示しない。
+        return
+    }
+    popupStack.add(PopupInfo(targets, baseOffsetProvider()))
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)

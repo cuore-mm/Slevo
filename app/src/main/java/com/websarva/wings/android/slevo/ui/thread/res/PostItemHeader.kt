@@ -99,6 +99,7 @@ internal fun PostItemHeader(
     onRequestMenu: () -> Unit,
     onReplyFromClick: ((List<Int>) -> Unit),
     onIdClick: ((String) -> Unit),
+    onHeaderClick: (() -> Unit)?,
     onShowTextMenu: (text: String, type: NgType) -> Unit,
 ) {
     // --- 色設定 ---
@@ -116,7 +117,8 @@ internal fun PostItemHeader(
             postNum = uiModel.postNum,
             replyFromNumbers = uiModel.replyFromNumbers,
             headerTextStyle = headerTextStyle,
-            onReplyFromClick = onReplyFromClick
+            onReplyFromClick = onReplyFromClick,
+            onHeaderClick = onHeaderClick,
         )
 
         // --- ヘッダー本文 ---
@@ -138,6 +140,7 @@ internal fun PostItemHeader(
             onContentPressedChange = onContentPressedChange,
             onRequestMenu = onRequestMenu,
             onIdClick = onIdClick,
+            onHeaderClick = onHeaderClick,
             onShowTextMenu = onShowTextMenu
         )
     }
@@ -155,15 +158,20 @@ private fun PostNumberText(
     replyFromNumbers: List<Int>,
     headerTextStyle: TextStyle,
     onReplyFromClick: ((List<Int>) -> Unit),
+    onHeaderClick: (() -> Unit)?,
 ) {
     val replyCount = replyFromNumbers.size
     val postNumColor =
         if (replyCount > 0) replyCountColor(replyCount) else MaterialTheme.colorScheme.onSurfaceVariant
+    val tapModifier = when {
+        replyCount > 0 -> modifier.clickable { onReplyFromClick.invoke(replyFromNumbers) }
+        onHeaderClick != null -> modifier.pointerInput(Unit) {
+            detectTapGestures(onTap = { onHeaderClick.invoke() })
+        }
+        else -> modifier
+    }
     Text(
-        modifier = modifier
-            .clickable(enabled = replyCount > 0) {
-                onReplyFromClick.invoke(replyFromNumbers)
-            },
+        modifier = tapModifier,
         text = if (replyCount > 0) "$postNum ($replyCount) " else "$postNum ",
         style = headerTextStyle,
         fontWeight = FontWeight.Bold,
@@ -188,6 +196,7 @@ private fun PostHeaderAnnotatedText(
     onContentPressedChange: (Boolean) -> Unit,
     onRequestMenu: () -> Unit,
     onIdClick: ((String) -> Unit),
+    onHeaderClick: (() -> Unit)?,
     onShowTextMenu: (text: String, type: NgType) -> Unit,
 ) {
     // --- フィードバック ---
@@ -228,6 +237,8 @@ private fun PostHeaderAnnotatedText(
                         }
                         if (hit?.part == PostHeaderPart.Id) {
                             onIdClick.invoke(id)
+                        } else {
+                            onHeaderClick?.invoke()
                         }
                     },
                     onLongPress = { offset ->

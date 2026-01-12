@@ -41,6 +41,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
  * @param onImageLongPress 画像サムネイル長押し時のコールバック。
  * @param onRequestMenu 投稿メニュー表示のリクエスト。
  * @param onShowTextMenu テキストメニュー表示のリクエスト。
+ * @param onContentClick 本文/ヘッダーの通常タップ時のコールバック。
  * @param sharedTransitionScope 共有トランジションのスコープ。
  * @param animatedVisibilityScope アニメーション表示のスコープ。
  */
@@ -69,6 +70,7 @@ fun PostItem(
     onImageLongPress: (String) -> Unit,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
+    onContentClick: (() -> Unit)? = null,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -107,6 +109,7 @@ fun PostItem(
             onRequestMenu = { onRequestMenu(menuTarget) },
             onReplyFromClick = onReplyFromClick,
             onIdClick = onIdClick,
+            onHeaderClick = onContentClick,
             onShowTextMenu = { text, type -> onShowTextMenu(text, type) },
         )
 
@@ -125,6 +128,7 @@ fun PostItem(
             onReplyClick = onReplyClick,
             onUrlClick = onUrlClick,
             onThreadUrlClick = onThreadUrlClick,
+            onBodyClick = onContentClick,
         )
 
         PostItemMedia(
