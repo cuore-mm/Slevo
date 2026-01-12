@@ -470,6 +470,7 @@ private fun PostItemHeaderPreview() {
         onRequestMenu = {},
         onReplyFromClick = {},
         onIdClick = {},
+        onHeaderClick = null,
         onShowTextMenu = { _, _ -> },
     )
 }
