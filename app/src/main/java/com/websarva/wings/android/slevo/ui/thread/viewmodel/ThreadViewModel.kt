@@ -66,7 +66,7 @@ private data class PendingPost(
 /**
  * 画像保存の成功/失敗件数を表す結果。
  */
-private data class ImageSaveSummary(
+data class ImageSaveSummary(
     val successCount: Int,
     val failureCount: Int,
 )
