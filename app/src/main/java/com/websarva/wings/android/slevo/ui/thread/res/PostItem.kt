@@ -164,7 +164,6 @@ fun PostItem(
             post = post,
             onImageClick = onImageClickWrapper,
             onImageLongPress = onImageLongPressWrapper,
-            onMediaPress = markTapHandled,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
         )
