@@ -276,7 +276,7 @@ fun ThreadScaffold(
             val clipboard = LocalClipboard.current
             val coroutineScope = rememberCoroutineScope()
             var pendingSaveImageUrls by remember { mutableStateOf<List<String>?>(null) }
-            val launchSaveImages: (List<String>) -> Unit = { urls ->
+            val launchSaveImages: (List<String>) -> Unit = launchSaveImages@{ urls ->
                 // 空URLは保存しない。
                 if (urls.isEmpty()) {
                     return@launchSaveImages
@@ -334,7 +334,7 @@ fun ThreadScaffold(
                 }
                 pendingSaveImageUrls = null
             }
-            val requestImageSave: (List<String>) -> Unit = { urls ->
+            val requestImageSave: (List<String>) -> Unit = requestImageSave@{ urls ->
                 val targetUrls = distinctImageUrls(urls).filter { it.isNotBlank() }
                 if (targetUrls.isEmpty()) {
                     // 空URLのみの場合は保存しない。
