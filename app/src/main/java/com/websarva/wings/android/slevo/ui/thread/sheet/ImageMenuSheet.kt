@@ -7,7 +7,6 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -98,7 +97,7 @@ fun ImageMenuSheetContent(
                     R.string.image_menu_save_all_images_with_count,
                     saveAllImageCount,
                 ),
-                icon = Icons.Outlined.Download,
+                icon = null,
                 onClick = { onActionSelected(ImageMenuAction.SAVE_ALL_IMAGES) }
             )
         }
@@ -109,7 +108,7 @@ fun ImageMenuSheetContent(
         )
         BottomSheetListItem(
             text = stringResource(R.string.image_menu_copy_image_url),
-            icon = Icons.Outlined.Link,
+            icon = null,
             onClick = { onActionSelected(ImageMenuAction.COPY_IMAGE_URL) }
         )
         HorizontalDivider()
