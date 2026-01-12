@@ -88,6 +88,52 @@ class ThreadDisplayTransformersTest {
     }
 
     @Test
+    fun buildGroupDisplayPosts_extractsAfterGroupForTree() {
+        val posts = listOf(
+            post(content = "root", id = "id1"),
+            post(content = ">>1 child", id = "id2"),
+            post(content = ">>2 grand", id = "id3"),
+            post(content = ">>1 new child", id = "id4")
+        )
+        val (order, depthMap) = deriveTreeOrder(posts)
+
+        val result = buildGroupDisplayPosts(
+            posts = posts,
+            order = order,
+            sortType = ThreadSortType.TREE,
+            treeDepthMap = depthMap,
+            firstNewResNo = 4,
+            prevResCount = 3
+        )
+
+        val expected = listOf(
+            DisplayPost(1, posts[0], dimmed = true, isAfter = true, depth = 0),
+            DisplayPost(4, posts[3], dimmed = false, isAfter = true, depth = 1)
+        )
+        assertEquals(expected, result)
+    }
+
+    @Test
+    fun buildGroupDisplayPosts_returnsAllWhenInitialGroup() {
+        val posts = listOf(
+            post(content = "first", id = "id1"),
+            post(content = "second", id = "id2")
+        )
+
+        val result = buildGroupDisplayPosts(
+            posts = posts,
+            order = listOf(1, 2),
+            sortType = ThreadSortType.NUMBER,
+            treeDepthMap = emptyMap(),
+            firstNewResNo = null,
+            prevResCount = 0
+        )
+
+        assertEquals(listOf(1, 2), result.map { it.num })
+        assertTrue(result.all { !it.isAfter })
+    }
+
+    @Test
     fun buildOrderedPosts_handlesNumberSortAndNgFiltering() {
         val posts = listOf(
             post(content = "first", id = "id1"),

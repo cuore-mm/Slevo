@@ -31,6 +31,8 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDial
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
@@ -217,6 +219,9 @@ class ThreadViewModel @AssistedInject constructor(
                 boardInfo = args.boardInfo,
                 threadInfo = threadInfo,
                 postDialogState = state.postDialogState.copy(namePlaceholder = args.boardInfo.noname),
+                postGroups = emptyList(),
+                lastLoadedResCount = 0,
+                latestArrivalGroupIndex = null,
             )
         }
     }
@@ -397,6 +402,8 @@ class ThreadViewModel @AssistedInject constructor(
                     )
                 }
 
+                updatePostGroupsOnLoad(uiPosts)
+
                 // NG 判定を再計算して表示用投稿リストを更新
                 updateNgPostNumbers()
 
@@ -448,8 +455,72 @@ class ThreadViewModel @AssistedInject constructor(
         }
     }
 
+    /**
+     * 取得済みレス数の差分から新着グループを更新する。
+     *
+     * 初回は全件を1グループとして保持し、以降は差分のみを末尾へ追加する。
+     */
+    private fun updatePostGroupsOnLoad(posts: List<ThreadPostUiModel>) {
+        val newResCount = posts.size
+        val currentState = uiState.value
+        val prevResCount = currentState.lastLoadedResCount
+        val currentGroups = currentState.postGroups
+
+        // --- 初期化/リセット ---
+        val needsReset = prevResCount == 0 || currentGroups.isEmpty() || newResCount < prevResCount
+        if (newResCount == 0 || needsReset) {
+            val nextGroups = if (newResCount > 0) {
+                listOf(
+                    ThreadPostGroup(
+                        startResNo = 1,
+                        endResNo = newResCount,
+                        prevResCount = 0
+                    )
+                )
+            } else {
+                emptyList()
+            }
+            _uiState.update {
+                it.copy(
+                    postGroups = nextGroups,
+                    lastLoadedResCount = newResCount,
+                    latestArrivalGroupIndex = null
+                )
+            }
+            // 初期化/リセット時はここで終了する。
+            return
+        }
+
+        // --- 差分追加 ---
+        if (newResCount > prevResCount) {
+            val nextGroups = currentGroups + ThreadPostGroup(
+                startResNo = prevResCount + 1,
+                endResNo = newResCount,
+                prevResCount = prevResCount
+            )
+            _uiState.update {
+                it.copy(
+                    postGroups = nextGroups,
+                    lastLoadedResCount = newResCount,
+                    latestArrivalGroupIndex = nextGroups.lastIndex
+                )
+            }
+        } else {
+            // 新着がない場合はバーを非表示にする。
+            _uiState.update {
+                it.copy(
+                    lastLoadedResCount = newResCount,
+                    latestArrivalGroupIndex = null
+                )
+            }
+        }
+    }
+
+    /**
+     * NG設定を元に非表示レス番号を更新する。
+     */
     private fun updateNgPostNumbers() {
-        val posts = uiState.value.posts ?: return
+        val posts = uiState.value.posts ?: return // 投稿未取得時はNG判定を行わない。
         val boardId = uiState.value.boardInfo.boardId
         val ngNumbers = posts.mapIndexedNotNull { idx, post ->
             val isNg = compiledNg.any { (bId, rx, type) ->
@@ -469,41 +540,89 @@ class ThreadViewModel @AssistedInject constructor(
         updateDisplayPosts()
     }
 
+    /**
+     * タブ状態の新着境界をUI状態へ反映する。
+     */
     fun setNewArrivalInfo(firstNewResNo: Int?, prevResCount: Int) {
         _uiState.update { it.copy(firstNewResNo = firstNewResNo, prevResCount = prevResCount) }
         updateDisplayPosts()
     }
 
-    private fun updateDisplayPosts() {
-        val posts = uiState.value.posts ?: return
-        val firstNewResNo = uiState.value.firstNewResNo
-        val prevResCount = uiState.value.prevResCount
-        val order = if (uiState.value.sortType == ThreadSortType.TREE) {
-            uiState.value.treeOrder
-        } else {
-            (1..posts.size).toList()
+    /**
+     * グループ情報から表示対象の投稿リストを組み立てる。
+     *
+     * 最新グループにのみ isAfter を付与し、新着バー表示位置の基準とする。
+     */
+    private fun buildGroupedDisplayPosts(
+        posts: List<ThreadPostUiModel>,
+        groups: List<ThreadPostGroup>,
+        sortType: ThreadSortType,
+        treeOrder: List<Int>,
+        treeDepthMap: Map<Int, Int>,
+        latestArrivalGroupIndex: Int?
+    ): List<DisplayPost> {
+        // --- グループ毎の変換 ---
+        val result = mutableListOf<DisplayPost>()
+        groups.forEachIndexed { index, group ->
+            val endResNo = group.endResNo.coerceAtMost(posts.size)
+            if (endResNo <= 0 || group.startResNo > endResNo) {
+                // 無効な範囲はスキップする。
+                return@forEachIndexed
+            }
+            val targetPosts = posts.take(endResNo)
+            val order = if (sortType == ThreadSortType.TREE && treeOrder.isNotEmpty()) {
+                treeOrder.filter { it <= endResNo }
+            } else {
+                (1..endResNo).toList()
+            }
+            val firstNewResNo = if (group.prevResCount == 0) null else group.startResNo
+            val groupPosts = buildGroupDisplayPosts(
+                posts = targetPosts,
+                order = order,
+                sortType = sortType,
+                treeDepthMap = treeDepthMap,
+                firstNewResNo = firstNewResNo,
+                prevResCount = group.prevResCount
+            )
+            val markAsAfter = latestArrivalGroupIndex != null && index == latestArrivalGroupIndex
+            val adjusted = groupPosts.map { post ->
+                post.copy(isAfter = markAsAfter)
+            }
+            result.addAll(adjusted)
         }
-        val orderedPosts = buildOrderedPosts(
+        return result
+    }
+
+    /**
+     * 検索/NGを反映した表示用投稿リストを更新する。
+     */
+    private fun updateDisplayPosts() {
+        val posts = uiState.value.posts ?: return // 投稿未取得時は更新しない。
+        // --- グループ反映 ---
+        val groupedPosts = buildGroupedDisplayPosts(
             posts = posts,
-            order = order,
+            groups = uiState.value.postGroups,
             sortType = uiState.value.sortType,
+            treeOrder = uiState.value.treeOrder,
             treeDepthMap = uiState.value.treeDepthMap,
-            firstNewResNo = firstNewResNo,
-            prevResCount = prevResCount
+            latestArrivalGroupIndex = uiState.value.latestArrivalGroupIndex
         )
 
+        // --- 検索フィルタ ---
         val query = uiState.value.searchQuery.toHiragana()
         val filteredPosts = if (query.isNotBlank()) {
-            orderedPosts.filter {
+            groupedPosts.filter {
                 it.post.body.content.toHiragana().contains(
                     query,
                     ignoreCase = true
                 )
             }
         } else {
-            orderedPosts
+            groupedPosts
         }
+        // --- NGフィルタ ---
         val visiblePosts = filteredPosts.filterNot { it.num in uiState.value.ngPostNumbers }
+        // --- 返信数と新着位置 ---
         val replyCounts = visiblePosts.map { p -> uiState.value.replySourceMap[p.num]?.size ?: 0 }
         val firstAfterIndex = visiblePosts.indexOfFirst { it.isAfter }
 
