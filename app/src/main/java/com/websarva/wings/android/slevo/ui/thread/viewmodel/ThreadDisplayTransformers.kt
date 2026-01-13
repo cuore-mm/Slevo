@@ -24,6 +24,7 @@ internal data class TreePopupSelection(
     val indentLevels: List<Int>,
 )
 
+/**
  * 投稿一覧からID集計と返信関係の派生情報を作成する。
  *
  * IDの総数・通番・返信元の逆引きを同時に算出する。
@@ -138,6 +139,7 @@ internal fun deriveTreePopupSelection(
     return TreePopupSelection(numbers = numbers, indentLevels = indentLevels)
 }
 
+/**
  * 並び順と新着境界を反映した表示用投稿リストを生成する。
  *
  * ツリー表示では必要に応じて親投稿を dimmed として挿入する。
