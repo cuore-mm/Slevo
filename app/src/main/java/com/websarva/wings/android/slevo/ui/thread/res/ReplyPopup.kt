@@ -47,6 +47,7 @@ import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import kotlin.math.min
 
 /**
  * 返信ポップアップ表示に必要な投稿と位置情報を保持する。
@@ -90,6 +91,7 @@ fun ReplyPopup(
     onImageLongPress: (String) -> Unit,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
+    onRequestTreePopup: (postNumber: Int, baseOffsetProvider: () -> IntOffset) -> Unit,
     onClose: () -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
@@ -145,11 +147,11 @@ fun ReplyPopup(
                     }
                 }
             ) {
-                PopupPostList(
-                    info = info,
-                    posts = posts,
-                    replySourceMap = replySourceMap,
-                    idCountMap = idCountMap,
+                    PopupPostList(
+                        info = info,
+                        posts = posts,
+                        replySourceMap = replySourceMap,
+                        idCountMap = idCountMap,
                     idIndexList = idIndexList,
                     ngPostNumbers = ngPostNumbers,
                     myPostNumbers = myPostNumbers,
@@ -161,15 +163,27 @@ fun ReplyPopup(
                     onThreadUrlClick = onThreadUrlClick,
                     onImageClick = onImageClick,
                     onImageLongPress = onImageLongPress,
-                    onRequestMenu = onRequestMenu,
-                    onShowTextMenu = onShowTextMenu,
-                    sharedTransitionScope = sharedTransitionScope,
-                    animatedVisibilityScope = animatedVisibilityScope,
-                    onReplyFromClick = { numbs ->
-                        addPopupForReplyFrom(
-                            popupStack = popupStack,
-                            baseOffsetProvider = { calculatePopupOffset(popupStack[index]) },
-                            posts = posts,
+                        onRequestMenu = onRequestMenu,
+                        onShowTextMenu = onShowTextMenu,
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope,
+                        onContentClick = if (info.indentLevels.isNotEmpty()) {
+                            null
+                        } else {
+                            { postNum ->
+                                onRequestTreePopup(
+                                    postNumber = postNum,
+                                    baseOffsetProvider = {
+                                        calculatePopupOffset(popupStack[index])
+                                    }
+                                )
+                            }
+                        },
+                        onReplyFromClick = { numbs ->
+                            addPopupForReplyFrom(
+                                popupStack = popupStack,
+                                baseOffsetProvider = { calculatePopupOffset(popupStack[index]) },
+                                posts = posts,
                             ngPostNumbers = ngPostNumbers,
                             replyNumbers = numbs,
                         )
@@ -316,6 +330,7 @@ private fun PopupPostList(
     onShowTextMenu: (String, NgType) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
+    onContentClick: ((Int) -> Unit)?,
     onReplyFromClick: (List<Int>) -> Unit,
     onReplyClick: (Int) -> Unit,
     onIdClick: (String) -> Unit,
@@ -332,6 +347,7 @@ private fun PopupPostList(
             val postIndex = posts.indexOf(p)
             val postNum = postIndex + 1
             val indentLevel = info.indentLevels.getOrElse(i) { 0 }
+            val nextIndent = info.indentLevels.getOrElse(i + 1) { 0 }
             PostItem(
                 post = p,
                 postNum = postNum,
@@ -356,9 +372,12 @@ private fun PopupPostList(
                 onReplyFromClick = onReplyFromClick,
                 onReplyClick = onReplyClick,
                 onIdClick = onIdClick,
+                onContentClick = { onContentClick?.invoke(postNum) },
             )
             if (i < info.posts.size - 1) {
-                HorizontalDivider()
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 16.dp * min(indentLevel, nextIndent))
+                )
             }
         }
     }

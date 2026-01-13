@@ -555,6 +555,17 @@ fun ThreadScreen(
             onImageLongPress = onImageLongPress,
             onRequestMenu = onRequestMenu,
             onShowTextMenu = onShowTextMenu,
+            onRequestTreePopup = { postNum, baseOffsetProvider ->
+                addPopupForTree(
+                    popupStack = popupStack,
+                    baseOffsetProvider = baseOffsetProvider,
+                    posts = posts,
+                    ngPostNumbers = ngNumbers,
+                    treeOrder = uiState.treeOrder,
+                    treeDepthMap = uiState.treeDepthMap,
+                    postNumber = postNum,
+                )
+            },
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) },
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
