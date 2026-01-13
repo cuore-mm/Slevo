@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
@@ -63,6 +64,24 @@ private data class PendingPost(
     val content: String,
     val name: String,
     val email: String,
+)
+
+/**
+ * loadData 成功時に必要な派生情報をまとめたコンテナ。
+ *
+ * 投稿一覧・派生マップ・スレ情報の更新に必要な値を保持する。
+ */
+private data class ThreadLoadDerived(
+    val uiPosts: List<ThreadPostUiModel>,
+    val threadTitle: String?,
+    val resCount: Int,
+    val threadDate: ThreadDate,
+    val momentum: Double,
+    val idCountMap: Map<String, Int>,
+    val idIndexList: List<Int>,
+    val replySourceMap: Map<Int, List<Int>>,
+    val treeOrder: List<Int>,
+    val treeDepthMap: Map<Int, Int>,
 )
 
 /**
@@ -360,110 +379,185 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     override suspend fun loadData(isRefresh: Boolean) {
-        // 画面ローディング状態をセットし、プログレスを初期化
-        _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
+        startThreadLoad()
         val boardUrl = uiState.value.boardInfo.url
         val key = uiState.value.threadInfo.key
 
         try {
-            // DatRepository からスレ情報を取得（進捗コールバックを渡す）
-            val threadData = datRepository.getThread(boardUrl, key) { progress ->
-                // 読み込み進捗を UI 状態に反映
-                _uiState.update { it.copy(loadProgress = progress) }
+            val threadData = fetchThreadData(boardUrl, key)
+            if (threadData == null) {
+                // データ取得に失敗した場合はここで終了する。
+                handleLoadFailure(boardUrl, key, shouldLog = true)
+                return
             }
-            if (threadData != null) {
-                // 正常に取得できた場合はパース結果を元に各種派生データを作成
-                val (posts, title) = threadData
-                val uiPosts = posts.map { it.toThreadPostUiModel() }
-                // ID カウント / インデックス / 返信ソースマップ を導出
-                val derived = deriveReplyMaps(uiPosts)
-                // ツリー順と深さマップを導出
-                val tree = deriveTreeOrder(uiPosts)
-                val resCount = uiPosts.size
-                val keyLong = key.toLongOrNull()
-                val date = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD) {
-                    calculateThreadDate(key)
-                } else {
-                    ThreadDate(0, 0, 0, 0, 0, "")
-                }
-                val momentum = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD && resCount > 0) {
-                    val elapsedSeconds = max(1L, System.currentTimeMillis() / 1000 - keyLong)
-                    val elapsedDays = elapsedSeconds / 86400.0
-                    if (elapsedDays > 0) resCount / elapsedDays else 0.0
-                } else {
-                    0.0
-                }
-                // UI 状態に新しい投稿リスト等を反映（読み込みフラグ解除）
-                _uiState.update {
-                    it.copy(
-                        posts = uiPosts,
-                        isLoading = false,
-                        loadProgress = 1f,
-                        threadInfo = it.threadInfo.copy(
-                            title = title ?: it.threadInfo.title,
-                            resCount = resCount,
-                            date = date,
-                            momentum = momentum
-                        ),
-                        idCountMap = derived.first,
-                        idIndexList = derived.second,
-                        replySourceMap = derived.third,
-                        treeOrder = tree.first,
-                        treeDepthMap = tree.second,
-                    )
-                }
-
-                updatePostGroupsOnLoad(uiPosts)
-
-                // NG 判定を再計算して表示用投稿リストを更新
-                updateNgPostNumbers()
-
-                // スレ履歴に件数を記録し、そのIDを取得
-                val historyId = historyRepository.recordHistory(
-                    uiState.value.boardInfo,
-                    uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
-                    uiPosts.size
-                )
-
-                // 履歴 ID が変わっていれば、過去の自分の投稿番号観察を再登録
-                if (observedThreadHistoryId != historyId) {
-                    observedThreadHistoryId = historyId
-                    postHistoryCollectJob?.cancel()
-                    postHistoryCollectJob = viewModelScope.launch {
-                        postHistoryRepository.observeMyPostNumbers(historyId).collect { nums ->
-                            _uiState.update { it.copy(myPostNumbers = nums) }
-                        }
-                    }
-                }
-
-                // 保留していた投稿情報があれば履歴に記録（該当レス番号が有効な場合）
-                pendingPost?.let { pending ->
-                    val resNumber = pending.resNum ?: uiPosts.size
-                    if (resNumber in 1..uiPosts.size) {
-                        val p = uiPosts[resNumber - 1]
-                        postHistoryRepository.recordPost(
-                            content = pending.content,
-                            date = parseDateToUnix(p.header.date),
-                            threadHistoryId = historyId,
-                            boardId = uiState.value.boardInfo.boardId,
-                            resNum = resNumber,
-                            name = pending.name,
-                            email = pending.email,
-                            postId = p.header.id
-                        )
-                    }
-                    // 保留をクリア
-                    pendingPost = null
-                }
-            } else {
-                // 取得失敗時は読み込みフラグを解除してログを出力
-                _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
-                Timber.e("Failed to load thread data for board: $boardUrl key: $key")
-            }
+            val derived = buildThreadLoadDerived(threadData, key)
+            applyLoadSuccess(derived)
+            updatePostGroupsOnLoad(derived.uiPosts)
+            updateNgPostNumbers()
+            handleHistoryOnLoad(derived.uiPosts, derived.threadTitle)
         } catch (_: Exception) {
-            // 例外時は読み込みフラグを解除（例外オブジェクトは参照しない）
-            _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
+            // 例外時はログを出さずにローディングを解除する。
+            handleLoadFailure(boardUrl, key, shouldLog = false)
         }
+    }
+
+    /**
+     * 読み込み開始時の UIState を初期化する。
+     */
+    private fun startThreadLoad() {
+        _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
+    }
+
+    /**
+     * dat 取得を行い、進捗を UIState に反映する。
+     */
+    private suspend fun fetchThreadData(
+        boardUrl: String,
+        key: String,
+    ): Pair<List<ReplyInfo>, String?>? {
+        return datRepository.getThread(boardUrl, key) { progress ->
+            _uiState.update { it.copy(loadProgress = progress) }
+        }
+    }
+
+    /**
+     * dat 取得結果から UI 反映に必要な派生情報を構築する。
+     */
+    private fun buildThreadLoadDerived(
+        threadData: Pair<List<ReplyInfo>, String?>,
+        key: String,
+    ): ThreadLoadDerived {
+        // --- 投稿一覧の変換 ---
+        val (posts, title) = threadData
+        val uiPosts = posts.map { it.toThreadPostUiModel() }
+
+        // --- 派生マップ ---
+        val (idCountMap, idIndexList, replySourceMap) = deriveReplyMaps(uiPosts)
+        val (treeOrder, treeDepthMap) = deriveTreeOrder(uiPosts)
+
+        // --- スレ情報 ---
+        val resCount = uiPosts.size
+        val keyLong = key.toLongOrNull()
+        val threadDate = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD) {
+            calculateThreadDate(key)
+        } else {
+            ThreadDate(0, 0, 0, 0, 0, "")
+        }
+        val momentum = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD && resCount > 0) {
+            val elapsedSeconds = max(1L, System.currentTimeMillis() / 1000 - keyLong)
+            val elapsedDays = elapsedSeconds / 86400.0
+            if (elapsedDays > 0) resCount / elapsedDays else 0.0
+        } else {
+            0.0
+        }
+
+        return ThreadLoadDerived(
+            uiPosts = uiPosts,
+            threadTitle = title,
+            resCount = resCount,
+            threadDate = threadDate,
+            momentum = momentum,
+            idCountMap = idCountMap,
+            idIndexList = idIndexList,
+            replySourceMap = replySourceMap,
+            treeOrder = treeOrder,
+            treeDepthMap = treeDepthMap,
+        )
+    }
+
+    /**
+     * 取得成功時の UIState を一括で更新する。
+     */
+    private fun applyLoadSuccess(derived: ThreadLoadDerived) {
+        _uiState.update {
+            it.copy(
+                posts = derived.uiPosts,
+                isLoading = false,
+                loadProgress = 1f,
+                threadInfo = it.threadInfo.copy(
+                    title = derived.threadTitle ?: it.threadInfo.title,
+                    resCount = derived.resCount,
+                    date = derived.threadDate,
+                    momentum = derived.momentum
+                ),
+                idCountMap = derived.idCountMap,
+                idIndexList = derived.idIndexList,
+                replySourceMap = derived.replySourceMap,
+                treeOrder = derived.treeOrder,
+                treeDepthMap = derived.treeDepthMap,
+            )
+        }
+    }
+
+    /**
+     * 取得失敗時にローディングを解除し、必要ならログを出力する。
+     */
+    private fun handleLoadFailure(boardUrl: String, key: String, shouldLog: Boolean) {
+        _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
+        if (shouldLog) {
+            Timber.e("Failed to load thread data for board: $boardUrl key: $key")
+        }
+    }
+
+    /**
+     * 履歴記録・投稿番号監視・保留投稿の記録をまとめて処理する。
+     */
+    private fun handleHistoryOnLoad(uiPosts: List<ThreadPostUiModel>, title: String?) {
+        // --- スレ履歴の記録 ---
+        val historyId = historyRepository.recordHistory(
+            uiState.value.boardInfo,
+            uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
+            uiPosts.size
+        )
+
+        // --- 自分の投稿番号の監視 ---
+        updateMyPostNumbers(historyId)
+
+        // --- 保留投稿の記録 ---
+        recordPendingPost(uiPosts, historyId)
+    }
+
+    /**
+     * 履歴 ID が変わった場合のみ自分の投稿番号監視を再登録する。
+     */
+    private fun updateMyPostNumbers(historyId: Long) {
+        if (observedThreadHistoryId == historyId) {
+            // 既に同じ履歴IDを監視中なら更新しない。
+            return
+        }
+        observedThreadHistoryId = historyId
+        postHistoryCollectJob?.cancel()
+        postHistoryCollectJob = viewModelScope.launch {
+            postHistoryRepository.observeMyPostNumbers(historyId).collect { nums ->
+                _uiState.update { it.copy(myPostNumbers = nums) }
+            }
+        }
+    }
+
+    /**
+     * 保留投稿があれば履歴に記録し、保留状態をクリアする。
+     */
+    private fun recordPendingPost(uiPosts: List<ThreadPostUiModel>, historyId: Long) {
+        val pending = pendingPost ?: run {
+            // 保留投稿が無い場合は何もしない。
+            return
+        }
+        val resNumber = pending.resNum ?: uiPosts.size
+        if (resNumber in 1..uiPosts.size) {
+            val p = uiPosts[resNumber - 1]
+            postHistoryRepository.recordPost(
+                content = pending.content,
+                date = parseDateToUnix(p.header.date),
+                threadHistoryId = historyId,
+                boardId = uiState.value.boardInfo.boardId,
+                resNum = resNumber,
+                name = pending.name,
+                email = pending.email,
+                postId = p.header.id
+            )
+        }
+        // 保留をクリア
+        pendingPost = null
     }
 
     /**
