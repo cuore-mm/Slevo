@@ -36,3 +36,6 @@ local.properties
 # （必要なら）Baseline Profile の“ソース”は保持
 !**/src/**/baseline-prof.txt
 /result.json
+
+/AGENTS.override.md
+plans

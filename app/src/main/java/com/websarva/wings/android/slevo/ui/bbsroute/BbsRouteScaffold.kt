@@ -20,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -29,9 +30,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
-import com.websarva.wings.android.slevo.ui.common.bookmark.AddGroupDialog
-import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheet
-import com.websarva.wings.android.slevo.ui.common.bookmark.DeleteGroupDialog
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
@@ -40,17 +39,25 @@ import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
-import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
-import com.websarva.wings.android.slevo.ui.util.parseThreadUrl
+import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
+import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import com.websarva.wings.android.slevo.R
 import timber.log.Timber
 
+/**
+ * 板/スレ共通のタブUIと画面内シートを提供する。
+ *
+ * URL入力ダイアログは検証失敗時にエラー表示し、閉じずに再入力させる。
+ */
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
-fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState>> BbsRouteScaffold(
+fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState, *>> BbsRouteScaffold(
     route: AppRoute,
     tabsViewModel: TabsViewModel,
     navController: NavHostController,
@@ -155,8 +162,13 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         // 共通で使うボトムシートの状態
         val bookmarkSheetState = rememberModalBottomSheetState()
         val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        // --- Dialog state ---
         var showTabListSheet by rememberSaveable { mutableStateOf(false) }
         var showUrlDialog by rememberSaveable { mutableStateOf(false) }
+        var urlError by rememberSaveable { mutableStateOf<String?>(null) }
+        val invalidUrlMessage = stringResource(R.string.invalid_url)
+        val coroutineScope = rememberCoroutineScope()
+        val tabsUiState by tabsViewModel.uiState.collectAsState()
 
         val pagerUserScrollEnabled = when (
             val currentUiState = currentTabInfo?.let { tabInfo ->
@@ -177,7 +189,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             val tab = tabs[page]
             val viewModel = getViewModel(tab)
             val uiState by viewModel.uiState.collectAsState()
-            val bookmarkState = uiState.singleBookmarkState
+            val bookmarkSheetUiState = uiState.bookmarkSheetState
+            val bookmarkSheetHolder = when (viewModel) {
+                is BoardViewModel -> viewModel.bookmarkSheetHolder
+                is ThreadViewModel -> viewModel.bookmarkSheetHolder
+                else -> null
+            }
 
 
             // 各タブごとにLazyListStateを復元する。キーに基づいてrememberするため
@@ -253,82 +270,18 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         navController,
                         showBottomBar,
                         { showTabListSheet = true },
-                        { showUrlDialog = true },
+                        {
+                            urlError = null
+                            showUrlDialog = true
+                        },
                     )
 
                     // 共通のボトムシートとダイアログ
-                    if (bookmarkState.showBookmarkSheet) {
-                        BookmarkBottomSheet(
-                            sheetState = bookmarkSheetState,
-                            onDismissRequest = {
-                                // ViewModelの型に応じて適切なクローズ処理を呼ぶ
-                                (viewModel as? BoardViewModel)?.closeBookmarkSheet()
-                                    ?: (viewModel as? ThreadViewModel)?.closeBookmarkSheet()
-                            },
-                            groups = bookmarkState.groups,
-                            selectedGroupId = bookmarkState.selectedGroup?.id,
-                            onGroupSelected = {
-                                (viewModel as? BoardViewModel)?.saveBookmark(it)
-                                    ?: (viewModel as? ThreadViewModel)?.saveBookmark(it)
-                            },
-                            onUnbookmarkRequested = {
-                                (viewModel as? BoardViewModel)?.unbookmarkBoard()
-                                    ?: (viewModel as? ThreadViewModel)?.unbookmarkBoard()
-                            },
-                            onAddGroup = {
-                                (viewModel as? BoardViewModel)?.openAddGroupDialog()
-                                    ?: (viewModel as? ThreadViewModel)?.openAddGroupDialog()
-                            },
-                            onGroupLongClick = { group ->
-                                (viewModel as? BoardViewModel)?.openEditGroupDialog(group)
-                                    ?: (viewModel as? ThreadViewModel)?.openEditGroupDialog(group)
-                            }
-                        )
-                    }
-
-                    if (bookmarkState.showAddGroupDialog) {
-                        AddGroupDialog(
-                            onDismissRequest = {
-                                (viewModel as? BoardViewModel)?.closeAddGroupDialog()
-                                    ?: (viewModel as? ThreadViewModel)?.closeAddGroupDialog()
-                            },
-                            isEdit = bookmarkState.editingGroupId != null,
-                            onConfirm = {
-                                (viewModel as? BoardViewModel)?.confirmGroup()
-                                    ?: (viewModel as? ThreadViewModel)?.confirmGroup()
-                            },
-                            onDelete = {
-                                (viewModel as? BoardViewModel)?.requestDeleteGroup()
-                                    ?: (viewModel as? ThreadViewModel)?.requestDeleteGroup()
-                            },
-                            onValueChange = {
-                                (viewModel as? BoardViewModel)?.setEnteredGroupName(it)
-                                    ?: (viewModel as? ThreadViewModel)?.setEnteredGroupName(it)
-                            },
-                            enteredValue = bookmarkState.enteredGroupName,
-                            onColorSelected = {
-                                (viewModel as? BoardViewModel)?.setSelectedColor(it)
-                                    ?: (viewModel as? ThreadViewModel)?.setSelectedColor(it)
-                            },
-                            selectedColor = bookmarkState.selectedColor
-                        )
-                    }
-
-                    if (bookmarkState.showDeleteGroupDialog) {
-                        DeleteGroupDialog(
-                            groupName = bookmarkState.deleteGroupName,
-                            itemNames = bookmarkState.deleteGroupItems,
-                            isBoard = bookmarkState.deleteGroupIsBoard,
-                            onDismissRequest = {
-                                (viewModel as? BoardViewModel)?.closeDeleteGroupDialog()
-                                    ?: (viewModel as? ThreadViewModel)?.closeDeleteGroupDialog()
-                            },
-                            onConfirm = {
-                                (viewModel as? BoardViewModel)?.confirmDeleteGroup()
-                                    ?: (viewModel as? ThreadViewModel)?.confirmDeleteGroup()
-                            }
-                        )
-                    }
+                    BookmarkSheetHost(
+                        sheetState = bookmarkSheetState,
+                        holder = bookmarkSheetHolder,
+                        uiState = bookmarkSheetUiState,
+                    )
                 }
                 // 各画面固有のシートやダイアログをScaffoldの外側に重ねることでボトムバーも覆う
                 optionalSheetContent(viewModel, uiState)
@@ -352,36 +305,88 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
         if (showUrlDialog) {
             UrlOpenDialog(
-                onDismissRequest = { showUrlDialog = false },
+                onDismissRequest = {
+                    showUrlDialog = false
+                    urlError = null
+                },
+                isError = urlError != null,
+                errorMessage = urlError,
+                isValidating = tabsUiState.isUrlValidating,
+                onValueChange = {
+                    if (urlError != null) {
+                        urlError = null
+                    }
+                },
                 onOpen = { url ->
-                    val thread = parseThreadUrl(url)
-                    if (thread != null) {
-                        val (host, board, key) = thread
-                        val boardUrl = "https://$host/$board/"
+                    tabsViewModel.startUrlValidation()
+                    val resolved = resolveUrl(url)
+                    // --- itest board handling ---
+                    if (resolved is ResolvedUrl.ItestBoard) {
+                        // itest URLはホスト解決が必要なため非同期で処理する。
+                        urlError = null
+                        coroutineScope.launch {
+                            try {
+                                val host = tabsViewModel.resolveBoardHost(resolved.boardKey)
+                                if (host != null) {
+                                    val boardUrl = "https://$host/${resolved.boardKey}/"
+                                    val route = AppRoute.Board(
+                                        boardName = boardUrl,
+                                        boardUrl = boardUrl,
+                                    )
+                                    navController.navigateToBoard(
+                                        route = route,
+                                        tabsViewModel = tabsViewModel,
+                                    )
+                                    urlError = null
+                                    showUrlDialog = false
+                                } else {
+                                    // URL解析に失敗したため、エラーを表示して閉じない。
+                                    urlError = invalidUrlMessage
+                                }
+                            } finally {
+                                tabsViewModel.finishUrlValidation()
+                            }
+                        }
+                        return@UrlOpenDialog
+                    }
+                    // --- Thread URL handling ---
+                    if (resolved is ResolvedUrl.Thread) {
+                        val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
                         val route = AppRoute.Thread(
-                            threadKey = key,
+                            threadKey = resolved.threadKey,
                             boardUrl = boardUrl,
-                            boardName = board,
+                            boardName = resolved.boardKey,
                             threadTitle = url
                         )
                         navController.navigateToThread(
                             route = route,
                             tabsViewModel = tabsViewModel,
                         )
-                    } else {
-                        parseBoardUrl(url)?.let { (host, board) ->
-                            val boardUrl = "https://$host/$board/"
-                            val route = AppRoute.Board(
-                                boardName = boardUrl,
-                                boardUrl = boardUrl,
-                            )
-                            navController.navigateToBoard(
-                                route = route,
-                                tabsViewModel = tabsViewModel,
-                            )
-                        }
+                        urlError = null
+                        showUrlDialog = false
+                        tabsViewModel.finishUrlValidation()
+                        return@UrlOpenDialog
                     }
-                    showUrlDialog = false
+                    // --- Board URL handling ---
+                    if (resolved is ResolvedUrl.Board) {
+                        val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
+                        val route = AppRoute.Board(
+                            boardName = boardUrl,
+                            boardUrl = boardUrl,
+                        )
+                        navController.navigateToBoard(
+                            route = route,
+                            tabsViewModel = tabsViewModel,
+                        )
+                        urlError = null
+                        showUrlDialog = false
+                        tabsViewModel.finishUrlValidation()
+                        return@UrlOpenDialog
+                    }
+                    // --- Invalid URL ---
+                    // URL解析に失敗したため、エラーを表示して閉じない。
+                    urlError = invalidUrlMessage
+                    tabsViewModel.finishUrlValidation()
                 }
             )
         }

@@ -1,46 +1,136 @@
+<!-- OPENSPEC:START -->
+# OpenSpec Instructions
+
+These instructions are for AI assistants working in this project.
+
+Always open `@/openspec/AGENTS.md` when the request:
+- Mentions planning or proposals (words like proposal, spec, change, plan)
+- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
+- Sounds ambiguous and you need the authoritative spec before coding
+
+Use `@/openspec/AGENTS.md` to learn:
+- How to create and apply change proposals
+- Spec format and conventions
+- Project structure and guidelines
+
+Keep this managed block so 'openspec update' can refresh the instructions.
+
+<!-- OPENSPEC:END -->
+
 # Repository Guidelines
 
 ## Project Structure & Modules
-- Module: `app` (Android application).
+- Module: `app` (Android application)
 - Source: `app/src/main/java/com/websarva/wings/android/slevo/...`
-- UI: Jetpack Compose under `ui/*` with MVVM (`ViewModel`s) and Hilt DI (`di/*`).
-- Data: Room + repositories and data sources under `data/*` (local/remote/models/utils).
-- Tests: `app/src/test` (unit) and `app/src/androidTest` (instrumented).
-- Assets/Resources: `app/src/main/res`; manifest in `app/src/main/AndroidManifest.xml`.
-
-## Build, Test, and Dev Commands
-- Build debug APK: `./gradlew :app:assembleDebug`
-- Install on device/emulator: `./gradlew :app:installDebug`
-- Run unit tests: `./gradlew :app:testDebugUnitTest`
-- Run instrumented tests: `./gradlew :app:connectedDebugAndroidTest`
-- Android Lint: `./gradlew :app:lintDebug`
-- Resolve all dependencies (CI/cache warm-up): `./gradlew resolveAllDependencies`
-- Example run via adb: `adb shell am start -n com.websarva.wings.android.slevo/.MainActivity`
-- **コードを変更した場合は、必ずローカルでビルド（少なくとも `./gradlew :app:assembleDebug`）を実行し、ビルドが通るまで修正すること。**
+- UI: Jetpack Compose under `ui/*` with MVVM (`ViewModel`s) and Hilt DI (`di/*`)
+- Data: Room + repositories and data sources under `data/*` (local/remote/models/utils)
+- Tests:
+    - Unit: `app/src/test/...`
+    - Instrumented: `app/src/androidTest/...`
+- Resources: `app/src/main/res`
+- Manifest: `app/src/main/AndroidManifest.xml`
 
 ## Coding Style & Naming
-- Language: Kotlin with official style; use Android Studio formatter.
-- Indentation: 4 spaces; 100–120 col soft wrap where helpful.
+- Language: Kotlin (official style). Use Android Studio formatter.
+- Indentation: 4 spaces. Prefer ~100–120 column soft wrapping where helpful.
 - Files: one top-level class/composable per file when reasonable.
-- Naming: `PascalCase` for classes/composables, `camelCase` for methods/vars, `SCREAMING_SNAKE_CASE` for constants.
-- Compose: prefer small, previewable composables; state in `ViewModel`; UI params are immutable.
+- Naming:
+    - `PascalCase` for classes/composables
+    - `camelCase` for methods/variables
+    - `SCREAMING_SNAKE_CASE` for constants
+- Compose:
+    - Prefer small, previewable composables
+    - Keep state in `ViewModel`
+    - UI parameters should be immutable
+
+## Architecture / Separation of Concerns
+- Separate responsibilities into appropriate layers/files such as:
+    - `ViewModel`, `UiState`, `Repository`, `DataSource`
+- All screen/UI state MUST be modeled as `UiState` and owned/managed by the `ViewModel`.
+- Avoid placing business logic in Composables. Keep Composables focused on rendering.
 
 ## Testing Guidelines
-- Frameworks: JUnit 4 (unit), AndroidX Test/Espresso/Compose Test (instrumented).
-- Location: unit tests mirror package under `app/src/test/...`; instrumented under `app/src/androidTest/...`.
-- Names: end with `Test` (e.g., `DatParserTest.kt`, `BoardRepositoryTest.kt`).
-- Focus: pure logic (parsers in `data/util`, repositories) as unit tests; navigation/UI with Compose rule as instrumented tests.
-- Run locally: use the Gradle tasks above; prefer headless unit tests for CI speed.
-
-## Commits & Pull Requests
-- Commits: follow Conventional Commits seen in history (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`).
-- PRs must include: clear description, linked issues, screenshots/GIFs for UI changes, and test notes.
-- Breaking changes: call out DB schema updates (Room) and provide migration; note DI changes (Hilt modules).
+- Frameworks:
+    - Unit: JUnit 4
+    - Instrumented: AndroidX Test / Espresso / Compose Test
+- Location:
+    - Unit tests mirror packages under `app/src/test/...`
+    - Instrumented tests under `app/src/androidTest/...`
+- Naming: test files end with `Test` (e.g., `DatParserTest.kt`, `BoardRepositoryTest.kt`)
+- Focus:
+    - Pure logic (parsers in `data/util`, repositories) as unit tests
+    - Navigation/UI with Compose rule as instrumented tests
+- Prefer headless unit tests for CI speed.
 
 ## Security & Config
-- API keys: set `imgbb.api.key` in `local.properties` (not committed). Access via `BuildConfig.IMGBB_API_KEY`.
-- Do not hardcode secrets; keep sample values/doc only.
+- API keys:
+    - Set `imgbb.api.key` in `local.properties` (do not commit)
+    - Access via `BuildConfig.IMGBB_API_KEY`
+- Do not hardcode secrets. Keep only sample values/documentation.
 
-## 設計・責務分離の指針
-- ViewModel、UiState、Repository、Datasourceなどのファイルに分けて、責務の分離を意識してコーディングしてください。
-- 特に、画面状態や表示に関するデータは必ずUiStateとして分離し、ViewModelで管理することを徹底してください。
+# Build & Test Requirements (Mandatory)
+
+- If you modify any code, you MUST ensure both build and unit tests pass before finishing.
+- Keep fixing issues until build + tests succeed.
+
+# Comment & Documentation Rules (Mandatory)
+
+Goal: Comments MUST improve readability for people unfamiliar with this codebase.
+Write "what it does / how it is structured", not motivation ("why").
+
+## 0) Placement (REQUIRED)
+- Doc comments (KDoc/Javadoc) MUST be placed **above all annotations**.
+    - Do NOT put comments between annotations and the declaration.
+
+## 1) Type docs (REQUIRED)
+- Every **class** and **interface** MUST have a doc comment (KDoc/Javadoc style).
+    - Includes: `data class`, `sealed class`, `sealed interface`, `enum class`,
+      `object`, `annotation class`.
+- Minimum: 1–3 sentences describing:
+    - What the type represents / responsibility
+    - How it is used (high level)
+    - Key constraints/invariants (only if relevant)
+
+## 2) Function docs (REQUIRED for non-trivial, with Preview exception)
+- **Do NOT add doc comments to Compose Preview functions.**
+    - Functions annotated with `@Preview` (and only used for previews) must remain comment-free.
+- Every **non-trivial function** (except Preview functions) MUST have a short doc comment.
+- A function is non-trivial if ANY apply:
+    - Branching (`if/when`), loops, early returns
+    - Parsing / validation / mapping / formatting
+    - I/O: DB / network / filesystem / time
+    - Orchestrates multiple calls across layers
+    - Updates `UiState` or handles complex UI events
+    - Has special-case or edge-case handling
+
+### Allowed to omit (Trivial functions)
+- Simple one-line delegation with obvious naming
+- Simple getters/setters or wrappers
+- Functions <= 5 lines with no branching and obvious meaning
+
+## 3) Section headers for long functions (REQUIRED)
+- Any function longer than ~30 lines MUST be divided into labeled sections.
+    - Examples:
+        - `// --- Parsing ---`
+        - `// --- Validation ---`
+        - `// --- Mapping ---`
+        - `// --- Persistence ---`
+        - `// --- UI state update ---`
+
+## 4) Non-obvious control flow (REQUIRED)
+Add brief comments for:
+- Guard clauses / early returns
+- Fallback / retry paths
+- Special-case branches
+
+## 5) Data transformations & invariants (REQUIRED)
+- When mapping across layers (DTO -> Entity -> UiModel), add a brief comment stating:
+    - What the output represents
+    - Any important invariants (ordering, uniqueness, nullable rules) if they matter
+
+## Prohibited (AVOID)
+- Do NOT restate the code line-by-line.
+- Avoid trivial comments (e.g., `// increment i`).
+
+## Enforcement
+- If required comments are missing, STOP and add them before finishing.

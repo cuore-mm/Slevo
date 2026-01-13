@@ -3,43 +3,65 @@ package com.websarva.wings.android.slevo.ui.board.viewmodel
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityType
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
-import com.websarva.wings.android.slevo.data.repository.ConfirmationData
 import com.websarva.wings.android.slevo.data.repository.NgRepository
-import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUploader
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
+import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
-import com.websarva.wings.android.slevo.ui.common.bookmark.SingleBookmarkViewModelFactory
+import com.websarva.wings.android.slevo.ui.common.bookmark.BoardTarget
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
+/**
+ * BoardViewModel の初期化に必要な入力。
+ *
+ * BoardInfo を初期化フローで利用する。
+ */
+data class BoardInitArgs(
+    val boardInfo: BoardInfo,
+)
+
+/**
+ * 板画面の表示と操作を担うViewModel。
+ *
+ * スレッド一覧やブックマーク状態などのUI状態を管理する。
+ */
 @Suppress("unused")
 class BoardViewModel @AssistedInject constructor(
     private val repository: BoardRepository,
+    private val bookmarkBoardRepository: BookmarkBoardRepository,
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
-    private val singleBookmarkViewModelFactory: SingleBookmarkViewModelFactory,
+    private val bookmarkSheetStateHolderFactory: BookmarkBottomSheetStateHolderFactory,
     threadListCoordinatorFactory: ThreadListCoordinator.Factory,
-    threadCreationControllerFactory: ThreadCreationController.Factory,
-    boardImageUploaderFactory: BoardImageUploader.Factory,
+    postDialogControllerFactory: PostDialogController.Factory,
+    private val threadCreatePostDialogExecutor: ThreadCreatePostDialogExecutor,
+    postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
     @Assisted("viewModelKey") viewModelKey: String
-) : BaseViewModel<BoardUiState>(), ThreadCreationController.IdentityHistoryDelegate {
+) : BaseViewModel<BoardUiState, BoardInitArgs>() {
 
-    // 初期化済みのボードURL（重複初期化を防ぐ）
-    private var initializedUrl: String? = null
+    private var bookmarkStatusJob: Job? = null
+    val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
 
     // UI 状態の StateFlow（View 側で監視される）
     override val _uiState = MutableStateFlow(BoardUiState())
@@ -48,26 +70,27 @@ class BoardViewModel @AssistedInject constructor(
     private val threadListCoordinator =
         threadListCoordinatorFactory.create(_uiState, viewModelScope)
 
-    // スレッド作成に関する操作をまとめるコントローラ
-    private val threadCreationController = threadCreationControllerFactory.create(
+    // PostDialogの状態/操作を共通化するコントローラ
+    private val postDialogController = postDialogControllerFactory.create(
         scope = viewModelScope,
-        stateProvider = { uiState.value },
-        updateState = ::updateUiState,
-        identityHistoryDelegate = this,
-        refreshBoard = ::refreshBoardData
+        stateAdapter = BoardPostDialogStateAdapter(_uiState),
+        identityHistoryKey = CREATE_IDENTITY_HISTORY_KEY,
+        executor = threadCreatePostDialogExecutor,
+        boardIdProvider = { uiState.value.boardInfo.boardId },
+        onPostSuccess = { refreshBoardData() },
     )
+
+    /**
+     * PostDialogの操作をUIへ公開する。
+     */
+    val postDialogActions: PostDialogController
+        get() = postDialogController
 
     // 画像アップロード処理（非同期）
-    private val boardImageUploader = boardImageUploaderFactory.create(
+    private val postDialogImageUploader = postDialogImageUploaderFactory.create(
         scope = viewModelScope,
         dispatcher = Dispatchers.IO,
-        updateState = ::updateUiState
     )
-
-    // UI 状態更新ヘルパー
-    private fun updateUiState(transform: (BoardUiState) -> BoardUiState) {
-        _uiState.update(transform)
-    }
 
     init {
         // 設定（ジェスチャー等）の変更を監視して UI 状態に反映する
@@ -76,47 +99,89 @@ class BoardViewModel @AssistedInject constructor(
                 _uiState.update { it.copy(gestureSettings = settings) }
             }
         }
+        viewModelScope.launch {
+            bookmarkSheetHolder.uiState.collect { sheetState ->
+                _uiState.update { it.copy(bookmarkSheetState = sheetState) }
+            }
+        }
     }
 
-    // ボード表示の初期化処理
+    /**
+     * 板画面の初期化処理を行う。
+     */
     fun initializeBoard(boardInfo: BoardInfo) {
-        // 同じ URL なら再初期化しない
-        if (initializedUrl == boardInfo.url) return
-        initializedUrl = boardInfo.url
+        initializeFlow(BoardInitArgs(boardInfo))
+    }
 
-        // お気に入り（ブックマーク） ViewModel を生成して参照を保持
-        val bookmarkVm = singleBookmarkViewModelFactory.create(boardInfo, null)
-        bookmarkViewModel = bookmarkVm
+    /**
+     * 初期化キーを作成する。
+     */
+    override fun buildInitKey(args: BoardInitArgs): String {
+        return args.boardInfo.url
+    }
 
-        // サービス名を URL から解析して UI に保持
+    /**
+     * UIState に初期値を反映する。
+     */
+    override fun applyInitialUiState(args: BoardInitArgs) {
+        val boardInfo = args.boardInfo
         val serviceName = parseServiceName(boardInfo.url)
-        _uiState.update { it.copy(boardInfo = boardInfo, serviceName = serviceName) }
+        _uiState.update { state ->
+            state.copy(
+                boardInfo = boardInfo,
+                serviceName = serviceName,
+                postDialogState = state.postDialogState.copy(namePlaceholder = boardInfo.noname),
+            )
+        }
+    }
 
-        // ボード情報を DB に登録（未登録なら登録）し、noname ファイルを取得する
+    /**
+     * ボード情報の永続化と補完を行う。
+     */
+    override fun launchDataComplement(args: BoardInitArgs) {
+        val boardInfo = args.boardInfo
         viewModelScope.launch {
             val ensuredId = repository.ensureBoard(boardInfo)
             val ensuredInfo = boardInfo.copy(boardId = ensuredId)
             _uiState.update { it.copy(boardInfo = ensuredInfo) }
 
-            // SETTING.TXT から noname を取得して UI に反映
+            // SETTING.TXT から noname を取得して UI に反映する。
             repository.fetchBoardNoname("${boardInfo.url}SETTING.TXT")?.let { noname ->
                 _uiState.update { state ->
-                    state.copy(boardInfo = state.boardInfo.copy(noname = noname))
+                    state.copy(
+                        boardInfo = state.boardInfo.copy(noname = noname),
+                        postDialogState = state.postDialogState.copy(namePlaceholder = noname),
+                    )
                 }
             }
 
-            // スレッド作成時の名前/メール履歴を準備
-            threadCreationController.prepareCreateIdentityHistory(ensuredId)
+            // スレッド作成時の名前/メール履歴を準備する。
+            postDialogController.prepareIdentityHistory(ensuredId)
+        }
+    }
+
+    /**
+     * ブックマークとNG監視を開始する。
+     */
+    override fun startObservers(args: BoardInitArgs) {
+        val boardInfo = args.boardInfo
+        bookmarkStatusJob?.cancel()
+        bookmarkStatusJob = viewModelScope.launch {
+            bookmarkBoardRepository.getBoardWithBookmarkAndGroupByUrlFlow(boardInfo.url)
+                .collect { boardWithBookmark ->
+                    val group = boardWithBookmark?.bookmarkWithGroup?.group
+                    _uiState.update {
+                        it.copy(
+                            bookmarkStatusState = BookmarkStatusState(
+                                isBookmarked = group != null,
+                                selectedGroup = group
+                            )
+                        )
+                    }
+                }
         }
 
-        // ブックマーク ViewModel の状態を監視して自身の UIState に反映
-        viewModelScope.launch {
-            bookmarkVm.uiState.collect { bkState ->
-                _uiState.update { it.copy(singleBookmarkState = bkState) }
-            }
-        }
-
-        // NG リストを監視し、スレッドタイトルのフィルタを更新する
+        // NG リストを監視し、スレッドタイトルのフィルタを更新する。
         viewModelScope.launch {
             ngRepository.observeNgs().collect { list ->
                 val filters = list.filter { it.type == NgType.THREAD_TITLE }
@@ -133,9 +198,6 @@ class BoardViewModel @AssistedInject constructor(
                 threadListCoordinator.updateThreadTitleNg(filters)
             }
         }
-
-        // BaseViewModel の初期化（データロード等）を開始
-        initialize() // BaseViewModelの初期化処理を呼び出す
     }
 
     // データ読み込み（スレッド一覧を取得）
@@ -185,20 +247,25 @@ class BoardViewModel @AssistedInject constructor(
         _uiState.update { it.copy(resetScroll = false) }
     }
 
-    // --- お気に入り関連の処理はBookmarkStateViewModelに委譲 ---
-    fun saveBookmark(groupId: Long) = bookmarkSaveBookmark(groupId)
-    fun unbookmarkBoard() = bookmarkUnbookmark()
-    fun openAddGroupDialog() = bookmarkOpenAddGroupDialog()
-    fun openEditGroupDialog(group: Groupable) = bookmarkOpenEditGroupDialog(group)
-    fun closeAddGroupDialog() = bookmarkCloseAddGroupDialog()
-    fun setEnteredGroupName(name: String) = bookmarkSetEnteredGroupName(name)
-    fun setSelectedColor(color: String) = bookmarkSetSelectedColor(color)
-    fun confirmGroup() = bookmarkConfirmGroup()
-    fun requestDeleteGroup() = bookmarkRequestDeleteGroup()
-    fun confirmDeleteGroup() = bookmarkConfirmDeleteGroup()
-    fun closeDeleteGroupDialog() = bookmarkCloseDeleteGroupDialog()
-    fun openBookmarkSheet() = bookmarkOpenBookmarkSheet()
-    fun closeBookmarkSheet() = bookmarkCloseBookmarkSheet()
+    // --- ブックマークシート関連 ---
+    /**
+     * ブックマークシートを開く。
+     */
+    fun openBookmarkSheet() {
+        val boardInfo = uiState.value.boardInfo
+        if (boardInfo.url.isBlank()) {
+            // URLが空の場合はシートを開かない。
+            return
+        }
+
+        val targets = listOf(
+            BoardTarget(
+                boardInfo = boardInfo,
+                currentGroupId = uiState.value.bookmarkStatusState.selectedGroup?.id
+            )
+        )
+        bookmarkSheetHolder.open(targets)
+    }
 
     // ソート関連の操作
     fun setSortKey(sortKey: ThreadSortKey) = threadListCoordinator.setSortKey(sortKey)
@@ -214,112 +281,46 @@ class BoardViewModel @AssistedInject constructor(
 
     fun closeSortBottomSheet() = _uiState.update { it.copy(showSortSheet = false) }
 
+    /**
+     * スレッド情報シートを開く。
+     */
+    fun openThreadInfoSheet(threadInfo: ThreadInfo) {
+        val boardUrl = uiState.value.boardInfo.url
+        if (boardUrl.isBlank()) {
+            // URLが空の場合はシートを開かない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(
+                showThreadInfoSheet = true,
+                // シート側でスレURLを組み立てられるよう、板URLを注入する。
+                threadInfoSheetTarget = threadInfo.copy(url = boardUrl),
+            )
+        }
+    }
+
+    /**
+     * スレッド情報シートを閉じる。
+     */
+    fun closeThreadInfoSheet() = _uiState.update { it.copy(showThreadInfoSheet = false) }
+
     // Info ダイアログ表示/非表示
     fun openInfoDialog() = _uiState.update { it.copy(showInfoDialog = true) }
 
     fun closeInfoDialog() = _uiState.update { it.copy(showInfoDialog = false) }
 
-    // --- スレッド作成関連 ---
-    fun showCreateDialog() = threadCreationController.showCreateDialog()
-
-    fun hideCreateDialog() = threadCreationController.hideCreateDialog()
-
-    fun updateCreateName(name: String) = threadCreationController.updateCreateName(name)
-
-    fun updateCreateMail(mail: String) = threadCreationController.updateCreateMail(mail)
-
-    fun updateCreateTitle(title: String) = threadCreationController.updateCreateTitle(title)
-
-    fun updateCreateMessage(message: String) = threadCreationController.updateCreateMessage(message)
-
-    fun selectCreateNameHistory(name: String) =
-        threadCreationController.selectCreateNameHistory(name)
-
-    fun selectCreateMailHistory(mail: String) =
-        threadCreationController.selectCreateMailHistory(mail)
-
-    fun deleteCreateNameHistory(name: String) =
-        threadCreationController.deleteCreateNameHistory(name)
-
-    fun deleteCreateMailHistory(mail: String) =
-        threadCreationController.deleteCreateMailHistory(mail)
-
-    // 確認画面を閉じる
-    fun hideConfirmationScreen() {
-        _uiState.update { it.copy(isConfirmationScreen = false) }
-    }
-
-    // エラーページ（WebView）を閉じる
-    fun hideErrorWebView() {
-        _uiState.update { it.copy(showErrorWebView = false, errorHtmlContent = "") }
-    }
-
-    // スレッド作成フェーズ（第一段階：確認画面へ遷移）
-    fun createThreadFirstPhase(
-        host: String,
-        board: String,
-        title: String,
-        name: String,
-        mail: String,
-        message: String,
-    ) = threadCreationController.createThreadFirstPhase(host, board, title, name, mail, message)
-
-    // スレッド作成フェーズ（第二段階：投稿処理）
-    fun createThreadSecondPhase(
-        host: String,
-        board: String,
-        confirmationData: ConfirmationData,
-    ) = threadCreationController.createThreadSecondPhase(host, board, confirmationData)
-
-    // 画像アップロード（選択された URI を渡して非同期アップロード）
+    /**
+     * 画像をアップロードし、成功時に本文へURLを挿入する。
+     */
     fun uploadImage(context: Context, uri: Uri) {
-        boardImageUploader.uploadImage(context, uri)
-    }
-
-    // --- IdentityHistoryDelegate 実装（履歴関連のイベント） ---
-    override fun onPrepareIdentityHistory(
-        key: String,
-        boardId: Long,
-        repository: PostHistoryRepository,
-        onLastIdentity: ((String, String) -> Unit)?,
-        onNameSuggestions: (List<String>) -> Unit,
-        onMailSuggestions: (List<String>) -> Unit,
-        nameQueryProvider: () -> String,
-        mailQueryProvider: () -> String,
-    ) {
-        // 親クラスの履歴準備処理を呼び出す（具体的ロジックは Base に委譲）
-        super.prepareIdentityHistory(
-            key,
-            boardId,
-            repository,
-            onLastIdentity,
-            onNameSuggestions,
-            onMailSuggestions,
-            nameQueryProvider,
-            mailQueryProvider,
-        )
-    }
-
-    override fun onRefreshIdentityHistorySuggestions(
-        key: String,
-        type: PostIdentityType?,
-    ) {
-        // 履歴候補の更新を親に委譲
-        super.refreshIdentityHistorySuggestions(key, type)
-    }
-
-    override fun onDeleteIdentityHistory(
-        key: String,
-        repository: PostHistoryRepository,
-        type: PostIdentityType,
-        value: String,
-    ) {
-        // 履歴削除を親に委譲
-        super.deleteIdentityHistory(key, repository, type, value)
+        postDialogImageUploader.uploadImage(context, uri) { url ->
+            postDialogActions.appendImageUrl(url)
+        }
     }
 
     // ViewModel が破棄される直前に呼ばれる（アプリ停止や画面遷移時）
     override fun onCleared() {
+        bookmarkSheetHolder.dispose()
         val boardId = _uiState.value.boardInfo.boardId
         if (boardId != 0L) {
             // 最終確認時刻（baseline）を同期的に保存しておく
@@ -328,9 +329,44 @@ class BoardViewModel @AssistedInject constructor(
         super.onCleared()
     }
 
+    /**
+     * 投稿履歴の識別キーを定義する。
+     */
+    companion object {
+        private const val CREATE_IDENTITY_HISTORY_KEY = "board_create_identity"
+    }
+}
+
+/**
+ * Board画面の投稿状態をPostDialogStateへ橋渡しするアダプタ。
+ *
+ * BoardUiState.postDialogStateを読み書きし、共通コントローラの更新を反映する。
+ */
+private class BoardPostDialogStateAdapter(
+    private val stateFlow: MutableStateFlow<BoardUiState>,
+) : PostDialogStateAdapter {
+
+    /**
+     * 現在のBoardUiStateからPostDialogStateを取得する。
+     */
+    override fun readState(): PostDialogState {
+        return stateFlow.value.postDialogState
+    }
+
+    /**
+     * PostDialogStateの更新結果をBoardUiStateへ反映する。
+     */
+    override fun updateState(transform: (PostDialogState) -> PostDialogState) {
+        stateFlow.update { current ->
+            current.copy(postDialogState = transform(current.postDialogState))
+        }
+    }
 }
 
 
+/**
+ * BoardViewModel を生成するためのファクトリ。
+ */
 @AssistedFactory
 interface BoardViewModelFactory {
     fun create(

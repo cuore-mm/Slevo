@@ -1,7 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -14,21 +14,30 @@ internal val DATE_FORMAT = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN)
     timeZone = TimeZone.getTimeZone("Asia/Tokyo")
 }
 
-internal fun deriveReplyMaps(posts: List<ReplyInfo>): Triple<Map<String, Int>, List<Int>, Map<Int, List<Int>>> {
-    val idCountMap = posts.groupingBy { it.id }.eachCount()
+/**
+ * 投稿一覧からID集計と返信関係の派生情報を作成する。
+ *
+ * IDの総数・通番・返信元の逆引きを同時に算出する。
+ */
+internal fun deriveReplyMaps(posts: List<ThreadPostUiModel>): Triple<Map<String, Int>, List<Int>, Map<Int, List<Int>>> {
+    // --- ID集計 ---
+    val idCountMap = posts.groupingBy { it.header.id }.eachCount()
+    // --- ID通番 ---
     val idIndexList = run {
         val indexMap = mutableMapOf<String, Int>()
         posts.map { reply ->
-            val idx = (indexMap[reply.id] ?: 0) + 1
-            indexMap[reply.id] = idx
+            val id = reply.header.id
+            val idx = (indexMap[id] ?: 0) + 1
+            indexMap[id] = idx
             idx
         }
     }
+    // --- 返信元マップ ---
     val replySourceMap = run {
         val map = mutableMapOf<Int, MutableList<Int>>()
         val regex = Regex(">>(\\d+)")
         posts.forEachIndexed { idx, reply ->
-            regex.findAll(reply.content).forEach { match ->
+            regex.findAll(reply.body.content).forEach { match ->
                 val num = match.groupValues[1].toIntOrNull() ?: return@forEach
                 if (num in 1..posts.size) {
                     map.getOrPut(num) { mutableListOf() }.add(idx + 1)
@@ -40,20 +49,27 @@ internal fun deriveReplyMaps(posts: List<ReplyInfo>): Triple<Map<String, Int>, L
     return Triple(idCountMap, idIndexList, replySourceMap)
 }
 
-internal fun deriveTreeOrder(posts: List<ReplyInfo>): Pair<List<Int>, Map<Int, Int>> {
+/**
+ * 投稿一覧からツリー順と深さマップを生成する。
+ *
+ * `>>n` を親とみなし、親子関係を元にDFS順で並べる。
+ */
+internal fun deriveTreeOrder(posts: List<ThreadPostUiModel>): Pair<List<Int>, Map<Int, Int>> {
+    // --- 親子関係の抽出 ---
     val children = mutableMapOf<Int, MutableList<Int>>()
     val parent = IntArray(posts.size + 1)
     val depthMap = mutableMapOf<Int, Int>()
     val regex = Regex("^>>(\\d+)")
     posts.forEachIndexed { idx, reply ->
         val current = idx + 1
-        val match = regex.find(reply.content)
+        val match = regex.find(reply.body.content)
         val p = match?.groupValues?.get(1)?.toIntOrNull()
         if (p != null && p in 1 until current) {
             parent[current] = p
             children.getOrPut(p) { mutableListOf() }.add(current)
         }
     }
+    // --- DFS順の構築 ---
     val order = mutableListOf<Int>()
     fun dfs(num: Int, depth: Int) {
         order.add(num)
@@ -68,8 +84,13 @@ internal fun deriveTreeOrder(posts: List<ReplyInfo>): Pair<List<Int>, Map<Int, I
     return order to depthMap
 }
 
+/**
+ * 並び順と新着境界を反映した表示用投稿リストを生成する。
+ *
+ * ツリー表示では必要に応じて親投稿を dimmed として挿入する。
+ */
 internal fun buildOrderedPosts(
-    posts: List<ReplyInfo>,
+    posts: List<ThreadPostUiModel>,
     order: List<Int>,
     sortType: ThreadSortType,
     treeDepthMap: Map<Int, Int>,
@@ -77,6 +98,7 @@ internal fun buildOrderedPosts(
     prevResCount: Int
 ): List<DisplayPost> {
     if (sortType == ThreadSortType.TREE && firstNewResNo != null) {
+        // --- 親子リレーション構築 ---
         val parentMap = mutableMapOf<Int, Int>()
         val childrenMap = mutableMapOf<Int, MutableList<Int>>()
         val stack = mutableListOf<Int>()
@@ -89,6 +111,7 @@ internal fun buildOrderedPosts(
             stack.add(num)
         }
 
+        // --- 新着境界の分類 ---
         val beforeSet = linkedSetOf<Int>()
         val afterSet = linkedSetOf<Int>()
         for (num in 1..posts.size) {
@@ -100,6 +123,7 @@ internal fun buildOrderedPosts(
             }
         }
 
+        // --- 旧レス側 ---
         val before = mutableListOf<DisplayPost>()
         order.forEach { num ->
             if (beforeSet.contains(num)) {
@@ -110,6 +134,7 @@ internal fun buildOrderedPosts(
             }
         }
 
+        // --- 新着側 ---
         val after = mutableListOf<DisplayPost>()
         val insertedParents = mutableSetOf<Int>()
         val visited = mutableSetOf<Int>()
@@ -155,6 +180,7 @@ internal fun buildOrderedPosts(
 
         return before + after
     } else {
+        // --- 通常順の生成 ---
         return order.mapNotNull { num ->
             posts.getOrNull(num - 1)?.let { post ->
                 val isAfter = firstNewResNo != null && num >= firstNewResNo
@@ -165,6 +191,42 @@ internal fun buildOrderedPosts(
     }
 }
 
+/**
+ * 新着境界から「グループ内の表示用投稿一覧」を切り出す。
+ *
+ * firstNewResNo が null の場合は全件を返し、それ以外は新着側のみを返す。
+ */
+internal fun buildGroupDisplayPosts(
+    posts: List<ThreadPostUiModel>,
+    order: List<Int>,
+    sortType: ThreadSortType,
+    treeDepthMap: Map<Int, Int>,
+    firstNewResNo: Int?,
+    prevResCount: Int
+): List<DisplayPost> {
+    val ordered = buildOrderedPosts(
+        posts = posts,
+        order = order,
+        sortType = sortType,
+        treeDepthMap = treeDepthMap,
+        firstNewResNo = firstNewResNo,
+        prevResCount = prevResCount
+    )
+    if (firstNewResNo == null) {
+        // 初回グループは全件を返す。
+        return ordered
+    }
+
+    // 先頭の新着位置を検出して新着側のみ返す。
+    val firstAfterIndex = ordered.indexOfFirst { it.isAfter }
+    return if (firstAfterIndex == -1) emptyList() else ordered.drop(firstAfterIndex)
+}
+
+/**
+ * 投稿ヘッダ日付文字列をUnix時間に変換する。
+ *
+ * ミリ秒や括弧表記を除去し、失敗時は現在時刻へフォールバックする。
+ */
 internal fun parseDateToUnix(dateString: String): Long {
     val sanitized = dateString
         .replace(Regex("\\([^)]*\\)"), "")

@@ -27,8 +27,26 @@ class BbsLocalDataSourceImpl @Inject constructor(
 
     override fun observeServicesWithCount() = serviceDao.getServicesWithBoardCount()
 
+    /**
+     * サービスを登録し、既存の場合は必要に応じて表示名/メニューURLを更新する。
+     */
     override suspend fun upsertService(service: BbsServiceEntity) {
-        serviceDao.upsert(service)
+        // --- 取得 ---
+        val existing = serviceDao.findByDomain(service.domain)
+        if (existing == null) {
+            // --- 登録 ---
+            serviceDao.insertService(service)
+            return
+        }
+
+        // --- 更新 ---
+        if (existing.displayName != service.displayName || existing.menuUrl != service.menuUrl) {
+            serviceDao.updateServiceMeta(
+                serviceId = existing.serviceId,
+                displayName = service.displayName,
+                menuUrl = service.menuUrl
+            )
+        }
     }
 
     override suspend fun deleteService(serviceId: Long) {

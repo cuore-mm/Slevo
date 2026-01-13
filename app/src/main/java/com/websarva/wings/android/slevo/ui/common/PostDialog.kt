@@ -66,19 +66,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.ui.thread.state.PostDialogAction
-import com.websarva.wings.android.slevo.ui.thread.state.PostUiState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 
+/**
+ * PostDialogの表示モード。
+ */
 enum class PostDialogMode {
     Reply,
     NewThread,
 }
 
+/**
+ * 投稿ダイアログ本体を表示する。
+ */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PostDialog(
-    uiState: PostUiState,
+    uiState: PostDialogState,
     onDismissRequest: () -> Unit,
     onAction: (PostDialogAction) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
@@ -118,10 +124,13 @@ fun PostDialog(
     }
 }
 
+/**
+ * 投稿フォームの入力領域を構成する。
+ */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun PostDialogContent(
-    uiState: PostUiState,
+    uiState: PostDialogState,
     onAction: (PostDialogAction) -> Unit,
     onImageUpload: (Uri) -> Unit,
     onImageUrlClick: ((String) -> Unit)?,
@@ -152,8 +161,8 @@ private fun PostDialogContent(
                     .verticalScroll(scrollState)
             ) {
                 HeaderInputSection(
-                    name = uiState.postFormState.name,
-                    mail = uiState.postFormState.mail,
+                    name = uiState.formState.name,
+                    mail = uiState.formState.mail,
                     namePlaceholder = namePlaceholder,
                     nameHistory = uiState.nameHistory,
                     mailHistory = uiState.mailHistory,
@@ -166,12 +175,12 @@ private fun PostDialogContent(
                 )
                 if (mode == PostDialogMode.NewThread) {
                     TitleInputSection(
-                        title = uiState.postFormState.title,
+                        title = uiState.formState.title,
                         onTitleChange = { onAction(PostDialogAction.ChangeTitle(it)) }
                     )
                 }
                 MessageInputSection(
-                    message = uiState.postFormState.message,
+                    message = uiState.formState.message,
                     onMessageChange = { onAction(PostDialogAction.ChangeMessage(it)) },
                     focusRequester = focusRequester,
                     onImageUrlClick = onImageUrlClick,
@@ -184,9 +193,9 @@ private fun PostDialogContent(
                 mode = mode,
                 isEnabled = when (mode) {
                     PostDialogMode.NewThread ->
-                        uiState.postFormState.title.isNotBlank() && uiState.postFormState.message.isNotBlank()
+                        uiState.formState.title.isNotBlank() && uiState.formState.message.isNotBlank()
 
-                    PostDialogMode.Reply -> uiState.postFormState.message.isNotBlank()
+                    PostDialogMode.Reply -> uiState.formState.message.isNotBlank()
                 },
                 onPostClick = { onAction(PostDialogAction.Post) }
             )
@@ -194,6 +203,9 @@ private fun PostDialogContent(
     }
 }
 
+/**
+ * 名前・メール入力と履歴選択を表示する。
+ */
 @Composable
 private fun HeaderInputSection(
     name: String,
@@ -238,6 +250,9 @@ private fun HeaderInputSection(
     }
 }
 
+/**
+ * 履歴付き入力欄を構築する。
+ */
 @Composable
 private fun HistoryDropdownTextField(
     value: String,
@@ -309,6 +324,9 @@ private fun HistoryDropdownTextField(
     }
 }
 
+/**
+ * スレッド作成時のタイトル入力欄を表示する。
+ */
 @Composable
 private fun TitleInputSection(
     title: String,
@@ -324,6 +342,9 @@ private fun TitleInputSection(
     )
 }
 
+/**
+ * 本文入力欄と画像URLのインライン表示を構築する。
+ */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun MessageInputSection(
@@ -379,6 +400,9 @@ private fun MessageInputSection(
     }
 }
 
+/**
+ * 画像アップロードボタンを含む下部アクション行を表示する。
+ */
 @Composable
 private fun BottomActionRow(
     onImageUpload: ((Uri) -> Unit),
@@ -403,6 +427,9 @@ private fun BottomActionRow(
     }
 }
 
+/**
+ * 投稿ボタンを表示する。
+ */
 @Composable
 private fun PostButton(
     mode: PostDialogMode,
@@ -432,7 +459,7 @@ fun PostDialogPreview() {
     SharedTransitionLayout {
         AnimatedVisibility(visible = true) {
             PostDialogContent(
-                uiState = PostUiState(namePlaceholder = "name"),
+                uiState = PostDialogState(namePlaceholder = "name"),
                 onAction = {},
                 sharedTransitionScope = this@SharedTransitionLayout,
                 animatedVisibilityScope = this,

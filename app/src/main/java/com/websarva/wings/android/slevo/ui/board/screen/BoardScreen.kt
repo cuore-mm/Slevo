@@ -1,7 +1,7 @@
 package com.websarva.wings.android.slevo.ui.board.screen
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -52,12 +52,18 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
+/**
+ * 板画面のスレッド一覧を描画し、タップや長押し操作を通知する。
+ *
+ * 表示用のハイライトやジェスチャー操作も合わせて扱う。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BoardScreen(
     modifier: Modifier = Modifier,
     threads: List<ThreadInfo>,
     onClick: (ThreadInfo) -> Unit,
+    onLongClick: (ThreadInfo) -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     listState: LazyListState = rememberLazyListState(),
@@ -66,6 +72,7 @@ fun BoardScreen(
     onGestureAction: (GestureAction) -> Unit = {},
     searchQuery: String,
 ) {
+    // --- Momentum stats ---
     val (momentumMean, momentumStd) = remember(threads) {
         val values = threads.filter {
             it.key.toLongOrNull()?.let { key -> key < THREAD_KEY_THRESHOLD } ?: false
@@ -79,6 +86,7 @@ fun BoardScreen(
         mean to std
     }
 
+    // --- Gesture handling ---
     val coroutineScope = rememberCoroutineScope()
 
     PullToRefreshBox(
@@ -86,6 +94,7 @@ fun BoardScreen(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
     ) {
+        // --- Gesture hint state ---
         var gestureHint by remember { mutableStateOf<GestureHint>(GestureHint.Hidden) }
         LaunchedEffect(gestureHint) {
             if (gestureHint is GestureHint.Invalid) {
@@ -147,6 +156,7 @@ fun BoardScreen(
                     }
                 }
         ) {
+            // --- Thread list ---
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize(),
@@ -166,6 +176,7 @@ fun BoardScreen(
                 ThreadCard(
                     threadInfo = thread,
                     onClick = onClick,
+                    onLongClick = { onLongClick(thread) },
                     searchQuery = searchQuery,
                     momentumMean = momentumMean,
                     momentumStd = momentumStd
@@ -181,14 +192,19 @@ fun BoardScreen(
 }
 }
 
+/**
+ * スレッド一覧の1項目を描画し、タップ/長押しを上位へ伝える。
+ */
 @Composable
 fun ThreadCard(
     threadInfo: ThreadInfo,
     onClick: (ThreadInfo) -> Unit,
+    onLongClick: (ThreadInfo) -> Unit,
     searchQuery: String,
     momentumMean: Double,
     momentumStd: Double,
 ) {
+    // --- Momentum highlight ---
     val momentumFormatter = remember { DecimalFormat("0.0") }
     val showInfo = threadInfo.key.toLongOrNull()?.let { it < THREAD_KEY_THRESHOLD } ?: true
     val intensity = if (momentumStd > 0 && showInfo) {
@@ -203,12 +219,17 @@ fun ThreadCard(
         colorFraction
     )
 
+    // --- Layout ---
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = { onClick(threadInfo) })
+            .combinedClickable(
+                onClick = { onClick(threadInfo) },
+                onLongClick = { onLongClick(threadInfo) }
+            )
             .padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
+        // --- Title ---
         val baseTitle = remember(threadInfo.title) { AnnotatedString(threadInfo.title) }
         val highlightBackground = MaterialTheme.colorScheme.tertiaryContainer
         val highlightedTitle = rememberHighlightedText(
@@ -223,6 +244,7 @@ fun ThreadCard(
                 MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
         )
         Spacer(modifier = Modifier.padding(4.dp))
+        // --- Metadata row ---
         Row{
             if (showInfo) {
                 if (threadInfo.isNew && !threadInfo.isVisited) {
@@ -301,6 +323,7 @@ fun ThreadCardPreview() {
             isNew = true,
         ),
         onClick = {},
+        onLongClick = {},
         searchQuery = "",
         momentumMean = 1000.0,
         momentumStd = 100.0,

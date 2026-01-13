@@ -1,0 +1,10 @@
+<resources>
+    <!-- Search and voice input -->
+    <string name="voice_input">音声入力</string>
+    <string name="voice_search_prompt">検索ワードを話してください</string>
+    <string name="voice_permission_denied">音声入力を使用するにはマイクへのアクセスを許可してください</string>
+    <string name="speech_recognition_not_available">この端末では音声入力を利用できません</string>
+    <string name="search_board_hint">板名またはURLで検索</string>
+    <string name="search_in_thread">スレッド内を検索</string>
+    <string name="search_in_board">板内を検索</string>
+</resources>

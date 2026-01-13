@@ -22,6 +22,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
 
+/**
+ * リストの最下部到達に合わせてボトムバーの表示/非表示を制御する。
+ *
+ * スクロール無効化が指定された場合はボトムバーの挙動を固定する。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun rememberBottomBarShowOnBottomBehavior(
@@ -29,16 +34,20 @@ fun rememberBottomBarShowOnBottomBehavior(
     showThreshold: Dp = 4.dp,     // 到達とみなすギャップ(px換算)
     leaveThreshold: Dp = 48.dp,   // 可視のままでも離脱とみなすギャップ
     leaveItemsThreshold: Int = 1, // 末尾から何アイテム離れたら解除するか
+    scrollEnabled: Boolean = true,
 ): BottomAppBarScrollBehavior {
+    // --- 閾値計算 ---
     val density = LocalDensity.current
     val showThPx = with(density) { showThreshold.toPx() }
     val leaveThPx = with(density) { leaveThreshold.toPx() }
 
+    // --- 状態 ---
     val barState = rememberBottomAppBarState()
     var atBottomSticky by remember { mutableStateOf(false) }
     // 保持ロック (ミリ秒)。sticky にした時点から最低この時刻までは解除を無視する
     var stickyLockUntil by remember { mutableLongStateOf(0L) }
 
+    // --- 末尾判定 ---
     // 末尾アイテムが“可視か”と、そのときのビューポート下端との隙間(px)
     val lastVisibleAndGap by remember {
         derivedStateOf {
@@ -64,6 +73,7 @@ fun rememberBottomBarShowOnBottomBehavior(
         }
     }
 
+    // --- スティッキー制御 ---
     LaunchedEffect(listState) {
         snapshotFlow { lastVisibleAndGap }
             .distinctUntilChanged()
@@ -91,12 +101,13 @@ fun rememberBottomBarShowOnBottomBehavior(
             }
     }
 
+    // --- スクロール挙動 ---
     val flingSpec = rememberSplineBasedDecay<Float>()
     val snapSpec = remember { spring<Float>(stiffness = Spring.StiffnessMediumLow) }
 
     return BottomAppBarDefaults.exitAlwaysScrollBehavior(
         state = barState,
-        canScroll = { !atBottomSticky },   // スティッキー中は閉じ動作を無効化
+        canScroll = { scrollEnabled && !atBottomSticky },   // スティッキー中は閉じ動作を無効化
         snapAnimationSpec = snapSpec,
         flingAnimationSpec = flingSpec
     )
