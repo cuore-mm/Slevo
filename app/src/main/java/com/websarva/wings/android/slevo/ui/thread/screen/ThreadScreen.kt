@@ -143,14 +143,15 @@ fun ThreadScreen(
             tabsViewModel = tabsViewModel,
         )
     }
-    val onImageClick: (String, List<String>) -> Unit = { url, imageUrls ->
+    val onImageClick: (String, List<String>, Int) -> Unit = { _, imageUrls, tappedIndex ->
+        if (imageUrls.isEmpty()) {
+            // Guard: 画像が存在しない場合は遷移しない。
+            return@onImageClick
+        }
         val encodedUrls = imageUrls.map { imageUrl ->
             URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
         }
-        val initialIndex = imageUrls.indexOf(url).let { index ->
-            // Guard: 対象URLが見つからない場合は先頭を表示する。
-            if (index >= 0) index else 0
-        }
+        val initialIndex = tappedIndex.coerceIn(encodedUrls.indices)
         navController.navigate(
             AppRoute.ImageViewer(
                 imageUrls = encodedUrls,

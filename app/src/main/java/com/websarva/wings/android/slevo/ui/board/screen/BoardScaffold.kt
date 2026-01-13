@@ -301,15 +301,18 @@ fun BoardScaffold(
                         }
                     },
                     onImageUpload = { uri -> viewModel.uploadImage(context, uri) },
-                    onImageUrlClick = { url ->
-                        val encodedUrl = URLEncoder.encode(
-                            url,
-                            StandardCharsets.UTF_8.toString()
-                        )
+                    onImageUrlClick = { urls, tappedIndex ->
+                        if (urls.isEmpty()) {
+                            // Guard: 画像が存在しない場合は遷移しない。
+                            return@onImageUrlClick
+                        }
+                        val encodedUrls = urls.map { imageUrl ->
+                            URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
+                        }
                         navController.navigate(
                             AppRoute.ImageViewer(
-                                imageUrls = listOf(encodedUrl),
-                                initialIndex = 0,
+                                imageUrls = encodedUrls,
+                                initialIndex = tappedIndex.coerceIn(encodedUrls.indices),
                             )
                         )
                     },

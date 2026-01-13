@@ -26,22 +26,24 @@ import coil3.compose.SubcomposeAsyncImage
  *
  * タップと長押しを分岐して通知し、サムネイルには共有トランジション用の要素を付与する。
  *
- * 長押し時は対象URLと同一投稿内の画像URL一覧を通知する。
+ * タップ時は対象URLと同一投稿内の画像URL一覧およびタップ位置を通知し、長押し時はURL一覧を通知する。
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ImageThumbnailGrid(
     imageUrls: List<String>,
     modifier: Modifier = Modifier,
-    onImageClick: (String) -> Unit,
+    onImageClick: (String, List<String>, Int) -> Unit,
     onImageLongPress: ((String, List<String>) -> Unit)? = null,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        imageUrls.chunked(3).forEach { rowItems ->
+        imageUrls.chunked(3).forEachIndexed { rowIndex, rowItems ->
+            val baseIndex = rowIndex * 3
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                rowItems.forEach { url ->
+                rowItems.forEachIndexed { columnIndex, url ->
+                    val imageIndex = baseIndex + columnIndex
                     with(sharedTransitionScope) {
                         SubcomposeAsyncImage(
                             model = url,
@@ -52,7 +54,7 @@ fun ImageThumbnailGrid(
                                 .aspectRatio(1f)
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .combinedClickable(
-                                    onClick = { onImageClick(url) },
+                                    onClick = { onImageClick(url, imageUrls, imageIndex) },
                                     onLongClick = onImageLongPress?.let { { it(url, imageUrls) } },
                                 )
                                 .sharedElement(
