@@ -586,12 +586,14 @@ fun ThreadScaffold(
                     },
                     onImageUpload = { uri -> viewModel.uploadImage(context, uri) },
                     onImageUrlClick = { url ->
+                        val encodedUrl = URLEncoder.encode(
+                            url,
+                            StandardCharsets.UTF_8.toString()
+                        )
                         navController.navigate(
                             AppRoute.ImageViewer(
-                                imageUrl = URLEncoder.encode(
-                                    url,
-                                    StandardCharsets.UTF_8.toString()
-                                )
+                                imageUrls = listOf(encodedUrl),
+                                initialIndex = 0,
                             )
                         )
                     },
