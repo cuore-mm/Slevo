@@ -39,6 +39,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
  * @param onThreadUrlClick スレッドURLタップ時のコールバック。
  * @param onImageClick 画像サムネイルタップ時のコールバック。
  * @param onImageLongPress 画像サムネイル長押し時のコールバック（URLと同一レス内画像一覧）。
+ * @param enableSharedElement 画像サムネイルの共有トランジションを有効にするか。
  * @param onRequestMenu 投稿メニュー表示のリクエスト。
  * @param onShowTextMenu テキストメニュー表示のリクエスト。
  * @param onContentClick 本文/ヘッダーの通常タップ時のコールバック。
@@ -68,6 +69,7 @@ fun PostItem(
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onImageClick: (String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
+    enableSharedElement: Boolean = true,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
     onContentClick: (() -> Unit)? = null,
@@ -136,6 +138,7 @@ fun PostItem(
             post = post,
             onImageClick = onImageClick,
             onImageLongPress = onImageLongPress,
+            enableSharedElement = enableSharedElement,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
         )

@@ -27,6 +27,7 @@ import coil3.compose.SubcomposeAsyncImage
  * タップと長押しを分岐して通知し、サムネイルには共有トランジション用の要素を付与する。
  *
  * 長押し時は対象URLと同一投稿内の画像URL一覧を通知する。
+ * 共有トランジションが不要な場合は無効化できる。
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -35,6 +36,7 @@ fun ImageThumbnailGrid(
     modifier: Modifier = Modifier,
     onImageClick: (String) -> Unit,
     onImageLongPress: ((String, List<String>) -> Unit)? = null,
+    enableSharedElement: Boolean = true,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -43,6 +45,16 @@ fun ImageThumbnailGrid(
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 rowItems.forEach { url ->
                     with(sharedTransitionScope) {
+                        val sharedElementModifier = if (enableSharedElement) {
+                            Modifier.sharedElement(
+                                sharedContentState = sharedTransitionScope.rememberSharedContentState(
+                                    key = url
+                                ),
+                                animatedVisibilityScope = animatedVisibilityScope
+                            )
+                        } else {
+                            Modifier
+                        }
                         SubcomposeAsyncImage(
                             model = url,
                             contentDescription = null,
@@ -55,12 +67,7 @@ fun ImageThumbnailGrid(
                                     onClick = { onImageClick(url) },
                                     onLongClick = onImageLongPress?.let { { it(url, imageUrls) } },
                                 )
-                                .sharedElement(
-                                    sharedContentState = sharedTransitionScope.rememberSharedContentState(
-                                        key = url
-                                    ),
-                                    animatedVisibilityScope = animatedVisibilityScope
-                                ),
+                                .then(sharedElementModifier),
                             loading = {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
