@@ -26,6 +26,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 
+/**
+ * 投稿1件の外枠を描画し、押下/長押し/通常タップをまとめて処理する。
+ */
 @Composable
 internal fun PostItemContainer(
     modifier: Modifier,
@@ -36,6 +39,7 @@ internal fun PostItemContainer(
     onContentPressedChange: (Boolean) -> Unit,
     onRequestMenu: () -> Unit,
     showMyPostIndicator: Boolean,
+    onContentClick: (() -> Unit)?,
     content: @Composable () -> Unit,
 ) {
     // --- フィードバック ---
@@ -83,6 +87,7 @@ internal fun PostItemContainer(
                                     awaitRelease = { awaitRelease() }
                                 )
                             },
+                            onTap = { onContentClick?.invoke() },
                             onLongPress = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onRequestMenu()
@@ -120,6 +125,7 @@ private fun PostItemContainerPreview() {
         onContentPressedChange = {},
         onRequestMenu = {},
         showMyPostIndicator = true,
+        onContentClick = {},
     ) {
         Text(text = "コンテナプレビュー")
     }

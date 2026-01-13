@@ -39,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -81,6 +82,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.deriveTreePopupSelection
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -368,11 +370,11 @@ fun ThreadScreen(
                     if (firstAfterIndex != -1 && idx == firstAfterIndex) {
                         NewArrivalBar()
                     }
-                    PostItem(
-                        modifier = Modifier.onGloballyPositioned { coords ->
-                            val pos = coords.positionInRoot()
-                            itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
-                        },
+                PostItem(
+                    modifier = Modifier.onGloballyPositioned { coords ->
+                        val pos = coords.positionInRoot()
+                        itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
+                    },
                         post = post,
                         postNum = postNum,
                         idIndex = uiState.idIndexList.getOrElse(index) { 1 },
@@ -388,15 +390,36 @@ fun ThreadScreen(
                         searchQuery = uiState.searchQuery,
                         onUrlClick = onUrlClick,
                         onThreadUrlClick = onThreadUrlClick,
-                        onImageClick = onImageClick,
-                        onImageLongPress = onImageLongPress,
-                        onRequestMenu = onRequestMenu,
-                        onShowTextMenu = onShowTextMenu,
-                        sharedTransitionScope = sharedTransitionScope,
-                        animatedVisibilityScope = animatedVisibilityScope,
-                        onReplyFromClick = { numbs ->
-                            val offset = if (popupStack.isEmpty()) {
-                                itemOffsetHolder.value
+                    onImageClick = onImageClick,
+                    onImageLongPress = onImageLongPress,
+                    onRequestMenu = onRequestMenu,
+                    onShowTextMenu = onShowTextMenu,
+                    onContentClick = {
+                        addPopupForTree(
+                            popupStack = popupStack,
+                            baseOffsetProvider = {
+                                if (popupStack.isEmpty()) {
+                                    itemOffsetHolder.value
+                                } else {
+                                    val last = popupStack.last()
+                                    IntOffset(
+                                        last.offset.x,
+                                        (last.offset.y - last.size.height).coerceAtLeast(0)
+                                    )
+                                }
+                            },
+                            posts = posts,
+                            ngPostNumbers = ngNumbers,
+                            treeOrder = uiState.treeOrder,
+                            treeDepthMap = uiState.treeDepthMap,
+                            postNumber = postNum,
+                        )
+                    },
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    onReplyFromClick = { numbs ->
+                        val offset = if (popupStack.isEmpty()) {
+                            itemOffsetHolder.value
                             } else {
                                 val last = popupStack.last()
                                 IntOffset(
@@ -532,6 +555,17 @@ fun ThreadScreen(
             onImageLongPress = onImageLongPress,
             onRequestMenu = onRequestMenu,
             onShowTextMenu = onShowTextMenu,
+            onRequestTreePopup = { postNum, baseOffsetProvider ->
+                addPopupForTree(
+                    popupStack = popupStack,
+                    baseOffsetProvider = baseOffsetProvider,
+                    posts = posts,
+                    ngPostNumbers = ngNumbers,
+                    treeOrder = uiState.treeOrder,
+                    treeDepthMap = uiState.treeDepthMap,
+                    postNumber = postNum,
+                )
+            },
             onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) },
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
@@ -595,8 +629,49 @@ fun ThreadScreen(
         if (gestureSettings.showActionHints) {
             GestureHintOverlay(state = gestureHint)
         }
+        }
     }
-}
+
+    /**
+     * 指定レスが属するツリー全体をポップアップとして追加する。
+     */
+    private fun addPopupForTree(
+        popupStack: SnapshotStateList<PopupInfo>,
+    baseOffsetProvider: () -> IntOffset,
+        posts: List<ThreadPostUiModel>,
+        ngPostNumbers: Set<Int>,
+        treeOrder: List<Int>,
+        treeDepthMap: Map<Int, Int>,
+        postNumber: Int,
+    ) {
+        val selection = deriveTreePopupSelection(
+            postNumber = postNumber,
+            treeOrder = treeOrder,
+            treeDepthMap = treeDepthMap,
+        ) ?: return
+
+        val targets = mutableListOf<ThreadPostUiModel>()
+        val indentLevels = mutableListOf<Int>()
+        selection.numbers.zip(selection.indentLevels).forEach { (num, depth) ->
+            if (num in ngPostNumbers) {
+                return@forEach
+            }
+            val post = posts.getOrNull(num - 1) ?: return@forEach
+            targets.add(post)
+            indentLevels.add(depth)
+        }
+        if (targets.size <= 1) {
+            // NG除外後に単独になった場合は表示しない。
+            return
+        }
+        popupStack.add(
+            PopupInfo(
+                posts = targets,
+                offset = baseOffsetProvider(),
+                indentLevels = indentLevels,
+            )
+        )
+    }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
