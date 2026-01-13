@@ -1,6 +1,8 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import androidx.lifecycle.viewModelScope
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.NgType
@@ -33,6 +35,7 @@ import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
+import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
@@ -762,6 +765,156 @@ class ThreadViewModel @AssistedInject constructor(
                 imageMenuTargetUrl = null,
                 imageMenuTargetUrls = emptyList(),
             )
+        }
+    }
+
+    /**
+     * ポップアップのレイアウトサイズをUI状態へ反映する。
+     *
+     * サイズが変わらない場合は更新しない。
+     */
+    fun updatePopupSize(index: Int, size: IntSize) {
+        _uiState.update { state ->
+            val stack = state.popupStack
+            if (index !in stack.indices) {
+                // 範囲外の更新は無視する。
+                return@update state
+            }
+            val target = stack[index]
+            if (target.size == size) {
+                // 変更がない場合は更新しない。
+                return@update state
+            }
+            val updated = stack.toMutableList()
+            updated[index] = target.copy(size = size)
+            state.copy(popupStack = updated)
+        }
+    }
+
+    /**
+     * 最上位のポップアップを取り除く。
+     */
+    fun removeTopPopup() {
+        _uiState.update { state ->
+            if (state.popupStack.isEmpty()) {
+                // 表示対象がない場合は何もしない。
+                return@update state
+            }
+            state.copy(popupStack = state.popupStack.dropLast(1))
+        }
+    }
+
+    /**
+     * 返信元番号の投稿をまとめてポップアップとして追加する。
+     *
+     * NG投稿や範囲外番号は除外する。
+     */
+    fun addPopupForReplyFrom(baseOffset: IntOffset, replyNumbers: List<Int>) {
+        val posts = uiState.value.posts ?: run {
+            // 投稿が未取得の場合は追加しない。
+            return
+        }
+        val ngNumbers = uiState.value.ngPostNumbers
+        val targets = replyNumbers.filterNot { it in ngNumbers }
+            .mapNotNull { num -> posts.getOrNull(num - 1) }
+        if (targets.isEmpty()) {
+            // 有効な対象がない場合は追加しない。
+            return
+        }
+        appendPopup(PopupInfo(posts = targets, offset = baseOffset))
+    }
+
+    /**
+     * 指定された返信番号の投稿をポップアップとして追加する。
+     *
+     * 範囲外番号やNG投稿は無視する。
+     */
+    fun addPopupForReplyNumber(baseOffset: IntOffset, postNumber: Int) {
+        val posts = uiState.value.posts ?: run {
+            // 投稿が未取得の場合は追加しない。
+            return
+        }
+        val ngNumbers = uiState.value.ngPostNumbers
+        if (postNumber !in 1..posts.size || postNumber in ngNumbers) {
+            // 無効な番号またはNG投稿は追加しない。
+            return
+        }
+        appendPopup(PopupInfo(posts = listOf(posts[postNumber - 1]), offset = baseOffset))
+    }
+
+    /**
+     * 指定IDの投稿を抽出し、ポップアップとして追加する。
+     *
+     * NG投稿は除外する。
+     */
+    fun addPopupForId(baseOffset: IntOffset, id: String) {
+        val posts = uiState.value.posts ?: run {
+            // 投稿が未取得の場合は追加しない。
+            return
+        }
+        val ngNumbers = uiState.value.ngPostNumbers
+        val targets = posts.mapIndexedNotNull { idx, post ->
+            val num = idx + 1
+            if (post.header.id == id && num !in ngNumbers) post else null
+        }
+        if (targets.isEmpty()) {
+            // 有効な対象がない場合は追加しない。
+            return
+        }
+        appendPopup(PopupInfo(posts = targets, offset = baseOffset))
+    }
+
+    /**
+     * 指定レスが属するツリー全体をポップアップとして追加する。
+     *
+     * NG除外後に単独レスのみの場合は表示しない。
+     */
+    fun addPopupForTree(baseOffset: IntOffset, postNumber: Int) {
+        val state = uiState.value
+        val posts = state.posts ?: run {
+            // 投稿が未取得の場合は追加しない。
+            return
+        }
+
+        // --- Selection ---
+        val selection = deriveTreePopupSelection(
+            postNumber = postNumber,
+            treeOrder = state.treeOrder,
+            treeDepthMap = state.treeDepthMap,
+        ) ?: run {
+            // 対象ツリーがない場合は追加しない。
+            return
+        }
+
+        // --- Build targets ---
+        val targets = mutableListOf<ThreadPostUiModel>()
+        val indentLevels = mutableListOf<Int>()
+        selection.numbers.zip(selection.indentLevels).forEach { (num, depth) ->
+            if (num in state.ngPostNumbers) {
+                return@forEach
+            }
+            val post = posts.getOrNull(num - 1) ?: return@forEach
+            targets.add(post)
+            indentLevels.add(depth)
+        }
+        if (targets.size <= 1) {
+            // NG除外後に単独になった場合は追加しない。
+            return
+        }
+
+        // --- Append ---
+        appendPopup(
+            PopupInfo(
+                posts = targets,
+                offset = baseOffset,
+                indentLevels = indentLevels,
+            )
+        )
+    }
+
+    private fun appendPopup(info: PopupInfo) {
+        _uiState.update { state ->
+            state.copy(popupStack = state.popupStack + info)
         }
     }
 

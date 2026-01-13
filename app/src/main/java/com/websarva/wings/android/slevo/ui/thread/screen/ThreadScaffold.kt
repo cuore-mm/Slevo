@@ -216,6 +216,22 @@ fun ThreadScaffold(
                 onReplyToPost = { viewModel.postDialogActions.showReplyDialog(it) },
                 gestureSettings = uiState.gestureSettings,
                 onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
+                onRequestTreePopup = { postNum, baseOffset ->
+                    viewModel.addPopupForTree(baseOffset, postNum)
+                },
+                onAddPopupForReplyFrom = { replyNumbers, baseOffset ->
+                    viewModel.addPopupForReplyFrom(baseOffset, replyNumbers)
+                },
+                onAddPopupForReplyNumber = { postNumber, baseOffset ->
+                    viewModel.addPopupForReplyNumber(baseOffset, postNumber)
+                },
+                onAddPopupForId = { id, baseOffset ->
+                    viewModel.addPopupForId(baseOffset, id)
+                },
+                onPopupSizeChange = { index, size ->
+                    viewModel.updatePopupSize(index, size)
+                },
+                onRemoveTopPopup = { viewModel.removeTopPopup() },
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
                 onPopupVisibilityChange = { isPopupVisible = it },

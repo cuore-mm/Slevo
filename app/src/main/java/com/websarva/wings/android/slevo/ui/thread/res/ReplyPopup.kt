@@ -47,21 +47,9 @@ import androidx.compose.ui.zIndex
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import kotlin.math.min
-
-/**
- * 返信ポップアップ表示に必要な投稿と位置情報を保持する。
- *
- * 表示位置とサイズはポップアップのレイアウト計算に使用する。
- * [indentLevels] は投稿リストに対応するインデント段数を保持する。
- */
-data class PopupInfo(
-    val posts: List<ThreadPostUiModel>,
-    val offset: IntOffset,
-    val size: IntSize = IntSize.Zero,
-    val indentLevels: List<Int> = emptyList(),
-)
 
 // アニメーションの速度（ミリ秒）
 private const val POPUP_ANIMATION_DURATION = 160
@@ -75,7 +63,7 @@ private const val POPUP_ANIMATION_DURATION = 160
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ReplyPopup(
-    popupStack: SnapshotStateList<PopupInfo>,
+    popupStack: List<PopupInfo>,
     posts: List<ThreadPostUiModel>,
     replySourceMap: Map<Int, List<Int>>,
     idCountMap: Map<String, Int>,
@@ -92,7 +80,11 @@ fun ReplyPopup(
     onImageLongPress: (String, List<String>) -> Unit,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
-    onRequestTreePopup: (postNumber: Int, baseOffsetProvider: () -> IntOffset) -> Unit,
+    onRequestTreePopup: (postNumber: Int, baseOffset: IntOffset) -> Unit,
+    onAddPopupForReplyFrom: (replyNumbers: List<Int>, baseOffset: IntOffset) -> Unit,
+    onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit,
+    onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit,
+    onPopupSizeChange: (index: Int, size: IntSize) -> Unit,
     onClose: () -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
@@ -144,7 +136,7 @@ fun ReplyPopup(
                 onCloseTop = closeTopPopup,
                 onSizeChanged = { size ->
                     if (size != info.size) {
-                        popupStack[index] = info.copy(size = size)
+                        onPopupSizeChange(index, size)
                     }
                 }
             ) {
@@ -174,35 +166,26 @@ fun ReplyPopup(
                         { postNum ->
                             onRequestTreePopup(
                                 postNum,
-                                { calculatePopupOffset(popupStack[index]) }
+                                calculatePopupOffset(popupStack[index])
                             )
                         }
                     },
                     onReplyFromClick = { numbs ->
-                        addPopupForReplyFrom(
-                            popupStack = popupStack,
-                            baseOffsetProvider = { calculatePopupOffset(popupStack[index]) },
-                            posts = posts,
-                            ngPostNumbers = ngPostNumbers,
-                            replyNumbers = numbs,
+                        onAddPopupForReplyFrom(
+                            numbs,
+                            calculatePopupOffset(popupStack[index]),
                         )
                     },
                     onReplyClick = { num ->
-                        addPopupForReplyNumber(
-                            popupStack = popupStack,
-                            baseOffsetProvider = { calculatePopupOffset(popupStack[index]) },
-                            posts = posts,
-                            ngPostNumbers = ngPostNumbers,
-                            postNumber = num,
+                        onAddPopupForReplyNumber(
+                            num,
+                            calculatePopupOffset(popupStack[index]),
                         )
                     },
                     onIdClick = { id ->
-                        addPopupForId(
-                            popupStack = popupStack,
-                            baseOffsetProvider = { calculatePopupOffset(popupStack[index]) },
-                            posts = posts,
-                            ngPostNumbers = ngPostNumbers,
-                            id = id,
+                        onAddPopupForId(
+                            id,
+                            calculatePopupOffset(popupStack[index]),
                         )
                     },
                 )
@@ -235,7 +218,7 @@ private fun rememberPopupVisibilityStates(
  */
 @Composable
 private fun PopupBackgroundOverlay(
-    popupStack: SnapshotStateList<PopupInfo>,
+    popupStack: List<PopupInfo>,
     onCloseTop: () -> Unit,
 ) {
     if (popupStack.isEmpty()) {
@@ -461,63 +444,6 @@ private fun Modifier.disableInteractionOnUnderlay(
     }
 }
 
-/**
- * 返信元の投稿番号リストから表示対象を構築し、ポップアップとして追加する。
- */
-private fun addPopupForReplyFrom(
-    popupStack: SnapshotStateList<PopupInfo>,
-    baseOffsetProvider: () -> IntOffset,
-    posts: List<ThreadPostUiModel>,
-    ngPostNumbers: Set<Int>,
-    replyNumbers: List<Int>,
-) {
-    val targets = replyNumbers.filterNot { it in ngPostNumbers }
-        .mapNotNull { n -> posts.getOrNull(n - 1) }
-    if (targets.isEmpty()) {
-        // 対象がない場合は何もしない。
-        return
-    }
-    popupStack.add(PopupInfo(targets, baseOffsetProvider()))
-}
-
-/**
- * 指定された返信番号の投稿をポップアップとして追加する。
- */
-private fun addPopupForReplyNumber(
-    popupStack: SnapshotStateList<PopupInfo>,
-    baseOffsetProvider: () -> IntOffset,
-    posts: List<ThreadPostUiModel>,
-    ngPostNumbers: Set<Int>,
-    postNumber: Int,
-) {
-    if (postNumber !in 1..posts.size || postNumber in ngPostNumbers) {
-        // 無効な番号またはNG投稿は無視する。
-        return
-    }
-    val target = posts[postNumber - 1]
-    popupStack.add(PopupInfo(listOf(target), baseOffsetProvider()))
-}
-
-/**
- * 指定IDの投稿を抽出し、ポップアップとして追加する。
- */
-private fun addPopupForId(
-    popupStack: SnapshotStateList<PopupInfo>,
-    baseOffsetProvider: () -> IntOffset,
-    posts: List<ThreadPostUiModel>,
-    ngPostNumbers: Set<Int>,
-    id: String,
-) {
-    val targets = posts.mapIndexedNotNull { idx, post ->
-        val num = idx + 1
-        if (post.header.id == id && num !in ngPostNumbers) post else null
-    }
-    if (targets.isEmpty()) {
-        // 対象がない場合は何もしない。
-        return
-    }
-    popupStack.add(PopupInfo(targets, baseOffsetProvider()))
-}
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
@@ -579,6 +505,10 @@ fun ReplyPopupPreview() {
                 onRequestMenu = {},
                 onShowTextMenu = { _, _ -> },
                 onRequestTreePopup = { _, _ -> },
+                onAddPopupForReplyFrom = { _, _ -> },
+                onAddPopupForReplyNumber = { _, _ -> },
+                onAddPopupForId = { _, _ -> },
+                onPopupSizeChange = { _, _ -> },
                 onClose = {},
                 searchQuery = "",
                 sharedTransitionScope = this@SharedTransitionLayout,
