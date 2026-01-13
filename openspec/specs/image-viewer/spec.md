@@ -1,0 +1,26 @@
+# image-viewer Specification
+
+## Purpose
+TBD - created by archiving change add-image-viewer-swipe. Update Purpose after archive.
+## Requirements
+### Requirement: レス内画像のスワイプ閲覧
+システムは画像ビューアで、同一レス本文から抽出した画像URLを左右スワイプで切り替えられるようにするSHALL。
+
+#### Scenario: 同一レスの画像を横スワイプで切り替える
+- **WHEN** ユーザーがレス内の画像サムネイルから画像ビューアを開き、同一レス内に複数画像が存在する
+- **THEN** 画像ビューアはレス本文の画像URL順にページを並べ、左右スワイプで切り替えられる
+
+### Requirement: 初期表示画像の一致
+システムは画像ビューアを開いた際、タップされた画像URLを初期ページに設定するSHALL。
+
+#### Scenario: タップした画像を初期表示する
+- **WHEN** ユーザーがレス内の画像サムネイルをタップして画像ビューアを開く
+- **THEN** 画像ビューアは該当URLの画像を最初に表示する
+
+### Requirement: 切替対象の限定
+システムは画像ビューアの切替対象を同一レス本文から抽出した画像URLに限定するSHALL。
+
+#### Scenario: 他レスの画像を含めない
+- **WHEN** ユーザーが画像ビューアを開く
+- **THEN** 切り替え可能な画像は同じレス本文から抽出されたURLのみで構成される
+
