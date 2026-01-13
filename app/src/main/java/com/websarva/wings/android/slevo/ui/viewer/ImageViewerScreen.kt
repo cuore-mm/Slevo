@@ -20,9 +20,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -31,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import com.websarva.wings.android.slevo.R
 import me.saket.telephoto.zoomable.DoubleClickToZoomListener
 import me.saket.telephoto.zoomable.OverzoomEffect
+import me.saket.telephoto.zoomable.ZoomableState
 import me.saket.telephoto.zoomable.ZoomSpec
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
@@ -91,6 +95,19 @@ fun ImageViewerScreen(
             initialPage = safeInitialIndex,
             pageCount = { imageUrls.size },
         )
+        val zoomableStates = remember(imageUrls) {
+            MutableList(imageUrls.size) { mutableStateOf<ZoomableState?>(null) }
+        }
+        var lastPage by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
+
+        // --- Zoom reset ---
+        LaunchedEffect(pagerState.currentPage) {
+            val currentPage = pagerState.currentPage
+            if (currentPage != lastPage) {
+                zoomableStates.getOrNull(lastPage)?.value?.resetZoom()
+                lastPage = currentPage
+            }
+        }
 
         // --- Pager ---
         HorizontalPager(
@@ -98,35 +115,38 @@ fun ImageViewerScreen(
             modifier = Modifier.fillMaxSize(),
         ) { page ->
             val imageUrl = imageUrls[page]
-            // スワイプ時に拡大率をリセットするため、ページ切替で状態を作り直す。
-            key(pagerState.currentPage, imageUrl) {
-                val zoomableState = rememberZoomableState(
-                    zoomSpec = ZoomSpec(
-                        maxZoomFactor = 12f,                  // ← ここを例えば 8x や 12x に
-                        overzoomEffect = OverzoomEffect.RubberBanding // 端でビヨン効果（好みで）
-                    )
+            val zoomableState = rememberZoomableState(
+                zoomSpec = ZoomSpec(
+                    maxZoomFactor = 12f,                  // ← ここを例えば 8x や 12x に
+                    overzoomEffect = OverzoomEffect.RubberBanding // 端でビヨン効果（好みで）
                 )
-                val imageState = rememberZoomableImageState(zoomableState)
+            )
+            val imageState = rememberZoomableImageState(zoomableState)
 
-                with(sharedTransitionScope) {
-                    ZoomableAsyncImage(
-                        model = imageUrl,
-                        contentDescription = null,
-                        state = imageState,
-                        modifier = Modifier
-                            .sharedElement(
-                                sharedContentState = sharedTransitionScope.rememberSharedContentState(
-                                    key = imageUrl
-                                ),
-                                animatedVisibilityScope = animatedVisibilityScope
-                            )
-                            .fillMaxSize(),
-                        onClick = { isBarsVisible = !isBarsVisible },
-                        onDoubleClick = DoubleClickToZoomListener.cycle(
-                            maxZoomFactor = 2f,   // ← 好きな倍率にする（例: 2f, 3f など）
-                        ),
-                    )
+            SideEffect {
+                if (page in zoomableStates.indices) {
+                    zoomableStates[page].value = zoomableState
                 }
+            }
+
+            with(sharedTransitionScope) {
+                ZoomableAsyncImage(
+                    model = imageUrl,
+                    contentDescription = null,
+                    state = imageState,
+                    modifier = Modifier
+                        .sharedElement(
+                            sharedContentState = sharedTransitionScope.rememberSharedContentState(
+                                key = imageUrl
+                            ),
+                            animatedVisibilityScope = animatedVisibilityScope
+                        )
+                        .fillMaxSize(),
+                    onClick = { isBarsVisible = !isBarsVisible },
+                    onDoubleClick = DoubleClickToZoomListener.cycle(
+                        maxZoomFactor = 2f,   // ← 好きな倍率にする（例: 2f, 3f など）
+                    ),
+                )
             }
         }
     }
