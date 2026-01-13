@@ -5,12 +5,22 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,15 +33,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import com.websarva.wings.android.slevo.R
+import coil3.compose.SubcomposeAsyncImage
 import me.saket.telephoto.zoomable.DoubleClickToZoomListener
 import me.saket.telephoto.zoomable.OverzoomEffect
 import me.saket.telephoto.zoomable.ZoomableState
@@ -39,6 +57,7 @@ import me.saket.telephoto.zoomable.ZoomSpec
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
+import kotlinx.coroutines.launch
 
 /**
  * レス内画像の一覧をページング表示する画像ビューア。
@@ -90,15 +109,21 @@ fun ImageViewerScreen(
             // Guard: URLリストが空の場合は表示処理をスキップする。
             return@Scaffold
         }
+        val thumbnailSize = 56.dp
+        val thumbnailSpacing = 8.dp
         val safeInitialIndex = initialIndex.coerceIn(0, imageUrls.lastIndex)
         val pagerState = rememberPagerState(
             initialPage = safeInitialIndex,
             pageCount = { imageUrls.size },
         )
+        val thumbnailListState = rememberLazyListState(initialFirstVisibleItemIndex = safeInitialIndex)
+        val coroutineScope = rememberCoroutineScope()
         val zoomableStates = remember(imageUrls) {
             MutableList(imageUrls.size) { mutableStateOf<ZoomableState?>(null) }
         }
         var lastPage by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
+        var lastCenteredIndex by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
+        val thumbnailItemSizePx = remember(thumbnailSize) { mutableFloatStateOf(0f) }
 
         // --- Zoom reset ---
         LaunchedEffect(pagerState.currentPage) {
@@ -108,45 +133,110 @@ fun ImageViewerScreen(
                 lastPage = currentPage
             }
         }
-
-        // --- Pager ---
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-        ) { page ->
-            val imageUrl = imageUrls[page]
-            val zoomableState = rememberZoomableState(
-                zoomSpec = ZoomSpec(
-                    maxZoomFactor = 12f,                  // ← ここを例えば 8x や 12x に
-                    overzoomEffect = OverzoomEffect.RubberBanding // 端でビヨン効果（好みで）
-                )
+        LaunchedEffect(pagerState.currentPage, thumbnailListState.layoutInfo.viewportSize) {
+            val currentPage = pagerState.currentPage
+            val viewportWidth = thumbnailListState.layoutInfo.viewportSize.width
+            if (viewportWidth == 0 || currentPage == lastCenteredIndex) {
+                return@LaunchedEffect
+            }
+            val itemSizePx = thumbnailItemSizePx.floatValue
+            if (itemSizePx == 0f) {
+                return@LaunchedEffect
+            }
+            val centerOffset = (itemSizePx / 2f - viewportWidth / 2f).roundToInt()
+            thumbnailListState.animateScrollToItem(
+                index = currentPage,
+                scrollOffset = centerOffset,
             )
-            val imageState = rememberZoomableImageState(zoomableState)
+            lastCenteredIndex = currentPage
+        }
 
-            SideEffect {
-                if (page in zoomableStates.indices) {
-                    zoomableStates[page].value = zoomableState
+        Box(modifier = Modifier.fillMaxSize()) {
+            // --- Pager ---
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                val imageUrl = imageUrls[page]
+                val zoomableState = rememberZoomableState(
+                    zoomSpec = ZoomSpec(
+                        maxZoomFactor = 12f,                  // ← ここを例えば 8x や 12x に
+                        overzoomEffect = OverzoomEffect.RubberBanding // 端でビヨン効果（好みで）
+                    )
+                )
+                val imageState = rememberZoomableImageState(zoomableState)
+
+                SideEffect {
+                    if (page in zoomableStates.indices) {
+                        zoomableStates[page].value = zoomableState
+                    }
+                }
+
+                with(sharedTransitionScope) {
+                    ZoomableAsyncImage(
+                        model = imageUrl,
+                        contentDescription = null,
+                        state = imageState,
+                        modifier = Modifier
+                            .sharedElement(
+                                sharedContentState = sharedTransitionScope.rememberSharedContentState(
+                                    key = imageUrl
+                                ),
+                                animatedVisibilityScope = animatedVisibilityScope
+                            )
+                            .fillMaxSize(),
+                        onClick = { isBarsVisible = !isBarsVisible },
+                        onDoubleClick = DoubleClickToZoomListener.cycle(
+                            maxZoomFactor = 2f,   // ← 好きな倍率にする（例: 2f, 3f など）
+                        ),
+                    )
                 }
             }
 
-            with(sharedTransitionScope) {
-                ZoomableAsyncImage(
-                    model = imageUrl,
-                    contentDescription = null,
-                    state = imageState,
-                    modifier = Modifier
-                        .sharedElement(
-                            sharedContentState = sharedTransitionScope.rememberSharedContentState(
-                                key = imageUrl
-                            ),
-                            animatedVisibilityScope = animatedVisibilityScope
+            // --- Thumbnails ---
+            AnimatedVisibility(
+                visible = isBarsVisible,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter),
+            ) {
+                LazyRow(
+                    state = thumbnailListState,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(thumbnailSpacing),
+                    modifier = Modifier.background(Color.Black.copy(alpha = 0.45f)),
+                ) {
+                    items(imageUrls.size) { index ->
+                        val isSelected = index == pagerState.currentPage
+                        val scale by animateFloatAsState(
+                            targetValue = if (isSelected) 1.1f else 1f,
+                            label = "thumbnailScale",
                         )
-                        .fillMaxSize(),
-                    onClick = { isBarsVisible = !isBarsVisible },
-                    onDoubleClick = DoubleClickToZoomListener.cycle(
-                        maxZoomFactor = 2f,   // ← 好きな倍率にする（例: 2f, 3f など）
-                    ),
-                )
+                        SubcomposeAsyncImage(
+                            model = imageUrls[index],
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(thumbnailSize)
+                                .onSizeChanged { size ->
+                                    if (thumbnailItemSizePx.floatValue == 0f) {
+                                        thumbnailItemSizePx.floatValue = size.width.toFloat()
+                                    }
+                                }
+                                .graphicsLayer {
+                                    scaleX = scale
+                                    scaleY = scale
+                                }
+                                .clickable {
+                                    if (index != pagerState.currentPage) {
+                                        coroutineScope.launch {
+                                            pagerState.animateScrollToPage(index)
+                                        }
+                                    }
+                                }
+                                .background(Color.DarkGray),
+                        )
+                    }
+                }
             }
         }
     }
