@@ -148,11 +148,11 @@ fun ReplyPopup(
                     }
                 }
             ) {
-                    PopupPostList(
-                        info = info,
-                        posts = posts,
-                        replySourceMap = replySourceMap,
-                        idCountMap = idCountMap,
+                PopupPostList(
+                    info = info,
+                    posts = posts,
+                    replySourceMap = replySourceMap,
+                    idCountMap = idCountMap,
                     idIndexList = idIndexList,
                     ngPostNumbers = ngPostNumbers,
                     myPostNumbers = myPostNumbers,
@@ -164,25 +164,25 @@ fun ReplyPopup(
                     onThreadUrlClick = onThreadUrlClick,
                     onImageClick = onImageClick,
                     onImageLongPress = onImageLongPress,
-                        onRequestMenu = onRequestMenu,
-                        onShowTextMenu = onShowTextMenu,
-                        sharedTransitionScope = sharedTransitionScope,
-                        animatedVisibilityScope = animatedVisibilityScope,
-                        onContentClick = if (info.indentLevels.isNotEmpty()) {
-                            null
-                        } else {
-                            { postNum ->
-                                onRequestTreePopup(
-                                    postNum,
-                                    { calculatePopupOffset(popupStack[index]) }
-                                )
-                            }
-                        },
-                        onReplyFromClick = { numbs ->
-                            addPopupForReplyFrom(
-                                popupStack = popupStack,
-                                baseOffsetProvider = { calculatePopupOffset(popupStack[index]) },
-                                posts = posts,
+                    onRequestMenu = onRequestMenu,
+                    onShowTextMenu = onShowTextMenu,
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    onContentClick = if (info.indentLevels.isNotEmpty()) {
+                        null
+                    } else {
+                        { postNum ->
+                            onRequestTreePopup(
+                                postNum,
+                                { calculatePopupOffset(popupStack[index]) }
+                            )
+                        }
+                    },
+                    onReplyFromClick = { numbs ->
+                        addPopupForReplyFrom(
+                            popupStack = popupStack,
+                            baseOffsetProvider = { calculatePopupOffset(popupStack[index]) },
+                            posts = posts,
                             ngPostNumbers = ngPostNumbers,
                             replyNumbers = numbs,
                         )
