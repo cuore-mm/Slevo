@@ -588,17 +588,17 @@ fun ThreadScaffold(
                     onImageUrlClick = { urls, tappedIndex ->
                         if (urls.isEmpty()) {
                             // Guard: 画像が存在しない場合は遷移しない。
-                            return@onImageUrlClick
-                        }
-                        val encodedUrls = urls.map { imageUrl ->
-                            URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
-                        }
-                        navController.navigate(
-                            AppRoute.ImageViewer(
-                                imageUrls = encodedUrls,
-                                initialIndex = tappedIndex.coerceIn(encodedUrls.indices),
+                        } else {
+                            val encodedUrls = urls.map { imageUrl ->
+                                URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
+                            }
+                            navController.navigate(
+                                AppRoute.ImageViewer(
+                                    imageUrls = encodedUrls,
+                                    initialIndex = tappedIndex.coerceIn(encodedUrls.indices),
+                                )
                             )
-                        )
+                        }
                     },
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,

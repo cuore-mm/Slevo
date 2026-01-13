@@ -146,18 +146,18 @@ fun ThreadScreen(
     val onImageClick: (String, List<String>, Int) -> Unit = { _, imageUrls, tappedIndex ->
         if (imageUrls.isEmpty()) {
             // Guard: 画像が存在しない場合は遷移しない。
-            return@onImageClick
-        }
-        val encodedUrls = imageUrls.map { imageUrl ->
-            URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
-        }
-        val initialIndex = tappedIndex.coerceIn(encodedUrls.indices)
-        navController.navigate(
-            AppRoute.ImageViewer(
-                imageUrls = encodedUrls,
-                initialIndex = initialIndex,
+        } else {
+            val encodedUrls = imageUrls.map { imageUrl ->
+                URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
+            }
+            val initialIndex = tappedIndex.coerceIn(encodedUrls.indices)
+            navController.navigate(
+                AppRoute.ImageViewer(
+                    imageUrls = encodedUrls,
+                    initialIndex = initialIndex,
+                )
             )
-        )
+        }
     }
     val onRequestMenu: (PostDialogTarget) -> Unit = { target ->
         menuTarget = target
