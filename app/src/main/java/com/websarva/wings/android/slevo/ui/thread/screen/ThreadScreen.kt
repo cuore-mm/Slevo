@@ -112,7 +112,7 @@ fun ThreadScreen(
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     onGestureAction: (GestureAction) -> Unit = {},
     onPopupVisibilityChange: (Boolean) -> Unit = {},
-    onImageLongPress: (String) -> Unit = {},
+    onImageLongPress: (String, List<String>) -> Unit = { _, _ -> },
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {

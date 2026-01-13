@@ -1,0 +1,13 @@
+<resources>
+    <!-- Thread view and posting -->
+    <string name="post">書き込む</string>
+    <string name="start_auto_scroll">自動スクロール開始</string>
+    <string name="stop_auto_scroll">自動スクロール停止</string>
+    <string name="thread_date">%1$d年%2$d月%3$d日%4$s曜日 %5$02d:%6$02d</string>
+    <string name="posting_in_progress">書き込み中</string>
+    <string name="momentum">勢い</string>
+    <string name="title_and_url">タイトル + URL</string>
+    <string name="header_and_body">ヘッダー + 本文</string>
+    <string name="number_order">番号順</string>
+    <string name="tree_order">ツリー順</string>
+</resources>

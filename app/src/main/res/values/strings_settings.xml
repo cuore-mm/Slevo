@@ -1,0 +1,62 @@
+<resources>
+    <!-- Display settings -->
+    <string name="display_settings">表示設定</string>
+    <string name="text_size">テキストサイズ</string>
+    <string name="individual_text_settings">個別に設定する</string>
+    <string name="header_text_size">ヘッダーのテキストサイズ</string>
+    <string name="body_text_size">本文のテキストサイズ</string>
+    <string name="line_spacing">行間</string>
+    <string name="reset">リセット</string>
+
+    <string name="default_thread_sort_order">レスのデフォルトの並び順</string>
+    <string name="thread_scrollbar_settings">スクロールバー</string>
+    <string name="show_minimap_scrollbar">ミニマップ付きスクロールバーを表示する</string>
+    <string name="show_minimap_scrollbar_description">スレッド画面右側のミニマップ付きスクロールバーを有効にします</string>
+
+    <!-- Gesture settings -->
+    <string name="gesture_settings">ジェスチャー</string>
+    <string name="switch_on">ON</string>
+    <string name="switch_off">OFF</string>
+    <string name="gesture_supporting_description">板・スレッドの閲覧画面でジェスチャー操作が使えます。</string>
+    <string name="gesture_show_action_hint">アクションのヒントを表示</string>
+    <string name="gesture_action_unassigned">なし</string>
+    <string name="gesture_action_unassigned_message">アクションなし</string>
+    <string name="gesture_reset_settings">設定をリセット</string>
+    <string name="gesture_reset_settings_description">ジェスチャーの設定を初期状態に戻します。</string>
+    <string name="gesture_action_to_top">最上部までスクロール</string>
+    <string name="gesture_action_to_bottom">最下部までスクロール</string>
+    <string name="gesture_action_post_or_create_thread">書き込み / スレッド作成</string>
+    <string name="gesture_action_open_tab_list">タブ一覧を開く</string>
+    <string name="gesture_action_open_bookmark_list">ブックマーク一覧へ移動</string>
+    <string name="gesture_action_open_board_list">板一覧へ移動</string>
+    <string name="gesture_action_open_history">履歴へ移動</string>
+    <string name="gesture_action_open_new_tab">新しいタブを開く</string>
+    <string name="gesture_action_switch_to_next_tab">右のタブに切り替え</string>
+    <string name="gesture_action_switch_to_previous_tab">左のタブに切り替え</string>
+    <string name="gesture_action_close_tab">現在のタブを閉じる</string>
+    <string name="gesture_invalid_message">無効なジェスチャーです</string>
+    <string name="gesture_direction_right">右</string>
+    <string name="gesture_direction_right_up">右 → 上</string>
+    <string name="gesture_direction_right_left">右 → 左</string>
+    <string name="gesture_direction_right_down">右 → 下</string>
+    <string name="gesture_direction_left">左</string>
+    <string name="gesture_direction_left_up">左 → 上</string>
+    <string name="gesture_direction_left_right">左 → 右</string>
+    <string name="gesture_direction_left_down">左 → 下</string>
+
+    <!-- General settings and about -->
+    <string name="settings_general">全般</string>
+    <string name="thread_display">スレッドの表示</string>
+    <string name="about_this_app">このアプリについて</string>
+    <string name="version_name_label">バージョン: %1$s</string>
+    <string name="github">GitHub</string>
+    <string name="github_url">https://github.com/cuore-mm/Slevo</string>
+    <string name="open_source_licenses">オープンソースライセンス</string>
+
+    <!-- Cookie management -->
+    <string name="cookie_management">Cookieの管理</string>
+    <string name="cookie_domain_path">Domain / Path: %1$s / %2$s</string>
+    <string name="cookie_expires">Expires / Max-Age: %1$s</string>
+    <string name="cookie_size">Size: %1$d</string>
+    <string name="cookie_value_preview">Value: %1$s</string>
+</resources>

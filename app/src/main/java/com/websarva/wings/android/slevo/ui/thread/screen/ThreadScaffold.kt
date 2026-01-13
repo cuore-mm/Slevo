@@ -27,35 +27,35 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadId
-import com.websarva.wings.android.slevo.data.model.GestureAction
-import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
-import com.websarva.wings.android.slevo.ui.common.PostingDialog
-import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
-import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
+import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
+import com.websarva.wings.android.slevo.ui.common.PostingDialog
+import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import com.websarva.wings.android.slevo.ui.thread.sheet.DisplaySettingsBottomSheet
-import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
-import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
-import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
+import com.websarva.wings.android.slevo.ui.thread.sheet.DisplaySettingsBottomSheet
+import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
+import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
+import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.util.CustomTabsUtil
 import com.websarva.wings.android.slevo.ui.util.ImageCopyUtil
 import com.websarva.wings.android.slevo.ui.util.buildLensSearchUrl
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
+import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import kotlinx.coroutines.launch
 
 /**
  * スレッド画面の主要UIを構築する。
@@ -215,7 +215,7 @@ fun ThreadScaffold(
                 },
                 onReplyToPost = { viewModel.postDialogActions.showReplyDialog(it) },
                 gestureSettings = uiState.gestureSettings,
-                onImageLongPress = { url -> viewModel.openImageMenu(url) },
+                onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
                 onPopupVisibilityChange = { isPopupVisible = it },
@@ -233,8 +233,12 @@ fun ThreadScaffold(
                         GestureAction.SwitchToPreviousTab -> tabsViewModel.animateThreadPage(-1)
                         GestureAction.CloseTab ->
                             if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
-                                tabsViewModel.closeThreadTab(uiState.threadInfo.key, uiState.boardInfo.url)
+                                tabsViewModel.closeThreadTab(
+                                    uiState.threadInfo.key,
+                                    uiState.boardInfo.url
+                                )
                             }
+
                         GestureAction.ToTop, GestureAction.ToBottom -> Unit
                     }
                 }
@@ -243,33 +247,64 @@ fun ThreadScaffold(
         optionalSheetContent = { viewModel, uiState ->
             val clipboard = LocalClipboard.current
             val coroutineScope = rememberCoroutineScope()
-            var pendingSaveImageUrl by remember { mutableStateOf<String?>(null) }
+            val launchSaveImages: (List<String>) -> Unit = launchSaveImages@{ urls ->
+                // 空URLは保存しない。
+                if (urls.isEmpty()) {
+                    return@launchSaveImages
+                }
+                val inProgressMessage = R.string.image_save_in_progress
+                Toast.makeText(
+                    context,
+                    inProgressMessage,
+                    Toast.LENGTH_SHORT
+                ).show()
+                coroutineScope.launch {
+                    val summary = viewModel.saveImageUrls(context, urls)
+                    val message = when {
+                        // 画像が1枚のみの場合は件数表示を省略する。
+                        urls.size == 1 && summary.failureCount == 0 -> {
+                            context.getString(R.string.image_save_result_single_success)
+                        }
+
+                        urls.size == 1 && summary.successCount == 0 -> {
+                            context.getString(R.string.image_save_result_single_failed)
+                        }
+
+                        summary.failureCount == 0 -> {
+                            context.getString(
+                                R.string.image_save_result_success,
+                                summary.successCount,
+                            )
+                        }
+
+                        summary.successCount == 0 -> {
+                            context.getString(
+                                R.string.image_save_result_all_failed,
+                                summary.failureCount,
+                            )
+                        }
+
+                        else -> {
+                            context.getString(
+                                R.string.image_save_result_partial,
+                                summary.successCount,
+                                summary.failureCount,
+                            )
+                        }
+                    }
+                    Toast.makeText(
+                        context,
+                        message,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
             val imageSavePermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission()
             ) { granted ->
-                val pendingUrl = pendingSaveImageUrl
-                if (granted && !pendingUrl.isNullOrBlank()) {
-                    Toast.makeText(
-                        context,
-                        R.string.image_save_in_progress,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    coroutineScope.launch {
-                        val result = ImageCopyUtil.saveImageToMediaStore(context, pendingUrl)
-                        result.onSuccess {
-                            Toast.makeText(
-                                context,
-                                R.string.image_save_success,
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }.onFailure {
-                            Toast.makeText(
-                                context,
-                                R.string.image_save_failed,
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
+                val pendingUrls = viewModel.consumePendingImageSaveUrls()
+                if (granted && !pendingUrls.isNullOrEmpty()) {
+                    launchSaveImages(pendingUrls)
                 } else if (!granted) {
                     Toast.makeText(
                         context,
@@ -277,7 +312,27 @@ fun ThreadScaffold(
                         Toast.LENGTH_SHORT
                     ).show()
                 }
-                pendingSaveImageUrl = null
+            }
+            val requestImageSave: (List<String>) -> Unit = requestImageSave@{ urls ->
+                val targetUrls = viewModel.normalizeImageSaveUrls(urls)
+                if (targetUrls.isEmpty()) {
+                    // 空URLのみの場合は保存しない。
+                    return@requestImageSave
+                }
+                val needsPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+                val permission = Manifest.permission.WRITE_EXTERNAL_STORAGE
+                val hasPermission = !needsPermission ||
+                        ContextCompat.checkSelfPermission(
+                            context,
+                            permission
+                        ) == PackageManager.PERMISSION_GRANTED
+                if (!hasPermission) {
+                    // 権限付与後に保存を再試行できるようURLを保持する。
+                    viewModel.setPendingImageSaveUrls(targetUrls)
+                    imageSavePermissionLauncher.launch(permission)
+                } else {
+                    launchSaveImages(targetUrls)
+                }
             }
 
             ThreadInfoBottomSheet(
@@ -292,6 +347,7 @@ fun ThreadScaffold(
             ImageMenuSheet(
                 show = uiState.showImageMenuSheet,
                 imageUrl = uiState.imageMenuTargetUrl,
+                imageUrls = uiState.imageMenuTargetUrls,
                 onActionSelected = { action ->
                     val targetUrl = uiState.imageMenuTargetUrl.orEmpty()
                     when (action) {
@@ -305,6 +361,7 @@ fun ThreadScaffold(
                                 }
                             }
                         }
+
                         ImageMenuAction.COPY_IMAGE -> {
                             // 空URLはコピーしない。
                             if (targetUrl.isNotBlank()) {
@@ -327,6 +384,7 @@ fun ThreadScaffold(
                                 }
                             }
                         }
+
                         ImageMenuAction.OPEN_IN_OTHER_APP -> {
                             // 空URLは開かない。
                             if (targetUrl.isNotBlank()) {
@@ -358,48 +416,21 @@ fun ThreadScaffold(
                                 }
                             }
                         }
+
                         ImageMenuAction.SAVE_IMAGE -> {
                             // 空URLは保存しない。
                             if (targetUrl.isNotBlank()) {
-                                val needsPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-                                val permission = Manifest.permission.WRITE_EXTERNAL_STORAGE
-                                val hasPermission = !needsPermission ||
-                                    ContextCompat.checkSelfPermission(
-                                        context,
-                                permission
-                            ) == PackageManager.PERMISSION_GRANTED
-                        if (!hasPermission) {
-                            // 権限付与後に保存を再試行できるようURLを保持する。
-                            pendingSaveImageUrl = targetUrl
-                            imageSavePermissionLauncher.launch(permission)
-                        } else {
-                            Toast.makeText(
-                                context,
-                                R.string.image_save_in_progress,
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            coroutineScope.launch {
-                                val result = ImageCopyUtil.saveImageToMediaStore(
-                                    context,
-                                    targetUrl
-                                )
-                                        result.onSuccess {
-                                            Toast.makeText(
-                                                context,
-                                                R.string.image_save_success,
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }.onFailure {
-                                            Toast.makeText(
-                                                context,
-                                                R.string.image_save_failed,
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    }
-                                }
+                                requestImageSave(listOf(targetUrl))
                             }
                         }
+
+                        ImageMenuAction.SAVE_ALL_IMAGES -> {
+                            // レス内画像が2件以上ある場合のみ処理する。
+                            if (uiState.imageMenuTargetUrls.size >= 2) {
+                                requestImageSave(uiState.imageMenuTargetUrls)
+                            }
+                        }
+
                         ImageMenuAction.SEARCH_WEB -> {
                             // 空URLは検索しない。
                             if (targetUrl.isNotBlank()) {
@@ -414,6 +445,7 @@ fun ThreadScaffold(
                                 }
                             }
                         }
+
                         ImageMenuAction.SHARE_IMAGE -> {
                             // 空URLは共有しない。
                             if (targetUrl.isNotBlank()) {
@@ -520,18 +552,25 @@ fun ThreadScaffold(
                         when (action) {
                             is PostDialogAction.ChangeName ->
                                 viewModel.postDialogActions.updateName(action.value)
+
                             is PostDialogAction.ChangeMail ->
                                 viewModel.postDialogActions.updateMail(action.value)
+
                             is PostDialogAction.ChangeMessage ->
                                 viewModel.postDialogActions.updateMessage(action.value)
+
                             is PostDialogAction.SelectNameHistory ->
                                 viewModel.postDialogActions.selectNameHistory(action.value)
+
                             is PostDialogAction.SelectMailHistory ->
                                 viewModel.postDialogActions.selectMailHistory(action.value)
+
                             is PostDialogAction.DeleteNameHistory ->
                                 viewModel.postDialogActions.deleteNameHistory(action.value)
+
                             is PostDialogAction.DeleteMailHistory ->
                                 viewModel.postDialogActions.deleteMailHistory(action.value)
+
                             PostDialogAction.Post -> {
                                 parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
                                     viewModel.postDialogActions.postFirstPhase(
@@ -541,6 +580,7 @@ fun ThreadScaffold(
                                     )
                                 }
                             }
+
                             is PostDialogAction.ChangeTitle -> Unit
                         }
                     },

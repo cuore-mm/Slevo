@@ -25,6 +25,8 @@ import coil3.compose.SubcomposeAsyncImage
  * 画像URL一覧をサムネイルのグリッドとして表示する。
  *
  * タップと長押しを分岐して通知し、サムネイルには共有トランジション用の要素を付与する。
+ *
+ * 長押し時は対象URLと同一投稿内の画像URL一覧を通知する。
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -32,7 +34,7 @@ fun ImageThumbnailGrid(
     imageUrls: List<String>,
     modifier: Modifier = Modifier,
     onImageClick: (String) -> Unit,
-    onImageLongPress: ((String) -> Unit)? = null,
+    onImageLongPress: ((String, List<String>) -> Unit)? = null,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -51,7 +53,7 @@ fun ImageThumbnailGrid(
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .combinedClickable(
                                     onClick = { onImageClick(url) },
-                                    onLongClick = onImageLongPress?.let { { it(url) } },
+                                    onLongClick = onImageLongPress?.let { { it(url, imageUrls) } },
                                 )
                                 .sharedElement(
                                     sharedContentState = sharedTransitionScope.rememberSharedContentState(

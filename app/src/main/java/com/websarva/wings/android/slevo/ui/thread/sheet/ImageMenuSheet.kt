@@ -7,7 +7,6 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,6 +31,7 @@ enum class ImageMenuAction {
     COPY_IMAGE,
     COPY_IMAGE_URL,
     OPEN_IN_OTHER_APP,
+    SAVE_ALL_IMAGES,
     SAVE_IMAGE,
     SEARCH_WEB,
     SHARE_IMAGE,
@@ -41,12 +41,15 @@ enum class ImageMenuAction {
  * 画像メニューのボトムシートを表示する。
  *
  * 表示条件を満たす場合のみメニューを描画し、選択アクションを通知する。
+ *
+ * レス内画像が複数ある場合は一括保存の項目を追加する。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImageMenuSheet(
     show: Boolean,
     imageUrl: String?,
+    imageUrls: List<String>,
     onActionSelected: (ImageMenuAction) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
@@ -59,7 +62,10 @@ fun ImageMenuSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
     ) {
-        ImageMenuSheetContent(onActionSelected = onActionSelected)
+        ImageMenuSheetContent(
+            onActionSelected = onActionSelected,
+            saveAllImageCount = imageUrls.size,
+        )
     }
 }
 
@@ -71,6 +77,7 @@ fun ImageMenuSheet(
 @Composable
 fun ImageMenuSheetContent(
     onActionSelected: (ImageMenuAction) -> Unit,
+    saveAllImageCount: Int,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         BottomSheetListItem(
@@ -84,6 +91,16 @@ fun ImageMenuSheetContent(
             icon = Icons.Outlined.Download,
             onClick = { onActionSelected(ImageMenuAction.SAVE_IMAGE) }
         )
+        if (saveAllImageCount >= 2) {
+            BottomSheetListItem(
+                text = stringResource(
+                    R.string.image_menu_save_all_images_with_count,
+                    saveAllImageCount,
+                ),
+                icon = null,
+                onClick = { onActionSelected(ImageMenuAction.SAVE_ALL_IMAGES) }
+            )
+        }
         BottomSheetListItem(
             text = stringResource(R.string.image_menu_copy_image),
             icon = Icons.Outlined.ContentCopy,
@@ -91,7 +108,7 @@ fun ImageMenuSheetContent(
         )
         BottomSheetListItem(
             text = stringResource(R.string.image_menu_copy_image_url),
-            icon = Icons.Outlined.Link,
+            icon = null,
             onClick = { onActionSelected(ImageMenuAction.COPY_IMAGE_URL) }
         )
         HorizontalDivider()
@@ -121,6 +138,10 @@ private fun ImageMenuSheetPreview() {
         ImageMenuSheet(
             show = true,
             imageUrl = "https://example.com/image.png",
+            imageUrls = listOf(
+                "https://example.com/image.png",
+                "https://example.com/image2.png",
+            ),
             onActionSelected = {},
             onDismissRequest = {},
         )
