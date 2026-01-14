@@ -318,7 +318,7 @@ private fun ImageViewerThumbnailBar(
             // Guard: 選択中サムネイルのサイズ取得後に中央寄せを行う。
             return@LaunchedEffect
         }
-        val centerOffset = (itemSizePx / 2f - viewportWidth / 2f).roundToInt()
+        val centerOffset = ((viewportWidth - itemSizePx) / 2f).roundToInt()
         thumbnailListState.animateScrollToItem(
             index = currentPage,
             scrollOffset = centerOffset,
