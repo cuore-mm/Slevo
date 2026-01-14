@@ -13,7 +13,9 @@
   - `visibleItemsInfo` から選択アイテムの `offset / size` を使い、アイテム中心を算出する。
   - `delta = itemCenter - viewportCenter` を計算し、`abs(delta) >= 1px` の場合のみ `animateScrollBy(delta)` を実行する。
   - 選択アイテムが可視範囲外の場合は `scrollToItem(index)` で可視化し、次のフレームで差分スクロールを行う。
-  - 端でも中央寄せできるよう、`centerPadding = max(0, viewportWidth / 2 - itemWidth / 2)` を左右の `contentPadding` に設定する。
+  - 端でも中央寄せできるよう、`centerPadding = max(0, viewportWidth / 2 - selectedItemWidth / 2)` を左右の `contentPadding` に設定する。
+    - viewportWidth = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset とする。 
+    - selectedItemWidth は選択中サムネイルの 拡大後の実測幅（onSizeChanged で取得）を使う。0 の間は 0 扱いにし、取得後に再センタリングする。
   - 画像枚数が少ない場合も同じパディングと差分スクロールが有効になり、中央に固定される。
 
 ## Alternatives considered
