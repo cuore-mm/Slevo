@@ -149,29 +149,34 @@ fun ImageViewerScreen(
             )
 
             if (imageUrls.size > 1) {
-                ImageViewerThumbnailBar(
-                    imageUrls = imageUrls,
-                    pagerState = pagerState,
-                    isBarsVisible = isBarsVisible,
-                    thumbnailListState = thumbnailListState,
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                    thumbnailWidth = thumbnailWidth,
-                    thumbnailHeight = thumbnailHeight,
-                    thumbnailShape = thumbnailShape,
-                    thumbnailSpacing = thumbnailSpacing,
-                    selectedThumbnailScale = selectedThumbnailScale,
-                    barBackgroundColor = barBackgroundColor,
-                    thumbnailItemSizePx = thumbnailItemSizePx,
-                    lastCenteredIndex = lastCenteredIndex,
-                    onCenteredIndexChange = { lastCenteredIndex = it },
-                    onThumbnailClick = { index ->
-                        if (index != pagerState.currentPage) {
-                            coroutineScope.launch {
-                                pagerState.animateScrollToPage(index)
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.BottomCenter,
+                ) {
+                    ImageViewerThumbnailBar(
+                        imageUrls = imageUrls,
+                        pagerState = pagerState,
+                        isBarsVisible = isBarsVisible,
+                        thumbnailListState = thumbnailListState,
+                        modifier = Modifier.fillMaxWidth(),
+                        thumbnailWidth = thumbnailWidth,
+                        thumbnailHeight = thumbnailHeight,
+                        thumbnailShape = thumbnailShape,
+                        thumbnailSpacing = thumbnailSpacing,
+                        selectedThumbnailScale = selectedThumbnailScale,
+                        barBackgroundColor = barBackgroundColor,
+                        thumbnailItemSizePx = thumbnailItemSizePx,
+                        lastCenteredIndex = lastCenteredIndex,
+                        onCenteredIndexChange = { lastCenteredIndex = it },
+                        onThumbnailClick = { index ->
+                            if (index != pagerState.currentPage) {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
                             }
-                        }
-                    },
-                )
+                        },
+                    )
+                }
             }
         }
     }
@@ -262,7 +267,7 @@ private fun ImageViewerPager(
                         animatedVisibilityScope = animatedVisibilityScope
                     )
                     .fillMaxSize(),
-                onClick = { onToggleBars() },
+                onClick = { _ -> onToggleBars() },
                 onDoubleClick = DoubleClickToZoomListener.cycle(
                     maxZoomFactor = 2f,
                 ),
