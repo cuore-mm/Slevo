@@ -85,12 +85,16 @@ fun ReplyPopup(
     onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit,
     onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit,
     onPopupSizeChange: (index: Int, size: IntSize) -> Unit,
+    skipEnterAnimation: Boolean = false,
     onClose: () -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     // --- 表示状態管理 ---
-    val visibilityStates = rememberPopupVisibilityStates(popupStack.size)
+    val visibilityStates = rememberPopupVisibilityStates(
+        popupStackSize = popupStack.size,
+        skipInitialEnterAnimation = skipEnterAnimation
+    )
 
     // --- 終了操作 ---
     val closeTopPopup: () -> Unit = {
@@ -203,11 +207,13 @@ fun ReplyPopup(
 @Composable
 private fun rememberPopupVisibilityStates(
     popupStackSize: Int,
+    skipInitialEnterAnimation: Boolean,
 ): SnapshotStateList<MutableTransitionState<Boolean>> {
     val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
 
-    LaunchedEffect(popupStackSize) {
-        syncVisibilityStates(visibilityStates, popupStackSize)
+    LaunchedEffect(popupStackSize, skipInitialEnterAnimation) {
+        val skipInitial = skipInitialEnterAnimation && visibilityStates.isEmpty()
+        syncVisibilityStates(visibilityStates, popupStackSize, skipInitial)
     }
 
     return visibilityStates
@@ -383,9 +389,15 @@ private fun calculatePopupOffset(info: PopupInfo): IntOffset {
 private fun syncVisibilityStates(
     visibilityStates: SnapshotStateList<MutableTransitionState<Boolean>>,
     targetSize: Int,
+    skipInitialEnterAnimation: Boolean,
 ) {
     while (visibilityStates.size < targetSize) {
-        visibilityStates.add(MutableTransitionState(false).apply { targetState = true })
+        val state = if (skipInitialEnterAnimation) {
+            MutableTransitionState(true)
+        } else {
+            MutableTransitionState(false).apply { targetState = true }
+        }
+        visibilityStates.add(state)
     }
     while (visibilityStates.size > targetSize) {
         visibilityStates.removeAt(visibilityStates.lastIndex)

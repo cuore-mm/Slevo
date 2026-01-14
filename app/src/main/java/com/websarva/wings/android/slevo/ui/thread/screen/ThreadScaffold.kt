@@ -13,6 +13,7 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -22,8 +23,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.toClipEntry
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -201,6 +205,20 @@ fun ThreadScaffold(
                     viewModel.setNewArrivalInfo(it.firstNewResNo, it.prevResCount)
                 }
             }
+
+            val lifecycleOwner = LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner, viewModel) {
+                val observer = LifecycleEventObserver { _, event ->
+                    when (event) {
+                        Lifecycle.Event.ON_PAUSE -> viewModel.onScreenPaused()
+                        Lifecycle.Event.ON_RESUME -> viewModel.onScreenResumed()
+                        else -> Unit
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
+
             ThreadScreen(
                 modifier = modifier,
                 uiState = uiState,
@@ -232,6 +250,8 @@ fun ThreadScaffold(
                     viewModel.updatePopupSize(index, size)
                 },
                 onRemoveTopPopup = { viewModel.removeTopPopup() },
+                skipPopupEnterAnimation = uiState.skipPopupEnterAnimation,
+                onConsumePopupEnterAnimationSkip = { viewModel.consumePopupEnterAnimationSkip() },
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
                 onPopupVisibilityChange = { isPopupVisible = it },

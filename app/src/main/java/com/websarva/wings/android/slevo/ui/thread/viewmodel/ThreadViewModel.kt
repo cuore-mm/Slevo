@@ -129,6 +129,7 @@ class ThreadViewModel @AssistedInject constructor(
         dispatcher = Dispatchers.IO,
     )
     private var lastAutoRefreshTime: Long = 0L
+    private var wasScreenPaused: Boolean = false
 
     init {
         viewModelScope.launch {
@@ -765,6 +766,35 @@ class ThreadViewModel @AssistedInject constructor(
                 imageMenuTargetUrl = null,
                 imageMenuTargetUrls = emptyList(),
             )
+        }
+    }
+
+    /**
+     * 画面がバックグラウンドへ移動したことを記録する。
+     */
+    fun onScreenPaused() {
+        wasScreenPaused = true
+    }
+
+    /**
+     * 画面復帰時に既存ポップアップのアニメーション抑止を準備する。
+     */
+    fun onScreenResumed() {
+        if (wasScreenPaused && uiState.value.popupStack.isNotEmpty()) {
+            _uiState.update { it.copy(skipPopupEnterAnimation = true) }
+        }
+        wasScreenPaused = false
+    }
+
+    /**
+     * ポップアップのアニメーション抑止フラグを消費して解除する。
+     */
+    fun consumePopupEnterAnimationSkip() {
+        _uiState.update { state ->
+            if (!state.skipPopupEnterAnimation) {
+                return@update state
+            }
+            state.copy(skipPopupEnterAnimation = false)
         }
     }
 

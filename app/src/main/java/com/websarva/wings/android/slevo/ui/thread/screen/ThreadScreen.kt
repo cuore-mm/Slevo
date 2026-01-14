@@ -115,6 +115,8 @@ fun ThreadScreen(
     onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onPopupSizeChange: (index: Int, size: IntSize) -> Unit = { _, _ -> },
     onRemoveTopPopup: () -> Unit = {},
+    skipPopupEnterAnimation: Boolean = false,
+    onConsumePopupEnterAnimationSkip: () -> Unit = {},
     onImageLongPress: (String, List<String>) -> Unit = { _, _ -> },
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
@@ -169,6 +171,12 @@ fun ThreadScreen(
 
     LaunchedEffect(popupStack.size) {
         onPopupVisibilityChange(popupStack.isNotEmpty())
+    }
+
+    LaunchedEffect(skipPopupEnterAnimation) {
+        if (skipPopupEnterAnimation) {
+            onConsumePopupEnterAnimationSkip()
+        }
     }
 
     LaunchedEffect(listState, visiblePosts, uiState.sortType) {
@@ -542,6 +550,7 @@ fun ThreadScreen(
             onAddPopupForReplyNumber = onAddPopupForReplyNumber,
             onAddPopupForId = onAddPopupForId,
             onPopupSizeChange = onPopupSizeChange,
+            skipEnterAnimation = skipPopupEnterAnimation,
             onClose = { onRemoveTopPopup() },
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
