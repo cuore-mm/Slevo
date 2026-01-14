@@ -14,7 +14,7 @@
   - 目的のアイテムが可視範囲外なら `scrollToItem(targetIndex)` で可視化し、1フレーム後に `animateScrollBy(delta)` を実行する。
   - 初期表示の一回目は必ずセンタリングを実行するため、`hasCenteredInitially` を保持して再実行条件を明確化する。
   - `centerPaddingPx` の更新でレイアウトが変わるため、初期表示の処理は `centerPaddingPx` 変化時にも再試行できるようにする。
-  - 初期表示時は `centerPaddingDp` が `targetCenterPaddingDp` に収束するまで待機し、パディング確定後にセンタリングする。
+  - 初期表示時は `targetCenterPaddingDp` を直接適用し、レイアウト確定後にセンタリングする。
   - 初回センタリングはアニメーションなしで行い、センタリング完了までサムネイルを不可視にして移動が見えないようにする。
 
 ## Alternatives considered

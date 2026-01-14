@@ -324,33 +324,29 @@ private fun ImageViewerThumbnailBar(
         }
     }
     val targetCenterPaddingDp = with(density) { centerPaddingPx.toDp() }
-    val centerPaddingDp by animateDpAsState(
+    var hasCenteredInitially by remember { mutableStateOf(false) }
+    val animatedCenterPaddingDp by animateDpAsState(
         targetValue = targetCenterPaddingDp,
         label = "thumbnailCenterPadding",
     )
+    val centerPaddingDp =
+        if (hasCenteredInitially) animatedCenterPaddingDp else targetCenterPaddingDp
     val barHeight = maxThumbnailHeight + 16.dp
-    var hasCenteredInitially by remember { mutableStateOf(false) }
-    val maxCenteringWaitFrames = 60
-    val paddingSettledThresholdDp = 0.5f
     val thumbnailAlpha = if (hasCenteredInitially) 1f else 0f
 
     // --- Centering helpers ---
     /**
-     * サムネイルバーのレイアウト確定とパディングの収束を待機する。
+     * サムネイルバーのレイアウトが確定するまで待機する。
      */
-    suspend fun awaitThumbnailCenteringReady(shouldWaitForPadding: Boolean): Boolean {
-        repeat(maxCenteringWaitFrames) {
+    suspend fun awaitThumbnailLayoutReady() {
+        while (true) {
             val layoutInfo = thumbnailListState.layoutInfo
             val viewportWidth = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
-            val isLayoutReady = layoutInfo.totalItemsCount > 0 && viewportWidth > 0
-            val isPaddingReady = !shouldWaitForPadding ||
-                abs(centerPaddingDp.value - targetCenterPaddingDp.value) <= paddingSettledThresholdDp
-            if (isLayoutReady && isPaddingReady) {
-                return true
+            if (layoutInfo.totalItemsCount > 0 && viewportWidth > 0) {
+                return
             }
             withFrameNanos { /* 1フレーム待ち */ }
         }
-        return false
     }
 
     /**
@@ -384,16 +380,13 @@ private fun ImageViewerThumbnailBar(
     // --- Centering scroll ---
     LaunchedEffect(pagerState.currentPage, centerPaddingPx) {
         val targetIndex = pagerState.currentPage
-        val shouldWaitForPadding = !hasCenteredInitially
-        val isReady = awaitThumbnailCenteringReady(shouldWaitForPadding)
-        if (!isReady) {
-            // Guard: レイアウトが確定しない場合は次回の更新で再試行する。
+        if (!hasCenteredInitially) {
+            awaitThumbnailLayoutReady()
+            centerSelectedThumbnail(targetIndex, shouldAnimate = false)
+            hasCenteredInitially = true
             return@LaunchedEffect
         }
-        centerSelectedThumbnail(targetIndex, shouldAnimate = hasCenteredInitially)
-        if (shouldWaitForPadding) {
-            hasCenteredInitially = true
-        }
+        centerSelectedThumbnail(targetIndex, shouldAnimate = true)
     }
 
     // --- Layout ---
