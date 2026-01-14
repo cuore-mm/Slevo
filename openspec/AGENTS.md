@@ -206,11 +206,9 @@ If multiple capabilities are affected, create multiple delta files under `change
 ```
 
 5. **Create design.md:**
-Always create `design.md` for every change proposal. Make it more detailed if any of the following apply:
-- Cross-cutting change (multiple services/modules) or a new architectural pattern
-- New external dependency or significant data model changes
-- Security, performance, or migration complexity
-- Ambiguity that benefits from technical decisions before coding
+Always create `design.md` for every change proposal.
+- The design.md must be detailed enough to start implementation.
+- Any design.md that does not describe how to build it (the “How”) is considered incomplete and must be revised.
 
 Minimal `design.md` skeleton:
 ```markdown
@@ -227,6 +225,8 @@ Minimal `design.md` skeleton:
 
 ## Risks / Trade-offs
 - [Risk] → Mitigation
+
+## Implementation Plan
 
 ## Migration Plan
 [Steps, rollback]
