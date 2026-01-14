@@ -327,13 +327,36 @@ private fun ImageViewerThumbnailBar(
         label = "thumbnailCenterPadding",
     )
     val barHeight = maxThumbnailHeight + 16.dp
+    var hasCenteredInitially by remember { mutableStateOf(false) }
+    val maxCenteringWaitFrames = 60
+    val paddingSettledThresholdDp = 0.5f
 
-    // --- Centering scroll ---
-    LaunchedEffect(pagerState.currentPage, centerPaddingPx) {
-        val targetIndex = pagerState.currentPage
+    // --- Centering helpers ---
+    /**
+     * サムネイルバーのレイアウト確定とパディングの収束を待機する。
+     */
+    suspend fun awaitThumbnailCenteringReady(shouldWaitForPadding: Boolean): Boolean {
+        repeat(maxCenteringWaitFrames) {
+            val layoutInfo = thumbnailListState.layoutInfo
+            val viewportWidth = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
+            val isLayoutReady = layoutInfo.totalItemsCount > 0 && viewportWidth > 0
+            val isPaddingReady = !shouldWaitForPadding ||
+                abs(centerPaddingDp.value - targetCenterPaddingDp.value) <= paddingSettledThresholdDp
+            if (isLayoutReady && isPaddingReady) {
+                return true
+            }
+            withFrameNanos { /* 1フレーム待ち */ }
+        }
+        return false
+    }
+
+    /**
+     * 選択中サムネイルを中央に寄せるための差分スクロールを行う。
+     */
+    suspend fun centerSelectedThumbnail(targetIndex: Int) {
         if (thumbnailListState.layoutInfo.totalItemsCount == 0) {
             // Guard: レイアウト情報が未生成のときはスクロール処理をスキップする。
-            return@LaunchedEffect
+            return
         }
         if (thumbnailListState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }) {
             // Guard: まず対象アイテムを可視化してから差分スクロールを行う。
@@ -342,12 +365,27 @@ private fun ImageViewerThumbnailBar(
         }
         val layoutInfo = thumbnailListState.layoutInfo
         val targetInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
-            ?: return@LaunchedEffect
+            ?: return
         val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
         val itemCenter = targetInfo.offset + targetInfo.size / 2f
         val delta = itemCenter - viewportCenter
         if (abs(delta) >= 1f) {
             thumbnailListState.animateScrollBy(delta)
+        }
+    }
+
+    // --- Centering scroll ---
+    LaunchedEffect(pagerState.currentPage, centerPaddingPx) {
+        val targetIndex = pagerState.currentPage
+        val shouldWaitForPadding = !hasCenteredInitially
+        val isReady = awaitThumbnailCenteringReady(shouldWaitForPadding)
+        if (!isReady) {
+            // Guard: レイアウトが確定しない場合は次回の更新で再試行する。
+            return@LaunchedEffect
+        }
+        centerSelectedThumbnail(targetIndex)
+        if (shouldWaitForPadding) {
+            hasCenteredInitially = true
         }
     }
 
