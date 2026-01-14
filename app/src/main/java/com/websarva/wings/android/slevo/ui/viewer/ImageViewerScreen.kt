@@ -16,11 +16,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,9 +44,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -75,6 +80,9 @@ fun ImageViewerScreen(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
+    // --- Constants ---
+    val barBackgroundColor = Color.Black.copy(alpha = 0.3f)
+
     // --- UI state ---
     var isBarsVisible by rememberSaveable { mutableStateOf(true) }
 
@@ -98,7 +106,7 @@ fun ImageViewerScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Black.copy(alpha = 0.3f)
+                        containerColor = barBackgroundColor
                     )
                 )
             }
@@ -110,7 +118,9 @@ fun ImageViewerScreen(
             // Guard: URLリストが空の場合は表示処理をスキップする。
             return@Scaffold
         }
-        val thumbnailSize = 56.dp
+        val thumbnailWidth = 40.dp
+        val thumbnailHeight = 56.dp
+        val thumbnailShape = RoundedCornerShape(10.dp)
         val thumbnailSpacing = 8.dp
         val safeInitialIndex = initialIndex.coerceIn(0, imageUrls.lastIndex)
         val pagerState = rememberPagerState(
@@ -125,7 +135,7 @@ fun ImageViewerScreen(
         }
         var lastPage by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
         var lastCenteredIndex by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
-        val thumbnailItemSizePx = remember(thumbnailSize) { mutableFloatStateOf(0f) }
+        val thumbnailItemSizePx = remember(thumbnailWidth) { mutableFloatStateOf(0f) }
 
         // --- Zoom reset ---
         LaunchedEffect(pagerState.currentPage) {
@@ -153,7 +163,14 @@ fun ImageViewerScreen(
             lastCenteredIndex = currentPage
         }
 
-        Box(modifier = Modifier.fillMaxSize()) {
+        val isPreview = LocalInspectionMode.current
+        val boxModifier = Modifier
+            .fillMaxSize()
+            .background(if (isPreview) Color.White else Color.Black)
+
+        Box(
+            modifier = boxModifier
+        ) {
             // --- Pager ---
             HorizontalPager(
                 state = pagerState,
@@ -206,7 +223,9 @@ fun ImageViewerScreen(
                     state = thumbnailListState,
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(thumbnailSpacing),
-                    modifier = Modifier.background(Color.Black.copy(alpha = 0.45f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(barBackgroundColor),
                 ) {
                     items(imageUrls.size) { index ->
                         val isSelected = index == pagerState.currentPage
@@ -217,8 +236,11 @@ fun ImageViewerScreen(
                         SubcomposeAsyncImage(
                             model = imageUrls[index],
                             contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            alignment = Alignment.Center,
                             modifier = Modifier
-                                .size(thumbnailSize)
+                                .size(width = thumbnailWidth, height = thumbnailHeight)
+                                .clip(thumbnailShape)
                                 .onSizeChanged { size ->
                                     if (thumbnailItemSizePx.floatValue == 0f) {
                                         thumbnailItemSizePx.floatValue = size.width.toFloat()
