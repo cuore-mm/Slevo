@@ -38,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -46,12 +47,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -60,6 +63,8 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.R
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.max
 import me.saket.telephoto.zoomable.DoubleClickToZoomListener
 import me.saket.telephoto.zoomable.OverzoomEffect
 import me.saket.telephoto.zoomable.ZoomSpec
@@ -279,6 +284,7 @@ private fun ImageViewerPager(
 /**
  * 同一レス内のサムネイル一覧を表示し、選択中の画像を中央に寄せる。
  *
+ * viewport と visibleItemsInfo の差分から中央位置を算出し、パディングと差分スクロールで中央配置する。
  * 選択中サムネイルはサイズを拡大し、タップで表示画像を切り替える。
  */
 @Composable
@@ -297,6 +303,45 @@ private fun ImageViewerThumbnailBar(
     thumbnailItemSizePx: MutableFloatState,
     onThumbnailClick: (Int) -> Unit,
 ) {
+    // --- Centering state ---
+    val density = LocalDensity.current
+    val centerPaddingPx by remember {
+        derivedStateOf {
+            val layoutInfo = thumbnailListState.layoutInfo
+            val viewportWidth = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
+            val itemWidth = thumbnailItemSizePx.floatValue
+            if (viewportWidth <= 0 || itemWidth <= 0f) {
+                0f
+            } else {
+                max(0f, viewportWidth / 2f - itemWidth / 2f)
+            }
+        }
+    }
+    val centerPaddingDp = with(density) { centerPaddingPx.toDp() }
+
+    // --- Centering scroll ---
+    LaunchedEffect(pagerState.currentPage, centerPaddingPx) {
+        val targetIndex = pagerState.currentPage
+        if (thumbnailListState.layoutInfo.totalItemsCount == 0) {
+            // Guard: レイアウト情報が未生成のときはスクロール処理をスキップする。
+            return@LaunchedEffect
+        }
+        if (thumbnailListState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }) {
+            // Guard: まず対象アイテムを可視化してから差分スクロールを行う。
+            thumbnailListState.scrollToItem(targetIndex)
+            withFrameNanos { }
+        }
+        val layoutInfo = thumbnailListState.layoutInfo
+        val targetInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
+            ?: return@LaunchedEffect
+        val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
+        val itemCenter = targetInfo.offset + targetInfo.size / 2f
+        val delta = itemCenter - viewportCenter
+        if (abs(delta) >= 1f) {
+            thumbnailListState.animateScrollBy(delta)
+        }
+    }
+
     // --- Layout ---
     AnimatedVisibility(
         visible = isBarsVisible,
@@ -313,7 +358,7 @@ private fun ImageViewerThumbnailBar(
             LazyRow(
                 state = thumbnailListState,
                 contentPadding = PaddingValues(
-                    horizontal = 16.dp,
+                    horizontal = centerPaddingDp,
                     vertical = 8.dp,
                 ),
                 horizontalArrangement = Arrangement.spacedBy(thumbnailSpacing),
