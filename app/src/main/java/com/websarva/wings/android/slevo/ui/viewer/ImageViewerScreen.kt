@@ -63,7 +63,6 @@ import me.saket.telephoto.zoomable.ZoomableState
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
-import kotlin.math.roundToInt
 
 /**
  * レス内画像の一覧をページング表示する画像ビューア。
@@ -118,7 +117,6 @@ fun ImageViewerScreen(
             MutableList(imageUrls.size) { mutableStateOf<ZoomableState?>(null) }
         }
         var lastPage by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
-        var lastCenteredIndex by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
         val thumbnailItemSizePx = remember(thumbnailWidth) { mutableFloatStateOf(0f) }
 
         // --- Zoom reset ---
@@ -160,17 +158,15 @@ fun ImageViewerScreen(
                         thumbnailListState = thumbnailListState,
                         modifier = Modifier.fillMaxWidth(),
                         thumbnailWidth = thumbnailWidth,
-                        thumbnailHeight = thumbnailHeight,
-                        thumbnailShape = thumbnailShape,
-                        thumbnailSpacing = thumbnailSpacing,
-                        selectedThumbnailScale = selectedThumbnailScale,
-                        barBackgroundColor = barBackgroundColor,
-                        thumbnailItemSizePx = thumbnailItemSizePx,
-                        lastCenteredIndex = lastCenteredIndex,
-                        onCenteredIndexChange = { lastCenteredIndex = it },
-                        onThumbnailClick = { index ->
-                            if (index != pagerState.currentPage) {
-                                coroutineScope.launch {
+                    thumbnailHeight = thumbnailHeight,
+                    thumbnailShape = thumbnailShape,
+                    thumbnailSpacing = thumbnailSpacing,
+                    selectedThumbnailScale = selectedThumbnailScale,
+                    barBackgroundColor = barBackgroundColor,
+                    thumbnailItemSizePx = thumbnailItemSizePx,
+                    onThumbnailClick = { index ->
+                        if (index != pagerState.currentPage) {
+                            coroutineScope.launch {
                                     pagerState.animateScrollToPage(index)
                                 }
                             }
@@ -295,37 +291,8 @@ private fun ImageViewerThumbnailBar(
     selectedThumbnailScale: Float,
     barBackgroundColor: Color,
     thumbnailItemSizePx: androidx.compose.runtime.MutableFloatState,
-    lastCenteredIndex: Int,
-    onCenteredIndexChange: (Int) -> Unit,
     onThumbnailClick: (Int) -> Unit,
 ) {
-    val maxThumbnailWidth = thumbnailWidth * selectedThumbnailScale
-
-    // --- Centering ---
-    LaunchedEffect(
-        pagerState.currentPage,
-        thumbnailListState.layoutInfo.viewportSize,
-        thumbnailItemSizePx.floatValue,
-    ) {
-        val currentPage = pagerState.currentPage
-        val viewportWidth = thumbnailListState.layoutInfo.viewportSize.width
-        if (viewportWidth == 0 || currentPage == lastCenteredIndex) {
-            // Guard: 画面幅が取得できない間はスクロールを待機する。
-            return@LaunchedEffect
-        }
-        val itemSizePx = thumbnailItemSizePx.floatValue
-        if (itemSizePx == 0f) {
-            // Guard: 選択中サムネイルのサイズ取得後に中央寄せを行う。
-            return@LaunchedEffect
-        }
-        val centerOffset = ((viewportWidth - itemSizePx) / 2f).roundToInt()
-        thumbnailListState.animateScrollToItem(
-            index = currentPage,
-            scrollOffset = centerOffset,
-        )
-        onCenteredIndexChange(currentPage)
-    }
-
     // --- Layout ---
     AnimatedVisibility(
         visible = isBarsVisible,
@@ -338,12 +305,11 @@ private fun ImageViewerThumbnailBar(
                 .fillMaxWidth()
                 .background(barBackgroundColor),
         ) {
-            val horizontalPadding = ((maxWidth - maxThumbnailWidth) / 2f).coerceAtLeast(0.dp)
             // --- Thumbnails ---
             LazyRow(
                 state = thumbnailListState,
                 contentPadding = PaddingValues(
-                    horizontal = horizontalPadding,
+                    horizontal = 16.dp,
                     vertical = 8.dp,
                 ),
                 horizontalArrangement = Arrangement.spacedBy(thumbnailSpacing),
