@@ -502,7 +502,7 @@ class ThreadViewModel @AssistedInject constructor(
     /**
      * 履歴記録・投稿番号監視・保留投稿の記録をまとめて処理する。
      */
-    private fun handleHistoryOnLoad(uiPosts: List<ThreadPostUiModel>, title: String?) {
+    private suspend fun handleHistoryOnLoad(uiPosts: List<ThreadPostUiModel>, title: String?) {
         // --- スレ履歴の記録 ---
         val historyId = historyRepository.recordHistory(
             uiState.value.boardInfo,
@@ -537,7 +537,7 @@ class ThreadViewModel @AssistedInject constructor(
     /**
      * 保留投稿があれば履歴に記録し、保留状態をクリアする。
      */
-    private fun recordPendingPost(uiPosts: List<ThreadPostUiModel>, historyId: Long) {
+    private suspend fun recordPendingPost(uiPosts: List<ThreadPostUiModel>, historyId: Long) {
         val pending = pendingPost ?: run {
             // 保留投稿が無い場合は何もしない。
             return
