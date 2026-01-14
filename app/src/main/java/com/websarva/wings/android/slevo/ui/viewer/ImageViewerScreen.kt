@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -46,7 +47,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -82,34 +82,22 @@ fun ImageViewerScreen(
 ) {
     // --- Constants ---
     val barBackgroundColor = Color.Black.copy(alpha = 0.3f)
+    val thumbnailWidth = 40.dp
+    val thumbnailHeight = 56.dp
+    val thumbnailShape = RoundedCornerShape(10.dp)
+    val thumbnailSpacing = 8.dp
+    val selectedThumbnailScale = 1.1f
 
     // --- UI state ---
     var isBarsVisible by rememberSaveable { mutableStateOf(true) }
 
     Scaffold(
         topBar = {
-            // --- Top bar ---
-            AnimatedVisibility(
-                visible = isBarsVisible,
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
-                TopAppBar(
-                    title = {},
-                    navigationIcon = {
-                        IconButton(onClick = onNavigateUp) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
-                                contentDescription = stringResource(R.string.back),
-                                tint = Color.White
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = barBackgroundColor
-                    )
-                )
-            }
+            ImageViewerTopBar(
+                isVisible = isBarsVisible,
+                barBackgroundColor = barBackgroundColor,
+                onNavigateUp = onNavigateUp,
+            )
         },
         containerColor = Color.Black,
         contentWindowInsets = WindowInsets(0)
@@ -118,10 +106,6 @@ fun ImageViewerScreen(
             // Guard: URLリストが空の場合は表示処理をスキップする。
             return@Scaffold
         }
-        val thumbnailWidth = 40.dp
-        val thumbnailHeight = 56.dp
-        val thumbnailShape = RoundedCornerShape(10.dp)
-        val thumbnailSpacing = 8.dp
         val safeInitialIndex = initialIndex.coerceIn(0, imageUrls.lastIndex)
         val pagerState = rememberPagerState(
             initialPage = safeInitialIndex,
@@ -141,26 +125,10 @@ fun ImageViewerScreen(
         LaunchedEffect(pagerState.currentPage) {
             val currentPage = pagerState.currentPage
             if (currentPage != lastPage) {
+                // Guard: 別ページへ移動したときのみ前ページのズームを解除する。
                 zoomableStates.getOrNull(lastPage)?.value?.resetZoom()
                 lastPage = currentPage
             }
-        }
-        LaunchedEffect(pagerState.currentPage, thumbnailListState.layoutInfo.viewportSize) {
-            val currentPage = pagerState.currentPage
-            val viewportWidth = thumbnailListState.layoutInfo.viewportSize.width
-            if (viewportWidth == 0 || currentPage == lastCenteredIndex) {
-                return@LaunchedEffect
-            }
-            val itemSizePx = thumbnailItemSizePx.floatValue
-            if (itemSizePx == 0f) {
-                return@LaunchedEffect
-            }
-            val centerOffset = (itemSizePx / 2f - viewportWidth / 2f).roundToInt()
-            thumbnailListState.animateScrollToItem(
-                index = currentPage,
-                scrollOffset = centerOffset,
-            )
-            lastCenteredIndex = currentPage
         }
 
         val isPreview = LocalInspectionMode.current
@@ -171,95 +139,234 @@ fun ImageViewerScreen(
         Box(
             modifier = boxModifier
         ) {
-            // --- Pager ---
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize(),
-            ) { page ->
-                val imageUrl = imageUrls[page]
-                val zoomableState = rememberZoomableState(
-                    zoomSpec = ZoomSpec(
-                        maxZoomFactor = 12f,                  // ← ここを例えば 8x や 12x に
-                        overzoomEffect = OverzoomEffect.RubberBanding // 端でビヨン効果（好みで）
-                    )
+            ImageViewerPager(
+                imageUrls = imageUrls,
+                pagerState = pagerState,
+                zoomableStates = zoomableStates,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+                onToggleBars = { isBarsVisible = !isBarsVisible },
+            )
+
+            if (imageUrls.size > 1) {
+                ImageViewerThumbnailBar(
+                    imageUrls = imageUrls,
+                    pagerState = pagerState,
+                    isBarsVisible = isBarsVisible,
+                    thumbnailListState = thumbnailListState,
+                    thumbnailWidth = thumbnailWidth,
+                    thumbnailHeight = thumbnailHeight,
+                    thumbnailShape = thumbnailShape,
+                    thumbnailSpacing = thumbnailSpacing,
+                    selectedThumbnailScale = selectedThumbnailScale,
+                    barBackgroundColor = barBackgroundColor,
+                    thumbnailItemSizePx = thumbnailItemSizePx,
+                    lastCenteredIndex = lastCenteredIndex,
+                    onCenteredIndexChange = { lastCenteredIndex = it },
+                    onThumbnailClick = { index ->
+                        if (index != pagerState.currentPage) {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        }
+                    },
                 )
-                val imageState = rememberZoomableImageState(zoomableState)
+            }
+        }
+    }
+}
 
-                SideEffect {
-                    if (page in zoomableStates.indices) {
-                        zoomableStates[page].value = zoomableState
-                    }
-                }
-
-                with(sharedTransitionScope) {
-                    ZoomableAsyncImage(
-                        model = imageUrl,
-                        contentDescription = null,
-                        state = imageState,
-                        modifier = Modifier
-                            .sharedElement(
-                                sharedContentState = sharedTransitionScope.rememberSharedContentState(
-                                    key = imageUrl
-                                ),
-                                animatedVisibilityScope = animatedVisibilityScope
-                            )
-                            .fillMaxSize(),
-                        onClick = { isBarsVisible = !isBarsVisible },
-                        onDoubleClick = DoubleClickToZoomListener.cycle(
-                            maxZoomFactor = 2f,   // ← 好きな倍率にする（例: 2f, 3f など）
-                        ),
+/**
+ * 画像ビューアのトップバーを表示する。
+ *
+ * ナビゲーションアイコンのみを持ち、表示可否は呼び出し元で制御する。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ImageViewerTopBar(
+    isVisible: Boolean,
+    barBackgroundColor: Color,
+    onNavigateUp: () -> Unit,
+) {
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = fadeIn(),
+        exit = fadeOut(),
+    ) {
+        TopAppBar(
+            title = {},
+            navigationIcon = {
+                IconButton(onClick = onNavigateUp) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
+                        contentDescription = stringResource(R.string.back),
+                        tint = Color.White
                     )
                 }
-            }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = barBackgroundColor
+            )
+        )
+    }
+}
 
+/**
+ * 画像スワイプと拡大縮小を担うページャを描画する。
+ *
+ * ページごとのズーム状態は呼び出し元のリストに保存する。
+ */
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun ImageViewerPager(
+    imageUrls: List<String>,
+    pagerState: androidx.compose.foundation.pager.PagerState,
+    zoomableStates: MutableList<androidx.compose.runtime.MutableState<ZoomableState?>>,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    onToggleBars: () -> Unit,
+) {
+    // --- Pager ---
+    HorizontalPager(
+        state = pagerState,
+        modifier = Modifier.fillMaxSize(),
+    ) { page ->
+        // --- Zoom state ---
+        val imageUrl = imageUrls[page]
+        val zoomableState = rememberZoomableState(
+            zoomSpec = ZoomSpec(
+                maxZoomFactor = 12f,
+                overzoomEffect = OverzoomEffect.RubberBanding,
+            )
+        )
+        val imageState = rememberZoomableImageState(zoomableState)
+
+        SideEffect {
+            if (page in zoomableStates.indices) {
+                zoomableStates[page].value = zoomableState
+            }
+        }
+
+        // --- Image content ---
+        with(sharedTransitionScope) {
+            ZoomableAsyncImage(
+                model = imageUrl,
+                contentDescription = null,
+                state = imageState,
+                modifier = Modifier
+                    .sharedElement(
+                        sharedContentState = sharedTransitionScope.rememberSharedContentState(
+                            key = imageUrl
+                        ),
+                        animatedVisibilityScope = animatedVisibilityScope
+                    )
+                    .fillMaxSize(),
+                onClick = onToggleBars,
+                onDoubleClick = DoubleClickToZoomListener.cycle(
+                    maxZoomFactor = 2f,
+                ),
+            )
+        }
+    }
+}
+
+/**
+ * 同一レス内のサムネイル一覧を表示し、選択中の画像を中央に寄せる。
+ *
+ * 選択中サムネイルはサイズを拡大し、タップで表示画像を切り替える。
+ */
+@Composable
+private fun ImageViewerThumbnailBar(
+    imageUrls: List<String>,
+    pagerState: androidx.compose.foundation.pager.PagerState,
+    isBarsVisible: Boolean,
+    thumbnailListState: androidx.compose.foundation.lazy.LazyListState,
+    thumbnailWidth: androidx.compose.ui.unit.Dp,
+    thumbnailHeight: androidx.compose.ui.unit.Dp,
+    thumbnailShape: RoundedCornerShape,
+    thumbnailSpacing: androidx.compose.ui.unit.Dp,
+    selectedThumbnailScale: Float,
+    barBackgroundColor: Color,
+    thumbnailItemSizePx: androidx.compose.runtime.MutableFloatState,
+    lastCenteredIndex: Int,
+    onCenteredIndexChange: (Int) -> Unit,
+    onThumbnailClick: (Int) -> Unit,
+) {
+    val maxThumbnailWidth = thumbnailWidth * selectedThumbnailScale
+
+    // --- Centering ---
+    LaunchedEffect(
+        pagerState.currentPage,
+        thumbnailListState.layoutInfo.viewportSize,
+        thumbnailItemSizePx.floatValue,
+    ) {
+        val currentPage = pagerState.currentPage
+        val viewportWidth = thumbnailListState.layoutInfo.viewportSize.width
+        if (viewportWidth == 0 || currentPage == lastCenteredIndex) {
+            // Guard: 画面幅が取得できない間はスクロールを待機する。
+            return@LaunchedEffect
+        }
+        val itemSizePx = thumbnailItemSizePx.floatValue
+        if (itemSizePx == 0f) {
+            // Guard: 選択中サムネイルのサイズ取得後に中央寄せを行う。
+            return@LaunchedEffect
+        }
+        val centerOffset = (itemSizePx / 2f - viewportWidth / 2f).roundToInt()
+        thumbnailListState.animateScrollToItem(
+            index = currentPage,
+            scrollOffset = centerOffset,
+        )
+        onCenteredIndexChange(currentPage)
+    }
+
+    // --- Layout ---
+    AnimatedVisibility(
+        visible = isBarsVisible,
+        enter = fadeIn(),
+        exit = fadeOut(),
+        modifier = Modifier.align(Alignment.BottomCenter),
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(barBackgroundColor),
+        ) {
+            val horizontalPadding = ((maxWidth - maxThumbnailWidth) / 2f).coerceAtLeast(0.dp)
             // --- Thumbnails ---
-            AnimatedVisibility(
-                visible = isBarsVisible,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier.align(Alignment.BottomCenter),
+            LazyRow(
+                state = thumbnailListState,
+                contentPadding = PaddingValues(
+                    horizontal = horizontalPadding,
+                    vertical = 8.dp,
+                ),
+                horizontalArrangement = Arrangement.spacedBy(thumbnailSpacing),
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                LazyRow(
-                    state = thumbnailListState,
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(thumbnailSpacing),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(barBackgroundColor),
-                ) {
-                    items(imageUrls.size) { index ->
-                        val isSelected = index == pagerState.currentPage
-                        val scale by animateFloatAsState(
-                            targetValue = if (isSelected) 1.1f else 1f,
-                            label = "thumbnailScale",
-                        )
-                        SubcomposeAsyncImage(
-                            model = imageUrls[index],
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            alignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(width = thumbnailWidth, height = thumbnailHeight)
-                                .clip(thumbnailShape)
-                                .onSizeChanged { size ->
-                                    if (thumbnailItemSizePx.floatValue == 0f) {
-                                        thumbnailItemSizePx.floatValue = size.width.toFloat()
-                                    }
+                items(imageUrls.size) { index ->
+                    val isSelected = index == pagerState.currentPage
+                    val scale by animateFloatAsState(
+                        targetValue = if (isSelected) selectedThumbnailScale else 1f,
+                        label = "thumbnailScale",
+                    )
+                    SubcomposeAsyncImage(
+                        model = imageUrls[index],
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        alignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(
+                                width = thumbnailWidth * scale,
+                                height = thumbnailHeight * scale,
+                            )
+                            .clip(thumbnailShape)
+                            .onSizeChanged { size ->
+                                if (isSelected) {
+                                    thumbnailItemSizePx.floatValue = size.width.toFloat()
                                 }
-                                .graphicsLayer {
-                                    scaleX = scale
-                                    scaleY = scale
-                                }
-                                .clickable {
-                                    if (index != pagerState.currentPage) {
-                                        coroutineScope.launch {
-                                            pagerState.animateScrollToPage(index)
-                                        }
-                                    }
-                                }
-                                .background(Color.DarkGray),
-                        )
-                    }
+                            }
+                            .clickable { onThumbnailClick(index) }
+                            .background(Color.DarkGray),
+                    )
                 }
             }
         }
