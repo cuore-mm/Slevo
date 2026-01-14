@@ -6,6 +6,7 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -36,12 +37,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,7 +53,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
@@ -96,6 +94,7 @@ fun ImageViewerScreen(
     val thumbnailShape = RoundedCornerShape(10.dp)
     val thumbnailSpacing = 8.dp
     val selectedThumbnailScale = 1.1f
+    val maxThumbnailWidth = thumbnailWidth * selectedThumbnailScale
 
     // --- UI state ---
     var isBarsVisible by rememberSaveable { mutableStateOf(true) }
@@ -127,7 +126,6 @@ fun ImageViewerScreen(
             MutableList(imageUrls.size) { mutableStateOf<ZoomableState?>(null) }
         }
         var lastPage by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
-        val thumbnailItemSizePx = remember(thumbnailWidth) { mutableFloatStateOf(0f) }
 
         // --- Zoom reset ---
         LaunchedEffect(pagerState.currentPage) {
@@ -172,8 +170,8 @@ fun ImageViewerScreen(
                         thumbnailShape = thumbnailShape,
                         thumbnailSpacing = thumbnailSpacing,
                         selectedThumbnailScale = selectedThumbnailScale,
+                        maxThumbnailWidth = maxThumbnailWidth,
                         barBackgroundColor = barBackgroundColor,
-                        thumbnailItemSizePx = thumbnailItemSizePx,
                         onThumbnailClick = { index ->
                             if (index != pagerState.currentPage) {
                                 coroutineScope.launch {
@@ -286,6 +284,7 @@ private fun ImageViewerPager(
  * 同一レス内のサムネイル一覧を表示し、選択中の画像を中央に寄せる。
  *
  * viewport と visibleItemsInfo の差分から中央位置を算出し、パディングと差分スクロールで中央配置する。
+ * 中央寄せ用パディングは最大幅を基準に算出し、滑らかに補間する。
  * 選択中サムネイルはサイズを拡大し、タップで表示画像を切り替える。
  */
 @Composable
@@ -300,25 +299,29 @@ private fun ImageViewerThumbnailBar(
     thumbnailShape: RoundedCornerShape,
     thumbnailSpacing: Dp,
     selectedThumbnailScale: Float,
+    maxThumbnailWidth: Dp,
     barBackgroundColor: Color,
-    thumbnailItemSizePx: MutableFloatState,
     onThumbnailClick: (Int) -> Unit,
 ) {
     // --- Centering state ---
     val density = LocalDensity.current
+    val maxThumbnailWidthPx = with(density) { maxThumbnailWidth.toPx() }
     val centerPaddingPx by remember {
         derivedStateOf {
             val layoutInfo = thumbnailListState.layoutInfo
             val viewportWidth = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
-            val itemWidth = thumbnailItemSizePx.floatValue
-            if (viewportWidth <= 0 || itemWidth <= 0f) {
+            if (viewportWidth <= 0 || maxThumbnailWidthPx <= 0f) {
                 0f
             } else {
-                max(0f, viewportWidth / 2f - itemWidth / 2f)
+                max(0f, viewportWidth / 2f - maxThumbnailWidthPx / 2f)
             }
         }
     }
-    val centerPaddingDp = with(density) { centerPaddingPx.toDp() }
+    val targetCenterPaddingDp = with(density) { centerPaddingPx.toDp() }
+    val centerPaddingDp by animateDpAsState(
+        targetValue = targetCenterPaddingDp,
+        label = "thumbnailCenterPadding",
+    )
 
     // --- Centering scroll ---
     LaunchedEffect(pagerState.currentPage, centerPaddingPx) {
@@ -382,11 +385,6 @@ private fun ImageViewerThumbnailBar(
                                 height = thumbnailHeight * scale,
                             )
                             .clip(thumbnailShape)
-                            .onSizeChanged { size ->
-                                if (isSelected) {
-                                    thumbnailItemSizePx.floatValue = size.width.toFloat()
-                                }
-                            }
                             .clickable { onThumbnailClick(index) }
                             .background(Color.DarkGray),
                     )
