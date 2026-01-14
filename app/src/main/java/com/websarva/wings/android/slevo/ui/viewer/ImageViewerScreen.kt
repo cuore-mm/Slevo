@@ -13,15 +13,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -34,6 +35,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableFloatState
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -52,6 +55,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.R
@@ -158,15 +162,15 @@ fun ImageViewerScreen(
                         thumbnailListState = thumbnailListState,
                         modifier = Modifier.fillMaxWidth(),
                         thumbnailWidth = thumbnailWidth,
-                    thumbnailHeight = thumbnailHeight,
-                    thumbnailShape = thumbnailShape,
-                    thumbnailSpacing = thumbnailSpacing,
-                    selectedThumbnailScale = selectedThumbnailScale,
-                    barBackgroundColor = barBackgroundColor,
-                    thumbnailItemSizePx = thumbnailItemSizePx,
-                    onThumbnailClick = { index ->
-                        if (index != pagerState.currentPage) {
-                            coroutineScope.launch {
+                        thumbnailHeight = thumbnailHeight,
+                        thumbnailShape = thumbnailShape,
+                        thumbnailSpacing = thumbnailSpacing,
+                        selectedThumbnailScale = selectedThumbnailScale,
+                        barBackgroundColor = barBackgroundColor,
+                        thumbnailItemSizePx = thumbnailItemSizePx,
+                        onThumbnailClick = { index ->
+                            if (index != pagerState.currentPage) {
+                                coroutineScope.launch {
                                     pagerState.animateScrollToPage(index)
                                 }
                             }
@@ -222,8 +226,8 @@ private fun ImageViewerTopBar(
 @Composable
 private fun ImageViewerPager(
     imageUrls: List<String>,
-    pagerState: androidx.compose.foundation.pager.PagerState,
-    zoomableStates: MutableList<androidx.compose.runtime.MutableState<ZoomableState?>>,
+    pagerState: PagerState,
+    zoomableStates: MutableList<MutableState<ZoomableState?>>,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onToggleBars: () -> Unit,
@@ -280,17 +284,17 @@ private fun ImageViewerPager(
 @Composable
 private fun ImageViewerThumbnailBar(
     imageUrls: List<String>,
-    pagerState: androidx.compose.foundation.pager.PagerState,
+    pagerState: PagerState,
     isBarsVisible: Boolean,
-    thumbnailListState: androidx.compose.foundation.lazy.LazyListState,
+    thumbnailListState: LazyListState,
     modifier: Modifier,
-    thumbnailWidth: androidx.compose.ui.unit.Dp,
-    thumbnailHeight: androidx.compose.ui.unit.Dp,
+    thumbnailWidth: Dp,
+    thumbnailHeight: Dp,
     thumbnailShape: RoundedCornerShape,
-    thumbnailSpacing: androidx.compose.ui.unit.Dp,
+    thumbnailSpacing: Dp,
     selectedThumbnailScale: Float,
     barBackgroundColor: Color,
-    thumbnailItemSizePx: androidx.compose.runtime.MutableFloatState,
+    thumbnailItemSizePx: MutableFloatState,
     onThumbnailClick: (Int) -> Unit,
 ) {
     // --- Layout ---
@@ -300,7 +304,7 @@ private fun ImageViewerThumbnailBar(
         exit = fadeOut(),
         modifier = modifier,
     ) {
-        BoxWithConstraints(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(barBackgroundColor),
