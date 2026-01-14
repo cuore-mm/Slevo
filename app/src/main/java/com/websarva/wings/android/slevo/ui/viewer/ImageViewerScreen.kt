@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -51,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -330,6 +332,7 @@ private fun ImageViewerThumbnailBar(
     var hasCenteredInitially by remember { mutableStateOf(false) }
     val maxCenteringWaitFrames = 60
     val paddingSettledThresholdDp = 0.5f
+    val thumbnailAlpha = if (hasCenteredInitially) 1f else 0f
 
     // --- Centering helpers ---
     /**
@@ -353,7 +356,7 @@ private fun ImageViewerThumbnailBar(
     /**
      * 選択中サムネイルを中央に寄せるための差分スクロールを行う。
      */
-    suspend fun centerSelectedThumbnail(targetIndex: Int) {
+    suspend fun centerSelectedThumbnail(targetIndex: Int, shouldAnimate: Boolean) {
         if (thumbnailListState.layoutInfo.totalItemsCount == 0) {
             // Guard: レイアウト情報が未生成のときはスクロール処理をスキップする。
             return
@@ -370,7 +373,11 @@ private fun ImageViewerThumbnailBar(
         val itemCenter = targetInfo.offset + targetInfo.size / 2f
         val delta = itemCenter - viewportCenter
         if (abs(delta) >= 1f) {
-            thumbnailListState.animateScrollBy(delta)
+            if (shouldAnimate) {
+                thumbnailListState.animateScrollBy(delta)
+            } else {
+                thumbnailListState.scrollBy(delta)
+            }
         }
     }
 
@@ -383,7 +390,7 @@ private fun ImageViewerThumbnailBar(
             // Guard: レイアウトが確定しない場合は次回の更新で再試行する。
             return@LaunchedEffect
         }
-        centerSelectedThumbnail(targetIndex)
+        centerSelectedThumbnail(targetIndex, shouldAnimate = hasCenteredInitially)
         if (shouldWaitForPadding) {
             hasCenteredInitially = true
         }
@@ -409,7 +416,9 @@ private fun ImageViewerThumbnailBar(
                     vertical = 8.dp,
                 ),
                 horizontalArrangement = Arrangement.spacedBy(thumbnailSpacing),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .alpha(thumbnailAlpha),
             ) {
                 items(imageUrls.size) { index ->
                     val isSelected = index == pagerState.currentPage

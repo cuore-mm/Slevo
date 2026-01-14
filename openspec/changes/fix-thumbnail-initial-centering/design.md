@@ -15,6 +15,7 @@
   - 初期表示の一回目は必ずセンタリングを実行するため、`hasCenteredInitially` を保持して再実行条件を明確化する。
   - `centerPaddingPx` の更新でレイアウトが変わるため、初期表示の処理は `centerPaddingPx` 変化時にも再試行できるようにする。
   - 初期表示時は `centerPaddingDp` が `targetCenterPaddingDp` に収束するまで待機し、パディング確定後にセンタリングする。
+  - 初回センタリングはアニメーションなしで行い、センタリング完了までサムネイルを不可視にして移動が見えないようにする。
 
 ## Alternatives considered
 - 代替案: 初期表示は `scrollToItem(index, offset)` で中央寄せを完結させる。
