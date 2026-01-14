@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -95,6 +96,7 @@ fun ImageViewerScreen(
     val thumbnailSpacing = 8.dp
     val selectedThumbnailScale = 1.1f
     val maxThumbnailWidth = thumbnailWidth * selectedThumbnailScale
+    val maxThumbnailHeight = thumbnailHeight * selectedThumbnailScale
 
     // --- UI state ---
     var isBarsVisible by rememberSaveable { mutableStateOf(true) }
@@ -171,6 +173,7 @@ fun ImageViewerScreen(
                         thumbnailSpacing = thumbnailSpacing,
                         selectedThumbnailScale = selectedThumbnailScale,
                         maxThumbnailWidth = maxThumbnailWidth,
+                        maxThumbnailHeight = maxThumbnailHeight,
                         barBackgroundColor = barBackgroundColor,
                         onThumbnailClick = { index ->
                             if (index != pagerState.currentPage) {
@@ -300,6 +303,7 @@ private fun ImageViewerThumbnailBar(
     thumbnailSpacing: Dp,
     selectedThumbnailScale: Float,
     maxThumbnailWidth: Dp,
+    maxThumbnailHeight: Dp,
     barBackgroundColor: Color,
     onThumbnailClick: (Int) -> Unit,
 ) {
@@ -322,6 +326,7 @@ private fun ImageViewerThumbnailBar(
         targetValue = targetCenterPaddingDp,
         label = "thumbnailCenterPadding",
     )
+    val barHeight = maxThumbnailHeight + 16.dp
 
     // --- Centering scroll ---
     LaunchedEffect(pagerState.currentPage, centerPaddingPx) {
@@ -351,7 +356,7 @@ private fun ImageViewerThumbnailBar(
         visible = isBarsVisible,
         enter = fadeIn(),
         exit = fadeOut(),
-        modifier = modifier,
+        modifier = modifier.height(barHeight),
     ) {
         Box(
             modifier = Modifier
