@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -15,12 +16,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,18 +46,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
-import com.websarva.wings.android.slevo.R
 import coil3.compose.SubcomposeAsyncImage
+import com.websarva.wings.android.slevo.R
+import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.DoubleClickToZoomListener
 import me.saket.telephoto.zoomable.OverzoomEffect
-import me.saket.telephoto.zoomable.ZoomableState
 import me.saket.telephoto.zoomable.ZoomSpec
+import me.saket.telephoto.zoomable.ZoomableState
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
-import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * レス内画像の一覧をページング表示する画像ビューア。
@@ -116,7 +117,8 @@ fun ImageViewerScreen(
             initialPage = safeInitialIndex,
             pageCount = { imageUrls.size },
         )
-        val thumbnailListState = rememberLazyListState(initialFirstVisibleItemIndex = safeInitialIndex)
+        val thumbnailListState =
+            rememberLazyListState(initialFirstVisibleItemIndex = safeInitialIndex)
         val coroutineScope = rememberCoroutineScope()
         val zoomableStates = remember(imageUrls) {
             MutableList(imageUrls.size) { mutableStateOf<ZoomableState?>(null) }
@@ -238,6 +240,27 @@ fun ImageViewerScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Preview(showBackground = true)
+@Composable
+private fun ImageViewerScreenPreview() {
+    SharedTransitionLayout {
+        AnimatedVisibility(visible = true) {
+            ImageViewerScreen(
+                imageUrls = listOf(
+                    "https://via.placeholder.com/800x600/FF0000/FFFFFF?text=Image1",
+                    "https://via.placeholder.com/800x600/00FF00/FFFFFF?text=Image2",
+                    "https://via.placeholder.com/800x600/0000FF/FFFFFF?text=Image3"
+                ),
+                initialIndex = 0,
+                onNavigateUp = {},
+                sharedTransitionScope = this@SharedTransitionLayout,
+                animatedVisibilityScope = this
+            )
         }
     }
 }
