@@ -7,13 +7,14 @@
 - Non-Goals: サムネイルの拡大率や表示/非表示のルール変更、データ取得や並び順の変更。
 
 ## Decisions
-- Decision: サムネイルバーの横幅と選択サムネイルの実測幅からセンターオフセットを算出し、LazyRow の contentPadding とスクロールオフセットで中央寄せを実現する。
+- Decision: LazyRow の viewport 情報と visibleItemsInfo から中心差分を計算し、差分量のみ `animateScrollBy(delta)` で調整する。端のサムネイルでも中央に寄せられるよう、左右の contentPadding を動的に広げる。
 - Implementation outline:
-  - LazyRow の横幅を onSizeChanged で取得し、センター位置 (rowWidth / 2) を算出する。
-  - 選択サムネイルの実測幅（拡大後）を onSizeChanged で保持する。
-  - センター配置に必要な先頭/末尾の空白量を `centerPadding = max(0, rowWidth / 2 - itemWidth / 2)` として contentPadding の左右に反映する。
-  - ページ切替時に `animateScrollToItem(index, scrollOffset = centerPadding.roundToInt())` を呼び、選択アイテムの開始位置をセンターに揃える。
-  - 画像枚数が少ない場合も同じパディングが有効になり、中央に固定される。
+  - `layoutInfo.viewportStartOffset / viewportEndOffset` からビューポート中心を計算する。
+  - `visibleItemsInfo` から選択アイテムの `offset / size` を使い、アイテム中心を算出する。
+  - `delta = itemCenter - viewportCenter` を計算し、`abs(delta) >= 1px` の場合のみ `animateScrollBy(delta)` を実行する。
+  - 選択アイテムが可視範囲外の場合は `scrollToItem(index)` で可視化し、次のフレームで差分スクロールを行う。
+  - 端でも中央寄せできるよう、`centerPadding = max(0, viewportWidth / 2 - itemWidth / 2)` を左右の `contentPadding` に設定する。
+  - 画像枚数が少ない場合も同じパディングと差分スクロールが有効になり、中央に固定される。
 
 ## Alternatives considered
 - 代替案: 先頭/末尾にダミーの Spacer アイテムを追加する。
