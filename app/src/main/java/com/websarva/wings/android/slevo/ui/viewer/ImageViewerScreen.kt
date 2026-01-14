@@ -154,6 +154,7 @@ fun ImageViewerScreen(
                     pagerState = pagerState,
                     isBarsVisible = isBarsVisible,
                     thumbnailListState = thumbnailListState,
+                    modifier = Modifier.align(Alignment.BottomCenter),
                     thumbnailWidth = thumbnailWidth,
                     thumbnailHeight = thumbnailHeight,
                     thumbnailShape = thumbnailShape,
@@ -261,7 +262,7 @@ private fun ImageViewerPager(
                         animatedVisibilityScope = animatedVisibilityScope
                     )
                     .fillMaxSize(),
-                onClick = onToggleBars,
+                onClick = { onToggleBars() },
                 onDoubleClick = DoubleClickToZoomListener.cycle(
                     maxZoomFactor = 2f,
                 ),
@@ -281,6 +282,7 @@ private fun ImageViewerThumbnailBar(
     pagerState: androidx.compose.foundation.pager.PagerState,
     isBarsVisible: Boolean,
     thumbnailListState: androidx.compose.foundation.lazy.LazyListState,
+    modifier: Modifier,
     thumbnailWidth: androidx.compose.ui.unit.Dp,
     thumbnailHeight: androidx.compose.ui.unit.Dp,
     thumbnailShape: RoundedCornerShape,
@@ -324,7 +326,7 @@ private fun ImageViewerThumbnailBar(
         visible = isBarsVisible,
         enter = fadeIn(),
         exit = fadeOut(),
-        modifier = Modifier.align(Alignment.BottomCenter),
+        modifier = modifier,
     ) {
         BoxWithConstraints(
             modifier = Modifier
