@@ -75,7 +75,6 @@ import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 /**
  * レス内画像の一覧をページング表示する画像ビューア。
@@ -132,7 +131,6 @@ fun ImageViewerScreen(
         var lastPage by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
         val thumbnailItemSizePx = remember(thumbnailWidth) { mutableFloatStateOf(0f) }
         val thumbnailViewportWidthPx = remember { mutableIntStateOf(0) }
-        val density = LocalDensity.current
 
         // --- Zoom reset ---
         LaunchedEffect(pagerState.currentPage) {
@@ -179,19 +177,9 @@ fun ImageViewerScreen(
                 // Guard: サムネイルの手動スクロールを優先する。
                 return@LaunchedEffect
             }
-            val fallbackItemWidthPx = with(density) {
-                (thumbnailWidth * selectedThumbnailScale).toPx()
-            }
-            val itemWidthPx = if (thumbnailItemSizePx.floatValue > 0f) {
-                thumbnailItemSizePx.floatValue
-            } else {
-                fallbackItemWidthPx
-            }
-            val centerOffsetPx =
-                (itemWidthPx / 2f - thumbnailViewportWidthPx.intValue / 2f).roundToInt()
             thumbnailListState.animateScrollToItem(
                 index = pagerState.currentPage,
-                scrollOffset = centerOffsetPx,
+                scrollOffset = 0,
             )
         }
 
@@ -361,6 +349,8 @@ private fun ImageViewerThumbnailBar(
     thumbnailViewportWidthPx: MutableIntState,
     onThumbnailClick: (Int) -> Unit,
 ) {
+    val density = LocalDensity.current
+
     // --- Layout ---
     AnimatedVisibility(
         visible = isBarsVisible,
@@ -373,11 +363,24 @@ private fun ImageViewerThumbnailBar(
                 .fillMaxWidth()
                 .background(barBackgroundColor),
         ) {
+            // --- Padding ---
+            val fallbackItemWidthPx = with(density) {
+                (thumbnailWidth * selectedThumbnailScale).toPx()
+            }
+            val itemWidthPx = if (thumbnailItemSizePx.floatValue > 0f) {
+                thumbnailItemSizePx.floatValue
+            } else {
+                fallbackItemWidthPx
+            }
+            val horizontalPaddingPx =
+                ((thumbnailViewportWidthPx.intValue - itemWidthPx) / 2f).coerceAtLeast(0f)
+            val horizontalPadding = with(density) { horizontalPaddingPx.toDp() }
+
             // --- Thumbnails ---
             LazyRow(
                 state = thumbnailListState,
                 contentPadding = PaddingValues(
-                    horizontal = 16.dp,
+                    horizontal = horizontalPadding,
                     vertical = 8.dp,
                 ),
                 horizontalArrangement = Arrangement.spacedBy(thumbnailSpacing),
