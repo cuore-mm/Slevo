@@ -50,8 +50,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -62,11 +62,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.R
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.DoubleClickToZoomListener
 import me.saket.telephoto.zoomable.OverzoomEffect
 import me.saket.telephoto.zoomable.ZoomSpec
@@ -95,7 +94,7 @@ fun ImageViewerScreen(
     val barBackgroundColor = Color.Black.copy(alpha = 0.3f)
     val thumbnailWidth = 40.dp
     val thumbnailHeight = 56.dp
-    val thumbnailShape = RoundedCornerShape(10.dp)
+    val thumbnailShape = RoundedCornerShape(8.dp)
     val thumbnailSpacing = 8.dp
     val selectedThumbnailScale = 1.1f
 
@@ -148,22 +147,21 @@ fun ImageViewerScreen(
                 .map { layoutInfo -> findCenteredThumbnailIndex(layoutInfo) }
                 .filterNotNull()
                 .distinctUntilChanged()
-                .collectLatest { centeredIndex ->
+                .collect { centeredIndex ->
                     if (isThumbnailAutoScrolling) {
                         // Guard: 自動スクロール中はサムネイル同期を停止する。
-                        return@collectLatest
+                        return@collect
                     }
                     if (!thumbnailListState.isScrollInProgress) {
                         // Guard: ユーザー操作がないときは表示画像の更新を行わない。
-                        return@collectLatest
+                        return@collect
                     }
                     if (pagerState.isScrollInProgress) {
                         // Guard: ページャ操作中は競合を避けるため同期しない。
-                        return@collectLatest
+                        return@collect
                     }
                     if (centeredIndex != pagerState.currentPage) {
-                        // Guard: 連続更新時は前回のアニメーションを中断して追従させる。
-                        pagerState.animateScrollToPage(centeredIndex)
+                        pagerState.scrollToPage(centeredIndex)
                     }
                 }
         }
@@ -231,7 +229,7 @@ fun ImageViewerScreen(
                         onThumbnailClick = { index ->
                             if (index != pagerState.currentPage) {
                                 coroutineScope.launch {
-                                    pagerState.animateScrollToPage(index)
+                                    pagerState.scrollToPage(index)
                                 }
                             }
                         },
