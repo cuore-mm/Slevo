@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.R
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
@@ -149,21 +150,22 @@ fun ImageViewerScreen(
                 .map { layoutInfo -> findCenteredThumbnailIndex(layoutInfo) }
                 .filterNotNull()
                 .distinctUntilChanged()
-                .collect { centeredIndex ->
+                .collectLatest { centeredIndex ->
                     if (isThumbnailAutoScrolling) {
                         // Guard: 自動スクロール中はサムネイル同期を停止する。
-                        return@collect
+                        return@collectLatest
                     }
                     if (!thumbnailListState.isScrollInProgress) {
                         // Guard: ユーザー操作がないときは表示画像の更新を行わない。
-                        return@collect
+                        return@collectLatest
                     }
                     if (pagerState.isScrollInProgress) {
                         // Guard: ページャ操作中は競合を避けるため同期しない。
-                        return@collect
+                        return@collectLatest
                     }
                     if (centeredIndex != pagerState.currentPage) {
-                        pagerState.scrollToPage(centeredIndex)
+                        // Guard: 連続更新時は前回のアニメーションを中断して追従させる。
+                        pagerState.animateScrollToPage(centeredIndex)
                     }
                 }
         }
