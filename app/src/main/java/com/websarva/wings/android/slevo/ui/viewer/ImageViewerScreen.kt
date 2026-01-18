@@ -36,12 +36,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +50,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -130,7 +129,6 @@ fun ImageViewerScreen(
             MutableList(imageUrls.size) { mutableStateOf<ZoomableState?>(null) }
         }
         var lastPage by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
-        val thumbnailItemSizePx = remember(thumbnailWidth) { mutableFloatStateOf(0f) }
         val thumbnailViewportWidthPx = remember { mutableIntStateOf(0) }
         var isThumbnailAutoScrolling by remember { mutableStateOf(false) }
 
@@ -174,7 +172,6 @@ fun ImageViewerScreen(
         LaunchedEffect(
             pagerState.currentPage,
             thumbnailViewportWidthPx.intValue,
-            thumbnailItemSizePx.floatValue,
         ) {
             if (thumbnailViewportWidthPx.intValue == 0) {
                 // Guard: 表示領域サイズが確定するまでスクロールを待機する。
@@ -230,7 +227,6 @@ fun ImageViewerScreen(
                         thumbnailSpacing = thumbnailSpacing,
                         selectedThumbnailScale = selectedThumbnailScale,
                         barBackgroundColor = barBackgroundColor,
-                        thumbnailItemSizePx = thumbnailItemSizePx,
                         thumbnailViewportWidthPx = thumbnailViewportWidthPx,
                         onThumbnailClick = { index ->
                             if (index != pagerState.currentPage) {
@@ -358,7 +354,6 @@ private fun ImageViewerThumbnailBar(
     thumbnailSpacing: Dp,
     selectedThumbnailScale: Float,
     barBackgroundColor: Color,
-    thumbnailItemSizePx: MutableFloatState,
     thumbnailViewportWidthPx: MutableIntState,
     onThumbnailClick: (Int) -> Unit,
 ) {
@@ -380,13 +375,8 @@ private fun ImageViewerThumbnailBar(
             val fallbackItemWidthPx = with(density) {
                 (thumbnailWidth * selectedThumbnailScale).toPx()
             }
-            val itemWidthPx = if (thumbnailItemSizePx.floatValue > 0f) {
-                thumbnailItemSizePx.floatValue
-            } else {
-                fallbackItemWidthPx
-            }
             val horizontalPaddingPx =
-                ((thumbnailViewportWidthPx.intValue - itemWidthPx) / 2f).coerceAtLeast(0f)
+                ((thumbnailViewportWidthPx.intValue - fallbackItemWidthPx) / 2f).coerceAtLeast(0f)
             val horizontalPadding = with(density) { horizontalPaddingPx.toDp() }
 
             // --- Thumbnails ---
@@ -406,7 +396,7 @@ private fun ImageViewerThumbnailBar(
                 items(imageUrls.size) { index ->
                     val isSelected = index == pagerState.currentPage
                     val scale by animateFloatAsState(
-                        targetValue = if (isSelected) selectedThumbnailScale else 1f,
+                        targetValue = if (isSelected) 1f else 1f / selectedThumbnailScale,
                         label = "thumbnailScale",
                     )
                     SubcomposeAsyncImage(
@@ -416,15 +406,14 @@ private fun ImageViewerThumbnailBar(
                         alignment = Alignment.Center,
                         modifier = Modifier
                             .size(
-                                width = thumbnailWidth * scale,
-                                height = thumbnailHeight * scale,
+                                width = thumbnailWidth * selectedThumbnailScale,
+                                height = thumbnailHeight * selectedThumbnailScale,
                             )
-                            .clip(thumbnailShape)
-                            .onSizeChanged { size ->
-                                if (isSelected) {
-                                    thumbnailItemSizePx.floatValue = size.width.toFloat()
-                                }
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
                             }
+                            .clip(thumbnailShape)
                             .clickable { onThumbnailClick(index) }
                             .background(Color.DarkGray),
                     )
