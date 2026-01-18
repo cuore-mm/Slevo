@@ -130,6 +130,7 @@ fun ImageViewerScreen(
         var lastPage by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
         val thumbnailViewportWidthPx = remember { mutableIntStateOf(0) }
         var isThumbnailAutoScrolling by remember { mutableStateOf(false) }
+        var shouldSkipIdleSync by remember { mutableStateOf(false) }
 
         // --- Zoom reset ---
         LaunchedEffect(pagerState.currentPage) {
@@ -179,6 +180,15 @@ fun ImageViewerScreen(
                 // Guard: サムネイルの手動スクロールを優先する。
                 return@LaunchedEffect
             }
+            val distanceToCenter = findThumbnailCenterDistancePx(
+                layoutInfo = thumbnailListState.layoutInfo,
+                index = pagerState.currentPage,
+            )
+            if (distanceToCenter != null && distanceToCenter <= 1) {
+                // Guard: すでに中心に近い場合は再スクロールしない。
+                return@LaunchedEffect
+            }
+            shouldSkipIdleSync = true
             isThumbnailAutoScrolling = true
             try {
                 thumbnailListState.animateScrollToItem(
@@ -189,6 +199,50 @@ fun ImageViewerScreen(
                 // Guard: アニメーション終了後に同期停止を解除する。
                 isThumbnailAutoScrolling = false
             }
+        }
+
+        // --- Thumbnail scroll stop -> center sync ---
+        LaunchedEffect(thumbnailListState, pagerState) {
+            snapshotFlow { thumbnailListState.isScrollInProgress }
+                .distinctUntilChanged()
+                .collect { isScrolling ->
+                    if (isScrolling) {
+                        // Guard: スクロール中は中央寄せを行わない。
+                        return@collect
+                    }
+                    if (thumbnailViewportWidthPx.intValue == 0) {
+                        // Guard: 表示領域サイズが確定するまで待機する。
+                        return@collect
+                    }
+                    if (shouldSkipIdleSync) {
+                        // Guard: プログラムスクロール後の停止判定を無視する。
+                        shouldSkipIdleSync = false
+                        return@collect
+                    }
+                    if (pagerState.isScrollInProgress) {
+                        // Guard: ページャ操作中は競合を避ける。
+                        return@collect
+                    }
+                    val distanceToCenter = findThumbnailCenterDistancePx(
+                        layoutInfo = thumbnailListState.layoutInfo,
+                        index = pagerState.currentPage,
+                    )
+                    if (distanceToCenter != null && distanceToCenter <= 1) {
+                        // Guard: すでに中心に近い場合は再スクロールしない。
+                        return@collect
+                    }
+                    shouldSkipIdleSync = true
+                    isThumbnailAutoScrolling = true
+                    try {
+                        thumbnailListState.animateScrollToItem(
+                            index = pagerState.currentPage,
+                            scrollOffset = 0,
+                        )
+                    } finally {
+                        // Guard: アニメーション終了後に同期停止を解除する。
+                        isThumbnailAutoScrolling = false
+                    }
+                }
         }
 
         val isPreview = LocalInspectionMode.current
@@ -439,6 +493,25 @@ private fun findCenteredThumbnailIndex(
         val itemCenter = item.offset + item.size / 2
         abs(itemCenter - viewportCenter)
     }?.index
+}
+
+/**
+ * 指定サムネイルの中心と表示領域中心の距離をピクセルで返す。
+ *
+ * サムネイルが可視領域外の場合は null を返す。
+ */
+private fun findThumbnailCenterDistancePx(
+    layoutInfo: LazyListLayoutInfo,
+    index: Int,
+): Int? {
+    val targetItem = layoutInfo.visibleItemsInfo.firstOrNull { item -> item.index == index }
+        ?: run {
+            // Guard: 可視領域外のアイテムは距離計算できない。
+            return null
+        }
+    val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+    val itemCenter = targetItem.offset + targetItem.size / 2
+    return abs(itemCenter - viewportCenter)
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
