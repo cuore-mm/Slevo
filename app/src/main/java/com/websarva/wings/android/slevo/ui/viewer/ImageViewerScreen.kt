@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -180,20 +181,20 @@ fun ImageViewerScreen(
                 // Guard: サムネイルの手動スクロールを優先する。
                 return@LaunchedEffect
             }
-            val distanceToCenter = findThumbnailCenterDistancePx(
+            val centerDeltaPx = findThumbnailCenterDeltaPx(
                 layoutInfo = thumbnailListState.layoutInfo,
                 index = pagerState.currentPage,
             )
-            if (distanceToCenter != null && distanceToCenter <= 1) {
+            if (centerDeltaPx != null && abs(centerDeltaPx) <= 1) {
                 // Guard: すでに中心に近い場合は再スクロールしない。
                 return@LaunchedEffect
             }
             shouldSkipIdleSync = true
             isThumbnailAutoScrolling = true
             try {
-                thumbnailListState.animateScrollToItem(
+                centerThumbnailAtIndex(
+                    listState = thumbnailListState,
                     index = pagerState.currentPage,
-                    scrollOffset = 0,
                 )
             } finally {
                 // Guard: アニメーション終了後に同期停止を解除する。
@@ -208,6 +209,7 @@ fun ImageViewerScreen(
                 .collect { isScrolling ->
                     if (isScrolling) {
                         // Guard: スクロール中は中央寄せを行わない。
+                        shouldSkipIdleSync = false
                         return@collect
                     }
                     if (thumbnailViewportWidthPx.intValue == 0) {
@@ -223,20 +225,25 @@ fun ImageViewerScreen(
                         // Guard: ページャ操作中は競合を避ける。
                         return@collect
                     }
-                    val distanceToCenter = findThumbnailCenterDistancePx(
+                    val centeredIndex = findCenteredThumbnailIndex(thumbnailListState.layoutInfo)
+                        ?: return@collect
+                    if (pagerState.currentPage != centeredIndex) {
+                        pagerState.scrollToPage(centeredIndex)
+                    }
+                    val centerDeltaPx = findThumbnailCenterDeltaPx(
                         layoutInfo = thumbnailListState.layoutInfo,
-                        index = pagerState.currentPage,
+                        index = centeredIndex,
                     )
-                    if (distanceToCenter != null && distanceToCenter <= 1) {
+                    if (centerDeltaPx != null && abs(centerDeltaPx) <= 1) {
                         // Guard: すでに中心に近い場合は再スクロールしない。
                         return@collect
                     }
                     shouldSkipIdleSync = true
                     isThumbnailAutoScrolling = true
                     try {
-                        thumbnailListState.animateScrollToItem(
-                            index = pagerState.currentPage,
-                            scrollOffset = 0,
+                        centerThumbnailAtIndex(
+                            listState = thumbnailListState,
+                            index = centeredIndex,
                         )
                     } finally {
                         // Guard: アニメーション終了後に同期停止を解除する。
@@ -496,11 +503,11 @@ private fun findCenteredThumbnailIndex(
 }
 
 /**
- * 指定サムネイルの中心と表示領域中心の距離をピクセルで返す。
+ * 指定サムネイルの中心と表示領域中心の差分をピクセルで返す。
  *
  * サムネイルが可視領域外の場合は null を返す。
  */
-private fun findThumbnailCenterDistancePx(
+private fun findThumbnailCenterDeltaPx(
     layoutInfo: LazyListLayoutInfo,
     index: Int,
 ): Int? {
@@ -511,7 +518,38 @@ private fun findThumbnailCenterDistancePx(
         }
     val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
     val itemCenter = targetItem.offset + targetItem.size / 2
-    return abs(itemCenter - viewportCenter)
+    return itemCenter - viewportCenter
+}
+
+/**
+ * 指定したサムネイルが表示領域の中心に来るようスクロールする。
+ *
+ * 対象が可視外の場合は一度可視化してから中心に寄せる。
+ */
+private suspend fun centerThumbnailAtIndex(
+    listState: LazyListState,
+    index: Int,
+) {
+    val initialDelta = findThumbnailCenterDeltaPx(
+        layoutInfo = listState.layoutInfo,
+        index = index,
+    )
+    if (initialDelta == null) {
+        // Guard: まずは対象を可視化してから中心寄せを行う。
+        listState.animateScrollToItem(index)
+    } else if (abs(initialDelta) <= 1) {
+        // Guard: すでに中心に近い場合は処理しない。
+        return
+    }
+    val updatedDelta = findThumbnailCenterDeltaPx(
+        layoutInfo = listState.layoutInfo,
+        index = index,
+    ) ?: return
+    if (abs(updatedDelta) <= 1) {
+        // Guard: 既に中心に近い場合は処理しない。
+        return
+    }
+    listState.animateScrollBy(updatedDelta.toFloat())
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
