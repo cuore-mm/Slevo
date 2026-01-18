@@ -131,6 +131,7 @@ fun ImageViewerScreen(
         var lastPage by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
         val thumbnailItemSizePx = remember(thumbnailWidth) { mutableFloatStateOf(0f) }
         val thumbnailViewportWidthPx = remember { mutableIntStateOf(0) }
+        var isThumbnailAutoScrolling by remember { mutableStateOf(false) }
 
         // --- Zoom reset ---
         LaunchedEffect(pagerState.currentPage) {
@@ -149,6 +150,10 @@ fun ImageViewerScreen(
                 .filterNotNull()
                 .distinctUntilChanged()
                 .collect { centeredIndex ->
+                    if (isThumbnailAutoScrolling) {
+                        // Guard: 自動スクロール中はサムネイル同期を停止する。
+                        return@collect
+                    }
                     if (!thumbnailListState.isScrollInProgress) {
                         // Guard: ユーザー操作がないときは表示画像の更新を行わない。
                         return@collect
@@ -177,10 +182,16 @@ fun ImageViewerScreen(
                 // Guard: サムネイルの手動スクロールを優先する。
                 return@LaunchedEffect
             }
-            thumbnailListState.animateScrollToItem(
-                index = pagerState.currentPage,
-                scrollOffset = 0,
-            )
+            isThumbnailAutoScrolling = true
+            try {
+                thumbnailListState.animateScrollToItem(
+                    index = pagerState.currentPage,
+                    scrollOffset = 0,
+                )
+            } finally {
+                // Guard: アニメーション終了後に同期停止を解除する。
+                isThumbnailAutoScrolling = false
+            }
         }
 
         val isPreview = LocalInspectionMode.current
