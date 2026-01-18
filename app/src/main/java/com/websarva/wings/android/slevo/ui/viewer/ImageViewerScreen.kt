@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -36,6 +37,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableFloatState
+import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -46,12 +48,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -60,6 +64,9 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.R
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import me.saket.telephoto.zoomable.DoubleClickToZoomListener
 import me.saket.telephoto.zoomable.OverzoomEffect
 import me.saket.telephoto.zoomable.ZoomSpec
@@ -67,6 +74,8 @@ import me.saket.telephoto.zoomable.ZoomableState
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * レス内画像の一覧をページング表示する画像ビューア。
@@ -122,6 +131,8 @@ fun ImageViewerScreen(
         }
         var lastPage by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
         val thumbnailItemSizePx = remember(thumbnailWidth) { mutableFloatStateOf(0f) }
+        val thumbnailViewportWidthPx = remember { mutableIntStateOf(0) }
+        val density = LocalDensity.current
 
         // --- Zoom reset ---
         LaunchedEffect(pagerState.currentPage) {
@@ -131,6 +142,57 @@ fun ImageViewerScreen(
                 zoomableStates.getOrNull(lastPage)?.value?.resetZoom()
                 lastPage = currentPage
             }
+        }
+
+        // --- Thumbnail scroll -> pager sync ---
+        LaunchedEffect(thumbnailListState, pagerState) {
+            snapshotFlow { thumbnailListState.layoutInfo }
+                .map { layoutInfo -> findCenteredThumbnailIndex(layoutInfo) }
+                .filterNotNull()
+                .distinctUntilChanged()
+                .collect { centeredIndex ->
+                    if (!thumbnailListState.isScrollInProgress) {
+                        // Guard: ユーザー操作がないときは表示画像の更新を行わない。
+                        return@collect
+                    }
+                    if (pagerState.isScrollInProgress) {
+                        // Guard: ページャ操作中は競合を避けるため同期しない。
+                        return@collect
+                    }
+                    if (centeredIndex != pagerState.currentPage) {
+                        pagerState.scrollToPage(centeredIndex)
+                    }
+                }
+        }
+
+        // --- Pager -> thumbnail scroll sync ---
+        LaunchedEffect(
+            pagerState.currentPage,
+            thumbnailViewportWidthPx.intValue,
+            thumbnailItemSizePx.floatValue,
+        ) {
+            if (thumbnailViewportWidthPx.intValue == 0) {
+                // Guard: 表示領域サイズが確定するまでスクロールを待機する。
+                return@LaunchedEffect
+            }
+            if (thumbnailListState.isScrollInProgress) {
+                // Guard: サムネイルの手動スクロールを優先する。
+                return@LaunchedEffect
+            }
+            val fallbackItemWidthPx = with(density) {
+                (thumbnailWidth * selectedThumbnailScale).toPx()
+            }
+            val itemWidthPx = if (thumbnailItemSizePx.floatValue > 0f) {
+                thumbnailItemSizePx.floatValue
+            } else {
+                fallbackItemWidthPx
+            }
+            val centerOffsetPx =
+                (itemWidthPx / 2f - thumbnailViewportWidthPx.intValue / 2f).roundToInt()
+            thumbnailListState.animateScrollToItem(
+                index = pagerState.currentPage,
+                scrollOffset = centerOffsetPx,
+            )
         }
 
         val isPreview = LocalInspectionMode.current
@@ -168,6 +230,7 @@ fun ImageViewerScreen(
                         selectedThumbnailScale = selectedThumbnailScale,
                         barBackgroundColor = barBackgroundColor,
                         thumbnailItemSizePx = thumbnailItemSizePx,
+                        thumbnailViewportWidthPx = thumbnailViewportWidthPx,
                         onThumbnailClick = { index ->
                             if (index != pagerState.currentPage) {
                                 coroutineScope.launch {
@@ -295,6 +358,7 @@ private fun ImageViewerThumbnailBar(
     selectedThumbnailScale: Float,
     barBackgroundColor: Color,
     thumbnailItemSizePx: MutableFloatState,
+    thumbnailViewportWidthPx: MutableIntState,
     onThumbnailClick: (Int) -> Unit,
 ) {
     // --- Layout ---
@@ -317,7 +381,11 @@ private fun ImageViewerThumbnailBar(
                     vertical = 8.dp,
                 ),
                 horizontalArrangement = Arrangement.spacedBy(thumbnailSpacing),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { size ->
+                        thumbnailViewportWidthPx.intValue = size.width
+                    },
             ) {
                 items(imageUrls.size) { index ->
                     val isSelected = index == pagerState.currentPage
@@ -348,6 +416,26 @@ private fun ImageViewerThumbnailBar(
             }
         }
     }
+}
+
+/**
+ * サムネイル一覧の表示領域中心に最も近いアイテムのインデックスを返す。
+ *
+ * 表示アイテムが存在しない場合は null を返す。
+ */
+private fun findCenteredThumbnailIndex(
+    layoutInfo: LazyListLayoutInfo,
+): Int? {
+    val visibleItems = layoutInfo.visibleItemsInfo
+    if (visibleItems.isEmpty()) {
+        // Guard: まだ表示対象がない場合は判定できない。
+        return null
+    }
+    val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+    return visibleItems.minByOrNull { item ->
+        val itemCenter = item.offset + item.size / 2
+        abs(itemCenter - viewportCenter)
+    }?.index
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
