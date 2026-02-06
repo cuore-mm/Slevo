@@ -138,7 +138,9 @@ fun ImageViewerScreen(
         var isThumbnailAutoScrolling by remember { mutableStateOf(false) }
         var shouldSkipIdleSync by remember { mutableStateOf(false) }
         var hasPendingIdleCenterSync by remember { mutableStateOf(false) }
-        var hasInitializedThumbnailCentering by rememberSaveable { mutableStateOf(false) }
+        var hasInitializedThumbnailCentering by remember(imageUrls, safeInitialIndex) {
+            mutableStateOf(false)
+        }
 
         // --- Zoom reset ---
         LaunchedEffect(pagerState.currentPage) {
