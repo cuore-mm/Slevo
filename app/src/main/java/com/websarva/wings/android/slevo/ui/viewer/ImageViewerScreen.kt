@@ -66,6 +66,7 @@ import com.websarva.wings.android.slevo.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
@@ -148,12 +149,16 @@ fun ImageViewerScreen(
         }
 
         // --- Thumbnail scroll -> pager sync ---
-        LaunchedEffect(thumbnailListState, pagerState) {
+        LaunchedEffect(thumbnailListState, pagerState, isBarsVisible) {
             snapshotFlow { thumbnailListState.layoutInfo }
                 .map { layoutInfo -> findCenteredThumbnailIndex(layoutInfo) }
                 .filterNotNull()
                 .distinctUntilChanged()
                 .collect { centeredIndex ->
+                    if (!isBarsVisible) {
+                        // Guard: サムネイルバー非表示中は同期を停止する。
+                        return@collect
+                    }
                     if (isThumbnailAutoScrolling) {
                         // Guard: 自動スクロール中はサムネイル同期を停止する。
                         return@collect
@@ -181,9 +186,14 @@ fun ImageViewerScreen(
 
         // --- Pager -> thumbnail scroll sync ---
         LaunchedEffect(
+            isBarsVisible,
             pagerState.currentPage,
             thumbnailViewportWidthPx.intValue,
         ) {
+            if (!isBarsVisible) {
+                // Guard: サムネイルバー非表示中は同期を停止する。
+                return@LaunchedEffect
+            }
             if (thumbnailViewportWidthPx.intValue == 0) {
                 // Guard: 表示領域サイズが確定するまでスクロールを待機する。
                 return@LaunchedEffect
@@ -213,10 +223,14 @@ fun ImageViewerScreen(
         }
 
         // --- Thumbnail scroll stop -> center sync ---
-        LaunchedEffect(thumbnailListState, pagerState) {
+        LaunchedEffect(thumbnailListState, pagerState, isBarsVisible) {
             snapshotFlow { thumbnailListState.isScrollInProgress }
                 .distinctUntilChanged()
                 .collect { isScrolling ->
+                    if (!isBarsVisible) {
+                        hasPendingIdleCenterSync = false
+                        return@collect
+                    }
                     if (isScrolling) {
                         // Guard: スクロール中は中央寄せを行わない。
                         if (!isThumbnailAutoScrolling) {
@@ -253,10 +267,14 @@ fun ImageViewerScreen(
         }
 
         // --- Pager stop -> pending thumbnail center sync ---
-        LaunchedEffect(thumbnailListState, pagerState) {
+        LaunchedEffect(thumbnailListState, pagerState, isBarsVisible) {
             snapshotFlow { pagerState.isScrollInProgress }
                 .distinctUntilChanged()
                 .collect { isPagerScrolling ->
+                    if (!isBarsVisible) {
+                        hasPendingIdleCenterSync = false
+                        return@collect
+                    }
                     if (isPagerScrolling) {
                         return@collect
                     }
@@ -619,7 +637,14 @@ private suspend fun centerThumbnailAtIndex(
         val updatedDelta = findThumbnailCenterDeltaPx(
             layoutInfo = listState.layoutInfo,
             index = index,
-        ) ?: return didAutoScroll
+        ) ?: snapshotFlow {
+            findThumbnailCenterDeltaPx(
+                layoutInfo = listState.layoutInfo,
+                index = index,
+            )
+        }
+            .filterNotNull()
+            .first()
         if (abs(updatedDelta) <= 1) {
             // Guard: 既に中心に近い場合は処理しない。
             return didAutoScroll
