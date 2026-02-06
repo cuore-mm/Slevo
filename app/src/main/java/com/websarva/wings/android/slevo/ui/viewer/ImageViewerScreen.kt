@@ -7,6 +7,7 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -103,6 +104,7 @@ fun ImageViewerScreen(
     val thumbnailShape = RoundedCornerShape(8.dp)
     val thumbnailSpacing = 8.dp
     val selectedThumbnailScale = 1.1f
+    val barExitDurationMillis = 80
 
     // --- UI state ---
     var isBarsVisible by rememberSaveable { mutableStateOf(true) }
@@ -112,6 +114,7 @@ fun ImageViewerScreen(
             ImageViewerTopBar(
                 isVisible = isBarsVisible,
                 barBackgroundColor = barBackgroundColor,
+                barExitDurationMillis = barExitDurationMillis,
                 onNavigateUp = onNavigateUp,
             )
         },
@@ -371,6 +374,7 @@ fun ImageViewerScreen(
                         thumbnailSpacing = thumbnailSpacing,
                         selectedThumbnailScale = selectedThumbnailScale,
                         barBackgroundColor = barBackgroundColor,
+                        barExitDurationMillis = barExitDurationMillis,
                         thumbnailViewportWidthPx = thumbnailViewportWidthPx,
                         onThumbnailClick = { index ->
                             if (index != pagerState.currentPage) {
@@ -397,12 +401,13 @@ fun ImageViewerScreen(
 private fun ImageViewerTopBar(
     isVisible: Boolean,
     barBackgroundColor: Color,
+    barExitDurationMillis: Int,
     onNavigateUp: () -> Unit,
 ) {
     AnimatedVisibility(
         visible = isVisible,
         enter = fadeIn(),
-        exit = fadeOut(),
+        exit = fadeOut(animationSpec = tween(barExitDurationMillis)),
     ) {
         TopAppBar(
             title = {},
@@ -504,6 +509,7 @@ private fun ImageViewerThumbnailBar(
     thumbnailSpacing: Dp,
     selectedThumbnailScale: Float,
     barBackgroundColor: Color,
+    barExitDurationMillis: Int,
     thumbnailViewportWidthPx: MutableIntState,
     onThumbnailClick: (Int) -> Unit,
 ) {
@@ -513,7 +519,7 @@ private fun ImageViewerThumbnailBar(
     AnimatedVisibility(
         visible = isBarsVisible,
         enter = fadeIn(),
-        exit = fadeOut(),
+        exit = fadeOut(animationSpec = tween(barExitDurationMillis)),
         modifier = modifier,
     ) {
         Box(
