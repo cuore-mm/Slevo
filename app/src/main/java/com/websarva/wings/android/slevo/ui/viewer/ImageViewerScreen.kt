@@ -63,9 +63,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.R
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.DoubleClickToZoomListener
 import me.saket.telephoto.zoomable.OverzoomEffect
@@ -164,7 +167,14 @@ fun ImageViewerScreen(
                         return@collect
                     }
                     if (centeredIndex != pagerState.currentPage) {
-                        pagerState.scrollToPage(centeredIndex)
+                        try {
+                            pagerState.scrollToPage(centeredIndex)
+                        } catch (cancellationException: CancellationException) {
+                            // Guard: ユーザー割り込み時は監視を継続する。
+                            if (!currentCoroutineContext().isActive) {
+                                throw cancellationException
+                            }
+                        }
                     }
                 }
         }
@@ -553,13 +563,34 @@ private suspend fun syncIdleThumbnailCenter(
 ): Boolean {
     val centeredIndex = findCenteredThumbnailIndex(thumbnailListState.layoutInfo)
         ?: return false
-    if (pagerState.currentPage != centeredIndex) {
-        pagerState.scrollToPage(centeredIndex)
+    if (!scrollPagerToIndexSafely(pagerState, centeredIndex)) {
+        return false
     }
     return centerThumbnailAtIndex(
         listState = thumbnailListState,
         index = centeredIndex,
     )
+}
+
+/**
+ * ページャを指定インデックスへ即時移動し、ユーザー割り込み時は監視継続のため失敗扱いで返す。
+ */
+private suspend fun scrollPagerToIndexSafely(
+    pagerState: PagerState,
+    index: Int,
+): Boolean {
+    if (pagerState.currentPage == index) {
+        return true
+    }
+    return try {
+        pagerState.scrollToPage(index)
+        true
+    } catch (cancellationException: CancellationException) {
+        if (!currentCoroutineContext().isActive) {
+            throw cancellationException
+        }
+        false
+    }
 }
 
 /**
@@ -571,29 +602,36 @@ private suspend fun centerThumbnailAtIndex(
     listState: LazyListState,
     index: Int,
 ): Boolean {
-    var didAutoScroll = false
-    val initialDelta = findThumbnailCenterDeltaPx(
-        layoutInfo = listState.layoutInfo,
-        index = index,
-    )
-    if (initialDelta == null) {
-        // Guard: まずは対象を可視化してから中心寄せを行う。
-        listState.animateScrollToItem(index)
-        didAutoScroll = true
-    } else if (abs(initialDelta) <= 1) {
-        // Guard: すでに中心に近い場合は処理しない。
-        return false
+    return try {
+        var didAutoScroll = false
+        val initialDelta = findThumbnailCenterDeltaPx(
+            layoutInfo = listState.layoutInfo,
+            index = index,
+        )
+        if (initialDelta == null) {
+            // Guard: まずは対象を可視化してから中心寄せを行う。
+            listState.animateScrollToItem(index)
+            didAutoScroll = true
+        } else if (abs(initialDelta) <= 1) {
+            // Guard: すでに中心に近い場合は処理しない。
+            return false
+        }
+        val updatedDelta = findThumbnailCenterDeltaPx(
+            layoutInfo = listState.layoutInfo,
+            index = index,
+        ) ?: return didAutoScroll
+        if (abs(updatedDelta) <= 1) {
+            // Guard: 既に中心に近い場合は処理しない。
+            return didAutoScroll
+        }
+        listState.animateScrollBy(updatedDelta.toFloat())
+        true
+    } catch (cancellationException: CancellationException) {
+        if (!currentCoroutineContext().isActive) {
+            throw cancellationException
+        }
+        false
     }
-    val updatedDelta = findThumbnailCenterDeltaPx(
-        layoutInfo = listState.layoutInfo,
-        index = index,
-    ) ?: return didAutoScroll
-    if (abs(updatedDelta) <= 1) {
-        // Guard: 既に中心に近い場合は処理しない。
-        return didAutoScroll
-    }
-    listState.animateScrollBy(updatedDelta.toFloat())
-    return true
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
