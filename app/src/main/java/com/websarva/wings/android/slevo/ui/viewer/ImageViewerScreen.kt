@@ -138,6 +138,7 @@ fun ImageViewerScreen(
         var isThumbnailAutoScrolling by remember { mutableStateOf(false) }
         var shouldSkipIdleSync by remember { mutableStateOf(false) }
         var hasPendingIdleCenterSync by remember { mutableStateOf(false) }
+        var hasInitializedThumbnailCentering by rememberSaveable { mutableStateOf(false) }
 
         // --- Zoom reset ---
         LaunchedEffect(pagerState.currentPage) {
@@ -215,7 +216,9 @@ fun ImageViewerScreen(
                 shouldSkipIdleSync = centerThumbnailAtIndex(
                     listState = thumbnailListState,
                     index = pagerState.currentPage,
+                    animate = hasInitializedThumbnailCentering,
                 )
+                hasInitializedThumbnailCentering = true
             } finally {
                 // Guard: アニメーション終了後に同期停止を解除する。
                 isThumbnailAutoScrolling = false
@@ -241,6 +244,7 @@ fun ImageViewerScreen(
                     index = pagerState.currentPage,
                     animate = false,
                 )
+                hasInitializedThumbnailCentering = true
             } finally {
                 isThumbnailAutoScrolling = false
             }
@@ -282,7 +286,9 @@ fun ImageViewerScreen(
                         shouldSkipIdleSync = syncIdleThumbnailCenter(
                             thumbnailListState = thumbnailListState,
                             pagerState = pagerState,
+                            animate = hasInitializedThumbnailCentering,
                         )
+                        hasInitializedThumbnailCentering = true
                     } finally {
                         // Guard: アニメーション終了後に同期停止を解除する。
                         isThumbnailAutoScrolling = false
@@ -318,7 +324,9 @@ fun ImageViewerScreen(
                         shouldSkipIdleSync = syncIdleThumbnailCenter(
                             thumbnailListState = thumbnailListState,
                             pagerState = pagerState,
+                            animate = hasInitializedThumbnailCentering,
                         )
+                        hasInitializedThumbnailCentering = true
                     } finally {
                         isThumbnailAutoScrolling = false
                     }
@@ -602,6 +610,7 @@ private fun findThumbnailCenterDeltaPx(
 private suspend fun syncIdleThumbnailCenter(
     thumbnailListState: LazyListState,
     pagerState: PagerState,
+    animate: Boolean = true,
 ): Boolean {
     val centeredIndex = findCenteredThumbnailIndex(thumbnailListState.layoutInfo)
         ?: return false
@@ -611,6 +620,7 @@ private suspend fun syncIdleThumbnailCenter(
     return centerThumbnailAtIndex(
         listState = thumbnailListState,
         index = centeredIndex,
+        animate = animate,
     )
 }
 
