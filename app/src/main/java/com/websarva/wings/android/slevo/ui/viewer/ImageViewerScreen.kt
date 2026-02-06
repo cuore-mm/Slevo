@@ -138,7 +138,7 @@ fun ImageViewerScreen(
         var isThumbnailAutoScrolling by remember { mutableStateOf(false) }
         var shouldSkipIdleSync by remember { mutableStateOf(false) }
         var hasPendingIdleCenterSync by remember { mutableStateOf(false) }
-        var hasInitializedThumbnailCentering by remember(imageUrls, safeInitialIndex) {
+        var hasUserInteracted by remember(imageUrls, safeInitialIndex) {
             mutableStateOf(false)
         }
 
@@ -218,9 +218,8 @@ fun ImageViewerScreen(
                 shouldSkipIdleSync = centerThumbnailAtIndex(
                     listState = thumbnailListState,
                     index = pagerState.currentPage,
-                    animate = hasInitializedThumbnailCentering,
+                    animate = hasUserInteracted,
                 )
-                hasInitializedThumbnailCentering = true
             } finally {
                 // Guard: アニメーション終了後に同期停止を解除する。
                 isThumbnailAutoScrolling = false
@@ -246,7 +245,6 @@ fun ImageViewerScreen(
                     index = pagerState.currentPage,
                     animate = false,
                 )
-                hasInitializedThumbnailCentering = true
             } finally {
                 isThumbnailAutoScrolling = false
             }
@@ -264,6 +262,8 @@ fun ImageViewerScreen(
                     if (isScrolling) {
                         // Guard: スクロール中は中央寄せを行わない。
                         if (!isThumbnailAutoScrolling) {
+                            // Guard: ユーザーのサムネイル操作後のみ自動同期アニメを有効化する。
+                            hasUserInteracted = true
                             shouldSkipIdleSync = false
                         }
                         return@collect
@@ -288,9 +288,8 @@ fun ImageViewerScreen(
                         shouldSkipIdleSync = syncIdleThumbnailCenter(
                             thumbnailListState = thumbnailListState,
                             pagerState = pagerState,
-                            animate = hasInitializedThumbnailCentering,
+                            animate = hasUserInteracted,
                         )
-                        hasInitializedThumbnailCentering = true
                     } finally {
                         // Guard: アニメーション終了後に同期停止を解除する。
                         isThumbnailAutoScrolling = false
@@ -308,6 +307,10 @@ fun ImageViewerScreen(
                         return@collect
                     }
                     if (isPagerScrolling) {
+                        if (!isThumbnailAutoScrolling) {
+                            // Guard: ユーザーのページャ操作後のみ自動同期アニメを有効化する。
+                            hasUserInteracted = true
+                        }
                         return@collect
                     }
                     if (!hasPendingIdleCenterSync) {
@@ -326,9 +329,8 @@ fun ImageViewerScreen(
                         shouldSkipIdleSync = syncIdleThumbnailCenter(
                             thumbnailListState = thumbnailListState,
                             pagerState = pagerState,
-                            animate = hasInitializedThumbnailCentering,
+                            animate = hasUserInteracted,
                         )
-                        hasInitializedThumbnailCentering = true
                     } finally {
                         isThumbnailAutoScrolling = false
                     }
@@ -372,6 +374,7 @@ fun ImageViewerScreen(
                         thumbnailViewportWidthPx = thumbnailViewportWidthPx,
                         onThumbnailClick = { index ->
                             if (index != pagerState.currentPage) {
+                                hasUserInteracted = true
                                 coroutineScope.launch {
                                     pagerState.scrollToPage(index)
                                 }
