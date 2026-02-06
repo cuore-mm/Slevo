@@ -186,7 +186,6 @@ fun ImageViewerScreen(
 
         // --- Pager -> thumbnail scroll sync ---
         LaunchedEffect(
-            isBarsVisible,
             pagerState.currentPage,
             thumbnailViewportWidthPx.intValue,
         ) {
@@ -218,6 +217,30 @@ fun ImageViewerScreen(
                 )
             } finally {
                 // Guard: アニメーション終了後に同期停止を解除する。
+                isThumbnailAutoScrolling = false
+            }
+        }
+
+        // --- Thumbnail bar show -> center sync (no animation) ---
+        LaunchedEffect(isBarsVisible, thumbnailViewportWidthPx.intValue) {
+            if (!isBarsVisible) {
+                return@LaunchedEffect
+            }
+            if (thumbnailViewportWidthPx.intValue == 0) {
+                return@LaunchedEffect
+            }
+            if (thumbnailListState.isScrollInProgress) {
+                // Guard: ユーザー操作中は自動センタリングしない。
+                return@LaunchedEffect
+            }
+            isThumbnailAutoScrolling = true
+            try {
+                shouldSkipIdleSync = centerThumbnailAtIndex(
+                    listState = thumbnailListState,
+                    index = pagerState.currentPage,
+                    animate = false,
+                )
+            } finally {
                 isThumbnailAutoScrolling = false
             }
         }
@@ -619,6 +642,7 @@ private suspend fun scrollPagerToIndexSafely(
 private suspend fun centerThumbnailAtIndex(
     listState: LazyListState,
     index: Int,
+    animate: Boolean = true,
 ): Boolean {
     return try {
         var didAutoScroll = false
@@ -628,7 +652,11 @@ private suspend fun centerThumbnailAtIndex(
         )
         if (initialDelta == null) {
             // Guard: まずは対象を可視化してから中心寄せを行う。
-            listState.animateScrollToItem(index)
+            if (animate) {
+                listState.animateScrollToItem(index)
+            } else {
+                listState.scrollToItem(index)
+            }
             didAutoScroll = true
         } else if (abs(initialDelta) <= 1) {
             // Guard: すでに中心に近い場合は処理しない。
@@ -649,7 +677,11 @@ private suspend fun centerThumbnailAtIndex(
             // Guard: 既に中心に近い場合は処理しない。
             return didAutoScroll
         }
-        listState.animateScrollBy(updatedDelta.toFloat())
+        if (animate) {
+            listState.animateScrollBy(updatedDelta.toFloat())
+        } else {
+            listState.scrollBy(updatedDelta.toFloat())
+        }
         true
     } catch (cancellationException: CancellationException) {
         if (!currentCoroutineContext().isActive) {
