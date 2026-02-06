@@ -132,6 +132,7 @@ fun ImageViewerScreen(
         val thumbnailViewportWidthPx = remember { mutableIntStateOf(0) }
         var isThumbnailAutoScrolling by remember { mutableStateOf(false) }
         var shouldSkipIdleSync by remember { mutableStateOf(false) }
+        var hasPendingIdleCenterSync by remember { mutableStateOf(false) }
 
         // --- Zoom reset ---
         LaunchedEffect(pagerState.currentPage) {
@@ -189,10 +190,9 @@ fun ImageViewerScreen(
                 // Guard: すでに中心に近い場合は再スクロールしない。
                 return@LaunchedEffect
             }
-            shouldSkipIdleSync = true
             isThumbnailAutoScrolling = true
             try {
-                centerThumbnailAtIndex(
+                shouldSkipIdleSync = centerThumbnailAtIndex(
                     listState = thumbnailListState,
                     index = pagerState.currentPage,
                 )
@@ -209,7 +209,9 @@ fun ImageViewerScreen(
                 .collect { isScrolling ->
                     if (isScrolling) {
                         // Guard: スクロール中は中央寄せを行わない。
-                        shouldSkipIdleSync = false
+                        if (!isThumbnailAutoScrolling) {
+                            shouldSkipIdleSync = false
+                        }
                         return@collect
                     }
                     if (thumbnailViewportWidthPx.intValue == 0) {
@@ -222,31 +224,50 @@ fun ImageViewerScreen(
                         return@collect
                     }
                     if (pagerState.isScrollInProgress) {
-                        // Guard: ページャ操作中は競合を避ける。
+                        // Guard: ページャ停止後に再センタリングするため保留する。
+                        hasPendingIdleCenterSync = true
                         return@collect
                     }
-                    val centeredIndex = findCenteredThumbnailIndex(thumbnailListState.layoutInfo)
-                        ?: return@collect
-                    if (pagerState.currentPage != centeredIndex) {
-                        pagerState.scrollToPage(centeredIndex)
-                    }
-                    val centerDeltaPx = findThumbnailCenterDeltaPx(
-                        layoutInfo = thumbnailListState.layoutInfo,
-                        index = centeredIndex,
-                    )
-                    if (centerDeltaPx != null && abs(centerDeltaPx) <= 1) {
-                        // Guard: すでに中心に近い場合は再スクロールしない。
-                        return@collect
-                    }
-                    shouldSkipIdleSync = true
+                    hasPendingIdleCenterSync = false
                     isThumbnailAutoScrolling = true
                     try {
-                        centerThumbnailAtIndex(
-                            listState = thumbnailListState,
-                            index = centeredIndex,
+                        shouldSkipIdleSync = syncIdleThumbnailCenter(
+                            thumbnailListState = thumbnailListState,
+                            pagerState = pagerState,
                         )
                     } finally {
                         // Guard: アニメーション終了後に同期停止を解除する。
+                        isThumbnailAutoScrolling = false
+                    }
+                }
+        }
+
+        // --- Pager stop -> pending thumbnail center sync ---
+        LaunchedEffect(thumbnailListState, pagerState) {
+            snapshotFlow { pagerState.isScrollInProgress }
+                .distinctUntilChanged()
+                .collect { isPagerScrolling ->
+                    if (isPagerScrolling) {
+                        return@collect
+                    }
+                    if (!hasPendingIdleCenterSync) {
+                        return@collect
+                    }
+                    if (thumbnailListState.isScrollInProgress) {
+                        // Guard: ユーザーが再操作した場合は停止同期を中断する。
+                        return@collect
+                    }
+                    if (thumbnailViewportWidthPx.intValue == 0) {
+                        return@collect
+                    }
+                    hasPendingIdleCenterSync = false
+                    isThumbnailAutoScrolling = true
+                    try {
+                        shouldSkipIdleSync = syncIdleThumbnailCenter(
+                            thumbnailListState = thumbnailListState,
+                            pagerState = pagerState,
+                        )
+                    } finally {
                         isThumbnailAutoScrolling = false
                     }
                 }
@@ -522,6 +543,26 @@ private fun findThumbnailCenterDeltaPx(
 }
 
 /**
+ * サムネイル停止時に中央へ最も近いサムネイルを選択し、必要に応じて中央へ寄せる。
+ *
+ * サムネイルバーを実際に自動スクロールした場合は true を返す。
+ */
+private suspend fun syncIdleThumbnailCenter(
+    thumbnailListState: LazyListState,
+    pagerState: PagerState,
+): Boolean {
+    val centeredIndex = findCenteredThumbnailIndex(thumbnailListState.layoutInfo)
+        ?: return false
+    if (pagerState.currentPage != centeredIndex) {
+        pagerState.scrollToPage(centeredIndex)
+    }
+    return centerThumbnailAtIndex(
+        listState = thumbnailListState,
+        index = centeredIndex,
+    )
+}
+
+/**
  * 指定したサムネイルが表示領域の中心に来るようスクロールする。
  *
  * 対象が可視外の場合は一度可視化してから中心に寄せる。
@@ -529,7 +570,8 @@ private fun findThumbnailCenterDeltaPx(
 private suspend fun centerThumbnailAtIndex(
     listState: LazyListState,
     index: Int,
-) {
+): Boolean {
+    var didAutoScroll = false
     val initialDelta = findThumbnailCenterDeltaPx(
         layoutInfo = listState.layoutInfo,
         index = index,
@@ -537,19 +579,21 @@ private suspend fun centerThumbnailAtIndex(
     if (initialDelta == null) {
         // Guard: まずは対象を可視化してから中心寄せを行う。
         listState.animateScrollToItem(index)
+        didAutoScroll = true
     } else if (abs(initialDelta) <= 1) {
         // Guard: すでに中心に近い場合は処理しない。
-        return
+        return false
     }
     val updatedDelta = findThumbnailCenterDeltaPx(
         layoutInfo = listState.layoutInfo,
         index = index,
-    ) ?: return
+    ) ?: return didAutoScroll
     if (abs(updatedDelta) <= 1) {
         // Guard: 既に中心に近い場合は処理しない。
-        return
+        return didAutoScroll
     }
     listState.animateScrollBy(updatedDelta.toFloat())
+    return true
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
