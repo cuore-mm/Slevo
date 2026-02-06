@@ -1,6 +1,9 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
+import android.app.Activity
 import android.annotation.SuppressLint
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -38,6 +41,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
@@ -58,6 +62,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -65,6 +70,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.R
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -108,6 +115,27 @@ fun ImageViewerScreen(
 
     // --- UI state ---
     var isBarsVisible by rememberSaveable { mutableStateOf(true) }
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
+
+    // --- System bars ---
+    DisposableEffect(activity, isBarsVisible) {
+        val currentActivity = activity ?: return@DisposableEffect onDispose { }
+        val controller = WindowInsetsControllerCompat(
+            currentActivity.window,
+            currentActivity.window.decorView,
+        ).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+        if (isBarsVisible) {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -388,6 +416,19 @@ fun ImageViewerScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * Context から Activity を辿って返す。
+ *
+ * Activity でない Context の場合は ContextWrapper をたどり、見つからないときは null を返す。
+ */
+private tailrec fun Context.findActivity(): Activity? {
+    return when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
     }
 }
 
