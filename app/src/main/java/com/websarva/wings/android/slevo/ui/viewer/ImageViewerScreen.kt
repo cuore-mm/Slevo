@@ -440,6 +440,7 @@ private fun ImageViewerPager(
     // --- Pager ---
     HorizontalPager(
         state = pagerState,
+        pageSpacing = 8.dp,
         modifier = Modifier.fillMaxSize(),
     ) { page ->
         // --- Zoom state ---
