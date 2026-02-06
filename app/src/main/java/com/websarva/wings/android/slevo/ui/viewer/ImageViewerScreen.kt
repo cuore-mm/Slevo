@@ -68,8 +68,8 @@ import com.websarva.wings.android.slevo.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -472,7 +472,8 @@ private fun ImageViewerPager(
                     sharedContentState = sharedTransitionScope.rememberSharedContentState(
                         key = "$imageUrl#$page"
                     ),
-                    animatedVisibilityScope = animatedVisibilityScope
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    renderInOverlayDuringTransition = false
                 )
             }
         } else {
