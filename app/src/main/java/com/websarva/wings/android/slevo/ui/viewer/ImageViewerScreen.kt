@@ -23,7 +23,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -452,6 +455,7 @@ private fun ImageViewerTopBar(
     ) {
         TopAppBar(
             title = {},
+            modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
             navigationIcon = {
                 IconButton(onClick = onNavigateUp) {
                     Icon(
@@ -463,7 +467,8 @@ private fun ImageViewerTopBar(
             },
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = barBackgroundColor
-            )
+            ),
+            windowInsets = WindowInsets(0)
         )
     }
 }
@@ -562,7 +567,7 @@ private fun ImageViewerThumbnailBar(
         visible = isBarsVisible,
         enter = fadeIn(),
         exit = fadeOut(animationSpec = tween(barExitDurationMillis)),
-        modifier = modifier,
+        modifier = modifier.windowInsetsPadding(WindowInsets.navigationBars),
     ) {
         Box(
             modifier = Modifier
