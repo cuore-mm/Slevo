@@ -59,7 +59,7 @@ fun ImageThumbnailGrid(
                                 )
                                 .sharedElement(
                                     sharedContentState = sharedTransitionScope.rememberSharedContentState(
-                                        key = url
+                                        key = "$url#$imageIndex"
                                     ),
                                     animatedVisibilityScope = animatedVisibilityScope
                                 ),

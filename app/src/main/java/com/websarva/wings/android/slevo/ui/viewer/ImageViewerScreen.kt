@@ -459,25 +459,29 @@ private fun ImageViewerPager(
         }
 
         // --- Image content ---
-        with(sharedTransitionScope) {
-            ZoomableAsyncImage(
-                model = imageUrl,
-                contentDescription = null,
-                state = imageState,
-                modifier = Modifier
-                    .sharedElement(
-                        sharedContentState = sharedTransitionScope.rememberSharedContentState(
-                            key = imageUrl
-                        ),
-                        animatedVisibilityScope = animatedVisibilityScope
-                    )
-                    .fillMaxSize(),
-                onClick = { _ -> onToggleBars() },
-                onDoubleClick = DoubleClickToZoomListener.cycle(
-                    maxZoomFactor = 2f,
-                ),
-            )
+        val imageModifier = if (page == pagerState.settledPage) {
+            // Guard: 共有トランジション対象は現在表示中ページのみとする。
+            with(sharedTransitionScope) {
+                Modifier.sharedElement(
+                    sharedContentState = sharedTransitionScope.rememberSharedContentState(
+                        key = "$imageUrl#$page"
+                    ),
+                    animatedVisibilityScope = animatedVisibilityScope
+                )
+            }
+        } else {
+            Modifier
         }
+        ZoomableAsyncImage(
+            model = imageUrl,
+            contentDescription = null,
+            state = imageState,
+            modifier = imageModifier.fillMaxSize(),
+            onClick = { _ -> onToggleBars() },
+            onDoubleClick = DoubleClickToZoomListener.cycle(
+                maxZoomFactor = 2f,
+            ),
+        )
     }
 }
 
