@@ -4,6 +4,7 @@ import android.app.Activity
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.ContextWrapper
+import android.graphics.Color as AndroidColor
 import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -63,7 +64,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -117,6 +118,7 @@ fun ImageViewerScreen(
     val thumbnailSpacing = 8.dp
     val selectedThumbnailScale = 1.1f
     val barExitDurationMillis = 80
+    val useDarkSystemBarIcons = barBackgroundColor.luminance() > 0.5f
 
     // --- UI state ---
     var isBarsVisible by rememberSaveable { mutableStateOf(true) }
@@ -127,23 +129,25 @@ fun ImageViewerScreen(
     DisposableEffect(activity) {
         val currentActivity = activity ?: return@DisposableEffect onDispose { }
         val window = currentActivity.window
+        val insetsController = WindowInsetsControllerCompat(window, window.decorView)
         val previousStatusBarColor = window.statusBarColor
         val previousNavigationBarColor = window.navigationBarColor
+        val previousLightStatusBars = insetsController.isAppearanceLightStatusBars
+        val previousLightNavigationBars = insetsController.isAppearanceLightNavigationBars
         val previousNavigationBarContrastEnforced = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced
         } else {
             null
         }
-        window.statusBarColor = barBackgroundColor.toArgb()
-        window.navigationBarColor = barBackgroundColor.toArgb()
+        window.statusBarColor = AndroidColor.TRANSPARENT
+        window.navigationBarColor = AndroidColor.TRANSPARENT
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
         }
         onDispose {
-            WindowInsetsControllerCompat(
-                window,
-                window.decorView,
-            ).show(WindowInsetsCompat.Type.systemBars())
+            insetsController.show(WindowInsetsCompat.Type.systemBars())
+            insetsController.isAppearanceLightStatusBars = previousLightStatusBars
+            insetsController.isAppearanceLightNavigationBars = previousLightNavigationBars
             window.statusBarColor = previousStatusBarColor
             window.navigationBarColor = previousNavigationBarColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -152,13 +156,15 @@ fun ImageViewerScreen(
         }
     }
     // --- System bar visibility ---
-    LaunchedEffect(activity, isBarsVisible) {
+    LaunchedEffect(activity, isBarsVisible, useDarkSystemBarIcons) {
         val currentActivity = activity ?: return@LaunchedEffect
         val controller = WindowInsetsControllerCompat(
             currentActivity.window,
             currentActivity.window.decorView,
         ).apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            isAppearanceLightStatusBars = useDarkSystemBarIcons
+            isAppearanceLightNavigationBars = useDarkSystemBarIcons
         }
         if (isBarsVisible) {
             controller.show(WindowInsetsCompat.Type.systemBars())
@@ -414,6 +420,22 @@ fun ImageViewerScreen(
                 animatedVisibilityScope = animatedVisibilityScope,
                 onToggleBars = { isBarsVisible = !isBarsVisible },
             )
+            if (isBarsVisible) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .background(barBackgroundColor)
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .background(barBackgroundColor)
+                )
+            }
 
             if (imageUrls.size > 1) {
                 Box(
