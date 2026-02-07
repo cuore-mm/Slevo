@@ -4,6 +4,8 @@ import android.app.Activity
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.ContextWrapper
+import android.graphics.Color as AndroidColor
+import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -121,9 +123,37 @@ fun ImageViewerScreen(
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
 
-    // --- System bars ---
-    DisposableEffect(activity, isBarsVisible) {
+    // --- System bar appearance ---
+    DisposableEffect(activity) {
         val currentActivity = activity ?: return@DisposableEffect onDispose { }
+        val window = currentActivity.window
+        val previousStatusBarColor = window.statusBarColor
+        val previousNavigationBarColor = window.navigationBarColor
+        val previousNavigationBarContrastEnforced = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced
+        } else {
+            null
+        }
+        window.statusBarColor = AndroidColor.TRANSPARENT
+        window.navigationBarColor = AndroidColor.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
+        onDispose {
+            WindowInsetsControllerCompat(
+                window,
+                window.decorView,
+            ).show(WindowInsetsCompat.Type.systemBars())
+            window.statusBarColor = previousStatusBarColor
+            window.navigationBarColor = previousNavigationBarColor
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = previousNavigationBarContrastEnforced ?: true
+            }
+        }
+    }
+    // --- System bar visibility ---
+    LaunchedEffect(activity, isBarsVisible) {
+        val currentActivity = activity ?: return@LaunchedEffect
         val controller = WindowInsetsControllerCompat(
             currentActivity.window,
             currentActivity.window.decorView,
@@ -134,9 +164,6 @@ fun ImageViewerScreen(
             controller.show(WindowInsetsCompat.Type.systemBars())
         } else {
             controller.hide(WindowInsetsCompat.Type.systemBars())
-        }
-        onDispose {
-            controller.show(WindowInsetsCompat.Type.systemBars())
         }
     }
 
@@ -387,6 +414,22 @@ fun ImageViewerScreen(
                 animatedVisibilityScope = animatedVisibilityScope,
                 onToggleBars = { isBarsVisible = !isBarsVisible },
             )
+            if (isBarsVisible) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .background(barBackgroundColor)
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .background(barBackgroundColor)
+                )
+            }
 
             if (imageUrls.size > 1) {
                 Box(
