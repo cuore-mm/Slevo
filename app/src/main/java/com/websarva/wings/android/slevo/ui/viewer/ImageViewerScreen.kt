@@ -4,7 +4,6 @@ import android.app.Activity
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.ContextWrapper
-import android.graphics.Color as AndroidColor
 import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -64,6 +63,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -134,8 +134,8 @@ fun ImageViewerScreen(
         } else {
             null
         }
-        window.statusBarColor = AndroidColor.TRANSPARENT
-        window.navigationBarColor = AndroidColor.TRANSPARENT
+        window.statusBarColor = barBackgroundColor.toArgb()
+        window.navigationBarColor = barBackgroundColor.toArgb()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
         }
@@ -414,22 +414,6 @@ fun ImageViewerScreen(
                 animatedVisibilityScope = animatedVisibilityScope,
                 onToggleBars = { isBarsVisible = !isBarsVisible },
             )
-            if (isBarsVisible) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.statusBars)
-                        .background(barBackgroundColor)
-                )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .background(barBackgroundColor)
-                )
-            }
 
             if (imageUrls.size > 1) {
                 Box(
