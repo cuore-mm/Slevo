@@ -4,7 +4,6 @@ import android.app.Activity
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.ContextWrapper
-import android.graphics.Color as AndroidColor
 import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -130,8 +129,6 @@ fun ImageViewerScreen(
         val currentActivity = activity ?: return@DisposableEffect onDispose { }
         val window = currentActivity.window
         val insetsController = WindowInsetsControllerCompat(window, window.decorView)
-        val previousStatusBarColor = window.statusBarColor
-        val previousNavigationBarColor = window.navigationBarColor
         val previousLightStatusBars = insetsController.isAppearanceLightStatusBars
         val previousLightNavigationBars = insetsController.isAppearanceLightNavigationBars
         val previousNavigationBarContrastEnforced = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -139,8 +136,6 @@ fun ImageViewerScreen(
         } else {
             null
         }
-        window.statusBarColor = AndroidColor.TRANSPARENT
-        window.navigationBarColor = AndroidColor.TRANSPARENT
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
         }
@@ -148,8 +143,6 @@ fun ImageViewerScreen(
             insetsController.show(WindowInsetsCompat.Type.systemBars())
             insetsController.isAppearanceLightStatusBars = previousLightStatusBars
             insetsController.isAppearanceLightNavigationBars = previousLightNavigationBars
-            window.statusBarColor = previousStatusBarColor
-            window.navigationBarColor = previousNavigationBarColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 window.isNavigationBarContrastEnforced = previousNavigationBarContrastEnforced ?: true
             }
