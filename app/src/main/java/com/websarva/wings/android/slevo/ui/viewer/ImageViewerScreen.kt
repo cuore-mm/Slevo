@@ -27,7 +27,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -140,7 +142,6 @@ fun ImageViewerScreen(
             window.isNavigationBarContrastEnforced = false
         }
         onDispose {
-            insetsController.show(WindowInsetsCompat.Type.systemBars())
             insetsController.isAppearanceLightStatusBars = previousLightStatusBars
             insetsController.isAppearanceLightNavigationBars = previousLightNavigationBars
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -148,22 +149,17 @@ fun ImageViewerScreen(
             }
         }
     }
-    // --- System bar visibility ---
-    LaunchedEffect(activity, isBarsVisible, useDarkSystemBarIcons) {
+    // --- System bar icon appearance ---
+    LaunchedEffect(activity, useDarkSystemBarIcons) {
         val currentActivity = activity ?: return@LaunchedEffect
         val controller = WindowInsetsControllerCompat(
             currentActivity.window,
             currentActivity.window.decorView,
         ).apply {
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             isAppearanceLightStatusBars = useDarkSystemBarIcons
             isAppearanceLightNavigationBars = useDarkSystemBarIcons
         }
-        if (isBarsVisible) {
-            controller.show(WindowInsetsCompat.Type.systemBars())
-        } else {
-            controller.hide(WindowInsetsCompat.Type.systemBars())
-        }
+        controller.show(WindowInsetsCompat.Type.systemBars())
     }
 
     Scaffold(
@@ -413,22 +409,20 @@ fun ImageViewerScreen(
                 animatedVisibilityScope = animatedVisibilityScope,
                 onToggleBars = { isBarsVisible = !isBarsVisible },
             )
-            if (isBarsVisible) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.statusBars)
-                        .background(barBackgroundColor)
-                )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .background(barBackgroundColor)
-                )
-            }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .windowInsetsTopHeight(WindowInsets.statusBars)
+                    .background(barBackgroundColor)
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                    .background(barBackgroundColor)
+            )
 
             if (imageUrls.size > 1) {
                 Box(
