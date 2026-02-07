@@ -150,7 +150,7 @@ fun ImageViewerScreen(
         }
     }
     // --- System bar icon appearance ---
-    LaunchedEffect(activity, useDarkSystemBarIcons) {
+    LaunchedEffect(activity, useDarkSystemBarIcons, isBarsVisible) {
         val currentActivity = activity ?: return@LaunchedEffect
         val controller = WindowInsetsControllerCompat(
             currentActivity.window,
@@ -158,8 +158,14 @@ fun ImageViewerScreen(
         ).apply {
             isAppearanceLightStatusBars = useDarkSystemBarIcons
             isAppearanceLightNavigationBars = useDarkSystemBarIcons
+            systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
-        controller.show(WindowInsetsCompat.Type.systemBars())
+        if (isBarsVisible) {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        }
     }
 
     Scaffold(
@@ -409,20 +415,22 @@ fun ImageViewerScreen(
                 animatedVisibilityScope = animatedVisibilityScope,
                 onToggleBars = { isBarsVisible = !isBarsVisible },
             )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .windowInsetsTopHeight(WindowInsets.statusBars)
-                    .background(barBackgroundColor)
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                    .background(barBackgroundColor)
-            )
+            if (isBarsVisible) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .windowInsetsTopHeight(WindowInsets.statusBars)
+                        .background(barBackgroundColor)
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                        .background(barBackgroundColor)
+                )
+            }
 
             if (imageUrls.size > 1) {
                 Box(
