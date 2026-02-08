@@ -22,8 +22,42 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
         _uiState.update { it.copy(isTopBarMenuExpanded = true) }
     }
 
+    fun toggleTopBarMenu() {
+        _uiState.update { state ->
+            state.copy(isTopBarMenuExpanded = !state.isTopBarMenuExpanded)
+        }
+    }
+
     fun hideTopBarMenu() {
         _uiState.update { it.copy(isTopBarMenuExpanded = false) }
+    }
+
+    /**
+     * 画像URLを対象に NG ダイアログを開く。
+     */
+    fun openImageNgDialog(url: String) {
+        if (url.isBlank()) {
+            // Guard: 空URLは NG 登録対象にしない。
+            return
+        }
+        _uiState.update {
+            it.copy(
+                showImageNgDialog = true,
+                imageNgTargetUrl = url,
+            )
+        }
+    }
+
+    /**
+     * 画像URLの NG ダイアログを閉じる。
+     */
+    fun closeImageNgDialog() {
+        _uiState.update {
+            it.copy(
+                showImageNgDialog = false,
+                imageNgTargetUrl = null,
+            )
+        }
     }
 }
 
@@ -34,4 +68,6 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
  */
 data class ImageViewerUiState(
     val isTopBarMenuExpanded: Boolean = false,
+    val showImageNgDialog: Boolean = false,
+    val imageNgTargetUrl: String? = null,
 )

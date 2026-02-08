@@ -1,10 +1,17 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
+import android.Manifest
 import android.app.Activity
 import android.annotation.SuppressLint
+import android.content.ClipData
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -66,6 +73,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -81,11 +89,20 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.content.ContextCompat
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.R
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.platform.toClipEntry
+import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
+import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
+import com.websarva.wings.android.slevo.ui.util.CustomTabsUtil
+import com.websarva.wings.android.slevo.ui.util.ImageCopyUtil
+import com.websarva.wings.android.slevo.ui.util.buildLensSearchUrl
+import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -136,10 +153,205 @@ fun ImageViewerScreen(
     } else {
         hiltViewModel()
     }
-    val isTopBarMenuExpanded =
-        viewModel?.uiState?.collectAsState()?.value?.isTopBarMenuExpanded ?: false
+    val uiState = viewModel?.uiState?.collectAsState()?.value ?: ImageViewerUiState()
+    val isTopBarMenuExpanded = uiState.isTopBarMenuExpanded
     val context = LocalContext.current
+    val clipboard = LocalClipboard.current
     val activity = remember(context) { context.findActivity() }
+    val coroutineScope = rememberCoroutineScope()
+    var pendingImageSaveUrls by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    if (imageUrls.isEmpty()) {
+        // Guard: URLリストが空の場合は表示処理をスキップする。
+        return
+    }
+    val safeInitialIndex = initialIndex.coerceIn(0, imageUrls.lastIndex)
+    val pagerState = rememberPagerState(
+        initialPage = safeInitialIndex,
+        pageCount = { imageUrls.size },
+    )
+    val thumbnailListState =
+        rememberLazyListState(initialFirstVisibleItemIndex = safeInitialIndex)
+    val zoomableStates = remember(imageUrls) {
+        MutableList(imageUrls.size) { mutableStateOf<ZoomableState?>(null) }
+    }
+    var lastPage by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
+    val thumbnailViewportWidthPx = remember { mutableIntStateOf(0) }
+    var isThumbnailAutoScrolling by remember { mutableStateOf(false) }
+    var shouldSkipIdleSync by remember { mutableStateOf(false) }
+    var hasPendingIdleCenterSync by remember { mutableStateOf(false) }
+    var hasUserInteracted by remember(imageUrls, safeInitialIndex) {
+        mutableStateOf(false)
+    }
+    val currentImageUrl = imageUrls.getOrNull(pagerState.currentPage).orEmpty()
+
+    // --- Image save ---
+    val launchSaveImages: (List<String>) -> Unit = launchSaveImages@{ urls ->
+        if (urls.isEmpty()) {
+            // Guard: 空URLのみの場合は保存しない。
+            return@launchSaveImages
+        }
+        Toast.makeText(
+            context,
+            R.string.image_save_in_progress,
+            Toast.LENGTH_SHORT,
+        ).show()
+        coroutineScope.launch {
+            val summary = saveImageUrls(context, urls)
+            showImageSaveResultToast(
+                context = context,
+                requestCount = urls.size,
+                summary = summary,
+            )
+        }
+    }
+    val imageSavePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted && pendingImageSaveUrls.isNotEmpty()) {
+            launchSaveImages(pendingImageSaveUrls)
+        } else if (!granted) {
+            Toast.makeText(
+                context,
+                R.string.image_save_permission_denied,
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+        pendingImageSaveUrls = emptyList()
+    }
+    val requestImageSave: (List<String>) -> Unit = requestImageSave@{ urls ->
+        val targetUrls = normalizeImageSaveUrls(urls)
+        if (targetUrls.isEmpty()) {
+            // Guard: 空URLのみの場合は保存しない。
+            return@requestImageSave
+        }
+        val needsPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+        val permission = Manifest.permission.WRITE_EXTERNAL_STORAGE
+        val hasPermission = !needsPermission || ContextCompat.checkSelfPermission(
+            context,
+            permission,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!hasPermission) {
+            pendingImageSaveUrls = targetUrls
+            imageSavePermissionLauncher.launch(permission)
+        } else {
+            launchSaveImages(targetUrls)
+        }
+    }
+
+    // --- Menu actions ---
+    val onImageMenuActionClick: (ImageMenuAction) -> Unit = { action ->
+        when (action) {
+            ImageMenuAction.ADD_NG -> viewModel?.openImageNgDialog(currentImageUrl)
+            ImageMenuAction.COPY_IMAGE_URL -> {
+                if (currentImageUrl.isNotBlank()) {
+                    coroutineScope.launch {
+                        val clip = ClipData.newPlainText("", currentImageUrl).toClipEntry()
+                        clipboard.setClipEntry(clip)
+                    }
+                }
+            }
+
+            ImageMenuAction.COPY_IMAGE -> {
+                if (currentImageUrl.isNotBlank()) {
+                    coroutineScope.launch {
+                        val result = ImageCopyUtil.fetchImageUri(context, currentImageUrl)
+                        result.onSuccess { uri ->
+                            val clip = ClipData.newUri(
+                                context.contentResolver,
+                                "",
+                                uri,
+                            ).toClipEntry()
+                            clipboard.setClipEntry(clip)
+                        }.onFailure {
+                            Toast.makeText(
+                                context,
+                                R.string.image_copy_failed,
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    }
+                }
+            }
+
+            ImageMenuAction.OPEN_IN_OTHER_APP -> {
+                if (currentImageUrl.isNotBlank()) {
+                    coroutineScope.launch {
+                        val result = ImageCopyUtil.fetchImageUri(context, currentImageUrl)
+                        result.onSuccess { uri ->
+                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(uri, "image/*")
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            if (intent.resolveActivity(context.packageManager) != null) {
+                                context.startActivity(Intent.createChooser(intent, null))
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    R.string.no_app_to_open_image,
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        }.onFailure {
+                            Toast.makeText(
+                                context,
+                                R.string.image_open_failed,
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    }
+                }
+            }
+
+            ImageMenuAction.SAVE_ALL_IMAGES -> requestImageSave(imageUrls)
+            ImageMenuAction.SAVE_IMAGE -> requestImageSave(listOf(currentImageUrl))
+            ImageMenuAction.SEARCH_WEB -> {
+                if (currentImageUrl.isNotBlank()) {
+                    val searchUrl = buildLensSearchUrl(currentImageUrl)
+                    val opened = CustomTabsUtil.openCustomTab(context, searchUrl)
+                    if (!opened) {
+                        Toast.makeText(
+                            context,
+                            R.string.image_search_failed,
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                }
+            }
+
+            ImageMenuAction.SHARE_IMAGE -> {
+                if (currentImageUrl.isNotBlank()) {
+                    coroutineScope.launch {
+                        val result = ImageCopyUtil.fetchImageUri(context, currentImageUrl)
+                        result.onSuccess { uri ->
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "image/*"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                clipData = ClipData.newUri(context.contentResolver, "", uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            if (intent.resolveActivity(context.packageManager) != null) {
+                                context.startActivity(Intent.createChooser(intent, null))
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    R.string.no_app_to_share_image,
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        }.onFailure {
+                            Toast.makeText(
+                                context,
+                                R.string.image_share_failed,
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    }
+                }
+            }
+        }
+        viewModel?.hideTopBarMenu()
+    }
 
     // --- Menu sync ---
     LaunchedEffect(isBarsVisible, isTopBarMenuExpanded) {
@@ -196,42 +408,19 @@ fun ImageViewerScreen(
             ImageViewerTopBar(
                 isVisible = isBarsVisible,
                 isMenuExpanded = isTopBarMenuExpanded,
+                imageCount = imageUrls.size,
                 barBackgroundColor = barBackgroundColor,
                 barExitDurationMillis = barExitDurationMillis,
                 onNavigateUp = onNavigateUp,
-                onSaveClick = { },
-                onMoreClick = { viewModel?.showTopBarMenu() },
+                onSaveClick = { requestImageSave(listOf(currentImageUrl)) },
+                onMoreClick = { viewModel?.toggleTopBarMenu() },
                 onDismissMenu = { viewModel?.hideTopBarMenu() },
-                onMenuActionClick = { viewModel?.hideTopBarMenu() },
+                onMenuActionClick = onImageMenuActionClick,
             )
         },
         containerColor = Color.Black,
         contentWindowInsets = WindowInsets(0)
     ) { _ ->
-        if (imageUrls.isEmpty()) {
-            // Guard: URLリストが空の場合は表示処理をスキップする。
-            return@Scaffold
-        }
-        val safeInitialIndex = initialIndex.coerceIn(0, imageUrls.lastIndex)
-        val pagerState = rememberPagerState(
-            initialPage = safeInitialIndex,
-            pageCount = { imageUrls.size },
-        )
-        val thumbnailListState =
-            rememberLazyListState(initialFirstVisibleItemIndex = safeInitialIndex)
-        val coroutineScope = rememberCoroutineScope()
-        val zoomableStates = remember(imageUrls) {
-            MutableList(imageUrls.size) { mutableStateOf<ZoomableState?>(null) }
-        }
-        var lastPage by rememberSaveable { mutableIntStateOf(safeInitialIndex) }
-        val thumbnailViewportWidthPx = remember { mutableIntStateOf(0) }
-        var isThumbnailAutoScrolling by remember { mutableStateOf(false) }
-        var shouldSkipIdleSync by remember { mutableStateOf(false) }
-        var hasPendingIdleCenterSync by remember { mutableStateOf(false) }
-        var hasUserInteracted by remember(imageUrls, safeInitialIndex) {
-            mutableStateOf(false)
-        }
-
         // --- Zoom reset ---
         LaunchedEffect(pagerState.currentPage) {
             val currentPage = pagerState.currentPage
@@ -494,6 +683,16 @@ fun ImageViewerScreen(
                     )
                 }
             }
+
+            if (uiState.showImageNgDialog) {
+                uiState.imageNgTargetUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                    NgDialogRoute(
+                        text = url,
+                        type = NgType.WORD,
+                        onDismiss = { viewModel?.closeImageNgDialog() },
+                    )
+                }
+            }
         }
     }
 }
@@ -521,13 +720,14 @@ private tailrec fun Context.findActivity(): Activity? {
 private fun ImageViewerTopBar(
     isVisible: Boolean,
     isMenuExpanded: Boolean,
+    imageCount: Int,
     barBackgroundColor: Color,
     barExitDurationMillis: Int,
     onNavigateUp: () -> Unit,
     onSaveClick: () -> Unit,
     onMoreClick: () -> Unit,
     onDismissMenu: () -> Unit,
-    onMenuActionClick: () -> Unit,
+    onMenuActionClick: (ImageMenuAction) -> Unit,
 ) {
     AnimatedVisibility(
         visible = isVisible,
@@ -567,9 +767,42 @@ private fun ImageViewerTopBar(
                         onDismissRequest = onDismissMenu,
                     ) {
                         DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.share)) },
-                            onClick = onMenuActionClick,
+                            text = { Text(text = stringResource(R.string.image_menu_add_ng)) },
+                            onClick = { onMenuActionClick(ImageMenuAction.ADD_NG) },
                         )
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(R.string.image_menu_copy_image)) },
+                            onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(R.string.image_menu_copy_image_url)) },
+                            onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE_URL) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(R.string.image_menu_open_in_other_app)) },
+                            onClick = { onMenuActionClick(ImageMenuAction.OPEN_IN_OTHER_APP) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(R.string.image_menu_search_web)) },
+                            onClick = { onMenuActionClick(ImageMenuAction.SEARCH_WEB) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(R.string.image_menu_share_image)) },
+                            onClick = { onMenuActionClick(ImageMenuAction.SHARE_IMAGE) },
+                        )
+                        if (imageCount >= 2) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = stringResource(
+                                            R.string.image_menu_save_all_images_with_count,
+                                            imageCount,
+                                        )
+                                    )
+                                },
+                                onClick = { onMenuActionClick(ImageMenuAction.SAVE_ALL_IMAGES) },
+                            )
+                        }
                     }
                 }
             },
@@ -580,6 +813,87 @@ private fun ImageViewerTopBar(
         )
     }
 }
+
+/**
+ * 画像保存結果の件数に応じたトーストを表示する。
+ */
+private fun showImageSaveResultToast(
+    context: Context,
+    requestCount: Int,
+    summary: ImageSaveSummary,
+) {
+    val message = when {
+        requestCount == 1 && summary.failureCount == 0 -> {
+            context.getString(R.string.image_save_result_single_success)
+        }
+
+        requestCount == 1 && summary.successCount == 0 -> {
+            context.getString(R.string.image_save_result_single_failed)
+        }
+
+        summary.failureCount == 0 -> {
+            context.getString(
+                R.string.image_save_result_success,
+                summary.successCount,
+            )
+        }
+
+        summary.successCount == 0 -> {
+            context.getString(
+                R.string.image_save_result_all_failed,
+                summary.failureCount,
+            )
+        }
+
+        else -> {
+            context.getString(
+                R.string.image_save_result_partial,
+                summary.successCount,
+                summary.failureCount,
+            )
+        }
+    }
+    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+}
+
+/**
+ * 保存対象の画像URL一覧を正規化する。
+ *
+ * 空URLを除外し、重複を除いた順序で返す。
+ */
+private fun normalizeImageSaveUrls(urls: List<String>): List<String> {
+    return distinctImageUrls(urls)
+        .filter { it.isNotBlank() }
+}
+
+/**
+ * 画像URL一覧を順次保存し、成功/失敗件数を集計する。
+ */
+private suspend fun saveImageUrls(context: Context, urls: List<String>): ImageSaveSummary {
+    if (urls.isEmpty()) {
+        // Guard: 空リストは保存処理を行わない。
+        return ImageSaveSummary(successCount = 0, failureCount = 0)
+    }
+    var successCount = 0
+    var failureCount = 0
+    for (url in urls) {
+        val result = ImageCopyUtil.saveImageToMediaStore(context, url)
+        if (result.isSuccess) {
+            successCount += 1
+        } else {
+            failureCount += 1
+        }
+    }
+    return ImageSaveSummary(successCount = successCount, failureCount = failureCount)
+}
+
+/**
+ * 画像保存件数の集計結果。
+ */
+private data class ImageSaveSummary(
+    val successCount: Int,
+    val failureCount: Int,
+)
 
 /**
  * 画像スワイプと拡大縮小を担うページャを描画する。
