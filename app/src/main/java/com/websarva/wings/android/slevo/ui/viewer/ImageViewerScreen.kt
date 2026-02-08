@@ -40,12 +40,17 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -75,10 +80,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.R
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -123,8 +130,24 @@ fun ImageViewerScreen(
 
     // --- UI state ---
     var isBarsVisible by rememberSaveable { mutableStateOf(true) }
+    val isPreview = LocalInspectionMode.current
+    val viewModel: ImageViewerViewModel? = if (isPreview) {
+        null
+    } else {
+        hiltViewModel()
+    }
+    val isTopBarMenuExpanded =
+        viewModel?.uiState?.collectAsState()?.value?.isTopBarMenuExpanded ?: false
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
+
+    // --- Menu sync ---
+    LaunchedEffect(isBarsVisible, isTopBarMenuExpanded) {
+        if (!isBarsVisible && isTopBarMenuExpanded) {
+            // Guard: バー非表示中はメニューを閉じる。
+            viewModel?.hideTopBarMenu()
+        }
+    }
 
     // --- System bar appearance ---
     DisposableEffect(activity) {
@@ -172,9 +195,14 @@ fun ImageViewerScreen(
         topBar = {
             ImageViewerTopBar(
                 isVisible = isBarsVisible,
+                isMenuExpanded = isTopBarMenuExpanded,
                 barBackgroundColor = barBackgroundColor,
                 barExitDurationMillis = barExitDurationMillis,
                 onNavigateUp = onNavigateUp,
+                onSaveClick = { },
+                onMoreClick = { viewModel?.showTopBarMenu() },
+                onDismissMenu = { viewModel?.hideTopBarMenu() },
+                onMenuActionClick = { viewModel?.hideTopBarMenu() },
             )
         },
         containerColor = Color.Black,
@@ -399,7 +427,6 @@ fun ImageViewerScreen(
                 }
         }
 
-        val isPreview = LocalInspectionMode.current
         val boxModifier = Modifier
             .fillMaxSize()
             .background(if (isPreview) Color.White else Color.Black)
@@ -413,7 +440,12 @@ fun ImageViewerScreen(
                 zoomableStates = zoomableStates,
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
-                onToggleBars = { isBarsVisible = !isBarsVisible },
+                onToggleBars = {
+                    isBarsVisible = !isBarsVisible
+                    if (!isBarsVisible) {
+                        viewModel?.hideTopBarMenu()
+                    }
+                },
             )
             if (isBarsVisible) {
                 Box(
@@ -482,15 +514,20 @@ private tailrec fun Context.findActivity(): Activity? {
 /**
  * 画像ビューアのトップバーを表示する。
  *
- * ナビゲーションアイコンのみを持ち、表示可否は呼び出し元で制御する。
+ * 戻る・保存・その他メニューの各アクションを持ち、表示可否は呼び出し元で制御する。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ImageViewerTopBar(
     isVisible: Boolean,
+    isMenuExpanded: Boolean,
     barBackgroundColor: Color,
     barExitDurationMillis: Int,
     onNavigateUp: () -> Unit,
+    onSaveClick: () -> Unit,
+    onMoreClick: () -> Unit,
+    onDismissMenu: () -> Unit,
+    onMenuActionClick: () -> Unit,
 ) {
     AnimatedVisibility(
         visible = isVisible,
@@ -507,6 +544,33 @@ private fun ImageViewerTopBar(
                         contentDescription = stringResource(R.string.back),
                         tint = Color.White
                     )
+                }
+            },
+            actions = {
+                IconButton(onClick = onSaveClick) {
+                    Icon(
+                        imageVector = Icons.Default.Save,
+                        contentDescription = stringResource(R.string.save),
+                        tint = Color.White,
+                    )
+                }
+                Box {
+                    IconButton(onClick = onMoreClick) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = stringResource(R.string.more),
+                            tint = Color.White,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = isMenuExpanded,
+                        onDismissRequest = onDismissMenu,
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(R.string.share)) },
+                            onClick = onMenuActionClick,
+                        )
+                    }
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
