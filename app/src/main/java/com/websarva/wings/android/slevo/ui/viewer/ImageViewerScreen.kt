@@ -6,7 +6,6 @@ import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.Context
 import android.content.ContextWrapper
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
@@ -97,11 +96,10 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.platform.toClipEntry
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunner
+import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
-import com.websarva.wings.android.slevo.ui.util.CustomTabsUtil
-import com.websarva.wings.android.slevo.ui.util.ImageCopyUtil
-import com.websarva.wings.android.slevo.ui.util.buildLensSearchUrl
 import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
@@ -241,116 +239,27 @@ fun ImageViewerScreen(
 
     // --- Menu actions ---
     val onImageMenuActionClick: (ImageMenuAction) -> Unit = { action ->
-        when (action) {
-            ImageMenuAction.ADD_NG -> viewModel?.openImageNgDialog(currentImageUrl)
-            ImageMenuAction.COPY_IMAGE_URL -> {
-                if (currentImageUrl.isNotBlank()) {
-                    coroutineScope.launch {
-                        val clip = ClipData.newPlainText("", currentImageUrl).toClipEntry()
-                        clipboard.setClipEntry(clip)
-                    }
-                }
-            }
-
-            ImageMenuAction.COPY_IMAGE -> {
-                if (currentImageUrl.isNotBlank()) {
-                    coroutineScope.launch {
-                        val result = ImageCopyUtil.fetchImageUri(context, currentImageUrl)
-                        result.onSuccess { uri ->
-                            val clip = ClipData.newUri(
-                                context.contentResolver,
-                                "",
-                                uri,
-                            ).toClipEntry()
-                            clipboard.setClipEntry(clip)
-                        }.onFailure {
-                            Toast.makeText(
-                                context,
-                                R.string.image_copy_failed,
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
-                    }
-                }
-            }
-
-            ImageMenuAction.OPEN_IN_OTHER_APP -> {
-                if (currentImageUrl.isNotBlank()) {
-                    coroutineScope.launch {
-                        val result = ImageCopyUtil.fetchImageUri(context, currentImageUrl)
-                        result.onSuccess { uri ->
-                            val intent = Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(uri, "image/*")
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            if (intent.resolveActivity(context.packageManager) != null) {
-                                context.startActivity(Intent.createChooser(intent, null))
-                            } else {
-                                Toast.makeText(
-                                    context,
-                                    R.string.no_app_to_open_image,
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                            }
-                        }.onFailure {
-                            Toast.makeText(
-                                context,
-                                R.string.image_open_failed,
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
-                    }
-                }
-            }
-
-            ImageMenuAction.SAVE_ALL_IMAGES -> requestImageSave(imageUrls)
-            ImageMenuAction.SAVE_IMAGE -> requestImageSave(listOf(currentImageUrl))
-            ImageMenuAction.SEARCH_WEB -> {
-                if (currentImageUrl.isNotBlank()) {
-                    val searchUrl = buildLensSearchUrl(currentImageUrl)
-                    val opened = CustomTabsUtil.openCustomTab(context, searchUrl)
-                    if (!opened) {
-                        Toast.makeText(
-                            context,
-                            R.string.image_search_failed,
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                    }
-                }
-            }
-
-            ImageMenuAction.SHARE_IMAGE -> {
-                if (currentImageUrl.isNotBlank()) {
-                    coroutineScope.launch {
-                        val result = ImageCopyUtil.fetchImageUri(context, currentImageUrl)
-                        result.onSuccess { uri ->
-                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                type = "image/*"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                clipData = ClipData.newUri(context.contentResolver, "", uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            if (intent.resolveActivity(context.packageManager) != null) {
-                                context.startActivity(Intent.createChooser(intent, null))
-                            } else {
-                                Toast.makeText(
-                                    context,
-                                    R.string.no_app_to_share_image,
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                            }
-                        }.onFailure {
-                            Toast.makeText(
-                                context,
-                                R.string.image_share_failed,
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
-                    }
-                }
-            }
-        }
-        viewModel?.hideTopBarMenu()
+        ImageMenuActionRunner.run(
+            action = action,
+            params = ImageMenuActionRunnerParams(
+                context = context,
+                coroutineScope = coroutineScope,
+                currentImageUrl = currentImageUrl,
+                imageUrls = imageUrls,
+                onOpenNgDialog = { url -> viewModel?.openImageNgDialog(url) },
+                onRequestSaveSingle = { url -> requestImageSave(listOf(url)) },
+                onRequestSaveAll = { urls -> requestImageSave(urls) },
+                onActionHandled = { viewModel?.hideTopBarMenu() },
+                onSetClipboardText = { text ->
+                    val clip = ClipData.newPlainText("", text).toClipEntry()
+                    clipboard.setClipEntry(clip)
+                },
+                onSetClipboardImageUri = { uri ->
+                    val clip = ClipData.newUri(context.contentResolver, "", uri).toClipEntry()
+                    clipboard.setClipEntry(clip)
+                },
+            ),
+        )
     }
 
     // --- Menu sync ---
