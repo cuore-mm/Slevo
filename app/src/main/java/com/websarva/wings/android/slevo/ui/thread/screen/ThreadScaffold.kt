@@ -1,9 +1,6 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
-import android.Manifest
 import android.content.ClipData
-import android.content.pm.PackageManager
-import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.toClipEntry
-import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -37,6 +33,7 @@ import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunner
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
+import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -51,7 +48,6 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
-import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -245,91 +241,24 @@ fun ThreadScaffold(
         optionalSheetContent = { viewModel, uiState ->
             val clipboard = LocalClipboard.current
             val coroutineScope = rememberCoroutineScope()
-            val launchSaveImages: (List<String>) -> Unit = launchSaveImages@{ urls ->
-                // 空URLは保存しない。
-                if (urls.isEmpty()) {
-                    return@launchSaveImages
-                }
-                val inProgressMessage = R.string.image_save_in_progress
-                Toast.makeText(
-                    context,
-                    inProgressMessage,
-                    Toast.LENGTH_SHORT
-                ).show()
-                coroutineScope.launch {
-                    val summary = viewModel.saveImageUrls(context, urls)
-                    val message = when {
-                        // 画像が1枚のみの場合は件数表示を省略する。
-                        urls.size == 1 && summary.failureCount == 0 -> {
-                            context.getString(R.string.image_save_result_single_success)
-                        }
-
-                        urls.size == 1 && summary.successCount == 0 -> {
-                            context.getString(R.string.image_save_result_single_failed)
-                        }
-
-                        summary.failureCount == 0 -> {
-                            context.getString(
-                                R.string.image_save_result_success,
-                                summary.successCount,
-                            )
-                        }
-
-                        summary.successCount == 0 -> {
-                            context.getString(
-                                R.string.image_save_result_all_failed,
-                                summary.failureCount,
-                            )
-                        }
-
-                        else -> {
-                            context.getString(
-                                R.string.image_save_result_partial,
-                                summary.successCount,
-                                summary.failureCount,
-                            )
-                        }
-                    }
-                    Toast.makeText(
-                        context,
-                        message,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
             val imageSavePermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission()
             ) { granted ->
-                val pendingUrls = viewModel.consumePendingImageSaveUrls()
-                if (granted && !pendingUrls.isNullOrEmpty()) {
-                    launchSaveImages(pendingUrls)
-                } else if (!granted) {
-                    Toast.makeText(
-                        context,
-                        R.string.image_save_permission_denied,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+                viewModel.onImageSavePermissionResult(context, granted)
             }
-            val requestImageSave: (List<String>) -> Unit = requestImageSave@{ urls ->
-                val targetUrls = viewModel.normalizeImageSaveUrls(urls)
-                if (targetUrls.isEmpty()) {
-                    // 空URLのみの場合は保存しない。
-                    return@requestImageSave
-                }
-                val needsPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-                val permission = Manifest.permission.WRITE_EXTERNAL_STORAGE
-                val hasPermission = !needsPermission ||
-                        ContextCompat.checkSelfPermission(
-                            context,
-                            permission
-                        ) == PackageManager.PERMISSION_GRANTED
-                if (!hasPermission) {
-                    // 権限付与後に保存を再試行できるようURLを保持する。
-                    viewModel.setPendingImageSaveUrls(targetUrls)
-                    imageSavePermissionLauncher.launch(permission)
-                } else {
-                    launchSaveImages(targetUrls)
+
+            // --- Image save event ---
+            LaunchedEffect(viewModel) {
+                viewModel.imageSaveEvents.collect { event ->
+                    when (event) {
+                        is ImageSaveUiEvent.RequestPermission -> {
+                            imageSavePermissionLauncher.launch(event.permission)
+                        }
+
+                        is ImageSaveUiEvent.ShowToast -> {
+                            Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 }
             }
 
@@ -356,11 +285,13 @@ fun ThreadScaffold(
                             currentImageUrl = targetUrl,
                             imageUrls = uiState.imageMenuTargetUrls,
                             onOpenNgDialog = { url -> viewModel.openImageNgDialog(url) },
-                            onRequestSaveSingle = { url -> requestImageSave(listOf(url)) },
+                            onRequestSaveSingle = { url ->
+                                viewModel.requestImageSave(context, listOf(url))
+                            },
                             onRequestSaveAll = { urls ->
                                 // レス内画像が2件以上ある場合のみ処理する。
                                 if (urls.size >= 2) {
-                                    requestImageSave(urls)
+                                    viewModel.requestImageSave(context, urls)
                                 }
                             },
                             onActionHandled = { viewModel.closeImageMenu() },

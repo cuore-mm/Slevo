@@ -1,12 +1,10 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
-import android.Manifest
 import android.app.Activity
 import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.Context
 import android.content.ContextWrapper
-import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -88,7 +86,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.core.content.ContextCompat
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.R
 import androidx.core.view.WindowInsetsCompat
@@ -98,10 +95,9 @@ import androidx.compose.ui.platform.toClipEntry
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunner
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
+import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
-import com.websarva.wings.android.slevo.ui.util.ImageCopyUtil
-import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -158,7 +154,6 @@ fun ImageViewerScreen(
     val clipboard = LocalClipboard.current
     val activity = remember(context) { context.findActivity() }
     val coroutineScope = rememberCoroutineScope()
-    var pendingImageSaveUrls by remember { mutableStateOf<List<String>>(emptyList()) }
 
     if (imageUrls.isEmpty()) {
         // Guard: URLリストが空の場合は表示処理をスキップする。
@@ -184,57 +179,23 @@ fun ImageViewerScreen(
     }
     val currentImageUrl = imageUrls.getOrNull(pagerState.currentPage).orEmpty()
 
-    // --- Image save ---
-    val launchSaveImages: (List<String>) -> Unit = launchSaveImages@{ urls ->
-        if (urls.isEmpty()) {
-            // Guard: 空URLのみの場合は保存しない。
-            return@launchSaveImages
-        }
-        Toast.makeText(
-            context,
-            R.string.image_save_in_progress,
-            Toast.LENGTH_SHORT,
-        ).show()
-        coroutineScope.launch {
-            val summary = saveImageUrls(context, urls)
-            showImageSaveResultToast(
-                context = context,
-                requestCount = urls.size,
-                summary = summary,
-            )
-        }
-    }
+    // --- Image save event ---
     val imageSavePermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted && pendingImageSaveUrls.isNotEmpty()) {
-            launchSaveImages(pendingImageSaveUrls)
-        } else if (!granted) {
-            Toast.makeText(
-                context,
-                R.string.image_save_permission_denied,
-                Toast.LENGTH_SHORT,
-            ).show()
-        }
-        pendingImageSaveUrls = emptyList()
+        viewModel?.onImageSavePermissionResult(context, granted)
     }
-    val requestImageSave: (List<String>) -> Unit = requestImageSave@{ urls ->
-        val targetUrls = normalizeImageSaveUrls(urls)
-        if (targetUrls.isEmpty()) {
-            // Guard: 空URLのみの場合は保存しない。
-            return@requestImageSave
-        }
-        val needsPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-        val permission = Manifest.permission.WRITE_EXTERNAL_STORAGE
-        val hasPermission = !needsPermission || ContextCompat.checkSelfPermission(
-            context,
-            permission,
-        ) == PackageManager.PERMISSION_GRANTED
-        if (!hasPermission) {
-            pendingImageSaveUrls = targetUrls
-            imageSavePermissionLauncher.launch(permission)
-        } else {
-            launchSaveImages(targetUrls)
+    LaunchedEffect(viewModel) {
+        viewModel?.imageSaveEvents?.collect { event ->
+            when (event) {
+                is ImageSaveUiEvent.RequestPermission -> {
+                    imageSavePermissionLauncher.launch(event.permission)
+                }
+
+                is ImageSaveUiEvent.ShowToast -> {
+                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
@@ -248,8 +209,8 @@ fun ImageViewerScreen(
                 currentImageUrl = currentImageUrl,
                 imageUrls = imageUrls,
                 onOpenNgDialog = { url -> viewModel?.openImageNgDialog(url) },
-                onRequestSaveSingle = { url -> requestImageSave(listOf(url)) },
-                onRequestSaveAll = { urls -> requestImageSave(urls) },
+                onRequestSaveSingle = { url -> viewModel?.requestImageSave(context, listOf(url)) },
+                onRequestSaveAll = { urls -> viewModel?.requestImageSave(context, urls) },
                 onActionHandled = { viewModel?.hideTopBarMenu() },
                 onSetClipboardText = { text ->
                     val clip = ClipData.newPlainText("", text).toClipEntry()
@@ -322,7 +283,7 @@ fun ImageViewerScreen(
                 barBackgroundColor = barBackgroundColor,
                 barExitDurationMillis = barExitDurationMillis,
                 onNavigateUp = onNavigateUp,
-                onSaveClick = { requestImageSave(listOf(currentImageUrl)) },
+                onSaveClick = { viewModel?.requestImageSave(context, listOf(currentImageUrl)) },
                 onMoreClick = { viewModel?.toggleTopBarMenu() },
                 onDismissMenu = { viewModel?.hideTopBarMenu() },
                 onMenuActionClick = onImageMenuActionClick,
@@ -723,87 +684,6 @@ private fun ImageViewerTopBar(
         )
     }
 }
-
-/**
- * 画像保存結果の件数に応じたトーストを表示する。
- */
-private fun showImageSaveResultToast(
-    context: Context,
-    requestCount: Int,
-    summary: ImageSaveSummary,
-) {
-    val message = when {
-        requestCount == 1 && summary.failureCount == 0 -> {
-            context.getString(R.string.image_save_result_single_success)
-        }
-
-        requestCount == 1 && summary.successCount == 0 -> {
-            context.getString(R.string.image_save_result_single_failed)
-        }
-
-        summary.failureCount == 0 -> {
-            context.getString(
-                R.string.image_save_result_success,
-                summary.successCount,
-            )
-        }
-
-        summary.successCount == 0 -> {
-            context.getString(
-                R.string.image_save_result_all_failed,
-                summary.failureCount,
-            )
-        }
-
-        else -> {
-            context.getString(
-                R.string.image_save_result_partial,
-                summary.successCount,
-                summary.failureCount,
-            )
-        }
-    }
-    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-}
-
-/**
- * 保存対象の画像URL一覧を正規化する。
- *
- * 空URLを除外し、重複を除いた順序で返す。
- */
-private fun normalizeImageSaveUrls(urls: List<String>): List<String> {
-    return distinctImageUrls(urls)
-        .filter { it.isNotBlank() }
-}
-
-/**
- * 画像URL一覧を順次保存し、成功/失敗件数を集計する。
- */
-private suspend fun saveImageUrls(context: Context, urls: List<String>): ImageSaveSummary {
-    if (urls.isEmpty()) {
-        // Guard: 空リストは保存処理を行わない。
-        return ImageSaveSummary(successCount = 0, failureCount = 0)
-    }
-    var successCount = 0
-    var failureCount = 0
-    for (url in urls) {
-        val result = ImageCopyUtil.saveImageToMediaStore(context, url)
-        if (result.isSuccess) {
-            successCount += 1
-        } else {
-            failureCount += 1
-        }
-    }
-    return ImageSaveSummary(successCount = successCount, failureCount = failureCount)
-}
-
-/**
- * 画像保存件数の集計結果。
- */
-private data class ImageSaveSummary(
-    val successCount: Int,
-    val failureCount: Int,
-)
 
 /**
  * 画像スワイプと拡大縮小を担うページャを描画する。
