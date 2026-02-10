@@ -85,6 +85,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.core.view.ViewCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.R
@@ -237,6 +238,8 @@ fun ImageViewerScreen(
         val currentActivity = activity ?: return@DisposableEffect onDispose { }
         val window = currentActivity.window
         val insetsController = WindowInsetsControllerCompat(window, window.decorView)
+        val previousSystemBarsVisible = ViewCompat.getRootWindowInsets(window.decorView)
+            ?.isVisible(WindowInsetsCompat.Type.systemBars()) ?: true
         val previousLightStatusBars = insetsController.isAppearanceLightStatusBars
         val previousLightNavigationBars = insetsController.isAppearanceLightNavigationBars
         val previousNavigationBarContrastEnforced = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -250,6 +253,11 @@ fun ImageViewerScreen(
         onDispose {
             insetsController.isAppearanceLightStatusBars = previousLightStatusBars
             insetsController.isAppearanceLightNavigationBars = previousLightNavigationBars
+            if (previousSystemBarsVisible) {
+                insetsController.show(WindowInsetsCompat.Type.systemBars())
+            } else {
+                insetsController.hide(WindowInsetsCompat.Type.systemBars())
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 window.isNavigationBarContrastEnforced = previousNavigationBarContrastEnforced ?: true
             }
