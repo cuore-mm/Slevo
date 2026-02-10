@@ -32,14 +32,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -56,6 +54,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -72,7 +71,6 @@ import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
 import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
 import com.websarva.wings.android.slevo.ui.thread.res.PostItemDialogs
-import com.websarva.wings.android.slevo.ui.thread.res.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.res.ReplyPopup
 import com.websarva.wings.android.slevo.ui.thread.res.PostItem
 import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
@@ -82,7 +80,6 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.deriveTreePopupSelection
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -112,6 +109,12 @@ fun ThreadScreen(
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     onGestureAction: (GestureAction) -> Unit = {},
     onPopupVisibilityChange: (Boolean) -> Unit = {},
+    onRequestTreePopup: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
+    onAddPopupForReplyFrom: (replyNumbers: List<Int>, baseOffset: IntOffset) -> Unit = { _, _ -> },
+    onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
+    onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit = { _, _ -> },
+    onPopupSizeChange: (index: Int, size: IntSize) -> Unit = { _, _ -> },
+    onRemoveTopPopup: () -> Unit = {},
     onImageLongPress: (String, List<String>) -> Unit = { _, _ -> },
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
@@ -127,7 +130,9 @@ fun ThreadScreen(
     // 新着バーを表示するインデックス
     val firstAfterIndex = uiState.firstAfterIndex
     // ポップアップ表示用のスタック
-    val popupStack = remember { mutableStateListOf<PopupInfo>() }
+    val popupStack = uiState.popupStack
+    // ポップアップ表示中はリスト側の共有トランジションを無効化する。
+    val enableListSharedElements = popupStack.isEmpty()
     // NG（非表示）対象の投稿番号リスト
     val ngNumbers = uiState.ngPostNumbers
     val density = LocalDensity.current
@@ -375,99 +380,76 @@ fun ThreadScreen(
                         val pos = coords.positionInRoot()
                         itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
                     },
-                        post = post,
-                        postNum = postNum,
-                        idIndex = uiState.idIndexList.getOrElse(index) { 1 },
-                        idTotal = if (post.header.id.isBlank()) 1 else uiState.idCountMap[post.header.id]
-                            ?: 1,
-                        headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
-                        bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
-                        lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
-                        indentLevel = indent,
-                        replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
-                        isMyPost = postNum in uiState.myPostNumbers,
-                        dimmed = display.dimmed,
-                        searchQuery = uiState.searchQuery,
-                        onUrlClick = onUrlClick,
-                        onThreadUrlClick = onThreadUrlClick,
+                    post = post,
+                    postNum = postNum,
+                    idIndex = uiState.idIndexList.getOrElse(index) { 1 },
+                    idTotal = if (post.header.id.isBlank()) 1 else uiState.idCountMap[post.header.id]
+                        ?: 1,
+                    headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
+                    bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
+                    lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
+                    indentLevel = indent,
+                    replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
+                    isMyPost = postNum in uiState.myPostNumbers,
+                    dimmed = display.dimmed,
+                    searchQuery = uiState.searchQuery,
+                    onUrlClick = onUrlClick,
+                    onThreadUrlClick = onThreadUrlClick,
                     onImageClick = onImageClick,
                     onImageLongPress = onImageLongPress,
+                    enableSharedElement = enableListSharedElements,
                     onRequestMenu = onRequestMenu,
                     onShowTextMenu = onShowTextMenu,
                     onContentClick = {
-                        addPopupForTree(
-                            popupStack = popupStack,
-                            baseOffsetProvider = {
-                                if (popupStack.isEmpty()) {
-                                    itemOffsetHolder.value
-                                } else {
-                                    val last = popupStack.last()
-                                    IntOffset(
-                                        last.offset.x,
-                                        (last.offset.y - last.size.height).coerceAtLeast(0)
-                                    )
-                                }
-                            },
-                            posts = posts,
-                            ngPostNumbers = ngNumbers,
-                            treeOrder = uiState.treeOrder,
-                            treeDepthMap = uiState.treeDepthMap,
-                            postNumber = postNum,
-                        )
+                        val baseOffset = if (popupStack.isEmpty()) {
+                            itemOffsetHolder.value
+                        } else {
+                            val last = popupStack.last()
+                            IntOffset(
+                                last.offset.x,
+                                (last.offset.y - last.size.height).coerceAtLeast(0)
+                            )
+                        }
+                        onRequestTreePopup(postNum, baseOffset)
                     },
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,
                     onReplyFromClick = { numbs ->
                         val offset = if (popupStack.isEmpty()) {
                             itemOffsetHolder.value
-                            } else {
-                                val last = popupStack.last()
-                                IntOffset(
-                                    last.offset.x,
-                                    (last.offset.y - last.size.height).coerceAtLeast(0)
-                                )
-                            }
-                            val targets = numbs.filterNot { it in ngNumbers }.mapNotNull { num ->
-                                posts.getOrNull(num - 1)
-                            }
-                            if (targets.isNotEmpty()) {
-                                popupStack.add(PopupInfo(targets, offset))
-                            }
-                        },
-                        onReplyClick = { num ->
-                            if (num in 1..posts.size && num !in ngNumbers) {
-                                val target = posts[num - 1]
-                                val baseOffset = itemOffsetHolder.value
-                                val offset = if (popupStack.isEmpty()) {
-                                    baseOffset
-                                } else {
-                                    val last = popupStack.last()
-                                    IntOffset(
-                                        last.offset.x,
-                                        (last.offset.y - last.size.height).coerceAtLeast(0)
-                                    )
-                                }
-                                popupStack.add(PopupInfo(listOf(target), offset))
-                            }
-                        },
-                        onIdClick = { id ->
-                            val offset = if (popupStack.isEmpty()) {
-                                itemOffsetHolder.value
-                            } else {
-                                val last = popupStack.last()
-                                IntOffset(
-                                    last.offset.x,
-                                    (last.offset.y - last.size.height).coerceAtLeast(0)
-                                )
-                            }
-                            val targets = posts.mapIndexedNotNull { idx, p ->
-                                val num = idx + 1
-                                if (p.header.id == id && num !in ngNumbers) p else null
-                            }
-                            if (targets.isNotEmpty()) {
-                                popupStack.add(PopupInfo(targets, offset))
-                            }
+                        } else {
+                            val last = popupStack.last()
+                            IntOffset(
+                                last.offset.x,
+                                (last.offset.y - last.size.height).coerceAtLeast(0)
+                            )
                         }
+                        onAddPopupForReplyFrom(numbs, offset)
+                    },
+                    onReplyClick = { num ->
+                        val offset = if (popupStack.isEmpty()) {
+                            itemOffsetHolder.value
+                        } else {
+                            val last = popupStack.last()
+                            IntOffset(
+                                last.offset.x,
+                                (last.offset.y - last.size.height).coerceAtLeast(0)
+                            )
+                        }
+                        onAddPopupForReplyNumber(num, offset)
+                    },
+                    onIdClick = { id ->
+                        val offset = if (popupStack.isEmpty()) {
+                            itemOffsetHolder.value
+                        } else {
+                            val last = popupStack.last()
+                            IntOffset(
+                                last.offset.x,
+                                (last.offset.y - last.size.height).coerceAtLeast(0)
+                            )
+                        }
+                        onAddPopupForId(id, offset)
+                    }
                     )
                     HorizontalDivider(
                         modifier = Modifier.padding(
@@ -555,18 +537,12 @@ fun ThreadScreen(
             onImageLongPress = onImageLongPress,
             onRequestMenu = onRequestMenu,
             onShowTextMenu = onShowTextMenu,
-            onRequestTreePopup = { postNum, baseOffsetProvider ->
-                addPopupForTree(
-                    popupStack = popupStack,
-                    baseOffsetProvider = baseOffsetProvider,
-                    posts = posts,
-                    ngPostNumbers = ngNumbers,
-                    treeOrder = uiState.treeOrder,
-                    treeDepthMap = uiState.treeDepthMap,
-                    postNumber = postNum,
-                )
-            },
-            onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) },
+            onRequestTreePopup = onRequestTreePopup,
+            onAddPopupForReplyFrom = onAddPopupForReplyFrom,
+            onAddPopupForReplyNumber = onAddPopupForReplyNumber,
+            onAddPopupForId = onAddPopupForId,
+            onPopupSizeChange = onPopupSizeChange,
+            onClose = { onRemoveTopPopup() },
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
         )
@@ -630,47 +606,6 @@ fun ThreadScreen(
             GestureHintOverlay(state = gestureHint)
         }
         }
-    }
-
-    /**
-     * 指定レスが属するツリー全体をポップアップとして追加する。
-     */
-    private fun addPopupForTree(
-        popupStack: SnapshotStateList<PopupInfo>,
-    baseOffsetProvider: () -> IntOffset,
-        posts: List<ThreadPostUiModel>,
-        ngPostNumbers: Set<Int>,
-        treeOrder: List<Int>,
-        treeDepthMap: Map<Int, Int>,
-        postNumber: Int,
-    ) {
-        val selection = deriveTreePopupSelection(
-            postNumber = postNumber,
-            treeOrder = treeOrder,
-            treeDepthMap = treeDepthMap,
-        ) ?: return
-
-        val targets = mutableListOf<ThreadPostUiModel>()
-        val indentLevels = mutableListOf<Int>()
-        selection.numbers.zip(selection.indentLevels).forEach { (num, depth) ->
-            if (num in ngPostNumbers) {
-                return@forEach
-            }
-            val post = posts.getOrNull(num - 1) ?: return@forEach
-            targets.add(post)
-            indentLevels.add(depth)
-        }
-        if (targets.size <= 1) {
-            // NG除外後に単独になった場合は表示しない。
-            return
-        }
-        popupStack.add(
-            PopupInfo(
-                posts = targets,
-                offset = baseOffsetProvider(),
-                indentLevels = indentLevels,
-            )
-        )
     }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
