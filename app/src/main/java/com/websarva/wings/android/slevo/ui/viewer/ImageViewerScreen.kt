@@ -238,8 +238,11 @@ fun ImageViewerScreen(
         val currentActivity = activity ?: return@DisposableEffect onDispose { }
         val window = currentActivity.window
         val insetsController = WindowInsetsControllerCompat(window, window.decorView)
-        val previousSystemBarsVisible = ViewCompat.getRootWindowInsets(window.decorView)
-            ?.isVisible(WindowInsetsCompat.Type.systemBars()) ?: true
+        val rootInsets = ViewCompat.getRootWindowInsets(window.decorView)
+        val previousStatusBarsVisible =
+            rootInsets?.isVisible(WindowInsetsCompat.Type.statusBars()) ?: true
+        val previousNavigationBarsVisible =
+            rootInsets?.isVisible(WindowInsetsCompat.Type.navigationBars()) ?: true
         val previousLightStatusBars = insetsController.isAppearanceLightStatusBars
         val previousLightNavigationBars = insetsController.isAppearanceLightNavigationBars
         val previousNavigationBarContrastEnforced = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -253,10 +256,15 @@ fun ImageViewerScreen(
         onDispose {
             insetsController.isAppearanceLightStatusBars = previousLightStatusBars
             insetsController.isAppearanceLightNavigationBars = previousLightNavigationBars
-            if (previousSystemBarsVisible) {
-                insetsController.show(WindowInsetsCompat.Type.systemBars())
+            if (previousStatusBarsVisible) {
+                insetsController.show(WindowInsetsCompat.Type.statusBars())
             } else {
-                insetsController.hide(WindowInsetsCompat.Type.systemBars())
+                insetsController.hide(WindowInsetsCompat.Type.statusBars())
+            }
+            if (previousNavigationBarsVisible) {
+                insetsController.show(WindowInsetsCompat.Type.navigationBars())
+            } else {
+                insetsController.hide(WindowInsetsCompat.Type.navigationBars())
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 window.isNavigationBarContrastEnforced = previousNavigationBarContrastEnforced ?: true
