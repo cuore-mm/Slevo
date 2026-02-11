@@ -20,14 +20,13 @@ import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 /**
  * 投稿本文に含まれる画像URLを抽出し、サムネイル一覧を表示する。
  *
- * 画像タップ時は対象URL、長押し時は対象URLと同一レス内の画像一覧を通知する。
- * 共有トランジションの有無は引数で切り替える。
+ * 画像タップ時は対象URLと同一レス内の画像一覧とタップ位置、長押し時も同一レス内画像一覧を通知する。
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun PostItemMedia(
     post: ThreadPostUiModel,
-    onImageClick: (String) -> Unit,
+    onImageClick: (String, List<String>, Int) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
     enableSharedElement: Boolean = true,
     sharedTransitionScope: SharedTransitionScope,
@@ -44,7 +43,7 @@ internal fun PostItemMedia(
         Spacer(modifier = Modifier.height(8.dp))
         ImageThumbnailGrid(
             imageUrls = imageUrls,
-            onImageClick = onImageClick,
+            onImageClick = { url, urls, index -> onImageClick(url, urls, index) },
             onImageLongPress = onImageLongPress,
             enableSharedElement = enableSharedElement,
             sharedTransitionScope = sharedTransitionScope,
@@ -74,7 +73,7 @@ private fun PostItemMediaPreview() {
                         urlFlags = ReplyInfo.HAS_IMAGE_URL,
                     ),
                 ),
-                onImageClick = {},
+                onImageClick = { _, _, _ -> },
                 onImageLongPress = { _, _ -> },
                 sharedTransitionScope = this@SharedTransitionLayout,
                 animatedVisibilityScope = this,

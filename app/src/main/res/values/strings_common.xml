@@ -11,10 +11,10 @@
     <string name="delete">削除</string>
     <string name="open">開く</string>
     <string name="close">閉じる</string>
+    <string name="back">戻る</string>
     <string name="ok">OK</string>
     <string name="share">共有</string>
     <string name="copy">コピー</string>
-    <string name="reply">返信</string>
     <string name="open_tablist">タブ一覧を開く</string>
     <string name="open_in_external_browser">外部ブラウザで開く</string>
     <string name="no_browser_app_found">ブラウザが見つかりませんでした</string>

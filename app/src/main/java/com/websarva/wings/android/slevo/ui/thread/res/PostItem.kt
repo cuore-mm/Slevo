@@ -37,7 +37,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
  * @param onIdClick IDタップ時のコールバック。
  * @param onUrlClick URLタップ時のコールバック。
  * @param onThreadUrlClick スレッドURLタップ時のコールバック。
- * @param onImageClick 画像サムネイルタップ時のコールバック。
+ * @param onImageClick 画像サムネイルタップ時のコールバック（URLと同一レス内画像一覧とタップ位置）。
  * @param onImageLongPress 画像サムネイル長押し時のコールバック（URLと同一レス内画像一覧）。
  * @param enableSharedElement 画像サムネイルの共有トランジションを有効にするか。
  * @param onRequestMenu 投稿メニュー表示のリクエスト。
@@ -67,7 +67,7 @@ fun PostItem(
     onIdClick: ((String) -> Unit),
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
-    onImageClick: (String) -> Unit,
+    onImageClick: (String, List<String>, Int) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
     enableSharedElement: Boolean = true,
     onRequestMenu: (PostDialogTarget) -> Unit,
@@ -181,7 +181,7 @@ private fun ReplyCardPreview() {
                 onIdClick = {},
                 onUrlClick = {},
                 onThreadUrlClick = {},
-                onImageClick = {},
+                onImageClick = { _, _, _ -> },
                 onImageLongPress = { _, _ -> },
                 onRequestMenu = {},
                 onShowTextMenu = { _, _ -> },

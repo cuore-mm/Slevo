@@ -90,7 +90,7 @@ fun PostDialog(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onImageUpload: ((Uri) -> Unit),
-    onImageUrlClick: ((String) -> Unit),
+    onImageUrlClick: ((List<String>, Int) -> Unit),
     mode: PostDialogMode,
 ) {
     BackHandler(onBack = onDismissRequest)
@@ -133,7 +133,7 @@ private fun PostDialogContent(
     uiState: PostDialogState,
     onAction: (PostDialogAction) -> Unit,
     onImageUpload: (Uri) -> Unit,
-    onImageUrlClick: ((String) -> Unit)?,
+    onImageUrlClick: ((List<String>, Int) -> Unit)?,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     mode: PostDialogMode,
@@ -351,7 +351,7 @@ private fun MessageInputSection(
     message: String,
     onMessageChange: (String) -> Unit,
     focusRequester: FocusRequester,
-    onImageUrlClick: ((String) -> Unit)?,
+    onImageUrlClick: ((List<String>, Int) -> Unit)?,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -393,7 +393,7 @@ private fun MessageInputSection(
         ImageThumbnailGrid(
             modifier = Modifier.padding(horizontal = 8.dp),
             imageUrls = imageUrls,
-            onImageClick = { url -> onImageUrlClick?.invoke(url) },
+            onImageClick = { _, urls, index -> onImageUrlClick?.invoke(urls, index) },
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
         )
@@ -464,7 +464,7 @@ fun PostDialogPreview() {
                 sharedTransitionScope = this@SharedTransitionLayout,
                 animatedVisibilityScope = this,
                 onImageUpload = {},
-                onImageUrlClick = {},
+                onImageUrlClick = { _, _ -> },
                 mode = PostDialogMode.NewThread
             )
         }

@@ -26,12 +26,15 @@ import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.common.bookmark.ThreadTarget
+import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveCoordinator
+import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSavePreparation
+import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveSummary
+import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUploader
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
-import com.websarva.wings.android.slevo.ui.util.ImageCopyUtil
 import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
@@ -49,7 +52,10 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -138,7 +144,9 @@ class ThreadViewModel @AssistedInject constructor(
     private var ngList: List<NgEntity> = emptyList()
     private var compiledNg: List<Triple<Long?, Regex, NgType>> = emptyList()
     private var pendingPost: PendingPost? = null
-    private var pendingImageSaveUrls: List<String>? = null
+    private val imageSaveCoordinator = ImageSaveCoordinator()
+    private val _imageSaveEvents = MutableSharedFlow<ImageSaveUiEvent>(extraBufferCapacity = 1)
+    val imageSaveEvents: SharedFlow<ImageSaveUiEvent> = _imageSaveEvents.asSharedFlow()
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
     private var bookmarkStatusJob: Job? = null
@@ -1017,48 +1025,59 @@ class ThreadViewModel @AssistedInject constructor(
      *
      * 空URLを除外し、重複を除いた順序で返す。
      */
-    fun normalizeImageSaveUrls(urls: List<String>): List<String> {
-        return distinctImageUrls(urls)
-            .filter { it.isNotBlank() }
-    }
+    fun requestImageSave(context: android.content.Context, urls: List<String>) {
+        when (val preparation = imageSaveCoordinator.prepareSave(context, urls)) {
+            ImageSavePreparation.Ignore -> Unit
+            is ImageSavePreparation.RequestPermission -> {
+                _imageSaveEvents.tryEmit(ImageSaveUiEvent.RequestPermission(preparation.permission))
+            }
 
-    /**
-     * 権限付与後に再実行するための保存対象URLを保持する。
-     */
-    fun setPendingImageSaveUrls(urls: List<String>) {
-        pendingImageSaveUrls = urls
-    }
-
-    /**
-     * 保持していた保存対象URLを取り出し、保持状態をリセットする。
-     */
-    fun consumePendingImageSaveUrls(): List<String>? {
-        val urls = pendingImageSaveUrls
-        pendingImageSaveUrls = null
-        return urls
-    }
-
-    /**
-     * 画像URL一覧を順次保存し、成功/失敗件数を集計する。
-     */
-    suspend fun saveImageUrls(context: Context, urls: List<String>): ImageSaveSummary {
-        // --- Guard ---
-        if (urls.isEmpty()) {
-            return ImageSaveSummary(successCount = 0, failureCount = 0)
-        }
-
-        // --- Save loop ---
-        var successCount = 0
-        var failureCount = 0
-        for (url in urls) {
-            val result = ImageCopyUtil.saveImageToMediaStore(context, url)
-            if (result.isSuccess) {
-                successCount += 1
-            } else {
-                failureCount += 1
+            is ImageSavePreparation.ReadyToSave -> {
+                launchImageSave(context, preparation.urls)
             }
         }
-        return ImageSaveSummary(successCount = successCount, failureCount = failureCount)
+    }
+
+    /**
+     * 権限要求の結果を受け取り、許可時は保留していた保存処理を再開する。
+     */
+    fun onImageSavePermissionResult(context: android.content.Context, granted: Boolean) {
+        if (!granted) {
+            imageSaveCoordinator.clearPendingUrls()
+            _imageSaveEvents.tryEmit(
+                ImageSaveUiEvent.ShowToast(
+                    imageSaveCoordinator.buildPermissionDeniedMessage(context)
+                )
+            )
+            return
+        }
+        val pendingUrls = imageSaveCoordinator.consumePendingUrls()
+        if (pendingUrls.isEmpty()) {
+            return
+        }
+        launchImageSave(context, pendingUrls)
+    }
+
+    /**
+     * 指定URL一覧の保存処理を実行し、進行中通知と結果通知イベントを発行する。
+     */
+    private fun launchImageSave(context: android.content.Context, urls: List<String>) {
+        if (urls.isEmpty()) {
+            // Guard: 空URL一覧では保存処理を開始しない。
+            return
+        }
+        _imageSaveEvents.tryEmit(
+            ImageSaveUiEvent.ShowToast(imageSaveCoordinator.buildInProgressMessage(context))
+        )
+        viewModelScope.launch {
+            val summary = imageSaveCoordinator.saveImageUrls(context, urls)
+            val resultMessage = imageSaveCoordinator.buildResultMessage(
+                context = context,
+                requestCount = urls.size,
+                summary = summary,
+            )
+            _imageSaveEvents.emit(ImageSaveUiEvent.ShowToast(resultMessage))
+        }
     }
 
     /**

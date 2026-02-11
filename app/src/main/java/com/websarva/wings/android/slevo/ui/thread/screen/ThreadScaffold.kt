@@ -1,10 +1,6 @@
 package com.websarva.wings.android.slevo.ui.thread.screen
 
-import android.Manifest
 import android.content.ClipData
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.toClipEntry
-import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -36,6 +31,9 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
+import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunner
+import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
+import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -48,12 +46,8 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
-import com.websarva.wings.android.slevo.ui.util.CustomTabsUtil
-import com.websarva.wings.android.slevo.ui.util.ImageCopyUtil
-import com.websarva.wings.android.slevo.ui.util.buildLensSearchUrl
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
-import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -263,91 +257,24 @@ fun ThreadScaffold(
         optionalSheetContent = { viewModel, uiState ->
             val clipboard = LocalClipboard.current
             val coroutineScope = rememberCoroutineScope()
-            val launchSaveImages: (List<String>) -> Unit = launchSaveImages@{ urls ->
-                // 空URLは保存しない。
-                if (urls.isEmpty()) {
-                    return@launchSaveImages
-                }
-                val inProgressMessage = R.string.image_save_in_progress
-                Toast.makeText(
-                    context,
-                    inProgressMessage,
-                    Toast.LENGTH_SHORT
-                ).show()
-                coroutineScope.launch {
-                    val summary = viewModel.saveImageUrls(context, urls)
-                    val message = when {
-                        // 画像が1枚のみの場合は件数表示を省略する。
-                        urls.size == 1 && summary.failureCount == 0 -> {
-                            context.getString(R.string.image_save_result_single_success)
-                        }
-
-                        urls.size == 1 && summary.successCount == 0 -> {
-                            context.getString(R.string.image_save_result_single_failed)
-                        }
-
-                        summary.failureCount == 0 -> {
-                            context.getString(
-                                R.string.image_save_result_success,
-                                summary.successCount,
-                            )
-                        }
-
-                        summary.successCount == 0 -> {
-                            context.getString(
-                                R.string.image_save_result_all_failed,
-                                summary.failureCount,
-                            )
-                        }
-
-                        else -> {
-                            context.getString(
-                                R.string.image_save_result_partial,
-                                summary.successCount,
-                                summary.failureCount,
-                            )
-                        }
-                    }
-                    Toast.makeText(
-                        context,
-                        message,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
             val imageSavePermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission()
             ) { granted ->
-                val pendingUrls = viewModel.consumePendingImageSaveUrls()
-                if (granted && !pendingUrls.isNullOrEmpty()) {
-                    launchSaveImages(pendingUrls)
-                } else if (!granted) {
-                    Toast.makeText(
-                        context,
-                        R.string.image_save_permission_denied,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+                viewModel.onImageSavePermissionResult(context, granted)
             }
-            val requestImageSave: (List<String>) -> Unit = requestImageSave@{ urls ->
-                val targetUrls = viewModel.normalizeImageSaveUrls(urls)
-                if (targetUrls.isEmpty()) {
-                    // 空URLのみの場合は保存しない。
-                    return@requestImageSave
-                }
-                val needsPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-                val permission = Manifest.permission.WRITE_EXTERNAL_STORAGE
-                val hasPermission = !needsPermission ||
-                        ContextCompat.checkSelfPermission(
-                            context,
-                            permission
-                        ) == PackageManager.PERMISSION_GRANTED
-                if (!hasPermission) {
-                    // 権限付与後に保存を再試行できるようURLを保持する。
-                    viewModel.setPendingImageSaveUrls(targetUrls)
-                    imageSavePermissionLauncher.launch(permission)
-                } else {
-                    launchSaveImages(targetUrls)
+
+            // --- Image save event ---
+            LaunchedEffect(viewModel) {
+                viewModel.imageSaveEvents.collect { event ->
+                    when (event) {
+                        is ImageSaveUiEvent.RequestPermission -> {
+                            imageSavePermissionLauncher.launch(event.permission)
+                        }
+
+                        is ImageSaveUiEvent.ShowToast -> {
+                            Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 }
             }
 
@@ -366,141 +293,38 @@ fun ThreadScaffold(
                 imageUrls = uiState.imageMenuTargetUrls,
                 onActionSelected = { action ->
                     val targetUrl = uiState.imageMenuTargetUrl.orEmpty()
-                    when (action) {
-                        ImageMenuAction.ADD_NG -> viewModel.openImageNgDialog(targetUrl)
-                        ImageMenuAction.COPY_IMAGE_URL -> {
-                            // 空URLはコピーしない。
-                            if (targetUrl.isNotBlank()) {
-                                coroutineScope.launch {
-                                    val clip = ClipData.newPlainText("", targetUrl).toClipEntry()
-                                    clipboard.setClipEntry(clip)
+                    ImageMenuActionRunner.run(
+                        action = action,
+                        params = ImageMenuActionRunnerParams(
+                            context = context,
+                            coroutineScope = coroutineScope,
+                            currentImageUrl = targetUrl,
+                            imageUrls = uiState.imageMenuTargetUrls,
+                            onOpenNgDialog = { url -> viewModel.openImageNgDialog(url) },
+                            onRequestSaveSingle = { url ->
+                                viewModel.requestImageSave(context, listOf(url))
+                            },
+                            onRequestSaveAll = { urls ->
+                                // レス内画像が2件以上ある場合のみ処理する。
+                                if (urls.size >= 2) {
+                                    viewModel.requestImageSave(context, urls)
                                 }
-                            }
-                        }
-
-                        ImageMenuAction.COPY_IMAGE -> {
-                            // 空URLはコピーしない。
-                            if (targetUrl.isNotBlank()) {
-                                coroutineScope.launch {
-                                    val result = ImageCopyUtil.fetchImageUri(context, targetUrl)
-                                    result.onSuccess { uri ->
-                                        val clip = ClipData.newUri(
-                                            context.contentResolver,
-                                            "",
-                                            uri
-                                        ).toClipEntry()
-                                        clipboard.setClipEntry(clip)
-                                    }.onFailure {
-                                        Toast.makeText(
-                                            context,
-                                            R.string.image_copy_failed,
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                }
-                            }
-                        }
-
-                        ImageMenuAction.OPEN_IN_OTHER_APP -> {
-                            // 空URLは開かない。
-                            if (targetUrl.isNotBlank()) {
-                                coroutineScope.launch {
-                                    val result = ImageCopyUtil.fetchImageUri(context, targetUrl)
-                                    result.onSuccess { uri ->
-                                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                                            setDataAndType(uri, "image/*")
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        }
-                                        if (intent.resolveActivity(context.packageManager) != null) {
-                                            context.startActivity(
-                                                Intent.createChooser(intent, null)
-                                            )
-                                        } else {
-                                            Toast.makeText(
-                                                context,
-                                                R.string.no_app_to_open_image,
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    }.onFailure {
-                                        Toast.makeText(
-                                            context,
-                                            R.string.image_open_failed,
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                }
-                            }
-                        }
-
-                        ImageMenuAction.SAVE_IMAGE -> {
-                            // 空URLは保存しない。
-                            if (targetUrl.isNotBlank()) {
-                                requestImageSave(listOf(targetUrl))
-                            }
-                        }
-
-                        ImageMenuAction.SAVE_ALL_IMAGES -> {
-                            // レス内画像が2件以上ある場合のみ処理する。
-                            if (uiState.imageMenuTargetUrls.size >= 2) {
-                                requestImageSave(uiState.imageMenuTargetUrls)
-                            }
-                        }
-
-                        ImageMenuAction.SEARCH_WEB -> {
-                            // 空URLは検索しない。
-                            if (targetUrl.isNotBlank()) {
-                                val searchUrl = buildLensSearchUrl(targetUrl)
-                                val opened = CustomTabsUtil.openCustomTab(context, searchUrl)
-                                if (!opened) {
-                                    Toast.makeText(
-                                        context,
-                                        R.string.image_search_failed,
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
-                        }
-
-                        ImageMenuAction.SHARE_IMAGE -> {
-                            // 空URLは共有しない。
-                            if (targetUrl.isNotBlank()) {
-                                coroutineScope.launch {
-                                    val result = ImageCopyUtil.fetchImageUri(context, targetUrl)
-                                    result.onSuccess { uri ->
-                                        val intent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "image/*"
-                                            putExtra(Intent.EXTRA_STREAM, uri)
-                                            clipData = ClipData.newUri(
-                                                context.contentResolver,
-                                                "",
-                                                uri
-                                            )
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        }
-                                        if (intent.resolveActivity(context.packageManager) != null) {
-                                            context.startActivity(
-                                                Intent.createChooser(intent, null)
-                                            )
-                                        } else {
-                                            Toast.makeText(
-                                                context,
-                                                R.string.no_app_to_share_image,
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    }.onFailure {
-                                        Toast.makeText(
-                                            context,
-                                            R.string.image_share_failed,
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    viewModel.closeImageMenu()
+                            },
+                            onActionHandled = { viewModel.closeImageMenu() },
+                            onSetClipboardText = { text ->
+                                val clip = ClipData.newPlainText("", text).toClipEntry()
+                                clipboard.setClipEntry(clip)
+                            },
+                            onSetClipboardImageUri = { uri ->
+                                val clip = ClipData.newUri(
+                                    context.contentResolver,
+                                    "",
+                                    uri
+                                ).toClipEntry()
+                                clipboard.setClipEntry(clip)
+                            },
+                        ),
+                    )
                 },
                 onDismissRequest = { viewModel.closeImageMenu() },
             )
@@ -601,15 +425,20 @@ fun ThreadScaffold(
                         }
                     },
                     onImageUpload = { uri -> viewModel.uploadImage(context, uri) },
-                    onImageUrlClick = { url ->
-                        navController.navigate(
-                            AppRoute.ImageViewer(
-                                imageUrl = URLEncoder.encode(
-                                    url,
-                                    StandardCharsets.UTF_8.toString()
+                    onImageUrlClick = { urls, tappedIndex ->
+                        if (urls.isEmpty()) {
+                            // Guard: 画像が存在しない場合は遷移しない。
+                        } else {
+                            val encodedUrls = urls.map { imageUrl ->
+                                URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
+                            }
+                            navController.navigate(
+                                AppRoute.ImageViewer(
+                                    imageUrls = encodedUrls,
+                                    initialIndex = tappedIndex.coerceIn(encodedUrls.indices),
                                 )
                             )
-                        )
+                        }
                     },
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,

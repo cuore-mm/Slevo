@@ -10,4 +10,5 @@
     <string name="header_and_body">ヘッダー + 本文</string>
     <string name="number_order">番号順</string>
     <string name="tree_order">ツリー順</string>
+    <string name="reply">返信</string>
 </resources>
