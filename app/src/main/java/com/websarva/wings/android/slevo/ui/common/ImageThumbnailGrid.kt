@@ -35,6 +35,7 @@ fun ImageThumbnailGrid(
     modifier: Modifier = Modifier,
     onImageClick: (String, List<String>, Int) -> Unit,
     onImageLongPress: ((String, List<String>) -> Unit)? = null,
+    enableSharedElement: Boolean = true,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -45,6 +46,16 @@ fun ImageThumbnailGrid(
                 rowItems.forEachIndexed { columnIndex, url ->
                     val imageIndex = baseIndex + columnIndex
                     with(sharedTransitionScope) {
+                        val sharedElementModifier = if (enableSharedElement) {
+                            Modifier.sharedElement(
+                                sharedContentState = sharedTransitionScope.rememberSharedContentState(
+                                    key = url
+                                ),
+                                animatedVisibilityScope = animatedVisibilityScope
+                            )
+                        } else {
+                            Modifier
+                        }
                         SubcomposeAsyncImage(
                             model = url,
                             contentDescription = null,

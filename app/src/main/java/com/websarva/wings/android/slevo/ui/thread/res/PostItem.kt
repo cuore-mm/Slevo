@@ -39,8 +39,10 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
  * @param onThreadUrlClick スレッドURLタップ時のコールバック。
  * @param onImageClick 画像サムネイルタップ時のコールバック（URLと同一レス内画像一覧とタップ位置）。
  * @param onImageLongPress 画像サムネイル長押し時のコールバック（URLと同一レス内画像一覧）。
+ * @param enableSharedElement 画像サムネイルの共有トランジションを有効にするか。
  * @param onRequestMenu 投稿メニュー表示のリクエスト。
  * @param onShowTextMenu テキストメニュー表示のリクエスト。
+ * @param onContentClick 本文/ヘッダーの通常タップ時のコールバック。
  * @param sharedTransitionScope 共有トランジションのスコープ。
  * @param animatedVisibilityScope アニメーション表示のスコープ。
  */
@@ -67,8 +69,10 @@ fun PostItem(
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onImageClick: (String, List<String>, Int) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
+    enableSharedElement: Boolean = true,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
+    onContentClick: (() -> Unit)? = null,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -89,6 +93,7 @@ fun PostItem(
         onContentPressedChange = { interactionState.isContentPressed = it },
         onRequestMenu = { onRequestMenu(menuTarget) },
         showMyPostIndicator = isMyPost,
+        onContentClick = onContentClick,
     ) {
         PostItemHeader(
             uiModel = PostHeaderUiModel(
@@ -107,6 +112,7 @@ fun PostItem(
             onRequestMenu = { onRequestMenu(menuTarget) },
             onReplyFromClick = onReplyFromClick,
             onIdClick = onIdClick,
+            onHeaderClick = onContentClick,
             onShowTextMenu = { text, type -> onShowTextMenu(text, type) },
         )
 
@@ -125,12 +131,14 @@ fun PostItem(
             onReplyClick = onReplyClick,
             onUrlClick = onUrlClick,
             onThreadUrlClick = onThreadUrlClick,
+            onBodyClick = onContentClick,
         )
 
         PostItemMedia(
             post = post,
             onImageClick = onImageClick,
             onImageLongPress = onImageLongPress,
+            enableSharedElement = enableSharedElement,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
         )

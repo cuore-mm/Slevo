@@ -1,9 +1,12 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import androidx.lifecycle.viewModelScope
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
@@ -36,6 +39,7 @@ import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
+import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
@@ -69,6 +73,32 @@ private data class PendingPost(
     val content: String,
     val name: String,
     val email: String,
+)
+
+/**
+ * loadData 成功時に必要な派生情報をまとめたコンテナ。
+ *
+ * 投稿一覧・派生マップ・スレ情報の更新に必要な値を保持する。
+ */
+private data class ThreadLoadDerived(
+    val uiPosts: List<ThreadPostUiModel>,
+    val threadTitle: String?,
+    val resCount: Int,
+    val threadDate: ThreadDate,
+    val momentum: Double,
+    val idCountMap: Map<String, Int>,
+    val idIndexList: List<Int>,
+    val replySourceMap: Map<Int, List<Int>>,
+    val treeOrder: List<Int>,
+    val treeDepthMap: Map<Int, Int>,
+)
+
+/**
+ * 画像保存の成功/失敗件数を表す結果。
+ */
+data class ImageSaveSummary(
+    val successCount: Int,
+    val failureCount: Int,
 )
 
 /**
@@ -360,110 +390,185 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     override suspend fun loadData(isRefresh: Boolean) {
-        // 画面ローディング状態をセットし、プログレスを初期化
-        _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
+        startThreadLoad()
         val boardUrl = uiState.value.boardInfo.url
         val key = uiState.value.threadInfo.key
 
         try {
-            // DatRepository からスレ情報を取得（進捗コールバックを渡す）
-            val threadData = datRepository.getThread(boardUrl, key) { progress ->
-                // 読み込み進捗を UI 状態に反映
-                _uiState.update { it.copy(loadProgress = progress) }
+            val threadData = fetchThreadData(boardUrl, key)
+            if (threadData == null) {
+                // データ取得に失敗した場合はここで終了する。
+                handleLoadFailure(boardUrl, key, shouldLog = true)
+                return
             }
-            if (threadData != null) {
-                // 正常に取得できた場合はパース結果を元に各種派生データを作成
-                val (posts, title) = threadData
-                val uiPosts = posts.map { it.toThreadPostUiModel() }
-                // ID カウント / インデックス / 返信ソースマップ を導出
-                val derived = deriveReplyMaps(uiPosts)
-                // ツリー順と深さマップを導出
-                val tree = deriveTreeOrder(uiPosts)
-                val resCount = uiPosts.size
-                val keyLong = key.toLongOrNull()
-                val date = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD) {
-                    calculateThreadDate(key)
-                } else {
-                    ThreadDate(0, 0, 0, 0, 0, "")
-                }
-                val momentum = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD && resCount > 0) {
-                    val elapsedSeconds = max(1L, System.currentTimeMillis() / 1000 - keyLong)
-                    val elapsedDays = elapsedSeconds / 86400.0
-                    if (elapsedDays > 0) resCount / elapsedDays else 0.0
-                } else {
-                    0.0
-                }
-                // UI 状態に新しい投稿リスト等を反映（読み込みフラグ解除）
-                _uiState.update {
-                    it.copy(
-                        posts = uiPosts,
-                        isLoading = false,
-                        loadProgress = 1f,
-                        threadInfo = it.threadInfo.copy(
-                            title = title ?: it.threadInfo.title,
-                            resCount = resCount,
-                            date = date,
-                            momentum = momentum
-                        ),
-                        idCountMap = derived.first,
-                        idIndexList = derived.second,
-                        replySourceMap = derived.third,
-                        treeOrder = tree.first,
-                        treeDepthMap = tree.second,
-                    )
-                }
-
-                updatePostGroupsOnLoad(uiPosts)
-
-                // NG 判定を再計算して表示用投稿リストを更新
-                updateNgPostNumbers()
-
-                // スレ履歴に件数を記録し、そのIDを取得
-                val historyId = historyRepository.recordHistory(
-                    uiState.value.boardInfo,
-                    uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
-                    uiPosts.size
-                )
-
-                // 履歴 ID が変わっていれば、過去の自分の投稿番号観察を再登録
-                if (observedThreadHistoryId != historyId) {
-                    observedThreadHistoryId = historyId
-                    postHistoryCollectJob?.cancel()
-                    postHistoryCollectJob = viewModelScope.launch {
-                        postHistoryRepository.observeMyPostNumbers(historyId).collect { nums ->
-                            _uiState.update { it.copy(myPostNumbers = nums) }
-                        }
-                    }
-                }
-
-                // 保留していた投稿情報があれば履歴に記録（該当レス番号が有効な場合）
-                pendingPost?.let { pending ->
-                    val resNumber = pending.resNum ?: uiPosts.size
-                    if (resNumber in 1..uiPosts.size) {
-                        val p = uiPosts[resNumber - 1]
-                        postHistoryRepository.recordPost(
-                            content = pending.content,
-                            date = parseDateToUnix(p.header.date),
-                            threadHistoryId = historyId,
-                            boardId = uiState.value.boardInfo.boardId,
-                            resNum = resNumber,
-                            name = pending.name,
-                            email = pending.email,
-                            postId = p.header.id
-                        )
-                    }
-                    // 保留をクリア
-                    pendingPost = null
-                }
-            } else {
-                // 取得失敗時は読み込みフラグを解除してログを出力
-                _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
-                Timber.e("Failed to load thread data for board: $boardUrl key: $key")
-            }
+            val derived = buildThreadLoadDerived(threadData, key)
+            applyLoadSuccess(derived)
+            updatePostGroupsOnLoad(derived.uiPosts)
+            updateNgPostNumbers()
+            handleHistoryOnLoad(derived.uiPosts, derived.threadTitle)
         } catch (_: Exception) {
-            // 例外時は読み込みフラグを解除（例外オブジェクトは参照しない）
-            _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
+            // 例外時はログを出さずにローディングを解除する。
+            handleLoadFailure(boardUrl, key, shouldLog = false)
         }
+    }
+
+    /**
+     * 読み込み開始時の UIState を初期化する。
+     */
+    private fun startThreadLoad() {
+        _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
+    }
+
+    /**
+     * dat 取得を行い、進捗を UIState に反映する。
+     */
+    private suspend fun fetchThreadData(
+        boardUrl: String,
+        key: String,
+    ): Pair<List<ReplyInfo>, String?>? {
+        return datRepository.getThread(boardUrl, key) { progress ->
+            _uiState.update { it.copy(loadProgress = progress) }
+        }
+    }
+
+    /**
+     * dat 取得結果から UI 反映に必要な派生情報を構築する。
+     */
+    private fun buildThreadLoadDerived(
+        threadData: Pair<List<ReplyInfo>, String?>,
+        key: String,
+    ): ThreadLoadDerived {
+        // --- 投稿一覧の変換 ---
+        val (posts, title) = threadData
+        val uiPosts = posts.map { it.toThreadPostUiModel() }
+
+        // --- 派生マップ ---
+        val (idCountMap, idIndexList, replySourceMap) = deriveReplyMaps(uiPosts)
+        val (treeOrder, treeDepthMap) = deriveTreeOrder(uiPosts)
+
+        // --- スレ情報 ---
+        val resCount = uiPosts.size
+        val keyLong = key.toLongOrNull()
+        val threadDate = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD) {
+            calculateThreadDate(key)
+        } else {
+            ThreadDate(0, 0, 0, 0, 0, "")
+        }
+        val momentum = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD && resCount > 0) {
+            val elapsedSeconds = max(1L, System.currentTimeMillis() / 1000 - keyLong)
+            val elapsedDays = elapsedSeconds / 86400.0
+            if (elapsedDays > 0) resCount / elapsedDays else 0.0
+        } else {
+            0.0
+        }
+
+        return ThreadLoadDerived(
+            uiPosts = uiPosts,
+            threadTitle = title,
+            resCount = resCount,
+            threadDate = threadDate,
+            momentum = momentum,
+            idCountMap = idCountMap,
+            idIndexList = idIndexList,
+            replySourceMap = replySourceMap,
+            treeOrder = treeOrder,
+            treeDepthMap = treeDepthMap,
+        )
+    }
+
+    /**
+     * 取得成功時の UIState を一括で更新する。
+     */
+    private fun applyLoadSuccess(derived: ThreadLoadDerived) {
+        _uiState.update {
+            it.copy(
+                posts = derived.uiPosts,
+                isLoading = false,
+                loadProgress = 1f,
+                threadInfo = it.threadInfo.copy(
+                    title = derived.threadTitle ?: it.threadInfo.title,
+                    resCount = derived.resCount,
+                    date = derived.threadDate,
+                    momentum = derived.momentum
+                ),
+                idCountMap = derived.idCountMap,
+                idIndexList = derived.idIndexList,
+                replySourceMap = derived.replySourceMap,
+                treeOrder = derived.treeOrder,
+                treeDepthMap = derived.treeDepthMap,
+            )
+        }
+    }
+
+    /**
+     * 取得失敗時にローディングを解除し、必要ならログを出力する。
+     */
+    private fun handleLoadFailure(boardUrl: String, key: String, shouldLog: Boolean) {
+        _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
+        if (shouldLog) {
+            Timber.e("Failed to load thread data for board: $boardUrl key: $key")
+        }
+    }
+
+    /**
+     * 履歴記録・投稿番号監視・保留投稿の記録をまとめて処理する。
+     */
+    private suspend fun handleHistoryOnLoad(uiPosts: List<ThreadPostUiModel>, title: String?) {
+        // --- スレ履歴の記録 ---
+        val historyId = historyRepository.recordHistory(
+            uiState.value.boardInfo,
+            uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
+            uiPosts.size
+        )
+
+        // --- 自分の投稿番号の監視 ---
+        updateMyPostNumbers(historyId)
+
+        // --- 保留投稿の記録 ---
+        recordPendingPost(uiPosts, historyId)
+    }
+
+    /**
+     * 履歴 ID が変わった場合のみ自分の投稿番号監視を再登録する。
+     */
+    private fun updateMyPostNumbers(historyId: Long) {
+        if (observedThreadHistoryId == historyId) {
+            // 既に同じ履歴IDを監視中なら更新しない。
+            return
+        }
+        observedThreadHistoryId = historyId
+        postHistoryCollectJob?.cancel()
+        postHistoryCollectJob = viewModelScope.launch {
+            postHistoryRepository.observeMyPostNumbers(historyId).collect { nums ->
+                _uiState.update { it.copy(myPostNumbers = nums) }
+            }
+        }
+    }
+
+    /**
+     * 保留投稿があれば履歴に記録し、保留状態をクリアする。
+     */
+    private suspend fun recordPendingPost(uiPosts: List<ThreadPostUiModel>, historyId: Long) {
+        val pending = pendingPost ?: run {
+            // 保留投稿が無い場合は何もしない。
+            return
+        }
+        val resNumber = pending.resNum ?: uiPosts.size
+        if (resNumber in 1..uiPosts.size) {
+            val p = uiPosts[resNumber - 1]
+            postHistoryRepository.recordPost(
+                content = pending.content,
+                date = parseDateToUnix(p.header.date),
+                threadHistoryId = historyId,
+                boardId = uiState.value.boardInfo.boardId,
+                resNum = resNumber,
+                name = pending.name,
+                email = pending.email,
+                postId = p.header.id
+            )
+        }
+        // 保留をクリア
+        pendingPost = null
     }
 
     /**
@@ -766,7 +871,159 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     /**
-     * 画像保存要求を受け取り、権限判定に応じて処理を進める。
+     * ポップアップのレイアウトサイズをUI状態へ反映する。
+     *
+     * サイズが変わらない場合は更新しない。
+     */
+    fun updatePopupSize(index: Int, size: IntSize) {
+        _uiState.update { state ->
+            val stack = state.popupStack
+            if (index !in stack.indices) {
+                // 範囲外の更新は無視する。
+                return@update state
+            }
+            val target = stack[index]
+            if (target.size == size) {
+                // 変更がない場合は更新しない。
+                return@update state
+            }
+            val updated = stack.toMutableList()
+            updated[index] = target.copy(size = size)
+            state.copy(popupStack = updated)
+        }
+    }
+
+    /**
+     * 最上位のポップアップを取り除く。
+     */
+    fun removeTopPopup() {
+        _uiState.update { state ->
+            if (state.popupStack.isEmpty()) {
+                // 表示対象がない場合は何もしない。
+                return@update state
+            }
+            state.copy(popupStack = state.popupStack.dropLast(1))
+        }
+    }
+
+    /**
+     * 返信元番号の投稿をまとめてポップアップとして追加する。
+     *
+     * NG投稿や範囲外番号は除外する。
+     */
+    fun addPopupForReplyFrom(baseOffset: IntOffset, replyNumbers: List<Int>) {
+        val posts = uiState.value.posts ?: run {
+            // 投稿が未取得の場合は追加しない。
+            return
+        }
+        val ngNumbers = uiState.value.ngPostNumbers
+        val targets = replyNumbers.filterNot { it in ngNumbers }
+            .mapNotNull { num -> posts.getOrNull(num - 1) }
+        if (targets.isEmpty()) {
+            // 有効な対象がない場合は追加しない。
+            return
+        }
+        appendPopup(PopupInfo(posts = targets, offset = baseOffset))
+    }
+
+    /**
+     * 指定された返信番号の投稿をポップアップとして追加する。
+     *
+     * 範囲外番号やNG投稿は無視する。
+     */
+    fun addPopupForReplyNumber(baseOffset: IntOffset, postNumber: Int) {
+        val posts = uiState.value.posts ?: run {
+            // 投稿が未取得の場合は追加しない。
+            return
+        }
+        val ngNumbers = uiState.value.ngPostNumbers
+        if (postNumber !in 1..posts.size || postNumber in ngNumbers) {
+            // 無効な番号またはNG投稿は追加しない。
+            return
+        }
+        appendPopup(PopupInfo(posts = listOf(posts[postNumber - 1]), offset = baseOffset))
+    }
+
+    /**
+     * 指定IDの投稿を抽出し、ポップアップとして追加する。
+     *
+     * NG投稿は除外する。
+     */
+    fun addPopupForId(baseOffset: IntOffset, id: String) {
+        val posts = uiState.value.posts ?: run {
+            // 投稿が未取得の場合は追加しない。
+            return
+        }
+        val ngNumbers = uiState.value.ngPostNumbers
+        val targets = posts.mapIndexedNotNull { idx, post ->
+            val num = idx + 1
+            if (post.header.id == id && num !in ngNumbers) post else null
+        }
+        if (targets.isEmpty()) {
+            // 有効な対象がない場合は追加しない。
+            return
+        }
+        appendPopup(PopupInfo(posts = targets, offset = baseOffset))
+    }
+
+    /**
+     * 指定レスが属するツリー全体をポップアップとして追加する。
+     *
+     * NG除外後に単独レスのみの場合は表示しない。
+     */
+    fun addPopupForTree(baseOffset: IntOffset, postNumber: Int) {
+        val state = uiState.value
+        val posts = state.posts ?: run {
+            // 投稿が未取得の場合は追加しない。
+            return
+        }
+
+        // --- Selection ---
+        val selection = deriveTreePopupSelection(
+            postNumber = postNumber,
+            treeOrder = state.treeOrder,
+            treeDepthMap = state.treeDepthMap,
+        ) ?: run {
+            // 対象ツリーがない場合は追加しない。
+            return
+        }
+
+        // --- Build targets ---
+        val targets = mutableListOf<ThreadPostUiModel>()
+        val indentLevels = mutableListOf<Int>()
+        selection.numbers.zip(selection.indentLevels).forEach { (num, depth) ->
+            if (num in state.ngPostNumbers) {
+                return@forEach
+            }
+            val post = posts.getOrNull(num - 1) ?: return@forEach
+            targets.add(post)
+            indentLevels.add(depth)
+        }
+        if (targets.size <= 1) {
+            // NG除外後に単独になった場合は追加しない。
+            return
+        }
+
+        // --- Append ---
+        appendPopup(
+            PopupInfo(
+                posts = targets,
+                offset = baseOffset,
+                indentLevels = indentLevels,
+            )
+        )
+    }
+
+    private fun appendPopup(info: PopupInfo) {
+        _uiState.update { state ->
+            state.copy(popupStack = state.popupStack + info)
+        }
+    }
+
+    /**
+     * 画像保存対象のURLを正規化して返す。
+     *
+     * 空URLを除外し、重複を除いた順序で返す。
      */
     fun requestImageSave(context: android.content.Context, urls: List<String>) {
         when (val preparation = imageSaveCoordinator.prepareSave(context, urls)) {

@@ -15,6 +15,16 @@ internal val DATE_FORMAT = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN)
 }
 
 /**
+ * ツリーポップアップの表示対象番号とインデントをまとめたデータ。
+ *
+ * [numbers] と [indentLevels] は同じ順序で対応する。
+ */
+internal data class TreePopupSelection(
+    val numbers: List<Int>,
+    val indentLevels: List<Int>,
+)
+
+/**
  * 投稿一覧からID集計と返信関係の派生情報を作成する。
  *
  * IDの総数・通番・返信元の逆引きを同時に算出する。
@@ -82,6 +92,51 @@ internal fun deriveTreeOrder(posts: List<ThreadPostUiModel>): Pair<List<Int>, Ma
         }
     }
     return order to depthMap
+}
+
+/**
+ * 指定レスが属するツリー全体の投稿番号とインデントを抽出する。
+ *
+ * 最上位祖先から全子孫までを順序付きで返す。
+ */
+internal fun deriveTreePopupSelection(
+    postNumber: Int,
+    treeOrder: List<Int>,
+    treeDepthMap: Map<Int, Int>,
+): TreePopupSelection? {
+    if (treeOrder.isEmpty()) {
+        // ツリー順が空の場合は対象を作れない。
+        return null
+    }
+    val index = treeOrder.indexOf(postNumber)
+    if (index == -1) {
+        // 対象レスがツリー順に存在しない場合は無視する。
+        return null
+    }
+
+    var rootIndex = index
+    while (rootIndex > 0) {
+        val depth = treeDepthMap[treeOrder[rootIndex]] ?: 0
+        if (depth == 0) break
+        rootIndex--
+    }
+
+    val numbers = mutableListOf<Int>()
+    val indentLevels = mutableListOf<Int>()
+    for (i in rootIndex until treeOrder.size) {
+        val num = treeOrder[i]
+        val depth = treeDepthMap[num] ?: 0
+        if (i != rootIndex && depth == 0) {
+            break
+        }
+        numbers.add(num)
+        indentLevels.add(depth)
+    }
+    if (numbers.size <= 1) {
+        // 単独レスのみの場合はポップアップ対象にしない。
+        return null
+    }
+    return TreePopupSelection(numbers = numbers, indentLevels = indentLevels)
 }
 
 /**

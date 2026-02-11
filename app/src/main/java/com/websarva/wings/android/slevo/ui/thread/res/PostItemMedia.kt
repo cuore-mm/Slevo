@@ -28,6 +28,7 @@ internal fun PostItemMedia(
     post: ThreadPostUiModel,
     onImageClick: (String, List<String>, Int) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
+    enableSharedElement: Boolean = true,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -44,6 +45,7 @@ internal fun PostItemMedia(
             imageUrls = imageUrls,
             onImageClick = { url, urls, index -> onImageClick(url, urls, index) },
             onImageLongPress = onImageLongPress,
+            enableSharedElement = enableSharedElement,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
         )
