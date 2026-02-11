@@ -1,10 +1,7 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
-import android.app.Activity
 import android.annotation.SuppressLint
 import android.content.ClipData
-import android.content.Context
-import android.content.ContextWrapper
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -14,53 +11,24 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.windowInsetsTopHeight
-import androidx.compose.foundation.lazy.LazyListLayoutInfo
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableIntState
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -70,29 +38,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.view.ViewCompat
-import androidx.hilt.navigation.compose.hiltViewModel
-import coil3.compose.SubcomposeAsyncImage
-import com.websarva.wings.android.slevo.R
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.compose.runtime.collectAsState
-import androidx.compose.ui.platform.toClipEntry
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunner
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
@@ -103,17 +61,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import me.saket.telephoto.zoomable.DoubleClickToZoomListener
-import me.saket.telephoto.zoomable.OverzoomEffect
-import me.saket.telephoto.zoomable.ZoomSpec
 import me.saket.telephoto.zoomable.ZoomableState
-import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
-import me.saket.telephoto.zoomable.rememberZoomableImageState
-import me.saket.telephoto.zoomable.rememberZoomableState
 import kotlin.math.abs
 
 /**
@@ -581,415 +532,6 @@ fun ImageViewerScreen(
                 }
             }
         }
-    }
-}
-
-/**
- * Context から Activity を辿って返す。
- *
- * Activity でない Context の場合は ContextWrapper をたどり、見つからないときは null を返す。
- */
-private tailrec fun Context.findActivity(): Activity? {
-    return when (this) {
-        is Activity -> this
-        is ContextWrapper -> baseContext.findActivity()
-        else -> null
-    }
-}
-
-/**
- * 画像ビューアのトップバーを表示する。
- *
- * 戻る・保存・その他メニューの各アクションを持ち、表示可否は呼び出し元で制御する。
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ImageViewerTopBar(
-    isVisible: Boolean,
-    isMenuExpanded: Boolean,
-    imageCount: Int,
-    barBackgroundColor: Color,
-    barExitDurationMillis: Int,
-    onNavigateUp: () -> Unit,
-    onSaveClick: () -> Unit,
-    onMoreClick: () -> Unit,
-    onDismissMenu: () -> Unit,
-    onMenuActionClick: (ImageMenuAction) -> Unit,
-) {
-    AnimatedVisibility(
-        visible = isVisible,
-        enter = fadeIn(),
-        exit = fadeOut(animationSpec = tween(barExitDurationMillis)),
-    ) {
-        TopAppBar(
-            title = {},
-            modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
-            navigationIcon = {
-                IconButton(onClick = onNavigateUp) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
-                        contentDescription = stringResource(R.string.back),
-                        tint = Color.White
-                    )
-                }
-            },
-            actions = {
-                IconButton(onClick = onSaveClick) {
-                    Icon(
-                        imageVector = Icons.Default.Save,
-                        contentDescription = stringResource(R.string.save),
-                        tint = Color.White,
-                    )
-                }
-                Box {
-                    IconButton(onClick = onMoreClick) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = stringResource(R.string.more),
-                            tint = Color.White,
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = isMenuExpanded,
-                        onDismissRequest = onDismissMenu,
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_add_ng)) },
-                            onClick = { onMenuActionClick(ImageMenuAction.ADD_NG) },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_copy_image)) },
-                            onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE) },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_copy_image_url)) },
-                            onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE_URL) },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_open_in_other_app)) },
-                            onClick = { onMenuActionClick(ImageMenuAction.OPEN_IN_OTHER_APP) },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_search_web)) },
-                            onClick = { onMenuActionClick(ImageMenuAction.SEARCH_WEB) },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_share_image)) },
-                            onClick = { onMenuActionClick(ImageMenuAction.SHARE_IMAGE) },
-                        )
-                        if (imageCount >= 2) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = stringResource(
-                                            R.string.image_menu_save_all_images_with_count,
-                                            imageCount,
-                                        )
-                                    )
-                                },
-                                onClick = { onMenuActionClick(ImageMenuAction.SAVE_ALL_IMAGES) },
-                            )
-                        }
-                    }
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = barBackgroundColor
-            ),
-            windowInsets = WindowInsets(0)
-        )
-    }
-}
-
-/**
- * 画像スワイプと拡大縮小を担うページャを描画する。
- *
- * ページごとのズーム状態は呼び出し元のリストに保存する。
- */
-@OptIn(ExperimentalSharedTransitionApi::class)
-@Composable
-private fun ImageViewerPager(
-    imageUrls: List<String>,
-    pagerState: PagerState,
-    zoomableStates: MutableList<MutableState<ZoomableState?>>,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
-    onToggleBars: () -> Unit,
-) {
-    // --- Pager ---
-    HorizontalPager(
-        state = pagerState,
-        pageSpacing = 8.dp,
-        modifier = Modifier.fillMaxSize(),
-    ) { page ->
-        // --- Zoom state ---
-        val imageUrl = imageUrls[page]
-        val zoomableState = rememberZoomableState(
-            zoomSpec = ZoomSpec(
-                maxZoomFactor = 12f,
-                overzoomEffect = OverzoomEffect.RubberBanding,
-            )
-        )
-        val imageState = rememberZoomableImageState(zoomableState)
-
-        SideEffect {
-            if (page in zoomableStates.indices) {
-                zoomableStates[page].value = zoomableState
-            }
-        }
-
-        // --- Image content ---
-        val imageModifier = if (page == pagerState.settledPage) {
-            // Guard: 共有トランジション対象は現在表示中ページのみとする。
-            with(sharedTransitionScope) {
-                Modifier.sharedElement(
-                    sharedContentState = sharedTransitionScope.rememberSharedContentState(
-                        key = "$imageUrl#$page"
-                    ),
-                    animatedVisibilityScope = animatedVisibilityScope,
-                    renderInOverlayDuringTransition = false
-                )
-            }
-        } else {
-            Modifier
-        }
-        ZoomableAsyncImage(
-            model = imageUrl,
-            contentDescription = null,
-            state = imageState,
-            modifier = imageModifier.fillMaxSize(),
-            onClick = { _ -> onToggleBars() },
-            onDoubleClick = DoubleClickToZoomListener.cycle(
-                maxZoomFactor = 2f,
-            ),
-        )
-    }
-}
-
-/**
- * 同一レス内のサムネイル一覧を表示し、選択中の画像を中央に寄せる。
- *
- * 選択中サムネイルはサイズを拡大し、タップで表示画像を切り替える。
- */
-@Composable
-private fun ImageViewerThumbnailBar(
-    imageUrls: List<String>,
-    pagerState: PagerState,
-    isBarsVisible: Boolean,
-    thumbnailListState: LazyListState,
-    modifier: Modifier,
-    thumbnailWidth: Dp,
-    thumbnailHeight: Dp,
-    thumbnailShape: RoundedCornerShape,
-    thumbnailSpacing: Dp,
-    selectedThumbnailScale: Float,
-    barBackgroundColor: Color,
-    barExitDurationMillis: Int,
-    thumbnailViewportWidthPx: MutableIntState,
-    onThumbnailClick: (Int) -> Unit,
-) {
-    val density = LocalDensity.current
-
-    // --- Layout ---
-    AnimatedVisibility(
-        visible = isBarsVisible,
-        enter = fadeIn(),
-        exit = fadeOut(animationSpec = tween(barExitDurationMillis)),
-        modifier = modifier.windowInsetsPadding(WindowInsets.navigationBars),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(barBackgroundColor),
-        ) {
-            // --- Padding ---
-            val fallbackItemWidthPx = with(density) {
-                (thumbnailWidth * selectedThumbnailScale).toPx()
-            }
-            val horizontalPaddingPx =
-                ((thumbnailViewportWidthPx.intValue - fallbackItemWidthPx) / 2f).coerceAtLeast(0f)
-            val horizontalPadding = with(density) { horizontalPaddingPx.toDp() }
-
-            // --- Thumbnails ---
-            LazyRow(
-                state = thumbnailListState,
-                contentPadding = PaddingValues(
-                    horizontal = horizontalPadding,
-                    vertical = 8.dp,
-                ),
-                horizontalArrangement = Arrangement.spacedBy(thumbnailSpacing),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onSizeChanged { size ->
-                        thumbnailViewportWidthPx.intValue = size.width
-                    },
-            ) {
-                items(imageUrls.size) { index ->
-                    val isSelected = index == pagerState.currentPage
-                    val scale by animateFloatAsState(
-                        targetValue = if (isSelected) 1f else 1f / selectedThumbnailScale,
-                        label = "thumbnailScale",
-                    )
-                    SubcomposeAsyncImage(
-                        model = imageUrls[index],
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        alignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(
-                                width = thumbnailWidth * selectedThumbnailScale,
-                                height = thumbnailHeight * selectedThumbnailScale,
-                            )
-                            .graphicsLayer {
-                                scaleX = scale
-                                scaleY = scale
-                            }
-                            .clip(thumbnailShape)
-                            .clickable { onThumbnailClick(index) }
-                            .background(Color.DarkGray),
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * サムネイル一覧の表示領域中心に最も近いアイテムのインデックスを返す。
- *
- * 表示アイテムが存在しない場合は null を返す。
- */
-private fun findCenteredThumbnailIndex(
-    layoutInfo: LazyListLayoutInfo,
-): Int? {
-    val visibleItems = layoutInfo.visibleItemsInfo
-    if (visibleItems.isEmpty()) {
-        // Guard: まだ表示対象がない場合は判定できない。
-        return null
-    }
-    val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
-    return visibleItems.minByOrNull { item ->
-        val itemCenter = item.offset + item.size / 2
-        abs(itemCenter - viewportCenter)
-    }?.index
-}
-
-/**
- * 指定サムネイルの中心と表示領域中心の差分をピクセルで返す。
- *
- * サムネイルが可視領域外の場合は null を返す。
- */
-private fun findThumbnailCenterDeltaPx(
-    layoutInfo: LazyListLayoutInfo,
-    index: Int,
-): Int? {
-    val targetItem = layoutInfo.visibleItemsInfo.firstOrNull { item -> item.index == index }
-        ?: run {
-            // Guard: 可視領域外のアイテムは距離計算できない。
-            return null
-        }
-    val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
-    val itemCenter = targetItem.offset + targetItem.size / 2
-    return itemCenter - viewportCenter
-}
-
-/**
- * サムネイル停止時に中央へ最も近いサムネイルを選択し、必要に応じて中央へ寄せる。
- *
- * サムネイルバーを実際に自動スクロールした場合は true を返す。
- */
-private suspend fun syncIdleThumbnailCenter(
-    thumbnailListState: LazyListState,
-    pagerState: PagerState,
-    animate: Boolean = true,
-): Boolean {
-    val centeredIndex = findCenteredThumbnailIndex(thumbnailListState.layoutInfo)
-        ?: return false
-    if (!scrollPagerToIndexSafely(pagerState, centeredIndex)) {
-        return false
-    }
-    return centerThumbnailAtIndex(
-        listState = thumbnailListState,
-        index = centeredIndex,
-        animate = animate,
-    )
-}
-
-/**
- * ページャを指定インデックスへ即時移動し、ユーザー割り込み時は監視継続のため失敗扱いで返す。
- */
-private suspend fun scrollPagerToIndexSafely(
-    pagerState: PagerState,
-    index: Int,
-): Boolean {
-    if (pagerState.currentPage == index) {
-        return true
-    }
-    return try {
-        pagerState.scrollToPage(index)
-        true
-    } catch (cancellationException: CancellationException) {
-        if (!currentCoroutineContext().isActive) {
-            throw cancellationException
-        }
-        false
-    }
-}
-
-/**
- * 指定したサムネイルが表示領域の中心に来るようスクロールする。
- *
- * 対象が可視外の場合は一度可視化してから中心に寄せる。
- */
-private suspend fun centerThumbnailAtIndex(
-    listState: LazyListState,
-    index: Int,
-    animate: Boolean = true,
-): Boolean {
-    return try {
-        var didAutoScroll = false
-        val initialDelta = findThumbnailCenterDeltaPx(
-            layoutInfo = listState.layoutInfo,
-            index = index,
-        )
-        if (initialDelta == null) {
-            // Guard: まずは対象を可視化してから中心寄せを行う。
-            if (animate) {
-                listState.animateScrollToItem(index)
-            } else {
-                listState.scrollToItem(index)
-            }
-            didAutoScroll = true
-        } else if (abs(initialDelta) <= 1) {
-            // Guard: すでに中心に近い場合は処理しない。
-            return false
-        }
-        val updatedDelta = findThumbnailCenterDeltaPx(
-            layoutInfo = listState.layoutInfo,
-            index = index,
-        ) ?: snapshotFlow {
-            findThumbnailCenterDeltaPx(
-                layoutInfo = listState.layoutInfo,
-                index = index,
-            )
-        }
-            .filterNotNull()
-            .first()
-        if (abs(updatedDelta) <= 1) {
-            // Guard: 既に中心に近い場合は処理しない。
-            return didAutoScroll
-        }
-        if (animate) {
-            listState.animateScrollBy(updatedDelta.toFloat())
-        } else {
-            listState.scrollBy(updatedDelta.toFloat())
-        }
-        true
-    } catch (cancellationException: CancellationException) {
-        if (!currentCoroutineContext().isActive) {
-            throw cancellationException
-        }
-        false
     }
 }
 
