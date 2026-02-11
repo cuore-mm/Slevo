@@ -1,52 +1,48 @@
 <!--
-PRテンプレ（必須）
-- 該当しない項目も「N/A」で必ず埋める
-- チェックボックスは完了したら [x] にする
+PR Template (Required)
+- Fill in every field. Use "N/A" if not applicable.
+- Mark checkboxes as [x] when completed.
 -->
 
-## 目的 / 背景（Why）
+## Purpose / Background (Why)
 - 
 
-## 変更内容（What）
+## Changes (What)
 - 
 
-## 影響範囲（Scope）
-- 影響する画面 / 機能:
-- 影響するモジュール / レイヤ:
-- 破壊的変更: あり / なし（どちらか残す）
-- ユーザー影響:
-- リスク: 低 / 中 / 高（どれか残す）
+## Scope / Impact
+- Affected screens / features:
+- Affected modules / layers:
+- Breaking change: Yes / No (keep one)
+- User impact:
+- Risk: Low / Medium / High (keep one)
 
-## 仕様・設計メモ（How）
-- 方針:
-- 非目的（やらないこと）:
-- 追加メモ（必要なら）:
+## Spec / Design Notes (How)
+- Approach:
+- Non-goals (out of scope):
+- Additional notes (if needed):
 
-## 動作確認
-- [ ] GitHub Actions「Android CI」が成功している（run へのリンク: ）
-- [ ] 主要導線の手動確認（端末 / OS / API / 画面サイズ: ）
+## Verification
+- [ ] GitHub Actions "Android CI" is passing (link to run: )
+- [ ] Manual verification of main flows (device / OS / API / screen size: )
 
-## 変更に伴う更新
-- ドキュメント更新: あり / なし（どちらか残す）
-    - 変更箇所:
-- ログ/トレース/メトリクス: N/A
-- 追加/更新した設定値（DataStore 等）: N/A
+## Updates Required by This Change
+- Documentation update: Yes / No (keep one)
+    - Where:
+- Logs / tracing / metrics: N/A
+- Added/updated configuration values (DataStore, etc.): N/A
 
-## DB / 永続化（該当する場合は必須）
-- Room migration: あり / なし（どちらか残す）
-- スキーマ変更点:
-- マイグレーション方針:
-- 既存データへの影響:
-- テスト（migration test 等）: N/A / 実施内容
+## DB / Persistence (Required if applicable)
+- Room migration: Yes / No (keep one)
+- Schema changes:
+- Migration approach:
+- Impact on existing data:
+- Tests (migration test, etc.): N/A / Details
 
-## 互換性
-- 旧バージョンからの遷移: N/A
+## Compatibility
+- Upgrade path from older versions: N/A
 
-## 関連
+## Related
 - Issue: #
-- PR/コミット参照:
-- 参考リンク: N/A
-
-## レビュー観点（レビュワー向け）
-- 特に見てほしい点:
-- 不安な点 / 保留:
+- Related PRs / commits:
+- Reference links: N/A
