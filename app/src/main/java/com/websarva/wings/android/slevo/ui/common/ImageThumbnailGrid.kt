@@ -49,9 +49,10 @@ fun ImageThumbnailGrid(
                         val sharedElementModifier = if (enableSharedElement) {
                             Modifier.sharedElement(
                                 sharedContentState = sharedTransitionScope.rememberSharedContentState(
-                                    key = url
+                                    key = "$url#$imageIndex"
                                 ),
-                                animatedVisibilityScope = animatedVisibilityScope
+                                animatedVisibilityScope = animatedVisibilityScope,
+                                renderInOverlayDuringTransition = false,
                             )
                         } else {
                             Modifier
@@ -68,12 +69,7 @@ fun ImageThumbnailGrid(
                                     onClick = { onImageClick(url, imageUrls, imageIndex) },
                                     onLongClick = onImageLongPress?.let { { it(url, imageUrls) } },
                                 )
-                                .sharedElement(
-                                    sharedContentState = sharedTransitionScope.rememberSharedContentState(
-                                        key = "$url#$imageIndex"
-                                    ),
-                                    animatedVisibilityScope = animatedVisibilityScope
-                                ),
+                                .then(sharedElementModifier),
                             loading = {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
