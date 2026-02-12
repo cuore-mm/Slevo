@@ -5,46 +5,56 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Alignment
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.PlainTooltip
-import androidx.compose.material3.PlainTooltipBox
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TooltipState
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
+import kotlinx.coroutines.delay
 
 /**
  * 画像ビューアのトップバーを表示する。
  *
  * 戻る・保存・その他メニューの各アクションを持ち、表示可否は呼び出し元で制御する。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ImageViewerTopBar(
     isVisible: Boolean,
@@ -58,16 +68,6 @@ internal fun ImageViewerTopBar(
     onDismissMenu: () -> Unit,
     onMenuActionClick: (ImageMenuAction) -> Unit,
 ) {
-    val backTooltipState = rememberTooltipState(isPersistent = true)
-    val saveTooltipState = rememberTooltipState(isPersistent = true)
-    val moreTooltipState = rememberTooltipState(isPersistent = true)
-
-    LaunchedEffect(isVisible, isMenuExpanded) {
-        if (!isVisible || isMenuExpanded) {
-            dismissTooltipStates(backTooltipState, saveTooltipState, moreTooltipState)
-        }
-    }
-
     AnimatedVisibility(
         visible = isVisible,
         enter = fadeIn(),
@@ -78,41 +78,38 @@ internal fun ImageViewerTopBar(
             modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
             navigationIcon = {
                 FeedbackTooltipIconButton(
-                    contentDescription = stringResource(R.string.back),
                     tooltipText = stringResource(R.string.back),
-                    tooltipState = backTooltipState,
+                    showTooltipHost = isVisible && !isMenuExpanded,
                     onClick = onNavigateUp,
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.back),
                         tint = Color.White
                     )
                 }
             },
             actions = {
                 FeedbackTooltipIconButton(
-                    contentDescription = stringResource(R.string.save),
                     tooltipText = stringResource(R.string.save),
-                    tooltipState = saveTooltipState,
+                    showTooltipHost = isVisible && !isMenuExpanded,
                     onClick = onSaveClick,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Save,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.save),
                         tint = Color.White,
                     )
                 }
                 Box {
                     FeedbackTooltipIconButton(
-                        contentDescription = stringResource(R.string.more),
                         tooltipText = stringResource(R.string.more),
-                        tooltipState = moreTooltipState,
+                        showTooltipHost = isVisible && !isMenuExpanded,
                         onClick = onMoreClick,
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.more),
                             tint = Color.White,
                         )
                     }
@@ -173,48 +170,80 @@ internal fun ImageViewerTopBar(
  *
  * 押下状態で縮小アニメーションを行い、長押しでプレーンツールチップを表示する。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FeedbackTooltipIconButton(
-    contentDescription: String,
     tooltipText: String,
-    tooltipState: TooltipState,
+    showTooltipHost: Boolean,
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
 ) {
+    var isTooltipVisible by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val density = LocalDensity.current
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.9f else 1f,
         animationSpec = tween(durationMillis = 100),
         label = "topBarIconPressScale",
     )
 
-    PlainTooltipBox(
-        tooltip = { PlainTooltip { Text(text = tooltipText) } },
-        tooltipState = tooltipState,
-    ) {
-        IconButton(
-            onClick = onClick,
-            interactionSource = interactionSource,
-            modifier = Modifier.graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            },
-        ) {
-            icon()
+    LaunchedEffect(showTooltipHost) {
+        if (!showTooltipHost) {
+            isTooltipVisible = false
         }
     }
-}
 
-/**
- * 複数ツールチップの表示状態をまとめて閉じる。
- */
-@OptIn(ExperimentalMaterial3Api::class)
-private suspend fun dismissTooltipStates(vararg tooltipStates: TooltipState) {
-    tooltipStates.forEach { tooltipState ->
-        if (tooltipState.isVisible) {
-            tooltipState.dismiss()
+    LaunchedEffect(isTooltipVisible) {
+        if (isTooltipVisible) {
+            delay(1500)
+            isTooltipVisible = false
+        }
+    }
+
+    Box(contentAlignment = Alignment.Center) {
+        if (isTooltipVisible) {
+            Popup(
+                alignment = Alignment.TopCenter,
+                offset = IntOffset(x = 0, y = with(density) { (-44).dp.roundToPx() }),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Text(
+                        text = tooltipText,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
+                .background(color = Color.Transparent, shape = CircleShape)
+                .combinedClickable(
+                    interactionSource = interactionSource,
+                    indication = LocalIndication.current,
+                    role = Role.Button,
+                    onClick = {
+                        isTooltipVisible = false
+                        onClick()
+                    },
+                    onLongClick = {
+                        if (showTooltipHost) {
+                            isTooltipVisible = true
+                        }
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            icon()
         }
     }
 }
