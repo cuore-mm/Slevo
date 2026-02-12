@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
+import android.graphics.drawable.Animatable
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -29,10 +30,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
+import coil3.asDrawable
 
 /**
  * 同一レス内のサムネイル一覧を表示し、選択中の画像を中央に寄せる。
@@ -56,6 +59,7 @@ internal fun ImageViewerThumbnailBar(
     thumbnailViewportWidthPx: MutableIntState,
     onThumbnailClick: (Int) -> Unit,
 ) {
+    val context = LocalContext.current
     val density = LocalDensity.current
 
     // --- Layout ---
@@ -103,6 +107,10 @@ internal fun ImageViewerThumbnailBar(
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         alignment = Alignment.Center,
+                        onSuccess = { state ->
+                            // Guard: GIFなどのアニメーションDrawableはサムネイルで再生させない。
+                            (state.result.image.asDrawable(context.resources) as? Animatable)?.stop()
+                        },
                         modifier = Modifier
                             .size(
                                 width = thumbnailWidth * selectedThumbnailScale,
