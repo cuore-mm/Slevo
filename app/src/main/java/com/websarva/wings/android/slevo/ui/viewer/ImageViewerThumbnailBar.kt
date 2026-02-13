@@ -111,7 +111,7 @@ internal fun ImageViewerThumbnailBar(
                             1f / selectedThumbnailScale
                         }
                     val scale by animateFloatAsState(
-                        targetValue = baseScale * if (isPressed) 0.9f else 1f,
+                        targetValue = baseScale * if (isPressed) 0.95f else 1f,
                         animationSpec = tween(durationMillis = 100),
                         label = "thumbnailScale",
                     )
