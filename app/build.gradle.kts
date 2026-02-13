@@ -54,6 +54,12 @@ android {
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
         }
+        create("ci") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".ci"
+            versionNameSuffix = "-ci"
+            matchingFallbacks += listOf("debug")
+        }
     }
 
     applicationVariants.all {
