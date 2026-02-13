@@ -53,16 +53,16 @@ internal fun ImageViewerThumbnailBar(
     isBarsVisible: Boolean,
     thumbnailListState: LazyListState,
     modifier: Modifier,
-    thumbnailWidth: Dp,
-    thumbnailHeight: Dp,
-    thumbnailShape: RoundedCornerShape,
-    thumbnailSpacing: Dp,
-    selectedThumbnailScale: Float,
     barBackgroundColor: Color,
     barExitDurationMillis: Int,
     thumbnailViewportWidthPx: MutableIntState,
     onThumbnailClick: (Int) -> Unit,
 ) {
+    val thumbnailWidth: Dp = 40.dp
+    val thumbnailHeight: Dp = 56.dp
+    val thumbnailShape = RoundedCornerShape(8.dp)
+    val thumbnailSpacing: Dp = 8.dp
+    val selectedThumbnailScale = 1.1f
     val context = LocalContext.current
     val density = LocalDensity.current
 
