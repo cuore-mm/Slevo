@@ -5,6 +5,7 @@ Issue #428 では、レスポップアップを多段で開いた際に 2 段目
 ## What Changes
 
 - 画像サムネイルと画像ビューア間で利用する shared transition キー生成規則を見直し、表示文脈情報で一意化する。
+- shared transition の namespace/key 生成は共通ユーティリティへ集約し、スレッド通常表示・ポップアップ・投稿ダイアログ・画像ビューアで同一ロジックを利用する。
 - スレッド通常表示・ポップアップ表示・投稿ダイアログ表示の全経路で同じキー契約を適用し、画像ビューア遷移時にキー文脈を維持して受け渡す。
 - 多段ポップアップ環境でもサムネイル表示を維持しつつ、既存の画像タップ遷移・初期表示インデックス挙動を保持する。
 
@@ -20,6 +21,6 @@ Issue #428 では、レスポップアップを多段で開いた際に 2 段目
 
 ## Impact
 
-- 影響コード: `ui/thread/screen/ThreadScreen.kt`, `ui/thread/res/ReplyPopup.kt`, `ui/thread/res/PostItem*.kt`, `ui/common/PostDialog.kt`, `ui/common/ImageThumbnailGrid.kt`, `ui/navigation/AppNavGraph.kt`, `ui/viewer/ImageViewer*.kt`
+- 影響コード: `ui/thread/screen/ThreadScreen.kt`, `ui/thread/res/ReplyPopup.kt`, `ui/thread/res/PostItem*.kt`, `ui/common/PostDialog.kt`, `ui/common/ImageThumbnailGrid.kt`, `ui/common/transition/*`, `ui/navigation/AppNavGraph.kt`, `ui/viewer/ImageViewer*.kt`
 - 影響範囲: 画像サムネイル表示、画像ビューア遷移パラメータ、shared element キー生成ロジック
 - 外部 API や依存ライブラリの追加はなし
