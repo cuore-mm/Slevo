@@ -59,6 +59,7 @@ android {
             applicationIdSuffix = ".ci"
             versionNameSuffix = "-ci"
             matchingFallbacks += listOf("debug")
+            resValue("string", "app_name", "Slevo (CI)")
         }
     }
 
