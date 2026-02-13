@@ -64,6 +64,7 @@ import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
+import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -150,7 +151,8 @@ fun ThreadScreen(
             tabsViewModel = tabsViewModel,
         )
     }
-    val onImageClick: (String, List<String>, Int) -> Unit = { _, imageUrls, tappedIndex ->
+    val onImageClick: (String, List<String>, Int, String) -> Unit =
+        { _, imageUrls, tappedIndex, transitionNamespace ->
         if (imageUrls.isEmpty()) {
             // Guard: 画像が存在しない場合は遷移しない。
         } else {
@@ -162,6 +164,7 @@ fun ThreadScreen(
                 AppRoute.ImageViewer(
                     imageUrls = encodedUrls,
                     initialIndex = initialIndex,
+                    transitionNamespace = transitionNamespace,
                 )
             )
         }
@@ -377,6 +380,9 @@ fun ThreadScreen(
                 data class OffsetHolder(var value: IntOffset)
 
                 val itemOffsetHolder = remember { OffsetHolder(IntOffset.Zero) }
+                val transitionNamespace = remember(postNum) {
+                    ImageSharedTransitionKeyFactory.threadPostNamespace(postNum)
+                }
                 Column {
                     if (firstAfterIndex != -1 && idx == firstAfterIndex) {
                         NewArrivalBar()
@@ -401,6 +407,7 @@ fun ThreadScreen(
                     searchQuery = uiState.searchQuery,
                     onUrlClick = onUrlClick,
                     onThreadUrlClick = onThreadUrlClick,
+                    transitionNamespace = transitionNamespace,
                     onImageClick = onImageClick,
                     onImageLongPress = onImageLongPress,
                     enableSharedElement = enableListSharedElements,

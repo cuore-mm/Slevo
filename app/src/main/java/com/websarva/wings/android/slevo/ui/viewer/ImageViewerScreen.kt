@@ -76,6 +76,7 @@ import kotlin.math.abs
 fun ImageViewerScreen(
     imageUrls: List<String>,
     initialIndex: Int,
+    transitionNamespace: String,
     onNavigateUp: () -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
@@ -458,6 +459,7 @@ fun ImageViewerScreen(
         ) {
             ImageViewerPager(
                 imageUrls = imageUrls,
+                transitionNamespace = transitionNamespace,
                 pagerState = pagerState,
                 zoomableStates = zoomableStates,
                 sharedTransitionScope = sharedTransitionScope,
@@ -538,6 +540,7 @@ private fun ImageViewerScreenPreview() {
                     "https://via.placeholder.com/800x600/0000FF/FFFFFF?text=Image3"
                 ),
                 initialIndex = 0,
+                transitionNamespace = "preview-image-viewer",
                 onNavigateUp = {},
                 sharedTransitionScope = this@SharedTransitionLayout,
                 animatedVisibilityScope = this

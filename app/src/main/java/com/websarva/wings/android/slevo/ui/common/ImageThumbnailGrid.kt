@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
+import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 
 /**
  * 画像URL一覧をサムネイルのグリッドとして表示する。
@@ -33,7 +34,8 @@ import coil3.compose.SubcomposeAsyncImage
 fun ImageThumbnailGrid(
     imageUrls: List<String>,
     modifier: Modifier = Modifier,
-    onImageClick: (String, List<String>, Int) -> Unit,
+    transitionNamespace: String,
+    onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: ((String, List<String>) -> Unit)? = null,
     enableSharedElement: Boolean = true,
     sharedTransitionScope: SharedTransitionScope,
@@ -49,7 +51,11 @@ fun ImageThumbnailGrid(
                         val sharedElementModifier = if (enableSharedElement) {
                             Modifier.sharedElement(
                                 sharedContentState = sharedTransitionScope.rememberSharedContentState(
-                                    key = "$url#$imageIndex"
+                                    key = ImageSharedTransitionKeyFactory.buildKey(
+                                        transitionNamespace = transitionNamespace,
+                                        imageUrl = url,
+                                        imageIndex = imageIndex,
+                                    )
                                 ),
                                 animatedVisibilityScope = animatedVisibilityScope,
                                 renderInOverlayDuringTransition = false,
@@ -66,7 +72,9 @@ fun ImageThumbnailGrid(
                                 .aspectRatio(1f)
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .combinedClickable(
-                                    onClick = { onImageClick(url, imageUrls, imageIndex) },
+                                    onClick = {
+                                        onImageClick(url, imageUrls, imageIndex, transitionNamespace)
+                                    },
                                     onLongClick = onImageLongPress?.let { { it(url, imageUrls) } },
                                 )
                                 .then(sharedElementModifier),

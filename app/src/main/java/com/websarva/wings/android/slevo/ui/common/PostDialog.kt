@@ -68,6 +68,7 @@ import androidx.compose.ui.zIndex
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
+import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 
 /**
@@ -90,7 +91,7 @@ fun PostDialog(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onImageUpload: ((Uri) -> Unit),
-    onImageUrlClick: ((List<String>, Int) -> Unit),
+    onImageUrlClick: ((List<String>, Int, String) -> Unit),
     mode: PostDialogMode,
 ) {
     BackHandler(onBack = onDismissRequest)
@@ -133,7 +134,7 @@ private fun PostDialogContent(
     uiState: PostDialogState,
     onAction: (PostDialogAction) -> Unit,
     onImageUpload: (Uri) -> Unit,
-    onImageUrlClick: ((List<String>, Int) -> Unit)?,
+    onImageUrlClick: ((List<String>, Int, String) -> Unit)?,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     mode: PostDialogMode,
@@ -142,6 +143,9 @@ private fun PostDialogContent(
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val namePlaceholder = uiState.namePlaceholder.ifBlank { stringResource(R.string.name) }
+    val transitionNamespace = remember(mode) {
+        ImageSharedTransitionKeyFactory.postDialogNamespace(mode.name.lowercase())
+    }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -184,6 +188,7 @@ private fun PostDialogContent(
                     onMessageChange = { onAction(PostDialogAction.ChangeMessage(it)) },
                     focusRequester = focusRequester,
                     onImageUrlClick = onImageUrlClick,
+                    transitionNamespace = transitionNamespace,
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope
                 )
@@ -351,7 +356,8 @@ private fun MessageInputSection(
     message: String,
     onMessageChange: (String) -> Unit,
     focusRequester: FocusRequester,
-    onImageUrlClick: ((List<String>, Int) -> Unit)?,
+    onImageUrlClick: ((List<String>, Int, String) -> Unit)?,
+    transitionNamespace: String,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -393,7 +399,10 @@ private fun MessageInputSection(
         ImageThumbnailGrid(
             modifier = Modifier.padding(horizontal = 8.dp),
             imageUrls = imageUrls,
-            onImageClick = { _, urls, index -> onImageUrlClick?.invoke(urls, index) },
+            transitionNamespace = transitionNamespace,
+            onImageClick = { _, urls, index, namespace ->
+                onImageUrlClick?.invoke(urls, index, namespace)
+            },
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
         )
@@ -464,7 +473,7 @@ fun PostDialogPreview() {
                 sharedTransitionScope = this@SharedTransitionLayout,
                 animatedVisibilityScope = this,
                 onImageUpload = {},
-                onImageUrlClick = { _, _ -> },
+                onImageUrlClick = { _, _, _ -> },
                 mode = PostDialogMode.NewThread
             )
         }

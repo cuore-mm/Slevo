@@ -11,6 +11,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import me.saket.telephoto.zoomable.DoubleClickToZoomListener
 import me.saket.telephoto.zoomable.OverzoomEffect
 import me.saket.telephoto.zoomable.ZoomSpec
@@ -28,6 +29,7 @@ import me.saket.telephoto.zoomable.rememberZoomableState
 @Composable
 internal fun ImageViewerPager(
     imageUrls: List<String>,
+    transitionNamespace: String,
     pagerState: PagerState,
     zoomableStates: MutableList<MutableState<ZoomableState?>>,
     sharedTransitionScope: SharedTransitionScope,
@@ -62,7 +64,11 @@ internal fun ImageViewerPager(
             with(sharedTransitionScope) {
                 Modifier.sharedElement(
                     sharedContentState = sharedTransitionScope.rememberSharedContentState(
-                        key = "$imageUrl#$page"
+                        key = ImageSharedTransitionKeyFactory.buildKey(
+                            transitionNamespace = transitionNamespace,
+                            imageUrl = imageUrl,
+                            imageIndex = page,
+                        )
                     ),
                     animatedVisibilityScope = animatedVisibilityScope,
                     renderInOverlayDuringTransition = false

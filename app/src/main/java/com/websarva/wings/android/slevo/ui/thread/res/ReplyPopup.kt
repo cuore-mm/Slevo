@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
@@ -76,7 +77,7 @@ fun ReplyPopup(
     searchQuery: String = "",
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
-    onImageClick: (String, List<String>, Int) -> Unit,
+    onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
@@ -306,7 +307,7 @@ private fun PopupPostList(
     searchQuery: String,
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
-    onImageClick: (String, List<String>, Int) -> Unit,
+    onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
@@ -330,6 +331,10 @@ private fun PopupPostList(
             val postNum = postIndex + 1
             val indentLevel = info.indentLevels.getOrElse(i) { 0 }
             val nextIndent = info.indentLevels.getOrElse(i + 1) { 0 }
+            val transitionNamespace = ImageSharedTransitionKeyFactory.popupPostNamespace(
+                popupId = info.popupId,
+                postNumber = postNum,
+            )
             PostItem(
                 post = p,
                 postNum = postNum,
@@ -342,6 +347,7 @@ private fun PopupPostList(
                 searchQuery = searchQuery,
                 onUrlClick = onUrlClick,
                 onThreadUrlClick = onThreadUrlClick,
+                transitionNamespace = transitionNamespace,
                 onImageClick = onImageClick,
                 onImageLongPress = onImageLongPress,
                 onRequestMenu = onRequestMenu,
@@ -481,6 +487,7 @@ fun ReplyPopupPreview() {
     val dummyNgPostNumbers = setOf<Int>()
     val popupStack = mutableStateListOf(
         PopupInfo(
+            popupId = 1L,
             posts = dummyPosts,
             offset = IntOffset(100, 400)
         )
@@ -500,7 +507,7 @@ fun ReplyPopupPreview() {
                 lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
                 onUrlClick = {},
                 onThreadUrlClick = {},
-                onImageClick = { _, _, _ -> },
+                onImageClick = { _, _, _, _ -> },
                 onImageLongPress = { _, _ -> },
                 onRequestMenu = {},
                 onShowTextMenu = { _, _ -> },
