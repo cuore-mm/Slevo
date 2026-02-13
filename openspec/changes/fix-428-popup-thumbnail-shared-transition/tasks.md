@@ -19,4 +19,4 @@
 - [ ] 3.2 ポップアップ起点と通常リスト起点の双方で画像ビューア遷移と初期表示インデックスを確認する
 - [ ] 3.3 投稿ダイアログ起点でサムネイル表示欠落がないことと画像ビューア遷移整合を確認する
 - [x] 3.4 共通ユーティリティのキー生成ルールを単体テストで検証する
-- [ ] 3.5 `./gradlew :app:assembleDebug` と `./gradlew :app:testDebugUnitTest` を実行して成功を確認する
+- [x] 3.5 `./gradlew :app:assembleDebug` と `./gradlew :app:testDebugUnitTest` を実行して成功を確認する
