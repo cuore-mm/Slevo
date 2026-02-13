@@ -189,11 +189,12 @@ fun ImageViewerScreen(
             rootInsets?.isVisible(WindowInsetsCompat.Type.navigationBars()) ?: true
         val previousLightStatusBars = insetsController.isAppearanceLightStatusBars
         val previousLightNavigationBars = insetsController.isAppearanceLightNavigationBars
-        val previousNavigationBarContrastEnforced = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced
-        } else {
-            null
-        }
+        val previousNavigationBarContrastEnforced =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced
+            } else {
+                null
+            }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
         }
@@ -211,7 +212,8 @@ fun ImageViewerScreen(
                 insetsController.hide(WindowInsetsCompat.Type.navigationBars())
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                window.isNavigationBarContrastEnforced = previousNavigationBarContrastEnforced ?: true
+                window.isNavigationBarContrastEnforced =
+                    previousNavigationBarContrastEnforced ?: true
             }
         }
     }
