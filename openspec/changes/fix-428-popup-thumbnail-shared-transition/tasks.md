@@ -3,8 +3,9 @@
 - [ ] 1.1 `ui/common/transition` に transitionNamespace/key 生成の共通ユーティリティを追加する
 - [ ] 1.2 `ImageThumbnailGrid` の shared transition キー生成を共通ユーティリティ経由に変更する
 - [ ] 1.3 `PostItemMedia` と `PostItem` に transitionNamespace の受け渡し引数を追加する
-- [ ] 1.4 通常リストとポップアップで衝突しない transitionNamespace 生成規則を共通ユーティリティで実装する
-- [ ] 1.5 `PostDialog` の画像サムネイルにも専用 transitionNamespace を共通ユーティリティ経由で適用する
+- [ ] 1.4 `PopupInfo` に生成時固定の `popupId` を追加し、ポップアップ追加時に一意IDを払い出す
+- [ ] 1.5 通常リストとポップアップで衝突しない transitionNamespace 生成規則を共通ユーティリティで実装する（ポップアップは `popupId` を使用）
+- [ ] 1.6 `PostDialog` の画像サムネイルにも専用 transitionNamespace を共通ユーティリティ経由で適用する
 
 ## 2. 画像ビューア遷移の文脈伝播
 
