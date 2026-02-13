@@ -131,3 +131,32 @@ TBD - created by archiving change add-image-viewer-swipe. Update Purpose after a
 #### Scenario: 共有トランジション無効時は shared element を付与しない
 - **WHEN** 呼び出し元が shared transition を無効化するフラグでサムネイル描画を要求する
 - **THEN** システムは対象サムネイルに shared element を付与せず、通常描画のみを行う
+
+### Requirement: 遷移元文脈と一致する shared transition キー
+システムは画像ビューア遷移時、遷移元サムネイルが使用した shared transition の表示文脈を引き継ぎ、ビューア側で同一キーを再構築しなければならないMUST。
+
+#### Scenario: ポップアップ起点でも shared transition が成立する
+- **WHEN** ユーザーが 2 段目以降のポップアップにある画像サムネイルをタップして画像ビューアを開く
+- **THEN** システムは遷移元と同一の文脈情報を使って shared transition キーを構成し、遷移アニメーションを成立させる
+
+#### Scenario: 投稿ダイアログ起点でも shared transition が成立する
+- **WHEN** ユーザーが投稿ダイアログ本文内の画像サムネイルをタップして画像ビューアを開く
+- **THEN** システムは投稿ダイアログ用の文脈情報を引き継いだ shared transition キーを構成し、遷移アニメーションを成立させる
+
+### Requirement: shared transition 文脈追加後の既存遷移互換
+システムは shared transition 用の文脈情報を追加しても、既存の画像ビューア初期表示契約を維持しなければならないMUST。
+
+#### Scenario: 通常リスト起点の初期表示が変わらない
+- **WHEN** ユーザーがスレッド通常リストの画像サムネイルをタップして画像ビューアを開く
+- **THEN** システムは従来どおりタップした画像を初期ページとして表示する
+
+#### Scenario: 投稿ダイアログ起点の初期表示が変わらない
+- **WHEN** ユーザーが投稿ダイアログ本文内の画像サムネイルをタップして画像ビューアを開く
+- **THEN** システムは従来どおりタップした画像を初期ページとして表示する
+
+### Requirement: shared transition キー生成ロジックの共通利用
+システムは画像ビューア側の shared transition キー生成に、遷移元サムネイル側と同じ共通ロジックを利用しなければならないMUST。
+
+#### Scenario: 遷移元と遷移先で同一フォーマットを使用する
+- **WHEN** 任意の起点（通常リスト、ポップアップ、投稿ダイアログ）から画像ビューアへ遷移する
+- **THEN** システムは遷移元サムネイルと画像ビューアで同一のキー生成ロジックを用いて shared transition キーを構築する
