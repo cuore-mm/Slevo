@@ -37,8 +37,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -68,7 +68,7 @@ internal fun ImageViewerThumbnailBar(
     val thumbnailShape = RoundedCornerShape(4.dp)
     val thumbnailSpacing: Dp = 4.dp
     val selectedThumbnailScale = 1.2f
-    val context = LocalContext.current
+    val resources = LocalResources.current
     val density = LocalDensity.current
 
     // --- Layout ---
@@ -127,7 +127,7 @@ internal fun ImageViewerThumbnailBar(
                         alignment = Alignment.Center,
                         onSuccess = { state ->
                             // Guard: GIFなどのアニメーションDrawableはサムネイルで再生させない。
-                            (state.result.image.asDrawable(context.resources) as? Animatable)?.stop()
+                            (state.result.image.asDrawable(resources) as? Animatable)?.stop()
                         },
                         modifier = Modifier
                             .size(
