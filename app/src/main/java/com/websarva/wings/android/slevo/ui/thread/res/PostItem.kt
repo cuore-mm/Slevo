@@ -37,7 +37,8 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
  * @param onIdClick IDタップ時のコールバック。
  * @param onUrlClick URLタップ時のコールバック。
  * @param onThreadUrlClick スレッドURLタップ時のコールバック。
- * @param onImageClick 画像サムネイルタップ時のコールバック（URLと同一レス内画像一覧とタップ位置）。
+ * @param transitionNamespace サムネイル shared transition 用の文脈識別子。
+ * @param onImageClick 画像サムネイルタップ時のコールバック（URLと同一レス内画像一覧とタップ位置と文脈識別子）。
  * @param onImageLongPress 画像サムネイル長押し時のコールバック（URLと同一レス内画像一覧）。
  * @param enableSharedElement 画像サムネイルの共有トランジションを有効にするか。
  * @param onRequestMenu 投稿メニュー表示のリクエスト。
@@ -67,7 +68,8 @@ fun PostItem(
     onIdClick: ((String) -> Unit),
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
-    onImageClick: (String, List<String>, Int) -> Unit,
+    transitionNamespace: String,
+    onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
     enableSharedElement: Boolean = true,
     onRequestMenu: (PostDialogTarget) -> Unit,
@@ -136,6 +138,7 @@ fun PostItem(
 
         PostItemMedia(
             post = post,
+            transitionNamespace = transitionNamespace,
             onImageClick = onImageClick,
             onImageLongPress = onImageLongPress,
             enableSharedElement = enableSharedElement,
@@ -181,7 +184,8 @@ private fun ReplyCardPreview() {
                 onIdClick = {},
                 onUrlClick = {},
                 onThreadUrlClick = {},
-                onImageClick = { _, _, _ -> },
+                transitionNamespace = "preview-post",
+                onImageClick = { _, _, _, _ -> },
                 onImageLongPress = { _, _ -> },
                 onRequestMenu = {},
                 onShowTextMenu = { _, _ -> },

@@ -272,6 +272,7 @@ fun AppNavGraph(
             ImageViewerScreen(
                 imageUrls = decodedUrls,
                 initialIndex = initialIndex,
+                transitionNamespace = imageViewerRoute.transitionNamespace,
                 onNavigateUp = { navController.navigateUp() },
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = this@composable
@@ -350,12 +351,13 @@ sealed class AppRoute {
     /**
      * 画像ビューアの遷移情報を保持する。
      *
-     * 同一レス内の画像URL一覧と初期表示位置を受け取る。
+     * 同一レス内の画像URL一覧と初期表示位置、shared transition 用文脈を受け取る。
      */
     @Serializable
     data class ImageViewer(
         val imageUrls: List<String>,
         val initialIndex: Int,
+        val transitionNamespace: String = "",
     ) : AppRoute()
 
     @Serializable

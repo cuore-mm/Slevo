@@ -26,7 +26,8 @@ import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 @Composable
 internal fun PostItemMedia(
     post: ThreadPostUiModel,
-    onImageClick: (String, List<String>, Int) -> Unit,
+    transitionNamespace: String,
+    onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
     enableSharedElement: Boolean = true,
     sharedTransitionScope: SharedTransitionScope,
@@ -43,7 +44,10 @@ internal fun PostItemMedia(
         Spacer(modifier = Modifier.height(8.dp))
         ImageThumbnailGrid(
             imageUrls = imageUrls,
-            onImageClick = { url, urls, index -> onImageClick(url, urls, index) },
+            transitionNamespace = transitionNamespace,
+            onImageClick = { url, urls, index, namespace ->
+                onImageClick(url, urls, index, namespace)
+            },
             onImageLongPress = onImageLongPress,
             enableSharedElement = enableSharedElement,
             sharedTransitionScope = sharedTransitionScope,
@@ -73,7 +77,8 @@ private fun PostItemMediaPreview() {
                         urlFlags = ReplyInfo.HAS_IMAGE_URL,
                     ),
                 ),
-                onImageClick = { _, _, _ -> },
+                onImageClick = { _, _, _, _ -> },
+                transitionNamespace = "preview-post",
                 onImageLongPress = { _, _ -> },
                 sharedTransitionScope = this@SharedTransitionLayout,
                 animatedVisibilityScope = this,

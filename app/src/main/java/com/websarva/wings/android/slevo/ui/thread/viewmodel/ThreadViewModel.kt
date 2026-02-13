@@ -59,6 +59,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.max
 
 /**
@@ -146,6 +147,7 @@ class ThreadViewModel @AssistedInject constructor(
         dispatcher = Dispatchers.IO,
     )
     private var lastAutoRefreshTime: Long = 0L
+    private val popupIdGenerator = AtomicLong(1L)
 
     init {
         viewModelScope.launch {
@@ -914,7 +916,7 @@ class ThreadViewModel @AssistedInject constructor(
             // 有効な対象がない場合は追加しない。
             return
         }
-        appendPopup(PopupInfo(posts = targets, offset = baseOffset))
+        appendPopup(PopupInfo(popupId = nextPopupId(), posts = targets, offset = baseOffset))
     }
 
     /**
@@ -932,7 +934,13 @@ class ThreadViewModel @AssistedInject constructor(
             // 無効な番号またはNG投稿は追加しない。
             return
         }
-        appendPopup(PopupInfo(posts = listOf(posts[postNumber - 1]), offset = baseOffset))
+        appendPopup(
+            PopupInfo(
+                popupId = nextPopupId(),
+                posts = listOf(posts[postNumber - 1]),
+                offset = baseOffset,
+            )
+        )
     }
 
     /**
@@ -954,7 +962,7 @@ class ThreadViewModel @AssistedInject constructor(
             // 有効な対象がない場合は追加しない。
             return
         }
-        appendPopup(PopupInfo(posts = targets, offset = baseOffset))
+        appendPopup(PopupInfo(popupId = nextPopupId(), posts = targets, offset = baseOffset))
     }
 
     /**
@@ -998,11 +1006,19 @@ class ThreadViewModel @AssistedInject constructor(
         // --- Append ---
         appendPopup(
             PopupInfo(
+                popupId = nextPopupId(),
                 posts = targets,
                 offset = baseOffset,
                 indentLevels = indentLevels,
             )
         )
+    }
+
+    /**
+     * ポップアップ用の安定識別子を採番する。
+     */
+    private fun nextPopupId(): Long {
+        return popupIdGenerator.getAndIncrement()
     }
 
     private fun appendPopup(info: PopupInfo) {

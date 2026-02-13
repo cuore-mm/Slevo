@@ -301,7 +301,7 @@ fun BoardScaffold(
                         }
                     },
                     onImageUpload = { uri -> viewModel.uploadImage(context, uri) },
-                    onImageUrlClick = { urls, tappedIndex ->
+                    onImageUrlClick = { urls, tappedIndex, transitionNamespace ->
                         if (urls.isEmpty()) {
                             // Guard: 画像が存在しない場合は遷移しない。
                         } else {
@@ -312,6 +312,7 @@ fun BoardScaffold(
                                 AppRoute.ImageViewer(
                                     imageUrls = encodedUrls,
                                     initialIndex = tappedIndex.coerceIn(encodedUrls.indices),
+                                    transitionNamespace = transitionNamespace,
                                 )
                             )
                         }
