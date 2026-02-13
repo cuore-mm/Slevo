@@ -1,32 +1,57 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
+import kotlinx.coroutines.launch
 
 /**
  * 画像ビューアのトップバーを表示する。
@@ -47,6 +72,7 @@ internal fun ImageViewerTopBar(
     onDismissMenu: () -> Unit,
     onMenuActionClick: (ImageMenuAction) -> Unit,
 ) {
+    // --- Visibility ---
     AnimatedVisibility(
         visible = isVisible,
         enter = fadeIn(),
@@ -56,24 +82,36 @@ internal fun ImageViewerTopBar(
             title = {},
             modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
             navigationIcon = {
-                IconButton(onClick = onNavigateUp) {
+                FeedbackTooltipIconButton(
+                    tooltipText = stringResource(R.string.back),
+                    showTooltipHost = isVisible && !isMenuExpanded,
+                    onClick = onNavigateUp,
+                ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                         contentDescription = stringResource(R.string.back),
-                        tint = Color.White
+                        tint = Color.White,
                     )
                 }
             },
             actions = {
-                IconButton(onClick = onSaveClick) {
+                FeedbackTooltipIconButton(
+                    tooltipText = stringResource(R.string.save),
+                    showTooltipHost = isVisible && !isMenuExpanded,
+                    onClick = onSaveClick,
+                ) {
                     Icon(
-                        imageVector = Icons.Default.Save,
+                        imageVector = Icons.Default.Download,
                         contentDescription = stringResource(R.string.save),
                         tint = Color.White,
                     )
                 }
                 Box {
-                    IconButton(onClick = onMoreClick) {
+                    FeedbackTooltipIconButton(
+                        tooltipText = stringResource(R.string.more),
+                        showTooltipHost = isVisible && !isMenuExpanded,
+                        onClick = onMoreClick,
+                    ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
                             contentDescription = stringResource(R.string.more),
@@ -125,9 +163,124 @@ internal fun ImageViewerTopBar(
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = barBackgroundColor
+                containerColor = barBackgroundColor,
             ),
-            windowInsets = WindowInsets(0)
+            windowInsets = WindowInsets(0),
+        )
+    }
+}
+
+/**
+ * 画像ビューア用のフィードバック付きアイコンボタンを表示する。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FeedbackTooltipIconButton(
+    tooltipText: String,
+    showTooltipHost: Boolean,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val tooltipState = rememberTooltipState()
+    val coroutineScope = rememberCoroutineScope()
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = tween(durationMillis = 100),
+        label = "topBarIconPressScale",
+    )
+
+    // Guard: バー非表示時やメニュー表示中はツールチップを閉じる。
+    LaunchedEffect(showTooltipHost) {
+        if (!showTooltipHost) {
+            tooltipState.dismiss()
+        }
+    }
+
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+            TooltipAnchorPosition.Below,
+        ),
+        tooltip = {
+            PlainTooltip(
+                modifier = Modifier.padding(horizontal = 8.dp),
+                shape = MaterialTheme.shapes.large,
+            ) {
+                Text(
+                    text = tooltipText,
+                    modifier = Modifier.padding(4.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        },
+        state = tooltipState,
+        enableUserInput = false,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
+                .clip(CircleShape)
+                .background(color = Color.Transparent, shape = CircleShape)
+                .combinedClickable(
+                    interactionSource = interactionSource,
+                    indication = LocalIndication.current,
+                    role = Role.Button,
+                    onClick = {
+                        coroutineScope.launch { tooltipState.dismiss() }
+                        onClick()
+                    },
+                    onLongClick = {
+                        if (showTooltipHost) {
+                            coroutineScope.launch { tooltipState.show() }
+                        }
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            icon()
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun ImageViewerTopBarPreview() {
+    SlevoTheme {
+        ImageViewerTopBar(
+            isVisible = true,
+            isMenuExpanded = false,
+            imageCount = 3,
+            barBackgroundColor = Color.Black.copy(alpha = 0.5f),
+            barExitDurationMillis = 300,
+            onNavigateUp = {},
+            onSaveClick = {},
+            onMoreClick = {},
+            onDismissMenu = {},
+            onMenuActionClick = {}
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun ImageViewerTopBarMenuExpandedPreview() {
+    SlevoTheme {
+        ImageViewerTopBar(
+            isVisible = true,
+            isMenuExpanded = true,
+            imageCount = 3,
+            barBackgroundColor = Color.Black.copy(alpha = 0.5f),
+            barExitDurationMillis = 300,
+            onNavigateUp = {},
+            onSaveClick = {},
+            onMoreClick = {},
+            onDismissMenu = {},
+            onMenuActionClick = {}
         )
     }
 }

@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -46,7 +45,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -84,11 +82,6 @@ fun ImageViewerScreen(
 ) {
     // --- Constants ---
     val barBackgroundColor = Color.Black.copy(alpha = 0.3f)
-    val thumbnailWidth = 40.dp
-    val thumbnailHeight = 56.dp
-    val thumbnailShape = RoundedCornerShape(8.dp)
-    val thumbnailSpacing = 8.dp
-    val selectedThumbnailScale = 1.1f
     val barExitDurationMillis = 80
     val useDarkSystemBarIcons = barBackgroundColor.luminance() > 0.5f
 
@@ -196,11 +189,12 @@ fun ImageViewerScreen(
             rootInsets?.isVisible(WindowInsetsCompat.Type.navigationBars()) ?: true
         val previousLightStatusBars = insetsController.isAppearanceLightStatusBars
         val previousLightNavigationBars = insetsController.isAppearanceLightNavigationBars
-        val previousNavigationBarContrastEnforced = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced
-        } else {
-            null
-        }
+        val previousNavigationBarContrastEnforced =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced
+            } else {
+                null
+            }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
         }
@@ -218,7 +212,8 @@ fun ImageViewerScreen(
                 insetsController.hide(WindowInsetsCompat.Type.navigationBars())
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                window.isNavigationBarContrastEnforced = previousNavigationBarContrastEnforced ?: true
+                window.isNavigationBarContrastEnforced =
+                    previousNavigationBarContrastEnforced ?: true
             }
         }
     }
@@ -502,11 +497,6 @@ fun ImageViewerScreen(
                         isBarsVisible = isBarsVisible,
                         thumbnailListState = thumbnailListState,
                         modifier = Modifier.fillMaxWidth(),
-                        thumbnailWidth = thumbnailWidth,
-                        thumbnailHeight = thumbnailHeight,
-                        thumbnailShape = thumbnailShape,
-                        thumbnailSpacing = thumbnailSpacing,
-                        selectedThumbnailScale = selectedThumbnailScale,
                         barBackgroundColor = barBackgroundColor,
                         barExitDurationMillis = barExitDurationMillis,
                         thumbnailViewportWidthPx = thumbnailViewportWidthPx,
