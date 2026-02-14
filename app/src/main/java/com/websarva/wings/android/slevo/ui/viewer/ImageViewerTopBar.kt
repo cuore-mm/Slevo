@@ -22,7 +22,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -56,6 +55,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenu
+import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuItem
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
 import kotlinx.coroutines.launch
@@ -164,36 +164,32 @@ internal fun ImageViewerTopBar(
                         anchorBoundsInWindow = menuAnchorBounds,
                         onDismissRequest = onDismissMenu,
                     ) {
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_add_ng)) },
+                        AnchoredOverlayMenuItem(
+                            text = stringResource(R.string.image_menu_add_ng),
                             onClick = { onMenuActionClick(ImageMenuAction.ADD_NG) },
                         )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_copy_image)) },
+                        AnchoredOverlayMenuItem(
+                            text = stringResource(R.string.image_menu_copy_image),
                             onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE) },
                         )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_copy_image_url)) },
+                        AnchoredOverlayMenuItem(
+                            text = stringResource(R.string.image_menu_copy_image_url),
                             onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE_URL) },
                         )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_open_in_other_app)) },
+                        AnchoredOverlayMenuItem(
+                            text = stringResource(R.string.image_menu_open_in_other_app),
                             onClick = { onMenuActionClick(ImageMenuAction.OPEN_IN_OTHER_APP) },
                         )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_search_web)) },
+                        AnchoredOverlayMenuItem(
+                            text = stringResource(R.string.image_menu_search_web),
                             onClick = { onMenuActionClick(ImageMenuAction.SEARCH_WEB) },
                         )
                         if (imageCount >= 2) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = stringResource(
-                                            R.string.image_menu_save_all_images_with_count,
-                                            imageCount,
-                                        )
-                                    )
-                                },
+                            AnchoredOverlayMenuItem(
+                                text = stringResource(
+                                    R.string.image_menu_save_all_images_with_count,
+                                    imageCount,
+                                ),
                                 onClick = { onMenuActionClick(ImageMenuAction.SAVE_ALL_IMAGES) },
                             )
                         }
