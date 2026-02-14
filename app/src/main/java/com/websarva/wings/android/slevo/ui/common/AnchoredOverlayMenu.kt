@@ -62,7 +62,7 @@ fun AnchoredOverlayMenu(
 private class AnchoredOverlayMenuPositionProvider(
     private val anchorBoundsInWindow: IntRect,
 ) : PopupPositionProvider {
-    private val overlapPx = 8
+    private val overlapPx = 12
 
     /**
      * アンカーとウィンドウサイズからポップアップ表示座標を返す。
@@ -80,10 +80,9 @@ private class AnchoredOverlayMenuPositionProvider(
             ((anchorBoundsInWindow.width - popupContentSize.width) / 2)
         val x = centeredX.coerceIn(0, maxX)
 
-        val preferredTop = anchorBoundsInWindow.top - popupContentSize.height + overlapPx
-        val fallbackBottom = anchorBoundsInWindow.bottom - overlapPx
-        val rawY = if (preferredTop >= 0) preferredTop else fallbackBottom
-        val y = rawY.coerceIn(0, maxY)
+        // ボタンの上端付近にメニューを重ねる。画面外はクランプする。
+        val desiredY = anchorBoundsInWindow.top - overlapPx
+        val y = desiredY.coerceIn(0, maxY)
 
         return IntOffset(x, y)
     }
