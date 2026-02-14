@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -38,7 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -54,7 +55,6 @@ import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
-import com.websarva.wings.android.slevo.ui.theme.LocalIsDarkTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -82,13 +82,13 @@ fun ImageViewerScreen(
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     // --- Constants ---
-    val isDarkTheme = LocalIsDarkTheme.current
-    val viewerBackgroundColor = if (isDarkTheme) Color.Black else Color.White
-    val viewerContentColor = if (isDarkTheme) Color.White else Color.Black
-    val barBackgroundColor = if (isDarkTheme) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.5f)
+    val colorScheme = MaterialTheme.colorScheme
+    val viewerBackgroundColor = colorScheme.background
+    val viewerContentColor = colorScheme.onSurface
+    val barBackgroundColor = colorScheme.surface.copy(alpha = 0.72f)
     val tooltipBackgroundColor = barBackgroundColor
     val barExitDurationMillis = 80
-    val useDarkSystemBarIcons = !isDarkTheme
+    val useDarkSystemBarIcons = viewerBackgroundColor.luminance() > 0.5f
 
     // --- UI state ---
     var isBarsVisible by rememberSaveable { mutableStateOf(true) }
