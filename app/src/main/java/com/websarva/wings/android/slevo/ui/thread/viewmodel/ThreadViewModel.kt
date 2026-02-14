@@ -1023,7 +1023,7 @@ class ThreadViewModel @AssistedInject constructor(
 
     private fun appendPopup(info: PopupInfo) {
         _uiState.update { state ->
-            state.copy(popupStack = state.popupStack + info)
+            state.copy(popupStack = appendPopupIfDistinct(state.popupStack, info))
         }
     }
 
@@ -1215,6 +1215,36 @@ class ThreadViewModel @AssistedInject constructor(
     companion object {
         private const val POST_IDENTITY_HISTORY_KEY = "thread_post_identity"
     }
+}
+
+/**
+ * 現在のポップアップスタックへ新しいポップアップを追加する。
+ *
+ * 直前の最上位ポップアップと表示内容が同一の場合は連続表示を抑止し、
+ * 既存スタックをそのまま返す。
+ */
+internal fun appendPopupIfDistinct(
+    stack: List<PopupInfo>,
+    candidate: PopupInfo,
+): List<PopupInfo> {
+    val top = stack.lastOrNull() ?: return stack + candidate
+    if (isSamePopupContent(top, candidate)) {
+        // 連続で同一内容を開こうとした場合は積み上げない。
+        return stack
+    }
+    return stack + candidate
+}
+
+/**
+ * 2つのポップアップが同一表示内容かを判定する。
+ *
+ * `popupId` やレイアウト情報ではなく、表示対象投稿とツリーインデントの一致で比較する。
+ */
+internal fun isSamePopupContent(
+    left: PopupInfo,
+    right: PopupInfo,
+): Boolean {
+    return left.posts == right.posts && left.indentLevels == right.indentLevels
 }
 
 /**
