@@ -39,7 +39,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -55,6 +54,7 @@ import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
+import com.websarva.wings.android.slevo.ui.theme.LocalIsDarkTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -82,9 +82,13 @@ fun ImageViewerScreen(
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     // --- Constants ---
-    val barBackgroundColor = Color.Black.copy(alpha = 0.3f)
+    val isDarkTheme = LocalIsDarkTheme.current
+    val viewerBackgroundColor = if (isDarkTheme) Color.Black else Color.White
+    val viewerContentColor = if (isDarkTheme) Color.White else Color.Black
+    val barBackgroundColor = if (isDarkTheme) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.5f)
+    val tooltipBackgroundColor = barBackgroundColor
     val barExitDurationMillis = 80
-    val useDarkSystemBarIcons = barBackgroundColor.luminance() > 0.5f
+    val useDarkSystemBarIcons = !isDarkTheme
 
     // --- UI state ---
     var isBarsVisible by rememberSaveable { mutableStateOf(true) }
@@ -244,6 +248,8 @@ fun ImageViewerScreen(
                 isMenuExpanded = isTopBarMenuExpanded,
                 imageCount = imageUrls.size,
                 barBackgroundColor = barBackgroundColor,
+                foregroundColor = viewerContentColor,
+                tooltipBackgroundColor = tooltipBackgroundColor,
                 barExitDurationMillis = barExitDurationMillis,
                 onNavigateUp = onNavigateUp,
                 onSaveClick = { viewModel?.requestImageSave(context, listOf(currentImageUrl)) },
@@ -252,7 +258,7 @@ fun ImageViewerScreen(
                 onMenuActionClick = onImageMenuActionClick,
             )
         },
-        containerColor = Color.Black,
+        containerColor = viewerBackgroundColor,
         contentWindowInsets = WindowInsets(0)
     ) { _ ->
         // --- Zoom reset ---
@@ -452,7 +458,7 @@ fun ImageViewerScreen(
 
         val boxModifier = Modifier
             .fillMaxSize()
-            .background(if (isPreview) Color.White else Color.Black)
+            .background(viewerBackgroundColor)
 
         Box(
             modifier = boxModifier

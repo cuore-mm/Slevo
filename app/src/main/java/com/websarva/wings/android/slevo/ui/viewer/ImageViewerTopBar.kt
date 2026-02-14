@@ -65,6 +65,8 @@ internal fun ImageViewerTopBar(
     isMenuExpanded: Boolean,
     imageCount: Int,
     barBackgroundColor: Color,
+    foregroundColor: Color,
+    tooltipBackgroundColor: Color,
     barExitDurationMillis: Int,
     onNavigateUp: () -> Unit,
     onSaveClick: () -> Unit,
@@ -85,12 +87,14 @@ internal fun ImageViewerTopBar(
                 FeedbackTooltipIconButton(
                     tooltipText = stringResource(R.string.back),
                     showTooltipHost = isVisible && !isMenuExpanded,
+                    foregroundColor = foregroundColor,
+                    tooltipBackgroundColor = tooltipBackgroundColor,
                     onClick = onNavigateUp,
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                         contentDescription = stringResource(R.string.back),
-                        tint = Color.White,
+                        tint = foregroundColor,
                     )
                 }
             },
@@ -98,24 +102,28 @@ internal fun ImageViewerTopBar(
                 FeedbackTooltipIconButton(
                     tooltipText = stringResource(R.string.save),
                     showTooltipHost = isVisible && !isMenuExpanded,
+                    foregroundColor = foregroundColor,
+                    tooltipBackgroundColor = tooltipBackgroundColor,
                     onClick = onSaveClick,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Download,
                         contentDescription = stringResource(R.string.save),
-                        tint = Color.White,
+                        tint = foregroundColor,
                     )
                 }
                 Box {
                     FeedbackTooltipIconButton(
                         tooltipText = stringResource(R.string.more),
                         showTooltipHost = isVisible && !isMenuExpanded,
+                        foregroundColor = foregroundColor,
+                        tooltipBackgroundColor = tooltipBackgroundColor,
                         onClick = onMoreClick,
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
                             contentDescription = stringResource(R.string.more),
-                            tint = Color.White,
+                            tint = foregroundColor,
                         )
                     }
                     DropdownMenu(
@@ -164,6 +172,9 @@ internal fun ImageViewerTopBar(
             },
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = barBackgroundColor,
+                navigationIconContentColor = foregroundColor,
+                actionIconContentColor = foregroundColor,
+                titleContentColor = foregroundColor,
             ),
             windowInsets = WindowInsets(0),
         )
@@ -178,6 +189,8 @@ internal fun ImageViewerTopBar(
 private fun FeedbackTooltipIconButton(
     tooltipText: String,
     showTooltipHost: Boolean,
+    foregroundColor: Color,
+    tooltipBackgroundColor: Color,
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
 ) {
@@ -206,11 +219,14 @@ private fun FeedbackTooltipIconButton(
             PlainTooltip(
                 modifier = Modifier.padding(horizontal = 8.dp),
                 shape = MaterialTheme.shapes.large,
+                containerColor = tooltipBackgroundColor,
+                contentColor = foregroundColor,
             ) {
                 Text(
                     text = tooltipText,
                     modifier = Modifier.padding(4.dp),
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = foregroundColor,
                 )
             }
         },
@@ -256,6 +272,8 @@ private fun ImageViewerTopBarPreview() {
             isMenuExpanded = false,
             imageCount = 3,
             barBackgroundColor = Color.Black.copy(alpha = 0.5f),
+            foregroundColor = Color.White,
+            tooltipBackgroundColor = Color.Black.copy(alpha = 0.5f),
             barExitDurationMillis = 300,
             onNavigateUp = {},
             onSaveClick = {},
@@ -275,6 +293,8 @@ private fun ImageViewerTopBarMenuExpandedPreview() {
             isMenuExpanded = true,
             imageCount = 3,
             barBackgroundColor = Color.Black.copy(alpha = 0.5f),
+            foregroundColor = Color.White,
+            tooltipBackgroundColor = Color.Black.copy(alpha = 0.5f),
             barExitDurationMillis = 300,
             onNavigateUp = {},
             onSaveClick = {},
