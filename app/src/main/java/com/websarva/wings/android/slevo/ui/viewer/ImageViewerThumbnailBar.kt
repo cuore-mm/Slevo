@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import coil3.asDrawable
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
+import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
 
 /**
  * 同一レス内のサムネイル一覧を表示し、選択中の画像を中央に寄せる。
@@ -126,6 +127,12 @@ internal fun ImageViewerThumbnailBar(
                         contentScale = ContentScale.Crop,
                         alignment = Alignment.Center,
                         onSuccess = { state ->
+                            state.result.diskCacheKey?.let { key ->
+                                ImageActionReuseRegistry.register(
+                                    url = imageUrls[index],
+                                    diskCacheKey = key,
+                                )
+                            }
                             // Guard: GIFなどのアニメーションDrawableはサムネイルで再生させない。
                             (state.result.image.asDrawable(resources) as? Animatable)?.stop()
                         },
