@@ -85,8 +85,8 @@ fun ImageViewerScreen(
     val colorScheme = MaterialTheme.colorScheme
     val viewerBackgroundColor = colorScheme.background
     val viewerContentColor = colorScheme.onSurface
-    val barBackgroundColor = colorScheme.surface.copy(alpha = 0.72f)
-    val tooltipBackgroundColor = barBackgroundColor
+    val barBackgroundColor = colorScheme.surface.copy(alpha = 0.40f)
+    val tooltipBackgroundColor = colorScheme.surfaceBright.copy(alpha = 0.90f)
     val barExitDurationMillis = 80
     val useDarkSystemBarIcons = viewerBackgroundColor.luminance() > 0.5f
 

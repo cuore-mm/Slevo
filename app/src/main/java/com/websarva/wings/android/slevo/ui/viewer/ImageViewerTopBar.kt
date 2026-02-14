@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
@@ -114,7 +115,7 @@ internal fun ImageViewerTopBar(
                 }
                 Box {
                     FeedbackTooltipIconButton(
-                        tooltipText = stringResource(R.string.more),
+                        tooltipText = stringResource(R.string.other_options),
                         showTooltipHost = isVisible && !isMenuExpanded,
                         foregroundColor = foregroundColor,
                         tooltipBackgroundColor = tooltipBackgroundColor,
@@ -122,7 +123,7 @@ internal fun ImageViewerTopBar(
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
-                            contentDescription = stringResource(R.string.more),
+                            contentDescription = stringResource(R.string.other_options),
                             tint = foregroundColor,
                         )
                     }
@@ -184,7 +185,7 @@ internal fun ImageViewerTopBar(
 /**
  * 画像ビューア用のフィードバック付きアイコンボタンを表示する。
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun FeedbackTooltipIconButton(
     tooltipText: String,
@@ -217,14 +218,16 @@ private fun FeedbackTooltipIconButton(
         ),
         tooltip = {
             PlainTooltip(
-                modifier = Modifier.padding(horizontal = 8.dp),
-                shape = MaterialTheme.shapes.large,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = MaterialTheme.shapes.largeIncreased,
                 containerColor = tooltipBackgroundColor,
                 contentColor = foregroundColor,
+                shadowElevation = 1.dp,
+                tonalElevation = 1.dp,
             ) {
                 Text(
                     text = tooltipText,
-                    modifier = Modifier.padding(4.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.bodyMedium,
                     color = foregroundColor,
                 )
