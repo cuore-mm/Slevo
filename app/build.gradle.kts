@@ -1,3 +1,4 @@
+import com.android.build.api.variant.VariantOutputConfiguration
 import java.util.Properties
 
 plugins {
@@ -104,6 +105,19 @@ android {
     sourceSets {
         getByName("test").assets.srcDir("$projectDir/schemas")
         getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("ci")) { variant ->
+        val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+        if (runNumber != null) {
+            variant.outputs.forEach { output ->
+                if (output.outputType == VariantOutputConfiguration.OutputType.SINGLE) {
+                    output.versionCode.set(runNumber)
+                }
+            }
+        }
     }
 }
 
