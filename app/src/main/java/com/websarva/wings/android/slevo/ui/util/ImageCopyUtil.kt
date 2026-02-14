@@ -57,7 +57,8 @@ object ImageCopyUtil {
                 )
 
                 // --- Cache write ---
-                val extension = resolveExtension(response.header("Content-Type"), url)
+                val contentType = response.header("Content-Type")
+                val extension = resolveExtension(contentType, url)
                 val targetFile = resolveShareCacheFile(context, url, extension)
                 body.byteStream().use { input ->
                     targetFile.outputStream().use { output ->
@@ -92,7 +93,14 @@ object ImageCopyUtil {
                     // Fallback: 参照先ファイルが無い場合は通常取得へ切り替える。
                     return null
                 }
-                val extension = sourceFile.extension.ifBlank { DEFAULT_EXTENSION }
+
+                // --- Type resolution ---
+                val normalizedMimeType = reuseEntry.mimeType
+                    .takeIf { it.startsWith("image/") }
+                    ?: DEFAULT_MIME_TYPE
+                val extension = reuseEntry.extension.ifBlank {
+                    resolveExtension(normalizedMimeType, url)
+                }
                 val targetFile = resolveShareCacheFile(context, url, extension)
                 sourceFile.inputStream().use { input ->
                     targetFile.outputStream().use { output ->

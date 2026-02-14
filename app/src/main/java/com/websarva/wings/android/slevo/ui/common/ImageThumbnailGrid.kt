@@ -70,7 +70,11 @@ fun ImageThumbnailGrid(
                             contentScale = ContentScale.Fit,
                             onSuccess = { state ->
                                 state.result.diskCacheKey?.let { key ->
-                                    ImageActionReuseRegistry.register(url = url, diskCacheKey = key)
+                                    ImageActionReuseRegistry.register(
+                                        url = url,
+                                        diskCacheKey = key,
+                                        extension = url.substringAfterLast('.', ""),
+                                    )
                                 }
                             },
                             modifier = Modifier

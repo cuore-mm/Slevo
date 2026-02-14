@@ -131,6 +131,7 @@ internal fun ImageViewerThumbnailBar(
                                 ImageActionReuseRegistry.register(
                                     url = imageUrls[index],
                                     diskCacheKey = key,
+                                    extension = imageUrls[index].substringAfterLast('.', ""),
                                 )
                             }
                             // Guard: GIFなどのアニメーションDrawableはサムネイルで再生させない。

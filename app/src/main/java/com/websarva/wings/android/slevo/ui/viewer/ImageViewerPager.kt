@@ -88,7 +88,11 @@ internal fun ImageViewerPager(
                 .listener(
                     onSuccess = { _, result ->
                         result.diskCacheKey?.let { key ->
-                            ImageActionReuseRegistry.register(url = imageUrl, diskCacheKey = key)
+                            ImageActionReuseRegistry.register(
+                                url = imageUrl,
+                                diskCacheKey = key,
+                                extension = imageUrl.substringAfterLast('.', ""),
+                            )
                         }
                     }
                 )
