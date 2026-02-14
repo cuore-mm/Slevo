@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -71,6 +72,7 @@ internal fun ImageViewerTopBar(
     barExitDurationMillis: Int,
     onNavigateUp: () -> Unit,
     onSaveClick: () -> Unit,
+    onShareClick: () -> Unit,
     onMoreClick: () -> Unit,
     onDismissMenu: () -> Unit,
     onMenuActionClick: (ImageMenuAction) -> Unit,
@@ -113,6 +115,19 @@ internal fun ImageViewerTopBar(
                         tint = foregroundColor,
                     )
                 }
+                FeedbackTooltipIconButton(
+                    tooltipText = stringResource(R.string.share),
+                    showTooltipHost = isVisible && !isMenuExpanded,
+                    foregroundColor = foregroundColor,
+                    tooltipBackgroundColor = tooltipBackgroundColor,
+                    onClick = onShareClick,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = stringResource(R.string.share),
+                        tint = foregroundColor,
+                    )
+                }
                 Box {
                     FeedbackTooltipIconButton(
                         tooltipText = stringResource(R.string.other_options),
@@ -150,10 +165,6 @@ internal fun ImageViewerTopBar(
                         DropdownMenuItem(
                             text = { Text(text = stringResource(R.string.image_menu_search_web)) },
                             onClick = { onMenuActionClick(ImageMenuAction.SEARCH_WEB) },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_share_image)) },
-                            onClick = { onMenuActionClick(ImageMenuAction.SHARE_IMAGE) },
                         )
                         if (imageCount >= 2) {
                             DropdownMenuItem(
@@ -280,6 +291,7 @@ private fun ImageViewerTopBarPreview() {
             barExitDurationMillis = 300,
             onNavigateUp = {},
             onSaveClick = {},
+            onShareClick = {},
             onMoreClick = {},
             onDismissMenu = {},
             onMenuActionClick = {}
@@ -301,6 +313,7 @@ private fun ImageViewerTopBarMenuExpandedPreview() {
             barExitDurationMillis = 300,
             onNavigateUp = {},
             onSaveClick = {},
+            onShareClick = {},
             onMoreClick = {},
             onDismissMenu = {},
             onMenuActionClick = {}

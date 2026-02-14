@@ -253,6 +253,7 @@ fun ImageViewerScreen(
                 barExitDurationMillis = barExitDurationMillis,
                 onNavigateUp = onNavigateUp,
                 onSaveClick = { viewModel?.requestImageSave(context, listOf(currentImageUrl)) },
+                onShareClick = { onImageMenuActionClick(ImageMenuAction.SHARE_IMAGE) },
                 onMoreClick = { viewModel?.toggleTopBarMenu() },
                 onDismissMenu = { viewModel?.hideTopBarMenu() },
                 onMenuActionClick = onImageMenuActionClick,
