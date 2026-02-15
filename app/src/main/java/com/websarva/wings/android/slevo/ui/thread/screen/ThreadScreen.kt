@@ -32,7 +32,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -55,6 +54,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -64,6 +64,7 @@ import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
+import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
@@ -71,7 +72,6 @@ import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
 import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
 import com.websarva.wings.android.slevo.ui.thread.res.PostItemDialogs
-import com.websarva.wings.android.slevo.ui.thread.res.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.res.ReplyPopup
 import com.websarva.wings.android.slevo.ui.thread.res.PostItem
 import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
@@ -110,7 +110,13 @@ fun ThreadScreen(
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     onGestureAction: (GestureAction) -> Unit = {},
     onPopupVisibilityChange: (Boolean) -> Unit = {},
-    onImageLongPress: (String) -> Unit = {},
+    onRequestTreePopup: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
+    onAddPopupForReplyFrom: (replyNumbers: List<Int>, baseOffset: IntOffset) -> Unit = { _, _ -> },
+    onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
+    onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit = { _, _ -> },
+    onPopupSizeChange: (index: Int, size: IntSize) -> Unit = { _, _ -> },
+    onRemoveTopPopup: () -> Unit = {},
+    onImageLongPress: (String, List<String>) -> Unit = { _, _ -> },
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -125,7 +131,9 @@ fun ThreadScreen(
     // 新着バーを表示するインデックス
     val firstAfterIndex = uiState.firstAfterIndex
     // ポップアップ表示用のスタック
-    val popupStack = remember { mutableStateListOf<PopupInfo>() }
+    val popupStack = uiState.popupStack
+    // ポップアップ表示中はリスト側の共有トランジションを無効化する。
+    val enableListSharedElements = popupStack.isEmpty()
     // NG（非表示）対象の投稿番号リスト
     val ngNumbers = uiState.ngPostNumbers
     val density = LocalDensity.current
@@ -143,15 +151,23 @@ fun ThreadScreen(
             tabsViewModel = tabsViewModel,
         )
     }
-    val onImageClick: (String) -> Unit = { url ->
-        navController.navigate(
-            AppRoute.ImageViewer(
-                imageUrl = URLEncoder.encode(
-                    url,
-                    StandardCharsets.UTF_8.toString()
+    val onImageClick: (String, List<String>, Int, String) -> Unit =
+        { _, imageUrls, tappedIndex, transitionNamespace ->
+        if (imageUrls.isEmpty()) {
+            // Guard: 画像が存在しない場合は遷移しない。
+        } else {
+            val encodedUrls = imageUrls.map { imageUrl ->
+                URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
+            }
+            val initialIndex = tappedIndex.coerceIn(encodedUrls.indices)
+            navController.navigate(
+                AppRoute.ImageViewer(
+                    imageUrls = encodedUrls,
+                    initialIndex = initialIndex,
+                    transitionNamespace = transitionNamespace,
                 )
             )
-        )
+        }
     }
     val onRequestMenu: (PostDialogTarget) -> Unit = { target ->
         menuTarget = target
@@ -364,87 +380,89 @@ fun ThreadScreen(
                 data class OffsetHolder(var value: IntOffset)
 
                 val itemOffsetHolder = remember { OffsetHolder(IntOffset.Zero) }
+                val transitionNamespace = remember(postNum) {
+                    ImageSharedTransitionKeyFactory.threadPostNamespace(postNum)
+                }
                 Column {
                     if (firstAfterIndex != -1 && idx == firstAfterIndex) {
                         NewArrivalBar()
                     }
-                    PostItem(
-                        modifier = Modifier.onGloballyPositioned { coords ->
-                            val pos = coords.positionInRoot()
-                            itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
-                        },
-                        post = post,
-                        postNum = postNum,
-                        idIndex = uiState.idIndexList.getOrElse(index) { 1 },
-                        idTotal = if (post.header.id.isBlank()) 1 else uiState.idCountMap[post.header.id]
-                            ?: 1,
-                        headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
-                        bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
-                        lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
-                        indentLevel = indent,
-                        replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
-                        isMyPost = postNum in uiState.myPostNumbers,
-                        dimmed = display.dimmed,
-                        searchQuery = uiState.searchQuery,
-                        onUrlClick = onUrlClick,
-                        onThreadUrlClick = onThreadUrlClick,
-                        onImageClick = onImageClick,
-                        onImageLongPress = onImageLongPress,
-                        onRequestMenu = onRequestMenu,
-                        onShowTextMenu = onShowTextMenu,
-                        sharedTransitionScope = sharedTransitionScope,
-                        animatedVisibilityScope = animatedVisibilityScope,
-                        onReplyFromClick = { numbs ->
-                            val offset = if (popupStack.isEmpty()) {
-                                itemOffsetHolder.value
-                            } else {
-                                val last = popupStack.last()
-                                IntOffset(
-                                    last.offset.x,
-                                    (last.offset.y - last.size.height).coerceAtLeast(0)
-                                )
-                            }
-                            val targets = numbs.filterNot { it in ngNumbers }.mapNotNull { num ->
-                                posts.getOrNull(num - 1)
-                            }
-                            if (targets.isNotEmpty()) {
-                                popupStack.add(PopupInfo(targets, offset))
-                            }
-                        },
-                        onReplyClick = { num ->
-                            if (num in 1..posts.size && num !in ngNumbers) {
-                                val target = posts[num - 1]
-                                val baseOffset = itemOffsetHolder.value
-                                val offset = if (popupStack.isEmpty()) {
-                                    baseOffset
-                                } else {
-                                    val last = popupStack.last()
-                                    IntOffset(
-                                        last.offset.x,
-                                        (last.offset.y - last.size.height).coerceAtLeast(0)
-                                    )
-                                }
-                                popupStack.add(PopupInfo(listOf(target), offset))
-                            }
-                        },
-                        onIdClick = { id ->
-                            val offset = if (popupStack.isEmpty()) {
-                                itemOffsetHolder.value
-                            } else {
-                                val last = popupStack.last()
-                                IntOffset(
-                                    last.offset.x,
-                                    (last.offset.y - last.size.height).coerceAtLeast(0)
-                                )
-                            }
-                            val targets = posts.mapIndexedNotNull { idx, p ->
-                                val num = idx + 1
-                                if (p.header.id == id && num !in ngNumbers) p else null
-                            }
-                            if (targets.isNotEmpty()) {
-                                popupStack.add(PopupInfo(targets, offset))
-                            }
+                PostItem(
+                    modifier = Modifier.onGloballyPositioned { coords ->
+                        val pos = coords.positionInRoot()
+                        itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
+                    },
+                    post = post,
+                    postNum = postNum,
+                    idIndex = uiState.idIndexList.getOrElse(index) { 1 },
+                    idTotal = if (post.header.id.isBlank()) 1 else uiState.idCountMap[post.header.id]
+                        ?: 1,
+                    headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
+                    bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
+                    lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
+                    indentLevel = indent,
+                    replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
+                    isMyPost = postNum in uiState.myPostNumbers,
+                    dimmed = display.dimmed,
+                    searchQuery = uiState.searchQuery,
+                    onUrlClick = onUrlClick,
+                    onThreadUrlClick = onThreadUrlClick,
+                    transitionNamespace = transitionNamespace,
+                    onImageClick = onImageClick,
+                    onImageLongPress = onImageLongPress,
+                    enableSharedElement = enableListSharedElements,
+                    onRequestMenu = onRequestMenu,
+                    onShowTextMenu = onShowTextMenu,
+                    onContentClick = {
+                        val baseOffset = if (popupStack.isEmpty()) {
+                            itemOffsetHolder.value
+                        } else {
+                            val last = popupStack.last()
+                            IntOffset(
+                                last.offset.x,
+                                (last.offset.y - last.size.height).coerceAtLeast(0)
+                            )
                         }
+                        onRequestTreePopup(postNum, baseOffset)
+                    },
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    onReplyFromClick = { numbs ->
+                        val offset = if (popupStack.isEmpty()) {
+                            itemOffsetHolder.value
+                        } else {
+                            val last = popupStack.last()
+                            IntOffset(
+                                last.offset.x,
+                                (last.offset.y - last.size.height).coerceAtLeast(0)
+                            )
+                        }
+                        onAddPopupForReplyFrom(numbs, offset)
+                    },
+                    onReplyClick = { num ->
+                        val offset = if (popupStack.isEmpty()) {
+                            itemOffsetHolder.value
+                        } else {
+                            val last = popupStack.last()
+                            IntOffset(
+                                last.offset.x,
+                                (last.offset.y - last.size.height).coerceAtLeast(0)
+                            )
+                        }
+                        onAddPopupForReplyNumber(num, offset)
+                    },
+                    onIdClick = { id ->
+                        val offset = if (popupStack.isEmpty()) {
+                            itemOffsetHolder.value
+                        } else {
+                            val last = popupStack.last()
+                            IntOffset(
+                                last.offset.x,
+                                (last.offset.y - last.size.height).coerceAtLeast(0)
+                            )
+                        }
+                        onAddPopupForId(id, offset)
+                    }
                     )
                     HorizontalDivider(
                         modifier = Modifier.padding(
@@ -532,7 +550,12 @@ fun ThreadScreen(
             onImageLongPress = onImageLongPress,
             onRequestMenu = onRequestMenu,
             onShowTextMenu = onShowTextMenu,
-            onClose = { if (popupStack.isNotEmpty()) popupStack.removeAt(popupStack.lastIndex) },
+            onRequestTreePopup = onRequestTreePopup,
+            onAddPopupForReplyFrom = onAddPopupForReplyFrom,
+            onAddPopupForReplyNumber = onAddPopupForReplyNumber,
+            onAddPopupForId = onAddPopupForId,
+            onPopupSizeChange = onPopupSizeChange,
+            onClose = { onRemoveTopPopup() },
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
         )
@@ -595,8 +618,8 @@ fun ThreadScreen(
         if (gestureSettings.showActionHints) {
             GestureHintOverlay(state = gestureHint)
         }
+        }
     }
-}
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)

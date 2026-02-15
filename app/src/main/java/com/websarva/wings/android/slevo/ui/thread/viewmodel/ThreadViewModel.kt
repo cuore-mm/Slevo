@@ -1,17 +1,21 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
+import android.content.Context
+import android.net.Uri
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.data.model.NgType
-import com.websarva.wings.android.slevo.data.model.ThreadDate
-import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
+import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
+import com.websarva.wings.android.slevo.data.model.ThreadDate
+import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.DatRepository
-import android.content.Context
-import android.net.Uri
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
@@ -19,34 +23,43 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
+import com.websarva.wings.android.slevo.data.util.ThreadListParser.calculateThreadDate
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.common.bookmark.ThreadTarget
+import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveCoordinator
+import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSavePreparation
+import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUploader
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
-import com.websarva.wings.android.slevo.ui.util.toHiragana
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
-import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
+import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
-import com.websarva.wings.android.slevo.data.util.ThreadListParser.calculateThreadDate
-import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.ui.util.toHiragana
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
 import timber.log.Timber
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.max
 
 /**
@@ -59,6 +72,24 @@ private data class PendingPost(
     val content: String,
     val name: String,
     val email: String,
+)
+
+/**
+ * loadData 成功時に必要な派生情報をまとめたコンテナ。
+ *
+ * 投稿一覧・派生マップ・スレ情報の更新に必要な値を保持する。
+ */
+private data class ThreadLoadDerived(
+    val uiPosts: List<ThreadPostUiModel>,
+    val threadTitle: String?,
+    val resCount: Int,
+    val threadDate: ThreadDate,
+    val momentum: Double,
+    val idCountMap: Map<String, Int>,
+    val idIndexList: List<Int>,
+    val replySourceMap: Map<Int, List<Int>>,
+    val treeOrder: List<Int>,
+    val treeDepthMap: Map<Int, Int>,
 )
 
 /**
@@ -104,6 +135,9 @@ class ThreadViewModel @AssistedInject constructor(
     private var ngList: List<NgEntity> = emptyList()
     private var compiledNg: List<Triple<Long?, Regex, NgType>> = emptyList()
     private var pendingPost: PendingPost? = null
+    private val imageSaveCoordinator = ImageSaveCoordinator()
+    private val _imageSaveEvents = MutableSharedFlow<ImageSaveUiEvent>(extraBufferCapacity = 1)
+    val imageSaveEvents: SharedFlow<ImageSaveUiEvent> = _imageSaveEvents.asSharedFlow()
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
     private var bookmarkStatusJob: Job? = null
@@ -113,6 +147,7 @@ class ThreadViewModel @AssistedInject constructor(
         dispatcher = Dispatchers.IO,
     )
     private var lastAutoRefreshTime: Long = 0L
+    private val popupIdGenerator = AtomicLong(1L)
 
     init {
         viewModelScope.launch {
@@ -217,6 +252,9 @@ class ThreadViewModel @AssistedInject constructor(
                 boardInfo = args.boardInfo,
                 threadInfo = threadInfo,
                 postDialogState = state.postDialogState.copy(namePlaceholder = args.boardInfo.noname),
+                postGroups = emptyList(),
+                lastLoadedResCount = 0,
+                latestArrivalGroupIndex = null,
             )
         }
     }
@@ -344,112 +382,254 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     override suspend fun loadData(isRefresh: Boolean) {
-        // 画面ローディング状態をセットし、プログレスを初期化
-        _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
+        startThreadLoad()
         val boardUrl = uiState.value.boardInfo.url
         val key = uiState.value.threadInfo.key
 
         try {
-            // DatRepository からスレ情報を取得（進捗コールバックを渡す）
-            val threadData = datRepository.getThread(boardUrl, key) { progress ->
-                // 読み込み進捗を UI 状態に反映
-                _uiState.update { it.copy(loadProgress = progress) }
+            val threadData = fetchThreadData(boardUrl, key)
+            if (threadData == null) {
+                // データ取得に失敗した場合はここで終了する。
+                handleLoadFailure(boardUrl, key, shouldLog = true)
+                return
             }
-            if (threadData != null) {
-                // 正常に取得できた場合はパース結果を元に各種派生データを作成
-                val (posts, title) = threadData
-                val uiPosts = posts.map { it.toThreadPostUiModel() }
-                // ID カウント / インデックス / 返信ソースマップ を導出
-                val derived = deriveReplyMaps(uiPosts)
-                // ツリー順と深さマップを導出
-                val tree = deriveTreeOrder(uiPosts)
-                val resCount = uiPosts.size
-                val keyLong = key.toLongOrNull()
-                val date = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD) {
-                    calculateThreadDate(key)
-                } else {
-                    ThreadDate(0, 0, 0, 0, 0, "")
-                }
-                val momentum = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD && resCount > 0) {
-                    val elapsedSeconds = max(1L, System.currentTimeMillis() / 1000 - keyLong)
-                    val elapsedDays = elapsedSeconds / 86400.0
-                    if (elapsedDays > 0) resCount / elapsedDays else 0.0
-                } else {
-                    0.0
-                }
-                // UI 状態に新しい投稿リスト等を反映（読み込みフラグ解除）
-                _uiState.update {
-                    it.copy(
-                        posts = uiPosts,
-                        isLoading = false,
-                        loadProgress = 1f,
-                        threadInfo = it.threadInfo.copy(
-                            title = title ?: it.threadInfo.title,
-                            resCount = resCount,
-                            date = date,
-                            momentum = momentum
-                        ),
-                        idCountMap = derived.first,
-                        idIndexList = derived.second,
-                        replySourceMap = derived.third,
-                        treeOrder = tree.first,
-                        treeDepthMap = tree.second,
-                    )
-                }
-
-                // NG 判定を再計算して表示用投稿リストを更新
-                updateNgPostNumbers()
-
-                // スレ履歴に件数を記録し、そのIDを取得
-                val historyId = historyRepository.recordHistory(
-                    uiState.value.boardInfo,
-                    uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
-                    uiPosts.size
-                )
-
-                // 履歴 ID が変わっていれば、過去の自分の投稿番号観察を再登録
-                if (observedThreadHistoryId != historyId) {
-                    observedThreadHistoryId = historyId
-                    postHistoryCollectJob?.cancel()
-                    postHistoryCollectJob = viewModelScope.launch {
-                        postHistoryRepository.observeMyPostNumbers(historyId).collect { nums ->
-                            _uiState.update { it.copy(myPostNumbers = nums) }
-                        }
-                    }
-                }
-
-                // 保留していた投稿情報があれば履歴に記録（該当レス番号が有効な場合）
-                pendingPost?.let { pending ->
-                    val resNumber = pending.resNum ?: uiPosts.size
-                    if (resNumber in 1..uiPosts.size) {
-                        val p = uiPosts[resNumber - 1]
-                        postHistoryRepository.recordPost(
-                            content = pending.content,
-                            date = parseDateToUnix(p.header.date),
-                            threadHistoryId = historyId,
-                            boardId = uiState.value.boardInfo.boardId,
-                            resNum = resNumber,
-                            name = pending.name,
-                            email = pending.email,
-                            postId = p.header.id
-                        )
-                    }
-                    // 保留をクリア
-                    pendingPost = null
-                }
-            } else {
-                // 取得失敗時は読み込みフラグを解除してログを出力
-                _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
-                Timber.e("Failed to load thread data for board: $boardUrl key: $key")
-            }
+            val derived = buildThreadLoadDerived(threadData, key)
+            applyLoadSuccess(derived)
+            updatePostGroupsOnLoad(derived.uiPosts)
+            updateNgPostNumbers()
+            handleHistoryOnLoad(derived.uiPosts, derived.threadTitle)
         } catch (_: Exception) {
-            // 例外時は読み込みフラグを解除（例外オブジェクトは参照しない）
-            _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
+            // 例外時はログを出さずにローディングを解除する。
+            handleLoadFailure(boardUrl, key, shouldLog = false)
         }
     }
 
+    /**
+     * 読み込み開始時の UIState を初期化する。
+     */
+    private fun startThreadLoad() {
+        _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
+    }
+
+    /**
+     * dat 取得を行い、進捗を UIState に反映する。
+     */
+    private suspend fun fetchThreadData(
+        boardUrl: String,
+        key: String,
+    ): Pair<List<ReplyInfo>, String?>? {
+        return datRepository.getThread(boardUrl, key) { progress ->
+            _uiState.update { it.copy(loadProgress = progress) }
+        }
+    }
+
+    /**
+     * dat 取得結果から UI 反映に必要な派生情報を構築する。
+     */
+    private fun buildThreadLoadDerived(
+        threadData: Pair<List<ReplyInfo>, String?>,
+        key: String,
+    ): ThreadLoadDerived {
+        // --- 投稿一覧の変換 ---
+        val (posts, title) = threadData
+        val uiPosts = posts.map { it.toThreadPostUiModel() }
+
+        // --- 派生マップ ---
+        val (idCountMap, idIndexList, replySourceMap) = deriveReplyMaps(uiPosts)
+        val (treeOrder, treeDepthMap) = deriveTreeOrder(uiPosts)
+
+        // --- スレ情報 ---
+        val resCount = uiPosts.size
+        val keyLong = key.toLongOrNull()
+        val threadDate = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD) {
+            calculateThreadDate(key)
+        } else {
+            ThreadDate(0, 0, 0, 0, 0, "")
+        }
+        val momentum =
+            if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD && resCount > 0) {
+                val elapsedSeconds = max(1L, System.currentTimeMillis() / 1000 - keyLong)
+                val elapsedDays = elapsedSeconds / 86400.0
+                if (elapsedDays > 0) resCount / elapsedDays else 0.0
+            } else {
+                0.0
+            }
+
+        return ThreadLoadDerived(
+            uiPosts = uiPosts,
+            threadTitle = title,
+            resCount = resCount,
+            threadDate = threadDate,
+            momentum = momentum,
+            idCountMap = idCountMap,
+            idIndexList = idIndexList,
+            replySourceMap = replySourceMap,
+            treeOrder = treeOrder,
+            treeDepthMap = treeDepthMap,
+        )
+    }
+
+    /**
+     * 取得成功時の UIState を一括で更新する。
+     */
+    private fun applyLoadSuccess(derived: ThreadLoadDerived) {
+        _uiState.update {
+            it.copy(
+                posts = derived.uiPosts,
+                isLoading = false,
+                loadProgress = 1f,
+                threadInfo = it.threadInfo.copy(
+                    title = derived.threadTitle ?: it.threadInfo.title,
+                    resCount = derived.resCount,
+                    date = derived.threadDate,
+                    momentum = derived.momentum
+                ),
+                idCountMap = derived.idCountMap,
+                idIndexList = derived.idIndexList,
+                replySourceMap = derived.replySourceMap,
+                treeOrder = derived.treeOrder,
+                treeDepthMap = derived.treeDepthMap,
+            )
+        }
+    }
+
+    /**
+     * 取得失敗時にローディングを解除し、必要ならログを出力する。
+     */
+    private fun handleLoadFailure(boardUrl: String, key: String, shouldLog: Boolean) {
+        _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
+        if (shouldLog) {
+            Timber.e("Failed to load thread data for board: $boardUrl key: $key")
+        }
+    }
+
+    /**
+     * 履歴記録・投稿番号監視・保留投稿の記録をまとめて処理する。
+     */
+    private suspend fun handleHistoryOnLoad(uiPosts: List<ThreadPostUiModel>, title: String?) {
+        // --- スレ履歴の記録 ---
+        val historyId = historyRepository.recordHistory(
+            uiState.value.boardInfo,
+            uiState.value.threadInfo.copy(title = title ?: uiState.value.threadInfo.title),
+            uiPosts.size
+        )
+
+        // --- 自分の投稿番号の監視 ---
+        updateMyPostNumbers(historyId)
+
+        // --- 保留投稿の記録 ---
+        recordPendingPost(uiPosts, historyId)
+    }
+
+    /**
+     * 履歴 ID が変わった場合のみ自分の投稿番号監視を再登録する。
+     */
+    private fun updateMyPostNumbers(historyId: Long) {
+        if (observedThreadHistoryId == historyId) {
+            // 既に同じ履歴IDを監視中なら更新しない。
+            return
+        }
+        observedThreadHistoryId = historyId
+        postHistoryCollectJob?.cancel()
+        postHistoryCollectJob = viewModelScope.launch {
+            postHistoryRepository.observeMyPostNumbers(historyId).collect { nums ->
+                _uiState.update { it.copy(myPostNumbers = nums) }
+            }
+        }
+    }
+
+    /**
+     * 保留投稿があれば履歴に記録し、保留状態をクリアする。
+     */
+    private suspend fun recordPendingPost(uiPosts: List<ThreadPostUiModel>, historyId: Long) {
+        val pending = pendingPost ?: run {
+            // 保留投稿が無い場合は何もしない。
+            return
+        }
+        val resNumber = pending.resNum ?: uiPosts.size
+        if (resNumber in 1..uiPosts.size) {
+            val p = uiPosts[resNumber - 1]
+            postHistoryRepository.recordPost(
+                content = pending.content,
+                date = parseDateToUnix(p.header.date),
+                threadHistoryId = historyId,
+                boardId = uiState.value.boardInfo.boardId,
+                resNum = resNumber,
+                name = pending.name,
+                email = pending.email,
+                postId = p.header.id
+            )
+        }
+        // 保留をクリア
+        pendingPost = null
+    }
+
+    /**
+     * 取得済みレス数の差分から新着グループを更新する。
+     *
+     * 初回は全件を1グループとして保持し、以降は差分のみを末尾へ追加する。
+     */
+    private fun updatePostGroupsOnLoad(posts: List<ThreadPostUiModel>) {
+        val newResCount = posts.size
+        val currentState = uiState.value
+        val prevResCount = currentState.lastLoadedResCount
+        val currentGroups = currentState.postGroups
+
+        // --- 初期化/リセット ---
+        val needsReset = prevResCount == 0 || currentGroups.isEmpty() || newResCount < prevResCount
+        if (newResCount == 0 || needsReset) {
+            val nextGroups = if (newResCount > 0) {
+                listOf(
+                    ThreadPostGroup(
+                        startResNo = 1,
+                        endResNo = newResCount,
+                        prevResCount = 0
+                    )
+                )
+            } else {
+                emptyList()
+            }
+            _uiState.update {
+                it.copy(
+                    postGroups = nextGroups,
+                    lastLoadedResCount = newResCount,
+                    latestArrivalGroupIndex = null
+                )
+            }
+            // 初期化/リセット時はここで終了する。
+            return
+        }
+
+        // --- 差分追加 ---
+        if (newResCount > prevResCount) {
+            val nextGroups = currentGroups + ThreadPostGroup(
+                startResNo = prevResCount + 1,
+                endResNo = newResCount,
+                prevResCount = prevResCount
+            )
+            _uiState.update {
+                it.copy(
+                    postGroups = nextGroups,
+                    lastLoadedResCount = newResCount,
+                    latestArrivalGroupIndex = nextGroups.lastIndex
+                )
+            }
+        } else {
+            // 新着がない場合はバーを非表示にする。
+            _uiState.update {
+                it.copy(
+                    lastLoadedResCount = newResCount,
+                    latestArrivalGroupIndex = null
+                )
+            }
+        }
+    }
+
+    /**
+     * NG設定を元に非表示レス番号を更新する。
+     */
     private fun updateNgPostNumbers() {
-        val posts = uiState.value.posts ?: return
+        val posts = uiState.value.posts ?: return // 投稿未取得時はNG判定を行わない。
         val boardId = uiState.value.boardInfo.boardId
         val ngNumbers = posts.mapIndexedNotNull { idx, post ->
             val isNg = compiledNg.any { (bId, rx, type) ->
@@ -469,41 +649,89 @@ class ThreadViewModel @AssistedInject constructor(
         updateDisplayPosts()
     }
 
+    /**
+     * タブ状態の新着境界をUI状態へ反映する。
+     */
     fun setNewArrivalInfo(firstNewResNo: Int?, prevResCount: Int) {
         _uiState.update { it.copy(firstNewResNo = firstNewResNo, prevResCount = prevResCount) }
         updateDisplayPosts()
     }
 
-    private fun updateDisplayPosts() {
-        val posts = uiState.value.posts ?: return
-        val firstNewResNo = uiState.value.firstNewResNo
-        val prevResCount = uiState.value.prevResCount
-        val order = if (uiState.value.sortType == ThreadSortType.TREE) {
-            uiState.value.treeOrder
-        } else {
-            (1..posts.size).toList()
+    /**
+     * グループ情報から表示対象の投稿リストを組み立てる。
+     *
+     * 最新グループにのみ isAfter を付与し、新着バー表示位置の基準とする。
+     */
+    private fun buildGroupedDisplayPosts(
+        posts: List<ThreadPostUiModel>,
+        groups: List<ThreadPostGroup>,
+        sortType: ThreadSortType,
+        treeOrder: List<Int>,
+        treeDepthMap: Map<Int, Int>,
+        latestArrivalGroupIndex: Int?
+    ): List<DisplayPost> {
+        // --- グループ毎の変換 ---
+        val result = mutableListOf<DisplayPost>()
+        groups.forEachIndexed { index, group ->
+            val endResNo = group.endResNo.coerceAtMost(posts.size)
+            if (endResNo <= 0 || group.startResNo > endResNo) {
+                // 無効な範囲はスキップする。
+                return@forEachIndexed
+            }
+            val targetPosts = posts.take(endResNo)
+            val order = if (sortType == ThreadSortType.TREE && treeOrder.isNotEmpty()) {
+                treeOrder.filter { it <= endResNo }
+            } else {
+                (1..endResNo).toList()
+            }
+            val firstNewResNo = if (group.prevResCount == 0) null else group.startResNo
+            val groupPosts = buildGroupDisplayPosts(
+                posts = targetPosts,
+                order = order,
+                sortType = sortType,
+                treeDepthMap = treeDepthMap,
+                firstNewResNo = firstNewResNo,
+                prevResCount = group.prevResCount
+            )
+            val markAsAfter = latestArrivalGroupIndex != null && index == latestArrivalGroupIndex
+            val adjusted = groupPosts.map { post ->
+                post.copy(isAfter = markAsAfter)
+            }
+            result.addAll(adjusted)
         }
-        val orderedPosts = buildOrderedPosts(
+        return result
+    }
+
+    /**
+     * 検索/NGを反映した表示用投稿リストを更新する。
+     */
+    private fun updateDisplayPosts() {
+        val posts = uiState.value.posts ?: return // 投稿未取得時は更新しない。
+        // --- グループ反映 ---
+        val groupedPosts = buildGroupedDisplayPosts(
             posts = posts,
-            order = order,
+            groups = uiState.value.postGroups,
             sortType = uiState.value.sortType,
+            treeOrder = uiState.value.treeOrder,
             treeDepthMap = uiState.value.treeDepthMap,
-            firstNewResNo = firstNewResNo,
-            prevResCount = prevResCount
+            latestArrivalGroupIndex = uiState.value.latestArrivalGroupIndex
         )
 
+        // --- 検索フィルタ ---
         val query = uiState.value.searchQuery.toHiragana()
         val filteredPosts = if (query.isNotBlank()) {
-            orderedPosts.filter {
+            groupedPosts.filter {
                 it.post.body.content.toHiragana().contains(
                     query,
                     ignoreCase = true
                 )
             }
         } else {
-            orderedPosts
+            groupedPosts
         }
+        // --- NGフィルタ ---
         val visiblePosts = filteredPosts.filterNot { it.num in uiState.value.ngPostNumbers }
+        // --- 返信数と新着位置 ---
         val replyCounts = visiblePosts.map { p -> uiState.value.replySourceMap[p.num]?.size ?: 0 }
         val firstAfterIndex = visiblePosts.indexOfFirst { it.isAfter }
 
@@ -605,21 +833,276 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     /**
-     * 画像メニューを開いて対象URLを設定する。
+     * 画像メニューを開いて対象URLとレス内画像一覧を設定する。
      */
-    fun openImageMenu(url: String) {
+    fun openImageMenu(url: String, imageUrls: List<String>) {
         if (url.isBlank()) {
             // 空URLはメニューを開かない。
             return
         }
-        _uiState.update { it.copy(showImageMenuSheet = true, imageMenuTargetUrl = url) }
+        val menuUrls = buildImageMenuUrls(url, imageUrls)
+        _uiState.update {
+            it.copy(
+                showImageMenuSheet = true,
+                imageMenuTargetUrl = url,
+                imageMenuTargetUrls = menuUrls,
+            )
+        }
     }
 
     /**
      * 画像メニューを閉じて対象URLをクリアする。
      */
     fun closeImageMenu() {
-        _uiState.update { it.copy(showImageMenuSheet = false, imageMenuTargetUrl = null) }
+        _uiState.update {
+            it.copy(
+                showImageMenuSheet = false,
+                imageMenuTargetUrl = null,
+                imageMenuTargetUrls = emptyList(),
+            )
+        }
+    }
+
+    /**
+     * ポップアップのレイアウトサイズをUI状態へ反映する。
+     *
+     * サイズが変わらない場合は更新しない。
+     */
+    fun updatePopupSize(index: Int, size: IntSize) {
+        _uiState.update { state ->
+            val stack = state.popupStack
+            if (index !in stack.indices) {
+                // 範囲外の更新は無視する。
+                return@update state
+            }
+            val target = stack[index]
+            if (target.size == size) {
+                // 変更がない場合は更新しない。
+                return@update state
+            }
+            val updated = stack.toMutableList()
+            updated[index] = target.copy(size = size)
+            state.copy(popupStack = updated)
+        }
+    }
+
+    /**
+     * 最上位のポップアップを取り除く。
+     */
+    fun removeTopPopup() {
+        _uiState.update { state ->
+            if (state.popupStack.isEmpty()) {
+                // 表示対象がない場合は何もしない。
+                return@update state
+            }
+            state.copy(popupStack = state.popupStack.dropLast(1))
+        }
+    }
+
+    /**
+     * 返信元番号の投稿をまとめてポップアップとして追加する。
+     *
+     * NG投稿や範囲外番号は除外する。
+     */
+    fun addPopupForReplyFrom(baseOffset: IntOffset, replyNumbers: List<Int>) {
+        val posts = uiState.value.posts ?: run {
+            // 投稿が未取得の場合は追加しない。
+            return
+        }
+        val ngNumbers = uiState.value.ngPostNumbers
+        val targets = replyNumbers.filterNot { it in ngNumbers }
+            .mapNotNull { num -> posts.getOrNull(num - 1) }
+        if (targets.isEmpty()) {
+            // 有効な対象がない場合は追加しない。
+            return
+        }
+        appendPopup(PopupInfo(popupId = nextPopupId(), posts = targets, offset = baseOffset))
+    }
+
+    /**
+     * 指定された返信番号の投稿をポップアップとして追加する。
+     *
+     * 範囲外番号やNG投稿は無視する。
+     */
+    fun addPopupForReplyNumber(baseOffset: IntOffset, postNumber: Int) {
+        val posts = uiState.value.posts ?: run {
+            // 投稿が未取得の場合は追加しない。
+            return
+        }
+        val ngNumbers = uiState.value.ngPostNumbers
+        if (postNumber !in 1..posts.size || postNumber in ngNumbers) {
+            // 無効な番号またはNG投稿は追加しない。
+            return
+        }
+        appendPopup(
+            PopupInfo(
+                popupId = nextPopupId(),
+                posts = listOf(posts[postNumber - 1]),
+                offset = baseOffset,
+            )
+        )
+    }
+
+    /**
+     * 指定IDの投稿を抽出し、ポップアップとして追加する。
+     *
+     * NG投稿は除外する。
+     */
+    fun addPopupForId(baseOffset: IntOffset, id: String) {
+        val posts = uiState.value.posts ?: run {
+            // 投稿が未取得の場合は追加しない。
+            return
+        }
+        val ngNumbers = uiState.value.ngPostNumbers
+        val targets = posts.mapIndexedNotNull { idx, post ->
+            val num = idx + 1
+            if (post.header.id == id && num !in ngNumbers) post else null
+        }
+        if (targets.isEmpty()) {
+            // 有効な対象がない場合は追加しない。
+            return
+        }
+        appendPopup(PopupInfo(popupId = nextPopupId(), posts = targets, offset = baseOffset))
+    }
+
+    /**
+     * 指定レスが属するツリー全体をポップアップとして追加する。
+     *
+     * NG除外後に単独レスのみの場合は表示しない。
+     */
+    fun addPopupForTree(baseOffset: IntOffset, postNumber: Int) {
+        val state = uiState.value
+        val posts = state.posts ?: run {
+            // 投稿が未取得の場合は追加しない。
+            return
+        }
+
+        // --- Selection ---
+        val selection = deriveTreePopupSelection(
+            postNumber = postNumber,
+            treeOrder = state.treeOrder,
+            treeDepthMap = state.treeDepthMap,
+        ) ?: run {
+            // 対象ツリーがない場合は追加しない。
+            return
+        }
+
+        // --- Build targets ---
+        val targets = mutableListOf<ThreadPostUiModel>()
+        val indentLevels = mutableListOf<Int>()
+        selection.numbers.zip(selection.indentLevels).forEach { (num, depth) ->
+            if (num in state.ngPostNumbers) {
+                return@forEach
+            }
+            val post = posts.getOrNull(num - 1) ?: return@forEach
+            targets.add(post)
+            indentLevels.add(depth)
+        }
+        if (targets.size <= 1) {
+            // NG除外後に単独になった場合は追加しない。
+            return
+        }
+
+        // --- Append ---
+        appendPopup(
+            PopupInfo(
+                popupId = nextPopupId(),
+                posts = targets,
+                offset = baseOffset,
+                indentLevels = indentLevels,
+            )
+        )
+    }
+
+    /**
+     * ポップアップ用の安定識別子を採番する。
+     */
+    private fun nextPopupId(): Long {
+        return popupIdGenerator.getAndIncrement()
+    }
+
+    private fun appendPopup(info: PopupInfo) {
+        _uiState.update { state ->
+            state.copy(popupStack = appendPopupIfDistinct(state.popupStack, info))
+        }
+    }
+
+    /**
+     * 画像保存対象のURLを正規化して返す。
+     *
+     * 空URLを除外し、重複を除いた順序で返す。
+     */
+    fun requestImageSave(context: android.content.Context, urls: List<String>) {
+        when (val preparation = imageSaveCoordinator.prepareSave(context, urls)) {
+            ImageSavePreparation.Ignore -> Unit
+            is ImageSavePreparation.RequestPermission -> {
+                _imageSaveEvents.tryEmit(ImageSaveUiEvent.RequestPermission(preparation.permission))
+            }
+
+            is ImageSavePreparation.ReadyToSave -> {
+                launchImageSave(context, preparation.urls)
+            }
+        }
+    }
+
+    /**
+     * 権限要求の結果を受け取り、許可時は保留していた保存処理を再開する。
+     */
+    fun onImageSavePermissionResult(context: android.content.Context, granted: Boolean) {
+        if (!granted) {
+            imageSaveCoordinator.clearPendingUrls()
+            _imageSaveEvents.tryEmit(
+                ImageSaveUiEvent.ShowToast(
+                    imageSaveCoordinator.buildPermissionDeniedMessage(context)
+                )
+            )
+            return
+        }
+        val pendingUrls = imageSaveCoordinator.consumePendingUrls()
+        if (pendingUrls.isEmpty()) {
+            return
+        }
+        launchImageSave(context, pendingUrls)
+    }
+
+    /**
+     * 指定URL一覧の保存処理を実行し、進行中通知と結果通知イベントを発行する。
+     */
+    private fun launchImageSave(context: android.content.Context, urls: List<String>) {
+        if (urls.isEmpty()) {
+            // Guard: 空URL一覧では保存処理を開始しない。
+            return
+        }
+        _imageSaveEvents.tryEmit(
+            ImageSaveUiEvent.ShowToast(imageSaveCoordinator.buildInProgressMessage(context))
+        )
+        viewModelScope.launch {
+            val summary = imageSaveCoordinator.saveImageUrls(context, urls)
+            val resultMessage = imageSaveCoordinator.buildResultMessage(
+                context = context,
+                requestCount = urls.size,
+                summary = summary,
+            )
+            _imageSaveEvents.emit(ImageSaveUiEvent.ShowToast(resultMessage))
+        }
+    }
+
+    /**
+     * 画像メニューで扱うURL一覧を整形する。
+     *
+     * 空URLは除外し、重複を取り除いたうえで長押し対象を先頭に揃える。
+     */
+    private fun buildImageMenuUrls(primaryUrl: String, imageUrls: List<String>): List<String> {
+        // --- 正規化 ---
+        val normalized = distinctImageUrls(imageUrls)
+            .filter { it.isNotBlank() }
+            .toMutableList()
+
+        // --- フォールバック ---
+        if (primaryUrl.isNotBlank() && primaryUrl !in normalized) {
+            normalized.add(0, primaryUrl)
+        }
+        return normalized
     }
 
     /**
@@ -732,6 +1215,36 @@ class ThreadViewModel @AssistedInject constructor(
     companion object {
         private const val POST_IDENTITY_HISTORY_KEY = "thread_post_identity"
     }
+}
+
+/**
+ * 現在のポップアップスタックへ新しいポップアップを追加する。
+ *
+ * 直前の最上位ポップアップと表示内容が同一の場合は連続表示を抑止し、
+ * 既存スタックをそのまま返す。
+ */
+internal fun appendPopupIfDistinct(
+    stack: List<PopupInfo>,
+    candidate: PopupInfo,
+): List<PopupInfo> {
+    val top = stack.lastOrNull() ?: return stack + candidate
+    if (isSamePopupContent(top, candidate)) {
+        // 連続で同一内容を開こうとした場合は積み上げない。
+        return stack
+    }
+    return stack + candidate
+}
+
+/**
+ * 2つのポップアップが同一表示内容かを判定する。
+ *
+ * `popupId` やレイアウト情報ではなく、表示対象投稿とツリーインデントの一致で比較する。
+ */
+internal fun isSamePopupContent(
+    left: PopupInfo,
+    right: PopupInfo,
+): Boolean {
+    return left.posts == right.posts && left.indentLevels == right.indentLevels
 }
 
 /**

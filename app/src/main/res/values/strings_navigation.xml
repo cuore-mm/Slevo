@@ -1,0 +1,10 @@
+<resources>
+    <!-- App navigation -->
+    <string name="home">ホーム</string>
+    <string name="bookmark">ブックマーク</string>
+    <string name="boardList">板一覧</string>
+    <string name="BBSList">掲示板一覧</string>
+    <string name="tabs">タブ</string>
+    <string name="history">履歴</string>
+    <string name="settings">設定</string>
+</resources>

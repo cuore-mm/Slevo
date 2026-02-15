@@ -260,10 +260,19 @@ fun AppNavGraph(
         composable<AppRoute.ImageViewer> { backStackEntry ->
             val imageViewerRoute: AppRoute.ImageViewer = backStackEntry.toRoute()
             // URLデコード処理
-            val decodedUrl =
-                URLDecoder.decode(imageViewerRoute.imageUrl, StandardCharsets.UTF_8.toString())
+            val decodedUrls = imageViewerRoute.imageUrls.map { url ->
+                URLDecoder.decode(url, StandardCharsets.UTF_8.toString())
+            }
+            val initialIndex = if (decodedUrls.isNotEmpty()) {
+                imageViewerRoute.initialIndex.coerceIn(decodedUrls.indices)
+            } else {
+                // Guard: URLリストが空の場合は範囲外アクセスを避ける。
+                0
+            }
             ImageViewerScreen(
-                imageUrl = decodedUrl,
+                imageUrls = decodedUrls,
+                initialIndex = initialIndex,
+                transitionNamespace = imageViewerRoute.transitionNamespace,
                 onNavigateUp = { navController.navigateUp() },
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = this@composable
@@ -339,8 +348,17 @@ sealed class AppRoute {
     data object Tabs : AppRoute()
 
 
+    /**
+     * 画像ビューアの遷移情報を保持する。
+     *
+     * 同一レス内の画像URL一覧と初期表示位置、shared transition 用文脈を受け取る。
+     */
     @Serializable
-    data class ImageViewer(val imageUrl: String) : AppRoute()
+    data class ImageViewer(
+        val imageUrls: List<String>,
+        val initialIndex: Int,
+        val transitionNamespace: String = "",
+    ) : AppRoute()
 
     @Serializable
     data object About : AppRoute()

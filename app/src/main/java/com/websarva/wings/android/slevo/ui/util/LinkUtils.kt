@@ -141,3 +141,10 @@ fun extractImageUrls(text: String): List<String> {
     }
     return urls
 }
+
+/**
+ * 画像URLの一覧から重複を除外し、出現順を保ったまま返します。
+ */
+fun distinctImageUrls(urls: List<String>): List<String> {
+    return urls.distinct()
+}

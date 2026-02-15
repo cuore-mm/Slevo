@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
@@ -29,8 +30,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -45,19 +49,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
-
-/**
- * 返信ポップアップ表示に必要な投稿と位置情報を保持する。
- *
- * 表示位置とサイズはポップアップのレイアウト計算に使用する。
- */
-data class PopupInfo(
-    val posts: List<ThreadPostUiModel>,
-    val offset: IntOffset,
-    val size: IntSize = IntSize.Zero,
-)
+import kotlin.math.min
 
 // アニメーションの速度（ミリ秒）
 private const val POPUP_ANIMATION_DURATION = 160
@@ -71,7 +67,7 @@ private const val POPUP_ANIMATION_DURATION = 160
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ReplyPopup(
-    popupStack: SnapshotStateList<PopupInfo>,
+    popupStack: List<PopupInfo>,
     posts: List<ThreadPostUiModel>,
     replySourceMap: Map<Int, List<Int>>,
     idCountMap: Map<String, Int>,
@@ -84,10 +80,15 @@ fun ReplyPopup(
     searchQuery: String = "",
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
-    onImageClick: (String) -> Unit,
-    onImageLongPress: (String) -> Unit,
+    onImageClick: (String, List<String>, Int, String) -> Unit,
+    onImageLongPress: (String, List<String>) -> Unit,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
+    onRequestTreePopup: (postNumber: Int, baseOffset: IntOffset) -> Unit,
+    onAddPopupForReplyFrom: (replyNumbers: List<Int>, baseOffset: IntOffset) -> Unit,
+    onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit,
+    onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit,
+    onPopupSizeChange: (index: Int, size: IntSize) -> Unit,
     onClose: () -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
@@ -139,7 +140,7 @@ fun ReplyPopup(
                 onCloseTop = closeTopPopup,
                 onSizeChanged = { size ->
                     if (size != info.size) {
-                        popupStack[index] = info.copy(size = size)
+                        onPopupSizeChange(index, size)
                     }
                 }
             ) {
@@ -163,31 +164,32 @@ fun ReplyPopup(
                     onShowTextMenu = onShowTextMenu,
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,
+                    onContentClick = if (info.indentLevels.isNotEmpty()) {
+                        null
+                    } else {
+                        { postNum ->
+                            onRequestTreePopup(
+                                postNum,
+                                calculatePopupOffset(popupStack[index])
+                            )
+                        }
+                    },
                     onReplyFromClick = { numbs ->
-                        addPopupForReplyFrom(
-                            popupStack = popupStack,
-                            baseOffsetProvider = { calculatePopupOffset(popupStack[index]) },
-                            posts = posts,
-                            ngPostNumbers = ngPostNumbers,
-                            replyNumbers = numbs,
+                        onAddPopupForReplyFrom(
+                            numbs,
+                            calculatePopupOffset(popupStack[index]),
                         )
                     },
                     onReplyClick = { num ->
-                        addPopupForReplyNumber(
-                            popupStack = popupStack,
-                            baseOffsetProvider = { calculatePopupOffset(popupStack[index]) },
-                            posts = posts,
-                            ngPostNumbers = ngPostNumbers,
-                            postNumber = num,
+                        onAddPopupForReplyNumber(
+                            num,
+                            calculatePopupOffset(popupStack[index]),
                         )
                     },
                     onIdClick = { id ->
-                        addPopupForId(
-                            popupStack = popupStack,
-                            baseOffsetProvider = { calculatePopupOffset(popupStack[index]) },
-                            posts = posts,
-                            ngPostNumbers = ngPostNumbers,
-                            id = id,
+                        onAddPopupForId(
+                            id,
+                            calculatePopupOffset(popupStack[index]),
                         )
                     },
                 )
@@ -200,16 +202,23 @@ fun ReplyPopup(
 /**
  * ポップアップ表示数に合わせてアニメーション状態リストを同期する。
  *
- * 表示開始時は非表示状態からアニメーションさせる。
+ * 画面復帰時に既存ポップアップがある場合は表示済み状態で復元し、
+ * それ以外の新規追加分は非表示状態からアニメーションさせる。
  */
 @Composable
 private fun rememberPopupVisibilityStates(
     popupStackSize: Int,
 ): SnapshotStateList<MutableTransitionState<Boolean>> {
     val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
+    var hasInitializedVisibilityStates by remember { mutableStateOf(false) }
 
     LaunchedEffect(popupStackSize) {
-        syncVisibilityStates(visibilityStates, popupStackSize)
+        syncVisibilityStates(
+            visibilityStates = visibilityStates,
+            targetSize = popupStackSize,
+            skipEnterAnimation = !hasInitializedVisibilityStates && popupStackSize > 0,
+        )
+        hasInitializedVisibilityStates = true
     }
 
     return visibilityStates
@@ -220,7 +229,7 @@ private fun rememberPopupVisibilityStates(
  */
 @Composable
 private fun PopupBackgroundOverlay(
-    popupStack: SnapshotStateList<PopupInfo>,
+    popupStack: List<PopupInfo>,
     onCloseTop: () -> Unit,
 ) {
     if (popupStack.isEmpty()) {
@@ -308,12 +317,13 @@ private fun PopupPostList(
     searchQuery: String,
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
-    onImageClick: (String) -> Unit,
-    onImageLongPress: (String) -> Unit,
+    onImageClick: (String, List<String>, Int, String) -> Unit,
+    onImageLongPress: (String, List<String>) -> Unit,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
+    onContentClick: ((Int) -> Unit)?,
     onReplyFromClick: (List<Int>) -> Unit,
     onReplyClick: (Int) -> Unit,
     onIdClick: (String) -> Unit,
@@ -329,6 +339,12 @@ private fun PopupPostList(
         info.posts.forEachIndexed { i, p ->
             val postIndex = posts.indexOf(p)
             val postNum = postIndex + 1
+            val indentLevel = info.indentLevels.getOrElse(i) { 0 }
+            val nextIndent = info.indentLevels.getOrElse(i + 1) { 0 }
+            val transitionNamespace = ImageSharedTransitionKeyFactory.popupPostNamespace(
+                popupId = info.popupId,
+                postNumber = postNum,
+            )
             PostItem(
                 post = p,
                 postNum = postNum,
@@ -337,9 +353,11 @@ private fun PopupPostList(
                 headerTextScale = headerTextScale,
                 bodyTextScale = bodyTextScale,
                 lineHeight = lineHeight,
+                indentLevel = indentLevel,
                 searchQuery = searchQuery,
                 onUrlClick = onUrlClick,
                 onThreadUrlClick = onThreadUrlClick,
+                transitionNamespace = transitionNamespace,
                 onImageClick = onImageClick,
                 onImageLongPress = onImageLongPress,
                 onRequestMenu = onRequestMenu,
@@ -352,9 +370,12 @@ private fun PopupPostList(
                 onReplyFromClick = onReplyFromClick,
                 onReplyClick = onReplyClick,
                 onIdClick = onIdClick,
+                onContentClick = { onContentClick?.invoke(postNum) },
             )
             if (i < info.posts.size - 1) {
-                HorizontalDivider()
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 16.dp * min(indentLevel, nextIndent))
+                )
             }
         }
     }
@@ -378,7 +399,16 @@ private fun calculatePopupOffset(info: PopupInfo): IntOffset {
 private fun syncVisibilityStates(
     visibilityStates: SnapshotStateList<MutableTransitionState<Boolean>>,
     targetSize: Int,
+    skipEnterAnimation: Boolean,
 ) {
+    // 初回復帰時は既存ポップアップを表示済み状態で復元し、再入場アニメーションを抑止する。
+    if (skipEnterAnimation && visibilityStates.isEmpty() && targetSize > 0) {
+        repeat(targetSize) {
+            visibilityStates.add(MutableTransitionState(true).apply { targetState = true })
+        }
+        return
+    }
+
     while (visibilityStates.size < targetSize) {
         visibilityStates.add(MutableTransitionState(false).apply { targetState = true })
     }
@@ -439,63 +469,6 @@ private fun Modifier.disableInteractionOnUnderlay(
     }
 }
 
-/**
- * 返信元の投稿番号リストから表示対象を構築し、ポップアップとして追加する。
- */
-private fun addPopupForReplyFrom(
-    popupStack: SnapshotStateList<PopupInfo>,
-    baseOffsetProvider: () -> IntOffset,
-    posts: List<ThreadPostUiModel>,
-    ngPostNumbers: Set<Int>,
-    replyNumbers: List<Int>,
-) {
-    val targets = replyNumbers.filterNot { it in ngPostNumbers }
-        .mapNotNull { n -> posts.getOrNull(n - 1) }
-    if (targets.isEmpty()) {
-        // 対象がない場合は何もしない。
-        return
-    }
-    popupStack.add(PopupInfo(targets, baseOffsetProvider()))
-}
-
-/**
- * 指定された返信番号の投稿をポップアップとして追加する。
- */
-private fun addPopupForReplyNumber(
-    popupStack: SnapshotStateList<PopupInfo>,
-    baseOffsetProvider: () -> IntOffset,
-    posts: List<ThreadPostUiModel>,
-    ngPostNumbers: Set<Int>,
-    postNumber: Int,
-) {
-    if (postNumber !in 1..posts.size || postNumber in ngPostNumbers) {
-        // 無効な番号またはNG投稿は無視する。
-        return
-    }
-    val target = posts[postNumber - 1]
-    popupStack.add(PopupInfo(listOf(target), baseOffsetProvider()))
-}
-
-/**
- * 指定IDの投稿を抽出し、ポップアップとして追加する。
- */
-private fun addPopupForId(
-    popupStack: SnapshotStateList<PopupInfo>,
-    baseOffsetProvider: () -> IntOffset,
-    posts: List<ThreadPostUiModel>,
-    ngPostNumbers: Set<Int>,
-    id: String,
-) {
-    val targets = posts.mapIndexedNotNull { idx, post ->
-        val num = idx + 1
-        if (post.header.id == id && num !in ngPostNumbers) post else null
-    }
-    if (targets.isEmpty()) {
-        // 対象がない場合は何もしない。
-        return
-    }
-    popupStack.add(PopupInfo(targets, baseOffsetProvider()))
-}
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
@@ -533,6 +506,7 @@ fun ReplyPopupPreview() {
     val dummyNgPostNumbers = setOf<Int>()
     val popupStack = mutableStateListOf(
         PopupInfo(
+            popupId = 1L,
             posts = dummyPosts,
             offset = IntOffset(100, 400)
         )
@@ -552,10 +526,15 @@ fun ReplyPopupPreview() {
                 lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
                 onUrlClick = {},
                 onThreadUrlClick = {},
-                onImageClick = {},
-                onImageLongPress = {},
+                onImageClick = { _, _, _, _ -> },
+                onImageLongPress = { _, _ -> },
                 onRequestMenu = {},
                 onShowTextMenu = { _, _ -> },
+                onRequestTreePopup = { _, _ -> },
+                onAddPopupForReplyFrom = { _, _ -> },
+                onAddPopupForReplyNumber = { _, _ -> },
+                onAddPopupForId = { _, _ -> },
+                onPopupSizeChange = { _, _ -> },
                 onClose = {},
                 searchQuery = "",
                 sharedTransitionScope = this@SharedTransitionLayout,

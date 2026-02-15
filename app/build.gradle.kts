@@ -1,3 +1,4 @@
+import com.android.build.api.variant.VariantOutputConfiguration
 import java.util.Properties
 
 plugins {
@@ -32,8 +33,8 @@ android {
         applicationId = "com.websarva.wings.android.slevo"
         minSdk = 24
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.5.0"
+        versionCode = 13
+        versionName = "1.5.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -53,6 +54,13 @@ android {
         debug {
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
+        }
+        create("ci") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".ci"
+            versionNameSuffix = "-ci"
+            matchingFallbacks += listOf("debug")
+            resValue("string", "app_name", "Slevo (CI)")
         }
     }
 
@@ -97,6 +105,19 @@ android {
     sourceSets {
         getByName("test").assets.srcDir("$projectDir/schemas")
         getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("ci")) { variant ->
+        val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+        if (runNumber != null) {
+            variant.outputs.forEach { output ->
+                if (output.outputType == VariantOutputConfiguration.OutputType.SINGLE) {
+                    output.versionCode.set(runNumber)
+                }
+            }
+        }
     }
 }
 
@@ -175,6 +196,9 @@ dependencies {
 
     // Telephoto
     implementation(libs.zoomable.image.coil3)
+
+    // Haze
+    implementation(libs.haze)
 
     // AboutLibraries
     implementation(libs.aboutlibraries.compose.m3)

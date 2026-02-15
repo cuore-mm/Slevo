@@ -1,0 +1,14 @@
+<resources>
+    <!-- Common field labels -->
+    <string name="url">URL</string>
+    <string name="title">タイトル</string>
+    <string name="e_mail">E-mail</string>
+    <string name="post_message">本文</string>
+    <string name="id_label">ID</string>
+    <string name="name">name</string>
+    <string name="name_label">名前</string>
+    <string name="word_label">ワード</string>
+    <string name="thread_title_label">タイトル</string>
+    <string name="res_number_label">レス番号</string>
+    <string name="res_count_prefix">レス数: </string>
+</resources>

@@ -70,6 +70,7 @@ internal fun PostItemBody(
     onReplyClick: ((Int) -> Unit)?,
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
+    onBodyClick: (() -> Unit)? = null,
 ) {
     // --- フィードバック ---
     val haptic = LocalHapticFeedback.current
@@ -114,6 +115,7 @@ internal fun PostItemBody(
                 onReplyClick = onReplyClick,
                 onUrlClick = onUrlClick,
                 onThreadUrlClick = onThreadUrlClick,
+                onBodyClick = onBodyClick,
             ),
             // --- テキスト描画 ---
             text = highlightedText,
@@ -160,6 +162,7 @@ private fun Modifier.postBodyGestures(
     onReplyClick: ((Int) -> Unit)?,
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
+    onBodyClick: (() -> Unit)?,
 ): Modifier {
     return pointerInput(Unit) {
         // --- タップ判定 ---
@@ -208,6 +211,9 @@ private fun Modifier.postBodyGestures(
                         }
                     }
                     hit.reply?.toIntOrNull()?.let { onReplyClick?.invoke(it) }
+                    if (hit.url == null && hit.reply == null) {
+                        onBodyClick?.invoke()
+                    }
                 }
             },
             // --- 長押し ---

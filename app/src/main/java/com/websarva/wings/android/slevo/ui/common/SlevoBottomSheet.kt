@@ -41,6 +41,25 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+/**
+ * カスタムボトムシート。
+ * ドラッグハンドルや背景色などのスタイルを統一している。
+ *
+ * @param onDismissRequest シートを閉じるときのコールバック
+ * @param modifier 修飾子
+ * @param sheetState シートの状態
+ * @param sheetMaxWidth シートの最大幅
+ * @param sheetGesturesEnabled ジェスチャー操作の有効・無効
+ * @param shape シートの形状
+ * @param containerColor コンテナの背景色
+ * @param contentColor コンテンツの色
+ * @param tonalElevation エレベーション
+ * @param scrimColor 背景のスクリムの色
+ * @param dragHandle シート上部に自前描画するドラッグハンドル（ModalBottomSheetのdragHandleスロットは未使用）
+ * @param contentWindowInsets ウィンドウインセット
+ * @param properties シートのプロパティ
+ * @param content シートの内容
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SlevoBottomSheet(
@@ -70,13 +89,22 @@ fun SlevoBottomSheet(
         contentColor = contentColor,
         tonalElevation = tonalElevation,
         scrimColor = scrimColor,
-        dragHandle = dragHandle,
+        dragHandle = null,
         contentWindowInsets = contentWindowInsets,
         properties = properties,
-        content = content,
-    )
+    ) {
+        // ModalBottomSheetのdragHandleスロットは使わず、シート内容として自前描画する。
+        if (dragHandle != null) {
+            dragHandle()
+        }
+        content()
+    }
 }
 
+/**
+ * ボトムシートのドラッグハンドル。
+ * アクセシビリティ上の「操作できる」扱いを消去し、不要な読み上げを抑制している。
+ */
 @Composable
 private fun SlevoDragHandle() {
     Box(
@@ -103,6 +131,11 @@ private fun SlevoDragHandle() {
     }
 }
 
+/**
+ * ボトムシートのタイトルを表示する。
+ *
+ * @param text タイトル文字列
+ */
 @Composable
 fun BottomSheetTitle(text: String) {
     Text(
@@ -115,10 +148,20 @@ fun BottomSheetTitle(text: String) {
     )
 }
 
+/**
+ * ボトムシート内の1行のアイテムを表示する。
+ * アイコンがnullの場合はアイコンを表示しないが、テキストの位置はアイコンがある場合と揃える。
+ *
+ * @param text 表示するテキスト
+ * @param icon 表示するアイコン（nullの場合は非表示）
+ * @param leadingContent 先頭アイコン領域に描画する任意のComposable（nullの場合はiconを使用）
+ * @param onClick クリック時の処理
+ */
 @Composable
 fun BottomSheetListItem(
     text: String,
-    icon: ImageVector,
+    icon: ImageVector? = null,
+    leadingContent: (@Composable () -> Unit)? = null,
     onClick: () -> Unit
 ) {
     Row(
@@ -128,11 +171,19 @@ fun BottomSheetListItem(
             .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (leadingContent != null) {
+            leadingContent()
+        } else if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            // アイコンがない場合でもテキストの位置を揃えるために空のスペースを確保 (Iconのデフォルトサイズは24dp)
+            Spacer(modifier = Modifier.size(24.dp))
+        }
         Spacer(modifier = Modifier.width(24.dp))
         Text(
             text = text,
@@ -180,9 +231,18 @@ private fun BottomSheetTitlePreview() {
 @Preview(showBackground = true)
 @Composable
 private fun BottomSheetListItemPreview() {
-    BottomSheetListItem(
-        text = "Copy",
-        icon = Icons.Outlined.ContentCopy,
-        onClick = {}
-    )
+    Column {
+        BottomSheetListItem(
+            text = "Copy with Icon",
+            icon = Icons.Outlined.ContentCopy,
+            leadingContent = null,
+            onClick = {}
+        )
+        BottomSheetListItem(
+            text = "Copy without Icon",
+            icon = null,
+            leadingContent = null,
+            onClick = {}
+        )
+    }
 }

@@ -7,10 +7,13 @@ import android.net.Uri
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /**
  * 外部ブラウザ候補生成のユニットテスト。
  */
+@RunWith(RobolectricTestRunner::class)
 class ExternalBrowserUtilTest {
     @Test
     fun buildBrowserIntents_excludesSelfPackage() {

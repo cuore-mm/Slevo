@@ -37,10 +37,13 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
  * @param onIdClick IDタップ時のコールバック。
  * @param onUrlClick URLタップ時のコールバック。
  * @param onThreadUrlClick スレッドURLタップ時のコールバック。
- * @param onImageClick 画像サムネイルタップ時のコールバック。
- * @param onImageLongPress 画像サムネイル長押し時のコールバック。
+ * @param transitionNamespace サムネイル shared transition 用の文脈識別子。
+ * @param onImageClick 画像サムネイルタップ時のコールバック（URLと同一レス内画像一覧とタップ位置と文脈識別子）。
+ * @param onImageLongPress 画像サムネイル長押し時のコールバック（URLと同一レス内画像一覧）。
+ * @param enableSharedElement 画像サムネイルの共有トランジションを有効にするか。
  * @param onRequestMenu 投稿メニュー表示のリクエスト。
  * @param onShowTextMenu テキストメニュー表示のリクエスト。
+ * @param onContentClick 本文/ヘッダーの通常タップ時のコールバック。
  * @param sharedTransitionScope 共有トランジションのスコープ。
  * @param animatedVisibilityScope アニメーション表示のスコープ。
  */
@@ -65,10 +68,13 @@ fun PostItem(
     onIdClick: ((String) -> Unit),
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
-    onImageClick: (String) -> Unit,
-    onImageLongPress: (String) -> Unit,
+    transitionNamespace: String,
+    onImageClick: (String, List<String>, Int, String) -> Unit,
+    onImageLongPress: (String, List<String>) -> Unit,
+    enableSharedElement: Boolean = true,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
+    onContentClick: (() -> Unit)? = null,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -89,6 +95,7 @@ fun PostItem(
         onContentPressedChange = { interactionState.isContentPressed = it },
         onRequestMenu = { onRequestMenu(menuTarget) },
         showMyPostIndicator = isMyPost,
+        onContentClick = onContentClick,
     ) {
         PostItemHeader(
             uiModel = PostHeaderUiModel(
@@ -107,6 +114,7 @@ fun PostItem(
             onRequestMenu = { onRequestMenu(menuTarget) },
             onReplyFromClick = onReplyFromClick,
             onIdClick = onIdClick,
+            onHeaderClick = onContentClick,
             onShowTextMenu = { text, type -> onShowTextMenu(text, type) },
         )
 
@@ -125,12 +133,15 @@ fun PostItem(
             onReplyClick = onReplyClick,
             onUrlClick = onUrlClick,
             onThreadUrlClick = onThreadUrlClick,
+            onBodyClick = onContentClick,
         )
 
         PostItemMedia(
             post = post,
+            transitionNamespace = transitionNamespace,
             onImageClick = onImageClick,
             onImageLongPress = onImageLongPress,
+            enableSharedElement = enableSharedElement,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
         )
@@ -173,8 +184,9 @@ private fun ReplyCardPreview() {
                 onIdClick = {},
                 onUrlClick = {},
                 onThreadUrlClick = {},
-                onImageClick = {},
-                onImageLongPress = {},
+                transitionNamespace = "preview-post",
+                onImageClick = { _, _, _, _ -> },
+                onImageLongPress = { _, _ -> },
                 onRequestMenu = {},
                 onShowTextMenu = { _, _ -> },
             )
