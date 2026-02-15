@@ -1,9 +1,9 @@
 ## 1. サムネイル遷移制御の実装
 
-- [ ] 1.1 `ImageThumbnailGrid` でサムネイル単位の表示成功状態を保持する
-- [ ] 1.2 `SubcomposeAsyncImage` の success/loading/error と表示成功状態を同期する
-- [ ] 1.3 サムネイルタップ時に表示成功状態を判定し、成功項目のみ `onImageClick` を実行する
-- [ ] 1.4 長押しアクションおよび既存の shared transition 付与契約が維持されることを確認する
+- [x] 1.1 `ImageThumbnailGrid` でサムネイル単位の表示成功状態を保持する
+- [x] 1.2 `SubcomposeAsyncImage` の success/loading/error と表示成功状態を同期する
+- [x] 1.3 サムネイルタップ時に表示成功状態を判定し、成功項目のみ `onImageClick` を実行する
+- [x] 1.4 長押しアクションおよび既存の shared transition 付与契約が維持されることを確認する
 
 ## 2. 回帰確認
 
