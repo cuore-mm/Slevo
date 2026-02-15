@@ -34,7 +34,7 @@ roomRuntime = "2.7.0"
 timber = "5.0.1"
 zoomableImageCoil3 = "0.16.0"
 desugarJdkLibs = "2.1.5"
-haze = "1.7.0"
+haze = "1.7.2"
 
 [libraries]
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutlibrariesComposeM3" }
