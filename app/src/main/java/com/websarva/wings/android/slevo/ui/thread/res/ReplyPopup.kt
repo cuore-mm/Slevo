@@ -30,8 +30,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -199,16 +202,23 @@ fun ReplyPopup(
 /**
  * ポップアップ表示数に合わせてアニメーション状態リストを同期する。
  *
- * 表示開始時は非表示状態からアニメーションさせる。
+ * 画面復帰時に既存ポップアップがある場合は表示済み状態で復元し、
+ * それ以外の新規追加分は非表示状態からアニメーションさせる。
  */
 @Composable
 private fun rememberPopupVisibilityStates(
     popupStackSize: Int,
 ): SnapshotStateList<MutableTransitionState<Boolean>> {
     val visibilityStates = remember { mutableStateListOf<MutableTransitionState<Boolean>>() }
+    var hasInitializedVisibilityStates by remember { mutableStateOf(false) }
 
     LaunchedEffect(popupStackSize) {
-        syncVisibilityStates(visibilityStates, popupStackSize)
+        syncVisibilityStates(
+            visibilityStates = visibilityStates,
+            targetSize = popupStackSize,
+            skipEnterAnimation = !hasInitializedVisibilityStates && popupStackSize > 0,
+        )
+        hasInitializedVisibilityStates = true
     }
 
     return visibilityStates
@@ -389,7 +399,16 @@ private fun calculatePopupOffset(info: PopupInfo): IntOffset {
 private fun syncVisibilityStates(
     visibilityStates: SnapshotStateList<MutableTransitionState<Boolean>>,
     targetSize: Int,
+    skipEnterAnimation: Boolean,
 ) {
+    // 初回復帰時は既存ポップアップを表示済み状態で復元し、再入場アニメーションを抑止する。
+    if (skipEnterAnimation && visibilityStates.isEmpty() && targetSize > 0) {
+        repeat(targetSize) {
+            visibilityStates.add(MutableTransitionState(true).apply { targetState = true })
+        }
+        return
+    }
+
     while (visibilityStates.size < targetSize) {
         visibilityStates.add(MutableTransitionState(false).apply { targetState = true })
     }
