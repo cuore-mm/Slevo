@@ -26,7 +26,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInWindow
@@ -256,28 +257,39 @@ private fun FeedbackTooltipIconButton(
             TooltipAnchorPosition.Below,
         ),
         tooltip = {
-            PlainTooltip(
+            val tooltipShape = MaterialTheme.shapes.largeIncreased
+            Box(
                 modifier = Modifier
                     .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .let { baseModifier ->
-                        if (hazeState != null) {
-                            baseModifier.hazeEffect(state = hazeState)
-                        } else {
-                            baseModifier
-                        }
-                    },
-                shape = MaterialTheme.shapes.largeIncreased,
-                containerColor = tooltipBackgroundColor,
-                contentColor = foregroundColor,
-                shadowElevation = 1.dp,
-                tonalElevation = 1.dp,
+                    .shadow(
+                        elevation = 1.dp,
+                        shape = tooltipShape,
+                        clip = false,
+                    )
             ) {
-                Text(
-                    text = tooltipText,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = foregroundColor,
-                )
+                Surface(
+                    modifier = Modifier
+                        .clip(tooltipShape)
+                        .let { baseModifier ->
+                            if (hazeState != null) {
+                                baseModifier.hazeEffect(state = hazeState)
+                            } else {
+                                baseModifier
+                            }
+                        },
+                    shape = tooltipShape,
+                    color = tooltipBackgroundColor,
+                    contentColor = foregroundColor,
+                    tonalElevation = 1.dp,
+                    shadowElevation = 0.dp,
+                ) {
+                    Text(
+                        text = tooltipText,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = foregroundColor,
+                    )
+                }
             }
         },
         state = tooltipState,
