@@ -1,9 +1,8 @@
 package com.websarva.wings.android.slevo.ui.thread.sheet
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
@@ -11,11 +10,14 @@ import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FilterNone
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -34,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.BottomSheetListItem
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
+import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 
 /**
  * 画像メニューで扱うアクション種別。
@@ -111,18 +114,33 @@ fun ImageMenuSheetContent(
                     R.string.image_menu_save_all_images_with_count,
                     saveAllImageCount,
                 ),
-                leadingContent = { SaveAllImagesIcon() },
+                leadingContent = {
+                    BadgedMenuIcon(
+                        baseIcon = Icons.Outlined.Download,
+                        badgeIcon = Icons.Outlined.Layers,
+                    )
+                },
                 onClick = { onActionSelected(ImageMenuAction.SAVE_ALL_IMAGES) }
             )
         }
         BottomSheetListItem(
             text = stringResource(R.string.image_menu_copy_image),
-            leadingContent = { CopyActionsIcon() },
+            leadingContent = {
+                BadgedMenuIcon(
+                    baseIcon = Icons.Outlined.ContentCopy,
+                    badgeIcon = Icons.Outlined.Image,
+                )
+            },
             onClick = { onActionSelected(ImageMenuAction.COPY_IMAGE) }
         )
         BottomSheetListItem(
             text = stringResource(R.string.image_menu_copy_image_url),
-            leadingContent = { CopyActionsIcon() },
+            leadingContent = {
+                BadgedMenuIcon(
+                    baseIcon = Icons.Outlined.ContentCopy,
+                    badgeIcon = Icons.Outlined.Link,
+                )
+            },
             onClick = { onActionSelected(ImageMenuAction.COPY_IMAGE_URL) }
         )
         HorizontalDivider()
@@ -145,32 +163,6 @@ fun ImageMenuSheetContent(
 }
 
 /**
- * 一括保存メニュー用の合成アイコン。
- *
- * download をベースに、複数対象を示す filter_none バッジを右下へ重ねる。
- */
-@Composable
-private fun SaveAllImagesIcon() {
-    BadgedMenuIcon(
-        baseIcon = Icons.Outlined.Download,
-        badgeIcon = Icons.Outlined.FilterNone,
-    )
-}
-
-/**
- * コピー系メニュー用の合成アイコン。
- *
- * 画像本体コピーと画像リンクコピーを同じ視認表現で揃える。
- */
-@Composable
-private fun CopyActionsIcon() {
-    BadgedMenuIcon(
-        baseIcon = Icons.Outlined.ContentCopy,
-        badgeIcon = Icons.Outlined.FilterNone,
-    )
-}
-
-/**
  * メニュー内で複数系アクションを示す合成アイコン。
  *
  * ベースアイコンとバッジアイコンを受け取り、右下へ重ねて表示する。
@@ -182,7 +174,7 @@ private fun BadgedMenuIcon(
     badgeIcon: ImageVector,
 ) {
     val badgeContainerSize = 13.dp
-    val badgeIconSize = 11.dp
+    val badgeIconSize = 12.dp
 
     Box(modifier = Modifier.size(24.dp)) {
         Box(
@@ -212,7 +204,7 @@ private fun BadgedMenuIcon(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
-                    .size(20.dp)
+                    .size(22.dp)
                     .align(Alignment.CenterStart),
             )
         }
@@ -231,7 +223,7 @@ private fun BadgedMenuIcon(
 @Preview(showBackground = true)
 @Composable
 private fun ImageMenuSheetPreview() {
-    MaterialTheme {
+    SlevoTheme {
         ImageMenuSheet(
             show = true,
             imageUrl = "https://example.com/image.png",
@@ -242,5 +234,29 @@ private fun ImageMenuSheetPreview() {
             onActionSelected = {},
             onDismissRequest = {},
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ImageMenuSheetContentPreview() {
+    SlevoTheme {
+        ImageMenuSheetContent(
+            onActionSelected = {},
+            saveAllImageCount = 3
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun BadgedMenuIconPreview() {
+    SlevoTheme {
+        Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            BadgedMenuIcon(
+                baseIcon = Icons.Outlined.Download,
+                badgeIcon = Icons.Outlined.FilterNone
+            )
+        }
     }
 }
