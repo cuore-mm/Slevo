@@ -66,7 +66,7 @@ fun AnchoredOverlayMenu(
         Surface(
             modifier = Modifier
                 .width(IntrinsicSize.Max)
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .padding(horizontal = 8.dp, vertical = 8.dp)
                 .let { baseModifier ->
                     if (hazeState != null) {
                         baseModifier.hazeEffect(state = hazeState)
