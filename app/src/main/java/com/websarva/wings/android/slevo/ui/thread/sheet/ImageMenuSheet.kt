@@ -2,11 +2,9 @@ package com.websarva.wings.android.slevo.ui.thread.sheet
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Block
@@ -23,6 +21,12 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -170,40 +174,56 @@ private fun CopyActionsIcon() {
  * メニュー内で複数系アクションを示す合成アイコン。
  *
  * ベースアイコンとバッジアイコンを受け取り、右下へ重ねて表示する。
- * バッジ背面にマスク色を敷き、重なり部分でベースアイコンが透けないようにする。
+ * バッジ背面はクリア合成で切り抜き、重なり部分でベースアイコンが透けないようにする。
  */
 @Composable
 private fun BadgedMenuIcon(
     baseIcon: ImageVector,
     badgeIcon: ImageVector,
 ) {
+    val badgeContainerSize = 13.dp
+    val badgeIconSize = 11.dp
+
     Box(modifier = Modifier.size(24.dp)) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                .drawWithContent {
+                    val badgeMaskRadius = badgeContainerSize.toPx() / 2f
+
+                    // --- Base icon ---
+                    drawContent()
+
+                    // --- Badge overlap mask ---
+                    drawCircle(
+                        color = Color.Transparent,
+                        radius = badgeMaskRadius,
+                        center = Offset(
+                            x = size.width - badgeMaskRadius,
+                            y = size.height - badgeMaskRadius,
+                        ),
+                        blendMode = BlendMode.Clear,
+                    )
+                }
+        ) {
+            Icon(
+                imageVector = baseIcon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .size(20.dp)
+                    .align(Alignment.CenterStart),
+            )
+        }
         Icon(
-            imageVector = baseIcon,
+            imageVector = badgeIcon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
-                .size(20.dp)
-                .align(Alignment.CenterStart)
+                .size(badgeIconSize)
+                .align(Alignment.BottomEnd),
         )
-        Box(
-            modifier = Modifier
-                .size(13.dp)
-                .align(Alignment.BottomEnd)
-                .offset(x = 1.dp, y = 1.dp)
-                .background(
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = CircleShape,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = badgeIcon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(11.dp),
-            )
-        }
     }
 }
 
