@@ -21,6 +21,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
+import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
 
 /**
  * 画像URL一覧をサムネイルのグリッドとして表示する。
@@ -67,6 +68,15 @@ fun ImageThumbnailGrid(
                             model = url,
                             contentDescription = null,
                             contentScale = ContentScale.Fit,
+                            onSuccess = { state ->
+                                state.result.diskCacheKey?.let { key ->
+                                    ImageActionReuseRegistry.register(
+                                        url = url,
+                                        diskCacheKey = key,
+                                        extension = url.substringAfterLast('.', ""),
+                                    )
+                                }
+                            },
                             modifier = Modifier
                                 .weight(1f)
                                 .aspectRatio(1f)

@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -38,7 +39,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -63,6 +63,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.ZoomableState
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import kotlin.math.abs
 
 /**
@@ -82,9 +84,14 @@ fun ImageViewerScreen(
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     // --- Constants ---
-    val barBackgroundColor = Color.Black.copy(alpha = 0.3f)
+    val colorScheme = MaterialTheme.colorScheme
+    val viewerBackgroundColor = colorScheme.background
+    val viewerContentColor = colorScheme.onSurface
+    val barBackgroundColor = colorScheme.surface.copy(alpha = 0.40f)
+    val tooltipBackgroundColor = colorScheme.surfaceBright.copy(alpha = 0.80f)
     val barExitDurationMillis = 80
-    val useDarkSystemBarIcons = barBackgroundColor.luminance() > 0.5f
+    val useDarkSystemBarIcons = viewerBackgroundColor.luminance() > 0.5f
+    val hazeState = rememberHazeState()
 
     // --- UI state ---
     var isBarsVisible by rememberSaveable { mutableStateOf(true) }
@@ -237,24 +244,33 @@ fun ImageViewerScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            ImageViewerTopBar(
-                isVisible = isBarsVisible,
-                isMenuExpanded = isTopBarMenuExpanded,
-                imageCount = imageUrls.size,
-                barBackgroundColor = barBackgroundColor,
-                barExitDurationMillis = barExitDurationMillis,
-                onNavigateUp = onNavigateUp,
-                onSaveClick = { viewModel?.requestImageSave(context, listOf(currentImageUrl)) },
-                onMoreClick = { viewModel?.toggleTopBarMenu() },
-                onDismissMenu = { viewModel?.hideTopBarMenu() },
-                onMenuActionClick = onImageMenuActionClick,
-            )
-        },
-        containerColor = Color.Black,
-        contentWindowInsets = WindowInsets(0)
-    ) { _ ->
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .hazeSource(state = hazeState)
+    ) {
+        Scaffold(
+            topBar = {
+                ImageViewerTopBar(
+                    isVisible = isBarsVisible,
+                    isMenuExpanded = isTopBarMenuExpanded,
+                    imageCount = imageUrls.size,
+                    barBackgroundColor = barBackgroundColor,
+                    foregroundColor = viewerContentColor,
+                    tooltipBackgroundColor = tooltipBackgroundColor,
+                    hazeState = hazeState,
+                    barExitDurationMillis = barExitDurationMillis,
+                    onNavigateUp = onNavigateUp,
+                    onSaveClick = { viewModel?.requestImageSave(context, listOf(currentImageUrl)) },
+                    onShareClick = { onImageMenuActionClick(ImageMenuAction.SHARE_IMAGE) },
+                    onMoreClick = { viewModel?.toggleTopBarMenu() },
+                    onDismissMenu = { viewModel?.hideTopBarMenu() },
+                    onMenuActionClick = onImageMenuActionClick,
+                )
+            },
+            containerColor = viewerBackgroundColor,
+            contentWindowInsets = WindowInsets(0)
+        ) { _ ->
         // --- Zoom reset ---
         LaunchedEffect(pagerState.currentPage) {
             val currentPage = pagerState.currentPage
@@ -452,7 +468,7 @@ fun ImageViewerScreen(
 
         val boxModifier = Modifier
             .fillMaxSize()
-            .background(if (isPreview) Color.White else Color.Black)
+            .background(viewerBackgroundColor)
 
         Box(
             modifier = boxModifier
@@ -523,6 +539,7 @@ fun ImageViewerScreen(
                     )
                 }
             }
+        }
         }
     }
 }
