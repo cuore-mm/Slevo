@@ -195,8 +195,8 @@ internal fun ImageViewerTopBar(
                             text = stringResource(R.string.image_menu_search_web),
                             onClick = { onMenuActionClick(ImageMenuAction.SEARCH_WEB) },
                         )
-                        AnchoredOverlayMenuDriver()
                         if (imageCount >= 2) {
+                            AnchoredOverlayMenuDriver()
                             AnchoredOverlayMenuItem(
                                 text = stringResource(
                                     R.string.image_menu_save_all_images_short,

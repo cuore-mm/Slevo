@@ -88,10 +88,9 @@ fun AnchoredOverlayMenu(
                     }
                 },
                 shape = menuShape,
-                color = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.72f),
+                color = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.80f),
                 contentColor = MaterialTheme.colorScheme.onSurface,
                 tonalElevation = 3.dp,
-                shadowElevation = 0.dp,
             ) {
                 Column(content = content)
             }
