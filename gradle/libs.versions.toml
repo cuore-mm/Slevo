@@ -34,6 +34,7 @@ roomRuntime = "2.7.0"
 timber = "5.0.1"
 zoomableImageCoil3 = "0.16.0"
 desugarJdkLibs = "2.1.5"
+haze = "1.7.2"
 
 [libraries]
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutlibrariesComposeM3" }
@@ -84,9 +85,9 @@ timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
 zoomable-image-coil3 = { module = "me.saket.telephoto:zoomable-image-coil3", version.ref = "zoomableImageCoil3" }
 desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugarJdkLibs" }
 lazycolumn-scrollbar = { module = "com.github.nanihadesuka:LazyColumnScrollbar", version.ref = "lazyColumnScrollbar" }
+haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-

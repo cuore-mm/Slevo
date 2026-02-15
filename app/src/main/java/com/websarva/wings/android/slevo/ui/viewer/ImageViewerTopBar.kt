@@ -21,12 +21,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
@@ -37,21 +37,33 @@ import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenu
+import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuDriver
+import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuItem
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * 画像ビューアのトップバーを表示する。
@@ -65,13 +77,19 @@ internal fun ImageViewerTopBar(
     isMenuExpanded: Boolean,
     imageCount: Int,
     barBackgroundColor: Color,
+    foregroundColor: Color,
+    tooltipBackgroundColor: Color,
+    hazeState: HazeState?,
     barExitDurationMillis: Int,
     onNavigateUp: () -> Unit,
     onSaveClick: () -> Unit,
+    onShareClick: () -> Unit,
     onMoreClick: () -> Unit,
     onDismissMenu: () -> Unit,
     onMenuActionClick: (ImageMenuAction) -> Unit,
 ) {
+    var menuAnchorBounds by remember { mutableStateOf<IntRect?>(null) }
+
     // --- Visibility ---
     AnimatedVisibility(
         visible = isVisible,
@@ -85,12 +103,15 @@ internal fun ImageViewerTopBar(
                 FeedbackTooltipIconButton(
                     tooltipText = stringResource(R.string.back),
                     showTooltipHost = isVisible && !isMenuExpanded,
+                    foregroundColor = foregroundColor,
+                    tooltipBackgroundColor = tooltipBackgroundColor,
+                    hazeState = hazeState,
                     onClick = onNavigateUp,
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                         contentDescription = stringResource(R.string.back),
-                        tint = Color.White,
+                        tint = foregroundColor,
                     )
                 }
             },
@@ -98,64 +119,90 @@ internal fun ImageViewerTopBar(
                 FeedbackTooltipIconButton(
                     tooltipText = stringResource(R.string.save),
                     showTooltipHost = isVisible && !isMenuExpanded,
+                    foregroundColor = foregroundColor,
+                    tooltipBackgroundColor = tooltipBackgroundColor,
+                    hazeState = hazeState,
                     onClick = onSaveClick,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Download,
                         contentDescription = stringResource(R.string.save),
-                        tint = Color.White,
+                        tint = foregroundColor,
+                    )
+                }
+                FeedbackTooltipIconButton(
+                    tooltipText = stringResource(R.string.share),
+                    showTooltipHost = isVisible && !isMenuExpanded,
+                    foregroundColor = foregroundColor,
+                    tooltipBackgroundColor = tooltipBackgroundColor,
+                    hazeState = hazeState,
+                    onClick = onShareClick,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = stringResource(R.string.share),
+                        tint = foregroundColor,
                     )
                 }
                 Box {
                     FeedbackTooltipIconButton(
-                        tooltipText = stringResource(R.string.more),
+                        tooltipText = stringResource(R.string.other_options),
                         showTooltipHost = isVisible && !isMenuExpanded,
+                        foregroundColor = foregroundColor,
+                        tooltipBackgroundColor = tooltipBackgroundColor,
+                        hazeState = hazeState,
+                        modifier = Modifier.onGloballyPositioned { coordinates ->
+                            val rect = coordinates.boundsInWindow()
+                            menuAnchorBounds = IntRect(
+                                left = rect.left.roundToInt(),
+                                top = rect.top.roundToInt(),
+                                right = rect.right.roundToInt(),
+                                bottom = rect.bottom.roundToInt(),
+                            )
+                        },
                         onClick = onMoreClick,
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
-                            contentDescription = stringResource(R.string.more),
-                            tint = Color.White,
+                            contentDescription = stringResource(R.string.other_options),
+                            tint = foregroundColor,
                         )
                     }
-                    DropdownMenu(
+                    AnchoredOverlayMenu(
                         expanded = isMenuExpanded,
+                        anchorBoundsInWindow = menuAnchorBounds,
+                        hazeState = hazeState,
                         onDismissRequest = onDismissMenu,
                     ) {
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_add_ng)) },
+                        AnchoredOverlayMenuItem(
+                            text = stringResource(R.string.image_menu_add_ng),
                             onClick = { onMenuActionClick(ImageMenuAction.ADD_NG) },
                         )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_copy_image)) },
+                        AnchoredOverlayMenuDriver()
+                        AnchoredOverlayMenuItem(
+                            text = stringResource(R.string.image_menu_copy_image),
                             onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE) },
                         )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_copy_image_url)) },
+                        AnchoredOverlayMenuItem(
+                            text = stringResource(R.string.image_menu_copy_image_url),
                             onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE_URL) },
                         )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_open_in_other_app)) },
+                        AnchoredOverlayMenuDriver()
+                        AnchoredOverlayMenuItem(
+                            text = stringResource(R.string.image_menu_open_in_other_app),
                             onClick = { onMenuActionClick(ImageMenuAction.OPEN_IN_OTHER_APP) },
                         )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_search_web)) },
+                        AnchoredOverlayMenuItem(
+                            text = stringResource(R.string.image_menu_search_web),
                             onClick = { onMenuActionClick(ImageMenuAction.SEARCH_WEB) },
                         )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.image_menu_share_image)) },
-                            onClick = { onMenuActionClick(ImageMenuAction.SHARE_IMAGE) },
-                        )
                         if (imageCount >= 2) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = stringResource(
-                                            R.string.image_menu_save_all_images_with_count,
-                                            imageCount,
-                                        )
-                                    )
-                                },
+                            AnchoredOverlayMenuDriver()
+                            AnchoredOverlayMenuItem(
+                                text = stringResource(
+                                    R.string.image_menu_save_all_images_short,
+                                    imageCount,
+                                ),
                                 onClick = { onMenuActionClick(ImageMenuAction.SAVE_ALL_IMAGES) },
                             )
                         }
@@ -164,6 +211,9 @@ internal fun ImageViewerTopBar(
             },
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = barBackgroundColor,
+                navigationIconContentColor = foregroundColor,
+                actionIconContentColor = foregroundColor,
+                titleContentColor = foregroundColor,
             ),
             windowInsets = WindowInsets(0),
         )
@@ -173,11 +223,15 @@ internal fun ImageViewerTopBar(
 /**
  * 画像ビューア用のフィードバック付きアイコンボタンを表示する。
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun FeedbackTooltipIconButton(
     tooltipText: String,
     showTooltipHost: Boolean,
+    foregroundColor: Color,
+    tooltipBackgroundColor: Color,
+    hazeState: HazeState?,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
 ) {
@@ -203,22 +257,46 @@ private fun FeedbackTooltipIconButton(
             TooltipAnchorPosition.Below,
         ),
         tooltip = {
-            PlainTooltip(
-                modifier = Modifier.padding(horizontal = 8.dp),
-                shape = MaterialTheme.shapes.large,
+            val tooltipShape = MaterialTheme.shapes.largeIncreased
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .shadow(
+                        elevation = 1.dp,
+                        shape = tooltipShape,
+                        clip = false,
+                    )
             ) {
-                Text(
-                    text = tooltipText,
-                    modifier = Modifier.padding(4.dp),
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Surface(
+                    modifier = Modifier
+                        .clip(tooltipShape)
+                        .let { baseModifier ->
+                            if (hazeState != null) {
+                                baseModifier.hazeEffect(state = hazeState)
+                            } else {
+                                baseModifier
+                            }
+                        },
+                    shape = tooltipShape,
+                    color = tooltipBackgroundColor,
+                    contentColor = foregroundColor,
+                    tonalElevation = 1.dp,
+                    shadowElevation = 0.dp,
+                ) {
+                    Text(
+                        text = tooltipText,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = foregroundColor,
+                    )
+                }
             }
         },
         state = tooltipState,
         enableUserInput = false,
     ) {
         Box(
-            modifier = Modifier
+            modifier = modifier
                 .size(48.dp)
                 .graphicsLayer {
                     scaleX = scale
@@ -256,9 +334,13 @@ private fun ImageViewerTopBarPreview() {
             isMenuExpanded = false,
             imageCount = 3,
             barBackgroundColor = Color.Black.copy(alpha = 0.5f),
+            foregroundColor = Color.White,
+            tooltipBackgroundColor = Color.Black.copy(alpha = 0.5f),
+            hazeState = null,
             barExitDurationMillis = 300,
             onNavigateUp = {},
             onSaveClick = {},
+            onShareClick = {},
             onMoreClick = {},
             onDismissMenu = {},
             onMenuActionClick = {}
@@ -266,7 +348,7 @@ private fun ImageViewerTopBarPreview() {
     }
 }
 
-@Preview
+@Preview(showSystemUi = true, showBackground = false)
 @Composable
 private fun ImageViewerTopBarMenuExpandedPreview() {
     SlevoTheme {
@@ -275,9 +357,13 @@ private fun ImageViewerTopBarMenuExpandedPreview() {
             isMenuExpanded = true,
             imageCount = 3,
             barBackgroundColor = Color.Black.copy(alpha = 0.5f),
+            foregroundColor = Color.White,
+            tooltipBackgroundColor = Color.Black.copy(alpha = 0.5f),
+            hazeState = null,
             barExitDurationMillis = 300,
             onNavigateUp = {},
             onSaveClick = {},
+            onShareClick = {},
             onMoreClick = {},
             onDismissMenu = {},
             onMenuActionClick = {}

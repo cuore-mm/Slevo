@@ -8,6 +8,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
+import coil3.SingletonImageLoader
 import java.io.File
 import java.io.IOException
 import java.util.Locale
@@ -39,6 +40,12 @@ object ImageCopyUtil {
             return Result.failure(IllegalArgumentException("Image URL is blank"))
         }
         return withContext(Dispatchers.IO) {
+            // --- Reuse cache ---
+            val reused = fetchImageUriFromDisplayedCache(context, url)
+            if (reused != null) {
+                return@withContext Result.success(reused)
+            }
+
             // --- Download ---
             val request = Request.Builder().url(url).build()
             client.newCall(request).execute().use { response ->
@@ -50,10 +57,9 @@ object ImageCopyUtil {
                 )
 
                 // --- Cache write ---
-                val cacheDir = File(context.cacheDir, CACHE_DIR_NAME).apply { mkdirs() }
-                val extension = resolveExtension(response.header("Content-Type"), url)
-                val fileName = "image_${url.hashCode()}.$extension"
-                val targetFile = File(cacheDir, fileName)
+                val contentType = response.header("Content-Type")
+                val extension = resolveExtension(contentType, url)
+                val targetFile = resolveShareCacheFile(context, url, extension)
                 body.byteStream().use { input ->
                     targetFile.outputStream().use { output ->
                         input.copyTo(output)
@@ -66,6 +72,47 @@ object ImageCopyUtil {
                 Result.success(uri)
             }
         }
+    }
+
+    /**
+     * 表示済み画像の再利用メタデータから共有用URIを生成する。
+     *
+     * 再利用できない場合は null を返し、呼び出し元で通常取得へフォールバックする。
+     */
+    private fun fetchImageUriFromDisplayedCache(context: Context, url: String): Uri? {
+        val reuseEntry = ImageActionReuseRegistry.get(url) ?: return null
+        return runCatching {
+            // --- Snapshot lookup ---
+            val diskCache = SingletonImageLoader.get(context).diskCache ?: return null
+            val snapshot = diskCache.openSnapshot(reuseEntry.diskCacheKey) ?: return null
+
+            // --- Share file materialization ---
+            snapshot.use { openedSnapshot ->
+                val sourceFile = File(openedSnapshot.data.toString())
+                if (!sourceFile.exists()) {
+                    // Fallback: 参照先ファイルが無い場合は通常取得へ切り替える。
+                    return null
+                }
+
+                // --- Type resolution ---
+                val normalizedMimeType = reuseEntry.mimeType
+                    .takeIf { it.startsWith("image/") }
+                    ?: DEFAULT_MIME_TYPE
+                val extension = reuseEntry.extension.ifBlank {
+                    resolveExtension(normalizedMimeType, url)
+                }
+                val targetFile = resolveShareCacheFile(context, url, extension)
+                sourceFile.inputStream().use { input ->
+                    targetFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+
+                // --- Uri build ---
+                val authority = "${context.packageName}.fileprovider"
+                FileProvider.getUriForFile(context, authority, targetFile)
+            }
+        }.getOrNull()
     }
 
     /**
@@ -174,6 +221,16 @@ object ImageCopyUtil {
         } else {
             DEFAULT_EXTENSION
         }
+    }
+
+    /**
+     * 共有アクション用のキャッシュファイルを返す。
+     */
+    private fun resolveShareCacheFile(context: Context, url: String, extension: String): File {
+        val cacheDir = File(context.cacheDir, CACHE_DIR_NAME).apply { mkdirs() }
+        val normalizedExtension = extension.ifBlank { DEFAULT_EXTENSION }
+        val fileName = "image_${url.hashCode()}.$normalizedExtension"
+        return File(cacheDir, fileName)
     }
 
     /**

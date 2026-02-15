@@ -9,9 +9,13 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import coil3.request.ImageRequest
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
+import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
 import me.saket.telephoto.zoomable.DoubleClickToZoomListener
 import me.saket.telephoto.zoomable.OverzoomEffect
 import me.saket.telephoto.zoomable.ZoomSpec
@@ -37,6 +41,7 @@ internal fun ImageViewerPager(
     onToggleBars: () -> Unit,
 ) {
     // --- Pager ---
+    val context = LocalContext.current
     HorizontalPager(
         state = pagerState,
         pageSpacing = 8.dp,
@@ -77,8 +82,24 @@ internal fun ImageViewerPager(
         } else {
             Modifier
         }
+        val imageRequest = remember(imageUrl, context) {
+            ImageRequest.Builder(context)
+                .data(imageUrl)
+                .listener(
+                    onSuccess = { _, result ->
+                        result.diskCacheKey?.let { key ->
+                            ImageActionReuseRegistry.register(
+                                url = imageUrl,
+                                diskCacheKey = key,
+                                extension = imageUrl.substringAfterLast('.', ""),
+                            )
+                        }
+                    }
+                )
+                .build()
+        }
         ZoomableAsyncImage(
-            model = imageUrl,
+            model = imageRequest,
             contentDescription = null,
             state = imageState,
             modifier = imageModifier.fillMaxSize(),
