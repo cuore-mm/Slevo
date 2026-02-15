@@ -1,25 +1,42 @@
 package com.websarva.wings.android.slevo.ui.thread.sheet
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.FilterNone
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.BottomSheetListItem
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
+import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 
 /**
  * 画像メニューで扱うアクション種別。
@@ -97,18 +114,33 @@ fun ImageMenuSheetContent(
                     R.string.image_menu_save_all_images_with_count,
                     saveAllImageCount,
                 ),
-                icon = null,
+                leadingContent = {
+                    BadgedMenuIcon(
+                        baseIcon = Icons.Outlined.Download,
+                        badgeIcon = Icons.Outlined.Layers,
+                    )
+                },
                 onClick = { onActionSelected(ImageMenuAction.SAVE_ALL_IMAGES) }
             )
         }
         BottomSheetListItem(
             text = stringResource(R.string.image_menu_copy_image),
-            icon = Icons.Outlined.ContentCopy,
+            leadingContent = {
+                BadgedMenuIcon(
+                    baseIcon = Icons.Outlined.ContentCopy,
+                    badgeIcon = Icons.Outlined.Image,
+                )
+            },
             onClick = { onActionSelected(ImageMenuAction.COPY_IMAGE) }
         )
         BottomSheetListItem(
             text = stringResource(R.string.image_menu_copy_image_url),
-            icon = null,
+            leadingContent = {
+                BadgedMenuIcon(
+                    baseIcon = Icons.Outlined.ContentCopy,
+                    badgeIcon = Icons.Outlined.Link,
+                )
+            },
             onClick = { onActionSelected(ImageMenuAction.COPY_IMAGE_URL) }
         )
         HorizontalDivider()
@@ -130,11 +162,68 @@ fun ImageMenuSheetContent(
     }
 }
 
+/**
+ * メニュー内で複数系アクションを示す合成アイコン。
+ *
+ * ベースアイコンとバッジアイコンを受け取り、右下へ重ねて表示する。
+ * バッジ背面はクリア合成で切り抜き、重なり部分でベースアイコンが透けないようにする。
+ */
+@Composable
+private fun BadgedMenuIcon(
+    baseIcon: ImageVector,
+    badgeIcon: ImageVector,
+) {
+    val badgeContainerSize = 13.dp
+    val badgeIconSize = 12.dp
+
+    Box(modifier = Modifier.size(24.dp)) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                .drawWithContent {
+                    val badgeMaskRadius = badgeContainerSize.toPx() / 2f
+
+                    // --- Base icon ---
+                    drawContent()
+
+                    // --- Badge overlap mask ---
+                    drawCircle(
+                        color = Color.Transparent,
+                        radius = badgeMaskRadius,
+                        center = Offset(
+                            x = size.width - badgeMaskRadius,
+                            y = size.height - badgeMaskRadius,
+                        ),
+                        blendMode = BlendMode.Clear,
+                    )
+                }
+        ) {
+            Icon(
+                imageVector = baseIcon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .size(22.dp)
+                    .align(Alignment.CenterStart),
+            )
+        }
+        Icon(
+            imageVector = badgeIcon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .size(badgeIconSize)
+                .align(Alignment.BottomEnd),
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
 private fun ImageMenuSheetPreview() {
-    MaterialTheme {
+    SlevoTheme {
         ImageMenuSheet(
             show = true,
             imageUrl = "https://example.com/image.png",
@@ -145,5 +234,29 @@ private fun ImageMenuSheetPreview() {
             onActionSelected = {},
             onDismissRequest = {},
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ImageMenuSheetContentPreview() {
+    SlevoTheme {
+        ImageMenuSheetContent(
+            onActionSelected = {},
+            saveAllImageCount = 3
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun BadgedMenuIconPreview() {
+    SlevoTheme {
+        Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            BadgedMenuIcon(
+                baseIcon = Icons.Outlined.Download,
+                badgeIcon = Icons.Outlined.FilterNone
+            )
+        }
     }
 }

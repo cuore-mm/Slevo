@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -42,6 +44,16 @@ fun ImageThumbnailGrid(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
+    // --- Thumbnail load state ---
+    val canNavigateByIndex = remember(imageUrls) {
+        mutableStateMapOf<Int, Boolean>().apply {
+            imageUrls.indices.forEach { index ->
+                this[index] = false
+            }
+        }
+    }
+
+    // --- Grid render ---
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         imageUrls.chunked(3).forEachIndexed { rowIndex, rowItems ->
             val baseIndex = rowIndex * 3
@@ -69,6 +81,7 @@ fun ImageThumbnailGrid(
                             contentDescription = null,
                             contentScale = ContentScale.Fit,
                             onSuccess = { state ->
+                                canNavigateByIndex[imageIndex] = true
                                 state.result.diskCacheKey?.let { key ->
                                     ImageActionReuseRegistry.register(
                                         url = url,
@@ -77,13 +90,22 @@ fun ImageThumbnailGrid(
                                     )
                                 }
                             },
+                            onLoading = {
+                                canNavigateByIndex[imageIndex] = false
+                            },
+                            onError = {
+                                canNavigateByIndex[imageIndex] = false
+                            },
                             modifier = Modifier
                                 .weight(1f)
                                 .aspectRatio(1f)
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .combinedClickable(
                                     onClick = {
-                                        onImageClick(url, imageUrls, imageIndex, transitionNamespace)
+                                        // 表示成功したサムネイルのみビューア遷移を許可する。
+                                        if (canNavigateByIndex[imageIndex] == true) {
+                                            onImageClick(url, imageUrls, imageIndex, transitionNamespace)
+                                        }
                                     },
                                     onLongClick = onImageLongPress?.let { { it(url, imageUrls) } },
                                 )

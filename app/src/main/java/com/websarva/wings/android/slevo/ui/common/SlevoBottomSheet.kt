@@ -55,7 +55,7 @@ import androidx.compose.ui.unit.dp
  * @param contentColor コンテンツの色
  * @param tonalElevation エレベーション
  * @param scrimColor 背景のスクリムの色
- * @param dragHandle ドラッグハンドル
+ * @param dragHandle シート上部に自前描画するドラッグハンドル（ModalBottomSheetのdragHandleスロットは未使用）
  * @param contentWindowInsets ウィンドウインセット
  * @param properties シートのプロパティ
  * @param content シートの内容
@@ -89,11 +89,16 @@ fun SlevoBottomSheet(
         contentColor = contentColor,
         tonalElevation = tonalElevation,
         scrimColor = scrimColor,
-        dragHandle = dragHandle,
+        dragHandle = null,
         contentWindowInsets = contentWindowInsets,
         properties = properties,
-        content = content,
-    )
+    ) {
+        // ModalBottomSheetのdragHandleスロットは使わず、シート内容として自前描画する。
+        if (dragHandle != null) {
+            dragHandle()
+        }
+        content()
+    }
 }
 
 /**
@@ -149,12 +154,14 @@ fun BottomSheetTitle(text: String) {
  *
  * @param text 表示するテキスト
  * @param icon 表示するアイコン（nullの場合は非表示）
+ * @param leadingContent 先頭アイコン領域に描画する任意のComposable（nullの場合はiconを使用）
  * @param onClick クリック時の処理
  */
 @Composable
 fun BottomSheetListItem(
     text: String,
     icon: ImageVector? = null,
+    leadingContent: (@Composable () -> Unit)? = null,
     onClick: () -> Unit
 ) {
     Row(
@@ -164,7 +171,9 @@ fun BottomSheetListItem(
             .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (icon != null) {
+        if (leadingContent != null) {
+            leadingContent()
+        } else if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
@@ -226,11 +235,13 @@ private fun BottomSheetListItemPreview() {
         BottomSheetListItem(
             text = "Copy with Icon",
             icon = Icons.Outlined.ContentCopy,
+            leadingContent = null,
             onClick = {}
         )
         BottomSheetListItem(
             text = "Copy without Icon",
             icon = null,
+            leadingContent = null,
             onClick = {}
         )
     }
