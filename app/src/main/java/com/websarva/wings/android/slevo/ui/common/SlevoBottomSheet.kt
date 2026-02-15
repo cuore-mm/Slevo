@@ -55,7 +55,7 @@ import androidx.compose.ui.unit.dp
  * @param contentColor コンテンツの色
  * @param tonalElevation エレベーション
  * @param scrimColor 背景のスクリムの色
- * @param dragHandle ドラッグハンドル
+ * @param dragHandle シート上部に自前描画するドラッグハンドル（ModalBottomSheetのdragHandleスロットは未使用）
  * @param contentWindowInsets ウィンドウインセット
  * @param properties シートのプロパティ
  * @param content シートの内容
@@ -89,11 +89,16 @@ fun SlevoBottomSheet(
         contentColor = contentColor,
         tonalElevation = tonalElevation,
         scrimColor = scrimColor,
-        dragHandle = dragHandle,
+        dragHandle = null,
         contentWindowInsets = contentWindowInsets,
         properties = properties,
-        content = content,
-    )
+    ) {
+        // ModalBottomSheetのdragHandleスロットは使わず、シート内容として自前描画する。
+        if (dragHandle != null) {
+            dragHandle()
+        }
+        content()
+    }
 }
 
 /**
