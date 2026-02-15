@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
@@ -28,9 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
-import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 
 /**
  * アンカー座標を基準に表示するオーバーレイメニュー。
@@ -67,6 +68,7 @@ fun AnchoredOverlayMenu(
             modifier = Modifier
                 .width(IntrinsicSize.Max)
                 .padding(horizontal = 8.dp, vertical = 8.dp)
+                .clip(MaterialTheme.shapes.largeIncreased)
                 .let { baseModifier ->
                     if (hazeState != null) {
                         baseModifier.hazeEffect(state = hazeState)
@@ -74,7 +76,6 @@ fun AnchoredOverlayMenu(
                         baseModifier
                     }
                 },
-            shape = MaterialTheme.shapes.largeIncreased,
             color = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.72f),
             contentColor = MaterialTheme.colorScheme.onSurface,
             tonalElevation = 3.dp,
