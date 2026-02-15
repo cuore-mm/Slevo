@@ -149,12 +149,14 @@ fun BottomSheetTitle(text: String) {
  *
  * @param text 表示するテキスト
  * @param icon 表示するアイコン（nullの場合は非表示）
+ * @param leadingContent 先頭アイコン領域に描画する任意のComposable（nullの場合はiconを使用）
  * @param onClick クリック時の処理
  */
 @Composable
 fun BottomSheetListItem(
     text: String,
     icon: ImageVector? = null,
+    leadingContent: (@Composable () -> Unit)? = null,
     onClick: () -> Unit
 ) {
     Row(
@@ -164,7 +166,9 @@ fun BottomSheetListItem(
             .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (icon != null) {
+        if (leadingContent != null) {
+            leadingContent()
+        } else if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
@@ -226,11 +230,13 @@ private fun BottomSheetListItemPreview() {
         BottomSheetListItem(
             text = "Copy with Icon",
             icon = Icons.Outlined.ContentCopy,
+            leadingContent = null,
             onClick = {}
         )
         BottomSheetListItem(
             text = "Copy without Icon",
             icon = null,
+            leadingContent = null,
             onClick = {}
         )
     }

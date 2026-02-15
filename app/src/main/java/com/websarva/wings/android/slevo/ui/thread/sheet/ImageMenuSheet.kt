@@ -1,22 +1,29 @@
 package com.websarva.wings.android.slevo.ui.thread.sheet
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.FilterNone
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.BottomSheetListItem
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
@@ -97,7 +104,7 @@ fun ImageMenuSheetContent(
                     R.string.image_menu_save_all_images_with_count,
                     saveAllImageCount,
                 ),
-                icon = null,
+                leadingContent = { SaveAllImagesIcon() },
                 onClick = { onActionSelected(ImageMenuAction.SAVE_ALL_IMAGES) }
             )
         }
@@ -126,6 +133,34 @@ fun ImageMenuSheetContent(
             text = stringResource(R.string.image_menu_share_image),
             icon = Icons.Outlined.Share,
             onClick = { onActionSelected(ImageMenuAction.SHARE_IMAGE) }
+        )
+    }
+}
+
+/**
+ * 一括保存メニュー用の合成アイコン。
+ *
+ * download をベースに、複数対象を示す filter_none バッジを右下へ重ねる。
+ */
+@Composable
+private fun SaveAllImagesIcon() {
+    Box(modifier = Modifier.size(24.dp)) {
+        Icon(
+            imageVector = Icons.Outlined.Download,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .size(20.dp)
+                .align(Alignment.CenterStart)
+        )
+        Icon(
+            imageVector = Icons.Outlined.FilterNone,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .size(12.dp)
+                .align(Alignment.BottomEnd)
+                .offset(x = 1.dp, y = 1.dp)
         )
     }
 }
