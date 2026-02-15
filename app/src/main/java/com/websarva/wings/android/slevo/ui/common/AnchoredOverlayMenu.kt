@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.common
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -17,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
@@ -64,11 +66,20 @@ fun AnchoredOverlayMenu(
             dismissOnClickOutside = true,
         ),
     ) {
-        Surface(
+        val menuShape = MaterialTheme.shapes.largeIncreased
+        Box(
             modifier = Modifier
                 .width(IntrinsicSize.Max)
                 .padding(horizontal = 8.dp, vertical = 8.dp)
-                .clip(MaterialTheme.shapes.largeIncreased)
+                .shadow(
+                    elevation = 3.dp,
+                    shape = menuShape,
+                    clip = false,
+                )
+        ) {
+            Surface(
+                modifier = Modifier
+                    .clip(menuShape)
                 .let { baseModifier ->
                     if (hazeState != null) {
                         baseModifier.hazeEffect(state = hazeState)
@@ -76,12 +87,14 @@ fun AnchoredOverlayMenu(
                         baseModifier
                     }
                 },
-            color = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.72f),
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            tonalElevation = 3.dp,
-            shadowElevation = 3.dp,
-        ) {
-            Column(content = content)
+                shape = menuShape,
+                color = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.72f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                tonalElevation = 3.dp,
+                shadowElevation = 0.dp,
+            ) {
+                Column(content = content)
+            }
         }
     }
 }
