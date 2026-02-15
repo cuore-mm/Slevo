@@ -60,6 +60,7 @@ import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuItem
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -103,6 +104,7 @@ internal fun ImageViewerTopBar(
                     showTooltipHost = isVisible && !isMenuExpanded,
                     foregroundColor = foregroundColor,
                     tooltipBackgroundColor = tooltipBackgroundColor,
+                    hazeState = hazeState,
                     onClick = onNavigateUp,
                 ) {
                     Icon(
@@ -118,6 +120,7 @@ internal fun ImageViewerTopBar(
                     showTooltipHost = isVisible && !isMenuExpanded,
                     foregroundColor = foregroundColor,
                     tooltipBackgroundColor = tooltipBackgroundColor,
+                    hazeState = hazeState,
                     onClick = onSaveClick,
                 ) {
                     Icon(
@@ -131,6 +134,7 @@ internal fun ImageViewerTopBar(
                     showTooltipHost = isVisible && !isMenuExpanded,
                     foregroundColor = foregroundColor,
                     tooltipBackgroundColor = tooltipBackgroundColor,
+                    hazeState = hazeState,
                     onClick = onShareClick,
                 ) {
                     Icon(
@@ -145,6 +149,7 @@ internal fun ImageViewerTopBar(
                         showTooltipHost = isVisible && !isMenuExpanded,
                         foregroundColor = foregroundColor,
                         tooltipBackgroundColor = tooltipBackgroundColor,
+                        hazeState = hazeState,
                         modifier = Modifier.onGloballyPositioned { coordinates ->
                             val rect = coordinates.boundsInWindow()
                             menuAnchorBounds = IntRect(
@@ -224,6 +229,7 @@ private fun FeedbackTooltipIconButton(
     showTooltipHost: Boolean,
     foregroundColor: Color,
     tooltipBackgroundColor: Color,
+    hazeState: HazeState?,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
@@ -251,7 +257,15 @@ private fun FeedbackTooltipIconButton(
         ),
         tooltip = {
             PlainTooltip(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .let { baseModifier ->
+                        if (hazeState != null) {
+                            baseModifier.hazeEffect(state = hazeState)
+                        } else {
+                            baseModifier
+                        }
+                    },
                 shape = MaterialTheme.shapes.largeIncreased,
                 containerColor = tooltipBackgroundColor,
                 contentColor = foregroundColor,
