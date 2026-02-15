@@ -3,18 +3,16 @@ package com.websarva.wings.android.slevo.ui.common
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -57,8 +55,8 @@ fun AnchoredOverlayMenu(
     ) {
         Surface(
             modifier = Modifier
-                .width(IntrinsicSize.Min)
-                .widthIn(min = 180.dp, max = 320.dp),
+                .width(IntrinsicSize.Max)
+                .padding(horizontal = 8.dp),
             shape = MaterialTheme.shapes.extraSmall,
             color = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface,
@@ -91,7 +89,7 @@ private class AnchoredOverlayMenuPositionProvider(
         val maxY = (windowSize.height - popupContentSize.height).coerceAtLeast(0)
 
         val centeredX = anchorBoundsInWindow.left +
-            ((anchorBoundsInWindow.width - popupContentSize.width) / 2)
+                ((anchorBoundsInWindow.width - popupContentSize.width) / 2)
         val x = centeredX.coerceIn(0, maxX)
 
         // ボタンの上端付近にメニューを重ねる。画面外はクランプする。
@@ -121,13 +119,11 @@ fun AnchoredOverlayMenuItem(
                 .clickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             style = MaterialTheme.typography.bodyLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
-@Preview
+@Preview(showSystemUi = true, showBackground = false)
 @Composable
 private fun AnchoredOverlayMenuPreview() {
     SlevoTheme {
