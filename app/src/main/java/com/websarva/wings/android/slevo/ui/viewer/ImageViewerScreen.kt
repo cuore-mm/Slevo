@@ -244,28 +244,33 @@ fun ImageViewerScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            ImageViewerTopBar(
-                isVisible = isBarsVisible,
-                isMenuExpanded = isTopBarMenuExpanded,
-                imageCount = imageUrls.size,
-                barBackgroundColor = barBackgroundColor,
-                foregroundColor = viewerContentColor,
-                tooltipBackgroundColor = tooltipBackgroundColor,
-                hazeState = hazeState,
-                barExitDurationMillis = barExitDurationMillis,
-                onNavigateUp = onNavigateUp,
-                onSaveClick = { viewModel?.requestImageSave(context, listOf(currentImageUrl)) },
-                onShareClick = { onImageMenuActionClick(ImageMenuAction.SHARE_IMAGE) },
-                onMoreClick = { viewModel?.toggleTopBarMenu() },
-                onDismissMenu = { viewModel?.hideTopBarMenu() },
-                onMenuActionClick = onImageMenuActionClick,
-            )
-        },
-        containerColor = viewerBackgroundColor,
-        contentWindowInsets = WindowInsets(0)
-    ) { _ ->
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .hazeSource(state = hazeState)
+    ) {
+        Scaffold(
+            topBar = {
+                ImageViewerTopBar(
+                    isVisible = isBarsVisible,
+                    isMenuExpanded = isTopBarMenuExpanded,
+                    imageCount = imageUrls.size,
+                    barBackgroundColor = barBackgroundColor,
+                    foregroundColor = viewerContentColor,
+                    tooltipBackgroundColor = tooltipBackgroundColor,
+                    hazeState = hazeState,
+                    barExitDurationMillis = barExitDurationMillis,
+                    onNavigateUp = onNavigateUp,
+                    onSaveClick = { viewModel?.requestImageSave(context, listOf(currentImageUrl)) },
+                    onShareClick = { onImageMenuActionClick(ImageMenuAction.SHARE_IMAGE) },
+                    onMoreClick = { viewModel?.toggleTopBarMenu() },
+                    onDismissMenu = { viewModel?.hideTopBarMenu() },
+                    onMenuActionClick = onImageMenuActionClick,
+                )
+            },
+            containerColor = viewerBackgroundColor,
+            contentWindowInsets = WindowInsets(0)
+        ) { _ ->
         // --- Zoom reset ---
         LaunchedEffect(pagerState.currentPage) {
             val currentPage = pagerState.currentPage
@@ -464,7 +469,6 @@ fun ImageViewerScreen(
         val boxModifier = Modifier
             .fillMaxSize()
             .background(viewerBackgroundColor)
-            .hazeSource(state = hazeState)
 
         Box(
             modifier = boxModifier
@@ -535,6 +539,7 @@ fun ImageViewerScreen(
                     )
                 }
             }
+        }
         }
     }
 }
