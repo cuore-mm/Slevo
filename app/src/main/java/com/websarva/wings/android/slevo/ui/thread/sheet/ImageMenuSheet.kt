@@ -21,6 +21,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -110,12 +111,12 @@ fun ImageMenuSheetContent(
         }
         BottomSheetListItem(
             text = stringResource(R.string.image_menu_copy_image),
-            icon = Icons.Outlined.ContentCopy,
+            leadingContent = { CopyActionsIcon() },
             onClick = { onActionSelected(ImageMenuAction.COPY_IMAGE) }
         )
         BottomSheetListItem(
             text = stringResource(R.string.image_menu_copy_image_url),
-            icon = null,
+            leadingContent = { CopyActionsIcon() },
             onClick = { onActionSelected(ImageMenuAction.COPY_IMAGE_URL) }
         )
         HorizontalDivider()
@@ -144,9 +145,29 @@ fun ImageMenuSheetContent(
  */
 @Composable
 private fun SaveAllImagesIcon() {
+    BadgedMenuIcon(baseIcon = Icons.Outlined.Download)
+}
+
+/**
+ * コピー系メニュー用の合成アイコン。
+ *
+ * 画像本体コピーと画像リンクコピーを同じ視認表現で揃える。
+ */
+@Composable
+private fun CopyActionsIcon() {
+    BadgedMenuIcon(baseIcon = Icons.Outlined.ContentCopy)
+}
+
+/**
+ * メニュー内で複数系アクションを示す合成アイコン。
+ *
+ * ベースアイコンに対して filter_none バッジを右下へ重ねる。
+ */
+@Composable
+private fun BadgedMenuIcon(baseIcon: ImageVector) {
     Box(modifier = Modifier.size(24.dp)) {
         Icon(
-            imageVector = Icons.Outlined.Download,
+            imageVector = baseIcon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
