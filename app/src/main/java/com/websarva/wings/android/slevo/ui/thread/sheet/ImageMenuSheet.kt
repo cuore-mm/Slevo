@@ -2,9 +2,11 @@ package com.websarva.wings.android.slevo.ui.thread.sheet
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Block
@@ -145,7 +147,10 @@ fun ImageMenuSheetContent(
  */
 @Composable
 private fun SaveAllImagesIcon() {
-    BadgedMenuIcon(baseIcon = Icons.Outlined.Download)
+    BadgedMenuIcon(
+        baseIcon = Icons.Outlined.Download,
+        badgeIcon = Icons.Outlined.FilterNone,
+    )
 }
 
 /**
@@ -155,16 +160,23 @@ private fun SaveAllImagesIcon() {
  */
 @Composable
 private fun CopyActionsIcon() {
-    BadgedMenuIcon(baseIcon = Icons.Outlined.ContentCopy)
+    BadgedMenuIcon(
+        baseIcon = Icons.Outlined.ContentCopy,
+        badgeIcon = Icons.Outlined.FilterNone,
+    )
 }
 
 /**
  * メニュー内で複数系アクションを示す合成アイコン。
  *
- * ベースアイコンに対して filter_none バッジを右下へ重ねる。
+ * ベースアイコンとバッジアイコンを受け取り、右下へ重ねて表示する。
+ * バッジ背面にマスク色を敷き、重なり部分でベースアイコンが透けないようにする。
  */
 @Composable
-private fun BadgedMenuIcon(baseIcon: ImageVector) {
+private fun BadgedMenuIcon(
+    baseIcon: ImageVector,
+    badgeIcon: ImageVector,
+) {
     Box(modifier = Modifier.size(24.dp)) {
         Icon(
             imageVector = baseIcon,
@@ -174,15 +186,24 @@ private fun BadgedMenuIcon(baseIcon: ImageVector) {
                 .size(20.dp)
                 .align(Alignment.CenterStart)
         )
-        Icon(
-            imageVector = Icons.Outlined.FilterNone,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        Box(
             modifier = Modifier
-                .size(12.dp)
+                .size(13.dp)
                 .align(Alignment.BottomEnd)
                 .offset(x = 1.dp, y = 1.dp)
-        )
+                .background(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = CircleShape,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = badgeIcon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(11.dp),
+            )
+        }
     }
 }
 
