@@ -59,6 +59,7 @@ import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuDriver
 import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuItem
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
+import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -76,6 +77,7 @@ internal fun ImageViewerTopBar(
     barBackgroundColor: Color,
     foregroundColor: Color,
     tooltipBackgroundColor: Color,
+    hazeState: HazeState?,
     barExitDurationMillis: Int,
     onNavigateUp: () -> Unit,
     onSaveClick: () -> Unit,
@@ -163,6 +165,7 @@ internal fun ImageViewerTopBar(
                     AnchoredOverlayMenu(
                         expanded = isMenuExpanded,
                         anchorBoundsInWindow = menuAnchorBounds,
+                        hazeState = hazeState,
                         onDismissRequest = onDismissMenu,
                     ) {
                         AnchoredOverlayMenuItem(
@@ -307,6 +310,7 @@ private fun ImageViewerTopBarPreview() {
             barBackgroundColor = Color.Black.copy(alpha = 0.5f),
             foregroundColor = Color.White,
             tooltipBackgroundColor = Color.Black.copy(alpha = 0.5f),
+            hazeState = null,
             barExitDurationMillis = 300,
             onNavigateUp = {},
             onSaveClick = {},
@@ -329,6 +333,7 @@ private fun ImageViewerTopBarMenuExpandedPreview() {
             barBackgroundColor = Color.Black.copy(alpha = 0.5f),
             foregroundColor = Color.White,
             tooltipBackgroundColor = Color.Black.copy(alpha = 0.5f),
+            hazeState = null,
             barExitDurationMillis = 300,
             onNavigateUp = {},
             onSaveClick = {},

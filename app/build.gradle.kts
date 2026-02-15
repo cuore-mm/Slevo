@@ -197,6 +197,9 @@ dependencies {
     // Telephoto
     implementation(libs.zoomable.image.coil3)
 
+    // Haze
+    implementation(libs.haze)
+
     // AboutLibraries
     implementation(libs.aboutlibraries.compose.m3)
 

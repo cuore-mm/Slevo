@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 
 /**
@@ -40,6 +42,7 @@ import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 fun AnchoredOverlayMenu(
     expanded: Boolean,
     anchorBoundsInWindow: IntRect?,
+    hazeState: HazeState?,
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -64,8 +67,15 @@ fun AnchoredOverlayMenu(
             modifier = Modifier
                 .width(IntrinsicSize.Max)
                 .padding(horizontal = 8.dp, vertical = 8.dp),
+                .let { baseModifier ->
+                    if (hazeState != null) {
+                        baseModifier.hazeEffect(state = hazeState)
+                    } else {
+                        baseModifier
+                    }
+                },
             shape = MaterialTheme.shapes.largeIncreased,
-            color = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.96f),
+            color = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.72f),
             contentColor = MaterialTheme.colorScheme.onSurface,
             tonalElevation = 3.dp,
             shadowElevation = 3.dp,
@@ -157,6 +167,7 @@ private fun AnchoredOverlayMenuPreview() {
         AnchoredOverlayMenu(
             expanded = true,
             anchorBoundsInWindow = IntRect(320, 80, 368, 128),
+            hazeState = null,
             onDismissRequest = {},
         ) {
             AnchoredOverlayMenuItem(text = "画像を保存", onClick = {})

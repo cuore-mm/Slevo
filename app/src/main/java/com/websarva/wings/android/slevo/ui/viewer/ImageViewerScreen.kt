@@ -63,6 +63,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.ZoomableState
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import kotlin.math.abs
 
 /**
@@ -89,6 +91,7 @@ fun ImageViewerScreen(
     val tooltipBackgroundColor = colorScheme.surfaceBright.copy(alpha = 0.90f)
     val barExitDurationMillis = 80
     val useDarkSystemBarIcons = viewerBackgroundColor.luminance() > 0.5f
+    val hazeState = rememberHazeState()
 
     // --- UI state ---
     var isBarsVisible by rememberSaveable { mutableStateOf(true) }
@@ -250,6 +253,7 @@ fun ImageViewerScreen(
                 barBackgroundColor = barBackgroundColor,
                 foregroundColor = viewerContentColor,
                 tooltipBackgroundColor = tooltipBackgroundColor,
+                hazeState = hazeState,
                 barExitDurationMillis = barExitDurationMillis,
                 onNavigateUp = onNavigateUp,
                 onSaveClick = { viewModel?.requestImageSave(context, listOf(currentImageUrl)) },
@@ -460,6 +464,7 @@ fun ImageViewerScreen(
         val boxModifier = Modifier
             .fillMaxSize()
             .background(viewerBackgroundColor)
+            .hazeSource(state = hazeState)
 
         Box(
             modifier = boxModifier
