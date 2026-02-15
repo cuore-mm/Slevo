@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenu
+import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuDriver
 import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuItem
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
@@ -168,6 +169,7 @@ internal fun ImageViewerTopBar(
                             text = stringResource(R.string.image_menu_add_ng),
                             onClick = { onMenuActionClick(ImageMenuAction.ADD_NG) },
                         )
+                        AnchoredOverlayMenuDriver()
                         AnchoredOverlayMenuItem(
                             text = stringResource(R.string.image_menu_copy_image),
                             onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE) },
@@ -176,6 +178,7 @@ internal fun ImageViewerTopBar(
                             text = stringResource(R.string.image_menu_copy_image_url),
                             onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE_URL) },
                         )
+                        AnchoredOverlayMenuDriver()
                         AnchoredOverlayMenuItem(
                             text = stringResource(R.string.image_menu_open_in_other_app),
                             onClick = { onMenuActionClick(ImageMenuAction.OPEN_IN_OTHER_APP) },
@@ -184,10 +187,11 @@ internal fun ImageViewerTopBar(
                             text = stringResource(R.string.image_menu_search_web),
                             onClick = { onMenuActionClick(ImageMenuAction.SEARCH_WEB) },
                         )
+                        AnchoredOverlayMenuDriver()
                         if (imageCount >= 2) {
                             AnchoredOverlayMenuItem(
                                 text = stringResource(
-                                    R.string.image_menu_save_all_images_with_count,
+                                    R.string.image_menu_save_all_images_short,
                                     imageCount,
                                 ),
                                 onClick = { onMenuActionClick(ImageMenuAction.SAVE_ALL_IMAGES) },
@@ -314,7 +318,7 @@ private fun ImageViewerTopBarPreview() {
     }
 }
 
-@Preview
+@Preview(showSystemUi = true, showBackground = false)
 @Composable
 private fun ImageViewerTopBarMenuExpandedPreview() {
     SlevoTheme {

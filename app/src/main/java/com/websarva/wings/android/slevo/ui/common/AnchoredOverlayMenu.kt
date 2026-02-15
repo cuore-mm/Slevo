@@ -1,18 +1,24 @@
 package com.websarva.wings.android.slevo.ui.common
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -29,6 +35,7 @@ import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
  *
  * メニューはアンカー上に重ねて表示し、画面外へはみ出す場合は画面内へ補正する。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AnchoredOverlayMenu(
     expanded: Boolean,
@@ -56,12 +63,12 @@ fun AnchoredOverlayMenu(
         Surface(
             modifier = Modifier
                 .width(IntrinsicSize.Max)
-                .padding(horizontal = 8.dp),
-            shape = MaterialTheme.shapes.extraSmall,
-            color = MaterialTheme.colorScheme.surface,
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            shape = MaterialTheme.shapes.largeIncreased,
+            color = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.96f),
             contentColor = MaterialTheme.colorScheme.onSurface,
-            tonalElevation = 2.dp,
-            shadowElevation = 4.dp,
+            tonalElevation = 3.dp,
+            shadowElevation = 3.dp,
         ) {
             Column(content = content)
         }
@@ -108,17 +115,37 @@ fun AnchoredOverlayMenuItem(
     text: String,
     onClick: () -> Unit,
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
+    Text(
+        text = text,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 12.dp),
+        style = MaterialTheme.typography.bodyLarge,
+    )
+
+}
+
+@Composable
+fun AnchoredOverlayMenuDriver() {
+    val color = MaterialTheme.colorScheme.outline
+    Canvas(
+        modifier = Modifier
+            .padding(horizontal = 12.dp)
+            .fillMaxWidth()
+            .height(1.dp)
     ) {
-        Text(
-            text = text,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            style = MaterialTheme.typography.bodyLarge,
+        val y = size.height / 2f
+        drawLine(
+            color = color,
+            start = Offset(0f, y),
+            end = Offset(size.width, y),
+            strokeWidth = 3f,
+            cap = StrokeCap.Round,
+            pathEffect = PathEffect.dashPathEffect(
+                floatArrayOf(1f, 12f),
+                0f
+            )
         )
     }
 }
@@ -133,6 +160,7 @@ private fun AnchoredOverlayMenuPreview() {
             onDismissRequest = {},
         ) {
             AnchoredOverlayMenuItem(text = "画像を保存", onClick = {})
+            AnchoredOverlayMenuDriver()
             AnchoredOverlayMenuItem(text = "画像URLをコピー", onClick = {})
             AnchoredOverlayMenuItem(text = "ウェブで画像を検索", onClick = {})
         }
