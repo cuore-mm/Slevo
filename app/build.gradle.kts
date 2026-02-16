@@ -14,7 +14,7 @@ plugins {
     id("com.google.devtools.ksp")
 
     // AboutLibraries
-    id("com.mikepenz.aboutlibraries.plugin")
+    id("com.mikepenz.aboutlibraries.plugin.android")
 }
 
 // local.propertiesからAPIキーを読み込む

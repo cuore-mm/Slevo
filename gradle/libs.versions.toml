@@ -1,5 +1,5 @@
 [versions]
-aboutlibrariesComposeM3 = "12.2.4"
+aboutlibrariesComposeM3 = "13.2.1"
 agp = "9.0.1"
 coilComposeVersion = "3.3.0"
 foundation = "1.8.0"

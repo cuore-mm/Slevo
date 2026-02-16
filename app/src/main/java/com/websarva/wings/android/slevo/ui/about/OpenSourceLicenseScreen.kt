@@ -13,6 +13,9 @@ import com.mikepenz.aboutlibraries.ui.compose.m3.LibrariesContainer
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 
+/**
+ * Renders the open source licenses screen backed by AboutLibraries metadata.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OpenSourceLicenseScreen(
@@ -26,7 +29,7 @@ fun OpenSourceLicenseScreen(
             )
         }
     ) { innerPadding ->
-        val libraries by rememberLibraries()
+        val libraries by rememberLibraries(R.raw.aboutlibraries)
         LibrariesContainer(
             libraries = libraries,
             modifier = Modifier

@@ -9,7 +9,7 @@ plugins {
     id("com.google.devtools.ksp") version "2.3.2" apply false
 
     // AboutLibraries
-    id("com.mikepenz.aboutlibraries.plugin") version "12.2.4" apply false
+    id("com.mikepenz.aboutlibraries.plugin.android") version "13.2.1" apply false
 }
 
 allprojects {
