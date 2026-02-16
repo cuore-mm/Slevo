@@ -83,7 +83,7 @@ android {
     // exported schema をテストの assets として参照するようにする（schemas ディレクトリを追加）
     sourceSets {
         // AboutLibraries の生成JSONを raw resource として取り込む
-        getByName("main").res.srcDir(layout.buildDirectory.dir("generated/aboutlibraries/res"))
+        getByName("main").res.srcDir("$buildDir/generated/aboutlibraries/res")
         getByName("test").assets.directories.add("$projectDir/schemas")
         getByName("androidTest").assets.directories.add("$projectDir/schemas")
     }
