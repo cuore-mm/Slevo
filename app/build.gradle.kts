@@ -70,9 +70,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
         isCoreLibraryDesugaringEnabled = true
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
     buildFeatures {
         compose = true
         buildConfig = true
@@ -85,8 +82,8 @@ android {
 
     // exported schema をテストの assets として参照するようにする（schemas ディレクトリを追加）
     sourceSets {
-        getByName("test").assets.srcDir("$projectDir/schemas")
-        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+        getByName("test").assets.directories.add(file("$projectDir/schemas"))
+        getByName("androidTest").assets.directories.add(file("$projectDir/schemas"))
     }
 }
 
