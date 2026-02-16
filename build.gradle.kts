@@ -7,7 +7,7 @@ plugins {
     //hilt
     id("com.google.dagger.hilt.android") version "2.57.2" apply false
 
-    id("com.google.devtools.ksp") version "2.1.20-1.0.32" apply false
+    id("com.google.devtools.ksp") version "2.3.2" apply false
 
     // AboutLibraries
     id("com.mikepenz.aboutlibraries.plugin") version "12.2.4" apply false
