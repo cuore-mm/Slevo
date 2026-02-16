@@ -1,10 +1,10 @@
 ## ADDED Requirements
 
 ### Requirement: Androidビルドでライセンスメタデータを自動生成する
-システムは、AboutLibrariesのAndroid向けプラグイン構成により、Androidビルド時に`aboutlibraries`メタデータを自動生成し、アプリが参照可能な`@raw/aboutlibraries`として提供しなければならない（MUST）。
+システムは、AboutLibrariesの`exportLibraryDefinitions`をAndroidビルドへ連携し、ビルド時に`aboutlibraries`メタデータを生成して、アプリが参照可能な`@raw/aboutlibraries`として提供しなければならない（MUST）。
 
-#### Scenario: Android向けプラグイン構成でビルドする
-- **WHEN** 開発者が対象モジュールをAndroid向けのAboutLibrariesプラグイン構成でビルドする
+#### Scenario: AboutLibrariesエクスポート連携構成でビルドする
+- **WHEN** 開発者が`exportLibraryDefinitions`連携済みの構成でビルドする
 - **THEN** ライセンス定義データがビルド工程で生成され、実行時に`@raw/aboutlibraries`として解決できる
 
 ### Requirement: ライセンス画面はrawリソースを明示指定して読み込む

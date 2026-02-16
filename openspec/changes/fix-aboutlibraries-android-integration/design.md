@@ -2,7 +2,7 @@
 
 現在のOpen Source Licenses画面は、AboutLibrariesの定義JSONを確実に参照できる前提で動作するが、ビルド設定側がAndroid向け自動生成フローに揃っておらず、実行時に`@raw/aboutlibraries`解決が不安定になっている。加えてAGP 9では最適化リソース縮小が既定で有効なため、生成済みJSONが縮小工程で除去されるリスクがある。
 
-本変更は、AboutLibraries公式README/MIGRATIONで示されるv13系のプラグイン分割方針に従い、Android向けでは`.plugin.android`を利用して生成をビルドパイプラインへ統合する。
+本変更は、AboutLibraries公式README/MIGRATIONで示されるv13系のプラグイン分割方針に従い、`13.2.1`固定の制約下ではメインプラグインの手動エクスポート機能をビルドへ組み込み、`aboutlibraries.json`生成を自動化する。
 
 ## Goals / Non-Goals
 
@@ -19,17 +19,17 @@
 
 ## Decisions
 
-1. Android自動生成が必要なため、AboutLibrariesプラグインは`com.mikepenz.aboutlibraries.plugin.android`を採用する。
-   - 理由: `com.mikepenz.aboutlibraries.plugin`は手動エクスポート前提であり、Androidビルドへの自動フックを保証しない。
-   - 代替案: 手動で`exportLibraryDefinitions`を実行しJSONをコミットする方式。
-     - 却下理由: 実行漏れや差分管理コストが増え、CI/ローカル間で不整合を起こしやすい。
+1. AboutLibrariesは`com.mikepenz.aboutlibraries.plugin`（13.2.1）を採用し、`exportLibraryDefinitions`を`preBuild`依存へ接続して生成を自動化する。
+   - 理由: `13.2.1`の`.plugin.android`はAGP 9環境で`R.raw.aboutlibraries`生成に必要な連携が成立せず、コンパイル時にリソース未解決となるため。
+   - 代替案: `.plugin.android`を継続利用する方式。
+     - 却下理由: CIで`R.raw.aboutlibraries`未生成によるコンパイル失敗が再現した。
 
 2. UI側は`rememberLibraries(R.raw.aboutlibraries)`でrawリソースを明示指定する。
    - 理由: Android実装の公式利用例と一致し、参照元を明確化できる。
    - 代替案: `rememberLibraries()`の自動検出任せ。
      - 却下理由: 実行時環境差分の影響を受けやすく、今回の障害再発を防ぎにくい。
 
-3. AboutLibrariesバージョンは`13.2.1`へ固定する。
+3. AboutLibrariesバージョンは`13.2.1`へ固定し、出力先を`$buildDir/generated/aboutlibraries/res/raw/aboutlibraries.json`へ統一する。
    - 理由: v13以降のプラグイン分割仕様と整合し、AGP 9/新Variant API前提の改善を取り込める。
    - 代替案: 現行12.2.4を維持。
      - 却下理由: 公式の現行運用モデルとの差分が大きく、設定の意図が分かりにくい。
@@ -47,11 +47,12 @@
 
 ## Migration Plan
 
-1. ルート/アプリのGradle plugin定義を`.plugin.android`へ切り替え、AboutLibraries関連バージョンを`13.2.1`へ固定する。
-2. ライセンス画面の読み込みを`R.raw.aboutlibraries`明示指定へ戻す。
-3. `tools:keep="@raw/aboutlibraries"`を含むkeepファイルを追加し、リソース縮小時の除去を防ぐ。
-4. CIでassemble・unit test・ライセンス画面起動確認を実施し、クラッシュが再発しないことを確認する。
-5. 問題発生時は、プラグイン更新差分をロールバックしつつ`R.raw`明示参照を維持して原因を切り分ける。
+1. ルート/アプリのGradle plugin定義を`com.mikepenz.aboutlibraries.plugin`へ揃え、AboutLibraries関連バージョンを`13.2.1`へ固定する。
+2. `exportLibraryDefinitions`の出力先を`$buildDir/generated/aboutlibraries/res/raw/aboutlibraries.json`に設定し、`preBuild`依存で自動生成する。
+3. ライセンス画面の読み込みを`R.raw.aboutlibraries`明示指定へ戻す。
+4. `tools:keep="@raw/aboutlibraries"`を含むkeepファイルを追加し、リソース縮小時の除去を防ぐ。
+5. CIでassemble・unit test・ライセンス画面起動確認を実施し、クラッシュが再発しないことを確認する。
+6. 問題発生時は、プラグイン更新差分をロールバックしつつ`R.raw`明示参照を維持して原因を切り分ける。
 
 ## Open Questions
 
