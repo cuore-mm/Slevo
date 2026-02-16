@@ -26,7 +26,7 @@ fun OpenSourceLicenseScreen(
             )
         }
     ) { innerPadding ->
-        val libraries by rememberLibraries(R.raw.aboutlibraries)
+        val libraries by rememberLibraries()
         LibrariesContainer(
             libraries = libraries,
             modifier = Modifier
@@ -35,4 +35,3 @@ fun OpenSourceLicenseScreen(
         )
     }
 }
-
