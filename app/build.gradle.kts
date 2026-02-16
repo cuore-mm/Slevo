@@ -6,7 +6,6 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 
-    id("kotlin-kapt")
     id("com.google.dagger.hilt.android")
 
     // Kotlin serialization plugin for type safe routes and navigation arguments
@@ -168,7 +167,7 @@ dependencies {
 
     //hilt
     implementation(libs.hilt.android)
-    kapt(libs.hilt.android.compiler)
+    ksp(libs.hilt.android.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
 
     //Moshi
@@ -214,15 +213,6 @@ dependencies {
     implementation(libs.timber)
 
     coreLibraryDesugaring(libs.desugar.jdk.libs)
-}
-
-// Allow references to generated code
-kapt {
-    correctErrorTypes = true
-    // kapt を使うアノテーションプロセッサ向けに schema 出力を指定（念のため）
-    arguments {
-        arg("room.schemaLocation", "$projectDir/schemas")
-    }
 }
 
 // KSP に対して Room の schema 出力先を指定
