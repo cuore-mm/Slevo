@@ -124,6 +124,10 @@ androidComponents {
     }
 }
 
+tasks.register("testCiUnitTest") {
+    dependsOn("testDebugUnitTest")
+}
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
