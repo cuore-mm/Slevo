@@ -82,8 +82,8 @@ android {
 
     // exported schema をテストの assets として参照するようにする（schemas ディレクトリを追加）
     sourceSets {
-        getByName("test").assets.directories.add(file("$projectDir/schemas"))
-        getByName("androidTest").assets.directories.add(file("$projectDir/schemas"))
+        getByName("test").assets.directories.add("$projectDir/schemas")
+        getByName("androidTest").assets.directories.add("$projectDir/schemas")
     }
 }
 
