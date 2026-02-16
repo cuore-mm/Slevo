@@ -96,7 +96,7 @@ androidComponents {
             into(rootProject.layout.projectDirectory.dir("apk"))
             rename { "Slevo-$appVersionName.apk" }
         }
-        tasks.named("assemble$variantName").configure {
+        tasks.matching { it.name == "assemble$variantName" }.configureEach {
             finalizedBy(copyReleaseApkTask)
         }
     }
@@ -118,7 +118,7 @@ androidComponents {
             into(rootProject.layout.projectDirectory.dir("apk"))
             rename { "Slevo-${variant.name}.apk" }
         }
-        tasks.named("assemble$variantName").configure {
+        tasks.matching { it.name == "assemble$variantName" }.configureEach {
             finalizedBy(copyCiApkTask)
         }
     }
