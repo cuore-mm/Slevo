@@ -22,18 +22,22 @@
    - 代替案: 一時的に旧設定を維持して警告のみ許容。
    - 採用理由: AGP 10 での削除が明示されており、先送りの効果が小さい。
 
-2. `applicationVariants` / `BaseVariantOutputImpl` を使う内部 API 依存を廃止し、`androidComponents` と公開 Artifacts API へ移行する。
+2. `applicationVariants` / `BaseVariantOutputImpl` を使う内部 API 依存を廃止し、成果物取得は `androidComponents` の公開 Artifacts API に一本化する。
    - 代替案: internal API を継続利用して最小変更に留める。
    - 採用理由: internal API は将来互換性が低く、警告・破壊的変更の影響を受けやすい。
 
-3. リリース成果物の命名・コピーは Variant 出力後処理タスクとして組み替える。
-   - 代替案: 既存 `assembleProvider.doLast` と output キャストを継続。
-   - 採用理由: 出力オブジェクトの実装型キャストを排除し、公開 API のみで保守可能にする。
+3. 配布用 APK 名は Artifacts API で取得した出力を入力にした Copy タスクで生成する。
+   - 代替案: 出力生成時点で直接ファイル名を上書きする。
+   - 採用理由: 生成物の取得と配布用命名を分離することで、Variant API 変更の影響を局所化できる。
+
+4. 命名規則は用途別に固定する。
+   - リリース: 現行互換名 `Slevo-<versionName>.apk` を固定する。
+   - CI/検証: variant 名を含む命名を採用し、複数 buildType/variant の識別性を高める。
 
 ## Risks / Trade-offs
 
-- [Risk] AGP の API 差分により既存の APK ファイル名ルールが変わる可能性
-  → Mitigation: 期待ファイル名を CI で検証し、差分発生時は生成ルールを明示的に固定する。
+- [Risk] リリースと CI で命名規則を分けることで運用認識の齟齬が起きる可能性
+  → Mitigation: リリース固定名と CI variant 名入り命名を仕様として明文化し、検証ステップで両方を確認する。
 
 - [Risk] 成果物コピー処理のタイミング変更で `apk/` への出力が失敗する可能性
   → Mitigation: リリース組み立て後に出力先存在・件数を検証するチェックを追加する。
@@ -44,12 +48,11 @@
 ## Migration Plan
 
 1. `gradle.properties` から `android.newDsl=false` を削除（または `true` 化）して新 DSL を既定化する。
-2. `app/build.gradle.kts` の旧 Variant API 参照を公開 API ベースへ置換する。
-3. リリース APK の命名と `apk/` への出力要件を新実装へ移す。
-4. ビルド・ユニットテスト・CI 生成物確認を実施し、互換性を検証する。
-5. 問題発生時は、成果物処理のみを段階的に切り戻せるようコミットを分離する。
+2. `app/build.gradle.kts` の旧 Variant API 参照を公開 API ベースへ置換し、成果物取得を Artifacts API に一本化する。
+3. Artifacts API の出力を入力とする Copy タスクを作成し、配布用ファイル名を生成する。
+4. リリースは `Slevo-<versionName>.apk` 固定、CI/検証は variant 名入り命名で `apk/` へ出力する。
+5. ビルド・ユニットテスト・生成物確認を実施し、互換性を検証する。
 
 ## Open Questions
 
-- AGP 9 系で採用する成果物コピー方式は、`androidComponents` の Artifacts API で統一するか、補助タスク併用で運用するか。
-- リリース APK の命名規則を現行互換（`Slevo-<versionName>.apk`）で固定するか、variant 名を含む将来互換形式へ変更するか。
+- なし（成果物取得方式と命名規則を確定済み）。

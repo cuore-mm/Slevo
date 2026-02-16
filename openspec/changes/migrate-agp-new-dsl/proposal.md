@@ -6,7 +6,8 @@ AGP 9.0 では `android.newDsl=true` が既定となり、旧 DSL の `Project.a
 
 - `android.newDsl=false` に依存した構成を廃止し、新 DSL（`ApplicationExtension`）前提の構成へ移行する。
 - `applicationVariants` と `BaseVariantOutputImpl` を使う旧 Variant API の利用をやめ、`androidComponents` と公開 API で同等要件を満たす。
-- リリース APK の命名・出力物コピーなど、ビルド成果物操作を AGP 9/10 互換の方法へ置き換える。
+- 成果物取得は `androidComponents` の Artifacts API に一本化し、配布用ファイル名は Copy タスクで生成する。
+- リリース APK 名は現行互換（`Slevo-<versionName>.apk`）を固定し、CI/検証向け出力では variant 名を含む命名で区別可能にする。
 
 ## Capabilities
 

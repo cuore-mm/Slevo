@@ -15,11 +15,18 @@ Gradle 設定は AGP 9 以降の新 DSL（`ApplicationExtension`）を前提と�
 - **THEN** `applicationVariants` と `com.android.build.gradle.internal.api.*` への参照が存在しない
 
 ### Requirement: リリース成果物要件の維持
-新 DSL への移行後も、リリースビルド時に APK 命名規則と成果物出力手順が維持されなければならない。
+新 DSL への移行後も、リリースビルド時の配布用 APK は Copy タスクで生成され、現行互換名 `Slevo-<versionName>.apk` に固定されなければならない。
 
 #### Scenario: リリース成果物が期待形式で出力される
 - **WHEN** 開発者がリリース APK 組み立てを実行する
-- **THEN** 期待する命名規則の APK が生成され、定義された出力先へ保存される
+- **THEN** Copy タスク経由で `Slevo-<versionName>.apk` が生成され、定義された出力先へ保存される
+
+### Requirement: CI検証向け成果物の識別可能性
+CI および検証用の成果物は variant 名を含む命名で出力され、同時に複数 variant を扱う場合でも識別できなければならない。
+
+#### Scenario: CI/検証成果物にvariant名が含まれる
+- **WHEN** 開発者または CI が `ci` などの検証用 variant の成果物を生成する
+- **THEN** 出力 APK 名に variant 名が含まれ、リリース固定名と衝突しない
 
 ### Requirement: CIバリアント互換性
 CI 用 buildType の versionCode 設定は移行後も有効でなければならず、実行環境の `GITHUB_RUN_NUMBER` を用いた上書きが継続されなければならない。
