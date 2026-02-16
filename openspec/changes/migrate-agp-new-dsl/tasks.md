@@ -14,6 +14,6 @@
 ## 3. 検証
 
 - [ ] 3.1 `:app:assembleRelease` を実行し、期待される命名規則と出力先に APK が生成されることを確認する
-- [ ] 3.2 `:app:testDebugUnitTest` を実行し、移行後もユニットテストが成功することを確認する
-- [ ] 3.3 CI/検証用 variant の成果物で variant 名入り命名が出力されることを確認する
-- [ ] 3.4 AGP 9 環境で deprecation 警告（旧 DSL/旧 Variant API 起因）が再発しないことを確認する
+- [x] 3.2 `:app:testDebugUnitTest` を実行し、移行後もユニットテストが成功することを確認する
+- [x] 3.3 CI/検証用 variant の成果物で variant 名入り命名が出力されることを確認する
+- [x] 3.4 AGP 9 環境で deprecation 警告（旧 DSL/旧 VariantAPI 起因）が再発しないことを確認する
