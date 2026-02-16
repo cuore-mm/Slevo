@@ -1,3 +1,4 @@
+import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.VariantOutputConfiguration
 import java.util.Properties
 
@@ -25,6 +26,8 @@ if (localPropertiesFile.exists()) {
     properties.load(localPropertiesFile.inputStream())
 }
 
+val appVersionName = "1.5.1"
+
 android {
     namespace = "com.websarva.wings.android.slevo"
     compileSdk = 36
@@ -34,7 +37,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 13
-        versionName = "1.5.1"
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -64,25 +67,6 @@ android {
         }
     }
 
-    applicationVariants.all {
-        val variant = this
-        if (variant.buildType.name == "release") {
-            variant.outputs.all {
-                val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-                val fileName = "Slevo-${variant.versionName}.apk"
-                output.outputFileName = fileName
-            }
-            variant.assembleProvider.get().doLast {
-                val apkDir = rootProject.file("apk")
-                apkDir.mkdirs()
-                variant.outputs.forEach {
-                    val output = it as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-                    output.outputFile.copyTo(apkDir.resolve(output.outputFileName), overwrite = true)
-                }
-            }
-        }
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -109,7 +93,21 @@ android {
 }
 
 androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        val variantName = variant.name.replaceFirstChar { it.uppercase() }
+        val copyReleaseApkTask = tasks.register<Copy>("copy${variantName}ApkForDistribution") {
+            from(variant.artifacts.get(SingleArtifact.APK))
+            include("*.apk")
+            into(rootProject.layout.projectDirectory.dir("apk"))
+            rename { "Slevo-$appVersionName.apk" }
+        }
+        tasks.named("assemble$variantName").configure {
+            finalizedBy(copyReleaseApkTask)
+        }
+    }
+
     onVariants(selector().withBuildType("ci")) { variant ->
+        val variantName = variant.name.replaceFirstChar { it.uppercase() }
         val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
         if (runNumber != null) {
             variant.outputs.forEach { output ->
@@ -117,6 +115,16 @@ androidComponents {
                     output.versionCode.set(runNumber)
                 }
             }
+        }
+
+        val copyCiApkTask = tasks.register<Copy>("copy${variantName}ApkForVerification") {
+            from(variant.artifacts.get(SingleArtifact.APK))
+            include("*.apk")
+            into(rootProject.layout.projectDirectory.dir("apk"))
+            rename { "Slevo-${variant.name}.apk" }
+        }
+        tasks.named("assemble$variantName").configure {
+            finalizedBy(copyCiApkTask)
         }
     }
 }
