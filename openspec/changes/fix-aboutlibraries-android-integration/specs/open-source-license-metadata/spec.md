@@ -21,8 +21,8 @@
 - **WHEN** AGP 9環境でリソース縮小を伴うビルドを実行する
 - **THEN** `@raw/aboutlibraries`は削除されず、ライセンス画面が必要とするデータを参照できる
 
-### Requirement: AboutLibrariesのプラグインと依存バージョンを整合させる
-システムは、AboutLibrariesのGradleプラグインとアプリ依存ライブラリを同一の最新安定系列に整合させなければならない（MUST）。
+### Requirement: AboutLibrariesのプラグインと依存バージョンを13.2.1へ固定する
+システムは、AboutLibrariesのGradleプラグインとアプリ依存ライブラリのバージョンを`13.2.1`に固定し、相互互換性を維持しなければならない（MUST）。
 
 #### Scenario: 依存解決時にバージョン整合を確認する
 - **WHEN** 開発者がGradle同期またはCIビルドを実行する

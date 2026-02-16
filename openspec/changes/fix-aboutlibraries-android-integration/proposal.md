@@ -6,7 +6,7 @@ Open Source Licenses画面でライセンス定義の生データを正しく解
 
 - AboutLibrariesのGradleプラグイン構成を公式のAndroid向け運用に合わせ、ライブラリ定義JSONがAndroidビルドに自動連携されるようにする。
 - Open Source Licenses画面の読み込み方式を`@raw/aboutlibraries`明示指定ベースへ統一し、生成物依存を明確化する。
-- AboutLibraries関連の依存バージョンを最新安定版系列へ更新し、プラグインとUIライブラリの整合性を取る。
+- AboutLibraries関連の依存バージョンを`13.2.1`へ固定し、プラグインとUIライブラリの整合性を取る。
 - AGP 9の最適化リソース縮小で`aboutlibraries.json`が除去されないよう、公式推奨のresource keep設定を追加する。
 - CI/検証手順に、ライセンスデータ生成と画面起動に必要な確認項目を追加する。
 

@@ -9,7 +9,7 @@
 **Goals:**
 - AboutLibrariesメタデータ生成をAndroidビルドに自動統合し、`@raw/aboutlibraries`が常に解決可能な状態を作る。
 - Open Source Licenses画面の読み込み経路を`R.raw.aboutlibraries`明示指定で固定し、実行時の曖昧性を排除する。
-- AboutLibraries関連のプラグイン/依存バージョンを同一の最新安定系列へ揃える。
+- AboutLibraries関連のプラグイン/依存バージョンを`13.2.1`へ固定する。
 - AGP 9のresource shrinking下でも`aboutlibraries`リソースを保持する。
 
 **Non-Goals:**
@@ -29,7 +29,7 @@
    - 代替案: `rememberLibraries()`の自動検出任せ。
      - 却下理由: 実行時環境差分の影響を受けやすく、今回の障害再発を防ぎにくい。
 
-3. AboutLibrariesバージョンは最新安定版（現時点13.2.1）へ統一する。
+3. AboutLibrariesバージョンは`13.2.1`へ固定する。
    - 理由: v13以降のプラグイン分割仕様と整合し、AGP 9/新Variant API前提の改善を取り込める。
    - 代替案: 現行12.2.4を維持。
      - 却下理由: 公式の現行運用モデルとの差分が大きく、設定の意図が分かりにくい。
@@ -47,7 +47,7 @@
 
 ## Migration Plan
 
-1. ルート/アプリのGradle plugin定義を`.plugin.android`へ切り替え、AboutLibraries関連バージョンを統一する。
+1. ルート/アプリのGradle plugin定義を`.plugin.android`へ切り替え、AboutLibraries関連バージョンを`13.2.1`へ固定する。
 2. ライセンス画面の読み込みを`R.raw.aboutlibraries`明示指定へ戻す。
 3. `tools:keep="@raw/aboutlibraries"`を含むkeepファイルを追加し、リソース縮小時の除去を防ぐ。
 4. CIでassemble・unit test・ライセンス画面起動確認を実施し、クラッシュが再発しないことを確認する。
@@ -55,5 +55,4 @@
 
 ## Open Questions
 
-- AboutLibrariesの更新を13.2.1で固定するか、v14系（Java 21前提）への移行を別チェンジで扱うか。
 - ライセンス画面の実機確認をCI自動化（UIテスト）まで含めるか、手動確認を許容するか。

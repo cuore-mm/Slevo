@@ -1,7 +1,7 @@
 ## 1. AboutLibraries構成の公式準拠化
 
 - [ ] 1.1 ルートGradleとアプリGradleのAboutLibrariesプラグイン定義を`com.mikepenz.aboutlibraries.plugin.android`へ統一する
-- [ ] 1.2 `gradle/libs.versions.toml`のAboutLibraries関連バージョンを最新安定系列へ更新し、プラグインと依存の整合を取る
+- [ ] 1.2 `gradle/libs.versions.toml`のAboutLibraries関連バージョンを`13.2.1`へ固定し、プラグインと依存の整合を取る
 - [ ] 1.3 AboutLibrariesの既存拡張設定（`aboutlibs`配下のcollect設定）が更新後も有効であることを確認する
 
 ## 2. ライセンスデータ参照経路の固定
