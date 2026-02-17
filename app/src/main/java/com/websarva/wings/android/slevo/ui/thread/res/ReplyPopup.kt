@@ -338,44 +338,7 @@ private fun PopupPostList(
     val showScrollbar by remember(listState) {
         derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
     }
-
-    if (showScrollbar) {
-        Box(
-            modifier = Modifier.heightIn(max = maxHeight)
-        ) {
-            LazyColumnScrollbar(
-                state = listState,
-            ) {
-                PopupPostLazyColumn(
-                    info = info,
-                    posts = posts,
-                    replySourceMap = replySourceMap,
-                    idCountMap = idCountMap,
-                    idIndexList = idIndexList,
-                    ngPostNumbers = ngPostNumbers,
-                    myPostNumbers = myPostNumbers,
-                    headerTextScale = headerTextScale,
-                    bodyTextScale = bodyTextScale,
-                    lineHeight = lineHeight,
-                    searchQuery = searchQuery,
-                    onUrlClick = onUrlClick,
-                    onThreadUrlClick = onThreadUrlClick,
-                    onImageClick = onImageClick,
-                    onImageLongPress = onImageLongPress,
-                    onRequestMenu = onRequestMenu,
-                    onShowTextMenu = onShowTextMenu,
-                    sharedTransitionScope = sharedTransitionScope,
-                    animatedVisibilityScope = animatedVisibilityScope,
-                    onContentClick = onContentClick,
-                    onReplyFromClick = onReplyFromClick,
-                    onReplyClick = onReplyClick,
-                    onIdClick = onIdClick,
-                    maxHeight = maxHeight,
-                    listState = listState,
-                )
-            }
-        }
-    } else {
+    val popupPostContent: @Composable () -> Unit = {
         PopupPostLazyColumn(
             info = info,
             posts = posts,
@@ -403,6 +366,20 @@ private fun PopupPostList(
             maxHeight = maxHeight,
             listState = listState,
         )
+    }
+
+    if (showScrollbar) {
+        Box(
+            modifier = Modifier.heightIn(max = maxHeight)
+        ) {
+            LazyColumnScrollbar(
+                state = listState,
+            ) {
+                popupPostContent()
+            }
+        }
+    } else {
+        popupPostContent()
     }
 }
 
