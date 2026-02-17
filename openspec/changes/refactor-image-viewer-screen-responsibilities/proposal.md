@@ -6,6 +6,7 @@ Issue #441 の目的に沿って責務を分割し、将来の機能追加や不
 ## What Changes
 
 - `ImageViewerScreen` を画面オーケストレーション中心へ縮小し、副作用処理と表示構築を専用Composable/関数へ分離する。
+- 画面の表示状態は `UiState` として `ViewModel` 管理へ寄せ、Compose 実装都合の状態のみ UI ローカルに限定する。
 - サムネイル同期、システムバー制御、画像保存イベント処理などのロジック境界を明確化し、ファイル単位で責務を分離する。
 - 既存のUI挙動・操作フロー・遷移条件を維持し、機能変更を行わない。
 
@@ -25,6 +26,7 @@ Issue #441 の目的に沿って責務を分割し、将来の機能追加や不
   - `openspec/specs/image-viewer/spec.md`
 - Affected code:
   - `app/src/main/java/com/websarva/wings/android/slevo/ui/viewer/ImageViewerScreen.kt`
+  - `app/src/main/java/com/websarva/wings/android/slevo/ui/viewer/ImageViewerViewModel.kt`
   - `app/src/main/java/com/websarva/wings/android/slevo/ui/viewer/` 配下の関連Composable/補助関数
 - User impact:
   - 画面の機能・見た目・操作に変更はなく、保守性改善のみを提供

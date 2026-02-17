@@ -1,7 +1,7 @@
 ## 1. 画面責務分離の実装
 
 - [ ] 1.1 `ImageViewerScreen` から副作用処理（画像保存イベント収集、システムバー制御、サムネイル同期監視）を専用Composable/補助関数へ切り出す
-- [ ] 1.2 `ImageViewerScreen` のローカル state を状態ホルダーへ集約し、UI 構築に必要な入出力のみを渡す構成へ整理する
+- [ ] 1.2 画面表示に関わる state を `ImageViewerUiState` と `ImageViewerViewModel` へ移し、Compose ランタイム依存オブジェクトのみ UI ローカルに残す
 - [ ] 1.3 画面レイアウト構築（Pager、バー、ダイアログ）を責務別の表示コンポーネントへ分離し、`ImageViewerScreen` をオーケストレーターに縮小する
 
 ## 2. 挙動維持の確認
