@@ -45,9 +45,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
@@ -57,6 +57,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import my.nanihadesuka.compose.LazyColumnScrollbar
+import my.nanihadesuka.compose.ScrollbarSettings
 import kotlin.math.min
 
 // アニメーションの速度（ミリ秒）
@@ -338,48 +339,50 @@ private fun PopupPostList(
     val showScrollbar by remember(listState) {
         derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
     }
-    val popupPostContent: @Composable () -> Unit = {
-        PopupPostLazyColumn(
-            info = info,
-            posts = posts,
-            replySourceMap = replySourceMap,
-            idCountMap = idCountMap,
-            idIndexList = idIndexList,
-            ngPostNumbers = ngPostNumbers,
-            myPostNumbers = myPostNumbers,
-            headerTextScale = headerTextScale,
-            bodyTextScale = bodyTextScale,
-            lineHeight = lineHeight,
-            searchQuery = searchQuery,
-            onUrlClick = onUrlClick,
-            onThreadUrlClick = onThreadUrlClick,
-            onImageClick = onImageClick,
-            onImageLongPress = onImageLongPress,
-            onRequestMenu = onRequestMenu,
-            onShowTextMenu = onShowTextMenu,
-            sharedTransitionScope = sharedTransitionScope,
-            animatedVisibilityScope = animatedVisibilityScope,
-            onContentClick = onContentClick,
-            onReplyFromClick = onReplyFromClick,
-            onReplyClick = onReplyClick,
-            onIdClick = onIdClick,
-            maxHeight = maxHeight,
-            listState = listState,
+    val colorScheme = MaterialTheme.colorScheme
+    val scrollbarSettings = remember(showScrollbar, colorScheme) {
+        ScrollbarSettings.Default.copy(
+            enabled = showScrollbar,
+            thumbThickness = 3.dp,
+            thumbUnselectedColor = colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+            thumbSelectedColor = colorScheme.primary.copy(alpha = 0.85f),
         )
     }
-
-    if (showScrollbar) {
-        Box(
-            modifier = Modifier.heightIn(max = maxHeight)
+    Box(
+        modifier = Modifier.heightIn(max = maxHeight)
+    ) {
+        LazyColumnScrollbar(
+            state = listState,
+            settings = scrollbarSettings
         ) {
-            LazyColumnScrollbar(
-                state = listState,
-            ) {
-                popupPostContent()
-            }
+            PopupPostLazyColumn(
+                info = info,
+                posts = posts,
+                replySourceMap = replySourceMap,
+                idCountMap = idCountMap,
+                idIndexList = idIndexList,
+                ngPostNumbers = ngPostNumbers,
+                myPostNumbers = myPostNumbers,
+                headerTextScale = headerTextScale,
+                bodyTextScale = bodyTextScale,
+                lineHeight = lineHeight,
+                searchQuery = searchQuery,
+                onUrlClick = onUrlClick,
+                onThreadUrlClick = onThreadUrlClick,
+                onImageClick = onImageClick,
+                onImageLongPress = onImageLongPress,
+                onRequestMenu = onRequestMenu,
+                onShowTextMenu = onShowTextMenu,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+                onContentClick = onContentClick,
+                onReplyFromClick = onReplyFromClick,
+                onReplyClick = onReplyClick,
+                onIdClick = onIdClick,
+                maxHeight = maxHeight,
+                listState = listState,
+            )
         }
-    } else {
-        popupPostContent()
     }
 }
 
