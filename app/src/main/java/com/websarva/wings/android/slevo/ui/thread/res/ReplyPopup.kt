@@ -57,8 +57,6 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import my.nanihadesuka.compose.LazyColumnScrollbar
-import my.nanihadesuka.compose.ScrollbarSelectionMode
-import my.nanihadesuka.compose.ScrollbarSettings
 import kotlin.math.min
 
 // アニメーションの速度（ミリ秒）
@@ -340,42 +338,42 @@ private fun PopupPostList(
     val showScrollbar by remember(listState) {
         derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
     }
-    val scrollbarSettings = remember {
-        ScrollbarSettings.Default.copy(selectionMode = ScrollbarSelectionMode.Disabled)
-    }
 
     if (showScrollbar) {
-        LazyColumnScrollbar(
-            state = listState,
-            settings = scrollbarSettings,
+        Box(
+            modifier = Modifier.heightIn(max = maxHeight)
         ) {
-            PopupPostLazyColumn(
-                info = info,
-                posts = posts,
-                replySourceMap = replySourceMap,
-                idCountMap = idCountMap,
-                idIndexList = idIndexList,
-                ngPostNumbers = ngPostNumbers,
-                myPostNumbers = myPostNumbers,
-                headerTextScale = headerTextScale,
-                bodyTextScale = bodyTextScale,
-                lineHeight = lineHeight,
-                searchQuery = searchQuery,
-                onUrlClick = onUrlClick,
-                onThreadUrlClick = onThreadUrlClick,
-                onImageClick = onImageClick,
-                onImageLongPress = onImageLongPress,
-                onRequestMenu = onRequestMenu,
-                onShowTextMenu = onShowTextMenu,
-                sharedTransitionScope = sharedTransitionScope,
-                animatedVisibilityScope = animatedVisibilityScope,
-                onContentClick = onContentClick,
-                onReplyFromClick = onReplyFromClick,
-                onReplyClick = onReplyClick,
-                onIdClick = onIdClick,
-                maxHeight = maxHeight,
-                listState = listState,
-            )
+            LazyColumnScrollbar(
+                state = listState,
+            ) {
+                PopupPostLazyColumn(
+                    info = info,
+                    posts = posts,
+                    replySourceMap = replySourceMap,
+                    idCountMap = idCountMap,
+                    idIndexList = idIndexList,
+                    ngPostNumbers = ngPostNumbers,
+                    myPostNumbers = myPostNumbers,
+                    headerTextScale = headerTextScale,
+                    bodyTextScale = bodyTextScale,
+                    lineHeight = lineHeight,
+                    searchQuery = searchQuery,
+                    onUrlClick = onUrlClick,
+                    onThreadUrlClick = onThreadUrlClick,
+                    onImageClick = onImageClick,
+                    onImageLongPress = onImageLongPress,
+                    onRequestMenu = onRequestMenu,
+                    onShowTextMenu = onShowTextMenu,
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    onContentClick = onContentClick,
+                    onReplyFromClick = onReplyFromClick,
+                    onReplyClick = onReplyClick,
+                    onIdClick = onIdClick,
+                    maxHeight = maxHeight,
+                    listState = listState,
+                )
+            }
         }
     } else {
         PopupPostLazyColumn(
