@@ -25,6 +25,10 @@ if (localPropertiesFile.exists()) {
 }
 
 val appVersionName = "1.5.1"
+val aboutLibrariesResDir = layout.buildDirectory.dir("generated/aboutlibraries/res")
+val aboutLibrariesOutputFile = layout.buildDirectory.file(
+    "generated/aboutlibraries/res/raw/aboutlibraries.json"
+)
 
 android {
     namespace = "com.websarva.wings.android.slevo"
@@ -83,7 +87,7 @@ android {
     // exported schema をテストの assets として参照するようにする（schemas ディレクトリを追加）
     sourceSets {
         // AboutLibraries の生成JSONを raw resource として取り込む
-        getByName("main").res.srcDir("$buildDir/generated/aboutlibraries/res")
+        getByName("main").res.directories.add(aboutLibrariesResDir.get().asFile.absolutePath)
         getByName("test").assets.directories.add("$projectDir/schemas")
         getByName("androidTest").assets.directories.add("$projectDir/schemas")
     }
@@ -234,6 +238,6 @@ aboutLibraries {
     }
     export {
         // Android側で R.raw.aboutlibraries として解決できる出力先へ固定する
-        outputFile = file("$buildDir/generated/aboutlibraries/res/raw/aboutlibraries.json")
+        outputFile = aboutLibrariesOutputFile.get().asFile
     }
 }
