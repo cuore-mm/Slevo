@@ -43,6 +43,18 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
         _uiState.update { it.copy(isTopBarMenuExpanded = false) }
     }
 
+    fun toggleBarsVisibility() {
+        _uiState.update { state ->
+            state.copy(isBarsVisible = !state.isBarsVisible)
+        }
+    }
+
+    fun setBarsVisibility(isVisible: Boolean) {
+        _uiState.update { state ->
+            state.copy(isBarsVisible = isVisible)
+        }
+    }
+
     /**
      * 画像保存要求を受け取り、権限判定に応じて処理を進める。
      */
@@ -133,9 +145,10 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
 /**
  * 画像ビューア画面の描画状態。
  *
- * トップバーのその他メニュー開閉を保持する。
+ * バー表示可否、トップバーのその他メニュー開閉、NGダイアログ表示対象を保持する。
  */
 data class ImageViewerUiState(
+    val isBarsVisible: Boolean = true,
     val isTopBarMenuExpanded: Boolean = false,
     val showImageNgDialog: Boolean = false,
     val imageNgTargetUrl: String? = null,
