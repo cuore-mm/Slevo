@@ -167,6 +167,7 @@ dependencies {
     implementation(libs.material3)
 
     //okhttp
+    implementation(platform(libs.okhttp3.bom))
     implementation(libs.okhttp3.okhttp)
 
     // Coil
