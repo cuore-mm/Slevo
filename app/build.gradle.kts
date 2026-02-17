@@ -206,7 +206,7 @@ dependencies {
     implementation(libs.okhttp3.logging.interceptor)
 
     // Preferences DataStore（1.1.5不具合あり）
-    implementation("androidx.datastore:datastore-preferences:1.1.4")
+    implementation(libs.androidx.datastore.preferences)
 
     // compose.foundation
     implementation(libs.androidx.foundation)

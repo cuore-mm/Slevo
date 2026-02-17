@@ -2,6 +2,7 @@
 aboutlibrariesComposeM3 = "13.2.1"
 agp = "9.0.1"
 coilComposeVersion = "3.3.0"
+datastorePreferences = "1.2.0"
 lazyColumnScrollbar = "2.2.0"
 hiltAndroid = "2.59.1"
 hiltNavigationCompose = "1.2.0"
@@ -14,13 +15,13 @@ espressoCore = "3.5.1"
 kotlinxCoroutinesTest = "1.10.2"
 mockk = "1.13.13"
 androidxTestCore = "1.7.0"
-robolectric = "4.16"
+robolectric = "4.16.1"
 kotlinxSerializationJson = "1.7.3"
 lifecycleRuntimeKtx = "2.6.1"
 activityCompose = "1.8.0"
 androidxBrowser = "1.9.0"
-composeBom = "2025.08.01"
-material3 = "1.5.0-alpha06"
+composeBom = "2026.02.00"
+material3 = "1.5.0-alpha14"
 moshi = "1.15.2"
 moshiAdapters = "1.15.2"
 moshiKotlin = "1.15.2"
@@ -29,7 +30,7 @@ okhttpBom = "4.12.0"
 navigationCompose = "2.8.9"
 roomRuntime = "2.7.0"
 timber = "5.0.1"
-zoomableImageCoil3 = "0.16.0"
+zoomableImageCoil3 = "0.18.0"
 desugarJdkLibs = "2.1.5"
 haze = "1.7.2"
 
@@ -37,6 +38,7 @@ haze = "1.7.2"
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutlibrariesComposeM3" }
 androidx-compose-animation = { module = "androidx.compose.animation:animation" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
 androidx-foundation = { module = "androidx.compose.foundation:foundation" }
 androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
@@ -87,6 +89,5 @@ haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
