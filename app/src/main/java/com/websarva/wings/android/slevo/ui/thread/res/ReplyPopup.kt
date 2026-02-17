@@ -18,18 +18,20 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +47,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
@@ -53,6 +56,9 @@ import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransiti
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import my.nanihadesuka.compose.LazyColumnScrollbar
+import my.nanihadesuka.compose.ScrollbarSelectionMode
+import my.nanihadesuka.compose.ScrollbarSettings
 import kotlin.math.min
 
 // アニメーションの速度（ミリ秒）
@@ -330,13 +336,115 @@ private fun PopupPostList(
 ) {
     // --- レイアウト ---
     val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.75f
-    Column(
-        modifier = Modifier
-            .heightIn(max = maxHeight)
-            .verticalScroll(rememberScrollState())
+    val listState = rememberLazyListState()
+    val showScrollbar by remember(listState) {
+        derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
+    }
+    val scrollbarSettings = remember {
+        ScrollbarSettings.Default.copy(selectionMode = ScrollbarSelectionMode.Disabled)
+    }
+
+    if (showScrollbar) {
+        LazyColumnScrollbar(
+            state = listState,
+            settings = scrollbarSettings,
+        ) {
+            PopupPostLazyColumn(
+                info = info,
+                posts = posts,
+                replySourceMap = replySourceMap,
+                idCountMap = idCountMap,
+                idIndexList = idIndexList,
+                ngPostNumbers = ngPostNumbers,
+                myPostNumbers = myPostNumbers,
+                headerTextScale = headerTextScale,
+                bodyTextScale = bodyTextScale,
+                lineHeight = lineHeight,
+                searchQuery = searchQuery,
+                onUrlClick = onUrlClick,
+                onThreadUrlClick = onThreadUrlClick,
+                onImageClick = onImageClick,
+                onImageLongPress = onImageLongPress,
+                onRequestMenu = onRequestMenu,
+                onShowTextMenu = onShowTextMenu,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+                onContentClick = onContentClick,
+                onReplyFromClick = onReplyFromClick,
+                onReplyClick = onReplyClick,
+                onIdClick = onIdClick,
+                maxHeight = maxHeight,
+                listState = listState,
+            )
+        }
+    } else {
+        PopupPostLazyColumn(
+            info = info,
+            posts = posts,
+            replySourceMap = replySourceMap,
+            idCountMap = idCountMap,
+            idIndexList = idIndexList,
+            ngPostNumbers = ngPostNumbers,
+            myPostNumbers = myPostNumbers,
+            headerTextScale = headerTextScale,
+            bodyTextScale = bodyTextScale,
+            lineHeight = lineHeight,
+            searchQuery = searchQuery,
+            onUrlClick = onUrlClick,
+            onThreadUrlClick = onThreadUrlClick,
+            onImageClick = onImageClick,
+            onImageLongPress = onImageLongPress,
+            onRequestMenu = onRequestMenu,
+            onShowTextMenu = onShowTextMenu,
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope,
+            onContentClick = onContentClick,
+            onReplyFromClick = onReplyFromClick,
+            onReplyClick = onReplyClick,
+            onIdClick = onIdClick,
+            maxHeight = maxHeight,
+            listState = listState,
+        )
+    }
+}
+
+/**
+ * 返信ポップアップ内の投稿一覧を LazyColumn で描画する。
+ */
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun PopupPostLazyColumn(
+    info: PopupInfo,
+    posts: List<ThreadPostUiModel>,
+    replySourceMap: Map<Int, List<Int>>,
+    idCountMap: Map<String, Int>,
+    idIndexList: List<Int>,
+    ngPostNumbers: Set<Int>,
+    myPostNumbers: Set<Int>,
+    headerTextScale: Float,
+    bodyTextScale: Float,
+    lineHeight: Float,
+    searchQuery: String,
+    onUrlClick: (String) -> Unit,
+    onThreadUrlClick: (AppRoute.Thread) -> Unit,
+    onImageClick: (String, List<String>, Int, String) -> Unit,
+    onImageLongPress: (String, List<String>) -> Unit,
+    onRequestMenu: (PostDialogTarget) -> Unit,
+    onShowTextMenu: (String, NgType) -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    onContentClick: ((Int) -> Unit)?,
+    onReplyFromClick: (List<Int>) -> Unit,
+    onReplyClick: (Int) -> Unit,
+    onIdClick: (String) -> Unit,
+    maxHeight: Dp,
+    listState: LazyListState,
+) {
+    LazyColumn(
+        modifier = Modifier.heightIn(max = maxHeight),
+        state = listState,
     ) {
-        // --- 投稿描画 ---
-        info.posts.forEachIndexed { i, p ->
+        itemsIndexed(info.posts) { i, p ->
             val postIndex = posts.indexOf(p)
             val postNum = postIndex + 1
             val indentLevel = info.indentLevels.getOrElse(i) { 0 }
