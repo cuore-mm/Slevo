@@ -69,14 +69,15 @@ fun GestureActionDialogContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp, horizontal = 24.dp)
+                    .padding(vertical = 16.dp)
             ) {
+                val horizontalPadding = 24.dp
                 Text(
                     text = stringResource(id = direction.labelRes),
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 8.dp)
                 )
-                HorizontalDivider()
+                HorizontalDivider(modifier = Modifier.padding(horizontal = horizontalPadding))
 
                 // 初期表示時に見せたいアイテム位置を計算
                 val computedIndex = if (currentAction == null) {
@@ -100,6 +101,7 @@ fun GestureActionDialogContent(
                     enabled = showScrollbar,
                 ) {
                     LazyColumn(
+                        modifier = Modifier.padding(horizontal = horizontalPadding),
                         state = listState,
                     ) {
                         item {
