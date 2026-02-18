@@ -44,6 +44,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -175,29 +176,29 @@ fun ReplyPopup(
                     onContentClick = if (info.indentLevels.isNotEmpty()) {
                         null
                     } else {
-                        { postNum ->
+                        { postNum, baseOffset ->
                             onRequestTreePopup(
                                 postNum,
-                                calculatePopupOffset(popupStack[index])
+                                baseOffset,
                             )
                         }
                     },
-                    onReplyFromClick = { numbs ->
+                    onReplyFromClick = { numbs, baseOffset ->
                         onAddPopupForReplyFrom(
                             numbs,
-                            calculatePopupOffset(popupStack[index]),
+                            baseOffset,
                         )
                     },
-                    onReplyClick = { num ->
+                    onReplyClick = { num, baseOffset ->
                         onAddPopupForReplyNumber(
                             num,
-                            calculatePopupOffset(popupStack[index]),
+                            baseOffset,
                         )
                     },
-                    onIdClick = { id ->
+                    onIdClick = { id, baseOffset ->
                         onAddPopupForId(
                             id,
-                            calculatePopupOffset(popupStack[index]),
+                            baseOffset,
                         )
                     },
                 )
@@ -335,10 +336,10 @@ private fun PopupPostList(
     onShowTextMenu: (String, NgType) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
-    onContentClick: ((Int) -> Unit)?,
-    onReplyFromClick: (List<Int>) -> Unit,
-    onReplyClick: (Int) -> Unit,
-    onIdClick: (String) -> Unit,
+    onContentClick: ((Int, IntOffset) -> Unit)?,
+    onReplyFromClick: (List<Int>, IntOffset) -> Unit,
+    onReplyClick: (Int, IntOffset) -> Unit,
+    onIdClick: (String, IntOffset) -> Unit,
 ) {
     // --- レイアウト ---
     val maxHeightRatio = calculatePopupMaxHeightRatio(popupIndex)
@@ -410,10 +411,10 @@ private fun PopupPostLazyColumn(
     onShowTextMenu: (String, NgType) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
-    onContentClick: ((Int) -> Unit)?,
-    onReplyFromClick: (List<Int>) -> Unit,
-    onReplyClick: (Int) -> Unit,
-    onIdClick: (String) -> Unit,
+    onContentClick: ((Int, IntOffset) -> Unit)?,
+    onReplyFromClick: (List<Int>, IntOffset) -> Unit,
+    onReplyClick: (Int, IntOffset) -> Unit,
+    onIdClick: (String, IntOffset) -> Unit,
     maxHeight: Dp,
     listState: LazyListState,
 ) {
@@ -426,11 +427,24 @@ private fun PopupPostLazyColumn(
             val postNum = postIndex + 1
             val indentLevel = info.indentLevels.getOrElse(i) { 0 }
             val nextIndent = info.indentLevels.getOrElse(i + 1) { 0 }
+            var postOffset by remember { mutableStateOf(IntOffset.Zero) }
+            var isPostOffsetMeasured by remember { mutableStateOf(false) }
+            val baseOffset = if (isPostOffsetMeasured) {
+                postOffset
+            } else {
+                // レイアウト計測前は現在ポップアップ位置をフォールバックとして使う。
+                calculatePopupOffset(info)
+            }
             val transitionNamespace = ImageSharedTransitionKeyFactory.popupPostNamespace(
                 popupId = info.popupId,
                 postNumber = postNum,
             )
             PostItem(
+                modifier = Modifier.onGloballyPositioned { coords ->
+                    val position = coords.positionInRoot()
+                    postOffset = IntOffset(position.x.toInt(), position.y.toInt())
+                    isPostOffsetMeasured = true
+                },
                 post = p,
                 postNum = postNum,
                 idIndex = idIndexList[postIndex],
@@ -452,10 +466,10 @@ private fun PopupPostLazyColumn(
                 isMyPost = postNum in myPostNumbers,
                 replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers }
                     ?: emptyList(),
-                onReplyFromClick = onReplyFromClick,
-                onReplyClick = onReplyClick,
-                onIdClick = onIdClick,
-                onContentClick = { onContentClick?.invoke(postNum) },
+                onReplyFromClick = { numbers -> onReplyFromClick(numbers, baseOffset) },
+                onReplyClick = { number -> onReplyClick(number, baseOffset) },
+                onIdClick = { id -> onIdClick(id, baseOffset) },
+                onContentClick = { onContentClick?.invoke(postNum, baseOffset) },
             )
             if (i < info.posts.size - 1) {
                 HorizontalDivider(
