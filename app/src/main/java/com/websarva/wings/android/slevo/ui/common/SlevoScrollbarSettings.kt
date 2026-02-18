@@ -39,6 +39,7 @@ fun rememberSlevoScrollbarSettings(
             thumbThickness = thumbThickness,
             thumbUnselectedColor = colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
             thumbSelectedColor = colorScheme.primary.copy(alpha = 0.85f),
+            hideDelayMillis = 2000
         )
     }
 }
@@ -48,9 +49,9 @@ fun rememberSlevoScrollbarSettings(
  */
 @Composable
 fun SlevoLazyColumnScrollbar(
+    modifier: Modifier = Modifier,
     state: LazyListState,
     enabled: Boolean = true,
-    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     // --- 状態管理 ---
