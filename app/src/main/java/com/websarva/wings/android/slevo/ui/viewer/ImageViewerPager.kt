@@ -3,19 +3,28 @@ package com.websarva.wings.android.slevo.ui.viewer
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil3.request.ImageRequest
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressState
 import me.saket.telephoto.zoomable.DoubleClickToZoomListener
 import me.saket.telephoto.zoomable.OverzoomEffect
 import me.saket.telephoto.zoomable.ZoomSpec
@@ -42,6 +51,14 @@ internal fun ImageViewerPager(
 ) {
     // --- Pager ---
     val context = LocalContext.current
+    val loadProgressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
+    val isLoadingByPage = remember(imageUrls) {
+        mutableStateMapOf<Int, Boolean>().apply {
+            imageUrls.indices.forEach { index ->
+                this[index] = false
+            }
+        }
+    }
     HorizontalPager(
         state = pagerState,
         pageSpacing = 8.dp,
@@ -86,7 +103,13 @@ internal fun ImageViewerPager(
             ImageRequest.Builder(context)
                 .data(imageUrl)
                 .listener(
+                    onStart = { _ ->
+                        isLoadingByPage[page] = true
+                        ImageLoadProgressRegistry.start(imageUrl)
+                    },
                     onSuccess = { _, result ->
+                        isLoadingByPage[page] = false
+                        ImageLoadProgressRegistry.finish(imageUrl)
                         result.diskCacheKey?.let { key ->
                             ImageActionReuseRegistry.register(
                                 url = imageUrl,
@@ -94,19 +117,62 @@ internal fun ImageViewerPager(
                                 extension = imageUrl.substringAfterLast('.', ""),
                             )
                         }
+                    },
+                    onError = { _, _ ->
+                        isLoadingByPage[page] = false
+                        ImageLoadProgressRegistry.finish(imageUrl)
+                    },
+                    onCancel = { _ ->
+                        isLoadingByPage[page] = false
+                        ImageLoadProgressRegistry.finish(imageUrl)
                     }
                 )
                 .build()
         }
-        ZoomableAsyncImage(
-            model = imageRequest,
-            contentDescription = null,
-            state = imageState,
+        Box(
             modifier = imageModifier.fillMaxSize(),
-            onClick = { _ -> onToggleBars() },
-            onDoubleClick = DoubleClickToZoomListener.cycle(
-                maxZoomFactor = 2f,
-            ),
-        )
+            contentAlignment = Alignment.Center,
+        ) {
+            ZoomableAsyncImage(
+                model = imageRequest,
+                contentDescription = null,
+                state = imageState,
+                modifier = Modifier.fillMaxSize(),
+                onClick = { _ -> onToggleBars() },
+                onDoubleClick = DoubleClickToZoomListener.cycle(
+                    maxZoomFactor = 2f,
+                ),
+            )
+            if (isLoadingByPage[page] == true) {
+                ViewerLoadingIndicator(
+                    progressState = loadProgressByUrl[imageUrl],
+                )
+            }
+        }
+    }
+}
+
+/**
+ * ビューア主画像の読み込み中インジケータを表示する。
+ *
+ * 進捗率が算出可能な場合は段階表示、算出不能な場合は無段階表示とする。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ViewerLoadingIndicator(
+    progressState: ImageLoadProgressState?,
+) {
+    when (progressState) {
+        is ImageLoadProgressState.Determinate -> {
+            CircularWavyProgressIndicator(
+                progress = { progressState.progress },
+            )
+        }
+
+        ImageLoadProgressState.Indeterminate,
+        null,
+            -> {
+            CircularWavyProgressIndicator()
+        }
     }
 }
