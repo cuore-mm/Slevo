@@ -29,6 +29,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -281,6 +282,10 @@ fun ThreadScreen(
         }
     }
 
+    val showScrollbar by remember(listState) {
+        derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
+    }
+
     var gestureHint by remember { mutableStateOf<GestureHint>(GestureHint.Hidden) }
     LaunchedEffect(gestureHint) {
         if (gestureHint is GestureHint.Invalid) {
@@ -506,7 +511,7 @@ fun ThreadScreen(
             LazyColumnScrollbar(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
-                settings = rememberSlevoScrollbarSettings(),
+                settings = rememberSlevoScrollbarSettings(enabled = showScrollbar),
             ) {
                 LazyColumn(
                     modifier = Modifier
