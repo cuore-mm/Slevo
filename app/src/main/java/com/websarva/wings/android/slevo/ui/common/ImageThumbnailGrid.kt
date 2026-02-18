@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CircularWavyProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -28,8 +26,8 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
-import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressState
 
 /**
  * 画像URL一覧をサムネイルのグリッドとして表示する。
@@ -130,8 +128,9 @@ fun ImageThumbnailGrid(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    ThumbnailLoadingIndicator(
+                                    ImageLoadProgressIndicator(
                                         progressState = loadProgressByUrl[url],
+                                        indicatorSize = 24.dp,
                                     )
                                 }
                             },
@@ -142,34 +141,6 @@ fun ImageThumbnailGrid(
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
-        }
-    }
-}
-
-/**
- * サムネイル読み込み中インジケータを表示する。
- *
- * 進捗率が算出可能な場合は段階表示、算出不能な場合は無段階表示を行う。
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun ThumbnailLoadingIndicator(
-    progressState: ImageLoadProgressState?,
-) {
-    when (progressState) {
-        is ImageLoadProgressState.Determinate -> {
-            CircularWavyProgressIndicator(
-                progress = { progressState.progress },
-                modifier = Modifier.size(24.dp),
-            )
-        }
-
-        ImageLoadProgressState.Indeterminate,
-        null,
-            -> {
-            CircularWavyProgressIndicator(
-                modifier = Modifier.size(24.dp),
-            )
         }
     }
 }

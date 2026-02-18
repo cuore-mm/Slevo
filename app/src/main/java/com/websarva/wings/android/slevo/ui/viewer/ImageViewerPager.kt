@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
-import androidx.compose.material3.CircularWavyProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
@@ -23,8 +21,8 @@ import androidx.compose.ui.unit.dp
 import coil3.request.ImageRequest
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
-import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressState
 import me.saket.telephoto.zoomable.DoubleClickToZoomListener
 import me.saket.telephoto.zoomable.OverzoomEffect
 import me.saket.telephoto.zoomable.ZoomSpec
@@ -144,35 +142,11 @@ internal fun ImageViewerPager(
                 ),
             )
             if (isLoadingByPage[page] == true) {
-                ViewerLoadingIndicator(
+                ImageLoadProgressIndicator(
                     progressState = loadProgressByUrl[imageUrl],
+                    indicatorSize = 48.dp,
                 )
             }
-        }
-    }
-}
-
-/**
- * ビューア主画像の読み込み中インジケータを表示する。
- *
- * 進捗率が算出可能な場合は段階表示、算出不能な場合は無段階表示とする。
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun ViewerLoadingIndicator(
-    progressState: ImageLoadProgressState?,
-) {
-    when (progressState) {
-        is ImageLoadProgressState.Determinate -> {
-            CircularWavyProgressIndicator(
-                progress = { progressState.progress },
-            )
-        }
-
-        ImageLoadProgressState.Indeterminate,
-        null,
-            -> {
-            CircularWavyProgressIndicator()
         }
     }
 }

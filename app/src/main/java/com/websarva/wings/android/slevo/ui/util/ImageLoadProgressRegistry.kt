@@ -1,5 +1,11 @@
 package com.websarva.wings.android.slevo.ui.util
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -84,4 +90,36 @@ sealed interface ImageLoadProgressState {
     data class Determinate(
         val progress: Float,
     ) : ImageLoadProgressState
+}
+
+/**
+ * 画像読み込み進捗インジケータを表示する共通コンポーネント。
+ *
+ * 進捗率が算出可能な場合は段階表示、算出不能な場合は無段階表示とする。
+ *
+ * @param progressState 表示する進捗状態
+ * @param indicatorSize インジケータのサイズ
+ */
+@Composable
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+fun ImageLoadProgressIndicator(
+    progressState: ImageLoadProgressState?,
+    indicatorSize: Dp,
+) {
+    when (progressState) {
+        is ImageLoadProgressState.Determinate -> {
+            CircularWavyProgressIndicator(
+                progress = { progressState.progress },
+                modifier = Modifier.size(indicatorSize),
+            )
+        }
+
+        ImageLoadProgressState.Indeterminate,
+        null,
+            -> {
+            CircularWavyProgressIndicator(
+                modifier = Modifier.size(indicatorSize),
+            )
+        }
+    }
 }
