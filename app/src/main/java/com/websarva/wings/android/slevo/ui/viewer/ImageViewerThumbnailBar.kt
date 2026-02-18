@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
@@ -27,8 +28,10 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +49,8 @@ import coil3.asDrawable
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
 
 /**
  * 同一レス内のサムネイル一覧を表示し、選択中の画像を中央に寄せる。
@@ -71,6 +76,14 @@ internal fun ImageViewerThumbnailBar(
     val selectedThumbnailScale = 1.2f
     val resources = LocalResources.current
     val density = LocalDensity.current
+    val loadProgressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
+    val isLoadingByIndex = remember(imageUrls) {
+        mutableStateMapOf<Int, Boolean>().apply {
+            imageUrls.indices.forEach { index ->
+                this[index] = false
+            }
+        }
+    }
 
     // --- Layout ---
     AnimatedVisibility(
@@ -126,7 +139,11 @@ internal fun ImageViewerThumbnailBar(
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         alignment = Alignment.Center,
+                        onLoading = {
+                            isLoadingByIndex[index] = true
+                        },
                         onSuccess = { state ->
+                            isLoadingByIndex[index] = false
                             state.result.diskCacheKey?.let { key ->
                                 ImageActionReuseRegistry.register(
                                     url = imageUrls[index],
@@ -136,6 +153,9 @@ internal fun ImageViewerThumbnailBar(
                             }
                             // Guard: GIFなどのアニメーションDrawableはサムネイルで再生させない。
                             (state.result.image.asDrawable(resources) as? Animatable)?.stop()
+                        },
+                        onError = {
+                            isLoadingByIndex[index] = false
                         },
                         modifier = Modifier
                             .size(
@@ -152,6 +172,19 @@ internal fun ImageViewerThumbnailBar(
                                 indication = LocalIndication.current,
                             ) { onThumbnailClick(index) }
                             .background(Color.DarkGray),
+                        loading = {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (isLoadingByIndex[index] == true) {
+                                    ImageLoadProgressIndicator(
+                                        progressState = loadProgressByUrl[imageUrls[index]],
+                                        indicatorSize = 18.dp,
+                                    )
+                                }
+                            }
+                        },
                     )
                 }
             }

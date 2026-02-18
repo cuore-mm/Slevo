@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -24,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
 
 /**
  * 画像URL一覧をサムネイルのグリッドとして表示する。
@@ -52,6 +56,7 @@ fun ImageThumbnailGrid(
             }
         }
     }
+    val loadProgressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
 
     // --- Grid render ---
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -104,7 +109,12 @@ fun ImageThumbnailGrid(
                                     onClick = {
                                         // 表示成功したサムネイルのみビューア遷移を許可する。
                                         if (canNavigateByIndex[imageIndex] == true) {
-                                            onImageClick(url, imageUrls, imageIndex, transitionNamespace)
+                                            onImageClick(
+                                                url,
+                                                imageUrls,
+                                                imageIndex,
+                                                transitionNamespace
+                                            )
                                         }
                                     },
                                     onLongClick = onImageLongPress?.let { { it(url, imageUrls) } },
@@ -115,7 +125,10 @@ fun ImageThumbnailGrid(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    CircularProgressIndicator()
+                                    ImageLoadProgressIndicator(
+                                        progressState = loadProgressByUrl[url],
+                                        indicatorSize = 24.dp,
+                                    )
                                 }
                             },
                         )
