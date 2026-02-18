@@ -13,7 +13,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -113,7 +114,12 @@ fun ImageThumbnailGrid(
                                     onClick = {
                                         // 表示成功したサムネイルのみビューア遷移を許可する。
                                         if (canNavigateByIndex[imageIndex] == true) {
-                                            onImageClick(url, imageUrls, imageIndex, transitionNamespace)
+                                            onImageClick(
+                                                url,
+                                                imageUrls,
+                                                imageIndex,
+                                                transitionNamespace
+                                            )
                                         }
                                     },
                                     onLongClick = onImageLongPress?.let { { it(url, imageUrls) } },
@@ -145,25 +151,24 @@ fun ImageThumbnailGrid(
  *
  * 進捗率が算出可能な場合は段階表示、算出不能な場合は無段階表示を行う。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ThumbnailLoadingIndicator(
     progressState: ImageLoadProgressState?,
 ) {
     when (progressState) {
         is ImageLoadProgressState.Determinate -> {
-            CircularProgressIndicator(
+            CircularWavyProgressIndicator(
                 progress = { progressState.progress },
                 modifier = Modifier.size(24.dp),
-                strokeWidth = 2.dp,
             )
         }
 
         ImageLoadProgressState.Indeterminate,
         null,
-        -> {
-            CircularProgressIndicator(
+            -> {
+            CircularWavyProgressIndicator(
                 modifier = Modifier.size(24.dp),
-                strokeWidth = 2.dp,
             )
         }
     }
