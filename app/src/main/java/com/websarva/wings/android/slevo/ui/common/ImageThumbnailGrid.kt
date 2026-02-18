@@ -13,17 +13,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
+import coil3.request.ImageRequest
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
@@ -49,10 +57,25 @@ fun ImageThumbnailGrid(
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     // --- Thumbnail load state ---
+    val context = LocalContext.current
     val canNavigateByIndex = remember(imageUrls) {
         mutableStateMapOf<Int, Boolean>().apply {
             imageUrls.indices.forEach { index ->
                 this[index] = false
+            }
+        }
+    }
+    val isErrorByIndex = remember(imageUrls) {
+        mutableStateMapOf<Int, Boolean>().apply {
+            imageUrls.indices.forEach { index ->
+                this[index] = false
+            }
+        }
+    }
+    val retryNonceByIndex = remember(imageUrls) {
+        mutableStateMapOf<Int, Int>().apply {
+            imageUrls.indices.forEach { index ->
+                this[index] = 0
             }
         }
     }
@@ -66,6 +89,13 @@ fun ImageThumbnailGrid(
                 rowItems.forEachIndexed { columnIndex, url ->
                     val imageIndex = baseIndex + columnIndex
                     with(sharedTransitionScope) {
+                        val retryNonce = retryNonceByIndex[imageIndex] ?: 0
+                        val imageRequest = remember(url, retryNonce, context) {
+                            ImageRequest.Builder(context)
+                                .data(url)
+                                .memoryCacheKey("$url#grid-$retryNonce")
+                                .build()
+                        }
                         val sharedElementModifier = if (enableSharedElement) {
                             Modifier.sharedElement(
                                 sharedContentState = sharedTransitionScope.rememberSharedContentState(
@@ -81,57 +111,81 @@ fun ImageThumbnailGrid(
                         } else {
                             Modifier
                         }
-                        SubcomposeAsyncImage(
-                            model = url,
-                            contentDescription = null,
-                            contentScale = ContentScale.Fit,
-                            onSuccess = { state ->
-                                canNavigateByIndex[imageIndex] = true
-                                state.result.diskCacheKey?.let { key ->
-                                    ImageActionReuseRegistry.register(
-                                        url = url,
-                                        diskCacheKey = key,
-                                        extension = url.substringAfterLast('.', ""),
+                        key(imageIndex, retryNonce) {
+                            SubcomposeAsyncImage(
+                                model = imageRequest,
+                                contentDescription = null,
+                                contentScale = ContentScale.Fit,
+                                onSuccess = { state ->
+                                    canNavigateByIndex[imageIndex] = true
+                                    isErrorByIndex[imageIndex] = false
+                                    state.result.diskCacheKey?.let { key ->
+                                        ImageActionReuseRegistry.register(
+                                            url = url,
+                                            diskCacheKey = key,
+                                            extension = url.substringAfterLast('.', ""),
+                                        )
+                                    }
+                                },
+                                onLoading = {
+                                    canNavigateByIndex[imageIndex] = false
+                                    isErrorByIndex[imageIndex] = false
+                                },
+                                onError = {
+                                    canNavigateByIndex[imageIndex] = false
+                                    isErrorByIndex[imageIndex] = true
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(1f)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .combinedClickable(
+                                        onClick = {
+                                            // Guard: 表示成功したサムネイルのみビューア遷移を許可する。
+                                            if (canNavigateByIndex[imageIndex] == true) {
+                                                onImageClick(
+                                                    url,
+                                                    imageUrls,
+                                                    imageIndex,
+                                                    transitionNamespace
+                                                )
+                                                return@combinedClickable
+                                            }
+                                            // Guard: 失敗サムネイルは遷移せず同一URLの再読み込みを行う。
+                                            if (isErrorByIndex[imageIndex] == true) {
+                                                retryNonceByIndex[imageIndex] = retryNonce + 1
+                                                isErrorByIndex[imageIndex] = false
+                                            }
+                                        },
+                                        onLongClick = onImageLongPress?.let { { it(url, imageUrls) } },
                                     )
-                                }
-                            },
-                            onLoading = {
-                                canNavigateByIndex[imageIndex] = false
-                            },
-                            onError = {
-                                canNavigateByIndex[imageIndex] = false
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .aspectRatio(1f)
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .combinedClickable(
-                                    onClick = {
-                                        // 表示成功したサムネイルのみビューア遷移を許可する。
-                                        if (canNavigateByIndex[imageIndex] == true) {
-                                            onImageClick(
-                                                url,
-                                                imageUrls,
-                                                imageIndex,
-                                                transitionNamespace
-                                            )
-                                        }
-                                    },
-                                    onLongClick = onImageLongPress?.let { { it(url, imageUrls) } },
-                                )
-                                .then(sharedElementModifier),
-                            loading = {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    ImageLoadProgressIndicator(
-                                        progressState = loadProgressByUrl[url],
-                                        indicatorSize = 24.dp,
-                                    )
-                                }
-                            },
-                        )
+                                    .then(sharedElementModifier),
+                                loading = {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        ImageLoadProgressIndicator(
+                                            progressState = loadProgressByUrl[url],
+                                            indicatorSize = 24.dp,
+                                        )
+                                    }
+                                },
+                                error = {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Refresh,
+                                            contentDescription = stringResource(R.string.refresh),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(24.dp),
+                                        )
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
                 repeat(3 - rowItems.size) {

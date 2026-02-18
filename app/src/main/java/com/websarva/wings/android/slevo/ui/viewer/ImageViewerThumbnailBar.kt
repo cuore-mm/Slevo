@@ -26,6 +26,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.collectAsState
@@ -42,11 +45,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.asDrawable
 import coil3.compose.SubcomposeAsyncImage
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
@@ -78,6 +83,13 @@ internal fun ImageViewerThumbnailBar(
     val density = LocalDensity.current
     val loadProgressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
     val isLoadingByIndex = remember(imageUrls) {
+        mutableStateMapOf<Int, Boolean>().apply {
+            imageUrls.indices.forEach { index ->
+                this[index] = false
+            }
+        }
+    }
+    val isErrorByIndex = remember(imageUrls) {
         mutableStateMapOf<Int, Boolean>().apply {
             imageUrls.indices.forEach { index ->
                 this[index] = false
@@ -141,9 +153,11 @@ internal fun ImageViewerThumbnailBar(
                         alignment = Alignment.Center,
                         onLoading = {
                             isLoadingByIndex[index] = true
+                            isErrorByIndex[index] = false
                         },
                         onSuccess = { state ->
                             isLoadingByIndex[index] = false
+                            isErrorByIndex[index] = false
                             state.result.diskCacheKey?.let { key ->
                                 ImageActionReuseRegistry.register(
                                     url = imageUrls[index],
@@ -156,6 +170,7 @@ internal fun ImageViewerThumbnailBar(
                         },
                         onError = {
                             isLoadingByIndex[index] = false
+                            isErrorByIndex[index] = true
                         },
                         modifier = Modifier
                             .size(
@@ -181,6 +196,21 @@ internal fun ImageViewerThumbnailBar(
                                     ImageLoadProgressIndicator(
                                         progressState = loadProgressByUrl[imageUrls[index]],
                                         indicatorSize = 18.dp,
+                                    )
+                                }
+                            }
+                        },
+                        error = {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (isErrorByIndex[index] == true) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Refresh,
+                                        contentDescription = stringResource(R.string.refresh),
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp),
                                     )
                                 }
                             }

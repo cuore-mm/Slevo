@@ -4,9 +4,17 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
@@ -16,11 +24,14 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.request.ImageRequest
 import coil3.size.Precision
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
@@ -60,6 +71,20 @@ internal fun ImageViewerPager(
             }
         }
     }
+    val isErrorByPage = remember(imageUrls) {
+        mutableStateMapOf<Int, Boolean>().apply {
+            imageUrls.indices.forEach { index ->
+                this[index] = false
+            }
+        }
+    }
+    val retryNonceByPage = remember(imageUrls) {
+        mutableStateMapOf<Int, Int>().apply {
+            imageUrls.indices.forEach { index ->
+                this[index] = 0
+            }
+        }
+    }
     HorizontalPager(
         state = pagerState,
         pageSpacing = 8.dp,
@@ -82,6 +107,7 @@ internal fun ImageViewerPager(
         }
 
         // --- Image content ---
+        val retryNonce = retryNonceByPage[page] ?: 0
         val imageModifier = if (page == pagerState.settledPage) {
             // Guard: 共有トランジション対象は現在表示中ページのみとする。
             with(sharedTransitionScope) {
@@ -112,17 +138,21 @@ internal fun ImageViewerPager(
                 context,
                 viewportWidthPx,
                 viewportHeightPx,
+                retryNonce,
             ) {
                 ImageRequest.Builder(context)
                     .data(imageUrl)
                     .size(viewportWidthPx, viewportHeightPx)
                     .precision(Precision.EXACT)
+                    .memoryCacheKey("$imageUrl#viewer-$retryNonce")
                     .listener(
                         onStart = { _ ->
                             isLoadingByPage[page] = true
+                            isErrorByPage[page] = false
                         },
                         onSuccess = { _, result ->
                             isLoadingByPage[page] = false
+                            isErrorByPage[page] = false
                             result.diskCacheKey?.let { key ->
                                 ImageActionReuseRegistry.register(
                                     url = imageUrl,
@@ -133,6 +163,7 @@ internal fun ImageViewerPager(
                         },
                         onError = { _, _ ->
                             isLoadingByPage[page] = false
+                            isErrorByPage[page] = true
                         },
                         onCancel = { _ ->
                             isLoadingByPage[page] = false
@@ -155,6 +186,30 @@ internal fun ImageViewerPager(
                     progressState = loadProgressByUrl[imageUrl],
                     indicatorSize = 48.dp,
                 )
+            }
+            if (isErrorByPage[page] == true) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    IconButton(
+                        onClick = {
+                            // Guard: 失敗ページのみ再読み込みトリガーを進める。
+                            retryNonceByPage[page] = retryNonce + 1
+                            isErrorByPage[page] = false
+                        },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.refresh),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(30.dp),
+                        )
+                    }
+                }
             }
         }
     }
