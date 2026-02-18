@@ -18,8 +18,8 @@ class ReplyPopupHeightRatioTest {
         val ratioLevel3 = calculatePopupMaxHeightRatio(popupIndex = 2)
 
         assertEquals(0.75f, ratioLevel1, 0.0001f)
-        assertEquals(0.67f, ratioLevel2, 0.0001f)
-        assertEquals(0.59f, ratioLevel3, 0.0001f)
+        assertEquals(0.70f, ratioLevel2, 0.0001f)
+        assertEquals(0.65f, ratioLevel3, 0.0001f)
         assertTrue(ratioLevel1 > ratioLevel2)
         assertTrue(ratioLevel2 > ratioLevel3)
     }
@@ -30,9 +30,9 @@ class ReplyPopupHeightRatioTest {
         val ratioLevel8 = calculatePopupMaxHeightRatio(popupIndex = 7)
         val ratioLevel20 = calculatePopupMaxHeightRatio(popupIndex = 19)
 
-        assertEquals(0.45f, ratioLevel5, 0.0001f)
-        assertEquals(0.45f, ratioLevel8, 0.0001f)
-        assertEquals(0.45f, ratioLevel20, 0.0001f)
+        assertEquals(0.55f, ratioLevel5, 0.0001f)
+        assertEquals(0.55f, ratioLevel8, 0.0001f)
+        assertEquals(0.55f, ratioLevel20, 0.0001f)
     }
 
     @Test
