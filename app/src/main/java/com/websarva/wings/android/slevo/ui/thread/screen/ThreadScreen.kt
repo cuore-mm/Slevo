@@ -29,6 +29,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -64,6 +65,7 @@ import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
+import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
@@ -84,7 +86,6 @@ import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import my.nanihadesuka.compose.LazyColumnScrollbar
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlin.math.min
@@ -278,6 +279,10 @@ fun ThreadScreen(
                 return Velocity.Zero
             }
         }
+    }
+
+    val showScrollbar by remember(listState) {
+        derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
     }
 
     var gestureHint by remember { mutableStateOf<GestureHint>(GestureHint.Hidden) }
@@ -502,9 +507,10 @@ fun ThreadScreen(
                 )
             }
         } else {
-            LazyColumnScrollbar(
+            SlevoLazyColumnScrollbar(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
+                enabled = showScrollbar,
             ) {
                 LazyColumn(
                     modifier = Modifier

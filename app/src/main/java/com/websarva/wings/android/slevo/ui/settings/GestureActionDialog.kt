@@ -19,6 +19,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -29,9 +32,7 @@ import androidx.compose.ui.window.Dialog
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
-import my.nanihadesuka.compose.LazyColumnScrollbar
-import my.nanihadesuka.compose.ScrollbarSelectionMode
-import my.nanihadesuka.compose.ScrollbarSettings
+import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 
 @Composable
 fun GestureActionDialog(
@@ -68,14 +69,15 @@ fun GestureActionDialogContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp, horizontal = 24.dp)
+                    .padding(vertical = 16.dp)
             ) {
+                val horizontalPadding = 24.dp
                 Text(
                     text = stringResource(id = direction.labelRes),
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 8.dp)
                 )
-                HorizontalDivider()
+                HorizontalDivider(modifier = Modifier.padding(horizontal = horizontalPadding))
 
                 // 初期表示時に見せたいアイテム位置を計算
                 val computedIndex = if (currentAction == null) {
@@ -90,18 +92,16 @@ fun GestureActionDialogContent(
 
                 // 初期スクロール位置を指定して状態を作る（これにより最初からスクロール済みで描画される）
                 val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+                val showScrollbar by remember(listState) {
+                    derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
+                }
 
-
-                LazyColumnScrollbar(
+                SlevoLazyColumnScrollbar(
                     state = listState,
-                    settings = ScrollbarSettings.Default.copy(
-                        selectionMode = ScrollbarSelectionMode.Disabled,
-                        thumbUnselectedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                        thumbThickness = 3.dp,                  // デフォルト 6.dp → 細く
-                        scrollbarPadding = 0.dp,                  // デフォルト 8.dp → 端に寄せる
-                    )
+                    enabled = showScrollbar,
                 ) {
                     LazyColumn(
+                        modifier = Modifier.padding(horizontal = horizontalPadding),
                         state = listState,
                     ) {
                         item {
@@ -110,7 +110,7 @@ fun GestureActionDialogContent(
                                 selected = currentAction == null,
                                 onClick = { onActionSelected(null) }
                             )
-                            Spacer(modifier = Modifier.Companion.height(4.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                         }
                         itemsIndexed(actions) { index, action ->
                             GestureActionSelectionRow(
@@ -119,7 +119,7 @@ fun GestureActionDialogContent(
                                 onClick = { onActionSelected(action) }
                             )
                             if (index != actions.lastIndex) {
-                                Spacer(modifier = Modifier.Companion.height(4.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
                             }
                         }
                     }
@@ -136,17 +136,17 @@ private fun GestureActionSelectionRow(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.Companion
+        modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.Companion.CenterVertically
+        verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(
             selected = selected,
             onClick = onClick
         )
-        Spacer(modifier = Modifier.Companion.width(8.dp))
+        Spacer(modifier = Modifier.width(8.dp))
         Text(text = label)
     }
 }

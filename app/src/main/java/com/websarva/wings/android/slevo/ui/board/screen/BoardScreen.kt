@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +44,7 @@ import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
+import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
 import com.websarva.wings.android.slevo.ui.thread.item.rememberHighlightedText
@@ -88,6 +90,9 @@ fun BoardScreen(
 
     // --- Gesture handling ---
     val coroutineScope = rememberCoroutineScope()
+    val showScrollbar by remember(listState) {
+        derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
+    }
 
     PullToRefreshBox(
         modifier = modifier,
@@ -157,39 +162,44 @@ fun BoardScreen(
                 }
         ) {
             // --- Thread list ---
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize(),
+            SlevoLazyColumnScrollbar(
+                modifier = Modifier.fillMaxSize(),
                 state = listState,
+                enabled = showScrollbar,
             ) {
-            // リスト全体の先頭に区切り線を追加
-            if (threads.isNotEmpty()) { // リストが空でない場合のみ線を表示
-                item {
-                    HorizontalDivider()
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    state = listState,
+                ) {
+                    // リスト全体の先頭に区切り線を追加
+                    if (threads.isNotEmpty()) { // リストが空でない場合のみ線を表示
+                        item {
+                            HorizontalDivider()
+                        }
+                    }
+
+                    itemsIndexed(
+                        items = threads,
+                        key = { _, item -> item.key }
+                    ) { _, thread ->
+                        ThreadCard(
+                            threadInfo = thread,
+                            onClick = onClick,
+                            onLongClick = { onLongClick(thread) },
+                            searchQuery = searchQuery,
+                            momentumMean = momentumMean,
+                            momentumStd = momentumStd
+                        )
+                        // 各アイテムの下に区切り線を表示
+                        HorizontalDivider()
+                    }
                 }
             }
-
-            itemsIndexed(
-                items = threads,
-                key = { _, item -> item.key }
-            ) { index, thread ->
-                ThreadCard(
-                    threadInfo = thread,
-                    onClick = onClick,
-                    onLongClick = { onLongClick(thread) },
-                    searchQuery = searchQuery,
-                    momentumMean = momentumMean,
-                    momentumStd = momentumStd
-                )
-                // 各アイテムの下に区切り線を表示
-                HorizontalDivider()
+            if (gestureSettings.showActionHints) {
+                GestureHintOverlay(state = gestureHint)
             }
         }
-        if (gestureSettings.showActionHints) {
-            GestureHintOverlay(state = gestureHint)
-        }
     }
-}
 }
 
 /**
