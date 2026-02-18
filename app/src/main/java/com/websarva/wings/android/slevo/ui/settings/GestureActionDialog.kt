@@ -109,7 +109,7 @@ fun GestureActionDialogContent(
                                 selected = currentAction == null,
                                 onClick = { onActionSelected(null) }
                             )
-                            Spacer(modifier = Modifier.Companion.height(4.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                         }
                         itemsIndexed(actions) { index, action ->
                             GestureActionSelectionRow(
@@ -118,7 +118,7 @@ fun GestureActionDialogContent(
                                 onClick = { onActionSelected(action) }
                             )
                             if (index != actions.lastIndex) {
-                                Spacer(modifier = Modifier.Companion.height(4.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
                             }
                         }
                     }
@@ -135,17 +135,17 @@ private fun GestureActionSelectionRow(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.Companion
+        modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.Companion.CenterVertically
+        verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(
             selected = selected,
             onClick = onClick
         )
-        Spacer(modifier = Modifier.Companion.width(8.dp))
+        Spacer(modifier = Modifier.width(8.dp))
         Text(text = label)
     }
 }
