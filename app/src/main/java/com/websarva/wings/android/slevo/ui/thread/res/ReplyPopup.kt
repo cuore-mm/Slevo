@@ -60,11 +60,10 @@ import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import kotlin.math.min
 
-// アニメーションの速度（ミリ秒）
 private const val POPUP_ANIMATION_DURATION = 160
 private const val BASE_MAX_HEIGHT_RATIO = 0.75f
-private const val STEP_MAX_HEIGHT_RATIO = 0.08f
-private const val MIN_MAX_HEIGHT_RATIO = 0.45f
+private const val STEP_MAX_HEIGHT_RATIO = 0.05f
+private const val MIN_MAX_HEIGHT_RATIO = 0.55f
 
 /**
  * 返信ポップアップの表示と操作イベントを管理する。
