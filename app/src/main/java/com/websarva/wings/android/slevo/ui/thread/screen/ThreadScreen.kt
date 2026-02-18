@@ -64,6 +64,7 @@ import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
+import com.websarva.wings.android.slevo.ui.common.rememberSlevoScrollbarSettings
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
@@ -505,6 +506,7 @@ fun ThreadScreen(
             LazyColumnScrollbar(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
+                settings = rememberSlevoScrollbarSettings(),
             ) {
                 LazyColumn(
                     modifier = Modifier

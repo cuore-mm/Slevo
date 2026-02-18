@@ -56,8 +56,8 @@ import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransiti
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.common.rememberSlevoScrollbarSettings
 import my.nanihadesuka.compose.LazyColumnScrollbar
-import my.nanihadesuka.compose.ScrollbarSettings
 import kotlin.math.min
 
 // アニメーションの速度（ミリ秒）
@@ -339,15 +339,7 @@ private fun PopupPostList(
     val showScrollbar by remember(listState) {
         derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
     }
-    val colorScheme = MaterialTheme.colorScheme
-    val scrollbarSettings = remember(showScrollbar, colorScheme) {
-        ScrollbarSettings.Default.copy(
-            enabled = showScrollbar,
-            thumbThickness = 3.dp,
-            thumbUnselectedColor = colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-            thumbSelectedColor = colorScheme.primary.copy(alpha = 0.85f),
-        )
-    }
+    val scrollbarSettings = rememberSlevoScrollbarSettings(enabled = showScrollbar)
     Box(
         modifier = Modifier.heightIn(max = maxHeight)
     ) {

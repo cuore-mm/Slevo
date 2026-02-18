@@ -29,9 +29,8 @@ import androidx.compose.ui.window.Dialog
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
+import com.websarva.wings.android.slevo.ui.common.rememberSlevoScrollbarSettings
 import my.nanihadesuka.compose.LazyColumnScrollbar
-import my.nanihadesuka.compose.ScrollbarSelectionMode
-import my.nanihadesuka.compose.ScrollbarSettings
 
 @Composable
 fun GestureActionDialog(
@@ -94,12 +93,7 @@ fun GestureActionDialogContent(
 
                 LazyColumnScrollbar(
                     state = listState,
-                    settings = ScrollbarSettings.Default.copy(
-                        selectionMode = ScrollbarSelectionMode.Disabled,
-                        thumbUnselectedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                        thumbThickness = 3.dp,                  // デフォルト 6.dp → 細く
-                        scrollbarPadding = 0.dp,                  // デフォルト 8.dp → 端に寄せる
-                    )
+                    settings = rememberSlevoScrollbarSettings(),
                 ) {
                     LazyColumn(
                         state = listState,
