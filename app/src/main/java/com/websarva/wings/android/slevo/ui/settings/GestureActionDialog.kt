@@ -32,8 +32,7 @@ import androidx.compose.ui.window.Dialog
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
-import com.websarva.wings.android.slevo.ui.common.rememberSlevoScrollbarSettings
-import my.nanihadesuka.compose.LazyColumnScrollbar
+import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 
 @Composable
 fun GestureActionDialog(
@@ -96,9 +95,9 @@ fun GestureActionDialogContent(
                     derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
                 }
 
-                LazyColumnScrollbar(
+                SlevoLazyColumnScrollbar(
                     state = listState,
-                    settings = rememberSlevoScrollbarSettings(enabled = showScrollbar),
+                    enabled = showScrollbar,
                 ) {
                     LazyColumn(
                         state = listState,

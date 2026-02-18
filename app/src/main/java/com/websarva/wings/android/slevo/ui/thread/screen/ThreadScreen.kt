@@ -65,7 +65,7 @@ import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
-import com.websarva.wings.android.slevo.ui.common.rememberSlevoScrollbarSettings
+import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
@@ -86,7 +86,6 @@ import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import my.nanihadesuka.compose.LazyColumnScrollbar
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlin.math.min
@@ -508,10 +507,10 @@ fun ThreadScreen(
                 )
             }
         } else {
-            LazyColumnScrollbar(
+            SlevoLazyColumnScrollbar(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
-                settings = rememberSlevoScrollbarSettings(enabled = showScrollbar),
+                enabled = showScrollbar,
             ) {
                 LazyColumn(
                     modifier = Modifier
