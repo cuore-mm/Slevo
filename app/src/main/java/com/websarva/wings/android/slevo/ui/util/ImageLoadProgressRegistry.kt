@@ -6,44 +6,67 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 
 /**
- * 画像URL単位の読み込み進捗状態を保持するレジストリ。
+ * 画像読み込み進捗状態を保持するレジストリ。
  *
- * Coil/OkHttp 側の進捗通知を受け取り、Compose UI から購読可能な
- * `StateFlow` として公開する。
+ * 内部では request 単位で進捗を追跡し、UI には URL 単位へ集約した
+ * 進捗状態を `StateFlow` として公開する。
  */
 object ImageLoadProgressRegistry {
+    /**
+     * request 単位で保持する進捗エントリ。
+     */
+    private data class RequestProgressEntry(
+        val url: String,
+        val state: ImageLoadProgressState,
+    )
+
+    private val lock = Any()
+    private val requestIdCounter = AtomicLong(0L)
+    private val progressByRequestId = mutableMapOf<String, RequestProgressEntry>()
     private val _progressByUrl = MutableStateFlow<Map<String, ImageLoadProgressState>>(emptyMap())
     val progressByUrl: StateFlow<Map<String, ImageLoadProgressState>> = _progressByUrl.asStateFlow()
 
     /**
-     * 指定URLの読み込み開始を登録する。
+     * 進捗追跡用の request ID を生成する。
+     */
+    fun createRequestId(): String {
+        val sequence = requestIdCounter.incrementAndGet()
+        return "image-request-$sequence"
+    }
+
+    /**
+     * 指定 request の読み込み開始を登録する。
      *
      * 進捗率が未確定のため、初期状態は無段階表示とする。
      */
-    fun start(url: String) {
-        if (url.isBlank()) {
-            // Guard: 空URLは進捗管理対象にしない。
+    fun start(requestId: String, url: String) {
+        if (requestId.isBlank() || url.isBlank()) {
+            // Guard: 空 requestId / 空 URL は進捗管理対象にしない。
             return
         }
-        _progressByUrl.update { current ->
-            current + (url to ImageLoadProgressState.Indeterminate)
+        synchronized(lock) {
+            progressByRequestId[requestId] = RequestProgressEntry(
+                url = url,
+                state = ImageLoadProgressState.Indeterminate,
+            )
+            _progressByUrl.value = aggregateProgressByUrl(progressByRequestId.values)
         }
     }
 
     /**
-     * 受信済みバイト数に応じて進捗を更新する。
+     * 指定 request の受信済みバイト数に応じて進捗を更新する。
      *
      * 総バイト数が不明な場合は無段階表示を維持する。
      */
-    fun update(url: String, bytesRead: Long, contentLength: Long) {
-        if (url.isBlank()) {
-            // Guard: 空URLは進捗更新対象にしない。
+    fun update(requestId: String, url: String, bytesRead: Long, contentLength: Long) {
+        if (requestId.isBlank() || url.isBlank()) {
+            // Guard: 空 requestId / 空 URL は進捗更新対象にしない。
             return
         }
         val nextState = if (contentLength > 0L) {
@@ -52,23 +75,66 @@ object ImageLoadProgressRegistry {
         } else {
             ImageLoadProgressState.Indeterminate
         }
-        _progressByUrl.update { current ->
-            current + (url to nextState)
+        synchronized(lock) {
+            val currentEntry = progressByRequestId[requestId] ?: return
+            progressByRequestId[requestId] = currentEntry.copy(state = nextState)
+            _progressByUrl.value = aggregateProgressByUrl(progressByRequestId.values)
         }
     }
 
     /**
-     * 指定URLの読み込み進捗を破棄する。
+     * 指定 request の読み込み進捗を破棄する。
      *
      * 成功・失敗・キャンセルのいずれでも呼び出してよい。
      */
-    fun finish(url: String) {
-        if (url.isBlank()) {
-            // Guard: 空URLは進捗破棄対象にしない。
+    fun finish(requestId: String) {
+        if (requestId.isBlank()) {
+            // Guard: 空 requestId は進捗破棄対象にしない。
             return
         }
-        _progressByUrl.update { current ->
-            current - url
+        synchronized(lock) {
+            progressByRequestId.remove(requestId)
+            _progressByUrl.value = aggregateProgressByUrl(progressByRequestId.values)
+        }
+    }
+
+    /**
+     * テスト用に保持状態を初期化する。
+     */
+    internal fun clearForTest() {
+        synchronized(lock) {
+            progressByRequestId.clear()
+            requestIdCounter.set(0L)
+            _progressByUrl.value = emptyMap()
+        }
+    }
+
+    /**
+     * request 単位の進捗状態を URL 単位へ集約する。
+     *
+     * 同一 URL に無段階表示が 1 件でもあれば無段階を優先し、
+     * それ以外は段階表示の最大進捗率を採用する。
+     */
+    private fun aggregateProgressByUrl(
+        requestEntries: Collection<RequestProgressEntry>
+    ): Map<String, ImageLoadProgressState> {
+        val statesByUrl = mutableMapOf<String, MutableList<ImageLoadProgressState>>()
+        requestEntries.forEach { entry ->
+            val bucket = statesByUrl.getOrPut(entry.url) { mutableListOf() }
+            bucket += entry.state
+        }
+        return statesByUrl.mapValues { (_, states) ->
+            val hasIndeterminate = states.any { it is ImageLoadProgressState.Indeterminate }
+            if (hasIndeterminate) {
+                ImageLoadProgressState.Indeterminate
+            } else {
+                val maxProgress = states
+                    .asSequence()
+                    .filterIsInstance<ImageLoadProgressState.Determinate>()
+                    .maxOfOrNull { it.progress }
+                    ?: 0f
+                ImageLoadProgressState.Determinate(maxProgress)
+            }
         }
     }
 }

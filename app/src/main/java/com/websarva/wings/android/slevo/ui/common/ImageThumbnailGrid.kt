@@ -87,7 +87,6 @@ fun ImageThumbnailGrid(
                             contentScale = ContentScale.Fit,
                             onSuccess = { state ->
                                 canNavigateByIndex[imageIndex] = true
-                                ImageLoadProgressRegistry.finish(url)
                                 state.result.diskCacheKey?.let { key ->
                                     ImageActionReuseRegistry.register(
                                         url = url,
@@ -98,11 +97,9 @@ fun ImageThumbnailGrid(
                             },
                             onLoading = {
                                 canNavigateByIndex[imageIndex] = false
-                                ImageLoadProgressRegistry.start(url)
                             },
                             onError = {
                                 canNavigateByIndex[imageIndex] = false
-                                ImageLoadProgressRegistry.finish(url)
                             },
                             modifier = Modifier
                                 .weight(1f)

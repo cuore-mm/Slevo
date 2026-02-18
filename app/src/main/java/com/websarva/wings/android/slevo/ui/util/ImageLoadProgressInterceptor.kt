@@ -16,29 +16,31 @@ import okio.buffer
  */
 class ImageLoadProgressInterceptor : Interceptor {
     /**
-     * レスポンスボディの読み取りをフックして、URL単位の進捗を更新する。
+     * レスポンスボディの読み取りをフックして、request 単位の進捗を更新する。
      */
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val url = request.url.toString()
-        ImageLoadProgressRegistry.start(url)
+        val requestId = ImageLoadProgressRegistry.createRequestId()
+        ImageLoadProgressRegistry.start(requestId = requestId, url = url)
 
         val response = try {
             chain.proceed(request)
         } catch (exception: IOException) {
             // Fallback: 通信失敗時は進捗状態を破棄する。
-            ImageLoadProgressRegistry.finish(url)
+            ImageLoadProgressRegistry.finish(requestId)
             throw exception
         }
 
         val body = response.body ?: run {
             // Guard: ボディなしレスポンスは進捗管理を終了する。
-            ImageLoadProgressRegistry.finish(url)
+            ImageLoadProgressRegistry.finish(requestId)
             return response
         }
 
         val wrappedBody = ProgressResponseBody(
             origin = body,
+            requestId = requestId,
             url = url,
         )
         return response.newBuilder().body(wrappedBody).build()
@@ -50,6 +52,7 @@ class ImageLoadProgressInterceptor : Interceptor {
  */
 private class ProgressResponseBody(
     private val origin: ResponseBody,
+    private val requestId: String,
     private val url: String,
 ) : ResponseBody() {
     private val contentLength = origin.contentLength()
@@ -75,6 +78,7 @@ private class ProgressResponseBody(
         }
         val progressSource = ProgressSource(
             delegate = origin.source(),
+            requestId = requestId,
             url = url,
             contentLength = contentLength,
         )
@@ -89,6 +93,7 @@ private class ProgressResponseBody(
  */
 private class ProgressSource(
     delegate: Source,
+    private val requestId: String,
     private val url: String,
     private val contentLength: Long,
 ) : ForwardingSource(delegate) {
@@ -103,11 +108,12 @@ private class ProgressSource(
             val bytesRead = super.read(sink, byteCount)
             if (bytesRead == -1L) {
                 // Guard: 読み取り終端で進捗状態を破棄する。
-                ImageLoadProgressRegistry.finish(url)
+                ImageLoadProgressRegistry.finish(requestId)
                 return -1L
             }
             totalBytesRead += bytesRead
             ImageLoadProgressRegistry.update(
+                requestId = requestId,
                 url = url,
                 bytesRead = totalBytesRead,
                 contentLength = contentLength,
@@ -115,7 +121,7 @@ private class ProgressSource(
             bytesRead
         } catch (exception: IOException) {
             // Fallback: 読み取り失敗時は進捗状態を破棄する。
-            ImageLoadProgressRegistry.finish(url)
+            ImageLoadProgressRegistry.finish(requestId)
             throw exception
         }
     }

@@ -120,11 +120,9 @@ internal fun ImageViewerPager(
                     .listener(
                         onStart = { _ ->
                             isLoadingByPage[page] = true
-                            ImageLoadProgressRegistry.start(imageUrl)
                         },
                         onSuccess = { _, result ->
                             isLoadingByPage[page] = false
-                            ImageLoadProgressRegistry.finish(imageUrl)
                             result.diskCacheKey?.let { key ->
                                 ImageActionReuseRegistry.register(
                                     url = imageUrl,
@@ -135,11 +133,9 @@ internal fun ImageViewerPager(
                         },
                         onError = { _, _ ->
                             isLoadingByPage[page] = false
-                            ImageLoadProgressRegistry.finish(imageUrl)
                         },
                         onCancel = { _ ->
                             isLoadingByPage[page] = false
-                            ImageLoadProgressRegistry.finish(imageUrl)
                         }
                     )
                     .build()

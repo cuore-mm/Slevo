@@ -141,11 +141,9 @@ internal fun ImageViewerThumbnailBar(
                         alignment = Alignment.Center,
                         onLoading = {
                             isLoadingByIndex[index] = true
-                            ImageLoadProgressRegistry.start(imageUrls[index])
                         },
                         onSuccess = { state ->
                             isLoadingByIndex[index] = false
-                            ImageLoadProgressRegistry.finish(imageUrls[index])
                             state.result.diskCacheKey?.let { key ->
                                 ImageActionReuseRegistry.register(
                                     url = imageUrls[index],
@@ -158,7 +156,6 @@ internal fun ImageViewerThumbnailBar(
                         },
                         onError = {
                             isLoadingByIndex[index] = false
-                            ImageLoadProgressRegistry.finish(imageUrls[index])
                         },
                         modifier = Modifier
                             .size(
