@@ -62,6 +62,9 @@ import kotlin.math.min
 
 // アニメーションの速度（ミリ秒）
 private const val POPUP_ANIMATION_DURATION = 160
+private const val BASE_MAX_HEIGHT_RATIO = 0.75f
+private const val STEP_MAX_HEIGHT_RATIO = 0.08f
+private const val MIN_MAX_HEIGHT_RATIO = 0.45f
 
 /**
  * 返信ポップアップの表示と操作イベントを管理する。
@@ -151,6 +154,7 @@ fun ReplyPopup(
             ) {
                 PopupPostList(
                     info = info,
+                    popupIndex = index,
                     posts = posts,
                     replySourceMap = replySourceMap,
                     idCountMap = idCountMap,
@@ -313,6 +317,7 @@ private fun PopupCard(
 @Composable
 private fun PopupPostList(
     info: PopupInfo,
+    popupIndex: Int,
     posts: List<ThreadPostUiModel>,
     replySourceMap: Map<Int, List<Int>>,
     idCountMap: Map<String, Int>,
@@ -337,7 +342,8 @@ private fun PopupPostList(
     onIdClick: (String) -> Unit,
 ) {
     // --- レイアウト ---
-    val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.75f
+    val maxHeightRatio = calculatePopupMaxHeightRatio(popupIndex)
+    val maxHeight = LocalConfiguration.current.screenHeightDp.dp * maxHeightRatio
     val listState = rememberLazyListState()
     val showScrollbar by remember(listState) {
         derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
@@ -471,6 +477,19 @@ private fun calculatePopupOffset(info: PopupInfo): IntOffset {
         info.offset.x,
         (info.offset.y - info.size.height).coerceAtLeast(0)
     )
+}
+
+/**
+ * ポップアップ段数に応じた最大高さ比率を返す。
+ *
+ * 1段目を基準とし、段数が増えるごとに一定値で縮小する。
+ * 縮小後の値は [MIN_MAX_HEIGHT_RATIO] を下回らない。
+ */
+internal fun calculatePopupMaxHeightRatio(popupIndex: Int): Float {
+    // 不正な負値入力は1段目として扱う。
+    val depth = popupIndex.coerceAtLeast(0)
+    val calculated = BASE_MAX_HEIGHT_RATIO - (depth * STEP_MAX_HEIGHT_RATIO)
+    return calculated.coerceAtLeast(MIN_MAX_HEIGHT_RATIO)
 }
 
 /**
