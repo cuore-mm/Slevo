@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -52,11 +53,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
-import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 import kotlin.math.min
 
 // アニメーションの速度（ミリ秒）
@@ -282,9 +283,10 @@ private fun PopupCard(
             animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)
         )
     ) {
-        // --- カード描画 ---
+        val shape = MaterialTheme.shapes.small
         Card(
             modifier = Modifier
+                .padding(horizontal = 4.dp, vertical = 8.dp)
                 .offset { calculatePopupOffset(info) }
                 .zIndex(index.toFloat())
                 .onGloballyPositioned { coords ->
@@ -293,8 +295,10 @@ private fun PopupCard(
                         onSizeChanged(size)
                     }
                 }
-                .border(width = 2.dp, color = MaterialTheme.colorScheme.primary)
-                .disableInteractionOnUnderlay(isTop, onCloseTop)
+                .border(width = 2.dp, color = MaterialTheme.colorScheme.primary, shape = shape)
+                .disableInteractionOnUnderlay(isTop, onCloseTop),
+            shape = shape,
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         ) {
             content()
         }
