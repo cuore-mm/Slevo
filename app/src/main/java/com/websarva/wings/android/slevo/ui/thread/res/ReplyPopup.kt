@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -68,6 +69,8 @@ private const val BASE_MAX_HEIGHT_RATIO = 0.75f
 private const val STEP_MAX_HEIGHT_RATIO = 0.05f
 private const val MIN_MAX_HEIGHT_RATIO = 0.55f
 private val POPUP_RIGHT_MARGIN = 4.dp
+private val POPUP_LEFT_MARGIN_STEP = 4.dp
+private val POPUP_BASE_LEFT_MARGIN = 4.dp
 private val POPUP_MAX_LEFT_MARGIN = 32.dp
 
 /**
@@ -298,15 +301,18 @@ private fun PopupCard(
         )
     ) {
         val shape = MaterialTheme.shapes.small
+        val leftMargin = calculatePopupLeftMargin(index)
+        val maxWidth = (LocalConfiguration.current.screenWidthDp.dp - leftMargin - POPUP_RIGHT_MARGIN)
+            .coerceAtLeast(1.dp)
         Card(
             modifier = Modifier
-                .padding(horizontal = POPUP_RIGHT_MARGIN, vertical = 8.dp)
+                .padding(start = leftMargin, end = POPUP_RIGHT_MARGIN, top = 8.dp, bottom = 8.dp)
+                .widthIn(max = maxWidth)
                 .offset {
                     calculatePopupOffset(
                         info = info,
                         screenWidthPx = screenWidthPx,
                         rightMarginPx = POPUP_RIGHT_MARGIN.roundToPx(),
-                        maxLeftMarginPx = POPUP_MAX_LEFT_MARGIN.roundToPx(),
                     )
                 }
                 .zIndex(index.toFloat())
@@ -454,7 +460,6 @@ private fun PopupPostLazyColumn(
                     info = info,
                     screenWidthPx = Int.MAX_VALUE,
                     rightMarginPx = 0,
-                    maxLeftMarginPx = Int.MAX_VALUE,
                 )
             }
             val transitionNamespace = ImageSharedTransitionKeyFactory.popupPostNamespace(
@@ -505,13 +510,12 @@ private fun PopupPostLazyColumn(
 /**
  * ポップアップの描画位置を計算する。
  *
- * 上端が画面外にならないように Y を補正し、X は右余白固定と左余白上限で制約する。
+ * 上端が画面外にならないように Y を補正し、X は右余白固定で制約する。
  */
 private fun calculatePopupOffset(
     info: PopupInfo,
     screenWidthPx: Int,
     rightMarginPx: Int,
-    maxLeftMarginPx: Int,
 ): IntOffset {
     // --- X 位置クランプ ---
     val clampedX = calculateClampedPopupOffsetX(
@@ -519,7 +523,6 @@ private fun calculatePopupOffset(
         popupWidthPx = info.size.width,
         screenWidthPx = screenWidthPx,
         rightMarginPx = rightMarginPx,
-        maxLeftMarginPx = maxLeftMarginPx,
     )
 
     // --- Y 位置補正 ---
@@ -530,23 +533,30 @@ private fun calculatePopupOffset(
 }
 
 /**
- * ポップアップの X 座標を右余白固定と左余白上限でクランプする。
+ * ポップアップの X 座標を右余白固定でクランプする。
  *
- * 右端見切れを防止するために右余白を確保しつつ、左余白は最大値を超えない。
+ * 右端見切れを防止するために右余白を確保する。
  */
 internal fun calculateClampedPopupOffsetX(
     desiredX: Int,
     popupWidthPx: Int,
     screenWidthPx: Int,
     rightMarginPx: Int,
-    maxLeftMarginPx: Int,
 ): Int {
     // 右端を超えない X 上限。画面幅が狭い場合に負値へ落ちないよう 0 以上に固定する。
     val rightEdgeMaxX = max(screenWidthPx - popupWidthPx - rightMarginPx, 0)
-    val rightClampedX = min(desiredX, rightEdgeMaxX)
-    // 左余白上限（X の最大許容値）を超える配置を抑制する。
-    val leftLimitedX = min(rightClampedX, maxLeftMarginPx)
-    return leftLimitedX.coerceAtLeast(0)
+    return min(desiredX, rightEdgeMaxX).coerceAtLeast(0)
+}
+
+/**
+ * ポップアップ段数ごとの左余白を返す。
+ *
+ * 1段目を基準に 4.dp ずつ増加し、[POPUP_MAX_LEFT_MARGIN] を上限とする。
+ */
+internal fun calculatePopupLeftMargin(popupIndex: Int): Dp {
+    val normalizedIndex = popupIndex.coerceAtLeast(0)
+    val margin = POPUP_BASE_LEFT_MARGIN + (POPUP_LEFT_MARGIN_STEP * normalizedIndex)
+    return if (margin > POPUP_MAX_LEFT_MARGIN) POPUP_MAX_LEFT_MARGIN else margin
 }
 
 /**
@@ -602,7 +612,6 @@ private fun isTapInsidePopup(
         info = topInfo,
         screenWidthPx = Int.MAX_VALUE,
         rightMarginPx = 0,
-        maxLeftMarginPx = Int.MAX_VALUE,
     )
     val insideX = tapOffset.x >= topOffset.x && tapOffset.x < topOffset.x + size.width
     val insideY = tapOffset.y >= topOffset.y && tapOffset.y < topOffset.y + size.height

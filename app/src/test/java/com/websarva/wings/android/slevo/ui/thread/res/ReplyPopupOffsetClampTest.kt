@@ -1,12 +1,13 @@
 package com.websarva.wings.android.slevo.ui.thread.res
 
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
  * レスポップアップの X 座標クランプ計算を検証するユニットテスト。
  *
- * 右余白固定と左余白上限の両制約が同時に適用されることを確認する。
+ * 右余白固定の制約と段数別左余白計算を確認する。
  */
 class ReplyPopupOffsetClampTest {
 
@@ -17,35 +18,31 @@ class ReplyPopupOffsetClampTest {
             popupWidthPx = 280,
             screenWidthPx = 400,
             rightMarginPx = 4,
-            maxLeftMarginPx = 32,
         )
 
         assertEquals(20, result)
     }
 
     @Test
-    fun calculateClampedPopupOffsetX_clampsToRightEdgeBeforeLeftLimit() {
+    fun calculateClampedPopupOffsetX_clampsToRightEdge() {
         val result = calculateClampedPopupOffsetX(
             desiredX = 200,
             popupWidthPx = 320,
             screenWidthPx = 360,
             rightMarginPx = 4,
-            maxLeftMarginPx = 32,
         )
 
-        assertEquals(32, result)
+        assertEquals(36, result)
     }
 
     @Test
-    fun calculateClampedPopupOffsetX_clampsToMaxLeftMargin() {
-        val result = calculateClampedPopupOffsetX(
-            desiredX = 80,
-            popupWidthPx = 200,
-            screenWidthPx = 500,
-            rightMarginPx = 4,
-            maxLeftMarginPx = 32,
-        )
+    fun calculatePopupLeftMargin_increasesByStepAndCapsAtMax() {
+        val first = calculatePopupLeftMargin(popupIndex = 0)
+        val second = calculatePopupLeftMargin(popupIndex = 1)
+        val deep = calculatePopupLeftMargin(popupIndex = 10)
 
-        assertEquals(32, result)
+        assertEquals(4.dp, first)
+        assertEquals(8.dp, second)
+        assertEquals(32.dp, deep)
     }
 }
