@@ -46,6 +46,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -59,12 +60,15 @@ import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransiti
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import kotlin.math.max
 import kotlin.math.min
 
 private const val POPUP_ANIMATION_DURATION = 160
 private const val BASE_MAX_HEIGHT_RATIO = 0.75f
 private const val STEP_MAX_HEIGHT_RATIO = 0.05f
 private const val MIN_MAX_HEIGHT_RATIO = 0.55f
+private val POPUP_RIGHT_MARGIN = 4.dp
+private val POPUP_MAX_LEFT_MARGIN = 32.dp
 
 /**
  * 返信ポップアップの表示と操作イベントを管理する。
@@ -103,6 +107,10 @@ fun ReplyPopup(
 ) {
     // --- 表示状態管理 ---
     val visibilityStates = rememberPopupVisibilityStates(popupStack.size)
+    val density = LocalDensity.current
+    val screenWidthPx = with(density) {
+        LocalConfiguration.current.screenWidthDp.dp.roundToPx()
+    }
 
     // --- 終了操作 ---
     val closeTopPopup: () -> Unit = {
@@ -143,6 +151,7 @@ fun ReplyPopup(
             PopupCard(
                 info = info,
                 index = index,
+                screenWidthPx = screenWidthPx,
                 isTop = isTop,
                 visibleState = visibleState,
                 onCloseTop = closeTopPopup,
@@ -267,6 +276,7 @@ private fun PopupBackgroundOverlay(
 private fun PopupCard(
     info: PopupInfo,
     index: Int,
+    screenWidthPx: Int,
     isTop: Boolean,
     visibleState: MutableTransitionState<Boolean>,
     onCloseTop: () -> Unit,
@@ -290,8 +300,15 @@ private fun PopupCard(
         val shape = MaterialTheme.shapes.small
         Card(
             modifier = Modifier
-                .padding(horizontal = 4.dp, vertical = 8.dp)
-                .offset { calculatePopupOffset(info) }
+                .padding(horizontal = POPUP_RIGHT_MARGIN, vertical = 8.dp)
+                .offset {
+                    calculatePopupOffset(
+                        info = info,
+                        screenWidthPx = screenWidthPx,
+                        rightMarginPx = POPUP_RIGHT_MARGIN.roundToPx(),
+                        maxLeftMarginPx = POPUP_MAX_LEFT_MARGIN.roundToPx(),
+                    )
+                }
                 .zIndex(index.toFloat())
                 .onGloballyPositioned { coords ->
                     val size = coords.size
@@ -433,7 +450,12 @@ private fun PopupPostLazyColumn(
                 postOffset
             } else {
                 // レイアウト計測前は現在ポップアップ位置をフォールバックとして使う。
-                calculatePopupOffset(info)
+                calculatePopupOffset(
+                    info = info,
+                    screenWidthPx = Int.MAX_VALUE,
+                    rightMarginPx = 0,
+                    maxLeftMarginPx = Int.MAX_VALUE,
+                )
             }
             val transitionNamespace = ImageSharedTransitionKeyFactory.popupPostNamespace(
                 popupId = info.popupId,
@@ -483,13 +505,48 @@ private fun PopupPostLazyColumn(
 /**
  * ポップアップの描画位置を計算する。
  *
- * 上端が画面外にならないように座標を補正する。
+ * 上端が画面外にならないように Y を補正し、X は右余白固定と左余白上限で制約する。
  */
-private fun calculatePopupOffset(info: PopupInfo): IntOffset {
+private fun calculatePopupOffset(
+    info: PopupInfo,
+    screenWidthPx: Int,
+    rightMarginPx: Int,
+    maxLeftMarginPx: Int,
+): IntOffset {
+    // --- X 位置クランプ ---
+    val clampedX = calculateClampedPopupOffsetX(
+        desiredX = info.offset.x,
+        popupWidthPx = info.size.width,
+        screenWidthPx = screenWidthPx,
+        rightMarginPx = rightMarginPx,
+        maxLeftMarginPx = maxLeftMarginPx,
+    )
+
+    // --- Y 位置補正 ---
     return IntOffset(
-        info.offset.x,
+        clampedX,
         (info.offset.y - info.size.height).coerceAtLeast(0)
     )
+}
+
+/**
+ * ポップアップの X 座標を右余白固定と左余白上限でクランプする。
+ *
+ * 右端見切れを防止するために右余白を確保しつつ、左余白は最大値を超えない。
+ */
+internal fun calculateClampedPopupOffsetX(
+    desiredX: Int,
+    popupWidthPx: Int,
+    screenWidthPx: Int,
+    rightMarginPx: Int,
+    maxLeftMarginPx: Int,
+): Int {
+    // 右端を超えない X 上限。画面幅が狭い場合に負値へ落ちないよう 0 以上に固定する。
+    val rightEdgeMaxX = max(screenWidthPx - popupWidthPx - rightMarginPx, 0)
+    val rightClampedX = min(desiredX, rightEdgeMaxX)
+    // 左余白上限（X の最大許容値）を超える配置を抑制する。
+    val leftLimitedX = min(rightClampedX, maxLeftMarginPx)
+    return leftLimitedX.coerceAtLeast(0)
 }
 
 /**
@@ -541,7 +598,12 @@ private fun isTapInsidePopup(
         // サイズ確定前は外側判定を行わない。
         return true
     }
-    val topOffset = calculatePopupOffset(topInfo)
+    val topOffset = calculatePopupOffset(
+        info = topInfo,
+        screenWidthPx = Int.MAX_VALUE,
+        rightMarginPx = 0,
+        maxLeftMarginPx = Int.MAX_VALUE,
+    )
     val insideX = tapOffset.x >= topOffset.x && tapOffset.x < topOffset.x + size.width
     val insideY = tapOffset.y >= topOffset.y && tapOffset.y < topOffset.y + size.height
     return insideX && insideY
