@@ -133,6 +133,7 @@ internal fun ImageViewerThumbnailBar(
             ) {
                 items(imageUrls.size) { index ->
                     val isSelected = index == pagerState.currentPage
+                    val isError = isErrorByIndex[index] == true
                     val interactionSource = remember { MutableInteractionSource() }
                     val isPressed by interactionSource.collectIsPressedAsState()
                     val baseScale =
@@ -146,76 +147,91 @@ internal fun ImageViewerThumbnailBar(
                         animationSpec = tween(durationMillis = 100),
                         label = "thumbnailScale",
                     )
-                    SubcomposeAsyncImage(
-                        model = imageUrls[index],
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        alignment = Alignment.Center,
-                        onLoading = {
-                            isLoadingByIndex[index] = true
-                            isErrorByIndex[index] = false
-                        },
-                        onSuccess = { state ->
-                            isLoadingByIndex[index] = false
-                            isErrorByIndex[index] = false
-                            state.result.diskCacheKey?.let { key ->
-                                ImageActionReuseRegistry.register(
-                                    url = imageUrls[index],
-                                    diskCacheKey = key,
-                                    extension = imageUrls[index].substringAfterLast('.', ""),
-                                )
-                            }
-                            // Guard: GIFなどのアニメーションDrawableはサムネイルで再生させない。
-                            (state.result.image.asDrawable(resources) as? Animatable)?.stop()
-                        },
-                        onError = {
-                            isLoadingByIndex[index] = false
-                            isErrorByIndex[index] = true
-                        },
-                        modifier = Modifier
-                            .size(
-                                width = thumbnailWidth * selectedThumbnailScale,
-                                height = thumbnailHeight * selectedThumbnailScale,
+                    val thumbnailModifier = Modifier
+                        .size(
+                            width = thumbnailWidth * selectedThumbnailScale,
+                            height = thumbnailHeight * selectedThumbnailScale,
+                        )
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                        }
+                        .clip(thumbnailShape)
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = LocalIndication.current,
+                        ) { onThumbnailClick(index) }
+                        .background(Color.DarkGray)
+
+                    if (isError) {
+                        Box(
+                            modifier = thumbnailModifier,
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = stringResource(R.string.refresh),
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp),
                             )
-                            .graphicsLayer {
-                                scaleX = scale
-                                scaleY = scale
-                            }
-                            .clip(thumbnailShape)
-                            .clickable(
-                                interactionSource = interactionSource,
-                                indication = LocalIndication.current,
-                            ) { onThumbnailClick(index) }
-                            .background(Color.DarkGray),
-                        loading = {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (isLoadingByIndex[index] == true) {
-                                    ImageLoadProgressIndicator(
-                                        progressState = loadProgressByUrl[imageUrls[index]],
-                                        indicatorSize = 18.dp,
+                        }
+                    } else {
+                        SubcomposeAsyncImage(
+                            model = imageUrls[index],
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            alignment = Alignment.Center,
+                            onLoading = {
+                                isLoadingByIndex[index] = true
+                            },
+                            onSuccess = { state ->
+                                isLoadingByIndex[index] = false
+                                isErrorByIndex[index] = false
+                                state.result.diskCacheKey?.let { key ->
+                                    ImageActionReuseRegistry.register(
+                                        url = imageUrls[index],
+                                        diskCacheKey = key,
+                                        extension = imageUrls[index].substringAfterLast('.', ""),
                                     )
                                 }
-                            }
-                        },
-                        error = {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (isErrorByIndex[index] == true) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Refresh,
-                                        contentDescription = stringResource(R.string.refresh),
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp),
-                                    )
+                                // Guard: GIFなどのアニメーションDrawableはサムネイルで再生させない。
+                                (state.result.image.asDrawable(resources) as? Animatable)?.stop()
+                            },
+                            onError = {
+                                isLoadingByIndex[index] = false
+                                isErrorByIndex[index] = true
+                            },
+                            modifier = thumbnailModifier,
+                            loading = {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (isLoadingByIndex[index] == true) {
+                                        ImageLoadProgressIndicator(
+                                            progressState = loadProgressByUrl[imageUrls[index]],
+                                            indicatorSize = 18.dp,
+                                        )
+                                    }
                                 }
-                            }
-                        },
-                    )
+                            },
+                            error = {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (isErrorByIndex[index] == true) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Refresh,
+                                            contentDescription = stringResource(R.string.refresh),
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }

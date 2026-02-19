@@ -89,6 +89,7 @@ fun ImageThumbnailGrid(
                 rowItems.forEachIndexed { columnIndex, url ->
                     val imageIndex = baseIndex + columnIndex
                     with(sharedTransitionScope) {
+                        val isError = isErrorByIndex[imageIndex] == true
                         val retryNonce = retryNonceByIndex[imageIndex] ?: 0
                         val imageRequest = remember(url, retryNonce, context) {
                             ImageRequest.Builder(context)
@@ -111,80 +112,94 @@ fun ImageThumbnailGrid(
                         } else {
                             Modifier
                         }
-                        key(imageIndex, retryNonce) {
-                            SubcomposeAsyncImage(
-                                model = imageRequest,
-                                contentDescription = null,
-                                contentScale = ContentScale.Fit,
-                                onSuccess = { state ->
-                                    canNavigateByIndex[imageIndex] = true
-                                    isErrorByIndex[imageIndex] = false
-                                    state.result.diskCacheKey?.let { key ->
-                                        ImageActionReuseRegistry.register(
-                                            url = url,
-                                            diskCacheKey = key,
-                                            extension = url.substringAfterLast('.', ""),
+                        val tileModifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .combinedClickable(
+                                onClick = {
+                                    // Guard: 表示成功したサムネイルのみビューア遷移を許可する。
+                                    if (canNavigateByIndex[imageIndex] == true) {
+                                        onImageClick(
+                                            url,
+                                            imageUrls,
+                                            imageIndex,
+                                            transitionNamespace
                                         )
+                                        return@combinedClickable
+                                    }
+                                    // Guard: 失敗サムネイルは明示操作時のみ再読み込みを行う。
+                                    if (isErrorByIndex[imageIndex] == true) {
+                                        retryNonceByIndex[imageIndex] = retryNonce + 1
+                                        isErrorByIndex[imageIndex] = false
                                     }
                                 },
-                                onLoading = {
-                                    canNavigateByIndex[imageIndex] = false
-                                    isErrorByIndex[imageIndex] = false
-                                },
-                                onError = {
-                                    canNavigateByIndex[imageIndex] = false
-                                    isErrorByIndex[imageIndex] = true
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .aspectRatio(1f)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    .combinedClickable(
-                                        onClick = {
-                                            // Guard: 表示成功したサムネイルのみビューア遷移を許可する。
-                                            if (canNavigateByIndex[imageIndex] == true) {
-                                                onImageClick(
-                                                    url,
-                                                    imageUrls,
-                                                    imageIndex,
-                                                    transitionNamespace
-                                                )
-                                                return@combinedClickable
-                                            }
-                                            // Guard: 失敗サムネイルは遷移せず同一URLの再読み込みを行う。
-                                            if (isErrorByIndex[imageIndex] == true) {
-                                                retryNonceByIndex[imageIndex] = retryNonce + 1
-                                                isErrorByIndex[imageIndex] = false
-                                            }
-                                        },
-                                        onLongClick = onImageLongPress?.let { { it(url, imageUrls) } },
-                                    )
-                                    .then(sharedElementModifier),
-                                loading = {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        ImageLoadProgressIndicator(
-                                            progressState = loadProgressByUrl[url],
-                                            indicatorSize = 24.dp,
-                                        )
-                                    }
-                                },
-                                error = {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Refresh,
-                                            contentDescription = stringResource(R.string.refresh),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(24.dp),
-                                        )
-                                    }
-                                },
+                                onLongClick = onImageLongPress?.let { { it(url, imageUrls) } },
                             )
+                            .then(sharedElementModifier)
+                        if (isError) {
+                            Box(
+                                modifier = tileModifier,
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = stringResource(R.string.refresh),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                            }
+                        } else {
+                            key(imageIndex, retryNonce) {
+                                SubcomposeAsyncImage(
+                                    model = imageRequest,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Fit,
+                                    onSuccess = { state ->
+                                        canNavigateByIndex[imageIndex] = true
+                                        isErrorByIndex[imageIndex] = false
+                                        state.result.diskCacheKey?.let { key ->
+                                            ImageActionReuseRegistry.register(
+                                                url = url,
+                                                diskCacheKey = key,
+                                                extension = url.substringAfterLast('.', ""),
+                                            )
+                                        }
+                                    },
+                                    onLoading = {
+                                        canNavigateByIndex[imageIndex] = false
+                                    },
+                                    onError = {
+                                        canNavigateByIndex[imageIndex] = false
+                                        isErrorByIndex[imageIndex] = true
+                                    },
+                                    modifier = tileModifier,
+                                    loading = {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            ImageLoadProgressIndicator(
+                                                progressState = loadProgressByUrl[url],
+                                                indicatorSize = 24.dp,
+                                            )
+                                        }
+                                    },
+                                    error = {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Refresh,
+                                                contentDescription = stringResource(R.string.refresh),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(24.dp),
+                                            )
+                                        }
+                                    },
+                                )
+                            }
                         }
                     }
                 }

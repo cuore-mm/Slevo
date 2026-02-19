@@ -92,6 +92,7 @@ internal fun ImageViewerPager(
     ) { page ->
         // --- Zoom state ---
         val imageUrl = imageUrls[page]
+        val isError = isErrorByPage[page] == true
         val zoomableState = rememberZoomableState(
             zoomSpec = ZoomSpec(
                 maxZoomFactor = 12f,
@@ -171,16 +172,18 @@ internal fun ImageViewerPager(
                     )
                     .build()
             }
-            ZoomableAsyncImage(
-                model = imageRequest,
-                contentDescription = null,
-                state = imageState,
-                modifier = Modifier.fillMaxSize(),
-                onClick = { _ -> onToggleBars() },
-                onDoubleClick = DoubleClickToZoomListener.cycle(
-                    maxZoomFactor = 2f,
-                ),
-            )
+            if (!isError) {
+                ZoomableAsyncImage(
+                    model = imageRequest,
+                    contentDescription = null,
+                    state = imageState,
+                    modifier = Modifier.fillMaxSize(),
+                    onClick = { _ -> onToggleBars() },
+                    onDoubleClick = DoubleClickToZoomListener.cycle(
+                        maxZoomFactor = 2f,
+                    ),
+                )
+            }
             if (isLoadingByPage[page] == true) {
                 ImageLoadProgressIndicator(
                     progressState = loadProgressByUrl[imageUrl],
