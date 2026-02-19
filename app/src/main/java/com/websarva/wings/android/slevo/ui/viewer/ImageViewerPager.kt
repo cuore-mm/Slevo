@@ -186,7 +186,7 @@ internal fun ImageViewerPager(
                     indicatorSize = 48.dp,
                 )
             }
-            if (isErrorByPage[page] == true) {
+            if (isError) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
