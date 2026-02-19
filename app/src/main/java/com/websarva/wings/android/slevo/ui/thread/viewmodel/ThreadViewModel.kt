@@ -44,6 +44,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
+import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import dagger.assisted.Assisted
@@ -255,6 +256,7 @@ class ThreadViewModel @AssistedInject constructor(
                 postGroups = emptyList(),
                 lastLoadedResCount = 0,
                 latestArrivalGroupIndex = null,
+                failedImageUrls = emptySet(),
             )
         }
     }
@@ -473,6 +475,7 @@ class ThreadViewModel @AssistedInject constructor(
      * 取得成功時の UIState を一括で更新する。
      */
     private fun applyLoadSuccess(derived: ThreadLoadDerived) {
+        val activeImageUrls = deriveActiveImageUrls(derived.uiPosts)
         _uiState.update {
             it.copy(
                 posts = derived.uiPosts,
@@ -489,8 +492,62 @@ class ThreadViewModel @AssistedInject constructor(
                 replySourceMap = derived.replySourceMap,
                 treeOrder = derived.treeOrder,
                 treeDepthMap = derived.treeDepthMap,
+                failedImageUrls = it.failedImageUrls.filterTo(mutableSetOf()) { url ->
+                    url in activeImageUrls
+                },
             )
         }
+    }
+
+    /**
+     * サムネイル画像の読み込み失敗URLを UI 状態へ記録する。
+     */
+    fun onThreadImageLoadError(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは失敗管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(failedImageUrls = state.failedImageUrls + imageUrl)
+        }
+    }
+
+    /**
+     * サムネイル画像の読み込み成功URLを失敗状態から解除する。
+     */
+    fun onThreadImageLoadSuccess(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは失敗管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(failedImageUrls = state.failedImageUrls - imageUrl)
+        }
+    }
+
+    /**
+     * ユーザーの明示リトライ操作に合わせて失敗状態を解除する。
+     */
+    fun onThreadImageRetry(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは失敗管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(failedImageUrls = state.failedImageUrls - imageUrl)
+        }
+    }
+
+    /**
+     * 投稿一覧から表示対象の画像URL集合を抽出する。
+     */
+    private fun deriveActiveImageUrls(posts: List<ThreadPostUiModel>): Set<String> {
+        return posts
+            .asSequence()
+            .filter { post -> post.meta.urlFlags and ReplyInfo.HAS_IMAGE_URL != 0 }
+            .flatMap { post -> extractImageUrls(post.body.content).asSequence() }
+            .filter { url -> url.isNotBlank() }
+            .toSet()
     }
 
     /**

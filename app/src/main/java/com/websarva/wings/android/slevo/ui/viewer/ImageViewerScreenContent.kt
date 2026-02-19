@@ -61,6 +61,9 @@ internal fun ImageViewerScreenContent(
     onToggleBars: () -> Unit,
     onThumbnailClick: (Int) -> Unit,
     onDismissNgDialog: () -> Unit,
+    onImageLoadError: (String) -> Unit,
+    onImageLoadSuccess: (String) -> Unit,
+    onImageRetry: (String) -> Unit,
 ) {
     // --- Root container ---
     Box(
@@ -105,6 +108,10 @@ internal fun ImageViewerScreenContent(
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,
                     onToggleBars = onToggleBars,
+                    failedImageUrls = uiState.failedImageUrls,
+                    onImageLoadError = onImageLoadError,
+                    onImageLoadSuccess = onImageLoadSuccess,
+                    onImageRetry = onImageRetry,
                 )
                 if (isBarsVisible) {
                     Box(
@@ -139,6 +146,9 @@ internal fun ImageViewerScreenContent(
                             barExitDurationMillis = barExitDurationMillis,
                             thumbnailViewportWidthPx = thumbnailViewportWidthPx,
                             onThumbnailClick = onThumbnailClick,
+                            failedImageUrls = uiState.failedImageUrls,
+                            onImageLoadError = onImageLoadError,
+                            onImageLoadSuccess = onImageLoadSuccess,
                         )
                     }
                 }

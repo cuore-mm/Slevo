@@ -52,6 +52,10 @@ fun ImageThumbnailGrid(
     transitionNamespace: String,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: ((String, List<String>) -> Unit)? = null,
+    failedImageUrls: Set<String> = emptySet(),
+    onImageLoadError: (String) -> Unit = {},
+    onImageLoadSuccess: (String) -> Unit = {},
+    onImageRetry: (String) -> Unit = {},
     enableSharedElement: Boolean = true,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
@@ -59,13 +63,6 @@ fun ImageThumbnailGrid(
     // --- Thumbnail load state ---
     val context = LocalContext.current
     val canNavigateByIndex = remember(imageUrls) {
-        mutableStateMapOf<Int, Boolean>().apply {
-            imageUrls.indices.forEach { index ->
-                this[index] = false
-            }
-        }
-    }
-    val isErrorByIndex = remember(imageUrls) {
         mutableStateMapOf<Int, Boolean>().apply {
             imageUrls.indices.forEach { index ->
                 this[index] = false
@@ -89,7 +86,7 @@ fun ImageThumbnailGrid(
                 rowItems.forEachIndexed { columnIndex, url ->
                     val imageIndex = baseIndex + columnIndex
                     with(sharedTransitionScope) {
-                        val isError = isErrorByIndex[imageIndex] == true
+                        val isError = url in failedImageUrls
                         val retryNonce = retryNonceByIndex[imageIndex] ?: 0
                         val imageRequest = remember(url, retryNonce, context) {
                             ImageRequest.Builder(context)
@@ -118,6 +115,12 @@ fun ImageThumbnailGrid(
                             .background(MaterialTheme.colorScheme.surfaceVariant)
                             .combinedClickable(
                                 onClick = {
+                                    // Guard: 失敗サムネイルは明示操作時のみ再読み込みを行う。
+                                    if (isError) {
+                                        onImageRetry(url)
+                                        retryNonceByIndex[imageIndex] = retryNonce + 1
+                                        return@combinedClickable
+                                    }
                                     // Guard: 表示成功したサムネイルのみビューア遷移を許可する。
                                     if (canNavigateByIndex[imageIndex] == true) {
                                         onImageClick(
@@ -127,11 +130,6 @@ fun ImageThumbnailGrid(
                                             transitionNamespace
                                         )
                                         return@combinedClickable
-                                    }
-                                    // Guard: 失敗サムネイルは明示操作時のみ再読み込みを行う。
-                                    if (isErrorByIndex[imageIndex] == true) {
-                                        retryNonceByIndex[imageIndex] = retryNonce + 1
-                                        isErrorByIndex[imageIndex] = false
                                     }
                                 },
                                 onLongClick = onImageLongPress?.let { { it(url, imageUrls) } },
@@ -157,7 +155,7 @@ fun ImageThumbnailGrid(
                                     contentScale = ContentScale.Fit,
                                     onSuccess = { state ->
                                         canNavigateByIndex[imageIndex] = true
-                                        isErrorByIndex[imageIndex] = false
+                                        onImageLoadSuccess(url)
                                         state.result.diskCacheKey?.let { key ->
                                             ImageActionReuseRegistry.register(
                                                 url = url,
@@ -171,7 +169,7 @@ fun ImageThumbnailGrid(
                                     },
                                     onError = {
                                         canNavigateByIndex[imageIndex] = false
-                                        isErrorByIndex[imageIndex] = true
+                                        onImageLoadError(url)
                                     },
                                     modifier = tileModifier,
                                     loading = {

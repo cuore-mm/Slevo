@@ -100,6 +100,10 @@ fun ImageViewerScreen(
     val isBarsVisible = if (viewModel != null) uiState.isBarsVisible else previewIsBarsVisible
     val currentImageUrl = imageUrls.getOrNull(pagerState.currentPage).orEmpty()
 
+    androidx.compose.runtime.LaunchedEffect(imageUrls, viewModel) {
+        viewModel?.synchronizeFailedImageUrls(imageUrls)
+    }
+
     // --- Menu actions ---
     val onImageMenuActionClick: (ImageMenuAction) -> Unit = { action ->
         ImageMenuActionRunner.run(
@@ -183,6 +187,9 @@ fun ImageViewerScreen(
             }
         },
         onDismissNgDialog = { viewModel?.closeImageNgDialog() },
+        onImageLoadError = { url -> viewModel?.onImageLoadError(url) },
+        onImageLoadSuccess = { url -> viewModel?.onImageLoadSuccess(url) },
+        onImageRetry = { url -> viewModel?.onImageRetry(url) },
     )
 }
 

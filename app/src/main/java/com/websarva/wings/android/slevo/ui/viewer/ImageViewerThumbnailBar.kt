@@ -73,6 +73,9 @@ internal fun ImageViewerThumbnailBar(
     barExitDurationMillis: Int,
     thumbnailViewportWidthPx: MutableIntState,
     onThumbnailClick: (Int) -> Unit,
+    failedImageUrls: Set<String>,
+    onImageLoadError: (String) -> Unit,
+    onImageLoadSuccess: (String) -> Unit,
 ) {
     val thumbnailWidth: Dp = 40.dp
     val thumbnailHeight: Dp = 56.dp
@@ -83,13 +86,6 @@ internal fun ImageViewerThumbnailBar(
     val density = LocalDensity.current
     val loadProgressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
     val isLoadingByIndex = remember(imageUrls) {
-        mutableStateMapOf<Int, Boolean>().apply {
-            imageUrls.indices.forEach { index ->
-                this[index] = false
-            }
-        }
-    }
-    val isErrorByIndex = remember(imageUrls) {
         mutableStateMapOf<Int, Boolean>().apply {
             imageUrls.indices.forEach { index ->
                 this[index] = false
@@ -133,7 +129,8 @@ internal fun ImageViewerThumbnailBar(
             ) {
                 items(imageUrls.size) { index ->
                     val isSelected = index == pagerState.currentPage
-                    val isError = isErrorByIndex[index] == true
+                    val imageUrl = imageUrls[index]
+                    val isError = imageUrl in failedImageUrls
                     val interactionSource = remember { MutableInteractionSource() }
                     val isPressed by interactionSource.collectIsPressedAsState()
                     val baseScale =
@@ -186,12 +183,12 @@ internal fun ImageViewerThumbnailBar(
                             },
                             onSuccess = { state ->
                                 isLoadingByIndex[index] = false
-                                isErrorByIndex[index] = false
+                                onImageLoadSuccess(imageUrl)
                                 state.result.diskCacheKey?.let { key ->
                                     ImageActionReuseRegistry.register(
-                                        url = imageUrls[index],
+                                        url = imageUrl,
                                         diskCacheKey = key,
-                                        extension = imageUrls[index].substringAfterLast('.', ""),
+                                        extension = imageUrl.substringAfterLast('.', ""),
                                     )
                                 }
                                 // Guard: GIFなどのアニメーションDrawableはサムネイルで再生させない。
@@ -199,7 +196,7 @@ internal fun ImageViewerThumbnailBar(
                             },
                             onError = {
                                 isLoadingByIndex[index] = false
-                                isErrorByIndex[index] = true
+                                onImageLoadError(imageUrl)
                             },
                             modifier = thumbnailModifier,
                             loading = {
@@ -209,7 +206,7 @@ internal fun ImageViewerThumbnailBar(
                                 ) {
                                     if (isLoadingByIndex[index] == true) {
                                         ImageLoadProgressIndicator(
-                                            progressState = loadProgressByUrl[imageUrls[index]],
+                                            progressState = loadProgressByUrl[imageUrl],
                                             indicatorSize = 18.dp,
                                         )
                                     }
@@ -220,7 +217,7 @@ internal fun ImageViewerThumbnailBar(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    if (isErrorByIndex[index] == true) {
+                                    if (isError) {
                                         Icon(
                                             imageVector = Icons.Filled.Refresh,
                                             contentDescription = stringResource(R.string.refresh),
@@ -256,7 +253,10 @@ private fun ImageViewerThumbnailBarPreview() {
             barBackgroundColor = Color.Black.copy(alpha = 0.5f),
             barExitDurationMillis = 300,
             thumbnailViewportWidthPx = thumbnailViewportWidthPx,
-            onThumbnailClick = {}
+            onThumbnailClick = {},
+            failedImageUrls = emptySet(),
+            onImageLoadError = {},
+            onImageLoadSuccess = {},
         )
     }
 }

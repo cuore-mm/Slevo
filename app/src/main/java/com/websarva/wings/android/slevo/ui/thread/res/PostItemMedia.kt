@@ -29,6 +29,10 @@ internal fun PostItemMedia(
     transitionNamespace: String,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
+    failedImageUrls: Set<String> = emptySet(),
+    onImageLoadError: (String) -> Unit = {},
+    onImageLoadSuccess: (String) -> Unit = {},
+    onImageRetry: (String) -> Unit = {},
     enableSharedElement: Boolean = true,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
@@ -49,6 +53,10 @@ internal fun PostItemMedia(
                 onImageClick(url, urls, index, namespace)
             },
             onImageLongPress = onImageLongPress,
+            failedImageUrls = failedImageUrls,
+            onImageLoadError = onImageLoadError,
+            onImageLoadSuccess = onImageLoadSuccess,
+            onImageRetry = onImageRetry,
             enableSharedElement = enableSharedElement,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope

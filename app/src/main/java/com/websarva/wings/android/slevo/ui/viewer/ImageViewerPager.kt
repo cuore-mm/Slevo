@@ -59,19 +59,16 @@ internal fun ImageViewerPager(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onToggleBars: () -> Unit,
+    failedImageUrls: Set<String>,
+    onImageLoadError: (String) -> Unit,
+    onImageLoadSuccess: (String) -> Unit,
+    onImageRetry: (String) -> Unit,
 ) {
     // --- Pager ---
     val context = LocalContext.current
     val density = LocalDensity.current
     val loadProgressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
     val isLoadingByPage = remember(imageUrls) {
-        mutableStateMapOf<Int, Boolean>().apply {
-            imageUrls.indices.forEach { index ->
-                this[index] = false
-            }
-        }
-    }
-    val isErrorByPage = remember(imageUrls) {
         mutableStateMapOf<Int, Boolean>().apply {
             imageUrls.indices.forEach { index ->
                 this[index] = false
@@ -92,7 +89,7 @@ internal fun ImageViewerPager(
     ) { page ->
         // --- Zoom state ---
         val imageUrl = imageUrls[page]
-        val isError = isErrorByPage[page] == true
+        val isError = imageUrl in failedImageUrls
         val zoomableState = rememberZoomableState(
             zoomSpec = ZoomSpec(
                 maxZoomFactor = 12f,
@@ -149,11 +146,10 @@ internal fun ImageViewerPager(
                     .listener(
                         onStart = { _ ->
                             isLoadingByPage[page] = true
-                            isErrorByPage[page] = false
                         },
                         onSuccess = { _, result ->
                             isLoadingByPage[page] = false
-                            isErrorByPage[page] = false
+                            onImageLoadSuccess(imageUrl)
                             result.diskCacheKey?.let { key ->
                                 ImageActionReuseRegistry.register(
                                     url = imageUrl,
@@ -164,7 +160,7 @@ internal fun ImageViewerPager(
                         },
                         onError = { _, _ ->
                             isLoadingByPage[page] = false
-                            isErrorByPage[page] = true
+                            onImageLoadError(imageUrl)
                         },
                         onCancel = { _ ->
                             isLoadingByPage[page] = false
@@ -198,8 +194,8 @@ internal fun ImageViewerPager(
                     IconButton(
                         onClick = {
                             // Guard: 失敗ページのみ再読み込みトリガーを進める。
+                            onImageRetry(imageUrl)
                             retryNonceByPage[page] = retryNonce + 1
-                            isErrorByPage[page] = false
                         },
                         modifier = Modifier
                             .size(56.dp)

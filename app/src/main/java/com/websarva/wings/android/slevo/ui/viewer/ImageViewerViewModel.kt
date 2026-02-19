@@ -56,6 +56,57 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
     }
 
     /**
+     * 表示対象URLに合わせて失敗状態URLを整合させる。
+     */
+    fun synchronizeFailedImageUrls(imageUrls: List<String>) {
+        val activeUrls = imageUrls.asSequence().filter { it.isNotBlank() }.toSet()
+        _uiState.update { state ->
+            state.copy(failedImageUrls = state.failedImageUrls.filterTo(mutableSetOf()) { url ->
+                url in activeUrls
+            })
+        }
+    }
+
+    /**
+     * 画像読み込み失敗URLを失敗状態へ追加する。
+     */
+    fun onImageLoadError(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは失敗管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(failedImageUrls = state.failedImageUrls + imageUrl)
+        }
+    }
+
+    /**
+     * 画像読み込み成功URLを失敗状態から解除する。
+     */
+    fun onImageLoadSuccess(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは失敗管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(failedImageUrls = state.failedImageUrls - imageUrl)
+        }
+    }
+
+    /**
+     * 明示リトライ開始時に対象URLの失敗状態を解除する。
+     */
+    fun onImageRetry(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは失敗管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(failedImageUrls = state.failedImageUrls - imageUrl)
+        }
+    }
+
+    /**
      * 画像保存要求を受け取り、権限判定に応じて処理を進める。
      */
     fun requestImageSave(context: android.content.Context, urls: List<String>) {
@@ -152,4 +203,5 @@ data class ImageViewerUiState(
     val isTopBarMenuExpanded: Boolean = false,
     val showImageNgDialog: Boolean = false,
     val imageNgTargetUrl: String? = null,
+    val failedImageUrls: Set<String> = emptySet(),
 )
