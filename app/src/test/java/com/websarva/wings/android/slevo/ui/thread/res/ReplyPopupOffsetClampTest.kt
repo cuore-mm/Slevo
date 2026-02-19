@@ -18,6 +18,7 @@ class ReplyPopupOffsetClampTest {
             popupWidthPx = 280,
             screenWidthPx = 400,
             rightMarginPx = 4,
+            leftMarginPx = 0,
         )
 
         assertEquals(20, result)
@@ -30,9 +31,24 @@ class ReplyPopupOffsetClampTest {
             popupWidthPx = 320,
             screenWidthPx = 360,
             rightMarginPx = 4,
+            leftMarginPx = 8,
         )
 
-        assertEquals(36, result)
+        assertEquals(28, result)
+    }
+
+
+    @Test
+    fun calculateClampedPopupOffsetX_subtractsLeftMarginFromDesiredOffset() {
+        val result = calculateClampedPopupOffsetX(
+            desiredX = 20,
+            popupWidthPx = 200,
+            screenWidthPx = 400,
+            rightMarginPx = 4,
+            leftMarginPx = 12,
+        )
+
+        assertEquals(8, result)
     }
 
     @Test

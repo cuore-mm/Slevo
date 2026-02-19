@@ -302,6 +302,8 @@ private fun PopupCard(
     ) {
         val shape = MaterialTheme.shapes.small
         val leftMargin = calculatePopupLeftMargin(index)
+        val density = LocalDensity.current
+        val leftMarginPx = with(density) { leftMargin.roundToPx() }
         val maxWidth = (LocalConfiguration.current.screenWidthDp.dp - leftMargin - POPUP_RIGHT_MARGIN)
             .coerceAtLeast(1.dp)
         Card(
@@ -313,6 +315,7 @@ private fun PopupCard(
                         info = info,
                         screenWidthPx = screenWidthPx,
                         rightMarginPx = POPUP_RIGHT_MARGIN.roundToPx(),
+                        leftMarginPx = leftMarginPx,
                     )
                 }
                 .zIndex(index.toFloat())
@@ -460,6 +463,7 @@ private fun PopupPostLazyColumn(
                     info = info,
                     screenWidthPx = Int.MAX_VALUE,
                     rightMarginPx = 0,
+                    leftMarginPx = 0,
                 )
             }
             val transitionNamespace = ImageSharedTransitionKeyFactory.popupPostNamespace(
@@ -516,6 +520,7 @@ private fun calculatePopupOffset(
     info: PopupInfo,
     screenWidthPx: Int,
     rightMarginPx: Int,
+    leftMarginPx: Int,
 ): IntOffset {
     // --- X 位置クランプ ---
     val clampedX = calculateClampedPopupOffsetX(
@@ -523,6 +528,7 @@ private fun calculatePopupOffset(
         popupWidthPx = info.size.width,
         screenWidthPx = screenWidthPx,
         rightMarginPx = rightMarginPx,
+        leftMarginPx = leftMarginPx,
     )
 
     // --- Y 位置補正 ---
@@ -542,10 +548,13 @@ internal fun calculateClampedPopupOffsetX(
     popupWidthPx: Int,
     screenWidthPx: Int,
     rightMarginPx: Int,
+    leftMarginPx: Int,
 ): Int {
+    // 左余白は padding で付与されるため、offset 側はその分を差し引いた基準で扱う。
+    val desiredOffsetX = desiredX - leftMarginPx
     // 右端を超えない X 上限。画面幅が狭い場合に負値へ落ちないよう 0 以上に固定する。
-    val rightEdgeMaxX = max(screenWidthPx - popupWidthPx - rightMarginPx, 0)
-    return min(desiredX, rightEdgeMaxX).coerceAtLeast(0)
+    val rightEdgeMaxX = max(screenWidthPx - popupWidthPx - rightMarginPx - leftMarginPx, 0)
+    return min(desiredOffsetX, rightEdgeMaxX).coerceAtLeast(0)
 }
 
 /**
@@ -612,6 +621,7 @@ private fun isTapInsidePopup(
         info = topInfo,
         screenWidthPx = Int.MAX_VALUE,
         rightMarginPx = 0,
+        leftMarginPx = 0,
     )
     val insideX = tapOffset.x >= topOffset.x && tapOffset.x < topOffset.x + size.width
     val insideY = tapOffset.y >= topOffset.y && tapOffset.y < topOffset.y + size.height
