@@ -49,6 +49,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -72,6 +73,15 @@ private val POPUP_RIGHT_MARGIN = 4.dp
 private val POPUP_LEFT_MARGIN_STEP = 4.dp
 private val POPUP_BASE_LEFT_MARGIN = 4.dp
 private val POPUP_MAX_LEFT_MARGIN = 32.dp
+
+/**
+ * ポップアップ配置の計算結果を保持する。
+ */
+private data class PopupPlacement(
+    val leftMargin: Dp,
+    val maxWidth: Dp,
+    val offset: IntOffset,
+)
 
 /**
  * 返信ポップアップの表示と操作イベントを管理する。
@@ -111,8 +121,9 @@ fun ReplyPopup(
     // --- 表示状態管理 ---
     val visibilityStates = rememberPopupVisibilityStates(popupStack.size)
     val density = LocalDensity.current
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
     val screenWidthPx = with(density) {
-        LocalConfiguration.current.screenWidthDp.dp.roundToPx()
+        screenWidthDp.dp.roundToPx()
     }
 
     // --- 終了操作 ---
@@ -133,6 +144,9 @@ fun ReplyPopup(
         // --- 背景タップ ---
         PopupBackgroundOverlay(
             popupStack = popupStack,
+            screenWidthPx = screenWidthPx,
+            screenWidthDp = screenWidthDp,
+            density = density,
             onCloseTop = closeTopPopup,
         )
         popupStack.forEachIndexed { index, info ->
@@ -155,6 +169,8 @@ fun ReplyPopup(
                 info = info,
                 index = index,
                 screenWidthPx = screenWidthPx,
+                screenWidthDp = screenWidthDp,
+                density = density,
                 isTop = isTop,
                 visibleState = visibleState,
                 onCloseTop = closeTopPopup,
@@ -167,6 +183,9 @@ fun ReplyPopup(
                 PopupPostList(
                     info = info,
                     popupIndex = index,
+                    screenWidthPx = screenWidthPx,
+                    screenWidthDp = screenWidthDp,
+                    density = density,
                     posts = posts,
                     replySourceMap = replySourceMap,
                     idCountMap = idCountMap,
@@ -251,6 +270,9 @@ private fun rememberPopupVisibilityStates(
 @Composable
 private fun PopupBackgroundOverlay(
     popupStack: List<PopupInfo>,
+    screenWidthPx: Int,
+    screenWidthDp: Int,
+    density: Density,
     onCloseTop: () -> Unit,
 ) {
     if (popupStack.isEmpty()) {
@@ -262,8 +284,16 @@ private fun PopupBackgroundOverlay(
             .fillMaxSize()
             .pointerInput(popupStack.size) {
                 detectTapGestures { offset ->
+                    val topIndex = popupStack.lastIndex
                     val topInfo = popupStack.lastOrNull() ?: return@detectTapGestures
-                    if (isTapInsidePopup(offset, topInfo)) {
+                    if (isTapInsidePopup(
+                        tapOffset = offset,
+                        topInfo = topInfo,
+                        topIndex = topIndex,
+                        screenWidthPx = screenWidthPx,
+                        screenWidthDp = screenWidthDp,
+                        density = density,
+                    )) {
                         return@detectTapGestures
                     }
                     onCloseTop()
@@ -280,6 +310,8 @@ private fun PopupCard(
     info: PopupInfo,
     index: Int,
     screenWidthPx: Int,
+    screenWidthDp: Int,
+    density: Density,
     isTop: Boolean,
     visibleState: MutableTransitionState<Boolean>,
     onCloseTop: () -> Unit,
@@ -301,23 +333,18 @@ private fun PopupCard(
         )
     ) {
         val shape = MaterialTheme.shapes.small
-        val leftMargin = calculatePopupLeftMargin(index)
-        val density = LocalDensity.current
-        val leftMarginPx = with(density) { leftMargin.roundToPx() }
-        val maxWidth = (LocalConfiguration.current.screenWidthDp.dp - leftMargin - POPUP_RIGHT_MARGIN)
-            .coerceAtLeast(1.dp)
+        val placement = calculatePopupPlacement(
+            info = info,
+            popupIndex = index,
+            screenWidthPx = screenWidthPx,
+            screenWidthDp = screenWidthDp,
+            density = density,
+        )
         Card(
             modifier = Modifier
-                .padding(start = leftMargin, end = POPUP_RIGHT_MARGIN, top = 8.dp, bottom = 8.dp)
-                .widthIn(max = maxWidth)
-                .offset {
-                    calculatePopupOffset(
-                        info = info,
-                        screenWidthPx = screenWidthPx,
-                        rightMarginPx = POPUP_RIGHT_MARGIN.roundToPx(),
-                        leftMarginPx = leftMarginPx,
-                    )
-                }
+                .padding(start = placement.leftMargin, end = POPUP_RIGHT_MARGIN, top = 8.dp, bottom = 8.dp)
+                .widthIn(max = placement.maxWidth)
+                .offset { placement.offset }
                 .zIndex(index.toFloat())
                 .onGloballyPositioned { coords ->
                     val size = coords.size
@@ -344,6 +371,9 @@ private fun PopupCard(
 private fun PopupPostList(
     info: PopupInfo,
     popupIndex: Int,
+    screenWidthPx: Int,
+    screenWidthDp: Int,
+    density: Density,
     posts: List<ThreadPostUiModel>,
     replySourceMap: Map<Int, List<Int>>,
     idCountMap: Map<String, Int>,
@@ -383,6 +413,10 @@ private fun PopupPostList(
         ) {
             PopupPostLazyColumn(
                 info = info,
+                popupIndex = popupIndex,
+                screenWidthPx = screenWidthPx,
+                screenWidthDp = screenWidthDp,
+                density = density,
                 posts = posts,
                 replySourceMap = replySourceMap,
                 idCountMap = idCountMap,
@@ -419,6 +453,10 @@ private fun PopupPostList(
 @Composable
 private fun PopupPostLazyColumn(
     info: PopupInfo,
+    popupIndex: Int,
+    screenWidthPx: Int,
+    screenWidthDp: Int,
+    density: Density,
     posts: List<ThreadPostUiModel>,
     replySourceMap: Map<Int, List<Int>>,
     idCountMap: Map<String, Int>,
@@ -458,13 +496,14 @@ private fun PopupPostLazyColumn(
             val baseOffset = if (isPostOffsetMeasured) {
                 postOffset
             } else {
-                // レイアウト計測前は現在ポップアップ位置をフォールバックとして使う。
-                calculatePopupOffset(
+                // レイアウト未計測時は現在のポップアップ配置結果をフォールバックに使う。
+                calculatePopupPlacement(
                     info = info,
-                    screenWidthPx = Int.MAX_VALUE,
-                    rightMarginPx = 0,
-                    leftMarginPx = 0,
-                )
+                    popupIndex = popupIndex,
+                    screenWidthPx = screenWidthPx,
+                    screenWidthDp = screenWidthDp,
+                    density = density,
+                ).offset
             }
             val transitionNamespace = ImageSharedTransitionKeyFactory.popupPostNamespace(
                 popupId = info.popupId,
@@ -512,18 +551,27 @@ private fun PopupPostLazyColumn(
 }
 
 /**
- * ポップアップの描画位置を計算する。
+ * ポップアップ配置を余白主導で計算する。
  *
- * 上端が画面外にならないように Y を補正し、X は右余白固定で制約する。
+ * 段数別左余白、幅上限、右端見切れ防止、Y補正を同一経路で扱う。
  */
-private fun calculatePopupOffset(
+private fun calculatePopupPlacement(
     info: PopupInfo,
+    popupIndex: Int,
     screenWidthPx: Int,
-    rightMarginPx: Int,
-    leftMarginPx: Int,
-): IntOffset {
-    // --- X 位置クランプ ---
-    val clampedX = calculateClampedPopupOffsetX(
+    screenWidthDp: Int,
+    density: Density,
+): PopupPlacement {
+    // --- Left margin ---
+    val leftMargin = calculatePopupLeftMargin(popupIndex)
+    val leftMarginPx = with(density) { leftMargin.roundToPx() }
+
+    // --- Width constraint ---
+    val maxWidth = (screenWidthDp.dp - leftMargin - POPUP_RIGHT_MARGIN).coerceAtLeast(1.dp)
+
+    // --- X clamp ---
+    val rightMarginPx = with(density) { POPUP_RIGHT_MARGIN.roundToPx() }
+    val clampedX = calculatePopupPlacementOffsetX(
         desiredX = info.offset.x,
         popupWidthPx = info.size.width,
         screenWidthPx = screenWidthPx,
@@ -531,28 +579,33 @@ private fun calculatePopupOffset(
         leftMarginPx = leftMarginPx,
     )
 
-    // --- Y 位置補正 ---
-    return IntOffset(
-        clampedX,
-        (info.offset.y - info.size.height).coerceAtLeast(0)
+    // --- Y correction ---
+    val correctedY = (info.offset.y - info.size.height).coerceAtLeast(0)
+
+    return PopupPlacement(
+        leftMargin = leftMargin,
+        maxWidth = maxWidth,
+        offset = IntOffset(clampedX, correctedY),
     )
 }
 
 /**
- * ポップアップの X 座標を右余白固定でクランプする。
+ * ポップアップ配置用の X 座標を計算する。
  *
- * 右端見切れを防止するために右余白を確保する。
+ * 未計測時は基準座標をそのまま使い、計測後は右余白を保つようクランプする。
  */
-internal fun calculateClampedPopupOffsetX(
+internal fun calculatePopupPlacementOffsetX(
     desiredX: Int,
     popupWidthPx: Int,
     screenWidthPx: Int,
     rightMarginPx: Int,
     leftMarginPx: Int,
 ): Int {
-    // 左余白は padding で付与されるため、offset 側はその分を差し引いた基準で扱う。
     val desiredOffsetX = desiredX - leftMarginPx
-    // 右端を超えない X 上限。画面幅が狭い場合に負値へ落ちないよう 0 以上に固定する。
+    if (popupWidthPx <= 0) {
+        // 幅未計測時は右端制約を適用せず、基準位置を優先する。
+        return desiredOffsetX.coerceAtLeast(0)
+    }
     val rightEdgeMaxX = max(screenWidthPx - popupWidthPx - rightMarginPx - leftMarginPx, 0)
     return min(desiredOffsetX, rightEdgeMaxX).coerceAtLeast(0)
 }
@@ -611,20 +664,25 @@ private fun syncVisibilityStates(
 private fun isTapInsidePopup(
     tapOffset: Offset,
     topInfo: PopupInfo,
+    topIndex: Int,
+    screenWidthPx: Int,
+    screenWidthDp: Int,
+    density: Density,
 ): Boolean {
     val size = topInfo.size
     if (size == IntSize.Zero) {
         // サイズ確定前は外側判定を行わない。
         return true
     }
-    val topOffset = calculatePopupOffset(
+    val topPlacement = calculatePopupPlacement(
         info = topInfo,
-        screenWidthPx = Int.MAX_VALUE,
-        rightMarginPx = 0,
-        leftMarginPx = 0,
+        popupIndex = topIndex,
+        screenWidthPx = screenWidthPx,
+        screenWidthDp = screenWidthDp,
+        density = density,
     )
-    val insideX = tapOffset.x >= topOffset.x && tapOffset.x < topOffset.x + size.width
-    val insideY = tapOffset.y >= topOffset.y && tapOffset.y < topOffset.y + size.height
+    val insideX = tapOffset.x >= topPlacement.offset.x && tapOffset.x < topPlacement.offset.x + size.width
+    val insideY = tapOffset.y >= topPlacement.offset.y && tapOffset.y < topPlacement.offset.y + size.height
     return insideX && insideY
 }
 

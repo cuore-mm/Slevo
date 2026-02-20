@@ -12,8 +12,8 @@ import org.junit.Test
 class ReplyPopupOffsetClampTest {
 
     @Test
-    fun calculateClampedPopupOffsetX_keepsDesiredXWhenWithinLimits() {
-        val result = calculateClampedPopupOffsetX(
+    fun calculatePopupPlacementOffsetX_keepsDesiredXWhenWithinLimits() {
+        val result = calculatePopupPlacementOffsetX(
             desiredX = 20,
             popupWidthPx = 280,
             screenWidthPx = 400,
@@ -25,8 +25,8 @@ class ReplyPopupOffsetClampTest {
     }
 
     @Test
-    fun calculateClampedPopupOffsetX_clampsToRightEdge() {
-        val result = calculateClampedPopupOffsetX(
+    fun calculatePopupPlacementOffsetX_clampsToRightEdge() {
+        val result = calculatePopupPlacementOffsetX(
             desiredX = 200,
             popupWidthPx = 320,
             screenWidthPx = 360,
@@ -39,8 +39,8 @@ class ReplyPopupOffsetClampTest {
 
 
     @Test
-    fun calculateClampedPopupOffsetX_subtractsLeftMarginFromDesiredOffset() {
-        val result = calculateClampedPopupOffsetX(
+    fun calculatePopupPlacementOffsetX_subtractsLeftMarginFromDesiredOffset() {
+        val result = calculatePopupPlacementOffsetX(
             desiredX = 20,
             popupWidthPx = 200,
             screenWidthPx = 400,
@@ -49,6 +49,19 @@ class ReplyPopupOffsetClampTest {
         )
 
         assertEquals(8, result)
+    }
+
+    @Test
+    fun calculatePopupPlacementOffsetX_returnsBaseWhenWidthUnmeasured() {
+        val result = calculatePopupPlacementOffsetX(
+            desiredX = 18,
+            popupWidthPx = 0,
+            screenWidthPx = 360,
+            rightMarginPx = 4,
+            leftMarginPx = 8,
+        )
+
+        assertEquals(10, result)
     }
 
     @Test
