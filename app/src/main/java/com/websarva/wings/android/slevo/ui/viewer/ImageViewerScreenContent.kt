@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import me.saket.telephoto.zoomable.ZoomableState
@@ -61,7 +62,7 @@ internal fun ImageViewerScreenContent(
     onToggleBars: () -> Unit,
     onThumbnailClick: (Int) -> Unit,
     onDismissNgDialog: () -> Unit,
-    onImageLoadError: (String) -> Unit,
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onImageLoadSuccess: (String) -> Unit,
     onImageRetry: (String) -> Unit,
 ) {
@@ -108,7 +109,7 @@ internal fun ImageViewerScreenContent(
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,
                     onToggleBars = onToggleBars,
-                    failedImageUrls = uiState.failedImageUrls,
+                    imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
                     onImageLoadError = onImageLoadError,
                     onImageLoadSuccess = onImageLoadSuccess,
                     onImageRetry = onImageRetry,
@@ -146,7 +147,7 @@ internal fun ImageViewerScreenContent(
                             barExitDurationMillis = barExitDurationMillis,
                             thumbnailViewportWidthPx = thumbnailViewportWidthPx,
                             onThumbnailClick = onThumbnailClick,
-                            failedImageUrls = uiState.failedImageUrls,
+                            imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
                             onImageLoadError = onImageLoadError,
                             onImageLoadSuccess = onImageLoadSuccess,
                         )

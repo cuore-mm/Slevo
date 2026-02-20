@@ -81,6 +81,7 @@ import com.websarva.wings.android.slevo.ui.thread.res.rememberPostItemDialogStat
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
 import kotlinx.coroutines.delay
@@ -118,7 +119,7 @@ fun ThreadScreen(
     onPopupSizeChange: (index: Int, size: IntSize) -> Unit = { _, _ -> },
     onRemoveTopPopup: () -> Unit = {},
     onImageLongPress: (String, List<String>) -> Unit = { _, _ -> },
-    onImageLoadError: (String) -> Unit = {},
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit = { _, _ -> },
     onImageLoadSuccess: (String) -> Unit = {},
     onImageRetry: (String) -> Unit = {},
     sharedTransitionScope: SharedTransitionScope,
@@ -418,7 +419,7 @@ fun ThreadScreen(
                     transitionNamespace = transitionNamespace,
                     onImageClick = onImageClick,
                     onImageLongPress = onImageLongPress,
-                    failedImageUrls = uiState.failedImageUrls,
+                    imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
                     onImageLoadError = onImageLoadError,
                     onImageLoadSuccess = onImageLoadSuccess,
                     onImageRetry = onImageRetry,
@@ -561,7 +562,7 @@ fun ThreadScreen(
             onThreadUrlClick = onThreadUrlClick,
             onImageClick = onImageClick,
             onImageLongPress = onImageLongPress,
-            failedImageUrls = uiState.failedImageUrls,
+            imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
             onImageLoadError = onImageLoadError,
             onImageLoadSuccess = onImageLoadSuccess,
             onImageRetry = onImageRetry,

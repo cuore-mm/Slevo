@@ -8,6 +8,7 @@ import com.websarva.wings.android.slevo.ui.bbsroute.BaseUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 
 /**
  * スレッド表示のソート種別。
@@ -48,7 +49,7 @@ data class ThreadUiState(
     val idIndexList: List<Int> = emptyList(),
     val replySourceMap: Map<Int, List<Int>> = emptyMap(),
     val ngPostNumbers: Set<Int> = emptySet(),
-    val failedImageUrls: Set<String> = emptySet(),
+    val imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
     val searchQuery: String = "",
     val isSearchMode: Boolean = false,
     val sortType: ThreadSortType = ThreadSortType.NUMBER,

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
@@ -34,8 +36,10 @@ import coil3.size.Precision
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
+import com.websarva.wings.android.slevo.ui.util.toImageLoadFailureType
 import me.saket.telephoto.zoomable.DoubleClickToZoomListener
 import me.saket.telephoto.zoomable.OverzoomEffect
 import me.saket.telephoto.zoomable.ZoomSpec
@@ -59,8 +63,8 @@ internal fun ImageViewerPager(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onToggleBars: () -> Unit,
-    failedImageUrls: Set<String>,
-    onImageLoadError: (String) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onImageLoadSuccess: (String) -> Unit,
     onImageRetry: (String) -> Unit,
 ) {
@@ -89,7 +93,8 @@ internal fun ImageViewerPager(
     ) { page ->
         // --- Zoom state ---
         val imageUrl = imageUrls[page]
-        val isError = imageUrl in failedImageUrls
+        val failureType = imageLoadFailureByUrl[imageUrl]
+        val isError = failureType != null
         val zoomableState = rememberZoomableState(
             zoomSpec = ZoomSpec(
                 maxZoomFactor = 12f,
@@ -158,9 +163,12 @@ internal fun ImageViewerPager(
                                 )
                             }
                         },
-                        onError = { _, _ ->
+                        onError = { _, result ->
                             isLoadingByPage[page] = false
-                            onImageLoadError(imageUrl)
+                            onImageLoadError(
+                                imageUrl,
+                                result.throwable.toImageLoadFailureType(),
+                            )
                         },
                         onCancel = { _ ->
                             isLoadingByPage[page] = false
@@ -191,25 +199,56 @@ internal fun ImageViewerPager(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    IconButton(
-                        onClick = {
-                            // Guard: 失敗ページのみ再読み込みトリガーを進める。
-                            onImageRetry(imageUrl)
-                            retryNonceByPage[page] = retryNonce + 1
-                        },
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Refresh,
-                            contentDescription = stringResource(R.string.refresh),
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(30.dp),
+                    if (failureType == ImageLoadFailureType.HTTP_404) {
+                        FailureMessage(
+                            code = "404",
+                            message = stringResource(R.string.image_not_found),
                         )
+                    } else if (failureType == ImageLoadFailureType.HTTP_410) {
+                        FailureMessage(
+                            code = "410",
+                            message = stringResource(R.string.image_deleted),
+                        )
+                    } else {
+                        IconButton(
+                            onClick = {
+                                // Guard: 失敗ページのみ再読み込みトリガーを進める。
+                                onImageRetry(imageUrl)
+                                retryNonceByPage[page] = retryNonce + 1
+                            },
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = stringResource(R.string.refresh),
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(30.dp),
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun FailureMessage(
+    code: String,
+    message: String,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = code,
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }

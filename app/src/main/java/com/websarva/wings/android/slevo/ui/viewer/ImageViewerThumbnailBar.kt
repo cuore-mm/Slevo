@@ -29,6 +29,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.collectAsState
@@ -54,8 +56,10 @@ import coil3.compose.SubcomposeAsyncImage
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
+import com.websarva.wings.android.slevo.ui.util.toImageLoadFailureType
 
 /**
  * 同一レス内のサムネイル一覧を表示し、選択中の画像を中央に寄せる。
@@ -73,8 +77,8 @@ internal fun ImageViewerThumbnailBar(
     barExitDurationMillis: Int,
     thumbnailViewportWidthPx: MutableIntState,
     onThumbnailClick: (Int) -> Unit,
-    failedImageUrls: Set<String>,
-    onImageLoadError: (String) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onImageLoadSuccess: (String) -> Unit,
 ) {
     val thumbnailWidth: Dp = 40.dp
@@ -130,7 +134,8 @@ internal fun ImageViewerThumbnailBar(
                 items(imageUrls.size) { index ->
                     val isSelected = index == pagerState.currentPage
                     val imageUrl = imageUrls[index]
-                    val isError = imageUrl in failedImageUrls
+                    val failureType = imageLoadFailureByUrl[imageUrl]
+                    val isError = failureType != null
                     val interactionSource = remember { MutableInteractionSource() }
                     val isPressed by interactionSource.collectIsPressedAsState()
                     val baseScale =
@@ -165,12 +170,26 @@ internal fun ImageViewerThumbnailBar(
                             modifier = thumbnailModifier,
                             contentAlignment = Alignment.Center,
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = stringResource(R.string.refresh),
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp),
-                            )
+                            if (failureType == ImageLoadFailureType.HTTP_404 ||
+                                failureType == ImageLoadFailureType.HTTP_410
+                            ) {
+                                Text(
+                                    text = if (failureType == ImageLoadFailureType.HTTP_404) {
+                                        "404"
+                                    } else {
+                                        "410"
+                                    },
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = stringResource(R.string.refresh),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
                         }
                     } else {
                         SubcomposeAsyncImage(
@@ -194,9 +213,12 @@ internal fun ImageViewerThumbnailBar(
                                 // Guard: GIFなどのアニメーションDrawableはサムネイルで再生させない。
                                 (state.result.image.asDrawable(resources) as? Animatable)?.stop()
                             },
-                            onError = {
+                            onError = { state ->
                                 isLoadingByIndex[index] = false
-                                onImageLoadError(imageUrl)
+                                onImageLoadError(
+                                    imageUrl,
+                                    state.result.throwable.toImageLoadFailureType(),
+                                )
                             },
                             modifier = thumbnailModifier,
                             loading = {
@@ -254,8 +276,8 @@ private fun ImageViewerThumbnailBarPreview() {
             barExitDurationMillis = 300,
             thumbnailViewportWidthPx = thumbnailViewportWidthPx,
             onThumbnailClick = {},
-            failedImageUrls = emptySet(),
-            onImageLoadError = {},
+            imageLoadFailureByUrl = emptyMap(),
+            onImageLoadError = { _, _ -> },
             onImageLoadSuccess = {},
         )
     }

@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnailGrid
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 
 /**
@@ -29,8 +30,8 @@ internal fun PostItemMedia(
     transitionNamespace: String,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
-    failedImageUrls: Set<String> = emptySet(),
-    onImageLoadError: (String) -> Unit = {},
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit = { _, _ -> },
     onImageLoadSuccess: (String) -> Unit = {},
     onImageRetry: (String) -> Unit = {},
     enableSharedElement: Boolean = true,
@@ -53,7 +54,7 @@ internal fun PostItemMedia(
                 onImageClick(url, urls, index, namespace)
             },
             onImageLongPress = onImageLongPress,
-            failedImageUrls = failedImageUrls,
+            imageLoadFailureByUrl = imageLoadFailureByUrl,
             onImageLoadError = onImageLoadError,
             onImageLoadSuccess = onImageLoadSuccess,
             onImageRetry = onImageRetry,

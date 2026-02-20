@@ -58,6 +58,7 @@ import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransiti
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import kotlin.math.min
 
 // アニメーションの速度（ミリ秒）
@@ -87,8 +88,8 @@ fun ReplyPopup(
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
-    failedImageUrls: Set<String> = emptySet(),
-    onImageLoadError: (String) -> Unit = {},
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit = { _, _ -> },
     onImageLoadSuccess: (String) -> Unit = {},
     onImageRetry: (String) -> Unit = {},
     onRequestMenu: (PostDialogTarget) -> Unit,
@@ -169,7 +170,7 @@ fun ReplyPopup(
                     onThreadUrlClick = onThreadUrlClick,
                     onImageClick = onImageClick,
                     onImageLongPress = onImageLongPress,
-                    failedImageUrls = failedImageUrls,
+                    imageLoadFailureByUrl = imageLoadFailureByUrl,
                     onImageLoadError = onImageLoadError,
                     onImageLoadSuccess = onImageLoadSuccess,
                     onImageRetry = onImageRetry,
@@ -335,8 +336,8 @@ private fun PopupPostList(
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
-    failedImageUrls: Set<String>,
-    onImageLoadError: (String) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onImageLoadSuccess: (String) -> Unit,
     onImageRetry: (String) -> Unit,
     onRequestMenu: (PostDialogTarget) -> Unit,
@@ -377,7 +378,7 @@ private fun PopupPostList(
                 onThreadUrlClick = onThreadUrlClick,
                 onImageClick = onImageClick,
                 onImageLongPress = onImageLongPress,
-                failedImageUrls = failedImageUrls,
+                imageLoadFailureByUrl = imageLoadFailureByUrl,
                 onImageLoadError = onImageLoadError,
                 onImageLoadSuccess = onImageLoadSuccess,
                 onImageRetry = onImageRetry,
@@ -417,8 +418,8 @@ private fun PopupPostLazyColumn(
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
-    failedImageUrls: Set<String>,
-    onImageLoadError: (String) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onImageLoadSuccess: (String) -> Unit,
     onImageRetry: (String) -> Unit,
     onRequestMenu: (PostDialogTarget) -> Unit,
@@ -460,7 +461,7 @@ private fun PopupPostLazyColumn(
                 transitionNamespace = transitionNamespace,
                 onImageClick = onImageClick,
                 onImageLongPress = onImageLongPress,
-                failedImageUrls = failedImageUrls,
+                imageLoadFailureByUrl = imageLoadFailureByUrl,
                 onImageLoadError = onImageLoadError,
                 onImageLoadSuccess = onImageLoadSuccess,
                 onImageRetry = onImageRetry,

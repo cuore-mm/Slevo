@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveCoordinator
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSavePreparation
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -61,7 +62,7 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
     fun synchronizeFailedImageUrls(imageUrls: List<String>) {
         val activeUrls = imageUrls.asSequence().filter { it.isNotBlank() }.toSet()
         _uiState.update { state ->
-            state.copy(failedImageUrls = state.failedImageUrls.filterTo(mutableSetOf()) { url ->
+            state.copy(imageLoadFailureByUrl = state.imageLoadFailureByUrl.filterKeys { url ->
                 url in activeUrls
             })
         }
@@ -70,13 +71,15 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
     /**
      * 画像読み込み失敗URLを失敗状態へ追加する。
      */
-    fun onImageLoadError(imageUrl: String) {
+    fun onImageLoadError(imageUrl: String, failureType: ImageLoadFailureType) {
         if (imageUrl.isBlank()) {
             // Guard: 空URLは失敗管理対象にしない。
             return
         }
         _uiState.update { state ->
-            state.copy(failedImageUrls = state.failedImageUrls + imageUrl)
+            state.copy(
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl + (imageUrl to failureType)
+            )
         }
     }
 
@@ -89,7 +92,7 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
             return
         }
         _uiState.update { state ->
-            state.copy(failedImageUrls = state.failedImageUrls - imageUrl)
+            state.copy(imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl)
         }
     }
 
@@ -102,7 +105,7 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
             return
         }
         _uiState.update { state ->
-            state.copy(failedImageUrls = state.failedImageUrls - imageUrl)
+            state.copy(imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl)
         }
     }
 
@@ -203,5 +206,5 @@ data class ImageViewerUiState(
     val isTopBarMenuExpanded: Boolean = false,
     val showImageNgDialog: Boolean = false,
     val imageNgTargetUrl: String? = null,
-    val failedImageUrls: Set<String> = emptySet(),
+    val imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
 )

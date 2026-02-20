@@ -45,6 +45,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import dagger.assisted.Assisted
@@ -256,7 +257,7 @@ class ThreadViewModel @AssistedInject constructor(
                 postGroups = emptyList(),
                 lastLoadedResCount = 0,
                 latestArrivalGroupIndex = null,
-                failedImageUrls = emptySet(),
+                imageLoadFailureByUrl = emptyMap(),
             )
         }
     }
@@ -492,7 +493,7 @@ class ThreadViewModel @AssistedInject constructor(
                 replySourceMap = derived.replySourceMap,
                 treeOrder = derived.treeOrder,
                 treeDepthMap = derived.treeDepthMap,
-                failedImageUrls = it.failedImageUrls.filterTo(mutableSetOf()) { url ->
+                imageLoadFailureByUrl = it.imageLoadFailureByUrl.filterKeys { url ->
                     url in activeImageUrls
                 },
             )
@@ -502,13 +503,15 @@ class ThreadViewModel @AssistedInject constructor(
     /**
      * サムネイル画像の読み込み失敗URLを UI 状態へ記録する。
      */
-    fun onThreadImageLoadError(imageUrl: String) {
+    fun onThreadImageLoadError(imageUrl: String, failureType: ImageLoadFailureType) {
         if (imageUrl.isBlank()) {
             // Guard: 空URLは失敗管理対象にしない。
             return
         }
         _uiState.update { state ->
-            state.copy(failedImageUrls = state.failedImageUrls + imageUrl)
+            state.copy(
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl + (imageUrl to failureType)
+            )
         }
     }
 
@@ -521,7 +524,7 @@ class ThreadViewModel @AssistedInject constructor(
             return
         }
         _uiState.update { state ->
-            state.copy(failedImageUrls = state.failedImageUrls - imageUrl)
+            state.copy(imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl)
         }
     }
 
@@ -534,7 +537,7 @@ class ThreadViewModel @AssistedInject constructor(
             return
         }
         _uiState.update { state ->
-            state.copy(failedImageUrls = state.failedImageUrls - imageUrl)
+            state.copy(imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl)
         }
     }
 

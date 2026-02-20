@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,8 +35,10 @@ import coil3.request.ImageRequest
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
+import com.websarva.wings.android.slevo.ui.util.toImageLoadFailureType
 
 /**
  * 画像URL一覧をサムネイルのグリッドとして表示する。
@@ -52,8 +55,8 @@ fun ImageThumbnailGrid(
     transitionNamespace: String,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: ((String, List<String>) -> Unit)? = null,
-    failedImageUrls: Set<String> = emptySet(),
-    onImageLoadError: (String) -> Unit = {},
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit = { _, _ -> },
     onImageLoadSuccess: (String) -> Unit = {},
     onImageRetry: (String) -> Unit = {},
     enableSharedElement: Boolean = true,
@@ -86,7 +89,8 @@ fun ImageThumbnailGrid(
                 rowItems.forEachIndexed { columnIndex, url ->
                     val imageIndex = baseIndex + columnIndex
                     with(sharedTransitionScope) {
-                        val isError = url in failedImageUrls
+                        val failureType = imageLoadFailureByUrl[url]
+                        val isError = failureType != null
                         val retryNonce = retryNonceByIndex[imageIndex] ?: 0
                         val imageRequest = remember(url, retryNonce, context) {
                             ImageRequest.Builder(context)
@@ -115,6 +119,12 @@ fun ImageThumbnailGrid(
                             .background(MaterialTheme.colorScheme.surfaceVariant)
                             .combinedClickable(
                                 onClick = {
+                                    // Guard: 404/410 は恒久エラー表示として扱い、再試行を開始しない。
+                                    if (failureType == ImageLoadFailureType.HTTP_404 ||
+                                        failureType == ImageLoadFailureType.HTTP_410
+                                    ) {
+                                        return@combinedClickable
+                                    }
                                     // Guard: 失敗サムネイルは明示操作時のみ再読み込みを行う。
                                     if (isError) {
                                         onImageRetry(url)
@@ -140,12 +150,24 @@ fun ImageThumbnailGrid(
                                 modifier = tileModifier,
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Refresh,
-                                    contentDescription = stringResource(R.string.refresh),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(24.dp),
-                                )
+                                if (failureType == ImageLoadFailureType.HTTP_404) {
+                                    ErrorCodeLabel(
+                                        code = "404",
+                                        message = stringResource(R.string.image_not_found),
+                                    )
+                                } else if (failureType == ImageLoadFailureType.HTTP_410) {
+                                    ErrorCodeLabel(
+                                        code = "410",
+                                        message = stringResource(R.string.image_deleted),
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Filled.Refresh,
+                                        contentDescription = stringResource(R.string.refresh),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                }
                             }
                         } else {
                             key(imageIndex, retryNonce) {
@@ -167,9 +189,12 @@ fun ImageThumbnailGrid(
                                     onLoading = {
                                         canNavigateByIndex[imageIndex] = false
                                     },
-                                    onError = {
+                                    onError = { state ->
                                         canNavigateByIndex[imageIndex] = false
-                                        onImageLoadError(url)
+                                        onImageLoadError(
+                                            url,
+                                            state.result.throwable.toImageLoadFailureType(),
+                                        )
                                     },
                                     modifier = tileModifier,
                                     loading = {
@@ -206,5 +231,24 @@ fun ImageThumbnailGrid(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ErrorCodeLabel(
+    code: String,
+    message: String,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = code,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = message,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
