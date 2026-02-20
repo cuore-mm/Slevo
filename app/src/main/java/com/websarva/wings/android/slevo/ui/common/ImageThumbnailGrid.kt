@@ -12,16 +12,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
@@ -37,8 +35,6 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
-import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
-import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
 import com.websarva.wings.android.slevo.ui.util.toImageLoadFailureType
 
 /**
@@ -80,8 +76,6 @@ fun ImageThumbnailGrid(
             }
         }
     }
-    val loadProgressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
-
     // --- Grid render ---
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         imageUrls.chunked(3).forEachIndexed { rowIndex, rowItems ->
@@ -151,29 +145,23 @@ fun ImageThumbnailGrid(
                                 modifier = tileModifier,
                                 contentAlignment = Alignment.Center,
                             ) {
-                                when (failureType) {
-                                    ImageLoadFailureType.HTTP_404 -> {
-                                        ErrorCodeLabel(
-                                            code = "404",
-                                            message = stringResource(R.string.image_not_found),
-                                        )
-                                    }
-
-                                    ImageLoadFailureType.HTTP_410 -> {
-                                        ErrorCodeLabel(
-                                            code = "410",
-                                            message = stringResource(R.string.image_deleted),
-                                        )
-                                    }
-
-                                    else -> {
-                                        Icon(
-                                            imageVector = Icons.Filled.Refresh,
-                                            contentDescription = stringResource(R.string.refresh),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(24.dp),
-                                        )
-                                    }
+                                if (failureType == ImageLoadFailureType.HTTP_404) {
+                                    ErrorCodeLabel(
+                                        code = "404",
+                                        message = stringResource(R.string.image_not_found),
+                                    )
+                                } else if (failureType == ImageLoadFailureType.HTTP_410) {
+                                    ErrorCodeLabel(
+                                        code = "410",
+                                        message = stringResource(R.string.image_deleted),
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Filled.Refresh,
+                                        contentDescription = stringResource(R.string.refresh),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp),
+                                    )
                                 }
                             }
                         } else {
@@ -209,9 +197,8 @@ fun ImageThumbnailGrid(
                                             modifier = Modifier.fillMaxSize(),
                                             contentAlignment = Alignment.Center,
                                         ) {
-                                            ImageLoadProgressIndicator(
-                                                progressState = loadProgressByUrl[url],
-                                                indicatorSize = 24.dp,
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(24.dp),
                                             )
                                         }
                                     },
@@ -246,10 +233,7 @@ private fun ErrorCodeLabel(
     code: String,
     message: String,
 ) {
-    Column(
-        modifier = Modifier.padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = code,
             style = MaterialTheme.typography.titleMedium,
