@@ -147,7 +147,9 @@ internal fun ImageViewerPager(
                     .data(imageUrl)
                     .size(viewportWidthPx, viewportHeightPx)
                     .precision(Precision.EXACT)
-                    .memoryCacheKey("$imageUrl#viewer-$retryNonce")
+                    .memoryCacheKey(
+                        "$imageUrl#viewer-${viewportWidthPx}x${viewportHeightPx}-$retryNonce"
+                    )
                     .listener(
                         onStart = { _ ->
                             isLoadingByPage[page] = true
