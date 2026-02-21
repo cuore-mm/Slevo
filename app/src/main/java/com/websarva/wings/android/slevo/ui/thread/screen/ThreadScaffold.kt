@@ -18,6 +18,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.toClipEntry
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
@@ -36,8 +37,13 @@ import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
+import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
+import com.websarva.wings.android.slevo.ui.thread.res.PostItemDialogs
+import com.websarva.wings.android.slevo.ui.thread.res.rememberPostItemDialogState
+import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
@@ -222,10 +228,6 @@ fun ThreadScaffold(
                 onAddPopupForId = { id, baseOffset ->
                     viewModel.addPopupForId(baseOffset, id)
                 },
-                onPopupSizeChange = { index, size ->
-                    viewModel.updatePopupSize(index, size)
-                },
-                onRemoveTopPopup = { viewModel.removeTopPopup() },
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
                 onPopupVisibilityChange = { isPopupVisible = it },
@@ -257,6 +259,10 @@ fun ThreadScaffold(
         optionalSheetContent = { viewModel, uiState ->
             val clipboard = LocalClipboard.current
             val coroutineScope = rememberCoroutineScope()
+            val uriHandler = LocalUriHandler.current
+            val popupDialogState = rememberPostItemDialogState()
+            var popupMenuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
+            var popupDialogTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
             val imageSavePermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission()
             ) { granted ->
@@ -277,6 +283,91 @@ fun ThreadScaffold(
                     }
                 }
             }
+
+            ReplyPopup(
+                popupStack = uiState.popupStack,
+                posts = uiState.posts ?: emptyList(),
+                replySourceMap = uiState.replySourceMap,
+                idCountMap = uiState.idCountMap,
+                idIndexList = uiState.idIndexList,
+                ngPostNumbers = uiState.ngPostNumbers,
+                myPostNumbers = uiState.myPostNumbers,
+                headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
+                bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
+                lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT,
+                searchQuery = uiState.searchQuery,
+                onUrlClick = { url -> uriHandler.openUri(url) },
+                onThreadUrlClick = { route ->
+                    navController.navigateToThread(
+                        route = route,
+                        tabsViewModel = tabsViewModel,
+                    )
+                },
+                onImageClick = { _, imageUrls, tappedIndex, transitionNamespace ->
+                    if (imageUrls.isNotEmpty()) {
+                        val encodedUrls = imageUrls.map { imageUrl ->
+                            URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
+                        }
+                        navController.navigate(
+                            AppRoute.ImageViewer(
+                                imageUrls = encodedUrls,
+                                initialIndex = tappedIndex.coerceIn(encodedUrls.indices),
+                                transitionNamespace = transitionNamespace,
+                            )
+                        )
+                    }
+                },
+                onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
+                onRequestMenu = { target -> popupMenuTarget = target },
+                onShowTextMenu = { text, type -> popupDialogState.showTextMenu(text, type) },
+                onRequestTreePopup = { postNum, baseOffset ->
+                    viewModel.addPopupForTree(baseOffset, postNum)
+                },
+                onAddPopupForReplyFrom = { replyNumbers, baseOffset ->
+                    viewModel.addPopupForReplyFrom(baseOffset, replyNumbers)
+                },
+                onAddPopupForReplyNumber = { postNumber, baseOffset ->
+                    viewModel.addPopupForReplyNumber(baseOffset, postNumber)
+                },
+                onAddPopupForId = { id, baseOffset ->
+                    viewModel.addPopupForId(baseOffset, id)
+                },
+                onPopupSizeChange = { index, size ->
+                    viewModel.updatePopupSize(index, size)
+                },
+                onClose = { viewModel.removeTopPopup() },
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+            )
+
+            popupMenuTarget?.let { target ->
+                PostMenuSheet(
+                    postNum = target.postNum,
+                    onReplyClick = {
+                        popupMenuTarget = null
+                        viewModel.postDialogActions.showReplyDialog(target.postNum)
+                    },
+                    onCopyClick = {
+                        popupMenuTarget = null
+                        popupDialogTarget = target
+                        popupDialogState.showCopyDialog()
+                    },
+                    onNgClick = {
+                        popupMenuTarget = null
+                        popupDialogTarget = target
+                        popupDialogState.showNgSelectDialog()
+                    },
+                    onDismiss = { popupMenuTarget = null }
+                )
+            }
+
+            PostItemDialogs(
+                target = popupDialogTarget,
+                boardName = uiState.boardInfo.name,
+                boardId = uiState.boardInfo.boardId,
+                scope = coroutineScope,
+                dialogState = popupDialogState
+            )
 
             ThreadInfoBottomSheet(
                 showThreadInfoSheet = uiState.showThreadInfoSheet,
