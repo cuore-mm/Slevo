@@ -28,12 +28,12 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -57,6 +57,9 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicatorStyle
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
 import com.websarva.wings.android.slevo.ui.util.toImageLoadFailureType
 
 /**
@@ -86,6 +89,7 @@ internal fun ImageViewerThumbnailBar(
     val selectedThumbnailScale = 1.2f
     val resources = LocalResources.current
     val density = LocalDensity.current
+    val loadProgressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
     val isLoadingByIndex = remember(imageUrls) {
         mutableStateMapOf<Int, Boolean>().apply {
             imageUrls.indices.forEach { index ->
@@ -224,8 +228,10 @@ internal fun ImageViewerThumbnailBar(
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     if (isLoadingByIndex[index] == true) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(18.dp),
+                                        ImageLoadProgressIndicator(
+                                            progressState = loadProgressByUrl[imageUrl],
+                                            indicatorSize = 18.dp,
+                                            indicatorStyle = ImageLoadProgressIndicatorStyle.STANDARD,
                                         )
                                     }
                                 }

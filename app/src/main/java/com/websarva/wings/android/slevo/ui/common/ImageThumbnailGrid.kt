@@ -15,11 +15,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
@@ -35,6 +36,9 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicatorStyle
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
 import com.websarva.wings.android.slevo.ui.util.toImageLoadFailureType
 
 /**
@@ -76,6 +80,7 @@ fun ImageThumbnailGrid(
             }
         }
     }
+    val loadProgressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
     // --- Grid render ---
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         imageUrls.chunked(3).forEachIndexed { rowIndex, rowItems ->
@@ -197,8 +202,10 @@ fun ImageThumbnailGrid(
                                             modifier = Modifier.fillMaxSize(),
                                             contentAlignment = Alignment.Center,
                                         ) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(24.dp),
+                                            ImageLoadProgressIndicator(
+                                                progressState = loadProgressByUrl[url],
+                                                indicatorSize = 24.dp,
+                                                indicatorStyle = ImageLoadProgressIndicatorStyle.STANDARD,
                                             )
                                         }
                                     },
