@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
@@ -150,23 +151,27 @@ fun ImageThumbnailGrid(
                                 modifier = tileModifier,
                                 contentAlignment = Alignment.Center,
                             ) {
-                                if (failureType == ImageLoadFailureType.HTTP_404) {
-                                    ErrorCodeLabel(
-                                        code = "404",
-                                        message = stringResource(R.string.image_not_found),
-                                    )
-                                } else if (failureType == ImageLoadFailureType.HTTP_410) {
-                                    ErrorCodeLabel(
-                                        code = "410",
-                                        message = stringResource(R.string.image_deleted),
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Filled.Refresh,
-                                        contentDescription = stringResource(R.string.refresh),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(24.dp),
-                                    )
+                                when (failureType) {
+                                    ImageLoadFailureType.HTTP_404 -> {
+                                        ErrorCodeLabel(
+                                            code = "404",
+                                            message = stringResource(R.string.image_not_found),
+                                        )
+                                    }
+                                    ImageLoadFailureType.HTTP_410 -> {
+                                        ErrorCodeLabel(
+                                            code = "410",
+                                            message = stringResource(R.string.image_deleted),
+                                        )
+                                    }
+                                    else -> {
+                                        Icon(
+                                            imageVector = Icons.Filled.Refresh,
+                                            contentDescription = stringResource(R.string.refresh),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(24.dp),
+                                        )
+                                    }
                                 }
                             }
                         } else {
@@ -240,7 +245,10 @@ private fun ErrorCodeLabel(
     code: String,
     message: String,
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        modifier = Modifier.padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Text(
             text = code,
             style = MaterialTheme.typography.titleMedium,
