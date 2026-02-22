@@ -72,6 +72,6 @@ class ReplyPopupOffsetClampTest {
 
         assertEquals(4.dp, first)
         assertEquals(8.dp, second)
-        assertEquals(32.dp, deep)
+        assertEquals(28.dp, deep)
     }
 }

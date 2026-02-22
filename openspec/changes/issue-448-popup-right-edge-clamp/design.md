@@ -25,7 +25,7 @@
   - クランプで左余白が増えても仕様上許容する。
 
 - **左余白の上限値を追加する**
-  - 左余白上限定数 `MAX_LEFT_MARGIN_DP`（初期案: `32.dp`）を導入し、`x = min(x, maxLeftMarginPx)` を適用する。
+  - 左余白上限定数 `MAX_LEFT_MARGIN_DP`（初期案: `28.dp`）を導入し、`x = min(x, maxLeftMarginPx)` を適用する。
   - 右端クランプとの組み合わせで `x = min(desiredX, maxX, maxLeftMarginPx)` として扱う。
 
 - **右余白は 4.dp を単一の定数として扱う**
