@@ -1,15 +1,19 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
@@ -22,19 +26,24 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil3.request.ImageRequest
 import coil3.size.Precision
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
+import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
@@ -201,33 +210,39 @@ internal fun ImageViewerPager(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (failureType == ImageLoadFailureType.HTTP_404) {
-                        FailureMessage(
-                            code = "404",
-                            message = stringResource(R.string.image_not_found),
-                        )
-                    } else if (failureType == ImageLoadFailureType.HTTP_410) {
-                        FailureMessage(
-                            code = "410",
-                            message = stringResource(R.string.image_deleted),
-                        )
-                    } else {
-                        IconButton(
-                            onClick = {
-                                // Guard: 失敗ページのみ再読み込みトリガーを進める。
-                                onImageRetry(imageUrl)
-                                retryNonceByPage[page] = retryNonce + 1
-                            },
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(CircleShape),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = stringResource(R.string.refresh),
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(30.dp),
+                    when (failureType) {
+                        ImageLoadFailureType.HTTP_404 -> {
+                            FailureMessage(
+                                code = "404",
+                                message = stringResource(R.string.image_not_found),
                             )
+                        }
+
+                        ImageLoadFailureType.HTTP_410 -> {
+                            FailureMessage(
+                                code = "410",
+                                message = stringResource(R.string.image_deleted),
+                            )
+                        }
+
+                        else -> {
+                            IconButton(
+                                onClick = {
+                                    // Guard: 失敗ページのみ再読み込みトリガーを進める。
+                                    onImageRetry(imageUrl)
+                                    retryNonceByPage[page] = retryNonce + 1
+                                },
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(CircleShape),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = stringResource(R.string.refresh),
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(30.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -252,5 +267,63 @@ private fun FailureMessage(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalFoundationApi::class)
+@Preview(showBackground = true)
+@Composable
+private fun ImageViewerPagerPreview() {
+    ImageViewerPagerPreviewWrapper(
+        imageUrls = listOf(
+            "https://placehold.jp/150x150.png",
+            "https://placehold.jp/150x150.png",
+            "https://placehold.jp/150x150.png"
+        )
+    )
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalFoundationApi::class)
+@Preview(showBackground = true)
+@Composable
+private fun ImageViewerPagerPreview_Error() {
+    val imageUrls = listOf("https://placehold.jp/150x150.png")
+    ImageViewerPagerPreviewWrapper(
+        imageUrls = imageUrls,
+        imageLoadFailureByUrl = mapOf(imageUrls[0] to ImageLoadFailureType.UNKNOWN)
+    )
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalFoundationApi::class)
+@Composable
+private fun ImageViewerPagerPreviewWrapper(
+    imageUrls: List<String>,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap()
+) {
+    SlevoTheme {
+        SharedTransitionLayout {
+            val pagerState = rememberPagerState(pageCount = { imageUrls.size })
+            val zoomableStates = remember {
+                mutableStateListOf<MutableState<ZoomableState?>>().apply {
+                    repeat(imageUrls.size) { add(mutableStateOf(null)) }
+                }
+            }
+            var visible by remember { mutableStateOf(true) }
+            AnimatedVisibility(visible = visible, label = "preview") {
+                ImageViewerPager(
+                    imageUrls = imageUrls,
+                    transitionNamespace = "preview",
+                    pagerState = pagerState,
+                    zoomableStates = zoomableStates,
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this,
+                    onToggleBars = {},
+                    imageLoadFailureByUrl = imageLoadFailureByUrl,
+                    onImageLoadError = { _, _ -> },
+                    onImageLoadSuccess = {},
+                    onImageRetry = {}
+                )
+            }
+        }
     }
 }
