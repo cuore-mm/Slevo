@@ -57,9 +57,9 @@ class ThreadListCoordinator @AssistedInject constructor(
      */
     fun setSearchMode(isActive: Boolean) {
         if (isActive) {
-            uiState.update { it.copy(isSearchActive = true) }
+            uiState.update { it.copy(isSearchActive = true, isTabSwipeEnabled = false) }
         } else {
-            uiState.update { it.copy(isSearchActive = false) }
+            uiState.update { it.copy(isSearchActive = false, isTabSwipeEnabled = true) }
             setSearchQuery("")
         }
     }
