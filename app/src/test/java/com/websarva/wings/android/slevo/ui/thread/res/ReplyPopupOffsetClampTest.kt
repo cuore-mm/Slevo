@@ -71,7 +71,7 @@ class ReplyPopupOffsetClampTest {
         val deep = calculatePopupLeftMargin(popupIndex = 10)
 
         assertEquals(4.dp, first)
-        assertEquals(8.dp, second)
+        assertEquals(12.dp, second)
         assertEquals(28.dp, deep)
     }
 }

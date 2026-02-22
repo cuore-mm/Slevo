@@ -620,7 +620,7 @@ internal fun calculatePopupPlacementOffsetX(
 /**
  * ポップアップ段数ごとの左余白を返す。
  *
- * 1段目を基準に 4.dp ずつ増加し、[POPUP_MAX_LEFT_MARGIN] を上限とする。
+ * 1段目を基準に 8.dp ずつ増加し、[POPUP_MAX_LEFT_MARGIN] を上限とする。
  */
 internal fun calculatePopupLeftMargin(popupIndex: Int): Dp {
     val normalizedIndex = popupIndex.coerceAtLeast(0)
