@@ -30,7 +30,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunner
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
-import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.ZoomableState
 import dev.chrisbanes.haze.rememberHazeState
@@ -188,11 +187,15 @@ fun ImageViewerScreen(
             }
         },
         onDismissNgDialog = { viewModel?.closeImageNgDialog() },
-        onImageLoadError = { url, failureType ->
-            viewModel?.onImageLoadError(url, failureType)
+        onViewerImageLoadError = { url, failureType ->
+            viewModel?.onViewerImageLoadError(url, failureType)
         },
-        onImageLoadSuccess = { url -> viewModel?.onImageLoadSuccess(url) },
-        onImageRetry = { url -> viewModel?.onImageRetry(url) },
+        onViewerImageLoadSuccess = { url -> viewModel?.onViewerImageLoadSuccess(url) },
+        onViewerImageRetry = { url -> viewModel?.onViewerImageRetry(url) },
+        onThumbnailImageLoadError = { url, failureType ->
+            viewModel?.onThumbnailImageLoadError(url, failureType)
+        },
+        onThumbnailImageLoadSuccess = { url -> viewModel?.onThumbnailImageLoadSuccess(url) },
     )
 }
 

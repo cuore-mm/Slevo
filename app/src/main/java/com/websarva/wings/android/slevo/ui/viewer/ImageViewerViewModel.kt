@@ -62,23 +62,28 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
     fun synchronizeFailedImageUrls(imageUrls: List<String>) {
         val activeUrls = imageUrls.asSequence().filter { it.isNotBlank() }.toSet()
         _uiState.update { state ->
-            state.copy(imageLoadFailureByUrl = state.imageLoadFailureByUrl.filterKeys { url ->
-                url in activeUrls
-            })
+            state.copy(
+                viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl.filterKeys { url ->
+                    url in activeUrls
+                },
+                thumbnailImageLoadFailureByUrl =
+                    state.thumbnailImageLoadFailureByUrl.filterKeys { url -> url in activeUrls },
+            )
         }
     }
 
     /**
      * 画像読み込み失敗URLを失敗状態へ追加する。
      */
-    fun onImageLoadError(imageUrl: String, failureType: ImageLoadFailureType) {
+    fun onViewerImageLoadError(imageUrl: String, failureType: ImageLoadFailureType) {
         if (imageUrl.isBlank()) {
             // Guard: 空URLは失敗管理対象にしない。
             return
         }
         _uiState.update { state ->
             state.copy(
-                imageLoadFailureByUrl = state.imageLoadFailureByUrl + (imageUrl to failureType)
+                viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl +
+                    (imageUrl to failureType)
             )
         }
     }
@@ -86,26 +91,61 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
     /**
      * 画像読み込み成功URLを失敗状態から解除する。
      */
-    fun onImageLoadSuccess(imageUrl: String) {
+    fun onViewerImageLoadSuccess(imageUrl: String) {
         if (imageUrl.isBlank()) {
             // Guard: 空URLは失敗管理対象にしない。
             return
         }
         _uiState.update { state ->
-            state.copy(imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl)
+            state.copy(
+                viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl - imageUrl
+            )
         }
     }
 
     /**
      * 明示リトライ開始時に対象URLの失敗状態を解除する。
      */
-    fun onImageRetry(imageUrl: String) {
+    fun onViewerImageRetry(imageUrl: String) {
         if (imageUrl.isBlank()) {
             // Guard: 空URLは失敗管理対象にしない。
             return
         }
         _uiState.update { state ->
-            state.copy(imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl)
+            state.copy(
+                viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl - imageUrl
+            )
+        }
+    }
+
+    /**
+     * 下部サムネイル読み込み失敗URLを失敗状態へ追加する。
+     */
+    fun onThumbnailImageLoadError(imageUrl: String, failureType: ImageLoadFailureType) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは失敗管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(
+                thumbnailImageLoadFailureByUrl = state.thumbnailImageLoadFailureByUrl +
+                    (imageUrl to failureType)
+            )
+        }
+    }
+
+    /**
+     * 下部サムネイル読み込み成功URLを失敗状態から解除する。
+     */
+    fun onThumbnailImageLoadSuccess(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは失敗管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(
+                thumbnailImageLoadFailureByUrl = state.thumbnailImageLoadFailureByUrl - imageUrl
+            )
         }
     }
 
@@ -206,5 +246,6 @@ data class ImageViewerUiState(
     val isTopBarMenuExpanded: Boolean = false,
     val showImageNgDialog: Boolean = false,
     val imageNgTargetUrl: String? = null,
-    val imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    val viewerImageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    val thumbnailImageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
 )

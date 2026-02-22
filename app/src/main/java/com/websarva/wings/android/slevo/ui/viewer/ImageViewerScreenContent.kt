@@ -62,9 +62,11 @@ internal fun ImageViewerScreenContent(
     onToggleBars: () -> Unit,
     onThumbnailClick: (Int) -> Unit,
     onDismissNgDialog: () -> Unit,
-    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
-    onImageLoadSuccess: (String) -> Unit,
-    onImageRetry: (String) -> Unit,
+    onViewerImageLoadError: (String, ImageLoadFailureType) -> Unit,
+    onViewerImageLoadSuccess: (String) -> Unit,
+    onViewerImageRetry: (String) -> Unit,
+    onThumbnailImageLoadError: (String, ImageLoadFailureType) -> Unit,
+    onThumbnailImageLoadSuccess: (String) -> Unit,
 ) {
     // --- Root container ---
     Box(
@@ -109,10 +111,10 @@ internal fun ImageViewerScreenContent(
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,
                     onToggleBars = onToggleBars,
-                    imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
-                    onImageLoadError = onImageLoadError,
-                    onImageLoadSuccess = onImageLoadSuccess,
-                    onImageRetry = onImageRetry,
+                    imageLoadFailureByUrl = uiState.viewerImageLoadFailureByUrl,
+                    onImageLoadError = onViewerImageLoadError,
+                    onImageLoadSuccess = onViewerImageLoadSuccess,
+                    onImageRetry = onViewerImageRetry,
                 )
                 if (isBarsVisible) {
                     Box(
@@ -147,9 +149,9 @@ internal fun ImageViewerScreenContent(
                             barExitDurationMillis = barExitDurationMillis,
                             thumbnailViewportWidthPx = thumbnailViewportWidthPx,
                             onThumbnailClick = onThumbnailClick,
-                            imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
-                            onImageLoadError = onImageLoadError,
-                            onImageLoadSuccess = onImageLoadSuccess,
+                            imageLoadFailureByUrl = uiState.thumbnailImageLoadFailureByUrl,
+                            onImageLoadError = onThumbnailImageLoadError,
+                            onImageLoadSuccess = onThumbnailImageLoadSuccess,
                         )
                     }
                 }
