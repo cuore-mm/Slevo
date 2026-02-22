@@ -7,6 +7,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -16,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -28,29 +31,28 @@ import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
+import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunner
+import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
-import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunner
-import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
+import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
+import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
+import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
 import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
 import com.websarva.wings.android.slevo.ui.thread.res.PostItemDialogs
 import com.websarva.wings.android.slevo.ui.thread.res.ReplyPopup
 import com.websarva.wings.android.slevo.ui.thread.res.rememberPostItemDialogState
-import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
-import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
-import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
-import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
 import com.websarva.wings.android.slevo.ui.thread.sheet.DisplaySettingsBottomSheet
-import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
+import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
@@ -286,6 +288,9 @@ fun ThreadScaffold(
             }
 
             ReplyPopup(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .safeDrawingPadding(),
                 popupStack = uiState.popupStack,
                 posts = uiState.posts ?: emptyList(),
                 replySourceMap = uiState.replySourceMap,

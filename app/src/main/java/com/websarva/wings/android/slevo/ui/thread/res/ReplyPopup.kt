@@ -92,6 +92,7 @@ private data class PopupPlacement(
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ReplyPopup(
+    modifier: Modifier = Modifier,
     popupStack: List<PopupInfo>,
     posts: List<ThreadPostUiModel>,
     replySourceMap: Map<Int, List<Int>>,
@@ -140,7 +141,7 @@ fun ReplyPopup(
 
     // --- ポップアップ描画 ---
     val lastIndex = popupStack.lastIndex
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = modifier) {
         // --- 背景タップ ---
         PopupBackgroundOverlay(
             popupStack = popupStack,
