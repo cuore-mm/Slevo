@@ -122,7 +122,9 @@ internal fun ImageViewerPager(
 
         SideEffect {
             if (page in zoomableStates.indices) {
-                zoomableStates[page].value = zoomableState
+                // Guard: 失敗表示中のページは ZoomableAsyncImage を描画しないため、
+                // 非アタッチ状態の ZoomableState を保持しない。
+                zoomableStates[page].value = if (isError) null else zoomableState
             }
         }
 
