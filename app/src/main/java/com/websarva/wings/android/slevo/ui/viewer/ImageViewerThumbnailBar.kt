@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.asDrawable
 import coil3.compose.SubcomposeAsyncImage
+import coil3.request.ImageRequest
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
@@ -79,6 +81,7 @@ internal fun ImageViewerThumbnailBar(
     thumbnailViewportWidthPx: MutableIntState,
     onThumbnailClick: (Int) -> Unit,
     imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    thumbnailRetryNonceByUrl: Map<String, Int>,
     onImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onImageLoadSuccess: (String) -> Unit,
 ) {
@@ -88,6 +91,7 @@ internal fun ImageViewerThumbnailBar(
     val thumbnailSpacing: Dp = 4.dp
     val selectedThumbnailScale = 1.2f
     val resources = LocalResources.current
+    val context = LocalContext.current
     val density = LocalDensity.current
     val loadProgressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
     val isLoadingByIndex = remember(imageUrls) {
@@ -137,6 +141,13 @@ internal fun ImageViewerThumbnailBar(
                     val imageUrl = imageUrls[index]
                     val failureType = imageLoadFailureByUrl[imageUrl]
                     val isError = failureType != null
+                    val retryNonce = thumbnailRetryNonceByUrl[imageUrl] ?: 0
+                    val imageRequest = remember(imageUrl, context, retryNonce) {
+                        ImageRequest.Builder(context)
+                            .data(imageUrl)
+                            .memoryCacheKey("$imageUrl#thumbnail-$retryNonce")
+                            .build()
+                    }
                     val interactionSource = remember { MutableInteractionSource() }
                     val isPressed by interactionSource.collectIsPressedAsState()
                     val baseScale =
@@ -194,7 +205,7 @@ internal fun ImageViewerThumbnailBar(
                         }
                     } else {
                         SubcomposeAsyncImage(
-                            model = imageUrls[index],
+                            model = imageRequest,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             alignment = Alignment.Center,
@@ -279,6 +290,7 @@ private fun ImageViewerThumbnailBarPreview() {
             thumbnailViewportWidthPx = thumbnailViewportWidthPx,
             onThumbnailClick = {},
             imageLoadFailureByUrl = emptyMap(),
+            thumbnailRetryNonceByUrl = emptyMap(),
             onImageLoadError = { _, _ -> },
             onImageLoadSuccess = {},
         )

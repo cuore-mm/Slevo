@@ -154,6 +154,7 @@ internal fun ImageViewerScreenContent(
                             thumbnailViewportWidthPx = thumbnailViewportWidthPx,
                             onThumbnailClick = onThumbnailClick,
                             imageLoadFailureByUrl = uiState.thumbnailImageLoadFailureByUrl,
+                            thumbnailRetryNonceByUrl = uiState.thumbnailRetryNonceByUrl,
                             onImageLoadError = onThumbnailImageLoadError,
                             onImageLoadSuccess = onThumbnailImageLoadSuccess,
                         )

@@ -81,4 +81,56 @@ class ImageViewerViewModelTest {
         val state = viewModel.uiState.value
         assertTrue(url !in state.viewerImageLoadingUrls)
     }
+
+    /**
+     * 本体再試行で本体失敗とサムネイル失敗が同時に解除されることを確認する。
+     */
+    @Test
+    fun viewerRetryClearsViewerAndThumbnailFailures() {
+        val viewModel = ImageViewerViewModel()
+        val url = "https://example.com/image.jpg"
+
+        viewModel.onViewerImageLoadError(url, ImageLoadFailureType.UNKNOWN)
+        viewModel.onThumbnailImageLoadError(url, ImageLoadFailureType.UNKNOWN)
+
+        viewModel.onViewerImageRetry(url)
+
+        val state = viewModel.uiState.value
+        assertTrue(url !in state.viewerImageLoadFailureByUrl)
+        assertTrue(url !in state.thumbnailImageLoadFailureByUrl)
+    }
+
+    /**
+     * 本体再試行でサムネイル再取得nonceがインクリメントされることを確認する。
+     */
+    @Test
+    fun viewerRetryIncrementsThumbnailRetryNonce() {
+        val viewModel = ImageViewerViewModel()
+        val url = "https://example.com/image.jpg"
+
+        viewModel.onViewerImageRetry(url)
+        viewModel.onViewerImageRetry(url)
+
+        val state = viewModel.uiState.value
+        assertEquals(2, state.thumbnailRetryNonceByUrl[url])
+    }
+
+    /**
+     * URL同期時にサムネイル再取得nonceも表示対象URLへ絞り込まれることを確認する。
+     */
+    @Test
+    fun synchronizeFailedImageUrlsFiltersThumbnailRetryNonce() {
+        val viewModel = ImageViewerViewModel()
+        val activeUrl = "https://example.com/active.jpg"
+        val staleUrl = "https://example.com/stale.jpg"
+
+        viewModel.onViewerImageRetry(activeUrl)
+        viewModel.onViewerImageRetry(staleUrl)
+
+        viewModel.synchronizeFailedImageUrls(listOf(activeUrl))
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.thumbnailRetryNonceByUrl[activeUrl])
+        assertTrue(staleUrl !in state.thumbnailRetryNonceByUrl)
+    }
 }

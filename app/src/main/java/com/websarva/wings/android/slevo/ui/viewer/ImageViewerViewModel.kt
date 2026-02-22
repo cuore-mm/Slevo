@@ -71,6 +71,8 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
                     .toSet(),
                 thumbnailImageLoadFailureByUrl =
                     state.thumbnailImageLoadFailureByUrl.filterKeys { url -> url in activeUrls },
+                thumbnailRetryNonceByUrl =
+                    state.thumbnailRetryNonceByUrl.filterKeys { url -> url in activeUrls },
             )
         }
     }
@@ -143,9 +145,13 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
             return
         }
         _uiState.update { state ->
+            val currentThumbnailNonce = state.thumbnailRetryNonceByUrl[imageUrl] ?: 0
             state.copy(
                 viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl - imageUrl,
                 viewerImageLoadingUrls = state.viewerImageLoadingUrls - imageUrl,
+                thumbnailImageLoadFailureByUrl = state.thumbnailImageLoadFailureByUrl - imageUrl,
+                thumbnailRetryNonceByUrl =
+                    state.thumbnailRetryNonceByUrl + (imageUrl to (currentThumbnailNonce + 1)),
             )
         }
     }
@@ -281,4 +287,5 @@ data class ImageViewerUiState(
     val viewerImageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
     val viewerImageLoadingUrls: Set<String> = emptySet(),
     val thumbnailImageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    val thumbnailRetryNonceByUrl: Map<String, Int> = emptyMap(),
 )
