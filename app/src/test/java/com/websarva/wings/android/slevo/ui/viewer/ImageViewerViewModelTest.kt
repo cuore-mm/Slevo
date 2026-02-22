@@ -47,4 +47,38 @@ class ImageViewerViewModelTest {
         assertTrue(staleUrl !in state.viewerImageLoadFailureByUrl)
         assertTrue(staleUrl !in state.thumbnailImageLoadFailureByUrl)
     }
+
+    /**
+     * 本体読み込み開始中URLが同期処理で表示対象URLへ絞り込まれることを確認する。
+     */
+    @Test
+    fun synchronizeFailedImageUrlsFiltersViewerLoadingUrls() {
+        val viewModel = ImageViewerViewModel()
+        val activeUrl = "https://example.com/active.jpg"
+        val staleUrl = "https://example.com/stale.jpg"
+
+        viewModel.onViewerImageLoadStart(activeUrl)
+        viewModel.onViewerImageLoadStart(staleUrl)
+
+        viewModel.synchronizeFailedImageUrls(listOf(activeUrl))
+
+        val state = viewModel.uiState.value
+        assertTrue(activeUrl in state.viewerImageLoadingUrls)
+        assertTrue(staleUrl !in state.viewerImageLoadingUrls)
+    }
+
+    /**
+     * 本体読み込みキャンセルで読み込み中URLが解除されることを確認する。
+     */
+    @Test
+    fun viewerImageLoadCancelClearsLoadingUrl() {
+        val viewModel = ImageViewerViewModel()
+        val url = "https://example.com/image.jpg"
+
+        viewModel.onViewerImageLoadStart(url)
+        viewModel.onViewerImageLoadCancel(url)
+
+        val state = viewModel.uiState.value
+        assertTrue(url !in state.viewerImageLoadingUrls)
+    }
 }

@@ -66,9 +66,25 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
                 viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl.filterKeys { url ->
                     url in activeUrls
                 },
+                viewerImageLoadingUrls = state.viewerImageLoadingUrls
+                    .filter { url -> url in activeUrls }
+                    .toSet(),
                 thumbnailImageLoadFailureByUrl =
                     state.thumbnailImageLoadFailureByUrl.filterKeys { url -> url in activeUrls },
             )
+        }
+    }
+
+    /**
+     * 本体画像読み込み開始URLを読み込み中状態へ追加する。
+     */
+    fun onViewerImageLoadStart(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは読み込み管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(viewerImageLoadingUrls = state.viewerImageLoadingUrls + imageUrl)
         }
     }
 
@@ -83,7 +99,8 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
         _uiState.update { state ->
             state.copy(
                 viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl +
-                    (imageUrl to failureType)
+                    (imageUrl to failureType),
+                viewerImageLoadingUrls = state.viewerImageLoadingUrls - imageUrl,
             )
         }
     }
@@ -98,8 +115,22 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
         }
         _uiState.update { state ->
             state.copy(
-                viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl - imageUrl
+                viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl - imageUrl,
+                viewerImageLoadingUrls = state.viewerImageLoadingUrls - imageUrl,
             )
+        }
+    }
+
+    /**
+     * 本体画像読み込みキャンセルURLを読み込み中状態から解除する。
+     */
+    fun onViewerImageLoadCancel(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは読み込み管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(viewerImageLoadingUrls = state.viewerImageLoadingUrls - imageUrl)
         }
     }
 
@@ -113,7 +144,8 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
         }
         _uiState.update { state ->
             state.copy(
-                viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl - imageUrl
+                viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl - imageUrl,
+                viewerImageLoadingUrls = state.viewerImageLoadingUrls - imageUrl,
             )
         }
     }
@@ -247,5 +279,6 @@ data class ImageViewerUiState(
     val showImageNgDialog: Boolean = false,
     val imageNgTargetUrl: String? = null,
     val viewerImageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    val viewerImageLoadingUrls: Set<String> = emptySet(),
     val thumbnailImageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
 )

@@ -79,8 +79,10 @@ internal fun ImageViewerPager(
     animatedVisibilityScope: AnimatedVisibilityScope,
     onToggleBars: () -> Unit,
     imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    onImageLoadStart: (String) -> Unit,
     onImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onImageLoadSuccess: (String) -> Unit,
+    onImageLoadCancel: (String) -> Unit,
     onImageRetry: (String) -> Unit,
 ) {
     // --- Pager ---
@@ -168,6 +170,7 @@ internal fun ImageViewerPager(
                     .listener(
                         onStart = { _ ->
                             isLoadingByPage[page] = true
+                            onImageLoadStart(imageUrl)
                         },
                         onSuccess = { _, result ->
                             isLoadingByPage[page] = false
@@ -189,6 +192,7 @@ internal fun ImageViewerPager(
                         },
                         onCancel = { _ ->
                             isLoadingByPage[page] = false
+                            onImageLoadCancel(imageUrl)
                         }
                     )
                     .build()
@@ -362,7 +366,9 @@ private fun ImageViewerPagerPreviewWrapper(
                     onToggleBars = {},
                     imageLoadFailureByUrl = imageLoadFailureByUrl,
                     onImageLoadError = { _, _ -> },
+                    onImageLoadStart = {},
                     onImageLoadSuccess = {},
+                    onImageLoadCancel = {},
                     onImageRetry = {}
                 )
             }

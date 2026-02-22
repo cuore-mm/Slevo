@@ -62,8 +62,10 @@ internal fun ImageViewerScreenContent(
     onToggleBars: () -> Unit,
     onThumbnailClick: (Int) -> Unit,
     onDismissNgDialog: () -> Unit,
+    onViewerImageLoadStart: (String) -> Unit,
     onViewerImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onViewerImageLoadSuccess: (String) -> Unit,
+    onViewerImageLoadCancel: (String) -> Unit,
     onViewerImageRetry: (String) -> Unit,
     onThumbnailImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onThumbnailImageLoadSuccess: (String) -> Unit,
@@ -112,8 +114,10 @@ internal fun ImageViewerScreenContent(
                     animatedVisibilityScope = animatedVisibilityScope,
                     onToggleBars = onToggleBars,
                     imageLoadFailureByUrl = uiState.viewerImageLoadFailureByUrl,
+                    onImageLoadStart = onViewerImageLoadStart,
                     onImageLoadError = onViewerImageLoadError,
                     onImageLoadSuccess = onViewerImageLoadSuccess,
+                    onImageLoadCancel = onViewerImageLoadCancel,
                     onImageRetry = onViewerImageRetry,
                 )
                 if (isBarsVisible) {
