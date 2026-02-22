@@ -688,8 +688,10 @@ private fun isTapInsidePopup(
         screenWidthDp = screenWidthDp,
         density = density,
     )
-    val insideX =
-        tapOffset.x >= topPlacement.offset.x && tapOffset.x < topPlacement.offset.x + size.width
+    val topLeftMarginPx = with(density) { topPlacement.leftMargin.roundToPx().toFloat() }
+    val popupLeft = topPlacement.offset.x + topLeftMarginPx
+    val popupRight = popupLeft + size.width
+    val insideX = tapOffset.x >= popupLeft && tapOffset.x < popupRight
     val insideY =
         tapOffset.y >= topPlacement.offset.y && tapOffset.y < topPlacement.offset.y + size.height
     return insideX && insideY
