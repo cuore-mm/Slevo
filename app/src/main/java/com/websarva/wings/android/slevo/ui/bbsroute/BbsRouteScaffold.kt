@@ -28,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavHostController
-import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -37,7 +36,6 @@ import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenDialog
-import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
@@ -170,16 +168,11 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         val coroutineScope = rememberCoroutineScope()
         val tabsUiState by tabsViewModel.uiState.collectAsState()
 
-        val pagerUserScrollEnabled = when (
-            val currentUiState = currentTabInfo?.let { tabInfo ->
-                val currentViewModel = getViewModel(tabInfo)
-                currentViewModel.uiState.collectAsState().value
-            }
-        ) {
-            is BoardUiState -> !currentUiState.isSearchActive
-            is ThreadUiState -> !currentUiState.isSearchMode
-            else -> true
+        val currentUiState = currentTabInfo?.let { tabInfo ->
+            val currentViewModel = getViewModel(tabInfo)
+            currentViewModel.uiState.collectAsState().value
         }
+        val pagerUserScrollEnabled = currentUiState?.isTabSwipeEnabled ?: true
 
         HorizontalPager(
             state = pagerState,

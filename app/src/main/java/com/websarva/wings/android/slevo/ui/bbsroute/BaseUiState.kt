@@ -17,6 +17,7 @@ interface BaseUiState<T> where T : BaseUiState<T> {
     val loadProgress: Float
     val gestureSettings: GestureSettings
     val isLoading: Boolean
+    val isTabSwipeEnabled: Boolean
 
     // 共通プロパティを更新して、自身の具象型の新しいインスタンスを返すメソッド
     fun copyState(
@@ -26,5 +27,6 @@ interface BaseUiState<T> where T : BaseUiState<T> {
         loadProgress: Float = this.loadProgress,
         gestureSettings: GestureSettings = this.gestureSettings,
         isLoading: Boolean = this.isLoading,
+        isTabSwipeEnabled: Boolean = this.isTabSwipeEnabled,
     ): T
 }
