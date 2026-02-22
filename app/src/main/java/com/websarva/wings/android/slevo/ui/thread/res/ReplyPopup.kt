@@ -70,9 +70,9 @@ private const val BASE_MAX_HEIGHT_RATIO = 0.75f
 private const val STEP_MAX_HEIGHT_RATIO = 0.05f
 private const val MIN_MAX_HEIGHT_RATIO = 0.55f
 private val POPUP_RIGHT_MARGIN = 4.dp
-private val POPUP_LEFT_MARGIN_STEP = 4.dp
+private val POPUP_LEFT_MARGIN_STEP = 8.dp
 private val POPUP_BASE_LEFT_MARGIN = 4.dp
-private val POPUP_MAX_LEFT_MARGIN = 32.dp
+private val POPUP_MAX_LEFT_MARGIN = 28.dp
 
 /**
  * ポップアップ配置の計算結果を保持する。
@@ -288,13 +288,14 @@ private fun PopupBackgroundOverlay(
                     val topIndex = popupStack.lastIndex
                     val topInfo = popupStack.lastOrNull() ?: return@detectTapGestures
                     if (isTapInsidePopup(
-                        tapOffset = offset,
-                        topInfo = topInfo,
-                        topIndex = topIndex,
-                        screenWidthPx = screenWidthPx,
-                        screenWidthDp = screenWidthDp,
-                        density = density,
-                    )) {
+                            tapOffset = offset,
+                            topInfo = topInfo,
+                            topIndex = topIndex,
+                            screenWidthPx = screenWidthPx,
+                            screenWidthDp = screenWidthDp,
+                            density = density,
+                        )
+                    ) {
                         return@detectTapGestures
                     }
                     onCloseTop()
@@ -343,7 +344,12 @@ private fun PopupCard(
         )
         Card(
             modifier = Modifier
-                .padding(start = placement.leftMargin, end = POPUP_RIGHT_MARGIN, top = 8.dp, bottom = 8.dp)
+                .padding(
+                    start = placement.leftMargin,
+                    end = POPUP_RIGHT_MARGIN,
+                    top = 8.dp,
+                    bottom = 8.dp
+                )
                 .widthIn(max = placement.maxWidth)
                 .offset { placement.offset }
                 .zIndex(index.toFloat())
@@ -682,8 +688,10 @@ private fun isTapInsidePopup(
         screenWidthDp = screenWidthDp,
         density = density,
     )
-    val insideX = tapOffset.x >= topPlacement.offset.x && tapOffset.x < topPlacement.offset.x + size.width
-    val insideY = tapOffset.y >= topPlacement.offset.y && tapOffset.y < topPlacement.offset.y + size.height
+    val insideX =
+        tapOffset.x >= topPlacement.offset.x && tapOffset.x < topPlacement.offset.x + size.width
+    val insideY =
+        tapOffset.y >= topPlacement.offset.y && tapOffset.y < topPlacement.offset.y + size.height
     return insideX && insideY
 }
 
