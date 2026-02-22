@@ -1,5 +1,7 @@
 package com.websarva.wings.android.slevo.ui.util
 
+import coil3.network.HttpException
+
 /**
  * 画像読み込み失敗の分類を表す。
  *
@@ -24,18 +26,15 @@ fun Throwable?.toImageLoadFailureType(): ImageLoadFailureType {
 }
 
 /**
- * 例外チェーン内のメッセージからHTTPステータスコードを抽出する。
+ * 例外チェーン内の型付きHTTP例外からステータスコードを抽出する。
  */
 private fun Throwable?.findHttpStatusCodeInChain(): Int? {
     var current = this
     var depth = 0
-    while (current != null && depth < 6) {
-        val code = STATUS_CODE_REGEX.find(current.message.orEmpty())
-            ?.groupValues
-            ?.getOrNull(1)
-            ?.toIntOrNull()
-        if (code != null) {
-            return code
+    while (current != null && depth < MAX_CAUSE_CHAIN_DEPTH) {
+        // Guard: HTTP例外として扱える型のみを分類対象にする。
+        if (current is HttpException) {
+            return current.response.code
         }
         current = current.cause
         depth += 1
@@ -43,4 +42,4 @@ private fun Throwable?.findHttpStatusCodeInChain(): Int? {
     return null
 }
 
-private val STATUS_CODE_REGEX = Regex("\\b(404|410)\\b")
+private const val MAX_CAUSE_CHAIN_DEPTH = 6
