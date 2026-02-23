@@ -20,4 +20,4 @@
 
 - [x] 4.1 `ThreadScreen` と `BoardScreen` の `ToTop` / `ToBottom` 操作が従来どおり動作することを確認する
 - [x] 4.2 GestureHint invalid 表示後の復帰タイミングが両画面で同一であることを確認する
-- [ ] 4.3 build と unit test を実行し、共通化による回帰がないことを確認する
+- [x] 4.3 build と unit test を実行し、共通化による回帰がないことを確認する
