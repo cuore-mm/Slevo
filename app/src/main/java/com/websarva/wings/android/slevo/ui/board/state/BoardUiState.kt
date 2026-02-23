@@ -33,6 +33,7 @@ data class BoardUiState(
     override val loadProgress: Float = 0f,
     override val gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     override val isLoading: Boolean = false,
+    override val isTabSwipeEnabled: Boolean = true,
 ) : BaseUiState<BoardUiState> {
     override fun copyState(
         boardInfo: BoardInfo,
@@ -41,6 +42,7 @@ data class BoardUiState(
         loadProgress: Float,
         gestureSettings: GestureSettings,
         isLoading: Boolean,
+        isTabSwipeEnabled: Boolean,
     ): BoardUiState {
         return this.copy(
             boardInfo = boardInfo,
@@ -49,6 +51,7 @@ data class BoardUiState(
             loadProgress = loadProgress,
             gestureSettings = gestureSettings,
             isLoading = isLoading,
+            isTabSwipeEnabled = isTabSwipeEnabled,
         )
     }
 }

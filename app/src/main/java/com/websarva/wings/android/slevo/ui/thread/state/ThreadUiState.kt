@@ -71,6 +71,7 @@ data class ThreadUiState(
     val replyCounts: List<Int> = emptyList(),
     val firstAfterIndex: Int = -1,
     override val gestureSettings: GestureSettings = GestureSettings.DEFAULT,
+    override val isTabSwipeEnabled: Boolean = true,
 ) : BaseUiState<ThreadUiState> {
     override fun copyState(
         boardInfo: BoardInfo,
@@ -79,6 +80,7 @@ data class ThreadUiState(
         loadProgress: Float,
         gestureSettings: GestureSettings,
         isLoading: Boolean,
+        isTabSwipeEnabled: Boolean,
     ): ThreadUiState {
         return this.copy(
             boardInfo = boardInfo,
@@ -87,6 +89,7 @@ data class ThreadUiState(
             loadProgress = loadProgress,
             gestureSettings = gestureSettings,
             isLoading = isLoading,
+            isTabSwipeEnabled = isTabSwipeEnabled,
         )
     }
 }

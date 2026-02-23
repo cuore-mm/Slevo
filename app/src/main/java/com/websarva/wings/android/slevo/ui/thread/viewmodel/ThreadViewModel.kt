@@ -942,7 +942,8 @@ class ThreadViewModel @AssistedInject constructor(
             }
             val updated = stack.toMutableList()
             updated[index] = target.copy(size = size)
-            state.copy(popupStack = updated)
+            val nextState = state.copy(popupStack = updated)
+            withUpdatedTabSwipeState(nextState)
         }
     }
 
@@ -955,7 +956,8 @@ class ThreadViewModel @AssistedInject constructor(
                 // 表示対象がない場合は何もしない。
                 return@update state
             }
-            state.copy(popupStack = state.popupStack.dropLast(1))
+            val nextState = state.copy(popupStack = state.popupStack.dropLast(1))
+            withUpdatedTabSwipeState(nextState)
         }
     }
 
@@ -1083,8 +1085,27 @@ class ThreadViewModel @AssistedInject constructor(
 
     private fun appendPopup(info: PopupInfo) {
         _uiState.update { state ->
-            state.copy(popupStack = appendPopupIfDistinct(state.popupStack, info))
+            val updatedStack = appendPopupIfDistinct(state.popupStack, info)
+            val nextState = state.copy(popupStack = updatedStack)
+            withUpdatedTabSwipeState(nextState)
         }
+    }
+
+
+    /**
+     * タブ横スワイプ可否を最新状態へ同期したUI状態を返す。
+     */
+    private fun withUpdatedTabSwipeState(state: ThreadUiState): ThreadUiState {
+        return state.copy(isTabSwipeEnabled = shouldEnableTabSwipe(state))
+    }
+
+    /**
+     * タブ横スワイプを有効化できるか判定する。
+     *
+     * 検索モード中またはポップアップ表示中はスワイプを無効化する。
+     */
+    private fun shouldEnableTabSwipe(state: ThreadUiState): Boolean {
+        return !state.isSearchMode && state.popupStack.isEmpty()
     }
 
     /**
@@ -1222,12 +1243,18 @@ class ThreadViewModel @AssistedInject constructor(
 
     // 書き込み画面を表示
     fun startSearch() {
-        _uiState.update { it.copy(isSearchMode = true) }
+        _uiState.update { state ->
+            val nextState = state.copy(isSearchMode = true)
+            withUpdatedTabSwipeState(nextState)
+        }
         updateDisplayPosts()
     }
 
     fun closeSearch() {
-        _uiState.update { it.copy(isSearchMode = false, searchQuery = "") }
+        _uiState.update { state ->
+            val nextState = state.copy(isSearchMode = false, searchQuery = "")
+            withUpdatedTabSwipeState(nextState)
+        }
         updateDisplayPosts()
     }
 
