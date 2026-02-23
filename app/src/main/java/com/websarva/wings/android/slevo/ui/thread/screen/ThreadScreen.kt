@@ -8,6 +8,7 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -235,6 +236,7 @@ fun ThreadScreen(
     var overscroll by remember { mutableFloatStateOf(0f) }
     var triggerRefresh by remember { mutableStateOf(false) }
     var bottomRefreshArmed by remember { mutableStateOf(false) }
+    var armOnNextDrag by remember { mutableStateOf(false) }
     val nestedScrollConnection = remember(listState, posts.size) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -284,15 +286,33 @@ fun ThreadScreen(
     }
 
     LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress to listState.canScrollForward }
-            .collect { (isScrolling, canScrollForward) ->
-                if (!isScrolling && !canScrollForward) {
-                    // Guard: 下端で一度静止した後の「次ドラッグ」だけを更新判定対象にする。
-                    bottomRefreshArmed = true
+        listState.interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is DragInteraction.Start -> {
+                    // Guard: 下端で指を離した後の「次ドラッグ」だけを更新判定対象にする。
+                    if (!listState.canScrollForward && armOnNextDrag) {
+                        bottomRefreshArmed = true
+                        armOnNextDrag = false
+                    }
                 }
+
+                is DragInteraction.Stop,
+                is DragInteraction.Cancel -> {
+                    if (!listState.canScrollForward) {
+                        armOnNextDrag = true
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.canScrollForward }
+            .collect { canScrollForward ->
                 if (canScrollForward) {
-                    // Guard: 下端を離れたら更新判定を解除し、蓄積を破棄する。
+                    // Guard: 下端を離れたら更新判定と次ドラッグアームを解除する。
                     bottomRefreshArmed = false
+                    armOnNextDrag = false
                     overscroll = 0f
                     triggerRefresh = false
                 }
