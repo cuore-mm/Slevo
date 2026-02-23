@@ -14,15 +14,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -83,8 +79,6 @@ fun ThreadScaffold(
     val context = LocalContext.current
     val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
     var isPopupVisible by remember { mutableStateOf(false) }
-    var bottomBarMeasuredHeightPx by remember { mutableIntStateOf(0) }
-    var bottomBarVisibleHeightPx by remember { mutableFloatStateOf(0f) }
 
     val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, threadRoute.threadKey)
@@ -151,26 +145,13 @@ fun ThreadScaffold(
             )
         },
         bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
-            LaunchedEffect(barScrollBehavior, bottomBarMeasuredHeightPx) {
-                snapshotFlow { barScrollBehavior?.state?.heightOffset ?: 0f }
-                    .collect { heightOffset ->
-                        bottomBarVisibleHeightPx =
-                            (bottomBarMeasuredHeightPx.toFloat() + heightOffset).coerceAtLeast(0f)
-                    }
-            }
             BbsRouteBottomBar(
                 isSearchMode = uiState.isSearchMode,
                 onCloseSearch = { viewModel.closeSearch() },
                 animationLabel = "BottomBarAnimation",
                 searchContent = { modifier, closeSearch ->
                     SearchBottomBar(
-                        modifier = modifier.onGloballyPositioned { coordinates ->
-                            val measuredHeight = coordinates.size.height
-                            bottomBarMeasuredHeightPx = measuredHeight
-                            val heightOffset = barScrollBehavior?.state?.heightOffset ?: 0f
-                            bottomBarVisibleHeightPx =
-                                (measuredHeight.toFloat() + heightOffset).coerceAtLeast(0f)
-                        },
+                        modifier = modifier,
                         searchQuery = uiState.searchQuery,
                         onQueryChange = { viewModel.updateSearchQuery(it) },
                         onCloseSearch = closeSearch,
@@ -179,13 +160,7 @@ fun ThreadScaffold(
                 },
                 defaultContent = { modifier ->
                     ThreadToolBar(
-                        modifier = modifier.onGloballyPositioned { coordinates ->
-                            val measuredHeight = coordinates.size.height
-                            bottomBarMeasuredHeightPx = measuredHeight
-                            val heightOffset = barScrollBehavior?.state?.heightOffset ?: 0f
-                            bottomBarVisibleHeightPx =
-                                (measuredHeight.toFloat() + heightOffset).coerceAtLeast(0f)
-                        },
+                        modifier = modifier,
                         uiState = uiState,
                         isTreeSort = uiState.sortType == ThreadSortType.TREE,
                         onSortClick = { viewModel.toggleSortType() },
