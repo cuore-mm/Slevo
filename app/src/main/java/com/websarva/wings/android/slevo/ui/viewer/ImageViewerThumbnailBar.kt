@@ -26,6 +26,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.collectAsState
@@ -40,17 +45,24 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.asDrawable
 import coil3.compose.SubcomposeAsyncImage
+import coil3.request.ImageRequest
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.util.ImageActionReuseRegistry
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicator
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicatorStyle
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
+import com.websarva.wings.android.slevo.ui.util.toImageLoadFailureType
 
 /**
  * 同一レス内のサムネイル一覧を表示し、選択中の画像を中央に寄せる。
@@ -68,6 +80,10 @@ internal fun ImageViewerThumbnailBar(
     barExitDurationMillis: Int,
     thumbnailViewportWidthPx: MutableIntState,
     onThumbnailClick: (Int) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    thumbnailRetryNonceByUrl: Map<String, Int>,
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
+    onImageLoadSuccess: (String) -> Unit,
 ) {
     val thumbnailWidth: Dp = 40.dp
     val thumbnailHeight: Dp = 56.dp
@@ -75,6 +91,7 @@ internal fun ImageViewerThumbnailBar(
     val thumbnailSpacing: Dp = 4.dp
     val selectedThumbnailScale = 1.2f
     val resources = LocalResources.current
+    val context = LocalContext.current
     val density = LocalDensity.current
     val loadProgressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
     val isLoadingByIndex = remember(imageUrls) {
@@ -121,6 +138,16 @@ internal fun ImageViewerThumbnailBar(
             ) {
                 items(imageUrls.size) { index ->
                     val isSelected = index == pagerState.currentPage
+                    val imageUrl = imageUrls[index]
+                    val failureType = imageLoadFailureByUrl[imageUrl]
+                    val isError = failureType != null
+                    val retryNonce = thumbnailRetryNonceByUrl[imageUrl] ?: 0
+                    val imageRequest = remember(imageUrl, context, retryNonce) {
+                        ImageRequest.Builder(context)
+                            .data(imageUrl)
+                            .memoryCacheKey("$imageUrl#thumbnail-$retryNonce")
+                            .build()
+                    }
                     val interactionSource = remember { MutableInteractionSource() }
                     val isPressed by interactionSource.collectIsPressedAsState()
                     val baseScale =
@@ -134,58 +161,109 @@ internal fun ImageViewerThumbnailBar(
                         animationSpec = tween(durationMillis = 100),
                         label = "thumbnailScale",
                     )
-                    SubcomposeAsyncImage(
-                        model = imageUrls[index],
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        alignment = Alignment.Center,
-                        onLoading = {
-                            isLoadingByIndex[index] = true
-                        },
-                        onSuccess = { state ->
-                            isLoadingByIndex[index] = false
-                            state.result.diskCacheKey?.let { key ->
-                                ImageActionReuseRegistry.register(
-                                    url = imageUrls[index],
-                                    diskCacheKey = key,
-                                    extension = imageUrls[index].substringAfterLast('.', ""),
+                    val thumbnailModifier = Modifier
+                        .size(
+                            width = thumbnailWidth * selectedThumbnailScale,
+                            height = thumbnailHeight * selectedThumbnailScale,
+                        )
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                        }
+                        .clip(thumbnailShape)
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = LocalIndication.current,
+                        ) { onThumbnailClick(index) }
+                        .background(Color.DarkGray)
+
+                    if (isError) {
+                        Box(
+                            modifier = thumbnailModifier,
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (failureType == ImageLoadFailureType.HTTP_404 ||
+                                failureType == ImageLoadFailureType.HTTP_410
+                            ) {
+                                Text(
+                                    text = if (failureType == ImageLoadFailureType.HTTP_404) {
+                                        "404"
+                                    } else {
+                                        "410"
+                                    },
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = stringResource(R.string.refresh),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp),
                                 )
                             }
-                            // Guard: GIFなどのアニメーションDrawableはサムネイルで再生させない。
-                            (state.result.image.asDrawable(resources) as? Animatable)?.stop()
-                        },
-                        onError = {
-                            isLoadingByIndex[index] = false
-                        },
-                        modifier = Modifier
-                            .size(
-                                width = thumbnailWidth * selectedThumbnailScale,
-                                height = thumbnailHeight * selectedThumbnailScale,
-                            )
-                            .graphicsLayer {
-                                scaleX = scale
-                                scaleY = scale
-                            }
-                            .clip(thumbnailShape)
-                            .clickable(
-                                interactionSource = interactionSource,
-                                indication = LocalIndication.current,
-                            ) { onThumbnailClick(index) }
-                            .background(Color.DarkGray),
-                        loading = {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (isLoadingByIndex[index] == true) {
-                                    ImageLoadProgressIndicator(
-                                        progressState = loadProgressByUrl[imageUrls[index]],
-                                        indicatorSize = 18.dp,
+                        }
+                    } else {
+                        SubcomposeAsyncImage(
+                            model = imageRequest,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            alignment = Alignment.Center,
+                            onLoading = {
+                                isLoadingByIndex[index] = true
+                            },
+                            onSuccess = { state ->
+                                isLoadingByIndex[index] = false
+                                onImageLoadSuccess(imageUrl)
+                                state.result.diskCacheKey?.let { key ->
+                                    ImageActionReuseRegistry.register(
+                                        url = imageUrl,
+                                        diskCacheKey = key,
+                                        extension = imageUrl.substringAfterLast('.', ""),
                                     )
                                 }
-                            }
-                        },
-                    )
+                                // Guard: GIFなどのアニメーションDrawableはサムネイルで再生させない。
+                                (state.result.image.asDrawable(resources) as? Animatable)?.stop()
+                            },
+                            onError = { state ->
+                                isLoadingByIndex[index] = false
+                                onImageLoadError(
+                                    imageUrl,
+                                    state.result.throwable.toImageLoadFailureType(),
+                                )
+                            },
+                            modifier = thumbnailModifier,
+                            loading = {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (isLoadingByIndex[index] == true) {
+                                        ImageLoadProgressIndicator(
+                                            progressState = loadProgressByUrl[imageUrl],
+                                            indicatorSize = 18.dp,
+                                            indicatorStyle = ImageLoadProgressIndicatorStyle.STANDARD,
+                                        )
+                                    }
+                                }
+                            },
+                            error = {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (isError) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Refresh,
+                                            contentDescription = stringResource(R.string.refresh),
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -210,7 +288,11 @@ private fun ImageViewerThumbnailBarPreview() {
             barBackgroundColor = Color.Black.copy(alpha = 0.5f),
             barExitDurationMillis = 300,
             thumbnailViewportWidthPx = thumbnailViewportWidthPx,
-            onThumbnailClick = {}
+            onThumbnailClick = {},
+            imageLoadFailureByUrl = emptyMap(),
+            thumbnailRetryNonceByUrl = emptyMap(),
+            onImageLoadError = { _, _ -> },
+            onImageLoadSuccess = {},
         )
     }
 }

@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.util
 
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
@@ -159,33 +160,66 @@ sealed interface ImageLoadProgressState {
 }
 
 /**
+ * 画像読み込み進捗インジケータの表示スタイル。
+ */
+enum class ImageLoadProgressIndicatorStyle {
+    STANDARD,
+    WAVY,
+}
+
+/**
  * 画像読み込み進捗インジケータを表示する共通コンポーネント。
  *
  * 進捗率が算出可能な場合は段階表示、算出不能な場合は無段階表示とする。
  *
  * @param progressState 表示する進捗状態
  * @param indicatorSize インジケータのサイズ
+ * @param indicatorStyle インジケータの表示スタイル
  */
 @Composable
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 fun ImageLoadProgressIndicator(
     progressState: ImageLoadProgressState?,
     indicatorSize: Dp,
+    indicatorStyle: ImageLoadProgressIndicatorStyle = ImageLoadProgressIndicatorStyle.WAVY,
 ) {
-    when (progressState) {
-        is ImageLoadProgressState.Determinate -> {
-            CircularWavyProgressIndicator(
-                progress = { progressState.progress },
-                modifier = Modifier.size(indicatorSize),
-            )
+    when (indicatorStyle) {
+        ImageLoadProgressIndicatorStyle.STANDARD -> {
+            when (progressState) {
+                is ImageLoadProgressState.Determinate -> {
+                    CircularProgressIndicator(
+                        progress = { progressState.progress },
+                        modifier = Modifier.size(indicatorSize),
+                    )
+                }
+
+                ImageLoadProgressState.Indeterminate,
+                null,
+                    -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(indicatorSize),
+                    )
+                }
+            }
         }
 
-        ImageLoadProgressState.Indeterminate,
-        null,
-            -> {
-            CircularWavyProgressIndicator(
-                modifier = Modifier.size(indicatorSize),
-            )
+        ImageLoadProgressIndicatorStyle.WAVY -> {
+            when (progressState) {
+                is ImageLoadProgressState.Determinate -> {
+                    CircularWavyProgressIndicator(
+                        progress = { progressState.progress },
+                        modifier = Modifier.size(indicatorSize),
+                    )
+                }
+
+                ImageLoadProgressState.Indeterminate,
+                null,
+                    -> {
+                    CircularWavyProgressIndicator(
+                        modifier = Modifier.size(indicatorSize),
+                    )
+                }
+            }
         }
     }
 }

@@ -77,6 +77,7 @@ import com.websarva.wings.android.slevo.ui.thread.res.rememberPostItemDialogStat
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
 import kotlinx.coroutines.delay
@@ -112,6 +113,9 @@ fun ThreadScreen(
     onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onImageLongPress: (String, List<String>) -> Unit = { _, _ -> },
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit = { _, _ -> },
+    onImageLoadSuccess: (String) -> Unit = {},
+    onImageRetry: (String) -> Unit = {},
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -409,6 +413,10 @@ fun ThreadScreen(
                     transitionNamespace = transitionNamespace,
                     onImageClick = onImageClick,
                     onImageLongPress = onImageLongPress,
+                    imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
+                    onImageLoadError = onImageLoadError,
+                    onImageLoadSuccess = onImageLoadSuccess,
+                    onImageRetry = onImageRetry,
                     enableSharedElement = enableListSharedElements,
                     onRequestMenu = onRequestMenu,
                     onShowTextMenu = onShowTextMenu,
@@ -515,6 +523,54 @@ fun ThreadScreen(
                 )
             }
         }
+
+        if (popupStack.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event =
+                                    awaitPointerEvent(PointerEventPass.Initial)
+                                event.changes.forEach { it.consume() }
+                            }
+                        }
+                    }
+            )
+        }
+
+        ReplyPopup(
+            popupStack = popupStack,
+            posts = posts,
+            replySourceMap = uiState.replySourceMap,
+            idCountMap = uiState.idCountMap,
+            idIndexList = uiState.idIndexList,
+            ngPostNumbers = ngNumbers,
+            myPostNumbers = uiState.myPostNumbers,
+            headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
+            bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
+            lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
+            searchQuery = uiState.searchQuery,
+            onUrlClick = onUrlClick,
+            onThreadUrlClick = onThreadUrlClick,
+            onImageClick = onImageClick,
+            onImageLongPress = onImageLongPress,
+            imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
+            onImageLoadError = onImageLoadError,
+            onImageLoadSuccess = onImageLoadSuccess,
+            onImageRetry = onImageRetry,
+            onRequestMenu = onRequestMenu,
+            onShowTextMenu = onShowTextMenu,
+            onRequestTreePopup = onRequestTreePopup,
+            onAddPopupForReplyFrom = onAddPopupForReplyFrom,
+            onAddPopupForReplyNumber = onAddPopupForReplyNumber,
+            onAddPopupForId = onAddPopupForId,
+            onPopupSizeChange = onPopupSizeChange,
+            onClose = { onRemoveTopPopup() },
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope
+        )
 
         // --- メニュー ---
         menuTarget?.let { target ->

@@ -100,6 +100,10 @@ fun ImageViewerScreen(
     val isBarsVisible = if (viewModel != null) uiState.isBarsVisible else previewIsBarsVisible
     val currentImageUrl = imageUrls.getOrNull(pagerState.currentPage).orEmpty()
 
+    androidx.compose.runtime.LaunchedEffect(imageUrls, viewModel) {
+        viewModel?.synchronizeFailedImageUrls(imageUrls)
+    }
+
     // --- Menu actions ---
     val onImageMenuActionClick: (ImageMenuAction) -> Unit = { action ->
         ImageMenuActionRunner.run(
@@ -132,6 +136,9 @@ fun ImageViewerScreen(
         useDarkSystemBarIcons = useDarkSystemBarIcons,
         isBarsVisible = isBarsVisible,
         isTopBarMenuExpanded = isTopBarMenuExpanded,
+        currentImageUrl = currentImageUrl,
+        viewerImageLoadFailureByUrl = uiState.viewerImageLoadFailureByUrl,
+        viewerImageLoadingUrls = uiState.viewerImageLoadingUrls,
         imageUrls = imageUrls,
         pagerState = pagerState,
         thumbnailListState = thumbnailListState,
@@ -183,6 +190,17 @@ fun ImageViewerScreen(
             }
         },
         onDismissNgDialog = { viewModel?.closeImageNgDialog() },
+        onViewerImageLoadStart = { url -> viewModel?.onViewerImageLoadStart(url) },
+        onViewerImageLoadError = { url, failureType ->
+            viewModel?.onViewerImageLoadError(url, failureType)
+        },
+        onViewerImageLoadSuccess = { url -> viewModel?.onViewerImageLoadSuccess(url) },
+        onViewerImageLoadCancel = { url -> viewModel?.onViewerImageLoadCancel(url) },
+        onViewerImageRetry = { url -> viewModel?.onViewerImageRetry(url) },
+        onThumbnailImageLoadError = { url, failureType ->
+            viewModel?.onThumbnailImageLoadError(url, failureType)
+        },
+        onThumbnailImageLoadSuccess = { url -> viewModel?.onThumbnailImageLoadSuccess(url) },
     )
 }
 

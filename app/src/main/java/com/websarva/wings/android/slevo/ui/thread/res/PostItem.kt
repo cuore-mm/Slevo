@@ -14,6 +14,7 @@ import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 
 /**
  * スレッドの投稿1件をヘッダー・本文・メディア込みで表示する。
@@ -71,6 +72,10 @@ fun PostItem(
     transitionNamespace: String,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit = { _, _ -> },
+    onImageLoadSuccess: (String) -> Unit = {},
+    onImageRetry: (String) -> Unit = {},
     enableSharedElement: Boolean = true,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
@@ -141,6 +146,10 @@ fun PostItem(
             transitionNamespace = transitionNamespace,
             onImageClick = onImageClick,
             onImageLongPress = onImageLongPress,
+            imageLoadFailureByUrl = imageLoadFailureByUrl,
+            onImageLoadError = onImageLoadError,
+            onImageLoadSuccess = onImageLoadSuccess,
+            onImageRetry = onImageRetry,
             enableSharedElement = enableSharedElement,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
