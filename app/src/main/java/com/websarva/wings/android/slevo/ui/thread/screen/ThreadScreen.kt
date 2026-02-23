@@ -524,54 +524,6 @@ fun ThreadScreen(
             }
         }
 
-        if (popupStack.isNotEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        awaitPointerEventScope {
-                            while (true) {
-                                val event =
-                                    awaitPointerEvent(PointerEventPass.Initial)
-                                event.changes.forEach { it.consume() }
-                            }
-                        }
-                    }
-            )
-        }
-
-        ReplyPopup(
-            popupStack = popupStack,
-            posts = posts,
-            replySourceMap = uiState.replySourceMap,
-            idCountMap = uiState.idCountMap,
-            idIndexList = uiState.idIndexList,
-            ngPostNumbers = ngNumbers,
-            myPostNumbers = uiState.myPostNumbers,
-            headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
-            bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
-            lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
-            searchQuery = uiState.searchQuery,
-            onUrlClick = onUrlClick,
-            onThreadUrlClick = onThreadUrlClick,
-            onImageClick = onImageClick,
-            onImageLongPress = onImageLongPress,
-            imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
-            onImageLoadError = onImageLoadError,
-            onImageLoadSuccess = onImageLoadSuccess,
-            onImageRetry = onImageRetry,
-            onRequestMenu = onRequestMenu,
-            onShowTextMenu = onShowTextMenu,
-            onRequestTreePopup = onRequestTreePopup,
-            onAddPopupForReplyFrom = onAddPopupForReplyFrom,
-            onAddPopupForReplyNumber = onAddPopupForReplyNumber,
-            onAddPopupForId = onAddPopupForId,
-            onPopupSizeChange = onPopupSizeChange,
-            onClose = { onRemoveTopPopup() },
-            sharedTransitionScope = sharedTransitionScope,
-            animatedVisibilityScope = animatedVisibilityScope
-        )
-
         // --- メニュー ---
         menuTarget?.let { target ->
             PostMenuSheet(
