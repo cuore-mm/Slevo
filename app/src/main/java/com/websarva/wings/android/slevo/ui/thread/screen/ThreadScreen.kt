@@ -75,6 +75,8 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.buildThreadListItemKey
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
 import kotlinx.coroutines.delay
@@ -110,6 +112,9 @@ fun ThreadScreen(
     onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onImageLongPress: (String, List<String>) -> Unit = { _, _ -> },
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit = { _, _ -> },
+    onImageLoadSuccess: (String) -> Unit = {},
+    onImageRetry: (String) -> Unit = {},
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -422,7 +427,7 @@ fun ThreadScreen(
 
             itemsIndexed(
                 items = visiblePosts,
-                key = { _, display -> "${display.num}_${display.dimmed}" }
+                key = { idx, display -> buildThreadListItemKey(idx, display) }
             ) { idx, display ->
                 val postNum = display.num
                 val post = display.post
@@ -453,81 +458,87 @@ fun ThreadScreen(
                     if (firstAfterIndex != -1 && idx == firstAfterIndex) {
                         NewArrivalBar()
                     }
-                    PostItem(
-                        modifier = Modifier.onGloballyPositioned { coords ->
-                            val pos = coords.positionInRoot()
-                            itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
-                        },
-                        post = post,
-                        postNum = postNum,
-                        idIndex = uiState.idIndexList.getOrElse(index) { 1 },
-                        idTotal = if (post.header.id.isBlank()) 1 else uiState.idCountMap[post.header.id]
-                            ?: 1,
-                        headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
-                        bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
-                        lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
-                        indentLevel = indent,
-                        replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
-                        isMyPost = postNum in uiState.myPostNumbers,
-                        dimmed = display.dimmed,
-                        searchQuery = uiState.searchQuery,
-                        onUrlClick = onUrlClick,
-                        onThreadUrlClick = onThreadUrlClick,
-                        transitionNamespace = transitionNamespace,
-                        onImageClick = onImageClick,
-                        onImageLongPress = onImageLongPress,
-                        enableSharedElement = enableListSharedElements,
-                        onRequestMenu = onRequestMenu,
-                        onShowTextMenu = onShowTextMenu,
-                        onContentClick = {
-                            val baseOffset = if (popupStack.isEmpty()) {
-                                itemOffsetHolder.value
-                            } else {
-                                val last = popupStack.last()
-                                IntOffset(
-                                    last.offset.x,
-                                    (last.offset.y - last.size.height).coerceAtLeast(0)
-                                )
-                            }
-                            onRequestTreePopup(postNum, baseOffset)
-                        },
-                        sharedTransitionScope = sharedTransitionScope,
-                        animatedVisibilityScope = animatedVisibilityScope,
-                        onReplyFromClick = { numbs ->
-                            val offset = if (popupStack.isEmpty()) {
-                                itemOffsetHolder.value
-                            } else {
-                                val last = popupStack.last()
-                                IntOffset(
-                                    last.offset.x,
-                                    (last.offset.y - last.size.height).coerceAtLeast(0)
-                                )
-                            }
-                            onAddPopupForReplyFrom(numbs, offset)
-                        },
-                        onReplyClick = { num ->
-                            val offset = if (popupStack.isEmpty()) {
-                                itemOffsetHolder.value
-                            } else {
-                                val last = popupStack.last()
-                                IntOffset(
-                                    last.offset.x,
-                                    (last.offset.y - last.size.height).coerceAtLeast(0)
-                                )
-                            }
-                            onAddPopupForReplyNumber(num, offset)
-                        },
-                        onIdClick = { id ->
-                            val offset = if (popupStack.isEmpty()) {
-                                itemOffsetHolder.value
-                            } else {
-                                val last = popupStack.last()
-                                IntOffset(
-                                    last.offset.x,
-                                    (last.offset.y - last.size.height).coerceAtLeast(0)
-                                )
-                            }
-                            onAddPopupForId(id, offset)
+                PostItem(
+                    modifier = Modifier.onGloballyPositioned { coords ->
+                        val pos = coords.positionInRoot()
+                        itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
+                    },
+                    post = post,
+                    postNum = postNum,
+                    idIndex = uiState.idIndexList.getOrElse(index) { 1 },
+                    idTotal = if (post.header.id.isBlank()) 1 else uiState.idCountMap[post.header.id]
+                        ?: 1,
+                    headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
+                    bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
+                    lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
+                    indentLevel = indent,
+                    replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
+                    isMyPost = postNum in uiState.myPostNumbers,
+                    dimmed = display.dimmed,
+                    searchQuery = uiState.searchQuery,
+                    onUrlClick = onUrlClick,
+                    onThreadUrlClick = onThreadUrlClick,
+                    transitionNamespace = transitionNamespace,
+                    onImageClick = onImageClick,
+                    onImageLongPress = onImageLongPress,
+                    imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
+                    onImageLoadError = onImageLoadError,
+                    onImageLoadSuccess = onImageLoadSuccess,
+                    onImageRetry = onImageRetry,
+                    enableSharedElement = enableListSharedElements,
+                    onRequestMenu = onRequestMenu,
+                    onShowTextMenu = onShowTextMenu,
+                    onContentClick = {
+                        val baseOffset = if (popupStack.isEmpty()) {
+                            itemOffsetHolder.value
+                        } else {
+                            val last = popupStack.last()
+                            IntOffset(
+                                last.offset.x,
+                                (last.offset.y - last.size.height).coerceAtLeast(0)
+                            )
+                        }
+                        onRequestTreePopup(postNum, baseOffset)
+                    },
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    onReplyFromClick = { numbs ->
+                        val offset = if (popupStack.isEmpty()) {
+                            itemOffsetHolder.value
+                        } else {
+                            val last = popupStack.last()
+                            IntOffset(
+                                last.offset.x,
+                                (last.offset.y - last.size.height).coerceAtLeast(0)
+                            )
+                        }
+                        onAddPopupForReplyFrom(numbs, offset)
+                    },
+                    onReplyClick = { num ->
+                        val offset = if (popupStack.isEmpty()) {
+                            itemOffsetHolder.value
+                        } else {
+                            val last = popupStack.last()
+                            IntOffset(
+                                last.offset.x,
+                                (last.offset.y - last.size.height).coerceAtLeast(0)
+                            )
+                        }
+                        onAddPopupForReplyNumber(num, offset)
+                    },
+                    onIdClick = { id ->
+                        val offset = if (popupStack.isEmpty()) {
+                            itemOffsetHolder.value
+                        } else {
+                            val last = popupStack.last()
+                            IntOffset(
+                                last.offset.x,
+                                (last.offset.y - last.size.height).coerceAtLeast(0)
+                            )
+                        }
+                        onAddPopupForId(id, offset)
+                    }
+                )
                         }
                     )
                     HorizontalDivider(

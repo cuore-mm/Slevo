@@ -23,4 +23,6 @@
     <string name="image_search_failed">画像検索を開けませんでした</string>
     <string name="image_share_failed">画像を共有できませんでした</string>
     <string name="no_app_to_share_image">画像を共有できるアプリが見つかりませんでした</string>
+    <string name="image_not_found">画像が見つかりません</string>
+    <string name="image_deleted">画像が削除されています</string>
 </resources>

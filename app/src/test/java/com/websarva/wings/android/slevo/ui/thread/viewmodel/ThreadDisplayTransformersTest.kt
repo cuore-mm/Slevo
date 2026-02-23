@@ -7,6 +7,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/**
+ * スレッド表示変換ヘルパーの振る舞いを検証するテスト。
+ */
 class ThreadDisplayTransformersTest {
 
     private fun post(
@@ -155,6 +158,19 @@ class ThreadDisplayTransformersTest {
 
         val visible = ordered.filterNot { it.num in setOf(2) }
         assertEquals(listOf(1, 3), visible.map { it.num })
+    }
+
+    @Test
+    fun buildThreadListItemKey_keepsKeysUniqueWithDuplicatePosts() {
+        val duplicated = listOf(
+            DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = false, depth = 0),
+            DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = true, depth = 0),
+            DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = true, depth = 1)
+        )
+
+        val keys = duplicated.mapIndexed(::buildThreadListItemKey)
+
+        assertEquals(3, keys.toSet().size)
     }
 
     @Test

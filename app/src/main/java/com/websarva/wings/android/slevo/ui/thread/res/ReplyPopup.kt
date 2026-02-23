@@ -62,6 +62,7 @@ import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransiti
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import kotlin.math.max
 import kotlin.math.min
 
@@ -108,6 +109,10 @@ fun ReplyPopup(
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit = { _, _ -> },
+    onImageLoadSuccess: (String) -> Unit = {},
+    onImageRetry: (String) -> Unit = {},
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
     onRequestTreePopup: (postNumber: Int, baseOffset: IntOffset) -> Unit,
@@ -201,6 +206,10 @@ fun ReplyPopup(
                     onThreadUrlClick = onThreadUrlClick,
                     onImageClick = onImageClick,
                     onImageLongPress = onImageLongPress,
+                    imageLoadFailureByUrl = imageLoadFailureByUrl,
+                    onImageLoadError = onImageLoadError,
+                    onImageLoadSuccess = onImageLoadSuccess,
+                    onImageRetry = onImageRetry,
                     onRequestMenu = onRequestMenu,
                     onShowTextMenu = onShowTextMenu,
                     sharedTransitionScope = sharedTransitionScope,
@@ -395,6 +404,10 @@ private fun PopupPostList(
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
+    onImageLoadSuccess: (String) -> Unit,
+    onImageRetry: (String) -> Unit,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
@@ -438,6 +451,10 @@ private fun PopupPostList(
                 onThreadUrlClick = onThreadUrlClick,
                 onImageClick = onImageClick,
                 onImageLongPress = onImageLongPress,
+                imageLoadFailureByUrl = imageLoadFailureByUrl,
+                onImageLoadError = onImageLoadError,
+                onImageLoadSuccess = onImageLoadSuccess,
+                onImageRetry = onImageRetry,
                 onRequestMenu = onRequestMenu,
                 onShowTextMenu = onShowTextMenu,
                 sharedTransitionScope = sharedTransitionScope,
@@ -478,6 +495,10 @@ private fun PopupPostLazyColumn(
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
+    onImageLoadSuccess: (String) -> Unit,
+    onImageRetry: (String) -> Unit,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
@@ -536,6 +557,10 @@ private fun PopupPostLazyColumn(
                 transitionNamespace = transitionNamespace,
                 onImageClick = onImageClick,
                 onImageLongPress = onImageLongPress,
+                imageLoadFailureByUrl = imageLoadFailureByUrl,
+                onImageLoadError = onImageLoadError,
+                onImageLoadSuccess = onImageLoadSuccess,
+                onImageRetry = onImageRetry,
                 onRequestMenu = onRequestMenu,
                 onShowTextMenu = onShowTextMenu,
                 sharedTransitionScope = sharedTransitionScope,

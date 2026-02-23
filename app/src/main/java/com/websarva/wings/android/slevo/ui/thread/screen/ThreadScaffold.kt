@@ -219,6 +219,11 @@ fun ThreadScaffold(
                 onReplyToPost = { viewModel.postDialogActions.showReplyDialog(it) },
                 gestureSettings = uiState.gestureSettings,
                 onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
+                onImageLoadError = { url, failureType ->
+                    viewModel.onThreadImageLoadError(url, failureType)
+                },
+                onImageLoadSuccess = { url -> viewModel.onThreadImageLoadSuccess(url) },
+                onImageRetry = { url -> viewModel.onThreadImageRetry(url) },
                 onRequestTreePopup = { postNum, baseOffset ->
                     viewModel.addPopupForTree(baseOffset, postNum)
                 },
@@ -324,6 +329,12 @@ fun ThreadScaffold(
                     }
                 },
                 onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
+                imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
+                onImageLoadError = { url, failureType ->
+                    viewModel.onThreadImageLoadError(url, failureType)
+                },
+                onImageLoadSuccess = { url -> viewModel.onThreadImageLoadSuccess(url) },
+                onImageRetry = { url -> viewModel.onThreadImageRetry(url) },
                 onRequestMenu = { target -> popupMenuTarget = target },
                 onShowTextMenu = { text, type -> popupDialogState.showTextMenu(text, type) },
                 onRequestTreePopup = { postNum, baseOffset ->

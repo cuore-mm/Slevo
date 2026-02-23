@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import me.saket.telephoto.zoomable.ZoomableState
@@ -61,6 +62,13 @@ internal fun ImageViewerScreenContent(
     onToggleBars: () -> Unit,
     onThumbnailClick: (Int) -> Unit,
     onDismissNgDialog: () -> Unit,
+    onViewerImageLoadStart: (String) -> Unit,
+    onViewerImageLoadError: (String, ImageLoadFailureType) -> Unit,
+    onViewerImageLoadSuccess: (String) -> Unit,
+    onViewerImageLoadCancel: (String) -> Unit,
+    onViewerImageRetry: (String) -> Unit,
+    onThumbnailImageLoadError: (String, ImageLoadFailureType) -> Unit,
+    onThumbnailImageLoadSuccess: (String) -> Unit,
 ) {
     // --- Root container ---
     Box(
@@ -105,6 +113,12 @@ internal fun ImageViewerScreenContent(
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,
                     onToggleBars = onToggleBars,
+                    imageLoadFailureByUrl = uiState.viewerImageLoadFailureByUrl,
+                    onImageLoadStart = onViewerImageLoadStart,
+                    onImageLoadError = onViewerImageLoadError,
+                    onImageLoadSuccess = onViewerImageLoadSuccess,
+                    onImageLoadCancel = onViewerImageLoadCancel,
+                    onImageRetry = onViewerImageRetry,
                 )
                 if (isBarsVisible) {
                     Box(
@@ -139,6 +153,10 @@ internal fun ImageViewerScreenContent(
                             barExitDurationMillis = barExitDurationMillis,
                             thumbnailViewportWidthPx = thumbnailViewportWidthPx,
                             onThumbnailClick = onThumbnailClick,
+                            imageLoadFailureByUrl = uiState.thumbnailImageLoadFailureByUrl,
+                            thumbnailRetryNonceByUrl = uiState.thumbnailRetryNonceByUrl,
+                            onImageLoadError = onThumbnailImageLoadError,
+                            onImageLoadSuccess = onThumbnailImageLoadSuccess,
                         )
                     }
                 }

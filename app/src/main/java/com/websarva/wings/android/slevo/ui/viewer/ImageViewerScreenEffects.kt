@@ -18,6 +18,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
@@ -37,6 +38,9 @@ internal fun ImageViewerScreenEffects(
     useDarkSystemBarIcons: Boolean,
     isBarsVisible: Boolean,
     isTopBarMenuExpanded: Boolean,
+    currentImageUrl: String,
+    viewerImageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    viewerImageLoadingUrls: Set<String>,
     imageUrls: List<String>,
     pagerState: PagerState,
     thumbnailListState: LazyListState,
@@ -56,6 +60,13 @@ internal fun ImageViewerScreenEffects(
         viewModel = viewModel,
         isBarsVisible = isBarsVisible,
         isTopBarMenuExpanded = isTopBarMenuExpanded,
+    )
+    ImageViewerUnavailableBarsEffect(
+        viewModel = viewModel,
+        isBarsVisible = isBarsVisible,
+        currentImageUrl = currentImageUrl,
+        viewerImageLoadFailureByUrl = viewerImageLoadFailureByUrl,
+        viewerImageLoadingUrls = viewerImageLoadingUrls,
     )
     ImageViewerSystemBarEffect(
         activity = activity,
@@ -78,6 +89,36 @@ internal fun ImageViewerScreenEffects(
         hasPendingIdleCenterSync = hasPendingIdleCenterSync,
         hasUserInteracted = hasUserInteracted,
     )
+}
+
+/**
+ * 現在ページが未取得状態の間は上下バーを表示する。
+ */
+@Composable
+private fun ImageViewerUnavailableBarsEffect(
+    viewModel: ImageViewerViewModel?,
+    isBarsVisible: Boolean,
+    currentImageUrl: String,
+    viewerImageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    viewerImageLoadingUrls: Set<String>,
+) {
+    LaunchedEffect(
+        currentImageUrl,
+        isBarsVisible,
+        viewerImageLoadFailureByUrl,
+        viewerImageLoadingUrls,
+    ) {
+        if (currentImageUrl.isBlank()) {
+            // Guard: 空URLは可視制御対象にしない。
+            return@LaunchedEffect
+        }
+        val isUnavailable =
+            (currentImageUrl in viewerImageLoadFailureByUrl) ||
+                (currentImageUrl in viewerImageLoadingUrls)
+        if (isUnavailable && !isBarsVisible) {
+            viewModel?.setBarsVisibility(true)
+        }
+    }
 }
 
 /**
