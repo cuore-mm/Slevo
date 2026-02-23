@@ -63,6 +63,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
+import kotlin.math.max
 import kotlin.math.min
 
 private const val POPUP_ANIMATION_DURATION = 160
