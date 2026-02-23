@@ -77,6 +77,7 @@ import com.websarva.wings.android.slevo.ui.thread.res.rememberPostItemDialogStat
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.buildThreadListItemKey
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
@@ -359,7 +360,7 @@ fun ThreadScreen(
 
             itemsIndexed(
                 items = visiblePosts,
-                key = { _, display -> "${display.num}_${display.dimmed}" }
+                key = { idx, display -> buildThreadListItemKey(idx, display) }
             ) { idx, display ->
                 val postNum = display.num
                 val post = display.post

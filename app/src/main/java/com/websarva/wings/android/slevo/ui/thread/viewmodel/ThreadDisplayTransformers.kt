@@ -278,6 +278,15 @@ internal fun buildGroupDisplayPosts(
 }
 
 /**
+ * スレッド一覧の表示行キーを生成する。
+ *
+ * 同一レス番号の再登場があっても、行インデックスを含めてキー重複を防ぐ。
+ */
+internal fun buildThreadListItemKey(index: Int, displayPost: DisplayPost): String {
+    return "${index}_${displayPost.num}_${displayPost.dimmed}"
+}
+
+/**
  * 投稿ヘッダ日付文字列をUnix時間に変換する。
  *
  * ミリ秒や括弧表記を除去し、失敗時は現在時刻へフォールバックする。
