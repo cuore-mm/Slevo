@@ -22,7 +22,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
 import com.websarva.wings.android.slevo.ui.common.PostDialog
@@ -31,7 +30,10 @@ import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
+import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
+import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
@@ -39,8 +41,6 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 /**
  * 板画面の表示とタブ解決をまとめて行う。
@@ -205,24 +205,26 @@ fun BoardScaffold(
                 gestureSettings = uiState.gestureSettings,
                 showBottomBar = showBottomBar,
                 onGestureAction = { action ->
-                    when (action) {
-                        GestureAction.Refresh -> viewModel.refreshBoardData()
-                        GestureAction.PostOrCreateThread -> viewModel.postDialogActions.showDialog()
-                        GestureAction.Search -> viewModel.setSearchMode(true)
-                        GestureAction.OpenTabList -> openTabListSheet()
-                        GestureAction.OpenBookmarkList -> navController.navigate(AppRoute.BookmarkList)
-                        GestureAction.OpenBoardList -> navController.navigate(AppRoute.ServiceList)
-                        GestureAction.OpenHistory -> navController.navigate(AppRoute.HistoryList)
-                        GestureAction.OpenNewTab -> openUrlDialog()
-                        GestureAction.SwitchToNextTab -> tabsViewModel.animateBoardPage(1)
-                        GestureAction.SwitchToPreviousTab -> tabsViewModel.animateBoardPage(-1)
-                        GestureAction.CloseTab ->
-                            if (uiState.boardInfo.url.isNotBlank()) {
-                                tabsViewModel.closeBoardTabByUrl(uiState.boardInfo.url)
-                            }
-
-                        GestureAction.ToTop, GestureAction.ToBottom -> Unit
-                    }
+                    dispatchCommonGestureAction(
+                        action = action,
+                        handlers = CommonGestureActionHandlers(
+                            onRefresh = { viewModel.refreshBoardData() },
+                            onPostOrCreateThread = { viewModel.postDialogActions.showDialog() },
+                            onSearch = { viewModel.setSearchMode(true) },
+                            onOpenTabList = openTabListSheet,
+                            onOpenBookmarkList = { navController.navigate(AppRoute.BookmarkList) },
+                            onOpenBoardList = { navController.navigate(AppRoute.ServiceList) },
+                            onOpenHistory = { navController.navigate(AppRoute.HistoryList) },
+                            onOpenNewTab = openUrlDialog,
+                            onSwitchToNextTab = { tabsViewModel.animateBoardPage(1) },
+                            onSwitchToPreviousTab = { tabsViewModel.animateBoardPage(-1) },
+                            onCloseTab = {
+                                if (uiState.boardInfo.url.isNotBlank()) {
+                                    tabsViewModel.closeBoardTabByUrl(uiState.boardInfo.url)
+                                }
+                            },
+                        ),
+                    )
                 },
                 searchQuery = uiState.searchQuery,
             )
@@ -302,20 +304,12 @@ fun BoardScaffold(
                     },
                     onImageUpload = { uri -> viewModel.uploadImage(context, uri) },
                     onImageUrlClick = { urls, tappedIndex, transitionNamespace ->
-                        if (urls.isEmpty()) {
-                            // Guard: 画像が存在しない場合は遷移しない。
-                        } else {
-                            val encodedUrls = urls.map { imageUrl ->
-                                URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
-                            }
-                            navController.navigate(
-                                AppRoute.ImageViewer(
-                                    imageUrls = encodedUrls,
-                                    initialIndex = tappedIndex.coerceIn(encodedUrls.indices),
-                                    transitionNamespace = transitionNamespace,
-                                )
-                            )
-                        }
+                        val route = buildImageViewerRoute(
+                            imageUrls = urls,
+                            tappedIndex = tappedIndex,
+                            transitionNamespace = transitionNamespace,
+                        )
+                        route?.let(navController::navigate)
                     },
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,

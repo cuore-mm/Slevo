@@ -20,7 +20,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
-import com.websarva.wings.android.slevo.ui.thread.screen.resolveBottomTargetIndex
+import com.websarva.wings.android.slevo.ui.common.scroll.resolveBottomTargetIndex
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import kotlinx.coroutines.delay
@@ -275,21 +275,5 @@ fun ObservePopupVisibilityEffect(
 ) {
     LaunchedEffect(popupCount) {
         onPopupVisibilityChange(popupCount > 0)
-    }
-}
-
-/**
- * ジェスチャーヒントの無効表示を一定時間後に非表示へ戻す。
- */
-@Composable
-fun ObserveGestureHintInvalidReset(
-    isInvalid: Boolean,
-    onReset: () -> Unit,
-) {
-    LaunchedEffect(isInvalid) {
-        if (isInvalid) {
-            delay(1200)
-            onReset()
-        }
     }
 }

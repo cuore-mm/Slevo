@@ -43,12 +43,14 @@ import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
 import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
+import com.websarva.wings.android.slevo.ui.common.interaction.ObserveGestureHintInvalidResetEffect
+import com.websarva.wings.android.slevo.ui.common.interaction.executeGestureScrollAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.screen.components.threadPostListContent
 import com.websarva.wings.android.slevo.ui.thread.screen.effects.ObserveAutoScrollEffect
-import com.websarva.wings.android.slevo.ui.thread.screen.effects.ObserveGestureHintInvalidReset
 import com.websarva.wings.android.slevo.ui.thread.screen.effects.ObserveLastReadEffect
 import com.websarva.wings.android.slevo.ui.thread.screen.effects.ObservePopupVisibilityEffect
 import com.websarva.wings.android.slevo.ui.thread.screen.effects.rememberBottomRefreshHandle
@@ -63,8 +65,6 @@ import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
 import kotlinx.coroutines.launch
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 /**
  * スレッド画面を構成し、投稿一覧と各種オーバーレイを表示する。
@@ -129,21 +129,12 @@ fun ThreadScreen(
     }
     val onImageClick: (String, List<String>, Int, String) -> Unit =
         { _, imageUrls, tappedIndex, transitionNamespace ->
-            if (imageUrls.isEmpty()) {
-                // Guard: 画像が存在しない場合は遷移しない。
-            } else {
-                val encodedUrls = imageUrls.map { imageUrl ->
-                    URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
-                }
-                val initialIndex = tappedIndex.coerceIn(encodedUrls.indices)
-                navController.navigate(
-                    AppRoute.ImageViewer(
-                        imageUrls = encodedUrls,
-                        initialIndex = initialIndex,
-                        transitionNamespace = transitionNamespace,
-                    )
-                )
-            }
+            val route = buildImageViewerRoute(
+                imageUrls = imageUrls,
+                tappedIndex = tappedIndex,
+                transitionNamespace = transitionNamespace,
+            )
+            route?.let(navController::navigate)
         }
     val onRequestMenu: (PostDialogTarget) -> Unit = { target ->
         menuTarget = target
@@ -185,7 +176,7 @@ fun ThreadScreen(
     }
 
     var gestureHint by remember { mutableStateOf<GestureHint>(GestureHint.Hidden) }
-    ObserveGestureHintInvalidReset(
+    ObserveGestureHintInvalidResetEffect(
         isInvalid = gestureHint is GestureHint.Invalid,
         onReset = { gestureHint = GestureHint.Hidden },
     )
@@ -210,27 +201,17 @@ fun ThreadScreen(
                     return@detectDirectionalGesture
                 }
                 gestureHint = GestureHint.Hidden
-                when (action) {
-                    GestureAction.ToTop -> {
-                        showBottomBar?.invoke()
-                        coroutineScope.launch {
-                            listState.scrollToItem(0)
-                        }
+                if (action == GestureAction.ToTop || action == GestureAction.ToBottom) {
+                    coroutineScope.launch {
+                        executeGestureScrollAction(
+                            action = action,
+                            listState = listState,
+                            fallbackItemCount = visiblePosts.size,
+                            showBottomBar = showBottomBar,
+                        )
                     }
-
-                    GestureAction.ToBottom -> {
-                        coroutineScope.launch {
-                            showBottomBar?.invoke()
-                            waitForViewportUpdate(listState)
-                            val targetIndex = resolveBottomTargetIndex(
-                                totalItemsCount = listState.layoutInfo.totalItemsCount,
-                                fallbackCount = visiblePosts.size,
-                            )
-                            listState.scrollToItem(targetIndex)
-                        }
-                    }
-
-                    else -> onGestureAction(action)
+                } else {
+                    onGestureAction(action)
                 }
             }
     ) {

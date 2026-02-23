@@ -26,7 +26,6 @@ import androidx.compose.ui.platform.toClipEntry
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
@@ -37,9 +36,12 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
+import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
+import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
@@ -57,8 +59,6 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 /**
  * スレッド画面の主要UIを構築する。
@@ -240,27 +240,29 @@ fun ThreadScaffold(
                 animatedVisibilityScope = animatedVisibilityScope,
                 onPopupVisibilityChange = { isPopupVisible = it },
                 onGestureAction = { action ->
-                    when (action) {
-                        GestureAction.Refresh -> viewModel.reloadThread()
-                        GestureAction.PostOrCreateThread -> viewModel.postDialogActions.showDialog()
-                        GestureAction.Search -> viewModel.startSearch()
-                        GestureAction.OpenTabList -> openTabListSheet()
-                        GestureAction.OpenBookmarkList -> navController.navigate(AppRoute.BookmarkList)
-                        GestureAction.OpenBoardList -> navController.navigate(AppRoute.ServiceList)
-                        GestureAction.OpenHistory -> navController.navigate(AppRoute.HistoryList)
-                        GestureAction.OpenNewTab -> openUrlDialog()
-                        GestureAction.SwitchToNextTab -> tabsViewModel.animateThreadPage(1)
-                        GestureAction.SwitchToPreviousTab -> tabsViewModel.animateThreadPage(-1)
-                        GestureAction.CloseTab ->
-                            if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
-                                tabsViewModel.closeThreadTab(
-                                    uiState.threadInfo.key,
-                                    uiState.boardInfo.url
-                                )
-                            }
-
-                        GestureAction.ToTop, GestureAction.ToBottom -> Unit
-                    }
+                    dispatchCommonGestureAction(
+                        action = action,
+                        handlers = CommonGestureActionHandlers(
+                            onRefresh = { viewModel.reloadThread() },
+                            onPostOrCreateThread = { viewModel.postDialogActions.showDialog() },
+                            onSearch = { viewModel.startSearch() },
+                            onOpenTabList = openTabListSheet,
+                            onOpenBookmarkList = { navController.navigate(AppRoute.BookmarkList) },
+                            onOpenBoardList = { navController.navigate(AppRoute.ServiceList) },
+                            onOpenHistory = { navController.navigate(AppRoute.HistoryList) },
+                            onOpenNewTab = openUrlDialog,
+                            onSwitchToNextTab = { tabsViewModel.animateThreadPage(1) },
+                            onSwitchToPreviousTab = { tabsViewModel.animateThreadPage(-1) },
+                            onCloseTab = {
+                                if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
+                                    tabsViewModel.closeThreadTab(
+                                        uiState.threadInfo.key,
+                                        uiState.boardInfo.url,
+                                    )
+                                }
+                            },
+                        ),
+                    )
                 }
             )
         },
@@ -315,18 +317,12 @@ fun ThreadScaffold(
                     )
                 },
                 onImageClick = { _, imageUrls, tappedIndex, transitionNamespace ->
-                    if (imageUrls.isNotEmpty()) {
-                        val encodedUrls = imageUrls.map { imageUrl ->
-                            URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
-                        }
-                        navController.navigate(
-                            AppRoute.ImageViewer(
-                                imageUrls = encodedUrls,
-                                initialIndex = tappedIndex.coerceIn(encodedUrls.indices),
-                                transitionNamespace = transitionNamespace,
-                            )
-                        )
-                    }
+                    val route = buildImageViewerRoute(
+                        imageUrls = imageUrls,
+                        tappedIndex = tappedIndex,
+                        transitionNamespace = transitionNamespace,
+                    )
+                    route?.let(navController::navigate)
                 },
                 onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
                 imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
@@ -534,20 +530,12 @@ fun ThreadScaffold(
                     },
                     onImageUpload = { uri -> viewModel.uploadImage(context, uri) },
                     onImageUrlClick = { urls, tappedIndex, transitionNamespace ->
-                        if (urls.isEmpty()) {
-                            // Guard: 画像が存在しない場合は遷移しない。
-                        } else {
-                            val encodedUrls = urls.map { imageUrl ->
-                                URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
-                            }
-                            navController.navigate(
-                                AppRoute.ImageViewer(
-                                    imageUrls = encodedUrls,
-                                    initialIndex = tappedIndex.coerceIn(encodedUrls.indices),
-                                    transitionNamespace = transitionNamespace,
-                                )
-                            )
-                        }
+                        val route = buildImageViewerRoute(
+                            imageUrls = urls,
+                            tappedIndex = tappedIndex,
+                            transitionNamespace = transitionNamespace,
+                        )
+                        route?.let(navController::navigate)
                     },
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,
