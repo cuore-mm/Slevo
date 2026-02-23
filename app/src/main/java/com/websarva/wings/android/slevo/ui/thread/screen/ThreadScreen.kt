@@ -7,8 +7,8 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,16 +21,13 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -41,8 +38,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -50,6 +47,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
@@ -70,10 +68,10 @@ import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
 import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
-import com.websarva.wings.android.slevo.ui.thread.res.PostItemDialogs
 import com.websarva.wings.android.slevo.ui.thread.res.PostItem
-import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
+import com.websarva.wings.android.slevo.ui.thread.res.PostItemDialogs
 import com.websarva.wings.android.slevo.ui.thread.res.rememberPostItemDialogState
+import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
@@ -134,14 +132,13 @@ fun ThreadScreen(
     val popupStack = uiState.popupStack
     // ポップアップ表示中はリスト側の共有トランジションを無効化する。
     val enableListSharedElements = popupStack.isEmpty()
-    // NG（非表示）対象の投稿番号リスト
-    val ngNumbers = uiState.ngPostNumbers
     val density = LocalDensity.current
     val dialogState = rememberPostItemDialogState()
     var menuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
     var dialogTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
+    val haptic = LocalHapticFeedback.current
 
     // --- ナビゲーション ---
     val onUrlClick: (String) -> Unit = { url -> uriHandler.openUri(url) }
@@ -153,22 +150,22 @@ fun ThreadScreen(
     }
     val onImageClick: (String, List<String>, Int, String) -> Unit =
         { _, imageUrls, tappedIndex, transitionNamespace ->
-        if (imageUrls.isEmpty()) {
-            // Guard: 画像が存在しない場合は遷移しない。
-        } else {
-            val encodedUrls = imageUrls.map { imageUrl ->
-                URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
-            }
-            val initialIndex = tappedIndex.coerceIn(encodedUrls.indices)
-            navController.navigate(
-                AppRoute.ImageViewer(
-                    imageUrls = encodedUrls,
-                    initialIndex = initialIndex,
-                    transitionNamespace = transitionNamespace,
+            if (imageUrls.isEmpty()) {
+                // Guard: 画像が存在しない場合は遷移しない。
+            } else {
+                val encodedUrls = imageUrls.map { imageUrl ->
+                    URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
+                }
+                val initialIndex = tappedIndex.coerceIn(encodedUrls.indices)
+                navController.navigate(
+                    AppRoute.ImageViewer(
+                        imageUrls = encodedUrls,
+                        initialIndex = initialIndex,
+                        transitionNamespace = transitionNamespace,
+                    )
                 )
-            )
+            }
         }
-    }
     val onRequestMenu: (PostDialogTarget) -> Unit = { target ->
         menuTarget = target
     }
@@ -243,6 +240,10 @@ fun ThreadScreen(
     val refreshThresholdPx = with(density) { 80.dp.toPx() }
     var overscroll by remember { mutableFloatStateOf(0f) }
     var triggerRefresh by remember { mutableStateOf(false) }
+    var bottomRefreshArmed by remember { mutableStateOf(false) }
+    var armOnNextDrag by remember { mutableStateOf(false) }
+    var waitingForBottomReach by remember { mutableStateOf(false) }
+    var isDragging by remember { mutableStateOf(false) }
     val nestedScrollConnection = remember(listState, posts.size) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -261,23 +262,89 @@ fun ThreadScreen(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                if (!listState.canScrollForward && available.y < 0f) {
+                if (
+                    bottomRefreshArmed &&
+                    source == NestedScrollSource.UserInput &&
+                    !listState.canScrollForward &&
+                    available.y < 0f
+                ) {
                     overscroll -= available.y
-                    triggerRefresh = overscroll >= refreshThresholdPx
+                    val reached = overscroll >= refreshThresholdPx
+                    // Guard: 未到達 -> 到達 の遷移時のみ触覚を返す。
+                    if (reached && !triggerRefresh) {
+                        haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                    }
+                    triggerRefresh = reached
                 }
                 return Offset.Zero
             }
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                if (triggerRefresh) {
+                if (bottomRefreshArmed && triggerRefresh) {
                     onLastRead(posts.size)
                     onBottomRefresh()
                 }
                 overscroll = 0f
                 triggerRefresh = false
+                bottomRefreshArmed = false
                 return Velocity.Zero
             }
         }
+    }
+
+    // Guard: 画面初期化時に既に下端にいる場合、次ドラッグで更新判定可能にする。
+    LaunchedEffect(Unit) {
+        if (!listState.canScrollForward) {
+            armOnNextDrag = true
+        }
+    }
+
+    LaunchedEffect(listState) {
+        listState.interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is DragInteraction.Start -> {
+                    isDragging = true
+                    // Guard: 下端で指を離した後の「次ドラッグ」だけを更新判定対象にする。
+                    if (!listState.canScrollForward && armOnNextDrag) {
+                        bottomRefreshArmed = true
+                        armOnNextDrag = false
+                    }
+                }
+
+                is DragInteraction.Stop,
+                is DragInteraction.Cancel -> {
+                    isDragging = false
+                    if (!listState.canScrollForward) {
+                        // Guard: ドラッグ終了時に既に下端にいる場合、次ドラッグで更新判定可能にする。
+                        armOnNextDrag = true
+                    } else {
+                        // Guard: ドラッグ終了時に下端にいない場合、慣性で下端に到達した後に次ドラッグで更新判定可能にする。
+                        waitingForBottomReach = true
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.canScrollForward }
+            .collect { canScrollForward ->
+                if (canScrollForward) {
+                    // Guard: 下端を離れたら更新判定と次ドラッグアームを解除する。
+                    bottomRefreshArmed = false
+                    armOnNextDrag = false
+                    waitingForBottomReach = false
+                    overscroll = 0f
+                    triggerRefresh = false
+                } else if (waitingForBottomReach) {
+                    // Guard: ドラッグ終了後に慣性で下端に到達した場合、次ドラッグで更新判定可能にする。
+                    armOnNextDrag = true
+                    waitingForBottomReach = false
+                } else if (!isDragging) {
+                    // Guard: ドラッグ以外の方法（scrollToItemなど）で下端に到達した場合、次ドラッグで更新判定可能にする。
+                    armOnNextDrag = true
+                }
+            }
     }
 
     val showScrollbar by remember(listState) {
@@ -471,6 +538,8 @@ fun ThreadScreen(
                         }
                         onAddPopupForId(id, offset)
                     }
+                )
+                        }
                     )
                     HorizontalDivider(
                         modifier = Modifier.padding(
@@ -556,35 +625,18 @@ fun ThreadScreen(
             dialogState = dialogState
         )
 
-        val arrowRotation by animateFloatAsState(
-            targetValue = if (triggerRefresh) 180f else (overscroll / refreshThresholdPx).coerceIn(
-                0f,
-                1f
-            ) * 180f,
-            label = "arrowRotation"
-        )
-
-        if (uiState.isLoading) {
+        if (uiState.isLoading || overscroll > 0f) {
             ContainedLoadingIndicator(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 16.dp)
             )
-        } else if (overscroll > 0f) {
-            Icon(
-                imageVector = Icons.Filled.ArrowUpward,
-                contentDescription = null,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 16.dp)
-                    .rotate(arrowRotation)
-            )
         }
         if (gestureSettings.showActionHints) {
             GestureHintOverlay(state = gestureHint)
         }
-        }
     }
+}
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
