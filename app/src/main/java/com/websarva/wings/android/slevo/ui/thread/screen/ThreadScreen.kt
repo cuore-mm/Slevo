@@ -237,6 +237,7 @@ fun ThreadScreen(
     var triggerRefresh by remember { mutableStateOf(false) }
     var bottomRefreshArmed by remember { mutableStateOf(false) }
     var armOnNextDrag by remember { mutableStateOf(false) }
+    var waitingForBottomReach by remember { mutableStateOf(false) }
     val nestedScrollConnection = remember(listState, posts.size) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -299,7 +300,11 @@ fun ThreadScreen(
                 is DragInteraction.Stop,
                 is DragInteraction.Cancel -> {
                     if (!listState.canScrollForward) {
+                        // Guard: ドラッグ終了時に既に下端にいる場合、次ドラッグで更新判定可能にする。
                         armOnNextDrag = true
+                    } else {
+                        // Guard: ドラッグ終了時に下端にいない場合、慣性で下端に到達した後に次ドラッグで更新判定可能にする。
+                        waitingForBottomReach = true
                     }
                 }
             }
@@ -313,8 +318,13 @@ fun ThreadScreen(
                     // Guard: 下端を離れたら更新判定と次ドラッグアームを解除する。
                     bottomRefreshArmed = false
                     armOnNextDrag = false
+                    waitingForBottomReach = false
                     overscroll = 0f
                     triggerRefresh = false
+                } else if (waitingForBottomReach) {
+                    // Guard: ドラッグ終了後に慣性で下端に到達した場合、次ドラッグで更新判定可能にする。
+                    armOnNextDrag = true
+                    waitingForBottomReach = false
                 }
             }
     }
