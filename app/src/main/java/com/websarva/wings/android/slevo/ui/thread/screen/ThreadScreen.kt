@@ -10,7 +10,6 @@ import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,8 +25,8 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +38,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -48,11 +48,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -69,10 +67,10 @@ import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
 import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
-import com.websarva.wings.android.slevo.ui.thread.res.PostItemDialogs
 import com.websarva.wings.android.slevo.ui.thread.res.PostItem
-import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
+import com.websarva.wings.android.slevo.ui.thread.res.PostItemDialogs
 import com.websarva.wings.android.slevo.ui.thread.res.rememberPostItemDialogState
+import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
@@ -99,7 +97,6 @@ fun ThreadScreen(
     navController: NavHostController,
     tabsViewModel: TabsViewModel? = null,
     showBottomBar: (() -> Unit)? = null,
-    bottomBarVisibleHeight: Dp = 0.dp,
     onAutoScrollBottom: () -> Unit = {},
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
@@ -129,8 +126,6 @@ fun ThreadScreen(
     val popupStack = uiState.popupStack
     // ポップアップ表示中はリスト側の共有トランジションを無効化する。
     val enableListSharedElements = popupStack.isEmpty()
-    // NG（非表示）対象の投稿番号リスト
-    val ngNumbers = uiState.ngPostNumbers
     val density = LocalDensity.current
     val dialogState = rememberPostItemDialogState()
     var menuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
@@ -149,22 +144,22 @@ fun ThreadScreen(
     }
     val onImageClick: (String, List<String>, Int, String) -> Unit =
         { _, imageUrls, tappedIndex, transitionNamespace ->
-        if (imageUrls.isEmpty()) {
-            // Guard: 画像が存在しない場合は遷移しない。
-        } else {
-            val encodedUrls = imageUrls.map { imageUrl ->
-                URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
-            }
-            val initialIndex = tappedIndex.coerceIn(encodedUrls.indices)
-            navController.navigate(
-                AppRoute.ImageViewer(
-                    imageUrls = encodedUrls,
-                    initialIndex = initialIndex,
-                    transitionNamespace = transitionNamespace,
+            if (imageUrls.isEmpty()) {
+                // Guard: 画像が存在しない場合は遷移しない。
+            } else {
+                val encodedUrls = imageUrls.map { imageUrl ->
+                    URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
+                }
+                val initialIndex = tappedIndex.coerceIn(encodedUrls.indices)
+                navController.navigate(
+                    AppRoute.ImageViewer(
+                        imageUrls = encodedUrls,
+                        initialIndex = initialIndex,
+                        transitionNamespace = transitionNamespace,
+                    )
                 )
-            )
+            }
         }
-    }
     val onRequestMenu: (PostDialogTarget) -> Unit = { target ->
         menuTarget = target
     }
@@ -260,7 +255,7 @@ fun ThreadScreen(
             ): Offset {
                 if (
                     bottomRefreshArmed &&
-                    source == NestedScrollSource.Drag &&
+                    source == NestedScrollSource.UserInput &&
                     !listState.canScrollForward &&
                     available.y < 0f
                 ) {
@@ -415,82 +410,82 @@ fun ThreadScreen(
                     if (firstAfterIndex != -1 && idx == firstAfterIndex) {
                         NewArrivalBar()
                     }
-                PostItem(
-                    modifier = Modifier.onGloballyPositioned { coords ->
-                        val pos = coords.positionInRoot()
-                        itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
-                    },
-                    post = post,
-                    postNum = postNum,
-                    idIndex = uiState.idIndexList.getOrElse(index) { 1 },
-                    idTotal = if (post.header.id.isBlank()) 1 else uiState.idCountMap[post.header.id]
-                        ?: 1,
-                    headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
-                    bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
-                    lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
-                    indentLevel = indent,
-                    replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
-                    isMyPost = postNum in uiState.myPostNumbers,
-                    dimmed = display.dimmed,
-                    searchQuery = uiState.searchQuery,
-                    onUrlClick = onUrlClick,
-                    onThreadUrlClick = onThreadUrlClick,
-                    transitionNamespace = transitionNamespace,
-                    onImageClick = onImageClick,
-                    onImageLongPress = onImageLongPress,
-                    enableSharedElement = enableListSharedElements,
-                    onRequestMenu = onRequestMenu,
-                    onShowTextMenu = onShowTextMenu,
-                    onContentClick = {
-                        val baseOffset = if (popupStack.isEmpty()) {
-                            itemOffsetHolder.value
-                        } else {
-                            val last = popupStack.last()
-                            IntOffset(
-                                last.offset.x,
-                                (last.offset.y - last.size.height).coerceAtLeast(0)
-                            )
+                    PostItem(
+                        modifier = Modifier.onGloballyPositioned { coords ->
+                            val pos = coords.positionInRoot()
+                            itemOffsetHolder.value = IntOffset(pos.x.toInt(), pos.y.toInt())
+                        },
+                        post = post,
+                        postNum = postNum,
+                        idIndex = uiState.idIndexList.getOrElse(index) { 1 },
+                        idTotal = if (post.header.id.isBlank()) 1 else uiState.idCountMap[post.header.id]
+                            ?: 1,
+                        headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
+                        bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
+                        lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else DEFAULT_THREAD_LINE_HEIGHT,
+                        indentLevel = indent,
+                        replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
+                        isMyPost = postNum in uiState.myPostNumbers,
+                        dimmed = display.dimmed,
+                        searchQuery = uiState.searchQuery,
+                        onUrlClick = onUrlClick,
+                        onThreadUrlClick = onThreadUrlClick,
+                        transitionNamespace = transitionNamespace,
+                        onImageClick = onImageClick,
+                        onImageLongPress = onImageLongPress,
+                        enableSharedElement = enableListSharedElements,
+                        onRequestMenu = onRequestMenu,
+                        onShowTextMenu = onShowTextMenu,
+                        onContentClick = {
+                            val baseOffset = if (popupStack.isEmpty()) {
+                                itemOffsetHolder.value
+                            } else {
+                                val last = popupStack.last()
+                                IntOffset(
+                                    last.offset.x,
+                                    (last.offset.y - last.size.height).coerceAtLeast(0)
+                                )
+                            }
+                            onRequestTreePopup(postNum, baseOffset)
+                        },
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope,
+                        onReplyFromClick = { numbs ->
+                            val offset = if (popupStack.isEmpty()) {
+                                itemOffsetHolder.value
+                            } else {
+                                val last = popupStack.last()
+                                IntOffset(
+                                    last.offset.x,
+                                    (last.offset.y - last.size.height).coerceAtLeast(0)
+                                )
+                            }
+                            onAddPopupForReplyFrom(numbs, offset)
+                        },
+                        onReplyClick = { num ->
+                            val offset = if (popupStack.isEmpty()) {
+                                itemOffsetHolder.value
+                            } else {
+                                val last = popupStack.last()
+                                IntOffset(
+                                    last.offset.x,
+                                    (last.offset.y - last.size.height).coerceAtLeast(0)
+                                )
+                            }
+                            onAddPopupForReplyNumber(num, offset)
+                        },
+                        onIdClick = { id ->
+                            val offset = if (popupStack.isEmpty()) {
+                                itemOffsetHolder.value
+                            } else {
+                                val last = popupStack.last()
+                                IntOffset(
+                                    last.offset.x,
+                                    (last.offset.y - last.size.height).coerceAtLeast(0)
+                                )
+                            }
+                            onAddPopupForId(id, offset)
                         }
-                        onRequestTreePopup(postNum, baseOffset)
-                    },
-                    sharedTransitionScope = sharedTransitionScope,
-                    animatedVisibilityScope = animatedVisibilityScope,
-                    onReplyFromClick = { numbs ->
-                        val offset = if (popupStack.isEmpty()) {
-                            itemOffsetHolder.value
-                        } else {
-                            val last = popupStack.last()
-                            IntOffset(
-                                last.offset.x,
-                                (last.offset.y - last.size.height).coerceAtLeast(0)
-                            )
-                        }
-                        onAddPopupForReplyFrom(numbs, offset)
-                    },
-                    onReplyClick = { num ->
-                        val offset = if (popupStack.isEmpty()) {
-                            itemOffsetHolder.value
-                        } else {
-                            val last = popupStack.last()
-                            IntOffset(
-                                last.offset.x,
-                                (last.offset.y - last.size.height).coerceAtLeast(0)
-                            )
-                        }
-                        onAddPopupForReplyNumber(num, offset)
-                    },
-                    onIdClick = { id ->
-                        val offset = if (popupStack.isEmpty()) {
-                            itemOffsetHolder.value
-                        } else {
-                            val last = popupStack.last()
-                            IntOffset(
-                                last.offset.x,
-                                (last.offset.y - last.size.height).coerceAtLeast(0)
-                            )
-                        }
-                        onAddPopupForId(id, offset)
-                    }
                     )
                     HorizontalDivider(
                         modifier = Modifier.padding(
@@ -581,14 +576,13 @@ fun ThreadScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 16.dp)
-                    .offset(y = bottomBarVisibleHeight)
             )
         }
         if (gestureSettings.showActionHints) {
             GestureHintOverlay(state = gestureHint)
         }
-        }
     }
+}
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)

@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.toClipEntry
 import androidx.navigation.NavHostController
@@ -82,12 +81,10 @@ fun ThreadScaffold(
 ) {
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val density = LocalDensity.current
     val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
     var isPopupVisible by remember { mutableStateOf(false) }
     var bottomBarMeasuredHeightPx by remember { mutableIntStateOf(0) }
     var bottomBarVisibleHeightPx by remember { mutableFloatStateOf(0f) }
-    val bottomBarVisibleHeightDp = with(density) { bottomBarVisibleHeightPx.toDp() }
 
     val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, threadRoute.threadKey)
@@ -239,7 +236,6 @@ fun ThreadScaffold(
                 navController = navController,
                 tabsViewModel = tabsViewModel,
                 showBottomBar = showBottomBar,
-                bottomBarVisibleHeight = bottomBarVisibleHeightDp,
                 onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
                 onBottomRefresh = { viewModel.reloadThread() },
                 onLastRead = { resNum ->
