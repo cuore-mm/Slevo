@@ -7,10 +7,10 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,12 +21,9 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -41,7 +38,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -50,10 +46,13 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -100,6 +99,7 @@ fun ThreadScreen(
     navController: NavHostController,
     tabsViewModel: TabsViewModel? = null,
     showBottomBar: (() -> Unit)? = null,
+    bottomBarVisibleHeight: Dp = 0.dp,
     onAutoScrollBottom: () -> Unit = {},
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
@@ -137,6 +137,7 @@ fun ThreadScreen(
     var dialogTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
+    val haptic = LocalHapticFeedback.current
 
     // --- ナビゲーション ---
     val onUrlClick: (String) -> Unit = { url -> uriHandler.openUri(url) }
@@ -238,6 +239,7 @@ fun ThreadScreen(
     val refreshThresholdPx = with(density) { 80.dp.toPx() }
     var overscroll by remember { mutableFloatStateOf(0f) }
     var triggerRefresh by remember { mutableStateOf(false) }
+    var bottomRefreshArmed by remember { mutableStateOf(false) }
     val nestedScrollConnection = remember(listState, posts.size) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -256,23 +258,49 @@ fun ThreadScreen(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                if (!listState.canScrollForward && available.y < 0f) {
+                if (
+                    bottomRefreshArmed &&
+                    source == NestedScrollSource.Drag &&
+                    !listState.canScrollForward &&
+                    available.y < 0f
+                ) {
                     overscroll -= available.y
-                    triggerRefresh = overscroll >= refreshThresholdPx
+                    val reached = overscroll >= refreshThresholdPx
+                    // Guard: 未到達 -> 到達 の遷移時のみ触覚を返す。
+                    if (reached && !triggerRefresh) {
+                        haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                    }
+                    triggerRefresh = reached
                 }
                 return Offset.Zero
             }
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                if (triggerRefresh) {
+                if (bottomRefreshArmed && triggerRefresh) {
                     onLastRead(posts.size)
                     onBottomRefresh()
                 }
                 overscroll = 0f
                 triggerRefresh = false
+                bottomRefreshArmed = false
                 return Velocity.Zero
             }
         }
+    }
+
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress to listState.canScrollForward }
+            .collect { (isScrolling, canScrollForward) ->
+                if (!isScrolling && !canScrollForward) {
+                    bottomRefreshArmed = true
+                }
+                if (isScrolling || canScrollForward) {
+                    // Guard: 下端静止状態でなくなった場合は更新判定を解除する。
+                    bottomRefreshArmed = false
+                    overscroll = 0f
+                    triggerRefresh = false
+                }
+            }
     }
 
     val showScrollbar by remember(listState) {
@@ -547,28 +575,12 @@ fun ThreadScreen(
             dialogState = dialogState
         )
 
-        val arrowRotation by animateFloatAsState(
-            targetValue = if (triggerRefresh) 180f else (overscroll / refreshThresholdPx).coerceIn(
-                0f,
-                1f
-            ) * 180f,
-            label = "arrowRotation"
-        )
-
-        if (uiState.isLoading) {
+        if (uiState.isLoading || overscroll > 0f) {
             ContainedLoadingIndicator(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 16.dp)
-            )
-        } else if (overscroll > 0f) {
-            Icon(
-                imageVector = Icons.Filled.ArrowUpward,
-                contentDescription = null,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 16.dp)
-                    .rotate(arrowRotation)
+                    .offset(y = bottomBarVisibleHeight)
             )
         }
         if (gestureSettings.showActionHints) {
