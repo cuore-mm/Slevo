@@ -286,6 +286,13 @@ fun ThreadScreen(
         }
     }
 
+    // Guard: 画面初期化時に既に下端にいる場合、次ドラッグで更新判定可能にする。
+    LaunchedEffect(Unit) {
+        if (!listState.canScrollForward) {
+            armOnNextDrag = true
+        }
+    }
+
     LaunchedEffect(listState) {
         listState.interactionSource.interactions.collect { interaction ->
             when (interaction) {
