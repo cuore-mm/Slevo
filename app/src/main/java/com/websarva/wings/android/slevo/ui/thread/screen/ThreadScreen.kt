@@ -292,10 +292,11 @@ fun ThreadScreen(
         snapshotFlow { listState.isScrollInProgress to listState.canScrollForward }
             .collect { (isScrolling, canScrollForward) ->
                 if (!isScrolling && !canScrollForward) {
+                    // Guard: 下端で一度静止した後の「次ドラッグ」だけを更新判定対象にする。
                     bottomRefreshArmed = true
                 }
-                if (isScrolling || canScrollForward) {
-                    // Guard: 下端静止状態でなくなった場合は更新判定を解除する。
+                if (canScrollForward) {
+                    // Guard: 下端を離れたら更新判定を解除し、蓄積を破棄する。
                     bottomRefreshArmed = false
                     overscroll = 0f
                     triggerRefresh = false
