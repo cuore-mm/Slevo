@@ -70,7 +70,7 @@ fun BoxScope.ThreadBottomRefreshIndicator(
                 rotationZ = animatedRotation,
                 transformOrigin = TransformOrigin.Center,
             ),
-        progress = if (isRefreshing) null else { animatedScaleProgress.coerceIn(0f, 1f) },
+        progress = { animatedScaleProgress.coerceIn(0f, 1f) },
     )
 }
 
