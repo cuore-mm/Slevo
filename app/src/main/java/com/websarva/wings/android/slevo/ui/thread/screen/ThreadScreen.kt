@@ -223,7 +223,6 @@ fun ThreadScreen(
                 onImageLoadSuccess = onImageLoadSuccess,
                 onImageRetry = onImageRetry,
                 onRequestMenu = onRequestMenu,
-                onPostAction = onPostAction,
                 onShowTextMenu = onShowTextMenu,
                 onRequestTreePopup = onRequestTreePopup,
                 onAddPopupForReplyFrom = onAddPopupForReplyFrom,

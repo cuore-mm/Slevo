@@ -77,6 +77,9 @@ fun ThreadScaffold(
     val context = LocalContext.current
     val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
     var isPopupVisible by remember { mutableStateOf(false) }
+    val popupDialogState = rememberPostItemDialogState()
+    var popupMenuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
+    var popupDialogTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
 
     val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, threadRoute.threadKey)
@@ -272,9 +275,6 @@ fun ThreadScaffold(
             val clipboard = LocalClipboard.current
             val coroutineScope = rememberCoroutineScope()
             val uriHandler = LocalUriHandler.current
-            val popupDialogState = rememberPostItemDialogState()
-            var popupMenuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
-            var popupDialogTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
             val imageSavePermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission()
             ) { granted ->
