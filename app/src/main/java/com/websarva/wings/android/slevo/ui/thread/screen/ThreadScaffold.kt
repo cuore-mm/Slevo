@@ -49,12 +49,10 @@ import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
 import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
-import com.websarva.wings.android.slevo.ui.thread.res.PostItemDialogs
 import com.websarva.wings.android.slevo.ui.thread.res.ReplyPopup
 import com.websarva.wings.android.slevo.ui.thread.res.rememberPostItemDialogState
 import com.websarva.wings.android.slevo.ui.thread.sheet.DisplaySettingsBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
-import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
@@ -216,8 +214,13 @@ fun ThreadScaffold(
                 onLastRead = { resNum ->
                     routeThreadId?.let { viewModel.updateThreadLastRead(it, resNum) }
                 },
-                onReplyToPost = { viewModel.postDialogActions.showReplyDialog(it) },
                 gestureSettings = uiState.gestureSettings,
+                onPopupVisibilityChange = { isPopupVisible = it },
+                onRequestPostMenu = { target -> popupMenuTarget = target },
+                onRequestTextMenu = { text, type -> popupDialogState.showTextMenu(text, type) },
+                onRequestPostReply = { target ->
+                    viewModel.postDialogActions.showReplyDialog(target.postNum)
+                },
                 onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
                 onImageLoadError = { url, failureType ->
                     viewModel.onThreadImageLoadError(url, failureType)
@@ -238,7 +241,6 @@ fun ThreadScaffold(
                 },
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
-                onPopupVisibilityChange = { isPopupVisible = it },
                 onGestureAction = { action ->
                     dispatchCommonGestureAction(
                         action = action,
@@ -353,33 +355,23 @@ fun ThreadScaffold(
                 animatedVisibilityScope = animatedVisibilityScope,
             )
 
-            popupMenuTarget?.let { target ->
-                PostMenuSheet(
-                    postNum = target.postNum,
-                    onReplyClick = {
-                        popupMenuTarget = null
-                        viewModel.postDialogActions.showReplyDialog(target.postNum)
-                    },
-                    onCopyClick = {
-                        popupMenuTarget = null
-                        popupDialogTarget = target
-                        popupDialogState.showCopyDialog()
-                    },
-                    onNgClick = {
-                        popupMenuTarget = null
-                        popupDialogTarget = target
-                        popupDialogState.showNgSelectDialog()
-                    },
-                    onDismiss = { popupMenuTarget = null }
-                )
-            }
-
-            PostItemDialogs(
-                target = popupDialogTarget,
+            PostActionOverlayHost(
+                menuTarget = popupMenuTarget,
+                dialogTarget = popupDialogTarget,
                 boardName = uiState.boardInfo.name,
                 boardId = uiState.boardInfo.boardId,
                 scope = coroutineScope,
-                dialogState = popupDialogState
+                dialogState = popupDialogState,
+                onClearMenuTarget = { popupMenuTarget = null },
+                onReply = { target -> viewModel.postDialogActions.showReplyDialog(target.postNum) },
+                onCopy = { target ->
+                    popupDialogTarget = target
+                    popupDialogState.showCopyDialog()
+                },
+                onNg = { target ->
+                    popupDialogTarget = target
+                    popupDialogState.showNgSelectDialog()
+                },
             )
 
             ThreadInfoBottomSheet(

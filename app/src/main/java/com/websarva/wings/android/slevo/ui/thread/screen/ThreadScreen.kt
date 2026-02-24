@@ -56,9 +56,6 @@ import com.websarva.wings.android.slevo.ui.thread.screen.effects.ObservePopupVis
 import com.websarva.wings.android.slevo.ui.thread.screen.effects.rememberBottomRefreshHandle
 import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
-import com.websarva.wings.android.slevo.ui.thread.res.PostItemDialogs
-import com.websarva.wings.android.slevo.ui.thread.res.rememberPostItemDialogState
-import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.util.GestureHint
@@ -69,7 +66,7 @@ import kotlinx.coroutines.launch
 /**
  * スレッド画面を構成し、投稿一覧と各種オーバーレイを表示する。
  *
- * 投稿メニューやダイアログは画面レベルで集約して制御する。
+ * 投稿メニューやダイアログは上位のホストへ委譲する。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -83,10 +80,12 @@ fun ThreadScreen(
     onAutoScrollBottom: () -> Unit = {},
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
-    onReplyToPost: (Int) -> Unit = {},
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     onGestureAction: (GestureAction) -> Unit = {},
     onPopupVisibilityChange: (Boolean) -> Unit = {},
+    onRequestPostMenu: (PostDialogTarget) -> Unit = {},
+    onRequestTextMenu: (text: String, type: NgType) -> Unit = { _, _ -> },
+    onRequestPostReply: (PostDialogTarget) -> Unit = {},
     onRequestTreePopup: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onAddPopupForReplyFrom: (replyNumbers: List<Int>, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
@@ -112,9 +111,6 @@ fun ThreadScreen(
     val popupStack = uiState.popupStack
     // ポップアップ表示中はリスト側の共有トランジションを無効化する。
     val enableListSharedElements = popupStack.isEmpty()
-    val dialogState = rememberPostItemDialogState()
-    var menuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
-    var dialogTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
     val haptic = LocalHapticFeedback.current
@@ -136,12 +132,9 @@ fun ThreadScreen(
             )
             route?.let(navController::navigate)
         }
-    val onRequestMenu: (PostDialogTarget) -> Unit = { target ->
-        menuTarget = target
-    }
-    val onShowTextMenu: (String, NgType) -> Unit = { text, type ->
-        dialogState.showTextMenu(text = text, type = type)
-    }
+    val onRequestMenu: (PostDialogTarget) -> Unit = onRequestPostMenu
+    val onShowTextMenu: (String, NgType) -> Unit = onRequestTextMenu
+    val onPostAction: (PostDialogTarget) -> Unit = onRequestPostReply
 
     ObservePopupVisibilityEffect(
         popupCount = popupStack.size,
@@ -230,6 +223,7 @@ fun ThreadScreen(
                 onImageLoadSuccess = onImageLoadSuccess,
                 onImageRetry = onImageRetry,
                 onRequestMenu = onRequestMenu,
+                onPostAction = onPostAction,
                 onShowTextMenu = onShowTextMenu,
                 onRequestTreePopup = onRequestTreePopup,
                 onAddPopupForReplyFrom = onAddPopupForReplyFrom,
@@ -280,37 +274,6 @@ fun ThreadScreen(
                 )
             }
         }
-
-        // --- メニュー ---
-        menuTarget?.let { target ->
-            PostMenuSheet(
-                postNum = target.postNum,
-                onReplyClick = {
-                    menuTarget = null
-                    onReplyToPost(target.postNum)
-                },
-                onCopyClick = {
-                    menuTarget = null
-                    dialogTarget = target
-                    dialogState.showCopyDialog()
-                },
-                onNgClick = {
-                    menuTarget = null
-                    dialogTarget = target
-                    dialogState.showNgSelectDialog()
-                },
-                onDismiss = { menuTarget = null }
-            )
-        }
-
-        // --- ダイアログ ---
-        PostItemDialogs(
-            target = dialogTarget,
-            boardName = uiState.boardInfo.name,
-            boardId = uiState.boardInfo.boardId,
-            scope = coroutineScope,
-            dialogState = dialogState
-        )
 
         if (uiState.isLoading || bottomRefreshHandle.overscroll > 0f) {
             ContainedLoadingIndicator(
