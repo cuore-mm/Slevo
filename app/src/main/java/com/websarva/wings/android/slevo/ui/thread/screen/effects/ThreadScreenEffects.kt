@@ -146,6 +146,7 @@ fun rememberBottomRefreshHandle(
     val density = LocalDensity.current
     val refreshThresholdPx = with(density) { 80.dp.toPx() }
     var overscroll by remember { mutableFloatStateOf(0f) }
+    var overscrollConsumed by remember { mutableStateOf(false) }
     var triggerRefresh by remember { mutableStateOf(false) }
     var bottomRefreshArmed by remember { mutableStateOf(false) }
     var armOnNextDrag by remember { mutableStateOf(false) }
@@ -155,11 +156,13 @@ fun rememberBottomRefreshHandle(
     // --- Nested scroll ---
     val nestedScrollConnection = remember(listState, postCount, refreshThresholdPx) {
         object : NestedScrollConnection {
+            // --- Overscroll consumption ---
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 return if (overscroll > 0f && available.y > 0f) {
                     val consume = min(overscroll, available.y)
                     overscroll -= consume
                     triggerRefresh = overscroll >= refreshThresholdPx
+                    overscrollConsumed = overscroll > 0f
                     Offset(0f, consume)
                 } else {
                     Offset.Zero
@@ -172,18 +175,21 @@ fun rememberBottomRefreshHandle(
                 source: NestedScrollSource,
             ): Offset {
                 if (
-                    bottomRefreshArmed &&
                     source == NestedScrollSource.UserInput &&
                     !listState.canScrollForward &&
                     available.y < 0f
                 ) {
-                    overscroll -= available.y
-                    val reached = overscroll >= refreshThresholdPx
-                    // Guard: 未到達 -> 到達 の遷移時のみ触覚を返す。
-                    if (reached && !triggerRefresh) {
-                        hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                    if (bottomRefreshArmed || overscrollConsumed) {
+                        overscroll -= available.y
+                        val reached = overscroll >= refreshThresholdPx
+                        // Guard: 未到達 -> 到達 の遷移時のみ触覚を返す。
+                        if (bottomRefreshArmed && reached && !triggerRefresh) {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                        }
+                        triggerRefresh = reached
+                        overscrollConsumed = overscroll > 0f
+                        return Offset(0f, available.y)
                     }
-                    triggerRefresh = reached
                 }
                 return Offset.Zero
             }
@@ -194,6 +200,7 @@ fun rememberBottomRefreshHandle(
                     onBottomRefresh()
                 }
                 overscroll = 0f
+                overscrollConsumed = false
                 triggerRefresh = false
                 bottomRefreshArmed = false
                 return Velocity.Zero
@@ -247,6 +254,7 @@ fun rememberBottomRefreshHandle(
                     armOnNextDrag = false
                     waitingForBottomReach = false
                     overscroll = 0f
+                    overscrollConsumed = false
                     triggerRefresh = false
                 } else if (waitingForBottomReach) {
                     // Guard: ドラッグ終了後に慣性で下端到達した場合、次ドラッグで更新判定可能にする。

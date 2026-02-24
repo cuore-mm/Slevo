@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 /**
  * Thread 画面の下端更新インジケーターを描画する。
  *
- * プル中は `overscroll` 量に応じた回転と拡大を行い、指を離した後も縮小しながら回転を戻す。
+ * プル中は `overscroll` 量に応じた回転と拡大を行い、消える際も縮小と右回転を継続する。
  * 更新中は既存どおり右回転表示を維持する。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -36,30 +36,24 @@ fun BoxScope.ThreadBottomRefreshIndicator(
     }
     val sizeProgress = rawProgress.coerceIn(0f, 1f)
 
-    if (isRefreshing) {
-        ContainedLoadingIndicator(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 16.dp),
-        )
-        return
-    }
+    // --- Pulling/refresh motion ---
+    // Guard: 回転は進捗由来の角度式で制御し、戻し操作では角度が減って右回転に見える。
+    val scaleProgressTarget = if (isRefreshing) 1f else sizeProgress
+    val rotationProgressTarget = if (isRefreshing) 1f else rawProgress
 
-    // --- Pulling motion ---
-    // Guard: 進捗に応じた角度目標を設定し、戻し操作では角度が減って右回転に見える。
-    val targetRotation = -MAX_PULL_ROTATION_DEGREES * rawProgress
-    val animatedRotation by animateFloatAsState(
-        targetValue = targetRotation,
+    val animatedScaleProgress by animateFloatAsState(
+        targetValue = scaleProgressTarget,
         animationSpec = spring(),
-        label = "threadPullIndicatorRotation",
+        label = "threadPullIndicatorScaleProgress",
+    )
+    val animatedRotationProgress by animateFloatAsState(
+        targetValue = rotationProgressTarget,
+        animationSpec = spring(),
+        label = "threadPullIndicatorRotationProgress",
     )
 
-    val targetScale = lerp(MIN_PULL_SCALE, MAX_PULL_SCALE, sizeProgress)
-    val animatedScale by animateFloatAsState(
-        targetValue = targetScale,
-        animationSpec = spring(),
-        label = "threadPullIndicatorScale",
-    )
+    val animatedScale = lerp(MIN_PULL_SCALE, MAX_PULL_SCALE, animatedScaleProgress.coerceIn(0f, 1f))
+    val animatedRotation = -MAX_PULL_ROTATION_DEGREES * animatedRotationProgress
 
     if (animatedScale <= 0f) {
         // Guard: 縮小が完了したら描画を終了する。
@@ -76,7 +70,7 @@ fun BoxScope.ThreadBottomRefreshIndicator(
                 rotationZ = animatedRotation,
                 transformOrigin = TransformOrigin.Center,
             ),
-        progress = { sizeProgress },
+        progress = if (isRefreshing) null else { animatedScaleProgress.coerceIn(0f, 1f) },
     )
 }
 
