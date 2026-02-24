@@ -10,8 +10,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 
 /**
@@ -68,13 +68,13 @@ fun BoxScope.ThreadBottomRefreshIndicator(
     ContainedLoadingIndicator(
         modifier = Modifier
             .align(Alignment.BottomCenter)
+            .padding(bottom = 16.dp)
             .graphicsLayer(
                 scaleX = animatedScale,
                 scaleY = animatedScale,
                 rotationZ = animatedRotation,
                 transformOrigin = TransformOrigin.Center,
-            )
-            .padding(bottom = 16.dp),
+            ),
         progress = { sizeProgress },
     )
 }
@@ -87,6 +87,6 @@ private fun lerp(start: Float, end: Float, fraction: Float): Float {
 }
 
 // --- Motion constants ---
-private const val MIN_PULL_SCALE = 0.8f
+private const val MIN_PULL_SCALE = 0.0f
 private const val MAX_PULL_SCALE = 1.0f
 private const val MAX_PULL_ROTATION_DEGREES = 180f
