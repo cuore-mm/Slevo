@@ -145,7 +145,8 @@ fun rememberBottomRefreshHandle(
     // --- State ---
     val density = LocalDensity.current
     val refreshThresholdPx = with(density) { 80.dp.toPx() }
-    var overscroll by remember { mutableFloatStateOf(0f) }
+    // Guard: 0 を下回る値は「戻し超過」の借金として保持する。
+    var sessionPullOffset by remember { mutableFloatStateOf(0f) }
     var overscrollConsumed by remember { mutableStateOf(false) }
     var triggerRefresh by remember { mutableStateOf(false) }
     var bottomRefreshArmed by remember { mutableStateOf(false) }
@@ -158,13 +159,13 @@ fun rememberBottomRefreshHandle(
         object : NestedScrollConnection {
             // --- Overscroll consumption ---
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                return if (overscroll > 0f && available.y > 0f) {
-                    val consume = min(overscroll, available.y)
-                    overscroll -= consume
-                    triggerRefresh = overscroll >= refreshThresholdPx
-                    // Guard: 一度開始した overscroll は指を離すまで消費を続ける。
-                    overscrollConsumed = overscrollConsumed || overscroll > 0f
-                    Offset(0f, consume)
+                return if (overscrollConsumed && available.y > 0f) {
+                    // Guard: overscroll セッション中は指を離すまで縦スクロールを消費する。
+                    sessionPullOffset -= available.y
+                    // Guard: 表示/閾値判定は 0 以上のみを対象とする。
+                    val displayOverscroll = sessionPullOffset.coerceAtLeast(0f)
+                    triggerRefresh = displayOverscroll >= refreshThresholdPx
+                    Offset(0f, available.y)
                 } else {
                     Offset.Zero
                 }
@@ -181,8 +182,10 @@ fun rememberBottomRefreshHandle(
                     available.y < 0f
                 ) {
                     if (bottomRefreshArmed || overscrollConsumed) {
-                        overscroll -= available.y
-                        val reached = overscroll >= refreshThresholdPx
+                        sessionPullOffset -= available.y
+                        // Guard: 表示/閾値判定は 0 以上のみを対象とする。
+                        val displayOverscroll = sessionPullOffset.coerceAtLeast(0f)
+                        val reached = displayOverscroll >= refreshThresholdPx
                         // Guard: 未到達 -> 到達 の遷移時のみ触覚を返す。
                         if (bottomRefreshArmed && reached && !triggerRefresh) {
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
@@ -201,7 +204,7 @@ fun rememberBottomRefreshHandle(
                     onLastRead(postCount)
                     onBottomRefresh()
                 }
-                overscroll = 0f
+                sessionPullOffset = 0f
                 overscrollConsumed = false
                 triggerRefresh = false
                 bottomRefreshArmed = false
@@ -235,6 +238,7 @@ fun rememberBottomRefreshHandle(
                 is DragInteraction.Cancel -> {
                     isDragging = false
                     overscrollConsumed = false
+                    sessionPullOffset = 0f
                     if (!listState.canScrollForward) {
                         // Guard: ドラッグ終了時に既に下端にいる場合、次ドラッグで更新判定可能にする。
                         armOnNextDrag = true
@@ -256,7 +260,7 @@ fun rememberBottomRefreshHandle(
                     bottomRefreshArmed = false
                     armOnNextDrag = false
                     waitingForBottomReach = false
-                    overscroll = 0f
+                    sessionPullOffset = 0f
                     overscrollConsumed = false
                     triggerRefresh = false
                 } else if (waitingForBottomReach) {
@@ -273,7 +277,7 @@ fun rememberBottomRefreshHandle(
     // --- Output ---
     return BottomRefreshHandle(
         nestedScrollConnection = nestedScrollConnection,
-        overscroll = overscroll,
+        overscroll = sessionPullOffset.coerceAtLeast(0f),
         refreshThresholdPx = refreshThresholdPx,
     )
 }
