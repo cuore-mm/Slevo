@@ -162,7 +162,8 @@ fun rememberBottomRefreshHandle(
                     val consume = min(overscroll, available.y)
                     overscroll -= consume
                     triggerRefresh = overscroll >= refreshThresholdPx
-                    overscrollConsumed = overscroll > 0f
+                    // Guard: 一度開始した overscroll は指を離すまで消費を続ける。
+                    overscrollConsumed = overscrollConsumed || overscroll > 0f
                     Offset(0f, consume)
                 } else {
                     Offset.Zero
@@ -187,7 +188,8 @@ fun rememberBottomRefreshHandle(
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
                         }
                         triggerRefresh = reached
-                        overscrollConsumed = overscroll > 0f
+                        // Guard: overscroll 開始後はドラッグ終了まで消費を継続する。
+                        overscrollConsumed = true
                         return Offset(0f, available.y)
                     }
                 }
@@ -232,6 +234,7 @@ fun rememberBottomRefreshHandle(
                 is DragInteraction.Stop,
                 is DragInteraction.Cancel -> {
                     isDragging = false
+                    overscrollConsumed = false
                     if (!listState.canScrollForward) {
                         // Guard: ドラッグ終了時に既に下端にいる場合、次ドラッグで更新判定可能にする。
                         armOnNextDrag = true
