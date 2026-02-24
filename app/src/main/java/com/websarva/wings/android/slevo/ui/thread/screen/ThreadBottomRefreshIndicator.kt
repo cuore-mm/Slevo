@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.dp
 
 /**
@@ -71,6 +72,7 @@ fun BoxScope.ThreadBottomRefreshIndicator(
                 scaleX = animatedScale,
                 scaleY = animatedScale,
                 rotationZ = animatedRotation,
+                transformOrigin = TransformOrigin.Center,
             )
             .padding(bottom = 16.dp),
         progress = { sizeProgress },
