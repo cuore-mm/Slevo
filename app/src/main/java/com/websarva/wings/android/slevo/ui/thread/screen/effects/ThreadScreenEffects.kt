@@ -256,6 +256,10 @@ fun rememberBottomRefreshHandle(
         snapshotFlow { listState.canScrollForward }
             .collect { canScrollForward ->
                 if (canScrollForward) {
+                    if (overscrollConsumed) {
+                        // Guard: overscroll セッション中はアーム解除を行わない。
+                        return@collect
+                    }
                     // Guard: 下端を離れたら更新判定と次ドラッグアームを解除する。
                     bottomRefreshArmed = false
                     armOnNextDrag = false
