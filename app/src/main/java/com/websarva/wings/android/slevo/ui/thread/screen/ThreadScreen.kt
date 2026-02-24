@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
@@ -272,13 +271,11 @@ fun ThreadScreen(
             }
         }
 
-        if (uiState.isLoading || bottomRefreshHandle.overscroll > 0f) {
-            ContainedLoadingIndicator(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 16.dp)
-            )
-        }
+        ThreadBottomRefreshIndicator(
+            isRefreshing = uiState.isLoading,
+            overscroll = bottomRefreshHandle.overscroll,
+            refreshThresholdPx = bottomRefreshHandle.refreshThresholdPx,
+        )
         if (gestureSettings.showActionHints) {
             GestureHintOverlay(state = gestureHint)
         }

@@ -128,6 +128,7 @@ fun ObserveAutoScrollEffect(
 data class BottomRefreshHandle(
     val nestedScrollConnection: NestedScrollConnection,
     val overscroll: Float,
+    val refreshThresholdPx: Float,
 )
 
 /**
@@ -262,6 +263,7 @@ fun rememberBottomRefreshHandle(
     return BottomRefreshHandle(
         nestedScrollConnection = nestedScrollConnection,
         overscroll = overscroll,
+        refreshThresholdPx = refreshThresholdPx,
     )
 }
 
