@@ -36,9 +36,9 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
+import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
 import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
-import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
@@ -221,9 +221,6 @@ fun ThreadScaffold(
                 onPopupVisibilityChange = { isPopupVisible = it },
                 onRequestPostMenu = { target -> popupMenuTarget = target },
                 onRequestTextMenu = { text, type -> popupDialogState.showTextMenu(text, type) },
-                onRequestPostReply = { target ->
-                    viewModel.postDialogActions.showReplyDialog(target.postNum)
-                },
                 onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
                 onImageLoadError = { url, failureType ->
                     viewModel.onThreadImageLoadError(url, failureType)

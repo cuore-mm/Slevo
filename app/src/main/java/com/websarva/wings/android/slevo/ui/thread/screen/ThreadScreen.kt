@@ -49,13 +49,13 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
+import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
 import com.websarva.wings.android.slevo.ui.thread.screen.components.threadPostListContent
 import com.websarva.wings.android.slevo.ui.thread.screen.effects.ObserveAutoScrollEffect
 import com.websarva.wings.android.slevo.ui.thread.screen.effects.ObserveLastReadEffect
 import com.websarva.wings.android.slevo.ui.thread.screen.effects.ObservePopupVisibilityEffect
 import com.websarva.wings.android.slevo.ui.thread.screen.effects.rememberBottomRefreshHandle
-import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
-import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.util.GestureHint
@@ -85,7 +85,6 @@ fun ThreadScreen(
     onPopupVisibilityChange: (Boolean) -> Unit = {},
     onRequestPostMenu: (PostDialogTarget) -> Unit = {},
     onRequestTextMenu: (text: String, type: NgType) -> Unit = { _, _ -> },
-    onRequestPostReply: (PostDialogTarget) -> Unit = {},
     onRequestTreePopup: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onAddPopupForReplyFrom: (replyNumbers: List<Int>, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
@@ -134,7 +133,6 @@ fun ThreadScreen(
         }
     val onRequestMenu: (PostDialogTarget) -> Unit = onRequestPostMenu
     val onShowTextMenu: (String, NgType) -> Unit = onRequestTextMenu
-    val onPostAction: (PostDialogTarget) -> Unit = onRequestPostReply
 
     ObservePopupVisibilityEffect(
         popupCount = popupStack.size,
