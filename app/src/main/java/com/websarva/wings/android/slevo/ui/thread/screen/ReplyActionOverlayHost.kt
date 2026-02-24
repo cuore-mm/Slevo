@@ -4,16 +4,16 @@ import androidx.compose.runtime.Composable
 import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
 import com.websarva.wings.android.slevo.ui.thread.res.PostItemDialogs
 import com.websarva.wings.android.slevo.ui.thread.res.PostItemDialogState
-import com.websarva.wings.android.slevo.ui.thread.sheet.PostMenuSheet
+import com.websarva.wings.android.slevo.ui.thread.sheet.ReplyActionMenuSheet
 import kotlinx.coroutines.CoroutineScope
 
 /**
- * 投稿メニューとダイアログを統合して表示するホスト。
+ * レスの操作メニューとダイアログを統合して表示するホスト。
  *
  * 直前のメニュー対象を保持し、選択アクションに応じてダイアログ表示や返信処理を委譲する。
  */
 @Composable
-fun PostActionOverlayHost(
+fun ReplyActionOverlayHost(
     menuTarget: PostDialogTarget?,
     dialogTarget: PostDialogTarget?,
     boardName: String,
@@ -26,7 +26,7 @@ fun PostActionOverlayHost(
     onNg: (PostDialogTarget) -> Unit,
 ) {
     menuTarget?.let { target ->
-        PostMenuSheet(
+        ReplyActionMenuSheet(
             postNum = target.postNum,
             onReplyClick = {
                 onClearMenuTarget()

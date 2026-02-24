@@ -355,7 +355,7 @@ fun ThreadScaffold(
                 animatedVisibilityScope = animatedVisibilityScope,
             )
 
-            PostActionOverlayHost(
+            ReplyActionOverlayHost(
                 menuTarget = popupMenuTarget,
                 dialogTarget = popupDialogTarget,
                 boardName = uiState.boardInfo.name,
