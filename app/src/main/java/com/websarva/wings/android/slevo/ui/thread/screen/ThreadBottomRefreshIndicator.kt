@@ -17,7 +17,8 @@ import androidx.compose.ui.unit.dp
 /**
  * Thread 画面の下端更新インジケーターを描画する。
  *
- * プル中は `overscroll` 量に応じた回転と拡大を行い、更新中は既存どおり右回転表示を維持する。
+ * プル中は `overscroll` 量に応じた回転と拡大を行い、指を離した後も縮小しながら回転を戻す。
+ * 更新中は既存どおり右回転表示を維持する。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -26,11 +27,6 @@ fun BoxScope.ThreadBottomRefreshIndicator(
     overscroll: Float,
     refreshThresholdPx: Float,
 ) {
-    if (!isRefreshing && overscroll <= 0f) {
-        // Guard: 非更新・非プル時は表示しない。
-        return
-    }
-
     // --- Progress calculation ---
     val rawProgress = if (refreshThresholdPx > 0f) {
         overscroll / refreshThresholdPx
@@ -64,6 +60,11 @@ fun BoxScope.ThreadBottomRefreshIndicator(
         animationSpec = spring(),
         label = "threadPullIndicatorScale",
     )
+
+    if (animatedScale <= 0f) {
+        // Guard: 縮小が完了したら描画を終了する。
+        return
+    }
 
     ContainedLoadingIndicator(
         modifier = Modifier
