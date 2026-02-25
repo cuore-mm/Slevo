@@ -153,13 +153,14 @@ fun rememberBottomRefreshHandle(
     var armOnNextDrag by remember { mutableStateOf(false) }
     var waitingForBottomReach by remember { mutableStateOf(false) }
     var isDragging by remember { mutableStateOf(false) }
+    var pendingRelease by remember { mutableStateOf(false) }
 
     // --- Nested scroll ---
     val nestedScrollConnection = remember(listState, postCount, refreshThresholdPx) {
         object : NestedScrollConnection {
             // --- Overscroll consumption ---
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                return if (overscrollConsumed && available.y > 0f) {
+                return if (overscrollConsumed && available.y > 0f && source == NestedScrollSource.UserInput) {
                     // Guard: overscroll セッション中は指を離すまで縦スクロールを消費する。
                     sessionPullOffset -= available.y
                     // Guard: 表示/閾値判定は 0 以上のみを対象とする。
@@ -208,6 +209,7 @@ fun rememberBottomRefreshHandle(
                 overscrollConsumed = false
                 triggerRefresh = false
                 bottomRefreshArmed = false
+                pendingRelease = false
                 return Velocity.Zero
             }
         }
@@ -237,8 +239,17 @@ fun rememberBottomRefreshHandle(
                 is DragInteraction.Stop,
                 is DragInteraction.Cancel -> {
                     isDragging = false
-                    overscrollConsumed = false
-                    sessionPullOffset = 0f
+                    if (interaction is DragInteraction.Cancel) {
+                        // Guard: キャンセル時は即時にセッションを破棄する。
+                        sessionPullOffset = 0f
+                        overscrollConsumed = false
+                        triggerRefresh = false
+                        bottomRefreshArmed = false
+                        pendingRelease = false
+                    } else {
+                        // Guard: onPostFling で発火判定するため、状態は維持する。
+                        pendingRelease = true
+                    }
                     if (!listState.canScrollForward) {
                         // Guard: ドラッグ終了時に既に下端にいる場合、次ドラッグで更新判定可能にする。
                         armOnNextDrag = true
@@ -256,8 +267,8 @@ fun rememberBottomRefreshHandle(
         snapshotFlow { listState.canScrollForward }
             .collect { canScrollForward ->
                 if (canScrollForward) {
-                    if (overscrollConsumed) {
-                        // Guard: overscroll セッション中はアーム解除を行わない。
+                    if (overscrollConsumed || pendingRelease) {
+                        // Guard: セッション中や指離し直後はアーム解除を行わない。
                         return@collect
                     }
                     // Guard: 下端を離れたら更新判定と次ドラッグアームを解除する。
