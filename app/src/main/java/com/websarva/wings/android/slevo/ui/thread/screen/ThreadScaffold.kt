@@ -213,7 +213,7 @@ fun ThreadScaffold(
                 tabsViewModel = tabsViewModel,
                 showBottomBar = showBottomBar,
                 onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
-                onBottomRefresh = { viewModel.reloadThread() },
+                onBottomRefresh = { viewModel.reloadThreadFromBottomPull() },
                 onLastRead = { resNum ->
                     routeThreadId?.let { viewModel.updateThreadLastRead(it, resNum) }
                 },

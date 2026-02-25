@@ -39,6 +39,7 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDial
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
@@ -342,6 +343,7 @@ class ThreadViewModel @AssistedInject constructor(
             _uiState.update { state ->
                 state.copy(sortType = if (isTree) ThreadSortType.TREE else ThreadSortType.NUMBER)
             }
+            startThreadLoad(ThreadLoadingSource.INITIAL)
             initialize(force)
         }
     }
@@ -385,7 +387,14 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     override suspend fun loadData(isRefresh: Boolean) {
-        startThreadLoad()
+        val source = if (isRefresh) {
+            ThreadLoadingSource.MANUAL
+        } else {
+            ThreadLoadingSource.INITIAL
+        }
+        if (uiState.value.loadingSource == ThreadLoadingSource.NONE) {
+            startThreadLoad(source)
+        }
         val boardUrl = uiState.value.boardInfo.url
         val key = uiState.value.threadInfo.key
 
@@ -410,8 +419,14 @@ class ThreadViewModel @AssistedInject constructor(
     /**
      * 読み込み開始時の UIState を初期化する。
      */
-    private fun startThreadLoad() {
-        _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
+    private fun startThreadLoad(source: ThreadLoadingSource) {
+        _uiState.update {
+            it.copy(
+                isLoading = true,
+                loadProgress = 0f,
+                loadingSource = source,
+            )
+        }
     }
 
     /**
@@ -482,6 +497,7 @@ class ThreadViewModel @AssistedInject constructor(
                 posts = derived.uiPosts,
                 isLoading = false,
                 loadProgress = 1f,
+                loadingSource = ThreadLoadingSource.NONE,
                 threadInfo = it.threadInfo.copy(
                     title = derived.threadTitle ?: it.threadInfo.title,
                     resCount = derived.resCount,
@@ -557,7 +573,13 @@ class ThreadViewModel @AssistedInject constructor(
      * 取得失敗時にローディングを解除し、必要ならログを出力する。
      */
     private fun handleLoadFailure(boardUrl: String, key: String, shouldLog: Boolean) {
-        _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                loadProgress = 1f,
+                loadingSource = ThreadLoadingSource.NONE,
+            )
+        }
         if (shouldLog) {
             Timber.e("Failed to load thread data for board: $boardUrl key: $key")
         }
@@ -805,7 +827,18 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     fun reloadThread() {
+        startThreadLoad(ThreadLoadingSource.MANUAL)
         initialize(force = true) // 強制的に初期化処理を再実行
+    }
+
+    /**
+     * 下端プル更新でスレッドを再読み込みする。
+     */
+    fun reloadThreadFromBottomPull() {
+        startThreadLoad(ThreadLoadingSource.BOTTOM_PULL)
+        viewModelScope.launch {
+            loadData(isRefresh = true)
+        }
     }
 
     fun toggleAutoScroll() {
@@ -821,7 +854,8 @@ class ThreadViewModel @AssistedInject constructor(
         val now = System.currentTimeMillis()
         if (lastAutoRefreshTime == 0L || now - lastAutoRefreshTime >= 10_000L) {
             lastAutoRefreshTime = now
-            reloadThread()
+            startThreadLoad(ThreadLoadingSource.AUTO_SCROLL)
+            initialize(force = true)
         }
     }
 

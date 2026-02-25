@@ -55,6 +55,7 @@ import com.websarva.wings.android.slevo.ui.thread.screen.effects.ObserveAutoScro
 import com.websarva.wings.android.slevo.ui.thread.screen.effects.ObserveLastReadEffect
 import com.websarva.wings.android.slevo.ui.thread.screen.effects.ObservePopupVisibilityEffect
 import com.websarva.wings.android.slevo.ui.thread.screen.effects.rememberBottomRefreshHandle
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.util.GestureHint
@@ -272,7 +273,8 @@ fun ThreadScreen(
         }
 
         ThreadBottomRefreshIndicator(
-            isRefreshing = uiState.isLoading,
+            isRefreshing = uiState.isLoading &&
+                uiState.loadingSource == ThreadLoadingSource.BOTTOM_PULL,
             overscroll = bottomRefreshHandle.overscroll,
             refreshThresholdPx = bottomRefreshHandle.refreshThresholdPx,
         )
