@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -87,7 +86,7 @@ fun LazyListScope.threadPostListContent(
         } else {
             0
         }
-        val itemOffset = remember { mutableStateOf(IntOffset.Zero) }
+        val itemOffset = remember { OffsetRef(IntOffset.Zero) }
         val transitionNamespace = remember(postNum) {
             ImageSharedTransitionKeyFactory.threadPostNamespace(postNum)
         }
@@ -164,3 +163,9 @@ fun LazyListScope.threadPostListContent(
         }
     }
 }
+/**
+ * スクロール中の位置更新を保持する軽量な参照ホルダ。
+ *
+ * レイアウト座標を保持するが再コンポーズは発生させない。
+ */
+private class OffsetRef(var value: IntOffset)
