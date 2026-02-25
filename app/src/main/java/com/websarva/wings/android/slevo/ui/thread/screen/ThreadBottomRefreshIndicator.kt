@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 
 /**
  * Thread 画面の下端更新インジケーターを描画する。
@@ -53,35 +54,36 @@ fun BoxScope.ThreadBottomRefreshIndicator(
     )
 
     val animatedScale = lerp(MIN_PULL_SCALE, MAX_PULL_SCALE, animatedScaleProgress.coerceIn(0f, 1f))
-    val animatedRotation = -MAX_PULL_ROTATION_DEGREES * animatedRotationProgress
+    val animatedRotation =
+        if (isRefreshing) 0f else -MAX_PULL_ROTATION_DEGREES * animatedRotationProgress
 
     if (animatedScale <= 0f) {
         // Guard: 縮小が完了したら描画を終了する。
         return
     }
 
-    ContainedLoadingIndicator(
-        modifier = Modifier
-            .align(Alignment.BottomCenter)
-            .padding(bottom = 16.dp)
-            .graphicsLayer(
-                scaleX = animatedScale,
-                scaleY = animatedScale,
-                rotationZ = animatedRotation,
-                transformOrigin = TransformOrigin.Center,
-            ),
-        progress = { animatedScaleProgress.coerceIn(0f, 1f) },
-    )
-}
-
-/**
- * 0.0〜1.0 の範囲で値を線形補間する。
- */
-private fun lerp(start: Float, end: Float, fraction: Float): Float {
-    return start + (end - start) * fraction
+    val indicatorModifier = Modifier
+        .align(Alignment.BottomCenter)
+        .padding(bottom = 16.dp)
+        .graphicsLayer(
+            scaleX = animatedScale,
+            scaleY = animatedScale,
+            rotationZ = animatedRotation,
+            transformOrigin = TransformOrigin.Center,
+        )
+    if (isRefreshing) {
+        ContainedLoadingIndicator(
+            modifier = indicatorModifier,
+        )
+    } else {
+        ContainedLoadingIndicator(
+            modifier = indicatorModifier,
+            progress = { animatedScaleProgress.coerceIn(0f, 1f) },
+        )
+    }
 }
 
 // --- Motion constants ---
 private const val MIN_PULL_SCALE = 0.0f
 private const val MAX_PULL_SCALE = 1.0f
-private const val MAX_PULL_ROTATION_DEGREES = 180f
+private const val MAX_PULL_ROTATION_DEGREES = 45f
