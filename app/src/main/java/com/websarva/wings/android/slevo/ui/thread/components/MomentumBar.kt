@@ -28,7 +28,13 @@ import com.websarva.wings.android.slevo.ui.theme.urlColor
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
+/**
+ * スレッド画面のミニマップ（勢いバー）を描画し、タップ/ドラッグ操作を処理する。
+ *
+ * タップは目標位置移動、ドラッグは連続スクロールで追従させる。
+ */
 @Composable
 fun MomentumBar(
     modifier: Modifier = Modifier,
@@ -60,29 +66,51 @@ fun MomentumBar(
             .onSizeChanged { barHeight = it.height }
             .pointerInput(posts, barHeight) {
                 detectTapGestures { offset ->
-                    if (barHeight > 0 && posts.isNotEmpty()) {
+                    if (barHeight <= 0 || posts.isEmpty()) {
+                        // Guard: バーサイズ未確定/投稿なしの場合は操作を無視する。
+                        return@detectTapGestures
+                    }
+                    val postHeight = barHeight.toFloat() / posts.size
+                    val index = (offset.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
+                    scope.launch { lazyListState.scrollToItem(index) }
+                }
+            }
+            .pointerInput(posts, barHeight, lazyListState) {
+                detectVerticalDragGestures(
+                    onDragStart = { offset ->
+                        if (barHeight <= 0 || posts.isEmpty()) {
+                            // Guard: バーサイズ未確定/投稿なしの場合は操作を無視する。
+                            return@detectVerticalDragGestures
+                        }
                         val postHeight = barHeight.toFloat() / posts.size
                         val index = (offset.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
                         scope.launch { lazyListState.scrollToItem(index) }
-                    }
-                }
-            }
-            .pointerInput(posts, barHeight) {
-                detectVerticalDragGestures(
-                    onDragStart = { offset ->
-                        if (barHeight > 0 && posts.isNotEmpty()) {
-                            val postHeight = barHeight.toFloat() / posts.size
-                            val index = (offset.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
-                            scope.launch { lazyListState.scrollToItem(index) }
-                        }
                     },
-                    onVerticalDrag = { change, _ ->
-                        if (barHeight > 0 && posts.isNotEmpty()) {
-                            val postHeight = barHeight.toFloat() / posts.size
-                            val index = (change.position.y / postHeight).toInt()
-                                .coerceIn(0, posts.lastIndex)
-                            scope.launch { lazyListState.scrollToItem(index) }
+                    onVerticalDrag = { _, dragAmount ->
+                        if (barHeight <= 0 || posts.isEmpty()) {
+                            // Guard: バーサイズ未確定/投稿なしの場合は操作を無視する。
+                            return@detectVerticalDragGestures
                         }
+                        val layoutInfo = lazyListState.layoutInfo
+                        val visibleItems = layoutInfo.visibleItemsInfo
+                        if (visibleItems.isEmpty()) {
+                            // Guard: 可視アイテムが取得できない場合は追従しない。
+                            return@detectVerticalDragGestures
+                        }
+                        val averageItemSize =
+                            visibleItems.sumOf { it.size }.toFloat() / visibleItems.size
+                        if (averageItemSize <= 0f) {
+                            // Guard: 異常値は連続追従の計算対象外にする。
+                            return@detectVerticalDragGestures
+                        }
+                        val totalContentHeight = averageItemSize * posts.size
+                        val scrollScale = totalContentHeight / barHeight
+                        val scrollDelta = -dragAmount * scrollScale
+                        if (abs(scrollDelta) < MIN_SCROLL_DELTA_PX) {
+                            // Guard: 微小なドラッグは連続スクロールの負荷を抑えるため無視する。
+                            return@detectVerticalDragGestures
+                        }
+                        scope.launch { lazyListState.scrollBy(scrollDelta) }
                     }
                 )
             }
@@ -126,11 +154,27 @@ fun MomentumBar(
                     close()
                 }
                 drawPath(path, color = barColor)
-                val firstVisible = lazyListState.firstVisibleItemIndex
-                val visibleCount = lazyListState.layoutInfo.visibleItemsInfo.size
-                if (visibleCount > 0) {
-                    val indicatorTop = firstVisible * postHeight
-                    val indicatorHeight = visibleCount * postHeight
+                val layoutInfo = lazyListState.layoutInfo
+                val visibleItems = layoutInfo.visibleItemsInfo
+                if (visibleItems.isNotEmpty()) {
+                    val averageItemSize =
+                        visibleItems.sumOf { it.size }.toFloat() / visibleItems.size
+                    val fractionalIndex = if (averageItemSize > 0f) {
+                        // Guard: 可視オフセットを補間に使い、インジケーターを連続的に動かす。
+                        lazyListState.firstVisibleItemIndex +
+                            lazyListState.firstVisibleItemScrollOffset / averageItemSize
+                    } else {
+                        lazyListState.firstVisibleItemIndex.toFloat()
+                    }
+                    val viewportHeight =
+                        layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
+                    val estimatedVisibleCount = if (averageItemSize > 0f) {
+                        viewportHeight / averageItemSize
+                    } else {
+                        visibleItems.size.toFloat()
+                    }
+                    val indicatorTop = fractionalIndex.coerceAtLeast(0f) * postHeight
+                    val indicatorHeight = estimatedVisibleCount.coerceAtLeast(1f) * postHeight
                     drawRect(
                         color = indicatorColor,
                         topLeft = Offset(x = 0f, y = indicatorTop),
@@ -258,3 +302,6 @@ fun MomentumBarPreview() {
         myPostNumbers = myPosts
     )
 }
+
+// --- Drag tuning ---
+private const val MIN_SCROLL_DELTA_PX = 0.5f
