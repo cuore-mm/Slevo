@@ -17,6 +17,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.tooling.preview.Preview
@@ -63,6 +64,50 @@ fun MomentumBar(
     var barHeight by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
 
+    /**
+     * バー上のドラッグ量を投稿リストのスクロール量へ換算する。
+     *
+     * ミニマップは投稿数に対して等間隔のため、可視投稿の平均高さで概算し、
+     * バー上の移動量とスクロール可能領域の比率を合わせる。
+     */
+    fun calculateDragScrollDelta(
+        dragDeltaPx: Float,
+        listState: LazyListState,
+        currentBarHeight: Int,
+        totalPosts: Int,
+    ): Float {
+        // --- ガード ---
+        if (currentBarHeight <= 0 || totalPosts <= 0) {
+            return 0f
+        }
+
+        // --- 換算係数 ---
+        val layoutInfo = listState.layoutInfo
+        val visibleItems = layoutInfo.visibleItemsInfo
+        if (visibleItems.isEmpty()) {
+            return 0f
+        }
+        val viewportHeight = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset)
+            .coerceAtLeast(0)
+        if (viewportHeight == 0) {
+            return 0f
+        }
+        val barHeightPx = currentBarHeight.toFloat()
+        val measuredItems = visibleItems.filter { it.size > 0 }
+        if (measuredItems.isEmpty()) {
+            return 0f
+        }
+        val averageItemSize = measuredItems.sumOf { it.size }.toFloat() / measuredItems.size
+        val totalContentHeight = averageItemSize * totalPosts
+        val listScrollableHeight = (totalContentHeight - viewportHeight).coerceAtLeast(0f)
+        val indicatorHeight = barHeightPx * viewportHeight / totalContentHeight
+        val barScrollableHeight = (barHeightPx - indicatorHeight).coerceAtLeast(1f)
+        val scrollScale = listScrollableHeight / barScrollableHeight
+
+        // --- 変換結果 ---
+        return dragDeltaPx * scrollScale
+    }
+
     Canvas(
         modifier = modifier
             .onSizeChanged { barHeight = it.height }
@@ -86,13 +131,21 @@ fun MomentumBar(
                             scope.launch { lazyListState.scrollToItem(index) }
                         }
                     },
-                    onVerticalDrag = { change, _ ->
+                    onVerticalDrag = { change, dragAmount ->
                         // ガード: 高さが未計測/投稿なしの状態では分母が崩れるため処理しない。
-                        if (barHeight > 0 && posts.isNotEmpty()) {
-                            val postHeight = barHeight.toFloat() / posts.size
-                            val index = (change.position.y / postHeight).toInt()
-                                .coerceIn(0, posts.lastIndex)
-                            scope.launch { lazyListState.scrollToItem(index) }
+                        if (barHeight <= 0 || posts.isEmpty()) {
+                            return@detectVerticalDragGestures
+                        }
+                        // ドラッグ量をスクロール量へ変換し、連続スクロールで反映する。
+                        val listDelta = calculateDragScrollDelta(
+                            dragDeltaPx = dragAmount,
+                            listState = lazyListState,
+                            currentBarHeight = barHeight,
+                            totalPosts = posts.size,
+                        )
+                        if (listDelta != 0f) {
+                            change.consume()
+                            lazyListState.dispatchRawDelta(listDelta)
                         }
                     }
                 )
