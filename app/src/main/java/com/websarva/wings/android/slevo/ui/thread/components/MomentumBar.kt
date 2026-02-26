@@ -144,7 +144,7 @@ fun MomentumBar(
                         )
                         if (listDelta != 0f) {
                             // バー操作中は他の入力処理へ伝播させない。
-                            change.consumeAllChanges()
+                            change.consume()
                             lazyListState.dispatchRawDelta(listDelta)
                         }
                     }
