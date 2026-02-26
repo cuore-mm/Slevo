@@ -17,7 +17,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.tooling.preview.Preview
@@ -144,7 +143,8 @@ fun MomentumBar(
                             totalPosts = posts.size,
                         )
                         if (listDelta != 0f) {
-                            change.consume()
+                            // バー操作中は他の入力処理へ伝播させない。
+                            change.consumeAllChanges()
                             lazyListState.dispatchRawDelta(listDelta)
                         }
                     }
