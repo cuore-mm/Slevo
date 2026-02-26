@@ -33,6 +33,7 @@ data class ThreadUiState(
     override val bookmarkStatusState: BookmarkStatusState = BookmarkStatusState(),
     override val bookmarkSheetState: BookmarkSheetUiState = BookmarkSheetUiState(),
     override val isLoading: Boolean = false,
+    val loadingSource: ThreadLoadingSource = ThreadLoadingSource.NONE,
     val postDialogState: PostDialogState = PostDialogState(),
     val showThreadInfoSheet: Boolean = false,
     val showMoreSheet: Boolean = false,
@@ -89,7 +90,21 @@ data class ThreadUiState(
             loadProgress = loadProgress,
             gestureSettings = gestureSettings,
             isLoading = isLoading,
+            loadingSource = if (isLoading) loadingSource else ThreadLoadingSource.NONE,
             isTabSwipeEnabled = isTabSwipeEnabled,
         )
     }
+}
+
+/**
+ * スレッド更新の起点種別。
+ *
+ * ローディング表示や挙動の切り替えに利用する。
+ */
+enum class ThreadLoadingSource {
+    NONE,
+    INITIAL,
+    MANUAL,
+    BOTTOM_PULL,
+    AUTO_SCROLL,
 }
