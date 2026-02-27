@@ -28,10 +28,13 @@ import com.websarva.wings.android.slevo.ui.theme.urlColor
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.max
 
 /**
  * スレッドのミニマップバーを描画し、スクロール位置と投稿属性に応じたマーカーを重ねる。
  *
+ * タップは目標位置移動、ドラッグは連続スクロールで追従させる。
  * posts の順序が LazyList の表示順と一致する前提で、各投稿を均等高さに正規化して表示する。
  */
 @Composable
@@ -63,90 +66,83 @@ fun MomentumBar(
     var barHeight by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
 
-    /**
-     * バー上のドラッグ量を投稿リストのスクロール量へ換算する。
-     *
-     * ミニマップは投稿数に対して等間隔のため、可視投稿の平均高さで概算し、
-     * バー上の移動量とスクロール可能領域の比率を合わせる。
-     */
-    fun calculateDragScrollDelta(
-        dragDeltaPx: Float,
-        listState: LazyListState,
-        currentBarHeight: Int,
-        totalPosts: Int,
-    ): Float {
-        // --- ガード ---
-        if (currentBarHeight <= 0 || totalPosts <= 0) {
-            return 0f
-        }
-
-        // --- 換算係数 ---
-        val layoutInfo = listState.layoutInfo
-        val visibleItems = layoutInfo.visibleItemsInfo
-        if (visibleItems.isEmpty()) {
-            return 0f
-        }
-        val viewportHeight = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset)
-            .coerceAtLeast(0)
-        if (viewportHeight == 0) {
-            return 0f
-        }
-        val barHeightPx = currentBarHeight.toFloat()
-        val measuredItems = visibleItems.filter { it.size > 0 }
-        if (measuredItems.isEmpty()) {
-            return 0f
-        }
-        val averageItemSize = measuredItems.sumOf { it.size }.toFloat() / measuredItems.size
-        val totalContentHeight = averageItemSize * totalPosts
-        val listScrollableHeight = (totalContentHeight - viewportHeight).coerceAtLeast(0f)
-        val indicatorHeight = barHeightPx * viewportHeight / totalContentHeight
-        val barScrollableHeight = (barHeightPx - indicatorHeight).coerceAtLeast(1f)
-        val scrollScale = listScrollableHeight / barScrollableHeight
-
-        // --- 変換結果 ---
-        return dragDeltaPx * scrollScale
-    }
 
     Canvas(
         modifier = modifier
             .onSizeChanged { barHeight = it.height }
             .pointerInput(posts, barHeight) {
                 detectTapGestures { offset ->
-                    // ガード: 高さが未計測/投稿なしの状態では分母が崩れるため処理しない。
-                    if (barHeight > 0 && posts.isNotEmpty()) {
-                        val postHeight = barHeight.toFloat() / posts.size
-                        val index = (offset.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
-                        scope.launch { lazyListState.scrollToItem(index) }
+                    if (barHeight <= 0 || posts.isEmpty()) {
+                        // Guard: バーサイズ未確定/投稿なしの場合は操作を無視する。
+                        return@detectTapGestures
                     }
+                    val postHeight = barHeight.toFloat() / posts.size
+                    val index = (offset.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
+                    scope.launch { lazyListState.scrollToItem(index) }
                 }
             }
-            .pointerInput(posts, barHeight) {
+            .pointerInput(posts, barHeight, lazyListState) {
                 detectVerticalDragGestures(
                     onDragStart = { offset ->
-                        // ガード: 高さが未計測/投稿なしの状態では分母が崩れるため処理しない。
-                        if (barHeight > 0 && posts.isNotEmpty()) {
-                            val postHeight = barHeight.toFloat() / posts.size
-                            val index = (offset.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
-                            scope.launch { lazyListState.scrollToItem(index) }
-                        }
-                    },
-                    onVerticalDrag = { change, dragAmount ->
-                        // ガード: 高さが未計測/投稿なしの状態では分母が崩れるため処理しない。
                         if (barHeight <= 0 || posts.isEmpty()) {
+                            // Guard: バーサイズ未確定/投稿なしの場合は操作を無視する。
                             return@detectVerticalDragGestures
                         }
-                        // ドラッグ量をスクロール量へ変換し、連続スクロールで反映する。
-                        val listDelta = calculateDragScrollDelta(
-                            dragDeltaPx = dragAmount,
-                            listState = lazyListState,
-                            currentBarHeight = barHeight,
-                            totalPosts = posts.size,
-                        )
-                        if (listDelta != 0f) {
-                            // バー操作中は他の入力処理へ伝播させない。
-                            change.consume()
-                            lazyListState.dispatchRawDelta(listDelta)
+                        val layoutInfo = lazyListState.layoutInfo
+                        val visibleItems = layoutInfo.visibleItemsInfo
+                        if (visibleItems.isEmpty()) {
+                            // Guard: 可視アイテムが取得できない場合は追従しない。
+                            return@detectVerticalDragGestures
                         }
+                        val averageItemSize =
+                            visibleItems.sumOf { it.size }.toFloat() / visibleItems.size
+                        if (averageItemSize <= 0f) {
+                            // Guard: 異常値は連続追従の計算対象外にする。
+                            return@detectVerticalDragGestures
+                        }
+                        val targetDelta = calculateDragDelta(
+                            pointerY = offset.y,
+                            barHeight = barHeight.toFloat(),
+                            postCount = posts.size,
+                            averageItemSize = averageItemSize,
+                            lazyListState = lazyListState,
+                        )
+                        if (abs(targetDelta) < MIN_SCROLL_DELTA_PX) {
+                            return@detectVerticalDragGestures
+                        }
+                        lazyListState.dispatchRawDelta(targetDelta)
+                    },
+                    onVerticalDrag = { change, _ ->
+                        if (barHeight <= 0 || posts.isEmpty()) {
+                            // Guard: バーサイズ未確定/投稿なしの場合は操作を無視する。
+                            return@detectVerticalDragGestures
+                        }
+                        val layoutInfo = lazyListState.layoutInfo
+                        val visibleItems = layoutInfo.visibleItemsInfo
+                        if (visibleItems.isEmpty()) {
+                            // Guard: 可視アイテムが取得できない場合は追従しない。
+                            return@detectVerticalDragGestures
+                        }
+                        val averageItemSize =
+                            visibleItems.sumOf { it.size }.toFloat() / visibleItems.size
+                        if (averageItemSize <= 0f) {
+                            // Guard: 異常値は連続追従の計算対象外にする。
+                            return@detectVerticalDragGestures
+                        }
+                        val targetDelta = calculateDragDelta(
+                            pointerY = change.position.y,
+                            barHeight = barHeight.toFloat(),
+                            postCount = posts.size,
+                            averageItemSize = averageItemSize,
+                            lazyListState = lazyListState,
+                        )
+                        if (abs(targetDelta) < MIN_SCROLL_DELTA_PX) {
+                            // Guard: 微小なドラッグは連続スクロールの負荷を抑えるため無視する。
+                            return@detectVerticalDragGestures
+                        }
+                        // バー操作中は他の入力処理へ伝播させない。
+                        change.consume()
+                        lazyListState.dispatchRawDelta(targetDelta)
                     }
                 )
             }
@@ -363,4 +359,39 @@ fun MomentumBarPreview() {
         firstAfterIndex = 10,
         myPostNumbers = myPosts
     )
+}
+
+// --- Drag tuning ---
+private const val MIN_SCROLL_DELTA_PX = 0.5f
+
+/**
+ * ミニマップの指位置から目標スクロール差分を算出する。
+ *
+ * 指の絶対位置に合わせてスクロール差分を出すことで、相対ドラッグの揺れを抑える。
+ */
+private fun calculateDragDelta(
+    pointerY: Float,
+    barHeight: Float,
+    postCount: Int,
+    averageItemSize: Float,
+    lazyListState: LazyListState,
+): Float {
+    // --- Validation ---
+    val clampedPointerY = pointerY.coerceIn(0f, max(0f, barHeight))
+    val safePostCount = max(1, postCount)
+
+    // --- Target mapping ---
+    val targetFraction = if (barHeight > 0f) clampedPointerY / barHeight else 0f
+    val totalContentHeight = averageItemSize * safePostCount
+    val viewportSize = lazyListState.layoutInfo.viewportSize.height.toFloat()
+    val totalScrollable = (totalContentHeight - viewportSize).coerceAtLeast(0f)
+    val targetScroll = targetFraction * totalScrollable
+
+    // --- Current mapping ---
+    val currentIndex = lazyListState.firstVisibleItemIndex.toFloat()
+    val currentOffset = lazyListState.firstVisibleItemScrollOffset.toFloat()
+    val currentScroll = currentIndex * averageItemSize + currentOffset
+
+    // --- Delta ---
+    return (targetScroll - currentScroll).coerceIn(-totalScrollable, totalScrollable)
 }
