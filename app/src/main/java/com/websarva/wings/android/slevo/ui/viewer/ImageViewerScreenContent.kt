@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.pager.PagerState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
@@ -28,6 +30,7 @@ import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import me.saket.telephoto.zoomable.ZoomableState
+import com.websarva.wings.android.slevo.ui.common.resolveImageActionMenuState
 
 /**
  * 画像ビューア画面の表示構築を担うコンテンツホスト。
@@ -77,25 +80,42 @@ internal fun ImageViewerScreenContent(
             .hazeSource(state = hazeState)
     ) {
         // --- Screen scaffold ---
-        Scaffold(
-            topBar = {
-                ImageViewerTopBar(
-                    isVisible = isBarsVisible,
-                    isMenuExpanded = uiState.isTopBarMenuExpanded,
-                    imageCount = imageUrls.size,
-                    barBackgroundColor = barBackgroundColor,
-                    foregroundColor = viewerContentColor,
-                    tooltipBackgroundColor = tooltipBackgroundColor,
-                    hazeState = hazeState,
-                    barExitDurationMillis = barExitDurationMillis,
-                    onNavigateUp = onNavigateUp,
-                    onSaveClick = onRequestSaveCurrent,
-                    onShareClick = onShareCurrent,
-                    onMoreClick = onToggleMenu,
-                    onDismissMenu = onDismissMenu,
-                    onMenuActionClick = onMenuActionClick,
-                )
-            },
+    Scaffold(
+        topBar = {
+            val menuState by remember(
+                imageUrls,
+                pagerState.currentPage,
+                uiState.viewerImageLoadFailureByUrl,
+                uiState.viewerImageLoadingUrls,
+            ) {
+                derivedStateOf {
+                    val currentUrl = imageUrls.getOrNull(pagerState.currentPage).orEmpty()
+                    resolveImageActionMenuState(
+                        imageUrl = currentUrl,
+                        imageUrls = imageUrls,
+                        imageLoadFailureByUrl = uiState.viewerImageLoadFailureByUrl,
+                        loadingImageUrls = uiState.viewerImageLoadingUrls,
+                    )
+                }
+            }
+            ImageViewerTopBar(
+                isVisible = isBarsVisible,
+                isMenuExpanded = uiState.isTopBarMenuExpanded,
+                imageCount = imageUrls.size,
+                barBackgroundColor = barBackgroundColor,
+                foregroundColor = viewerContentColor,
+                tooltipBackgroundColor = tooltipBackgroundColor,
+                hazeState = hazeState,
+                barExitDurationMillis = barExitDurationMillis,
+                onNavigateUp = onNavigateUp,
+                onSaveClick = onRequestSaveCurrent,
+                onShareClick = onShareCurrent,
+                onMoreClick = onToggleMenu,
+                onDismissMenu = onDismissMenu,
+                onMenuActionClick = onMenuActionClick,
+                menuState = menuState,
+            )
+        },
             containerColor = viewerBackgroundColor,
             contentWindowInsets = WindowInsets(0)
         ) { _ ->

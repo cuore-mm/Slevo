@@ -512,6 +512,9 @@ class ThreadViewModel @AssistedInject constructor(
                 imageLoadFailureByUrl = it.imageLoadFailureByUrl.filterKeys { url ->
                     url in activeImageUrls
                 },
+                imageLoadingUrls = it.imageLoadingUrls.filter { url ->
+                    url in activeImageUrls
+                }.toSet(),
             )
         }
     }
@@ -525,9 +528,31 @@ class ThreadViewModel @AssistedInject constructor(
             return
         }
         _uiState.update { state ->
+            if (state.imageLoadFailureByUrl[imageUrl] == ImageLoadFailureType.CANCELLED) {
+                // Guard: 中止済みURLは失敗種別を上書きしない。
+                return@update state
+            }
             state.copy(
-                imageLoadFailureByUrl = state.imageLoadFailureByUrl + (imageUrl to failureType)
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl + (imageUrl to failureType),
+                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
             )
+        }
+    }
+
+    /**
+     * サムネイル画像の読み込み開始URLを読み込み中状態へ追加する。
+     */
+    fun onThreadImageLoadStart(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは読み込み管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            if (state.imageLoadFailureByUrl[imageUrl] == ImageLoadFailureType.CANCELLED) {
+                // Guard: 中止済みURLは読み込み中へ再登録しない。
+                return@update state
+            }
+            state.copy(imageLoadingUrls = state.imageLoadingUrls + imageUrl)
         }
     }
 
@@ -540,7 +565,14 @@ class ThreadViewModel @AssistedInject constructor(
             return
         }
         _uiState.update { state ->
-            state.copy(imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl)
+            if (state.imageLoadFailureByUrl[imageUrl] == ImageLoadFailureType.CANCELLED) {
+                // Guard: 中止済みURLは成功通知で解除しない。
+                return@update state
+            }
+            state.copy(
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl,
+                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
+            )
         }
     }
 
@@ -553,7 +585,31 @@ class ThreadViewModel @AssistedInject constructor(
             return
         }
         _uiState.update { state ->
-            state.copy(imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl)
+            state.copy(
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl,
+                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
+            )
+        }
+    }
+
+    /**
+     * 読み込み中止要求を失敗状態として記録する。
+     */
+    fun onThreadImageLoadCancelled(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは失敗管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            if (state.imageLoadFailureByUrl[imageUrl] == ImageLoadFailureType.CANCELLED) {
+                // Guard: 既に中止状態なら更新しない。
+                return@update state
+            }
+            state.copy(
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl +
+                    (imageUrl to ImageLoadFailureType.CANCELLED),
+                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
+            )
         }
     }
 

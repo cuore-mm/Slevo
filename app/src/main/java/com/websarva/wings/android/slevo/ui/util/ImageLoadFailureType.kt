@@ -5,10 +5,11 @@ import coil3.network.HttpException
 /**
  * 画像読み込み失敗の分類を表す。
  *
- * 表示UIで再試行導線と説明文を分岐するために利用する。
+ * 読み込み中止などのUI分岐や再試行導線制御に利用する。
  */
 enum class ImageLoadFailureType {
     UNKNOWN,
+    CANCELLED,
     HTTP_404,
     HTTP_410,
 }

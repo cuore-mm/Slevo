@@ -32,6 +32,8 @@ import kotlin.math.min
 
 /**
  * スレッド投稿一覧の `LazyColumn` コンテンツを構築する。
+ *
+ * 画像サムネイルの読み込みイベントも上位へ伝播する。
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 fun LazyListScope.threadPostListContent(
@@ -44,6 +46,7 @@ fun LazyListScope.threadPostListContent(
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
+    onImageLoadStart: (String) -> Unit,
     onImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onImageLoadSuccess: (String) -> Unit,
     onImageRetry: (String) -> Unit,
@@ -130,6 +133,7 @@ fun LazyListScope.threadPostListContent(
                 onImageClick = onImageClick,
                 onImageLongPress = onImageLongPress,
                 imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
+                onImageLoadStart = onImageLoadStart,
                 onImageLoadError = onImageLoadError,
                 onImageLoadSuccess = onImageLoadSuccess,
                 onImageRetry = onImageRetry,

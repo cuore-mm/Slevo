@@ -223,6 +223,14 @@ internal fun ImageViewerPager(
                     contentAlignment = Alignment.Center,
                 ) {
                     when (failureType) {
+                        ImageLoadFailureType.CANCELLED -> {
+                            ImageRetryButton(
+                                onRetry = {
+                                    onImageRetry(imageUrl)
+                                    retryNonceByPage[page] = retryNonce + 1
+                                },
+                            )
+                        }
                         ImageLoadFailureType.HTTP_404 -> {
                             FailureMessage(
                                 code = "404",

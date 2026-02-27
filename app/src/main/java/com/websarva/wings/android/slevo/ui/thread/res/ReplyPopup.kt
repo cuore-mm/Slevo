@@ -87,7 +87,7 @@ private data class PopupPlacement(
 /**
  * 返信ポップアップの表示と操作イベントを管理する。
  *
- * 投稿の長押しメニューやダイアログは呼び出し側へ委譲する。
+ * 投稿の長押しメニューやダイアログ、画像読み込みイベントは呼び出し側へ委譲する。
  */
 @SuppressLint("ConfigurationScreenWidthHeight")
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -405,6 +405,7 @@ private fun PopupPostList(
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
     imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    onImageLoadStart: (String) -> Unit,
     onImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onImageLoadSuccess: (String) -> Unit,
     onImageRetry: (String) -> Unit,
@@ -496,6 +497,7 @@ private fun PopupPostLazyColumn(
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
     imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    onImageLoadStart: (String) -> Unit,
     onImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onImageLoadSuccess: (String) -> Unit,
     onImageRetry: (String) -> Unit,
@@ -558,6 +560,7 @@ private fun PopupPostLazyColumn(
                 onImageClick = onImageClick,
                 onImageLongPress = onImageLongPress,
                 imageLoadFailureByUrl = imageLoadFailureByUrl,
+                onImageLoadStart = onImageLoadStart,
                 onImageLoadError = onImageLoadError,
                 onImageLoadSuccess = onImageLoadSuccess,
                 onImageRetry = onImageRetry,
@@ -815,6 +818,7 @@ fun ReplyPopupPreview() {
                 onThreadUrlClick = {},
                 onImageClick = { _, _, _, _ -> },
                 onImageLongPress = { _, _ -> },
+                onImageLoadStart = {},
                 onRequestMenu = {},
                 onShowTextMenu = { _, _ -> },
                 onRequestTreePopup = { _, _ -> },

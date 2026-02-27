@@ -1,16 +1,20 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -58,6 +63,8 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenu
 import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuDriver
 import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuItem
+import com.websarva.wings.android.slevo.ui.common.ImageActionMenuGroup
+import com.websarva.wings.android.slevo.ui.common.ImageActionMenuState
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
 import dev.chrisbanes.haze.HazeState
@@ -69,6 +76,7 @@ import kotlin.math.roundToInt
  * 画像ビューアのトップバーを表示する。
  *
  * 戻る・保存・その他メニューの各アクションを持ち、表示可否は呼び出し元で制御する。
+ * 読み込み中は中止アイコンを表示し、その他メニューの構成も状態に合わせて切り替える。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,6 +89,7 @@ internal fun ImageViewerTopBar(
     tooltipBackgroundColor: Color,
     hazeState: HazeState?,
     barExitDurationMillis: Int,
+    menuState: ImageActionMenuState,
     onNavigateUp: () -> Unit,
     onSaveClick: () -> Unit,
     onShareClick: () -> Unit,
@@ -116,33 +125,50 @@ internal fun ImageViewerTopBar(
                 }
             },
             actions = {
-                FeedbackTooltipIconButton(
-                    tooltipText = stringResource(R.string.save),
-                    showTooltipHost = isVisible && !isMenuExpanded,
-                    foregroundColor = foregroundColor,
-                    tooltipBackgroundColor = tooltipBackgroundColor,
-                    hazeState = hazeState,
-                    onClick = onSaveClick,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Download,
-                        contentDescription = stringResource(R.string.save),
-                        tint = foregroundColor,
-                    )
-                }
-                FeedbackTooltipIconButton(
-                    tooltipText = stringResource(R.string.share),
-                    showTooltipHost = isVisible && !isMenuExpanded,
-                    foregroundColor = foregroundColor,
-                    tooltipBackgroundColor = tooltipBackgroundColor,
-                    hazeState = hazeState,
-                    onClick = onShareClick,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = stringResource(R.string.share),
-                        tint = foregroundColor,
-                    )
+                if (menuState.group == ImageActionMenuGroup.LOADING) {
+                    FeedbackTooltipIconButton(
+                        tooltipText = stringResource(R.string.image_menu_cancel_loading),
+                        showTooltipHost = isVisible && !isMenuExpanded,
+                        foregroundColor = foregroundColor,
+                        tooltipBackgroundColor = tooltipBackgroundColor,
+                        hazeState = hazeState,
+                        onClick = { onMenuActionClick(ImageMenuAction.CANCEL_IMAGE_LOAD) },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Cancel,
+                            contentDescription = stringResource(R.string.image_menu_cancel_loading),
+                            tint = foregroundColor,
+                        )
+                    }
+                } else {
+                    FeedbackTooltipIconButton(
+                        tooltipText = stringResource(R.string.save),
+                        showTooltipHost = isVisible && !isMenuExpanded,
+                        foregroundColor = foregroundColor,
+                        tooltipBackgroundColor = tooltipBackgroundColor,
+                        hazeState = hazeState,
+                        onClick = onSaveClick,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = stringResource(R.string.save),
+                            tint = foregroundColor,
+                        )
+                    }
+                    FeedbackTooltipIconButton(
+                        tooltipText = stringResource(R.string.share),
+                        showTooltipHost = isVisible && !isMenuExpanded,
+                        foregroundColor = foregroundColor,
+                        tooltipBackgroundColor = tooltipBackgroundColor,
+                        hazeState = hazeState,
+                        onClick = onShareClick,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = stringResource(R.string.share),
+                            tint = foregroundColor,
+                        )
+                    }
                 }
                 Box {
                     FeedbackTooltipIconButton(
@@ -174,37 +200,46 @@ internal fun ImageViewerTopBar(
                         hazeState = hazeState,
                         onDismissRequest = onDismissMenu,
                     ) {
-                        AnchoredOverlayMenuItem(
-                            text = stringResource(R.string.image_menu_add_ng),
-                            onClick = { onMenuActionClick(ImageMenuAction.ADD_NG) },
-                        )
-                        AnchoredOverlayMenuDriver()
-                        AnchoredOverlayMenuItem(
-                            text = stringResource(R.string.image_menu_copy_image),
-                            onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE) },
-                        )
-                        AnchoredOverlayMenuItem(
-                            text = stringResource(R.string.image_menu_copy_image_url),
-                            onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE_URL) },
-                        )
-                        AnchoredOverlayMenuDriver()
-                        AnchoredOverlayMenuItem(
-                            text = stringResource(R.string.image_menu_open_in_other_app),
-                            onClick = { onMenuActionClick(ImageMenuAction.OPEN_IN_OTHER_APP) },
-                        )
-                        AnchoredOverlayMenuItem(
-                            text = stringResource(R.string.image_menu_search_web),
-                            onClick = { onMenuActionClick(ImageMenuAction.SEARCH_WEB) },
-                        )
-                        if (imageCount >= 2) {
-                            AnchoredOverlayMenuDriver()
-                            AnchoredOverlayMenuItem(
-                                text = stringResource(
-                                    R.string.image_menu_save_all_images_short,
-                                    imageCount,
-                                ),
-                                onClick = { onMenuActionClick(ImageMenuAction.SAVE_ALL_IMAGES) },
-                            )
+                        AnimatedContent(
+                            targetState = menuState.group,
+                            transitionSpec = {
+                                (fadeIn() togetherWith fadeOut()).using(
+                                    SizeTransform(clip = false)
+                                )
+                            },
+                            label = "imageViewerMenuContent",
+                        ) { group ->
+                            Column {
+                                when (group) {
+                                    ImageActionMenuGroup.LOADING -> {
+                                        renderLimitedMenuItems(
+                                            includeSearch = true,
+                                            onMenuActionClick = onMenuActionClick,
+                                        )
+                                    }
+
+                                    ImageActionMenuGroup.FAIL_404_410 -> {
+                                        renderLimitedMenuItems(
+                                            includeSearch = false,
+                                            onMenuActionClick = onMenuActionClick,
+                                        )
+                                    }
+
+                                    ImageActionMenuGroup.FAIL_OTHER -> {
+                                        renderLimitedMenuItems(
+                                            includeSearch = true,
+                                            onMenuActionClick = onMenuActionClick,
+                                        )
+                                    }
+
+                                    ImageActionMenuGroup.SUCCESS -> {
+                                        renderSuccessMenuItems(
+                                            imageCount = imageCount,
+                                            onMenuActionClick = onMenuActionClick,
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -216,6 +251,72 @@ internal fun ImageViewerTopBar(
                 titleContentColor = foregroundColor,
             ),
             windowInsets = WindowInsets(0),
+        )
+    }
+}
+
+/**
+ * 失敗・読み込み中向けの限定メニュー項目を描画する。
+ */
+@Composable
+private fun renderLimitedMenuItems(
+    includeSearch: Boolean,
+    onMenuActionClick: (ImageMenuAction) -> Unit,
+) {
+    AnchoredOverlayMenuItem(
+        text = stringResource(R.string.image_menu_add_ng),
+        onClick = { onMenuActionClick(ImageMenuAction.ADD_NG) },
+    )
+    AnchoredOverlayMenuItem(
+        text = stringResource(R.string.image_menu_copy_image_url),
+        onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE_URL) },
+    )
+    if (includeSearch) {
+        AnchoredOverlayMenuItem(
+            text = stringResource(R.string.image_menu_search_web),
+            onClick = { onMenuActionClick(ImageMenuAction.SEARCH_WEB) },
+        )
+    }
+}
+
+/**
+ * 読み込み成功時のメニュー項目を描画する。
+ */
+@Composable
+private fun renderSuccessMenuItems(
+    imageCount: Int,
+    onMenuActionClick: (ImageMenuAction) -> Unit,
+) {
+    AnchoredOverlayMenuItem(
+        text = stringResource(R.string.image_menu_add_ng),
+        onClick = { onMenuActionClick(ImageMenuAction.ADD_NG) },
+    )
+    AnchoredOverlayMenuDriver()
+    AnchoredOverlayMenuItem(
+        text = stringResource(R.string.image_menu_copy_image),
+        onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE) },
+    )
+    AnchoredOverlayMenuItem(
+        text = stringResource(R.string.image_menu_copy_image_url),
+        onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE_URL) },
+    )
+    AnchoredOverlayMenuDriver()
+    AnchoredOverlayMenuItem(
+        text = stringResource(R.string.image_menu_open_in_other_app),
+        onClick = { onMenuActionClick(ImageMenuAction.OPEN_IN_OTHER_APP) },
+    )
+    AnchoredOverlayMenuItem(
+        text = stringResource(R.string.image_menu_search_web),
+        onClick = { onMenuActionClick(ImageMenuAction.SEARCH_WEB) },
+    )
+    if (imageCount >= 2) {
+        AnchoredOverlayMenuDriver()
+        AnchoredOverlayMenuItem(
+            text = stringResource(
+                R.string.image_menu_save_all_images_short,
+                imageCount,
+            ),
+            onClick = { onMenuActionClick(ImageMenuAction.SAVE_ALL_IMAGES) },
         )
     }
 }
@@ -338,6 +439,10 @@ private fun ImageViewerTopBarPreview() {
             tooltipBackgroundColor = Color.Black.copy(alpha = 0.5f),
             hazeState = null,
             barExitDurationMillis = 300,
+            menuState = ImageActionMenuState(
+                group = ImageActionMenuGroup.SUCCESS,
+                saveAllImageCount = 3,
+            ),
             onNavigateUp = {},
             onSaveClick = {},
             onShareClick = {},
@@ -361,6 +466,10 @@ private fun ImageViewerTopBarMenuExpandedPreview() {
             tooltipBackgroundColor = Color.Black.copy(alpha = 0.5f),
             hazeState = null,
             barExitDurationMillis = 300,
+            menuState = ImageActionMenuState(
+                group = ImageActionMenuGroup.SUCCESS,
+                saveAllImageCount = 3,
+            ),
             onNavigateUp = {},
             onSaveClick = {},
             onShareClick = {},

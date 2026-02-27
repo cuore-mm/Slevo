@@ -55,6 +55,7 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.DisplaySettingsBottomShe
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 
@@ -222,6 +223,7 @@ fun ThreadScaffold(
                 onRequestPostMenu = { target -> popupMenuTarget = target },
                 onRequestTextMenu = { text, type -> popupDialogState.showTextMenu(text, type) },
                 onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
+                onImageLoadStart = { url -> viewModel.onThreadImageLoadStart(url) },
                 onImageLoadError = { url, failureType ->
                     viewModel.onThreadImageLoadError(url, failureType)
                 },
@@ -325,6 +327,7 @@ fun ThreadScaffold(
                 },
                 onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
                 imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
+                onImageLoadStart = { url -> viewModel.onThreadImageLoadStart(url) },
                 onImageLoadError = { url, failureType ->
                     viewModel.onThreadImageLoadError(url, failureType)
                 },
@@ -380,10 +383,14 @@ fun ThreadScaffold(
                 tabsViewModel = tabsViewModel,
             )
 
+            // --- Image menu state ---
+            val loadingImageUrls = uiState.imageLoadingUrls
             ImageMenuSheet(
                 show = uiState.showImageMenuSheet,
                 imageUrl = uiState.imageMenuTargetUrl,
                 imageUrls = uiState.imageMenuTargetUrls,
+                imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
+                loadingImageUrls = loadingImageUrls,
                 onActionSelected = { action ->
                     val targetUrl = uiState.imageMenuTargetUrl.orEmpty()
                     ImageMenuActionRunner.run(
@@ -402,6 +409,10 @@ fun ThreadScaffold(
                                 if (urls.size >= 2) {
                                     viewModel.requestImageSave(context, urls)
                                 }
+                            },
+                            isImageLoading = { url -> url in loadingImageUrls },
+                            onCancelImageLoad = { url ->
+                                viewModel.onThreadImageLoadCancelled(url)
                             },
                             onActionHandled = { viewModel.closeImageMenu() },
                             onSetClipboardText = { text ->

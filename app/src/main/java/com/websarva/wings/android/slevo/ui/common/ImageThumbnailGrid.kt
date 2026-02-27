@@ -48,6 +48,7 @@ import com.websarva.wings.android.slevo.ui.util.toImageLoadFailureType
  * タップと長押しを分岐して通知し、サムネイルには共有トランジション用の要素を付与する。
  *
  * タップ時は対象URLと同一投稿内の画像URL一覧およびタップ位置を通知し、長押し時はURL一覧を通知する。
+ * 読み込み開始/成功/失敗はコールバック経由で上位に伝播する。
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -58,6 +59,7 @@ fun ImageThumbnailGrid(
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: ((String, List<String>) -> Unit)? = null,
     imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    onImageLoadStart: (String) -> Unit = {},
     onImageLoadError: (String, ImageLoadFailureType) -> Unit = { _, _ -> },
     onImageLoadSuccess: (String) -> Unit = {},
     onImageRetry: (String) -> Unit = {},
@@ -152,6 +154,14 @@ fun ImageThumbnailGrid(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 when (failureType) {
+                                    ImageLoadFailureType.CANCELLED -> {
+                                        Icon(
+                                            imageVector = Icons.Filled.Refresh,
+                                            contentDescription = stringResource(R.string.refresh),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(24.dp),
+                                        )
+                                    }
                                     ImageLoadFailureType.HTTP_404 -> {
                                         ErrorCodeLabel(
                                             code = "404",
@@ -193,6 +203,7 @@ fun ImageThumbnailGrid(
                                     },
                                     onLoading = {
                                         canNavigateByIndex[imageIndex] = false
+                                        onImageLoadStart(url)
                                     },
                                     onError = { state ->
                                         canNavigateByIndex[imageIndex] = false

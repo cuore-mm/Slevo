@@ -51,6 +51,7 @@ data class ThreadUiState(
     val replySourceMap: Map<Int, List<Int>> = emptyMap(),
     val ngPostNumbers: Set<Int> = emptySet(),
     val imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    val imageLoadingUrls: Set<String> = emptySet(),
     val searchQuery: String = "",
     val isSearchMode: Boolean = false,
     val sortType: ThreadSortType = ThreadSortType.NUMBER,
