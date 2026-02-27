@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.scrollable
-import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -112,11 +112,12 @@ class BbsRoutePagerSwipeTest {
         bottomBarTag: String,
         gestureState: MutableState<GestureDirection?>,
     ) {
-        val bottomBarSwipeModifier = Modifier.scrollable(
-            state = pagerState,
+        val bottomBarDragState = rememberDraggableState { delta ->
+            pagerState.dispatchRawDelta(-delta)
+        }
+        val bottomBarSwipeModifier = Modifier.draggable(
+            state = bottomBarDragState,
             orientation = Orientation.Horizontal,
-            reverseDirection = true,
-            flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
         )
         HorizontalPager(
             state = pagerState,

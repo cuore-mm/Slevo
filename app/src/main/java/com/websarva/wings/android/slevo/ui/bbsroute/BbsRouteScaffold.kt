@@ -1,7 +1,8 @@
 package com.websarva.wings.android.slevo.ui.bbsroute
 
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -159,12 +160,22 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
         // ボトムバーからPagerを操作するためのスワイプ設定
         val pagerFlingBehavior = PagerDefaults.flingBehavior(state = pagerState)
-        val bottomBarSwipeModifier = Modifier.scrollable(
-            state = pagerState,
+        val bottomBarDragState = rememberDraggableState { delta ->
+            // reverseDirection と同じ挙動に合わせるため、ドラッグ量を反転して伝える。
+            pagerState.dispatchRawDelta(-delta)
+        }
+        val bottomBarSwipeModifier = Modifier.draggable(
+            state = bottomBarDragState,
             orientation = Orientation.Horizontal,
             enabled = tabs.size > 1,
-            reverseDirection = true,
-            flingBehavior = pagerFlingBehavior,
+            onDragStopped = { velocity ->
+                coroutineScope.launch {
+                    // reverseDirection を反映した速度でスナップ位置へフリングする。
+                    pagerState.scroll {
+                        pagerFlingBehavior.performFling(-velocity)
+                    }
+                }
+            },
         )
 
         // 共通で使うボトムシートの状態
