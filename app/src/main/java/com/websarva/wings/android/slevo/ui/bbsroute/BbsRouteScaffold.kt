@@ -1,8 +1,5 @@
 package com.websarva.wings.android.slevo.ui.bbsroute
 
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -38,6 +35,7 @@ import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
+import com.websarva.wings.android.slevo.ui.util.blockParentPagerSwipe
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -223,7 +221,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
             val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
-            val swipeBlockerState = rememberDraggableState { _ -> }
             val showBottomBar = bottomBehavior?.let { behavior ->
                 {
                     behavior.state.heightOffset = 0f
@@ -247,34 +244,33 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         }
                     }
                 ) { innerPadding ->
-                    val contentModifier = Modifier
-                        .padding(innerPadding)
-                        .draggable(
-                            state = swipeBlockerState,
-                            orientation = Orientation.Horizontal,
-                            enabled = true
+                    Box(
+                        modifier = Modifier
+                            .padding(innerPadding)
+                            .blockParentPagerSwipe()
+                    ) {
+                        // 各画面の実際のコンテンツを呼び出す
+                        content(
+                            viewModel,
+                            uiState,
+                            listState,
+                            Modifier.fillMaxSize(),
+                            navController,
+                            showBottomBar,
+                            { showTabListSheet = true },
+                            {
+                                urlError = null
+                                showUrlDialog = true
+                            },
                         )
-                    // 各画面の実際のコンテンツを呼び出す
-                    content(
-                        viewModel,
-                        uiState,
-                        listState,
-                        contentModifier,
-                        navController,
-                        showBottomBar,
-                        { showTabListSheet = true },
-                        {
-                            urlError = null
-                            showUrlDialog = true
-                        },
-                    )
 
-                    // 共通のボトムシートとダイアログ
-                    BookmarkSheetHost(
-                        sheetState = bookmarkSheetState,
-                        holder = bookmarkSheetHolder,
-                        uiState = bookmarkSheetUiState,
-                    )
+                        // 共通のボトムシートとダイアログ
+                        BookmarkSheetHost(
+                            sheetState = bookmarkSheetState,
+                            holder = bookmarkSheetHolder,
+                            uiState = bookmarkSheetUiState,
+                        )
+                    }
                 }
                 // 各画面固有のシートやダイアログをScaffoldの外側に重ねることでボトムバーも覆う
                 optionalSheetContent(viewModel, uiState)

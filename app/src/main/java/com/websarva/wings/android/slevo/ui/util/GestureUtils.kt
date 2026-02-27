@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.awaitPointerEventScope
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -14,22 +15,28 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-// 水平方向の向きを簡潔に表すための列挙型
+/**
+ * 水平方向の向きを簡潔に表す列挙型。
+ */
 private enum class HorizontalDirection {
     Right,
     Left,
 }
 
-// ジェスチャー検出の結果を表すシールドクラス
-// - None: 判定不能（まだ閾値に達していない等）
-// - Invalid: 複数方向の移動が混在して判定不可
-// - Direction: 有効な方向が確定した（GestureDirection を持つ）
+/**
+ * ジェスチャー検出の結果を表すシールド型。
+ *
+ * None は判定不能、Invalid は方向混在、Direction は方向確定を表す。
+ */
 private sealed interface GestureDetectionResult {
     data object None : GestureDetectionResult
     data object Invalid : GestureDetectionResult
     data class Direction(val value: GestureDirection) : GestureDetectionResult
 }
 
+/**
+ * ドラッグ軌跡から方向ジェスチャーを検出し、進行中と確定の状態を通知する。
+ */
 @SuppressLint("UnnecessaryComposedModifier")
 fun Modifier.detectDirectionalGesture(
     enabled: Boolean,
@@ -162,15 +169,38 @@ fun Modifier.detectDirectionalGesture(
     }
 }
 
-// path: ドラッグ時に記録した累積オフセットのリスト
-// thresholdPx: 判定に使用する閾値（ピクセル）
-// アルゴリズム概要:
-// 1) path の中から最初に水平移動が閾値を越えた点を見つける（firstPoint）
-// 2) firstPoint から初期の水平方向に伸びた経路のうち、方向が確定的に切り替わった地点
-//    （switchPoint）を特定する
-// 3) switchPoint 以降の点の最大/最小 X/Y を算出し、最初の水平方向（右/左）に対して
-//    上/下/戻り/前進 のうちどれが閾値を越えたかを判定する
-// 4) 複数の方向が閾値を越えていた場合は Invalid、1 つだけなら対応する GestureDirection を返す
+/**
+ * 本文領域のドラッグ入力を消費し、親の Pager がドラッグ開始するのを防ぐ。
+ *
+ * 子要素の処理後に移動イベントのみを消費するため、縦スクロールや本文内ジェスチャーは維持される。
+ */
+@SuppressLint("UnnecessaryComposedModifier")
+fun Modifier.blockParentPagerSwipe(enabled: Boolean = true): Modifier = composed {
+    // Guard: 無効時は何もしない。
+    if (!enabled) {
+        this
+    } else {
+        pointerInput(enabled) {
+            awaitPointerEventScope {
+                while (true) {
+                    val event = awaitPointerEvent()
+                    event.changes.forEach { change ->
+                        // ドラッグの移動量のみ消費し、タップや押下の検出は残す。
+                        if (change.position != change.previousPosition) {
+                            change.consume()
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * ドラッグ軌跡からジェスチャー方向を判定する。
+ *
+ * path は累積オフセットの履歴で、thresholdPx は判定に使用する閾値を表す。
+ */
 private fun detectGestureDirection(
     path: List<Offset>,
     thresholdPx: Float,
@@ -265,6 +295,9 @@ private fun detectGestureDirection(
     }
 }
 
+/**
+ * 初期方向からの切り替わり点を探索し、基準となるインデックスを返す。
+ */
 private fun findDirectionSwitchIndex(
     path: List<Offset>,
     firstIndex: Int,
