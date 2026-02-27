@@ -20,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -157,9 +158,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         }
 
         // ボトムバーからPagerを操作するためのスワイプ設定
-        val pagerFlingBehavior = remember(pagerState) {
-            PagerDefaults.flingBehavior(state = pagerState)
-        }
+        val pagerFlingBehavior = PagerDefaults.flingBehavior(state = pagerState)
         val bottomBarSwipeModifier = Modifier.scrollable(
             state = pagerState,
             orientation = Orientation.Horizontal,
@@ -176,6 +175,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         var showUrlDialog by rememberSaveable { mutableStateOf(false) }
         var urlError by rememberSaveable { mutableStateOf<String?>(null) }
         val invalidUrlMessage = stringResource(R.string.invalid_url)
+        val coroutineScope = rememberCoroutineScope()
         val tabsUiState by tabsViewModel.uiState.collectAsState()
 
         HorizontalPager(
