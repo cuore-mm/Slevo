@@ -1,10 +1,13 @@
 package com.websarva.wings.android.slevo.ui.bbsroute
 
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.CircularProgressIndicator
@@ -17,7 +20,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -35,7 +37,6 @@ import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
-import com.websarva.wings.android.slevo.ui.util.blockParentPagerSwipe
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -90,7 +91,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
     // このComposableはタブベースの画面レイアウトを提供します。
-    // - HorizontalPagerで複数タブを左右にスワイプできる
+    // - HorizontalPagerで複数タブを管理し、手動スワイプはボトムバーに限定する
     // - 各タブごとにViewModelとリストのスクロール位置を保持/復元する
     // - 共通のボトムシートやダイアログを表示する
 
@@ -155,6 +156,18 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
         }
 
+        // ボトムバーからPagerを操作するためのスワイプ設定
+        val pagerFlingBehavior = remember(pagerState) {
+            PagerDefaults.flingBehavior(state = pagerState)
+        }
+        val bottomBarSwipeModifier = Modifier.scrollable(
+            state = pagerState,
+            orientation = Orientation.Horizontal,
+            enabled = tabs.size > 1,
+            reverseDirection = true,
+            flingBehavior = pagerFlingBehavior,
+        )
+
         // 共通で使うボトムシートの状態
         val bookmarkSheetState = rememberModalBottomSheetState()
         val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -163,19 +176,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         var showUrlDialog by rememberSaveable { mutableStateOf(false) }
         var urlError by rememberSaveable { mutableStateOf<String?>(null) }
         val invalidUrlMessage = stringResource(R.string.invalid_url)
-        val coroutineScope = rememberCoroutineScope()
         val tabsUiState by tabsViewModel.uiState.collectAsState()
-
-        val currentUiState = currentTabInfo?.let { tabInfo ->
-            val currentViewModel = getViewModel(tabInfo)
-            currentViewModel.uiState.collectAsState().value
-        }
-        val pagerUserScrollEnabled = currentUiState?.isTabSwipeEnabled ?: true
 
         HorizontalPager(
             state = pagerState,
             key = { page -> getKey(tabs[page]) },
-            userScrollEnabled = pagerUserScrollEnabled
+            userScrollEnabled = false
         ) { page ->
             val tab = tabs[page]
             val viewModel = getViewModel(tab)
@@ -235,20 +241,18 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                 ?: modifier
                         },
                     bottomBar = {
+                    Box(modifier = bottomBarSwipeModifier) {
                         bottomBar(
                             viewModel,
                             uiState,
-                            bottomBehavior
+                            bottomBehavior,
                         ) {
                             showTabListSheet = true
                         }
                     }
+                    }
                 ) { innerPadding ->
-                    Box(
-                        modifier = Modifier
-                            .padding(innerPadding)
-                            .blockParentPagerSwipe()
-                    ) {
+                    Box(modifier = Modifier.padding(innerPadding)) {
                         // 各画面の実際のコンテンツを呼び出す
                         content(
                             viewModel,

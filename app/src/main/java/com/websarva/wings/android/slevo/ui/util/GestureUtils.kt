@@ -169,33 +169,6 @@ fun Modifier.detectDirectionalGesture(
 }
 
 /**
- * 本文領域のドラッグ入力を消費し、親の Pager がドラッグ開始するのを防ぐ。
- *
- * 子要素の処理後に移動イベントのみを消費するため、縦スクロールや本文内ジェスチャーは維持される。
- */
-@SuppressLint("UnnecessaryComposedModifier")
-fun Modifier.blockParentPagerSwipe(enabled: Boolean = true): Modifier = composed {
-    // Guard: 無効時は何もしない。
-    if (!enabled) {
-        this
-    } else {
-        pointerInput(enabled) {
-            awaitPointerEventScope {
-                while (true) {
-                    val event = awaitPointerEvent()
-                    event.changes.forEach { change ->
-                        // ドラッグの移動量のみ消費し、タップや押下の検出は残す。
-                        if (change.position != change.previousPosition) {
-                            change.consume()
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
  * ドラッグ軌跡からジェスチャー方向を判定する。
  *
  * path は累積オフセットの履歴で、thresholdPx は判定に使用する閾値を表す。

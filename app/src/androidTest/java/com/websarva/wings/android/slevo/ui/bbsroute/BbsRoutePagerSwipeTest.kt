@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -24,7 +27,6 @@ import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.websarva.wings.android.slevo.data.model.GestureDirection
-import com.websarva.wings.android.slevo.ui.util.blockParentPagerSwipe
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -110,17 +112,23 @@ class BbsRoutePagerSwipeTest {
         bottomBarTag: String,
         gestureState: MutableState<GestureDirection?>,
     ) {
+        val bottomBarSwipeModifier = Modifier.scrollable(
+            state = pagerState,
+            orientation = Orientation.Horizontal,
+            reverseDirection = true,
+            flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
+        )
         HorizontalPager(
             state = pagerState,
             pageCount = { 2 },
             modifier = Modifier.fillMaxSize(),
+            userScrollEnabled = false,
         ) { _ ->
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .blockParentPagerSwipe()
                 ) {
                     Box(
                         modifier = Modifier
@@ -136,6 +144,7 @@ class BbsRoutePagerSwipeTest {
                     modifier = Modifier
                         .height(56.dp)
                         .fillMaxWidth()
+                        .then(bottomBarSwipeModifier)
                         .testTag(bottomBarTag)
                 )
             }
