@@ -1,17 +1,17 @@
-## 1. Interaction boundary implementation
+## 1. 入力境界の実装
 
-- [ ] 1.1 Update `BbsRouteScaffold` so content-area horizontal drag does not propagate into pager tab switching.
-- [ ] 1.2 Ensure the boundary logic preserves bottom bar swipe and explicit tab-switch command paths.
-- [ ] 1.3 Confirm thread and board content still receive drag input required for vertical scroll and configured directional gestures.
+- [ ] 1.1 `BbsRouteScaffold` を更新し、本文領域の横ドラッグが Pager のタブ切り替えへ伝播しないようにする。
+- [ ] 1.2 境界制御の適用後も、ボトムバーのスワイプと明示的タブ切り替えコマンド経路が維持されることを確認する。
+- [ ] 1.3 thread/board の本文が、縦スクロールおよび設定済み方向ジェスチャーに必要なドラッグ入力を引き続き受け取れることを確認する。
 
-## 2. Regression tests
+## 2. 回帰テスト
 
-- [ ] 2.1 Add/extend compose test to verify thread vertical scroll does not change current tab.
-- [ ] 2.2 Add/extend compose test to verify board vertical scroll does not change current tab.
-- [ ] 2.3 Add/extend compose test to verify bottom bar swipe or equivalent dedicated path still changes adjacent tab.
+- [ ] 2.1 thread の縦スクロールで現在タブが変化しないことを検証する Compose テストを追加または拡張する。
+- [ ] 2.2 board の縦スクロールで現在タブが変化しないことを検証する Compose テストを追加または拡張する。
+- [ ] 2.3 ボトムバーのスワイプ（または等価な専用導線）で隣接タブへ遷移できることを検証する Compose テストを追加または拡張する。
 
-## 3. Validation
+## 3. 検証
 
-- [ ] 3.1 Run affected UI tests and confirm no regressions in tab switching behavior.
-- [ ] 3.2 Run unit tests related to tab coordination/gesture dispatch if impacted by implementation.
-- [ ] 3.3 Perform manual validation on thread and board screens for accidental tab-switch prevention and expected tab transitions.
+- [ ] 3.1 影響範囲の UI テストを実行し、タブ切り替え挙動に回帰がないことを確認する。
+- [ ] 3.2 実装影響がある場合は、タブ協調処理・ジェスチャーディスパッチ関連の Unit テストを実行する。
+- [ ] 3.3 thread/board 画面で、誤タブ切り替え防止と意図したタブ遷移の両方を手動確認する。

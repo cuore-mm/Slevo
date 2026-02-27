@@ -1,36 +1,36 @@
 ## Context
 
-`BbsRouteScaffold` hosts tab pages with `HorizontalPager`, while each page contains scrollable content such as thread response lists and board lists. Issue #458 shows that horizontal drag recognition from content interaction can still cause accidental adjacent-tab transitions during vertical reading scroll. The expected behavior is that content-area drag should be consumed by content interactions, while tab switching by dedicated tab controls must remain available.
+`BbsRouteScaffold` は `HorizontalPager` 上にタブページを配置し、各ページ内でスレッドのレス一覧や板一覧などのスクロール可能な本文を表示している。Issue #458 では、本文操作中に検出された横方向ドラッグが、縦スクロール中でも隣接タブ切り替えとして誤認される場合がある。期待挙動は、本文領域のドラッグは本文側の操作で消費され、専用のタブ操作導線による切り替えは維持されることである。
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Prevent content-area drag from switching pager tabs on thread and board screens.
-- Preserve vertical scrolling responsiveness in response lists and board lists.
-- Preserve intentional tab transitions from non-content paths such as bottom bar swipe and explicit tab actions.
-- Keep the implementation localized to route-scaffold interaction boundaries without rewriting thread or board business logic.
+- スレッド画面と板画面で、本文領域のドラッグから Pager のタブ切り替えが起きないようにする。
+- レス一覧・板一覧の縦スクロール応答性を維持する。
+- ボトムバーのスワイプや明示的なタブ操作など、本文外の意図したタブ遷移導線を維持する。
+- thread/board の業務ロジックを大きく書き換えず、ルートスキャフォールドの入力境界で対処する。
 
 **Non-Goals:**
-- Redesigning gesture assignment semantics in `GestureSettings`.
-- Changing tab data model, tab persistence, or tab closing/opening rules.
-- Introducing new navigation framework dependencies.
+- `GestureSettings` の割り当て仕様そのものを再設計すること。
+- タブのデータモデル、永続化、開閉ルールを変更すること。
+- 新しいナビゲーション系依存ライブラリを導入すること。
 
 ## Decisions
 
-1. Introduce explicit interaction boundary handling in `BbsRouteScaffold` so content-area horizontal drags do not reach pager tab switching.
-   - Rationale: The issue is an interaction propagation problem, so the route scaffold is the correct single chokepoint.
-   - Alternative considered: force `HorizontalPager.userScrollEnabled = false` globally. Rejected because it would also remove intended swipe-based tab switching from non-content areas.
+1. `BbsRouteScaffold` に明示的な入力境界制御を導入し、本文領域の横ドラッグが Pager のタブ切り替えへ到達しないようにする。
+   - 理由: 問題の本質は入力伝播の境界不備であり、ルートスキャフォールドが単一の制御点として最適である。
+   - 検討した代替案: `HorizontalPager.userScrollEnabled = false` を全体に適用。本文外の意図したスワイプ切り替えまで無効化するため不採用。
 
-2. Keep existing content gesture and vertical scroll paths intact by only intercepting horizontal tab-switch propagation, not all drag input.
-   - Rationale: Thread directional gesture features and list scroll interactions are existing user-visible behaviors and must not regress.
-   - Alternative considered: blanket pointer consumption at container root. Rejected because it risks breaking per-item gesture features and nested scroll behavior.
+2. すべてのドラッグを遮断するのではなく、タブ切り替えに到達する横方向伝播のみを抑止し、既存の本文ジェスチャーと縦スクロール経路は維持する。
+   - 理由: スレッドの方向ジェスチャーやリストスクロールは既存の可視機能であり、回帰を避ける必要がある。
+   - 検討した代替案: ルートコンテナでの一律 Pointer 消費。アイテム単位ジェスチャーや nested scroll を壊すリスクがあるため不採用。
 
-3. Verify behavior with regression tests focused on interaction contracts.
-   - Rationale: This bug is intermittent in manual operation; deterministic UI tests reduce recurrence risk.
-   - Alternative considered: manual QA only. Rejected due to intermittent nature and weak long-term protection.
+3. 入力契約に焦点を当てた回帰テストを追加して再発防止する。
+   - 理由: 本不具合は手動確認で再現が不安定であり、決定的な UI テストによる継続的検証が必要である。
+   - 検討した代替案: 手動 QA のみで確認。間欠不具合に対する再発防止力が弱いため不採用。
 
 ## Risks / Trade-offs
 
-- [Risk] Interception boundary may be too broad and suppress intended gesture actions in content. -> Mitigation: limit interception to pager-switch propagation path and verify thread gesture actions still fire.
-- [Risk] Existing bottom bar swipe transition path may be unintentionally blocked. -> Mitigation: add regression test for bottom bar initiated adjacent tab switch.
-- [Risk] Nested scroll behavior can change subtly on some devices. -> Mitigation: verify thread and board vertical list scroll with compose tests and targeted manual checks.
+- [Risk] 入力境界の適用範囲が広すぎると、本文内の意図したジェスチャー動作を抑制する可能性がある。 -> Mitigation: Pager へのタブ切り替え伝播経路に限定して遮断し、スレッドジェスチャーの発火を回帰確認する。
+- [Risk] ボトムバー由来のスワイプ遷移導線を誤って遮断する可能性がある。 -> Mitigation: ボトムバー起点の隣接タブ切り替え回帰テストを追加する。
+- [Risk] nested scroll の体感挙動が端末差で微妙に変化する可能性がある。 -> Mitigation: Compose テストに加えて thread/board の縦スクロールを手動で重点確認する。

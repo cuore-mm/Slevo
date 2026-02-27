@@ -1,34 +1,34 @@
 ## ADDED Requirements
 
-### Requirement: Content area drag SHALL NOT switch adjacent tabs
-In BBS route screens that host board and thread content, drag gestures originating from the content area SHALL NOT trigger adjacent tab switching in the pager.
+### Requirement: 本文領域ドラッグでは隣接タブへ切り替わらないこと
+BBS の板画面およびスレッド画面を表示するルートでは、本文領域で開始されたドラッグ操作は Pager の隣接タブ切り替えを発火してはならない。
 
-#### Scenario: Vertical response scroll does not switch tab
-- **WHEN** the user drags vertically in the thread response list and the drag includes minor horizontal movement
-- **THEN** the current tab index remains unchanged
+#### Scenario: スレッド本文の縦スクロール中にタブが切り替わらない
+- **WHEN** ユーザーがスレッドのレス一覧を縦方向にドラッグし、操作中に微小な横成分が含まれる
+- **THEN** 現在のタブインデックスは変化しない
 
-#### Scenario: Vertical board list scroll does not switch tab
-- **WHEN** the user drags vertically in the board content list and the drag includes minor horizontal movement
-- **THEN** the current tab index remains unchanged
+#### Scenario: 板一覧の縦スクロール中にタブが切り替わらない
+- **WHEN** ユーザーが板画面の本文リストを縦方向にドラッグし、操作中に微小な横成分が含まれる
+- **THEN** 現在のタブインデックスは変化しない
 
-### Requirement: Dedicated tab-switch interaction paths SHALL remain available
-Tab switching SHALL remain possible through dedicated non-content interaction paths, including bottom bar swipe and existing explicit tab actions.
+### Requirement: 専用のタブ切り替え導線は利用可能であること
+本文外の専用導線（ボトムバーのスワイプおよび既存の明示的タブ操作）によるタブ切り替えは、引き続き利用可能でなければならない。
 
-#### Scenario: Bottom bar swipe switches to adjacent tab
-- **WHEN** the user performs a valid adjacent-tab swipe interaction in the bottom bar area
-- **THEN** the pager transitions to the target adjacent tab
+#### Scenario: ボトムバーのスワイプで隣接タブへ遷移できる
+- **WHEN** ユーザーがボトムバー領域で隣接タブ切り替えとして有効なスワイプ操作を行う
+- **THEN** Pager は対象の隣接タブへ遷移する
 
-#### Scenario: Explicit tab actions switch tabs
-- **WHEN** the user triggers an existing explicit tab-switch action such as tab list selection or next/previous tab command
-- **THEN** the pager transitions to the requested tab
+#### Scenario: 明示的なタブ操作で指定タブへ遷移できる
+- **WHEN** ユーザーがタブ一覧選択や次/前タブ移動など既存の明示的タブ切り替え操作を実行する
+- **THEN** Pager は要求されたタブへ遷移する
 
-### Requirement: Content interaction behavior SHALL be preserved
-Preventing accidental tab switching SHALL NOT disable existing content interactions, including vertical list scrolling and configured directional gesture actions.
+### Requirement: 本文側の既存操作は維持されること
+誤タブ切り替えを防止しても、縦スクロールや設定済み方向ジェスチャーを含む本文側の既存操作を無効化してはならない。
 
-#### Scenario: Thread directional gesture action still executes
-- **WHEN** directional gesture input in thread content matches a configured action
-- **THEN** the configured action is dispatched as before
+#### Scenario: スレッド本文の方向ジェスチャーは従来どおり動作する
+- **WHEN** スレッド本文上で設定済み方向ジェスチャーに一致する入力が行われる
+- **THEN** 対応するアクションは従来どおりディスパッチされる
 
-#### Scenario: Thread list remains vertically scrollable
-- **WHEN** the user performs a vertical drag in thread content
-- **THEN** the visible response range updates according to normal list scroll behavior
+#### Scenario: スレッド本文は縦スクロール可能なままである
+- **WHEN** ユーザーがスレッド本文で縦方向ドラッグを行う
+- **THEN** 可視レス範囲は通常のリストスクロール挙動に従って更新される
