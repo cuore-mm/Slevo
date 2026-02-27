@@ -22,13 +22,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,12 +43,13 @@ import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
 import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
+import com.websarva.wings.android.slevo.ui.common.interaction.ObserveGestureHintInvalidResetEffect
+import com.websarva.wings.android.slevo.ui.common.interaction.executeGestureScrollAction
 import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
 import com.websarva.wings.android.slevo.ui.thread.item.rememberHighlightedText
 import java.text.DecimalFormat
 import java.util.Calendar
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
@@ -101,12 +100,10 @@ fun BoardScreen(
     ) {
         // --- Gesture hint state ---
         var gestureHint by remember { mutableStateOf<GestureHint>(GestureHint.Hidden) }
-        LaunchedEffect(gestureHint) {
-            if (gestureHint is GestureHint.Invalid) {
-                delay(1200)
-                gestureHint = GestureHint.Hidden
-            }
-        }
+        ObserveGestureHintInvalidResetEffect(
+            isInvalid = gestureHint is GestureHint.Invalid,
+            onReset = { gestureHint = GestureHint.Hidden },
+        )
 
         Box(
             modifier = Modifier
@@ -128,36 +125,17 @@ fun BoardScreen(
                         return@detectDirectionalGesture
                     }
                     gestureHint = GestureHint.Hidden
-                    when (action) {
-                        GestureAction.ToTop -> {
-                            showBottomBar?.invoke()
-                            coroutineScope.launch {
-                                listState.scrollToItem(0)
-                            }
+                    if (action == GestureAction.ToTop || action == GestureAction.ToBottom) {
+                        coroutineScope.launch {
+                            executeGestureScrollAction(
+                                action = action,
+                                listState = listState,
+                                fallbackItemCount = threads.size,
+                                showBottomBar = showBottomBar,
+                            )
                         }
-
-                        GestureAction.ToBottom -> {
-                            coroutineScope.launch {
-                                showBottomBar?.invoke()
-                                val prevViewportEnd = listState.layoutInfo.viewportEndOffset
-                                repeat(10) {
-                                    withFrameNanos { /* 1 フレーム待ち */ }
-                                    if (listState.layoutInfo.viewportEndOffset != prevViewportEnd) return@repeat
-                                }
-                                coroutineScope.launch {
-                                    val totalItems = listState.layoutInfo.totalItemsCount
-                                    val fallback = if (threads.isNotEmpty()) threads.size else 0
-                                    val targetIndex = when {
-                                        totalItems > 0 -> totalItems - 1
-                                        fallback > 0 -> fallback
-                                        else -> 0
-                                    }
-                                    listState.scrollToItem(targetIndex)
-                                }
-                            }
-                        }
-
-                        else -> onGestureAction(action)
+                    } else {
+                        onGestureAction(action)
                     }
                 }
         ) {
