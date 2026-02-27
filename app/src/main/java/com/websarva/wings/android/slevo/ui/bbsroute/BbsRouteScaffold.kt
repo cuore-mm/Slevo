@@ -158,6 +158,8 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
         }
 
+        val coroutineScope = rememberCoroutineScope()
+
         // ボトムバーからPagerを操作するためのスワイプ設定
         val pagerFlingBehavior = PagerDefaults.flingBehavior(state = pagerState)
         val bottomBarDragState = rememberDraggableState { delta ->
@@ -172,7 +174,9 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 coroutineScope.launch {
                     // reverseDirection を反映した速度でスナップ位置へフリングする。
                     pagerState.scroll {
-                        pagerFlingBehavior.performFling(-velocity)
+                        with(pagerFlingBehavior) {
+                            performFling(-velocity)
+                        }
                     }
                 }
             },
@@ -186,7 +190,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         var showUrlDialog by rememberSaveable { mutableStateOf(false) }
         var urlError by rememberSaveable { mutableStateOf<String?>(null) }
         val invalidUrlMessage = stringResource(R.string.invalid_url)
-        val coroutineScope = rememberCoroutineScope()
         val tabsUiState by tabsViewModel.uiState.collectAsState()
 
         HorizontalPager(
