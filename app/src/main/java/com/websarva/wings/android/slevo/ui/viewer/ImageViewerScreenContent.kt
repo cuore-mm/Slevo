@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -80,44 +81,44 @@ internal fun ImageViewerScreenContent(
             .hazeSource(state = hazeState)
     ) {
         // --- Screen scaffold ---
-    Scaffold(
-        topBar = {
-            val menuState by remember(
-                imageUrls,
-                pagerState.currentPage,
-                uiState.viewerImageLoadFailureByUrl,
-                uiState.viewerImageLoadingUrls,
-            ) {
-                derivedStateOf {
-                    val currentUrl = imageUrls.getOrNull(pagerState.currentPage).orEmpty()
-                    resolveImageActionMenuState(
-                        imageUrl = currentUrl,
-                        imageUrls = imageUrls,
-                        imageLoadFailureByUrl = uiState.viewerImageLoadFailureByUrl,
-                        loadingImageUrls = uiState.viewerImageLoadingUrls,
-                    )
+        Scaffold(
+            topBar = {
+                val menuState by remember(
+                    imageUrls,
+                    pagerState.currentPage,
+                    uiState.viewerImageLoadFailureByUrl,
+                    uiState.viewerImageLoadingUrls,
+                ) {
+                    derivedStateOf {
+                        val currentUrl = imageUrls.getOrNull(pagerState.currentPage).orEmpty()
+                        resolveImageActionMenuState(
+                            imageUrl = currentUrl,
+                            imageUrls = imageUrls,
+                            imageLoadFailureByUrl = uiState.viewerImageLoadFailureByUrl,
+                            loadingImageUrls = uiState.viewerImageLoadingUrls,
+                        )
+                    }
                 }
-            }
-            ImageViewerTopBar(
-                isVisible = isBarsVisible,
-                isMenuExpanded = uiState.isTopBarMenuExpanded,
-                imageCount = imageUrls.size,
-                barBackgroundColor = barBackgroundColor,
-                foregroundColor = viewerContentColor,
-                tooltipBackgroundColor = tooltipBackgroundColor,
-                hazeState = hazeState,
-                barExitDurationMillis = barExitDurationMillis,
-                onNavigateUp = onNavigateUp,
-                onSaveClick = onRequestSaveCurrent,
-                onShareClick = onShareCurrent,
-                onMoreClick = onToggleMenu,
-                onDismissMenu = onDismissMenu,
-                onMenuActionClick = onMenuActionClick,
-                menuState = menuState,
-            )
-        },
+                ImageViewerTopBar(
+                    isVisible = isBarsVisible,
+                    isMenuExpanded = uiState.isTopBarMenuExpanded,
+                    imageCount = imageUrls.size,
+                    barBackgroundColor = barBackgroundColor,
+                    foregroundColor = viewerContentColor,
+                    tooltipBackgroundColor = tooltipBackgroundColor,
+                    hazeState = hazeState,
+                    barExitDurationMillis = barExitDurationMillis,
+                    onNavigateUp = onNavigateUp,
+                    onSaveClick = onRequestSaveCurrent,
+                    onShareClick = onShareCurrent,
+                    onMoreClick = onToggleMenu,
+                    onDismissMenu = onDismissMenu,
+                    onMenuActionClick = onMenuActionClick,
+                    menuState = menuState,
+                )
+            },
             containerColor = viewerBackgroundColor,
-            contentWindowInsets = WindowInsets(0)
+            contentWindowInsets = WindowInsets(0),
         ) { _ ->
             // --- Main image and overlays ---
             Box(
