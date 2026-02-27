@@ -6,7 +6,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.awaitPointerEventScope
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -205,9 +204,11 @@ private fun detectGestureDirection(
     path: List<Offset>,
     thresholdPx: Float,
 ): GestureDetectionResult {
+    // --- Guard ---
     // 最低でも開始点と 1 点は必要
     if (path.size < 2) return GestureDetectionResult.None
 
+    // --- Initial direction ---
     // 最初に水平成分が閾値を越えたインデックスを探す
     val firstIndex = path.indexOfFirst { offset ->
         abs(offset.x) >= thresholdPx
@@ -233,9 +234,11 @@ private fun detectGestureDirection(
         }
     }
 
+    // --- Switch detection ---
     val switchIndex = findDirectionSwitchIndex(path, firstIndex, firstDirection, thresholdPx)
     val switchPoint = path[switchIndex]
 
+    // --- Range analysis ---
     // 以降の点を走査して X/Y の最大・最小を求める
     var maxX = switchPoint.x
     var minX = switchPoint.x
@@ -250,6 +253,7 @@ private fun detectGestureDirection(
         minY = min(minY, point.y)
     }
 
+    // --- Direction mapping ---
     // 最初の方向（右/左）ごとの判定
     return when (firstDirection) {
         HorizontalDirection.Right -> {

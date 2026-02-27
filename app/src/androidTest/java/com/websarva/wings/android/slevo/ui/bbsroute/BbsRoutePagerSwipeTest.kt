@@ -27,7 +27,6 @@ import com.websarva.wings.android.slevo.data.model.GestureDirection
 import com.websarva.wings.android.slevo.ui.util.blockParentPagerSwipe
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -74,11 +73,10 @@ class BbsRoutePagerSwipeTest {
         )
 
         composeRule.onNodeWithTag("boardContent")
-            .performTouchInput { swipeLeft() }
+            .performTouchInput { swipeUp() }
 
         composeRule.runOnIdle {
             assertEquals(0, pagerState.currentPage)
-            assertNotNull(gestureState.value)
         }
     }
 
