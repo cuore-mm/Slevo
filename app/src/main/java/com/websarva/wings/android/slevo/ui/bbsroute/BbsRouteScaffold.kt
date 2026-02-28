@@ -406,6 +406,7 @@ private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
             var dragLock: DragLock? = null
             val touchSlop = viewConfiguration.touchSlop
             var totalOffset = Offset.Zero
+            var pendingHorizontalConsume = false
 
             // --- Touch slop detection (LazyColumn感に合わせた軸優先判定) ---
             while (true) {
@@ -426,10 +427,7 @@ private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
                 if (absX >= touchSlop || absY >= touchSlop) {
                     // 縦横が同時到達した場合は縦を優先する。
                     dragLock = if (absY >= absX) DragLock.Vertical else DragLock.Horizontal
-                    if (dragLock == DragLock.Horizontal) {
-                        // Guard: slop超過の初回移動を先に消費してPagerの掴みを防ぐ。
-                        change.consume()
-                    }
+                    pendingHorizontalConsume = dragLock == DragLock.Horizontal
                 }
 
                 if (dragLock != null) {
@@ -445,6 +443,13 @@ private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
             // --- Drag handling ---
             if (dragLock == DragLock.Horizontal) {
                 // 横開始: 子要素のジェスチャー処理を優先し、MainでPagerだけを遮断する。
+                if (pendingHorizontalConsume) {
+                    // Guard: slop超過の初回移動をMainで消費してPagerの掴みを防ぐ。
+                    val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                    val change = event.changes.firstOrNull { it.id == pointerId }
+                    change?.consume()
+                    pendingHorizontalConsume = false
+                }
                 while (true) {
                     val event = awaitPointerEvent(pass = PointerEventPass.Main)
                     val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
