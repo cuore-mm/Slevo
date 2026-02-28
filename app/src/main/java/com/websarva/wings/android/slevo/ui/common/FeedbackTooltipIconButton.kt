@@ -16,9 +16,9 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +50,7 @@ fun FeedbackTooltipIconButton(
     modifier: Modifier = Modifier,
     tooltipBackgroundColor: Color = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.9f),
     tooltipContentColor: Color = MaterialTheme.colorScheme.onSurface,
+    tooltipPositionProvider: PopupPositionProvider? = null,
     hazeState: HazeState? = null,
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
@@ -72,10 +73,11 @@ fun FeedbackTooltipIconButton(
         }
     }
 
+    val tooltipProvider = tooltipPositionProvider
+        ?: TooltipDefaults.rememberTooltipPositionProvider()
+
     TooltipBox(
-        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
-            TooltipAnchorPosition.Below,
-        ),
+        positionProvider = tooltipProvider,
         tooltip = {
             val tooltipShape = MaterialTheme.shapes.largeIncreased
             Box(
@@ -87,6 +89,11 @@ fun FeedbackTooltipIconButton(
                         clip = false,
                     )
             ) {
+                val surfaceColor = if (hazeState != null) {
+                    tooltipBackgroundColor
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerHigh
+                }
                 Surface(
                     modifier = Modifier
                         .clip(tooltipShape)
@@ -98,7 +105,7 @@ fun FeedbackTooltipIconButton(
                             }
                         },
                     shape = tooltipShape,
-                    color = tooltipBackgroundColor,
+                    color = surfaceColor,
                     contentColor = tooltipContentColor,
                     tonalElevation = 1.dp,
                     shadowElevation = 0.dp,

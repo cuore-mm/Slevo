@@ -74,6 +74,11 @@ fun AnchoredOverlayMenu(
         ),
     ) {
         val menuShape = MaterialTheme.shapes.largeIncreased
+        val menuColor = if (hazeState != null) {
+            MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.80f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        }
         Box(
             modifier = Modifier
                 .width(IntrinsicSize.Max)
@@ -95,7 +100,7 @@ fun AnchoredOverlayMenu(
                     }
                 },
                 shape = menuShape,
-                color = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.80f),
+                color = menuColor,
                 contentColor = MaterialTheme.colorScheme.onSurface,
                 tonalElevation = 3.dp,
             ) {
