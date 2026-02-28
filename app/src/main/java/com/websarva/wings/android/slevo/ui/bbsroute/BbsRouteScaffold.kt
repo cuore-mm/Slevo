@@ -1,8 +1,8 @@
 package com.websarva.wings.android.slevo.ui.bbsroute
 
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -26,7 +26,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
@@ -47,6 +49,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import com.websarva.wings.android.slevo.R
 import timber.log.Timber
+import kotlin.math.abs
 
 /**
  * 板/スレ共通のタブUIと画面内シートを提供する。
@@ -223,7 +226,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
             val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
-            val swipeBlockerState = rememberDraggableState { _ -> }
             val showBottomBar = bottomBehavior?.let { behavior ->
                 {
                     behavior.state.heightOffset = 0f
@@ -249,11 +251,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 ) { innerPadding ->
                     val contentModifier = Modifier
                         .padding(innerPadding)
-                        .draggable(
-                            state = swipeBlockerState,
-                            orientation = Orientation.Horizontal,
-                            enabled = true
-                        )
+                        .consumeTabSwipeByDragDirection()
                     // 各画面の実際のコンテンツを呼び出す
                     content(
                         viewModel,
@@ -389,4 +387,100 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             CircularProgressIndicator()
         }
     }
+}
+
+/**
+ * 本文領域のドラッグ開始方向を分類し、タブ切り替えの誤伝播を抑止する。
+ *
+ * 横優勢はジェスチャー用に消費し、縦優勢はLazyColumn側へ委譲する。
+ */
+private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
+    return pointerInput(Unit) {
+        awaitEachGesture {
+            // --- Setup ---
+            val down = awaitFirstDown(
+                requireUnconsumed = false,
+                pass = PointerEventPass.Main,
+            )
+            val pointerId = down.id
+            var dragLock: DragLock? = null
+            val touchSlop = viewConfiguration.touchSlop
+            var totalOffset = Offset.Zero
+            var pendingHorizontalConsume = false
+
+            // --- Touch slop detection (LazyColumn感に合わせた軸優先判定) ---
+            while (true) {
+                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
+                if (!change.pressed) {
+                    // Guard: ポインタが離れたら終了する。
+                    return@awaitEachGesture
+                }
+                val delta = change.position - change.previousPosition
+                if (delta == Offset.Zero) {
+                    continue
+                }
+                totalOffset += delta
+
+                val absX = abs(totalOffset.x)
+                val absY = abs(totalOffset.y)
+                if (absX >= touchSlop || absY >= touchSlop) {
+                    // 縦横が同時到達した場合は縦を優先する。
+                    dragLock = if (absY >= absX) DragLock.Vertical else DragLock.Horizontal
+                    pendingHorizontalConsume = dragLock == DragLock.Horizontal
+                }
+
+                if (dragLock != null) {
+                    break
+                }
+            }
+
+            if (dragLock == null) {
+                // Guard: 方向が確定していない場合は処理を終了する。
+                return@awaitEachGesture
+            }
+
+            // --- Drag handling ---
+            if (dragLock == DragLock.Horizontal) {
+                // 横開始: 子要素のジェスチャー処理を優先し、MainでPagerだけを遮断する。
+                if (pendingHorizontalConsume) {
+                    // Guard: slop超過の初回移動をMainで消費してPagerの掴みを防ぐ。
+                    val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                    val change = event.changes.firstOrNull { it.id == pointerId }
+                    change?.consume()
+                    pendingHorizontalConsume = false
+                }
+                while (true) {
+                    val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                    val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
+                    if (!change.pressed) {
+                        break
+                    }
+                    change.consume()
+                }
+            } else {
+                // 縦開始: LazyColumn側へ委譲し、横成分が出た場合のみPagerを遮断する。
+                while (true) {
+                    val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                    val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
+                    if (!change.pressed) {
+                        break
+                    }
+                    val delta = change.position - change.previousPosition
+                    if (abs(delta.x) > abs(delta.y)) {
+                        // Guard: 縦中の横ジッターがPagerへ伝播するのを防ぐ。
+                        change.consume()
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * ドラッグ開始方向の固定分類を表す。
+ */
+private enum class DragLock {
+    Horizontal,
+    Vertical,
 }
