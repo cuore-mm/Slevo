@@ -33,7 +33,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.PopupPositionProvider
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.launch
@@ -51,7 +50,7 @@ fun FeedbackTooltipIconButton(
     showTooltipHost: Boolean = true,
     tooltipBackgroundColor: Color = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.9f),
     tooltipContentColor: Color = MaterialTheme.colorScheme.onSurface,
-    tooltipPositionProvider: PopupPositionProvider? = null,
+    tooltipAnchorPosition: TooltipAnchorPosition = TooltipAnchorPosition.Above,
     hazeState: HazeState? = null,
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
@@ -74,11 +73,10 @@ fun FeedbackTooltipIconButton(
         }
     }
 
-    val tooltipProvider = tooltipPositionProvider
-        ?: TooltipDefaults.rememberTooltipPositionProvider()
-
     TooltipBox(
-        positionProvider = tooltipProvider,
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+            tooltipAnchorPosition
+        ),
         tooltip = {
             val tooltipShape = MaterialTheme.shapes.largeIncreased
             Box(
