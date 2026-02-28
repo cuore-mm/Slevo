@@ -392,7 +392,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 /**
  * 本文領域のドラッグ開始方向を分類し、タブ切り替えの誤伝播を抑止する。
  *
- * 横優勢はジェスチャー用に消費し、縦優勢は子要素へ任せ、斜めは無効入力として消費する。
+ * 横優勢はジェスチャー用に消費し、縦優勢は子要素へ任せ、斜めは無効入力として先行消費する。
  */
 private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
     return pointerInput(Unit) {
@@ -406,28 +406,25 @@ private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
             val touchSlop = viewConfiguration.touchSlop
             var totalOffset = Offset.Zero
             var dragLock: DragLock? = null
-            var isPointerReleased = false
 
-            // --- Touch slop detection ---
+            // --- Touch slop detection (Initial) ---
             while (true) {
-                val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
                 val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
                 if (!change.pressed) {
                     // Guard: ポインタが離れたら終了する。
-                    isPointerReleased = true
-                    break
+                    return@awaitEachGesture
                 }
                 val delta = change.position - change.previousPosition
                 if (delta == Offset.Zero) {
                     continue
                 }
                 totalOffset += delta
-
                 if (dragLock == null && totalOffset.getDistance() >= touchSlop) {
                     dragLock = detectDragLock(totalOffset)
                 }
-                if (dragLock == DragLock.Horizontal || dragLock == DragLock.Diagonal) {
-                    // 横優勢・斜めの開始はPagerへ渡さないため先に消費する。
+                if (dragLock == DragLock.Diagonal) {
+                    // 斜め開始は子要素へ渡さない。
                     change.consume()
                 }
                 if (dragLock != null) {
@@ -435,15 +432,15 @@ private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
                 }
             }
 
-            if (isPointerReleased || dragLock == null) {
-                // Guard: 入力系列が終了している場合は後続処理を行わない。
+            if (dragLock == null) {
+                // Guard: 方向が確定していない場合は処理を終了する。
                 return@awaitEachGesture
             }
 
             // --- Drag handling ---
             when (dragLock) {
                 DragLock.Horizontal -> {
-                    // 横開始: ジェスチャー処理を保ちつつPagerへ伝播させない。
+                    // 横開始: 子要素のジェスチャー処理を優先し、MainでPagerだけを遮断する。
                     while (true) {
                         val event = awaitPointerEvent(pass = PointerEventPass.Main)
                         val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
@@ -455,13 +452,21 @@ private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
                 }
 
                 DragLock.Vertical -> {
-                    // 縦開始: 子要素のスクロールに任せる。
-                }
-
-                DragLock.Diagonal, null -> {
-                    // 斜め開始は無効入力として消費を継続する。
+                    // 縦開始: 子要素のスクロールを優先し、MainでPagerだけを遮断する。
                     while (true) {
                         val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                        val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
+                        if (!change.pressed) {
+                            break
+                        }
+                        change.consume()
+                    }
+                }
+
+                DragLock.Diagonal -> {
+                    // 斜め開始は無効入力としてInitialで消費を継続する。
+                    while (true) {
+                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
                         val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
                         if (!change.pressed) {
                             break
