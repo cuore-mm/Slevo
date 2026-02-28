@@ -20,6 +20,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -32,6 +33,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.websarva.wings.android.slevo.data.model.GestureDirection
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -116,17 +118,32 @@ class BbsRoutePagerSwipeTest {
         bottomBarTag: String,
         gestureState: MutableState<GestureDirection?>,
     ) {
+        var edgePullStretch by remember { mutableStateOf(0f) }
+        var edgePullOrigin by remember { mutableStateOf(0f) }
         val coroutineScope = rememberCoroutineScope()
         val flingBehavior = remember(pagerState) {
             PagerDefaults.flingBehavior(state = pagerState)
         }
         val bottomBarDragState = rememberDraggableState { delta ->
-            pagerState.dispatchRawDelta(-delta)
+            val dragDelta = -delta
+            val consumed = pagerState.dispatchRawDelta(dragDelta)
+            val remainder = dragDelta - consumed
+            if (remainder != 0f) {
+                edgePullOrigin = if (remainder > 0f) 0f else 1f
+                val nextStretch = (edgePullStretch + remainder * 0.25f).coerceIn(-0.08f, 0.08f)
+                edgePullStretch = abs(nextStretch)
+                return@rememberDraggableState
+            }
+            edgePullStretch = 0f
         }
         val bottomBarSwipeModifier = Modifier.draggable(
             state = bottomBarDragState,
             orientation = Orientation.Horizontal,
             onDragStopped = { velocity ->
+                if (edgePullStretch != 0f) {
+                    edgePullStretch = 0f
+                    return@draggable
+                }
                 coroutineScope.launch {
                     pagerState.scroll {
                         with(flingBehavior) {
@@ -139,8 +156,13 @@ class BbsRoutePagerSwipeTest {
         HorizontalPager(
             state = pagerState,
             pageCount = { 2 },
-            modifier = Modifier.fillMaxSize(),
             userScrollEnabled = false,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = 1f + edgePullStretch
+                    transformOrigin = TransformOrigin(edgePullOrigin, 0.5f)
+                }
         ) { _ ->
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(

@@ -32,6 +32,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
@@ -53,7 +54,6 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import com.websarva.wings.android.slevo.R
 import timber.log.Timber
-import kotlin.math.abs
 import kotlinx.coroutines.Job
 
 /**
@@ -127,7 +127,8 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
     if (tabs.isNotEmpty()) {
         // --- Edge pull state ---
-        var edgePullOffsetPx by remember { mutableFloatStateOf(0f) }
+        var edgePullStretch by remember { mutableFloatStateOf(0f) }
+        var edgePullOrigin by remember { mutableFloatStateOf(0f) }
         var edgePullJob by remember { mutableStateOf<Job?>(null) }
 
         // 初期ページの決定。routeやタブ数が変わったら再計算される。
@@ -179,38 +180,37 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
             // reverseDirection と同じ挙動に合わせるため、ドラッグ量を反転して伝える。
             val dragDelta = -delta
-            val isFirstPage = pagerState.currentPage == 0
-            val isLastPage = pagerState.currentPage == pagerState.pageCount - 1
-            val isEdgePull = (isFirstPage && dragDelta > 0f) || (isLastPage && dragDelta < 0f)
+            val consumed = pagerState.dispatchRawDelta(dragDelta)
+            val remainder = dragDelta - consumed
 
-            if (isEdgePull) {
-                // 端ページの引っ張り感を再現するために減衰させて反映する。
-                val resistance = 0.28f
-                val nextOffset = edgePullOffsetPx + dragDelta * resistance
-                edgePullOffsetPx = nextOffset.coerceIn(-120f, 120f)
+            if (remainder != 0f) {
+                // 端で余った分のみ引っ張り演出に回す。
+                val resistance = 0.25f
+                edgePullOrigin = if (remainder > 0f) 0f else 1f
+                val nextStretch = (edgePullStretch + remainder * resistance).coerceIn(-0.08f, 0.08f)
+                edgePullStretch = if (nextStretch < 0f) -nextStretch else nextStretch
                 return@rememberDraggableState
             }
 
-            edgePullOffsetPx = 0f
-            pagerState.dispatchRawDelta(dragDelta)
+            edgePullStretch = 0f
         }
         val bottomBarSwipeModifier = Modifier.draggable(
             state = bottomBarDragState,
             orientation = Orientation.Horizontal,
             enabled = tabs.size > 1,
             onDragStopped = { velocity ->
-                if (abs(edgePullOffsetPx) > 0f) {
+                if (edgePullStretch != 0f) {
                     edgePullJob?.cancel()
-                edgePullJob = coroutineScope.launch {
-                    animate(
-                        initialValue = edgePullOffsetPx,
+                    edgePullJob = coroutineScope.launch {
+                        animate(
+                            initialValue = edgePullStretch,
                             targetValue = 0f,
                             animationSpec = spring(
                                 dampingRatio = Spring.DampingRatioMediumBouncy,
                                 stiffness = Spring.StiffnessLow,
                             ),
                         ) { value, _ ->
-                            edgePullOffsetPx = value
+                            edgePullStretch = value
                         }
                     }
                     // 端の引っ張り戻しのみ行うため、フリング処理は行わない。
@@ -242,9 +242,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             state = pagerState,
             key = { page -> getKey(tabs[page]) },
             userScrollEnabled = false,
-            modifier = Modifier.graphicsLayer {
-                translationX = edgePullOffsetPx
-            }
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = 1f + edgePullStretch
+                    transformOrigin = TransformOrigin(edgePullOrigin, 0.5f)
+                }
         ) { page ->
             val tab = tabs[page]
             val viewModel = getViewModel(tab)
