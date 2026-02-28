@@ -392,7 +392,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 /**
  * 本文領域のドラッグ開始方向を分類し、タブ切り替えの誤伝播を抑止する。
  *
- * 横優勢はジェスチャー用に消費し、縦優勢は子要素へ任せ、斜めは無効入力として先行消費する。
+ * 横優勢はジェスチャー用に消費し、縦優勢はLazyColumn側へ委譲する。
  */
 private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
     return pointerInput(Unit) {
@@ -403,11 +403,11 @@ private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
                 pass = PointerEventPass.Main,
             )
             val pointerId = down.id
+            var dragLock: DragLock? = null
             val touchSlop = viewConfiguration.touchSlop
             var totalOffset = Offset.Zero
-            var dragLock: DragLock? = null
 
-            // --- Touch slop detection (Initial) ---
+            // --- Touch slop detection (LazyColumn感に合わせた軸優先判定) ---
             while (true) {
                 val event = awaitPointerEvent(pass = PointerEventPass.Initial)
                 val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
@@ -420,13 +420,14 @@ private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
                     continue
                 }
                 totalOffset += delta
-                if (dragLock == null && totalOffset.getDistance() >= touchSlop) {
-                    dragLock = detectDragLock(totalOffset)
+
+                val absX = abs(totalOffset.x)
+                val absY = abs(totalOffset.y)
+                if (absX >= touchSlop || absY >= touchSlop) {
+                    // 縦横が同時到達した場合は縦を優先する。
+                    dragLock = if (absY >= absX) DragLock.Vertical else DragLock.Horizontal
                 }
-                if (dragLock == DragLock.Diagonal) {
-                    // 斜め開始は子要素へ渡さない。
-                    change.consume()
-                }
+
                 if (dragLock != null) {
                     break
                 }
@@ -438,63 +439,20 @@ private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
             }
 
             // --- Drag handling ---
-            when (dragLock) {
-                DragLock.Horizontal -> {
-                    // 横開始: 子要素のジェスチャー処理を優先し、MainでPagerだけを遮断する。
-                    while (true) {
-                        val event = awaitPointerEvent(pass = PointerEventPass.Main)
-                        val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
-                        if (!change.pressed) {
-                            break
-                        }
-                        change.consume()
+            if (dragLock == DragLock.Horizontal) {
+                // 横開始: 子要素のジェスチャー処理を優先し、MainでPagerだけを遮断する。
+                while (true) {
+                    val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                    val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
+                    if (!change.pressed) {
+                        break
                     }
+                    change.consume()
                 }
-
-                DragLock.Vertical -> {
-                    // 縦開始: 子要素のスクロールを優先し、MainでPagerだけを遮断する。
-                    while (true) {
-                        val event = awaitPointerEvent(pass = PointerEventPass.Main)
-                        val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
-                        if (!change.pressed) {
-                            break
-                        }
-                        change.consume()
-                    }
-                }
-
-                DragLock.Diagonal -> {
-                    // 斜め開始は無効入力としてInitialで消費を継続する。
-                    while (true) {
-                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                        val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
-                        if (!change.pressed) {
-                            break
-                        }
-                        change.consume()
-                    }
-                }
+            } else {
+                // 縦開始: LazyColumn側へ委譲する。
             }
         }
-    }
-}
-
-/**
- * ドラッグ開始の方向を判定する。
- *
- * 横/縦の優勢がつかない場合は斜めとして扱う。
- */
-private fun detectDragLock(delta: Offset): DragLock? {
-    if (delta == Offset.Zero) {
-        // Guard: 移動量が無い場合は方向を確定しない。
-        return null
-    }
-    val absX = abs(delta.x)
-    val absY = abs(delta.y)
-    return when {
-        absX > absY * HORIZONTAL_LOCK_RATIO -> DragLock.Horizontal
-        absY > absX * VERTICAL_LOCK_RATIO -> DragLock.Vertical
-        else -> DragLock.Diagonal
     }
 }
 
@@ -504,9 +462,4 @@ private fun detectDragLock(delta: Offset): DragLock? {
 private enum class DragLock {
     Horizontal,
     Vertical,
-    Diagonal,
 }
-
-// --- Drag direction tuning ---
-private const val HORIZONTAL_LOCK_RATIO = 1.35f
-private const val VERTICAL_LOCK_RATIO = 1.05f
