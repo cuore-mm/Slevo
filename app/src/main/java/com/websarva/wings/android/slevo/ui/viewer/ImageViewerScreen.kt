@@ -113,11 +113,9 @@ fun ImageViewerScreen(
                 coroutineScope = coroutineScope,
                 currentImageUrl = currentImageUrl,
                 imageUrls = imageUrls,
-                isImageLoading = { url -> url in uiState.viewerImageLoadingUrls },
                 onOpenNgDialog = { url -> viewModel?.openImageNgDialog(url) },
                 onRequestSaveSingle = { url -> viewModel?.requestImageSave(context, listOf(url)) },
                 onRequestSaveAll = { urls -> viewModel?.requestImageSave(context, urls) },
-                onCancelImageLoad = { url -> viewModel?.onViewerImageLoadCancelled(url) },
                 onActionHandled = { viewModel?.hideTopBarMenu() },
                 onSetClipboardText = { text ->
                     val clip = ClipData.newPlainText("", text).toClipEntry()
@@ -197,7 +195,6 @@ fun ImageViewerScreen(
             viewModel?.onViewerImageLoadError(url, failureType)
         },
         onViewerImageLoadSuccess = { url -> viewModel?.onViewerImageLoadSuccess(url) },
-        onViewerImageLoadCancel = { url -> viewModel?.onViewerImageLoadCancel(url) },
         onViewerImageRetry = { url -> viewModel?.onViewerImageRetry(url) },
         onThumbnailImageLoadError = { url, failureType ->
             viewModel?.onThumbnailImageLoadError(url, failureType)

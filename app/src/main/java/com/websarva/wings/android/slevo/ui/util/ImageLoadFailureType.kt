@@ -9,7 +9,6 @@ import coil3.network.HttpException
  */
 enum class ImageLoadFailureType {
     UNKNOWN,
-    CANCELLED,
     HTTP_404,
     HTTP_410,
 }

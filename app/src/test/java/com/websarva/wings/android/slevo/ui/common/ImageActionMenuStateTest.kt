@@ -42,22 +42,6 @@ class ImageActionMenuStateTest {
     }
 
     /**
-     * 中止失敗は FAIL_OTHER に分類されることを確認する。
-     */
-    @Test
-    fun resolveImageActionMenuState_returnsFailOtherForCancelled() {
-        val url = "https://example.com/image.jpg"
-        val state = resolveImageActionMenuState(
-            imageUrl = url,
-            imageUrls = listOf(url),
-            imageLoadFailureByUrl = mapOf(url to ImageLoadFailureType.CANCELLED),
-            loadingImageUrls = emptySet(),
-        )
-
-        assertEquals(ImageActionMenuGroup.FAIL_OTHER, state.group)
-    }
-
-    /**
      * 空URLは成功扱いで既存メニューを維持することを確認する。
      */
     @Test

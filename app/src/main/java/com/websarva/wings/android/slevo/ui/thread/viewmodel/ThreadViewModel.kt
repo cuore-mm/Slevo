@@ -28,7 +28,6 @@ import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.common.bookmark.ThreadTarget
-import com.websarva.wings.android.slevo.ui.common.ImageLoadCoordinator
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveCoordinator
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSavePreparation
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
@@ -126,7 +125,6 @@ class ThreadViewModel @AssistedInject constructor(
     private val postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
     private val postDialogControllerFactory: PostDialogController.Factory,
     private val replyPostDialogExecutor: ThreadReplyPostDialogExecutor,
-    private val imageLoadCoordinator: ImageLoadCoordinator,
     @Assisted @Suppress("unused") val viewModelKey: String,
 ) : BaseViewModel<ThreadUiState, ThreadInitArgs>() {
 
@@ -558,17 +556,6 @@ class ThreadViewModel @AssistedInject constructor(
      * ユーザーの明示リトライ操作に合わせて失敗状態を解除する。
      */
     fun onThreadImageRetry(imageUrl: String) {
-        if (imageUrl.isBlank()) {
-            // Guard: 空URLは失敗管理対象にしない。
-            return
-        }
-        // Guard: スレッド側では状態更新を行わず、単一ソースを利用する。
-    }
-
-    /**
-     * 読み込み中止要求を失敗状態として記録する。
-     */
-    fun onThreadImageLoadCancelled(imageUrl: String) {
         if (imageUrl.isBlank()) {
             // Guard: 空URLは失敗管理対象にしない。
             return

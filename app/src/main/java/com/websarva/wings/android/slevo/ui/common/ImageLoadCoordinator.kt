@@ -1,7 +1,6 @@
 package com.websarva.wings.android.slevo.ui.common
 
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
-import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -10,8 +9,7 @@ import kotlinx.coroutines.flow.update
 /**
  * 画像読み込み状態をURL単位で一元管理する調停役。
  *
- * 画面を跨いだ状態同期と実リクエストキャンセルを担い、
- * 旧リクエストの完了通知は世代IDで無効化する。
+ * 画面を跨いだ状態同期と、旧リクエストの完了通知の無効化を担う。
  */
 class ImageLoadCoordinator {
     private val lock = Any()
@@ -36,7 +34,6 @@ class ImageLoadCoordinator {
         LOADING,
         SUCCESS,
         FAILURE,
-        CANCELLED,
     }
 
     /**
@@ -54,12 +51,10 @@ class ImageLoadCoordinator {
             // Guard: 既に進行中または成功済みのURLは世代を進めない。
             return currentEntry.requestId
         }
-        if (currentEntry?.status == ImageLoadStatus.FAILURE ||
-            currentEntry?.status == ImageLoadStatus.CANCELLED
-        ) {
-            // Guard: 失敗/中止状態は明示リトライまで再取得しない。
-            return 0L
-        }
+         if (currentEntry?.status == ImageLoadStatus.FAILURE) {
+             // Guard: 失敗状態は明示リトライまで再取得しない。
+             return 0L
+         }
         val requestId = synchronized(lock) {
             val nextId = (requestIdByUrl[imageUrl] ?: 0L) + 1L
             requestIdByUrl[imageUrl] = nextId
@@ -86,11 +81,6 @@ class ImageLoadCoordinator {
         }
         if (!isCurrentRequest(imageUrl, requestId)) {
             // Guard: 旧世代の完了通知は無効化する。
-            return
-        }
-        val currentStatus = _stateByUrl.value[imageUrl]?.status
-        if (currentStatus == ImageLoadStatus.CANCELLED) {
-            // Guard: 中止状態は成功通知で巻き戻さない。
             return
         }
         _stateByUrl.update { current ->
@@ -159,33 +149,6 @@ class ImageLoadCoordinator {
             updated
         }
         // Guard: キャンセル通知は状態だけを更新する。
-    }
-
-    /**
-     * 明示的な中止要求を処理し、実リクエストをキャンセルする。
-     */
-    fun cancel(imageUrl: String): Boolean {
-        if (imageUrl.isBlank()) {
-            // Guard: 空URLは中止対象にしない。
-            return false
-        }
-        val requestId = synchronized(lock) {
-            val nextId = (requestIdByUrl[imageUrl] ?: 0L) + 1L
-            requestIdByUrl[imageUrl] = nextId
-            nextId
-        }
-        val cancelled = true
-        _stateByUrl.update { current ->
-            val updated = current.toMutableMap()
-            updated[imageUrl] = ImageLoadEntry(
-                status = ImageLoadStatus.CANCELLED,
-                failureType = ImageLoadFailureType.CANCELLED,
-                requestId = requestId,
-            )
-            updated
-        }
-        ImageLoadProgressRegistry.clearUrlForCancel(imageUrl)
-        return cancelled
     }
 
     /**
@@ -273,6 +236,4 @@ class ImageLoadCoordinator {
         return _stateByUrl.value[imageUrl]?.status
     }
 
-    // NOTE: 実リクエストのキャンセルは、UI側で対象の画像Composableを外すことで
-    // Coilのリクエストを破棄する前提とする。
 }

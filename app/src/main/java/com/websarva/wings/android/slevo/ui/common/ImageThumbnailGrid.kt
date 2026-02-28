@@ -154,14 +154,6 @@ fun ImageThumbnailGrid(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 when (failureType) {
-                                    ImageLoadFailureType.CANCELLED -> {
-                                        Icon(
-                                            imageVector = Icons.Filled.Refresh,
-                                            contentDescription = stringResource(R.string.refresh),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(24.dp),
-                                        )
-                                    }
                                     ImageLoadFailureType.HTTP_404 -> {
                                         ErrorCodeLabel(
                                             code = "404",

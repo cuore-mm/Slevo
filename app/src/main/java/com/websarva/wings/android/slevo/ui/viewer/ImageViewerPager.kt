@@ -82,7 +82,6 @@ internal fun ImageViewerPager(
     onImageLoadStart: (String) -> Unit,
     onImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onImageLoadSuccess: (String) -> Unit,
-    onImageLoadCancel: (String) -> Unit,
     onImageRetry: (String) -> Unit,
 ) {
     // --- Pager ---
@@ -194,7 +193,6 @@ internal fun ImageViewerPager(
                         },
                         onCancel = { _ ->
                             isLoadingByPage[page] = false
-                            onImageLoadCancel(imageUrl)
                         }
                     )
                     .build()
@@ -223,14 +221,6 @@ internal fun ImageViewerPager(
                     contentAlignment = Alignment.Center,
                 ) {
                     when (failureType) {
-                        ImageLoadFailureType.CANCELLED -> {
-                            ImageRetryButton(
-                                onRetry = {
-                                    onImageRetry(imageUrl)
-                                    retryNonceByPage[page] = retryNonce + 1
-                                },
-                            )
-                        }
                         ImageLoadFailureType.HTTP_404 -> {
                             FailureMessage(
                                 code = "404",
@@ -378,7 +368,6 @@ private fun ImageViewerPagerPreviewWrapper(
                     onImageLoadError = { _, _ -> },
                     onImageLoadStart = {},
                     onImageLoadSuccess = {},
-                    onImageLoadCancel = {},
                     onImageRetry = {}
                 )
             }

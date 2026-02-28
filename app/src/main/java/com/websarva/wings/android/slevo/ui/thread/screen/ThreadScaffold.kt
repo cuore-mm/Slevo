@@ -55,7 +55,6 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.DisplaySettingsBottomShe
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
-import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 
@@ -77,7 +76,6 @@ fun ThreadScaffold(
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
-    val imageLoadCoordinator = androidx.hilt.navigation.compose.hiltViewModel<ImageLoadCoordinator>()
     var isPopupVisible by remember { mutableStateOf(false) }
     val popupDialogState = rememberPostItemDialogState()
     var popupMenuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
@@ -410,10 +408,6 @@ fun ThreadScaffold(
                                 if (urls.size >= 2) {
                                     viewModel.requestImageSave(context, urls)
                                 }
-                            },
-                            isImageLoading = { url -> url in loadingImageUrls },
-                            onCancelImageLoad = { url ->
-                                viewModel.onThreadImageLoadCancelled(url)
                             },
                             onActionHandled = { viewModel.closeImageMenu() },
                             onSetClipboardText = { text ->

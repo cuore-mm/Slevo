@@ -10,7 +10,6 @@
     <string name="image_menu_save_image">画像を保存</string>
     <string name="image_menu_search_web">Google レンズで検索</string>
     <string name="image_menu_share_image">画像を共有</string>
-    <string name="image_menu_cancel_loading">読み込みを中止</string>
     <string name="image_copy_failed">画像のコピーに失敗しました</string>
     <string name="image_save_in_progress">画像を保存中…</string>
     <string name="image_save_result_success">%1$d件の画像を保存しました</string>

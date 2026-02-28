@@ -86,10 +86,6 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
             return
         }
         _uiState.update { state ->
-            if (state.viewerImageLoadFailureByUrl[imageUrl] == ImageLoadFailureType.CANCELLED) {
-                // Guard: 中止済みURLは読み込み中へ再登録しない。
-                return@update state
-            }
             state.copy(viewerImageLoadingUrls = state.viewerImageLoadingUrls + imageUrl)
         }
     }
@@ -103,10 +99,6 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
             return
         }
         _uiState.update { state ->
-            if (state.viewerImageLoadFailureByUrl[imageUrl] == ImageLoadFailureType.CANCELLED) {
-                // Guard: 中止済みURLは失敗種別を上書きしない。
-                return@update state
-            }
             state.copy(
                 viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl +
                     (imageUrl to failureType),
@@ -124,10 +116,6 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
             return
         }
         _uiState.update { state ->
-            if (state.viewerImageLoadFailureByUrl[imageUrl] == ImageLoadFailureType.CANCELLED) {
-                // Guard: 中止済みURLは成功通知で解除しない。
-                return@update state
-            }
             state.copy(
                 viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl - imageUrl,
                 viewerImageLoadingUrls = state.viewerImageLoadingUrls - imageUrl,
@@ -138,37 +126,6 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
     /**
      * 本体画像読み込みキャンセルURLを読み込み中状態から解除する。
      */
-    fun onViewerImageLoadCancel(imageUrl: String) {
-        if (imageUrl.isBlank()) {
-            // Guard: 空URLは読み込み管理対象にしない。
-            return
-        }
-        _uiState.update { state ->
-            state.copy(viewerImageLoadingUrls = state.viewerImageLoadingUrls - imageUrl)
-        }
-    }
-
-    /**
-     * 読み込み中止要求を失敗状態として記録する。
-     */
-    fun onViewerImageLoadCancelled(imageUrl: String) {
-        if (imageUrl.isBlank()) {
-            // Guard: 空URLは失敗管理対象にしない。
-            return
-        }
-        _uiState.update { state ->
-            if (imageUrl !in state.viewerImageLoadingUrls) {
-                // Guard: 読み込み完了済みの中止要求は無視する。
-                return@update state
-            }
-            state.copy(
-                viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl +
-                    (imageUrl to ImageLoadFailureType.CANCELLED),
-                viewerImageLoadingUrls = state.viewerImageLoadingUrls - imageUrl,
-            )
-        }
-    }
-
     /**
      * 明示リトライ開始時に対象URLの失敗状態を解除する。
      */

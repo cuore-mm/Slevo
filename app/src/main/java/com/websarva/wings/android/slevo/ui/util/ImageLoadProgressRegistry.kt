@@ -111,22 +111,6 @@ object ImageLoadProgressRegistry {
     }
 
     /**
-     * 指定URLの進捗状態を破棄する。
-     */
-    fun clearUrlForCancel(url: String) {
-        if (url.isBlank()) {
-            // Guard: 空URLは管理対象にしない。
-            return
-        }
-        synchronized(lock) {
-            val remainingEntries = progressByRequestId.filterValues { entry -> entry.url != url }
-            progressByRequestId.clear()
-            progressByRequestId.putAll(remainingEntries)
-            _progressByUrl.value = aggregateProgressByUrl(progressByRequestId.values)
-        }
-    }
-
-    /**
      * request 単位の進捗状態を URL 単位へ集約する。
      *
      * 同一 URL に無段階表示が 1 件でもあれば無段階を優先し、

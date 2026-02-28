@@ -23,11 +23,9 @@ data class ImageMenuActionRunnerParams(
     val coroutineScope: CoroutineScope,
     val currentImageUrl: String,
     val imageUrls: List<String>,
-    val isImageLoading: (String) -> Boolean = { false },
     val onOpenNgDialog: (String) -> Unit,
     val onRequestSaveSingle: (String) -> Unit,
     val onRequestSaveAll: (List<String>) -> Unit,
-    val onCancelImageLoad: (String) -> Unit = {},
     val onActionHandled: () -> Unit,
     val onSetClipboardText: suspend (String) -> Unit,
     val onSetClipboardImageUri: suspend (Uri) -> Unit,
@@ -49,7 +47,6 @@ object ImageMenuActionRunner {
         // --- Dispatch ---
         when (action) {
             ImageMenuAction.ADD_NG -> handleAddNg(params)
-            ImageMenuAction.CANCEL_IMAGE_LOAD -> handleCancelImageLoad(params)
             ImageMenuAction.COPY_IMAGE_URL -> handleCopyImageUrl(params)
             ImageMenuAction.COPY_IMAGE -> handleCopyImage(params)
             ImageMenuAction.OPEN_IN_OTHER_APP -> handleOpenInOtherApp(params)
@@ -71,25 +68,6 @@ object ImageMenuActionRunner {
             return
         }
         params.onOpenNgDialog(targetUrl)
-    }
-
-    /**
-     * 読み込み中止アクションを実行する。
-     */
-    private fun handleCancelImageLoad(params: ImageMenuActionRunnerParams) {
-        // --- 入力確認 ---
-        val targetUrl = params.currentImageUrl
-        if (targetUrl.isBlank()) {
-            // Guard: 空URLは中止対象にしない。
-            return
-        }
-        if (!params.isImageLoading(targetUrl)) {
-            // Guard: 読み込み完了済みの中止要求は無視する。
-            return
-        }
-
-        // --- 中止実行 ---
-        params.onCancelImageLoad(targetUrl)
     }
 
     /**

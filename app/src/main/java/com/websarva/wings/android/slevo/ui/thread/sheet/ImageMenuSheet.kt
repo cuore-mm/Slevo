@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Block
-import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FilterNone
@@ -55,7 +54,6 @@ import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
  */
 enum class ImageMenuAction {
     ADD_NG,
-    CANCEL_IMAGE_LOAD,
     COPY_IMAGE,
     COPY_IMAGE_URL,
     OPEN_IN_OTHER_APP,
@@ -126,12 +124,6 @@ fun ImageMenuSheetContent(
     Column(modifier = Modifier.fillMaxWidth()) {
         when (menuState.group) {
             ImageActionMenuGroup.LOADING -> {
-                BottomSheetListItem(
-                    text = stringResource(R.string.image_menu_cancel_loading),
-                    icon = Icons.Outlined.Cancel,
-                    onClick = { onActionSelected(ImageMenuAction.CANCEL_IMAGE_LOAD) }
-                )
-                HorizontalDivider()
                 renderFailureMenu(
                     includeSearch = true,
                     onActionSelected = onActionSelected,

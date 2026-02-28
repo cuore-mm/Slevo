@@ -26,7 +26,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -76,7 +75,7 @@ import kotlin.math.roundToInt
  * 画像ビューアのトップバーを表示する。
  *
  * 戻る・保存・その他メニューの各アクションを持ち、表示可否は呼び出し元で制御する。
- * 読み込み中は中止アイコンを表示し、その他メニューの構成も状態に合わせて切り替える。
+ * 画像読み込み状態に合わせてその他メニューの構成を切り替える。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,50 +124,33 @@ internal fun ImageViewerTopBar(
                 }
             },
             actions = {
-                if (menuState.group == ImageActionMenuGroup.LOADING) {
-                    FeedbackTooltipIconButton(
-                        tooltipText = stringResource(R.string.image_menu_cancel_loading),
-                        showTooltipHost = isVisible && !isMenuExpanded,
-                        foregroundColor = foregroundColor,
-                        tooltipBackgroundColor = tooltipBackgroundColor,
-                        hazeState = hazeState,
-                        onClick = { onMenuActionClick(ImageMenuAction.CANCEL_IMAGE_LOAD) },
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Cancel,
-                            contentDescription = stringResource(R.string.image_menu_cancel_loading),
-                            tint = foregroundColor,
-                        )
-                    }
-                } else {
-                    FeedbackTooltipIconButton(
-                        tooltipText = stringResource(R.string.save),
-                        showTooltipHost = isVisible && !isMenuExpanded,
-                        foregroundColor = foregroundColor,
-                        tooltipBackgroundColor = tooltipBackgroundColor,
-                        hazeState = hazeState,
-                        onClick = onSaveClick,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Download,
-                            contentDescription = stringResource(R.string.save),
-                            tint = foregroundColor,
-                        )
-                    }
-                    FeedbackTooltipIconButton(
-                        tooltipText = stringResource(R.string.share),
-                        showTooltipHost = isVisible && !isMenuExpanded,
-                        foregroundColor = foregroundColor,
-                        tooltipBackgroundColor = tooltipBackgroundColor,
-                        hazeState = hazeState,
-                        onClick = onShareClick,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = stringResource(R.string.share),
-                            tint = foregroundColor,
-                        )
-                    }
+                FeedbackTooltipIconButton(
+                    tooltipText = stringResource(R.string.save),
+                    showTooltipHost = isVisible && !isMenuExpanded,
+                    foregroundColor = foregroundColor,
+                    tooltipBackgroundColor = tooltipBackgroundColor,
+                    hazeState = hazeState,
+                    onClick = onSaveClick,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Download,
+                        contentDescription = stringResource(R.string.save),
+                        tint = foregroundColor,
+                    )
+                }
+                FeedbackTooltipIconButton(
+                    tooltipText = stringResource(R.string.share),
+                    showTooltipHost = isVisible && !isMenuExpanded,
+                    foregroundColor = foregroundColor,
+                    tooltipBackgroundColor = tooltipBackgroundColor,
+                    hazeState = hazeState,
+                    onClick = onShareClick,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = stringResource(R.string.share),
+                        tint = foregroundColor,
+                    )
                 }
                 Box {
                     FeedbackTooltipIconButton(
