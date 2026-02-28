@@ -426,6 +426,10 @@ private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
                 if (absX >= touchSlop || absY >= touchSlop) {
                     // 縦横が同時到達した場合は縦を優先する。
                     dragLock = if (absY >= absX) DragLock.Vertical else DragLock.Horizontal
+                    if (dragLock == DragLock.Horizontal) {
+                        // Guard: slop超過の初回移動を先に消費してPagerの掴みを防ぐ。
+                        change.consume()
+                    }
                 }
 
                 if (dragLock != null) {
@@ -450,7 +454,19 @@ private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
                     change.consume()
                 }
             } else {
-                // 縦開始: LazyColumn側へ委譲する。
+                // 縦開始: LazyColumn側へ委譲し、横成分が出た場合のみPagerを遮断する。
+                while (true) {
+                    val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                    val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
+                    if (!change.pressed) {
+                        break
+                    }
+                    val delta = change.position - change.previousPosition
+                    if (abs(delta.x) > abs(delta.y)) {
+                        // Guard: 縦中の横ジッターがPagerへ伝播するのを防ぐ。
+                        change.consume()
+                    }
+                }
             }
         }
     }
