@@ -13,10 +13,13 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -28,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.websarva.wings.android.slevo.data.model.GestureDirection
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
+import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -112,12 +116,25 @@ class BbsRoutePagerSwipeTest {
         bottomBarTag: String,
         gestureState: MutableState<GestureDirection?>,
     ) {
+        val coroutineScope = rememberCoroutineScope()
+        val flingBehavior = remember(pagerState) {
+            PagerDefaults.flingBehavior(state = pagerState)
+        }
         val bottomBarDragState = rememberDraggableState { delta ->
             pagerState.dispatchRawDelta(-delta)
         }
         val bottomBarSwipeModifier = Modifier.draggable(
             state = bottomBarDragState,
             orientation = Orientation.Horizontal,
+            onDragStopped = { velocity ->
+                coroutineScope.launch {
+                    pagerState.scroll {
+                        with(flingBehavior) {
+                            performFling(-velocity)
+                        }
+                    }
+                }
+            },
         )
         HorizontalPager(
             state = pagerState,

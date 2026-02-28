@@ -1,5 +1,8 @@
 package com.websarva.wings.android.slevo.ui.bbsroute
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -19,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -27,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
@@ -48,6 +53,8 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import com.websarva.wings.android.slevo.R
 import timber.log.Timber
+import kotlin.math.abs
+import kotlinx.coroutines.Job
 
 /**
  * 板/スレ共通のタブUIと画面内シートを提供する。
@@ -119,6 +126,10 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     val currentTabInfo = tabs.find(currentRoutePredicate)
 
     if (tabs.isNotEmpty()) {
+        // --- Edge pull state ---
+        var edgePullOffsetPx by remember { mutableFloatStateOf(0f) }
+        var edgePullJob by remember { mutableStateOf<Job?>(null) }
+
         // 初期ページの決定。routeやタブ数が変わったら再計算される。
         val initialPage = remember(route, tabs.size, currentTabInfo, currentPage) {
             when {
@@ -160,17 +171,52 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 
         val coroutineScope = rememberCoroutineScope()
 
+        // --- Bottom bar swipe ---
         // ボトムバーからPagerを操作するためのスワイプ設定
         val pagerFlingBehavior = PagerDefaults.flingBehavior(state = pagerState)
         val bottomBarDragState = rememberDraggableState { delta ->
+            edgePullJob?.cancel()
+
             // reverseDirection と同じ挙動に合わせるため、ドラッグ量を反転して伝える。
-            pagerState.dispatchRawDelta(-delta)
+            val dragDelta = -delta
+            val isFirstPage = pagerState.currentPage == 0
+            val isLastPage = pagerState.currentPage == pagerState.pageCount - 1
+            val isEdgePull = (isFirstPage && dragDelta > 0f) || (isLastPage && dragDelta < 0f)
+
+            if (isEdgePull) {
+                // 端ページの引っ張り感を再現するために減衰させて反映する。
+                val resistance = 0.28f
+                val nextOffset = edgePullOffsetPx + dragDelta * resistance
+                edgePullOffsetPx = nextOffset.coerceIn(-120f, 120f)
+                return@rememberDraggableState
+            }
+
+            edgePullOffsetPx = 0f
+            pagerState.dispatchRawDelta(dragDelta)
         }
         val bottomBarSwipeModifier = Modifier.draggable(
             state = bottomBarDragState,
             orientation = Orientation.Horizontal,
             enabled = tabs.size > 1,
             onDragStopped = { velocity ->
+                if (abs(edgePullOffsetPx) > 0f) {
+                    edgePullJob?.cancel()
+                edgePullJob = coroutineScope.launch {
+                    animate(
+                        initialValue = edgePullOffsetPx,
+                            targetValue = 0f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow,
+                            ),
+                        ) { value, _ ->
+                            edgePullOffsetPx = value
+                        }
+                    }
+                    // 端の引っ張り戻しのみ行うため、フリング処理は行わない。
+                    return@draggable
+                }
+
                 coroutineScope.launch {
                     // reverseDirection を反映した速度でスナップ位置へフリングする。
                     pagerState.scroll {
@@ -195,7 +241,10 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         HorizontalPager(
             state = pagerState,
             key = { page -> getKey(tabs[page]) },
-            userScrollEnabled = false
+            userScrollEnabled = false,
+            modifier = Modifier.graphicsLayer {
+                translationX = edgePullOffsetPx
+            }
         ) { page ->
             val tab = tabs[page]
             val viewModel = getViewModel(tab)
