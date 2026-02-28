@@ -24,7 +24,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FlexibleBottomAppBar
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -51,6 +50,11 @@ import androidx.core.content.ContextCompat
 import com.websarva.wings.android.slevo.R
 import java.util.Locale
 
+/**
+ * 検索モード時に表示するボトムバーを提供する。
+ *
+ * 検索入力と音声入力の操作をまとめ、既存の検索フローを維持する。
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun SearchBottomBar(
@@ -81,6 +85,7 @@ fun SearchBottomBar(
         }
     }
 
+    // --- Voice input ---
     val startSpeechRecognition: () -> Unit = {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(
@@ -107,6 +112,7 @@ fun SearchBottomBar(
         }
     }
 
+    // --- Focus ---
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboardController?.show()
@@ -122,11 +128,14 @@ fun SearchBottomBar(
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp)
             ) {
-                IconButton(onClick = {
-                    keyboardController?.hide()
-                    focusManager.clearFocus()
-                    onCloseSearch()
-                }) {
+                FeedbackTooltipIconButton(
+                    tooltipText = stringResource(R.string.cancel),
+                    onClick = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        onCloseSearch()
+                    },
+                ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                         contentDescription = stringResource(R.string.cancel)
@@ -162,14 +171,18 @@ fun SearchBottomBar(
                     label = "SearchBarIcon"
                 ) { hasQuery ->
                     if (hasQuery) {
-                        IconButton(onClick = { onQueryChange("") }) {
+                        FeedbackTooltipIconButton(
+                            tooltipText = stringResource(R.string.clear_search),
+                            onClick = { onQueryChange("") },
+                        ) {
                             Icon(
                                 imageVector = Icons.Filled.Clear,
-                                contentDescription = "Clear search"
+                                contentDescription = stringResource(R.string.clear_search),
                             )
                         }
                     } else {
-                        IconButton(
+                        FeedbackTooltipIconButton(
+                            tooltipText = stringResource(R.string.voice_input),
                             onClick = {
                                 keyboardController?.hide()
                                 focusManager.clearFocus()
@@ -183,7 +196,7 @@ fun SearchBottomBar(
                                 } else {
                                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                 }
-                            }
+                            },
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Mic,

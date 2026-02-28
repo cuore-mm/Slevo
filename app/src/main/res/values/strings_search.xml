@@ -1,6 +1,7 @@
 <resources>
     <!-- Search and voice input -->
     <string name="voice_input">音声入力</string>
+    <string name="clear_search">検索をクリア</string>
     <string name="voice_search_prompt">検索ワードを話してください</string>
     <string name="voice_permission_denied">音声入力を使用するにはマイクへのアクセスを許可してください</string>
     <string name="speech_recognition_not_available">この端末では音声入力を利用できません</string>
