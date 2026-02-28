@@ -124,9 +124,6 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
     }
 
     /**
-     * 本体画像読み込みキャンセルURLを読み込み中状態から解除する。
-     */
-    /**
      * 明示リトライ開始時に対象URLの失敗状態を解除する。
      */
     fun onViewerImageRetry(imageUrl: String) {

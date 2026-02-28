@@ -124,33 +124,35 @@ internal fun ImageViewerTopBar(
                 }
             },
             actions = {
-                FeedbackTooltipIconButton(
-                    tooltipText = stringResource(R.string.save),
-                    showTooltipHost = isVisible && !isMenuExpanded,
-                    foregroundColor = foregroundColor,
-                    tooltipBackgroundColor = tooltipBackgroundColor,
-                    hazeState = hazeState,
-                    onClick = onSaveClick,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Download,
-                        contentDescription = stringResource(R.string.save),
-                        tint = foregroundColor,
-                    )
-                }
-                FeedbackTooltipIconButton(
-                    tooltipText = stringResource(R.string.share),
-                    showTooltipHost = isVisible && !isMenuExpanded,
-                    foregroundColor = foregroundColor,
-                    tooltipBackgroundColor = tooltipBackgroundColor,
-                    hazeState = hazeState,
-                    onClick = onShareClick,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = stringResource(R.string.share),
-                        tint = foregroundColor,
-                    )
+                if (menuState.group == ImageActionMenuGroup.SUCCESS) {
+                    FeedbackTooltipIconButton(
+                        tooltipText = stringResource(R.string.save),
+                        showTooltipHost = isVisible && !isMenuExpanded,
+                        foregroundColor = foregroundColor,
+                        tooltipBackgroundColor = tooltipBackgroundColor,
+                        hazeState = hazeState,
+                        onClick = onSaveClick,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = stringResource(R.string.save),
+                            tint = foregroundColor,
+                        )
+                    }
+                    FeedbackTooltipIconButton(
+                        tooltipText = stringResource(R.string.share),
+                        showTooltipHost = isVisible && !isMenuExpanded,
+                        foregroundColor = foregroundColor,
+                        tooltipBackgroundColor = tooltipBackgroundColor,
+                        hazeState = hazeState,
+                        onClick = onShareClick,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = stringResource(R.string.share),
+                            tint = foregroundColor,
+                        )
+                    }
                 }
                 Box {
                     FeedbackTooltipIconButton(

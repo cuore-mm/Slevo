@@ -527,7 +527,13 @@ class ThreadViewModel @AssistedInject constructor(
             // Guard: 空URLは失敗管理対象にしない。
             return
         }
-        // Guard: スレッド側では状態更新を行わず、単一ソースを利用する。
+        _uiState.update { state ->
+            state.copy(
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl +
+                    (imageUrl to failureType),
+                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
+            )
+        }
     }
 
     /**
@@ -538,7 +544,9 @@ class ThreadViewModel @AssistedInject constructor(
             // Guard: 空URLは読み込み管理対象にしない。
             return
         }
-        // Guard: スレッド側では状態更新を行わず、単一ソースを利用する。
+        _uiState.update { state ->
+            state.copy(imageLoadingUrls = state.imageLoadingUrls + imageUrl)
+        }
     }
 
     /**
@@ -549,7 +557,12 @@ class ThreadViewModel @AssistedInject constructor(
             // Guard: 空URLは失敗管理対象にしない。
             return
         }
-        // Guard: スレッド側では状態更新を行わず、単一ソースを利用する。
+        _uiState.update { state ->
+            state.copy(
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl,
+                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
+            )
+        }
     }
 
     /**
@@ -560,7 +573,12 @@ class ThreadViewModel @AssistedInject constructor(
             // Guard: 空URLは失敗管理対象にしない。
             return
         }
-        // Guard: スレッド側では状態更新を行わず、単一ソースを利用する。
+        _uiState.update { state ->
+            state.copy(
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl,
+                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
+            )
+        }
     }
 
     /**
