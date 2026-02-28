@@ -77,6 +77,7 @@ fun ThreadScaffold(
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
+    val imageLoadCoordinator = androidx.hilt.navigation.compose.hiltViewModel<ImageLoadCoordinator>()
     var isPopupVisible by remember { mutableStateOf(false) }
     val popupDialogState = rememberPostItemDialogState()
     var popupMenuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }

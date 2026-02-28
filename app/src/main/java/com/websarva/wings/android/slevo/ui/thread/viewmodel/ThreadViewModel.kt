@@ -28,6 +28,7 @@ import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.common.bookmark.ThreadTarget
+import com.websarva.wings.android.slevo.ui.common.ImageLoadCoordinator
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveCoordinator
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSavePreparation
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
@@ -125,6 +126,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
     private val postDialogControllerFactory: PostDialogController.Factory,
     private val replyPostDialogExecutor: ThreadReplyPostDialogExecutor,
+    private val imageLoadCoordinator: ImageLoadCoordinator,
     @Assisted @Suppress("unused") val viewModelKey: String,
 ) : BaseViewModel<ThreadUiState, ThreadInitArgs>() {
 
@@ -527,16 +529,7 @@ class ThreadViewModel @AssistedInject constructor(
             // Guard: 空URLは失敗管理対象にしない。
             return
         }
-        _uiState.update { state ->
-            if (state.imageLoadFailureByUrl[imageUrl] == ImageLoadFailureType.CANCELLED) {
-                // Guard: 中止済みURLは失敗種別を上書きしない。
-                return@update state
-            }
-            state.copy(
-                imageLoadFailureByUrl = state.imageLoadFailureByUrl + (imageUrl to failureType),
-                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
-            )
-        }
+        // Guard: スレッド側では状態更新を行わず、単一ソースを利用する。
     }
 
     /**
@@ -547,13 +540,7 @@ class ThreadViewModel @AssistedInject constructor(
             // Guard: 空URLは読み込み管理対象にしない。
             return
         }
-        _uiState.update { state ->
-            if (state.imageLoadFailureByUrl[imageUrl] == ImageLoadFailureType.CANCELLED) {
-                // Guard: 中止済みURLは読み込み中へ再登録しない。
-                return@update state
-            }
-            state.copy(imageLoadingUrls = state.imageLoadingUrls + imageUrl)
-        }
+        // Guard: スレッド側では状態更新を行わず、単一ソースを利用する。
     }
 
     /**
@@ -564,16 +551,7 @@ class ThreadViewModel @AssistedInject constructor(
             // Guard: 空URLは失敗管理対象にしない。
             return
         }
-        _uiState.update { state ->
-            if (state.imageLoadFailureByUrl[imageUrl] == ImageLoadFailureType.CANCELLED) {
-                // Guard: 中止済みURLは成功通知で解除しない。
-                return@update state
-            }
-            state.copy(
-                imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl,
-                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
-            )
-        }
+        // Guard: スレッド側では状態更新を行わず、単一ソースを利用する。
     }
 
     /**
@@ -584,12 +562,7 @@ class ThreadViewModel @AssistedInject constructor(
             // Guard: 空URLは失敗管理対象にしない。
             return
         }
-        _uiState.update { state ->
-            state.copy(
-                imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl,
-                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
-            )
-        }
+        // Guard: スレッド側では状態更新を行わず、単一ソースを利用する。
     }
 
     /**
@@ -600,17 +573,7 @@ class ThreadViewModel @AssistedInject constructor(
             // Guard: 空URLは失敗管理対象にしない。
             return
         }
-        _uiState.update { state ->
-            if (state.imageLoadFailureByUrl[imageUrl] == ImageLoadFailureType.CANCELLED) {
-                // Guard: 既に中止状態なら更新しない。
-                return@update state
-            }
-            state.copy(
-                imageLoadFailureByUrl = state.imageLoadFailureByUrl +
-                    (imageUrl to ImageLoadFailureType.CANCELLED),
-                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
-            )
-        }
+        // Guard: スレッド側では状態更新を行わず、単一ソースを利用する。
     }
 
     /**
