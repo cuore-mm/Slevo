@@ -135,7 +135,9 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
             val currentThumbnailNonce = state.thumbnailRetryNonceByUrl[imageUrl] ?: 0
             state.copy(
                 viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl - imageUrl,
-                viewerImageLoadingUrls = state.viewerImageLoadingUrls - imageUrl,
+                // Guard: リトライ押下直後から読み込み中判定を維持し、
+                // 一瞬SUCCESS扱いになる表示揺れを防ぐ。
+                viewerImageLoadingUrls = state.viewerImageLoadingUrls + imageUrl,
                 thumbnailImageLoadFailureByUrl = state.thumbnailImageLoadFailureByUrl - imageUrl,
                 thumbnailRetryNonceByUrl =
                     state.thumbnailRetryNonceByUrl + (imageUrl to (currentThumbnailNonce + 1)),
