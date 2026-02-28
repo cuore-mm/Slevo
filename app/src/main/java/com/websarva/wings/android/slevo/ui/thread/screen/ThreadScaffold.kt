@@ -222,6 +222,7 @@ fun ThreadScaffold(
                 onRequestPostMenu = { target -> popupMenuTarget = target },
                 onRequestTextMenu = { text, type -> popupDialogState.showTextMenu(text, type) },
                 onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
+                onImageLoadStart = { url -> viewModel.onThreadImageLoadStart(url) },
                 onImageLoadError = { url, failureType ->
                     viewModel.onThreadImageLoadError(url, failureType)
                 },
@@ -325,6 +326,7 @@ fun ThreadScaffold(
                 },
                 onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
                 imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
+                onImageLoadStart = { url -> viewModel.onThreadImageLoadStart(url) },
                 onImageLoadError = { url, failureType ->
                     viewModel.onThreadImageLoadError(url, failureType)
                 },
@@ -380,10 +382,14 @@ fun ThreadScaffold(
                 tabsViewModel = tabsViewModel,
             )
 
+            // --- Image menu state ---
+            val loadingImageUrls = uiState.imageLoadingUrls
             ImageMenuSheet(
                 show = uiState.showImageMenuSheet,
                 imageUrl = uiState.imageMenuTargetUrl,
                 imageUrls = uiState.imageMenuTargetUrls,
+                imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
+                loadingImageUrls = loadingImageUrls,
                 onActionSelected = { action ->
                     val targetUrl = uiState.imageMenuTargetUrl.orEmpty()
                     ImageMenuActionRunner.run(

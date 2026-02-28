@@ -195,7 +195,6 @@ fun ImageViewerScreen(
             viewModel?.onViewerImageLoadError(url, failureType)
         },
         onViewerImageLoadSuccess = { url -> viewModel?.onViewerImageLoadSuccess(url) },
-        onViewerImageLoadCancel = { url -> viewModel?.onViewerImageLoadCancel(url) },
         onViewerImageRetry = { url -> viewModel?.onViewerImageRetry(url) },
         onThumbnailImageLoadError = { url, failureType ->
             viewModel?.onThumbnailImageLoadError(url, failureType)

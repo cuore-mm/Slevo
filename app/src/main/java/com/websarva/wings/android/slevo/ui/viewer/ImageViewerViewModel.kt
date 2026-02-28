@@ -124,19 +124,6 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
     }
 
     /**
-     * 本体画像読み込みキャンセルURLを読み込み中状態から解除する。
-     */
-    fun onViewerImageLoadCancel(imageUrl: String) {
-        if (imageUrl.isBlank()) {
-            // Guard: 空URLは読み込み管理対象にしない。
-            return
-        }
-        _uiState.update { state ->
-            state.copy(viewerImageLoadingUrls = state.viewerImageLoadingUrls - imageUrl)
-        }
-    }
-
-    /**
      * 明示リトライ開始時に対象URLの失敗状態を解除する。
      */
     fun onViewerImageRetry(imageUrl: String) {
@@ -148,7 +135,9 @@ class ImageViewerViewModel @Inject constructor() : ViewModel() {
             val currentThumbnailNonce = state.thumbnailRetryNonceByUrl[imageUrl] ?: 0
             state.copy(
                 viewerImageLoadFailureByUrl = state.viewerImageLoadFailureByUrl - imageUrl,
-                viewerImageLoadingUrls = state.viewerImageLoadingUrls - imageUrl,
+                // Guard: リトライ押下直後から読み込み中判定を維持し、
+                // 一瞬SUCCESS扱いになる表示揺れを防ぐ。
+                viewerImageLoadingUrls = state.viewerImageLoadingUrls + imageUrl,
                 thumbnailImageLoadFailureByUrl = state.thumbnailImageLoadFailureByUrl - imageUrl,
                 thumbnailRetryNonceByUrl =
                     state.thumbnailRetryNonceByUrl + (imageUrl to (currentThumbnailNonce + 1)),
