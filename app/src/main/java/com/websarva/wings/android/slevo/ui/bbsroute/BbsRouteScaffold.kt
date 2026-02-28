@@ -492,8 +492,8 @@ private fun detectDragLock(delta: Offset): DragLock? {
     val absX = abs(delta.x)
     val absY = abs(delta.y)
     return when {
-        absX > absY * DRAG_AXIS_RATIO -> DragLock.Horizontal
-        absY > absX * DRAG_AXIS_RATIO -> DragLock.Vertical
+        absX > absY * HORIZONTAL_LOCK_RATIO -> DragLock.Horizontal
+        absY > absX * VERTICAL_LOCK_RATIO -> DragLock.Vertical
         else -> DragLock.Diagonal
     }
 }
@@ -508,4 +508,5 @@ private enum class DragLock {
 }
 
 // --- Drag direction tuning ---
-private const val DRAG_AXIS_RATIO = 1.2f
+private const val HORIZONTAL_LOCK_RATIO = 1.35f
+private const val VERTICAL_LOCK_RATIO = 1.05f
