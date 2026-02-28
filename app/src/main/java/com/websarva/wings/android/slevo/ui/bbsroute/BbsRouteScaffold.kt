@@ -1,8 +1,8 @@
 package com.websarva.wings.android.slevo.ui.bbsroute
 
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -26,7 +26,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
@@ -47,6 +49,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import com.websarva.wings.android.slevo.R
 import timber.log.Timber
+import kotlin.math.abs
 
 /**
  * 板/スレ共通のタブUIと画面内シートを提供する。
@@ -223,7 +226,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
             val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
-            val swipeBlockerState = rememberDraggableState { _ -> }
             val showBottomBar = bottomBehavior?.let { behavior ->
                 {
                     behavior.state.heightOffset = 0f
@@ -249,11 +251,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 ) { innerPadding ->
                     val contentModifier = Modifier
                         .padding(innerPadding)
-                        .draggable(
-                            state = swipeBlockerState,
-                            orientation = Orientation.Horizontal,
-                            enabled = true
-                        )
+                        .consumeTabSwipeByDragDirection()
                     // 各画面の実際のコンテンツを呼び出す
                     content(
                         viewModel,
@@ -390,3 +388,119 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         }
     }
 }
+
+/**
+ * 本文領域のドラッグ開始方向を分類し、タブ切り替えの誤伝播を抑止する。
+ *
+ * 横優勢はジェスチャー用に消費し、縦優勢は子要素へ任せ、斜めは無効入力として消費する。
+ */
+private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
+    return pointerInput(Unit) {
+        awaitEachGesture {
+            // --- Setup ---
+            val down = awaitFirstDown(
+                requireUnconsumed = false,
+                pass = PointerEventPass.Main,
+            )
+            val pointerId = down.id
+            val touchSlop = viewConfiguration.touchSlop
+            var totalOffset = Offset.Zero
+            var dragLock: DragLock? = null
+            var isPointerReleased = false
+
+            // --- Touch slop detection ---
+            while (true) {
+                val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
+                if (!change.pressed) {
+                    // Guard: ポインタが離れたら終了する。
+                    isPointerReleased = true
+                    break
+                }
+                val delta = change.position - change.previousPosition
+                if (delta == Offset.Zero) {
+                    continue
+                }
+                totalOffset += delta
+
+                if (dragLock == null && totalOffset.getDistance() >= touchSlop) {
+                    dragLock = detectDragLock(totalOffset)
+                }
+                if (dragLock == DragLock.Horizontal || dragLock == DragLock.Diagonal) {
+                    // 横優勢・斜めの開始はPagerへ渡さないため先に消費する。
+                    change.consume()
+                }
+                if (dragLock != null) {
+                    break
+                }
+            }
+
+            if (isPointerReleased || dragLock == null) {
+                // Guard: 入力系列が終了している場合は後続処理を行わない。
+                return@awaitEachGesture
+            }
+
+            // --- Drag handling ---
+            when (dragLock) {
+                DragLock.Horizontal -> {
+                    // 横開始: ジェスチャー処理を保ちつつPagerへ伝播させない。
+                    while (true) {
+                        val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                        val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
+                        if (!change.pressed) {
+                            break
+                        }
+                        change.consume()
+                    }
+                }
+
+                DragLock.Vertical -> {
+                    // 縦開始: 子要素のスクロールに任せる。
+                }
+
+                DragLock.Diagonal, null -> {
+                    // 斜め開始は無効入力として消費を継続する。
+                    while (true) {
+                        val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                        val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
+                        if (!change.pressed) {
+                            break
+                        }
+                        change.consume()
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * ドラッグ開始の方向を判定する。
+ *
+ * 横/縦の優勢がつかない場合は斜めとして扱う。
+ */
+private fun detectDragLock(delta: Offset): DragLock? {
+    if (delta == Offset.Zero) {
+        // Guard: 移動量が無い場合は方向を確定しない。
+        return null
+    }
+    val absX = abs(delta.x)
+    val absY = abs(delta.y)
+    return when {
+        absX > absY * DRAG_AXIS_RATIO -> DragLock.Horizontal
+        absY > absX * DRAG_AXIS_RATIO -> DragLock.Vertical
+        else -> DragLock.Diagonal
+    }
+}
+
+/**
+ * ドラッグ開始方向の固定分類を表す。
+ */
+private enum class DragLock {
+    Horizontal,
+    Vertical,
+    Diagonal,
+}
+
+// --- Drag direction tuning ---
+private const val DRAG_AXIS_RATIO = 1.2f
