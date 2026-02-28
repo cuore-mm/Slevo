@@ -14,22 +14,39 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-// 水平方向の向きを簡潔に表すための列挙型
+/**
+ * 水平方向の向きを簡潔に表す。
+ */
 private enum class HorizontalDirection {
     Right,
     Left,
 }
 
-// ジェスチャー検出の結果を表すシールドクラス
-// - None: 判定不能（まだ閾値に達していない等）
-// - Invalid: 複数方向の移動が混在して判定不可
-// - Direction: 有効な方向が確定した（GestureDirection を持つ）
+/**
+ * ジェスチャー検出の結果を表す。
+ */
 private sealed interface GestureDetectionResult {
+    /**
+     * 判定不能（まだ閾値に達していない等）。
+     */
     data object None : GestureDetectionResult
+
+    /**
+     * 複数方向の移動が混在して判定不可。
+     */
     data object Invalid : GestureDetectionResult
+
+    /**
+     * 有効な方向が確定した結果。
+     */
     data class Direction(val value: GestureDirection) : GestureDetectionResult
 }
 
+/**
+ * 方向ジェスチャーを検出し、進行・無効・確定を通知する。
+ *
+ * 未成立のまま終了またはキャンセルされた入力は無効通知を行わない。
+ */
 @SuppressLint("UnnecessaryComposedModifier")
 fun Modifier.detectDirectionalGesture(
     enabled: Boolean,
@@ -38,14 +55,17 @@ fun Modifier.detectDirectionalGesture(
     onGestureInvalid: () -> Unit = {},
     onGesture: (GestureDirection) -> Unit,
 ): Modifier = composed {
+    // --- Enable check ---
     // 有効フラグが false の場合は何もしない Modifier を返す
     if (!enabled) {
         this
     } else {
+        // --- Setup ---
         // DP 単位の閾値をピクセルに変換
         val thresholdPx = with(LocalDensity.current) { threshold.toPx() }
         pointerInput(true, thresholdPx) {
             if (!enabled) return@pointerInput
+            // --- Tracking state ---
             // path: ドラッグの累積オフセットを記録するリスト
             // totalOffset: 前回からのドラッグ量を累積した合計オフセット
             // lastDirection: 前回通知した方向（変化があった時のみ通知する）
@@ -57,6 +77,7 @@ fun Modifier.detectDirectionalGesture(
 
             detectDragGestures(
                 onDragStart = {
+                    // --- Start ---
                     // ドラッグ開始時はプログレスをリセットして状態を初期化
                     onGestureProgress(null)
                     path = mutableListOf(Offset.Zero)
@@ -65,6 +86,7 @@ fun Modifier.detectDirectionalGesture(
                     isInvalid = false
                 },
                 onDrag = { change, dragAmount ->
+                    // --- Drag tracking ---
                     // 既に不正判定なら以降の移動は消費して無視
                     if (isInvalid) {
                         change.consume()
@@ -103,20 +125,18 @@ fun Modifier.detectDirectionalGesture(
                     change.consume()
                 },
                 onDragCancel = {
-                    // キャンセル時は進行中の表示をリセット
+                    // --- Cancel ---
+                    // キャンセル時は進行中の表示をリセット（無効通知は出さない）
                     if (lastDirection != null) {
                         onGestureProgress(null)
                         lastDirection = null
                     } else {
                         onGestureProgress(null)
                     }
-                    // まだ isInvalid が false（未通知）の場合は無効通知を送る
-                    if (!isInvalid) {
-                        onGestureInvalid()
-                    }
                     isInvalid = false
                 },
                 onDragEnd = {
+                    // --- End ---
                     // ドラッグ終了時に最終判定を行い、確定したら onGesture を呼ぶ
                     val result = detectGestureDirection(path, thresholdPx)
                     when (result) {
@@ -143,15 +163,12 @@ fun Modifier.detectDirectionalGesture(
                         }
 
                         GestureDetectionResult.None -> {
-                            // 判定不能（短い移動など）は progress をリセットして invalid 通知
+                            // Guard: 判定不能（短い移動など）は進行表示のみリセットする
                             if (lastDirection != null) {
                                 onGestureProgress(null)
                                 lastDirection = null
                             } else {
                                 onGestureProgress(null)
-                            }
-                            if (!isInvalid) {
-                                onGestureInvalid()
                             }
                         }
                     }
@@ -162,22 +179,20 @@ fun Modifier.detectDirectionalGesture(
     }
 }
 
-// path: ドラッグ時に記録した累積オフセットのリスト
-// thresholdPx: 判定に使用する閾値（ピクセル）
-// アルゴリズム概要:
-// 1) path の中から最初に水平移動が閾値を越えた点を見つける（firstPoint）
-// 2) firstPoint から初期の水平方向に伸びた経路のうち、方向が確定的に切り替わった地点
-//    （switchPoint）を特定する
-// 3) switchPoint 以降の点の最大/最小 X/Y を算出し、最初の水平方向（右/左）に対して
-//    上/下/戻り/前進 のうちどれが閾値を越えたかを判定する
-// 4) 複数の方向が閾値を越えていた場合は Invalid、1 つだけなら対応する GestureDirection を返す
+/**
+ * ドラッグ軌跡から方向ジェスチャーを判定する。
+ *
+ * 複数の相反方向が同時成立した場合のみ Invalid を返す。
+ */
 private fun detectGestureDirection(
     path: List<Offset>,
     thresholdPx: Float,
 ): GestureDetectionResult {
+    // --- Preconditions ---
     // 最低でも開始点と 1 点は必要
     if (path.size < 2) return GestureDetectionResult.None
 
+    // --- First horizontal detection ---
     // 最初に水平成分が閾値を越えたインデックスを探す
     val firstIndex = path.indexOfFirst { offset ->
         abs(offset.x) >= thresholdPx
@@ -188,6 +203,7 @@ private fun detectGestureDirection(
     // その点が主に水平移動であることを確認（水平成分が垂直成分より大きい）
     if (abs(firstPoint.x) < abs(firstPoint.y)) return GestureDetectionResult.None
 
+    // --- Initial direction ---
     // 最初の水平方向を決定（x が正なら右、負なら左）
     val firstDirection = if (firstPoint.x > 0f) {
         HorizontalDirection.Right
@@ -203,9 +219,11 @@ private fun detectGestureDirection(
         }
     }
 
+    // --- Switch point detection ---
     val switchIndex = findDirectionSwitchIndex(path, firstIndex, firstDirection, thresholdPx)
     val switchPoint = path[switchIndex]
 
+    // --- Range scan ---
     // 以降の点を走査して X/Y の最大・最小を求める
     var maxX = switchPoint.x
     var minX = switchPoint.x
@@ -220,6 +238,7 @@ private fun detectGestureDirection(
         minY = min(minY, point.y)
     }
 
+    // --- Direction resolution ---
     // 最初の方向（右/左）ごとの判定
     return when (firstDirection) {
         HorizontalDirection.Right -> {
@@ -271,11 +290,13 @@ private fun findDirectionSwitchIndex(
     firstDirection: HorizontalDirection,
     thresholdPx: Float,
 ): Int {
+    // --- Setup ---
     var switchIndex = firstIndex
     var switchPoint = path[firstIndex]
 
     return when (firstDirection) {
         HorizontalDirection.Right -> {
+            // --- Scan (right) ---
             var furthestX = switchPoint.x
             var minY = switchPoint.y
             var maxY = switchPoint.y
@@ -311,6 +332,7 @@ private fun findDirectionSwitchIndex(
         }
 
         HorizontalDirection.Left -> {
+            // --- Scan (left) ---
             var furthestX = switchPoint.x
             var minY = switchPoint.y
             var maxY = switchPoint.y
