@@ -1,5 +1,7 @@
 package com.websarva.wings.android.slevo.ui.common
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
@@ -17,8 +19,6 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -77,7 +77,7 @@ fun AnchoredOverlayMenu(
         val menuColor = if (hazeState != null) {
             MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.80f)
         } else {
-            MaterialTheme.colorScheme.surfaceContainerHigh
+            MaterialTheme.colorScheme.surfaceBright
         }
         Box(
             modifier = Modifier
@@ -92,13 +92,13 @@ fun AnchoredOverlayMenu(
             Surface(
                 modifier = Modifier
                     .clip(menuShape)
-                .let { baseModifier ->
-                    if (hazeState != null) {
-                        baseModifier.hazeEffect(state = hazeState)
-                    } else {
-                        baseModifier
-                    }
-                },
+                    .let { baseModifier ->
+                        if (hazeState != null) {
+                            baseModifier.hazeEffect(state = hazeState)
+                        } else {
+                            baseModifier
+                        }
+                    },
                 shape = menuShape,
                 color = menuColor,
                 contentColor = MaterialTheme.colorScheme.onSurface,

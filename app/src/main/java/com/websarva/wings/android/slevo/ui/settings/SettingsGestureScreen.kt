@@ -21,6 +21,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -37,8 +39,6 @@ import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuItem
 import com.websarva.wings.android.slevo.ui.common.ConfirmBottomDialog
 import com.websarva.wings.android.slevo.ui.common.FeedbackTooltipIconButton
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
 import kotlin.math.roundToInt
 
 /**
@@ -102,7 +102,7 @@ fun SettingsGestureScreenContent(
                 actions = {
                     Box {
                         FeedbackTooltipIconButton(
-                            tooltipText = stringResource(id = R.string.more),
+                            tooltipText = stringResource(id = R.string.other_options),
                             modifier = Modifier.onGloballyPositioned { coordinates ->
                                 val rect = coordinates.boundsInWindow()
                                 menuAnchorBounds = IntRect(
@@ -116,7 +116,7 @@ fun SettingsGestureScreenContent(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.MoreVert,
-                                contentDescription = stringResource(id = R.string.more)
+                                contentDescription = stringResource(id = R.string.other_options)
                             )
                         }
                         AnchoredOverlayMenu(

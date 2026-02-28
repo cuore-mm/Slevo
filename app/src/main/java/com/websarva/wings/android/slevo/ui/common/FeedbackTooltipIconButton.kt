@@ -16,9 +16,9 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
-import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupPositionProvider
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.launch
@@ -45,9 +46,9 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun FeedbackTooltipIconButton(
+    modifier: Modifier = Modifier,
     tooltipText: String,
     showTooltipHost: Boolean = true,
-    modifier: Modifier = Modifier,
     tooltipBackgroundColor: Color = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.9f),
     tooltipContentColor: Color = MaterialTheme.colorScheme.onSurface,
     tooltipPositionProvider: PopupPositionProvider? = null,
@@ -82,7 +83,7 @@ fun FeedbackTooltipIconButton(
             val tooltipShape = MaterialTheme.shapes.largeIncreased
             Box(
                 modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
                     .shadow(
                         elevation = 1.dp,
                         shape = tooltipShape,
@@ -92,7 +93,7 @@ fun FeedbackTooltipIconButton(
                 val surfaceColor = if (hazeState != null) {
                     tooltipBackgroundColor
                 } else {
-                    MaterialTheme.colorScheme.surfaceContainerHigh
+                    MaterialTheme.colorScheme.surfaceBright
                 }
                 Surface(
                     modifier = Modifier
