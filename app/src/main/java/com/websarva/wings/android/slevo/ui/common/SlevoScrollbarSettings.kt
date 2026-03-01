@@ -10,7 +10,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -56,7 +55,7 @@ fun SlevoLazyColumnScrollbar(
 ) {
     // --- 状態管理 ---
     val hapticFeedback = LocalHapticFeedback.current
-    var isThumbSelected by remember { mutableStateOf(false) }
+    val isThumbSelectedState = remember { mutableStateOf(false) }
 
     // --- スクロールバー描画 ---
     LazyColumnScrollbar(
@@ -64,15 +63,15 @@ fun SlevoLazyColumnScrollbar(
         state = state,
         settings = rememberSlevoScrollbarSettings(
             enabled = enabled,
-            isThumbSelected = isThumbSelected,
+            isThumbSelected = isThumbSelectedState.value,
         ),
         indicatorContent = { _, selected ->
             LaunchedEffect(selected) {
                 // つまみを掴んだ瞬間のみ触覚を発火する。
-                if (selected && !isThumbSelected) {
+                if (selected && !isThumbSelectedState.value) {
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                 }
-                isThumbSelected = selected
+                isThumbSelectedState.value = selected
             }
             Spacer(modifier = Modifier.size(0.dp))
         },

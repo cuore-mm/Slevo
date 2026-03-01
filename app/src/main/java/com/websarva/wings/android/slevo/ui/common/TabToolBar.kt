@@ -49,7 +49,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
  */
 data class TabToolBarAction(
     val icon: ImageVector,
-    @StringRes val contentDescriptionRes: Int,
+    @param:StringRes val contentDescriptionRes: Int,
     val onClick: () -> Unit,
     val tint: Color? = null,
 )

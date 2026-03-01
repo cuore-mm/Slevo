@@ -323,7 +323,6 @@ private fun SettingsGestureScreenPreview() {
         gestureItems = GestureDirection.entries.map { direction ->
             GestureItem(direction = direction, action = GestureAction.entries.firstOrNull())
         },
-//        selectedDirection = GestureDirection.entries.first(),
     )
 
     MaterialTheme {
