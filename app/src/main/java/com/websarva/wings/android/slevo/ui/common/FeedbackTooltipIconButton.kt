@@ -48,8 +48,6 @@ fun FeedbackTooltipIconButton(
     modifier: Modifier = Modifier,
     tooltipText: String,
     showTooltipHost: Boolean = true,
-    tooltipBackgroundColor: Color = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.9f),
-    tooltipContentColor: Color = MaterialTheme.colorScheme.onSurface,
     tooltipAnchorPosition: TooltipAnchorPosition = TooltipAnchorPosition.Above,
     hazeState: HazeState? = null,
     onClick: () -> Unit,
@@ -89,7 +87,7 @@ fun FeedbackTooltipIconButton(
                     )
             ) {
                 val surfaceColor = if (hazeState != null) {
-                    tooltipBackgroundColor
+                    MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.9f)
                 } else {
                     MaterialTheme.colorScheme.surfaceBright
                 }
@@ -105,7 +103,7 @@ fun FeedbackTooltipIconButton(
                         },
                     shape = tooltipShape,
                     color = surfaceColor,
-                    contentColor = tooltipContentColor,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                     tonalElevation = 1.dp,
                     shadowElevation = 0.dp,
                 ) {
@@ -113,7 +111,6 @@ fun FeedbackTooltipIconButton(
                         text = tooltipText,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = tooltipContentColor,
                     )
                 }
             }

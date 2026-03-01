@@ -52,7 +52,6 @@ internal fun ImageViewerTopBar(
     imageCount: Int,
     barBackgroundColor: Color,
     foregroundColor: Color,
-    tooltipBackgroundColor: Color,
     hazeState: HazeState?,
     barExitDurationMillis: Int,
     onNavigateUp: () -> Unit,
@@ -77,15 +76,12 @@ internal fun ImageViewerTopBar(
                 FeedbackTooltipIconButton(
                     tooltipText = stringResource(R.string.back),
                     showTooltipHost = isVisible && !isMenuExpanded,
-                    tooltipBackgroundColor = tooltipBackgroundColor,
-                    tooltipContentColor = foregroundColor,
                     hazeState = hazeState,
                     onClick = onNavigateUp,
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                         contentDescription = stringResource(R.string.back),
-                        tint = foregroundColor,
                     )
                 }
             },
@@ -93,37 +89,29 @@ internal fun ImageViewerTopBar(
                 FeedbackTooltipIconButton(
                     tooltipText = stringResource(R.string.save),
                     showTooltipHost = isVisible && !isMenuExpanded,
-                    tooltipBackgroundColor = tooltipBackgroundColor,
-                    tooltipContentColor = foregroundColor,
                     hazeState = hazeState,
                     onClick = onSaveClick,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Download,
                         contentDescription = stringResource(R.string.save),
-                        tint = foregroundColor,
                     )
                 }
                 FeedbackTooltipIconButton(
                     tooltipText = stringResource(R.string.share),
                     showTooltipHost = isVisible && !isMenuExpanded,
-                    tooltipBackgroundColor = tooltipBackgroundColor,
-                    tooltipContentColor = foregroundColor,
                     hazeState = hazeState,
                     onClick = onShareClick,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Share,
                         contentDescription = stringResource(R.string.share),
-                        tint = foregroundColor,
                     )
                 }
                 Box {
                     FeedbackTooltipIconButton(
                         tooltipText = stringResource(R.string.other_options),
                         showTooltipHost = isVisible && !isMenuExpanded,
-                        tooltipBackgroundColor = tooltipBackgroundColor,
-                        tooltipContentColor = foregroundColor,
                         hazeState = hazeState,
                         modifier = Modifier.onGloballyPositioned { coordinates ->
                             val rect = coordinates.boundsInWindow()
@@ -139,7 +127,6 @@ internal fun ImageViewerTopBar(
                         Icon(
                             imageVector = Icons.Default.MoreVert,
                             contentDescription = stringResource(R.string.other_options),
-                            tint = foregroundColor,
                         )
                     }
                     AnchoredOverlayMenu(
@@ -194,8 +181,6 @@ internal fun ImageViewerTopBar(
     }
 }
 
-
-
 @Preview
 @Composable
 private fun ImageViewerTopBarPreview() {
@@ -206,7 +191,6 @@ private fun ImageViewerTopBarPreview() {
             imageCount = 3,
             barBackgroundColor = Color.Black.copy(alpha = 0.5f),
             foregroundColor = Color.White,
-            tooltipBackgroundColor = Color.Black.copy(alpha = 0.5f),
             hazeState = null,
             barExitDurationMillis = 300,
             onNavigateUp = {},
@@ -229,7 +213,6 @@ private fun ImageViewerTopBarMenuExpandedPreview() {
             imageCount = 3,
             barBackgroundColor = Color.Black.copy(alpha = 0.5f),
             foregroundColor = Color.White,
-            tooltipBackgroundColor = Color.Black.copy(alpha = 0.5f),
             hazeState = null,
             barExitDurationMillis = 300,
             onNavigateUp = {},

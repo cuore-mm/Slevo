@@ -85,7 +85,6 @@ internal fun ImageViewerScreenContent(
                     imageCount = imageUrls.size,
                     barBackgroundColor = barBackgroundColor,
                     foregroundColor = viewerContentColor,
-                    tooltipBackgroundColor = tooltipBackgroundColor,
                     hazeState = hazeState,
                     barExitDurationMillis = barExitDurationMillis,
                     onNavigateUp = onNavigateUp,
