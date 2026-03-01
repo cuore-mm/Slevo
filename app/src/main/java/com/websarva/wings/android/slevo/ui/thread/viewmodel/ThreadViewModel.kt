@@ -512,6 +512,9 @@ class ThreadViewModel @AssistedInject constructor(
                 imageLoadFailureByUrl = it.imageLoadFailureByUrl.filterKeys { url ->
                     url in activeImageUrls
                 },
+                imageLoadingUrls = it.imageLoadingUrls.filter { url ->
+                    url in activeImageUrls
+                }.toSet(),
             )
         }
     }
@@ -526,8 +529,23 @@ class ThreadViewModel @AssistedInject constructor(
         }
         _uiState.update { state ->
             state.copy(
-                imageLoadFailureByUrl = state.imageLoadFailureByUrl + (imageUrl to failureType)
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl +
+                    (imageUrl to failureType),
+                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
             )
+        }
+    }
+
+    /**
+     * サムネイル画像の読み込み開始URLを読み込み中状態へ追加する。
+     */
+    fun onThreadImageLoadStart(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは読み込み管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(imageLoadingUrls = state.imageLoadingUrls + imageUrl)
         }
     }
 
@@ -540,7 +558,10 @@ class ThreadViewModel @AssistedInject constructor(
             return
         }
         _uiState.update { state ->
-            state.copy(imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl)
+            state.copy(
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl,
+                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
+            )
         }
     }
 
@@ -553,7 +574,10 @@ class ThreadViewModel @AssistedInject constructor(
             return
         }
         _uiState.update { state ->
-            state.copy(imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl)
+            state.copy(
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl,
+                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
+            )
         }
     }
 

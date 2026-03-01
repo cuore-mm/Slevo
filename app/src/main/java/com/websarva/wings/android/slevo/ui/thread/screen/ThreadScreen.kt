@@ -67,6 +67,7 @@ import kotlinx.coroutines.launch
  * スレッド画面を構成し、投稿一覧と各種オーバーレイを表示する。
  *
  * 投稿メニューやダイアログは上位のホストへ委譲する。
+ * 画像サムネイルの読み込み状態もイベントとして上位へ渡す。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -90,6 +91,7 @@ fun ThreadScreen(
     onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onImageLongPress: (String, List<String>) -> Unit = { _, _ -> },
+    onImageLoadStart: (String) -> Unit = {},
     onImageLoadError: (String, ImageLoadFailureType) -> Unit = { _, _ -> },
     onImageLoadSuccess: (String) -> Unit = {},
     onImageRetry: (String) -> Unit = {},
@@ -207,20 +209,21 @@ fun ThreadScreen(
             }
     ) {
         val lazyColumnContent: LazyListScope.() -> Unit = {
-            threadPostListContent(
-                uiState = uiState,
-                visiblePosts = visiblePosts,
-                firstAfterIndex = firstAfterIndex,
-                popupStack = popupStack,
-                enableSharedElements = enableListSharedElements,
-                onUrlClick = onUrlClick,
-                onThreadUrlClick = onThreadUrlClick,
-                onImageClick = onImageClick,
-                onImageLongPress = onImageLongPress,
-                onImageLoadError = onImageLoadError,
-                onImageLoadSuccess = onImageLoadSuccess,
-                onImageRetry = onImageRetry,
-                onRequestMenu = onRequestMenu,
+        threadPostListContent(
+            uiState = uiState,
+            visiblePosts = visiblePosts,
+            firstAfterIndex = firstAfterIndex,
+            popupStack = popupStack,
+            enableSharedElements = enableListSharedElements,
+            onUrlClick = onUrlClick,
+            onThreadUrlClick = onThreadUrlClick,
+            onImageClick = onImageClick,
+            onImageLongPress = onImageLongPress,
+            onImageLoadStart = onImageLoadStart,
+            onImageLoadError = onImageLoadError,
+            onImageLoadSuccess = onImageLoadSuccess,
+            onImageRetry = onImageRetry,
+            onRequestMenu = onRequestMenu,
                 onShowTextMenu = onShowTextMenu,
                 onRequestTreePopup = onRequestTreePopup,
                 onAddPopupForReplyFrom = onAddPopupForReplyFrom,

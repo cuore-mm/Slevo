@@ -68,21 +68,6 @@ class ImageViewerViewModelTest {
     }
 
     /**
-     * 本体読み込みキャンセルで読み込み中URLが解除されることを確認する。
-     */
-    @Test
-    fun viewerImageLoadCancelClearsLoadingUrl() {
-        val viewModel = ImageViewerViewModel()
-        val url = "https://example.com/image.jpg"
-
-        viewModel.onViewerImageLoadStart(url)
-        viewModel.onViewerImageLoadCancel(url)
-
-        val state = viewModel.uiState.value
-        assertTrue(url !in state.viewerImageLoadingUrls)
-    }
-
-    /**
      * 本体再試行で本体失敗とサムネイル失敗が同時に解除されることを確認する。
      */
     @Test

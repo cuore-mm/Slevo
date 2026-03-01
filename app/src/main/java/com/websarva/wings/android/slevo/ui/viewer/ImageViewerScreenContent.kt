@@ -18,6 +18,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +31,7 @@ import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import me.saket.telephoto.zoomable.ZoomableState
+import com.websarva.wings.android.slevo.ui.common.resolveImageActionMenuState
 
 /**
  * 画像ビューア画面の表示構築を担うコンテンツホスト。
@@ -65,7 +69,6 @@ internal fun ImageViewerScreenContent(
     onViewerImageLoadStart: (String) -> Unit,
     onViewerImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onViewerImageLoadSuccess: (String) -> Unit,
-    onViewerImageLoadCancel: (String) -> Unit,
     onViewerImageRetry: (String) -> Unit,
     onThumbnailImageLoadError: (String, ImageLoadFailureType) -> Unit,
     onThumbnailImageLoadSuccess: (String) -> Unit,
@@ -79,6 +82,22 @@ internal fun ImageViewerScreenContent(
         // --- Screen scaffold ---
         Scaffold(
             topBar = {
+                val menuState by remember(
+                    imageUrls,
+                    pagerState.currentPage,
+                    uiState.viewerImageLoadFailureByUrl,
+                    uiState.viewerImageLoadingUrls,
+                ) {
+                    derivedStateOf {
+                        val currentUrl = imageUrls.getOrNull(pagerState.currentPage).orEmpty()
+                        resolveImageActionMenuState(
+                            imageUrl = currentUrl,
+                            imageUrls = imageUrls,
+                            imageLoadFailureByUrl = uiState.viewerImageLoadFailureByUrl,
+                            loadingImageUrls = uiState.viewerImageLoadingUrls,
+                        )
+                    }
+                }
                 ImageViewerTopBar(
                     isVisible = isBarsVisible,
                     isMenuExpanded = uiState.isTopBarMenuExpanded,
@@ -93,10 +112,11 @@ internal fun ImageViewerScreenContent(
                     onMoreClick = onToggleMenu,
                     onDismissMenu = onDismissMenu,
                     onMenuActionClick = onMenuActionClick,
+                    menuState = menuState,
                 )
             },
             containerColor = viewerBackgroundColor,
-            contentWindowInsets = WindowInsets(0)
+            contentWindowInsets = WindowInsets(0),
         ) { _ ->
             // --- Main image and overlays ---
             Box(
@@ -116,7 +136,6 @@ internal fun ImageViewerScreenContent(
                     onImageLoadStart = onViewerImageLoadStart,
                     onImageLoadError = onViewerImageLoadError,
                     onImageLoadSuccess = onViewerImageLoadSuccess,
-                    onImageLoadCancel = onViewerImageLoadCancel,
                     onImageRetry = onViewerImageRetry,
                 )
                 if (isBarsVisible) {
