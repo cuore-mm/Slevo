@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -38,6 +39,7 @@ import com.websarva.wings.android.slevo.ui.common.resolveImageActionMenuState
  *
  * Screen から UI 構築責務を分離し、状態に応じた表示だけを担当する。
  */
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun ImageViewerScreenContent(
@@ -54,7 +56,6 @@ internal fun ImageViewerScreenContent(
     viewerBackgroundColor: Color,
     viewerContentColor: Color,
     barBackgroundColor: Color,
-    tooltipBackgroundColor: Color,
     hazeState: HazeState,
     barExitDurationMillis: Int,
     onNavigateUp: () -> Unit,

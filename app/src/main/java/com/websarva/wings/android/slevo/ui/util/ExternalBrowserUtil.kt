@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ResolveInfo
 import android.net.Uri
+import androidx.core.net.toUri
 
 /**
  * Slevo を除外した外部ブラウザの起動を提供するユーティリティ。
@@ -20,7 +21,7 @@ object ExternalBrowserUtil {
         url: String,
         chooserTitle: String? = null
     ): Boolean {
-        val baseIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+        val baseIntent = Intent(Intent.ACTION_VIEW, url.toUri()).apply {
             addCategory(Intent.CATEGORY_BROWSABLE)
         }
         val activities = context.packageManager.queryIntentActivities(baseIntent, 0)

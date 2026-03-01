@@ -30,9 +30,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunner
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
+import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.ZoomableState
-import dev.chrisbanes.haze.rememberHazeState
 
 /**
  * レス内画像の一覧をページング表示する画像ビューア。
@@ -165,7 +165,6 @@ fun ImageViewerScreen(
         viewerBackgroundColor = viewerBackgroundColor,
         viewerContentColor = viewerContentColor,
         barBackgroundColor = barBackgroundColor,
-        tooltipBackgroundColor = tooltipBackgroundColor,
         hazeState = hazeState,
         barExitDurationMillis = barExitDurationMillis,
         onNavigateUp = onNavigateUp,

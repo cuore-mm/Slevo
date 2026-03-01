@@ -124,21 +124,21 @@ fun ImageMenuSheetContent(
     Column(modifier = Modifier.fillMaxWidth()) {
         when (menuState.group) {
             ImageActionMenuGroup.LOADING -> {
-                renderFailureMenu(
+                RenderFailureMenu(
                     includeSearch = true,
                     onActionSelected = onActionSelected,
                 )
             }
 
             ImageActionMenuGroup.FAIL_404_410 -> {
-                renderFailureMenu(
+                RenderFailureMenu(
                     includeSearch = false,
                     onActionSelected = onActionSelected,
                 )
             }
 
             ImageActionMenuGroup.FAIL_OTHER -> {
-                renderFailureMenu(
+                RenderFailureMenu(
                     includeSearch = true,
                     onActionSelected = onActionSelected,
                 )
@@ -216,7 +216,7 @@ fun ImageMenuSheetContent(
  * 失敗・読み込み中向けの限定メニュー項目を描画する。
  */
 @Composable
-private fun renderFailureMenu(
+private fun RenderFailureMenu(
     includeSearch: Boolean,
     onActionSelected: (ImageMenuAction) -> Unit,
 ) {

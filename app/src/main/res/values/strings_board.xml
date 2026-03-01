@@ -11,13 +11,10 @@
     <string name="board">板</string>
     <string name="thread">スレッド</string>
     <string name="no_registered_boards">登録されている板がありません</string>
-    <string name="drawer_open_boards">開いている板</string>
-    <string name="drawer_open_threads">開いているスレッド</string>
     <string name="no_bookmarked_threads">ブックマークのスレがありません</string>
     <string name="dialog_confirm_delete_group">グループ「%1$s」を削除しますか？</string>
     <string name="dialog_unbookmark_boards">以下の板がブックマークから解除されます</string>
     <string name="dialog_unbookmark_threads">以下のスレがブックマークから解除されます</string>
-    <string name="dialog_group_items">このグループに含まれる項目:</string>
     <string name="open_url">URLを開く</string>
     <string name="enter_url">板またはスレッドのURLを入力してください</string>
     <string name="invalid_url">無効なURLです</string>
