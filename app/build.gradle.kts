@@ -24,7 +24,7 @@ if (localPropertiesFile.exists()) {
     properties.load(localPropertiesFile.inputStream())
 }
 
-val appVersionName = "1.5.1"
+val appVersionName = "1.5.2"
 val aboutLibrariesResDir = layout.buildDirectory.dir("generated/aboutlibraries/res")
 val aboutLibrariesOutputFile = layout.buildDirectory.file(
     "generated/aboutlibraries/res/raw/aboutlibraries.json"
@@ -38,7 +38,7 @@ android {
         applicationId = "com.websarva.wings.android.slevo"
         minSdk = 24
         targetSdk = 35
-        versionCode = 13
+        versionCode = 14
         versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

@@ -1,6 +1,5 @@
 <resources>
     <!-- App navigation -->
-    <string name="home">ホーム</string>
     <string name="bookmark">ブックマーク</string>
     <string name="boardList">板一覧</string>
     <string name="BBSList">掲示板一覧</string>

@@ -17,7 +17,7 @@ enum class BookmarkColor(val value: String, val light: Color, val dark: Color) {
 
     companion object {
         fun fromValue(value: String): BookmarkColor? =
-            values().firstOrNull { it.value.equals(value, ignoreCase = true) }
+            entries.firstOrNull { it.value.equals(value, ignoreCase = true) }
     }
 }
 

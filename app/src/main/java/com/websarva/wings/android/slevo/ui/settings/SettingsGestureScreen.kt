@@ -59,6 +59,8 @@ fun SettingsGestureScreen(
         toggleShowActionHints = { viewModel.toggleGestureShowActionHints(it) },
         onGestureItemClick = { viewModel.onGestureItemClick(it) },
         dismissGestureDialog = { viewModel.dismissGestureDialog() },
+        showResetDialog = { viewModel.showResetDialog() },
+        dismissResetDialog = { viewModel.dismissResetDialog() },
         assignGestureAction = { direction, action ->
             viewModel.assignGestureAction(
                 direction,
@@ -83,6 +85,8 @@ fun SettingsGestureScreenContent(
     toggleShowActionHints: (Boolean) -> Unit,
     onGestureItemClick: (GestureDirection) -> Unit,
     dismissGestureDialog: () -> Unit,
+    showResetDialog: () -> Unit,
+    dismissResetDialog: () -> Unit,
     assignGestureAction: (GestureDirection, GestureAction?) -> Unit,
     resetGestureSettings: () -> Unit,
 ) {
@@ -90,7 +94,6 @@ fun SettingsGestureScreenContent(
     val haptic = LocalHapticFeedback.current
     var isMenuExpanded by remember { mutableStateOf(false) }
     var menuAnchorBounds by remember { mutableStateOf<IntRect?>(null) }
-    var showResetDialog by remember { mutableStateOf(false) }
     val closeMenu = { isMenuExpanded = false }
 
     // --- Layout ---
@@ -129,7 +132,7 @@ fun SettingsGestureScreenContent(
                                 text = stringResource(id = R.string.gesture_reset_settings),
                                 onClick = {
                                     closeMenu()
-                                    showResetDialog = true
+                                    showResetDialog()
                                 },
                             )
                         }
@@ -248,12 +251,11 @@ fun SettingsGestureScreenContent(
         )
     }
 
-    if (showResetDialog) {
+    if (uiState.isResetDialogVisible) {
         ResetGestureSettingsDialog(
-            onDismissRequest = { showResetDialog = false },
+            onDismissRequest = { dismissResetDialog() },
             onConfirm = {
                 resetGestureSettings()
-                showResetDialog = false
             }
         )
     }
@@ -323,7 +325,6 @@ private fun SettingsGestureScreenPreview() {
         gestureItems = GestureDirection.entries.map { direction ->
             GestureItem(direction = direction, action = GestureAction.entries.firstOrNull())
         },
-//        selectedDirection = GestureDirection.entries.first(),
     )
 
     MaterialTheme {
@@ -334,6 +335,8 @@ private fun SettingsGestureScreenPreview() {
             toggleShowActionHints = {},
             onGestureItemClick = {},
             dismissGestureDialog = {},
+            showResetDialog = {},
+            dismissResetDialog = {},
             assignGestureAction = { _, _ -> },
             resetGestureSettings = {},
         )

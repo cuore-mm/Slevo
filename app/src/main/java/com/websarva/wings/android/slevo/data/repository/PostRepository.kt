@@ -37,12 +37,12 @@ class PostRepository @Inject constructor(
         }
     }
 
-    private val BROKEN_TICKET_REGEX =
+    private val brokenTicketRegex =
         Regex("""Broken\s*MonaTicket""", RegexOption.IGNORE_CASE)
 
     private fun Response.isBrokenMonaTicket(): Boolean {
         val headerHit = headers("x-chx-error")
-            .any { BROKEN_TICKET_REGEX.containsMatchIn(it) }
+            .any { brokenTicketRegex.containsMatchIn(it) }
         val cookieHit = headers("set-cookie")
             .any { sc ->
                 sc.startsWith("MonaTicket=", ignoreCase = true) &&

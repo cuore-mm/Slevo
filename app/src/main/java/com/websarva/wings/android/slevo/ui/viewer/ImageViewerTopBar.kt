@@ -157,28 +157,28 @@ internal fun ImageViewerTopBar(
                             Column {
                                 when (group) {
                                     ImageActionMenuGroup.LOADING -> {
-                                        renderLimitedMenuItems(
+                                        RenderLimitedMenuItems(
                                             includeSearch = true,
                                             onMenuActionClick = onMenuActionClick,
                                         )
                                     }
 
                                     ImageActionMenuGroup.FAIL_404_410 -> {
-                                        renderLimitedMenuItems(
+                                        RenderLimitedMenuItems(
                                             includeSearch = false,
                                             onMenuActionClick = onMenuActionClick,
                                         )
                                     }
 
                                     ImageActionMenuGroup.FAIL_OTHER -> {
-                                        renderLimitedMenuItems(
+                                        RenderLimitedMenuItems(
                                             includeSearch = true,
                                             onMenuActionClick = onMenuActionClick,
                                         )
                                     }
 
                                     ImageActionMenuGroup.SUCCESS -> {
-                                        renderSuccessMenuItems(
+                                        RenderSuccessMenuItems(
                                             imageCount = imageCount,
                                             onMenuActionClick = onMenuActionClick,
                                         )
@@ -204,7 +204,7 @@ internal fun ImageViewerTopBar(
  * 失敗・読み込み中向けの限定メニュー項目を描画する。
  */
 @Composable
-private fun renderLimitedMenuItems(
+private fun RenderLimitedMenuItems(
     includeSearch: Boolean,
     onMenuActionClick: (ImageMenuAction) -> Unit,
 ) {
@@ -228,7 +228,7 @@ private fun renderLimitedMenuItems(
  * 読み込み成功時のメニュー項目を描画する。
  */
 @Composable
-private fun renderSuccessMenuItems(
+private fun RenderSuccessMenuItems(
     imageCount: Int,
     onMenuActionClick: (ImageMenuAction) -> Unit,
 ) {
