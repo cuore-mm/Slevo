@@ -75,7 +75,7 @@ fun ThreadToolBar(
         ),
         TabToolBarAction(
             icon = Icons.Filled.Menu,
-            contentDescriptionRes = R.string.more,
+            contentDescriptionRes = R.string.other_options,
             onClick = onMoreClick,
         ),
     )
