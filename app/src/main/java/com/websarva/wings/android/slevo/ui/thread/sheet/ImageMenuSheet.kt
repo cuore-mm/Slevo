@@ -1,5 +1,10 @@
 package com.websarva.wings.android.slevo.ui.thread.sheet
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,6 +42,10 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.BottomSheetListItem
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
+import com.websarva.wings.android.slevo.ui.common.ImageActionMenuGroup
+import com.websarva.wings.android.slevo.ui.common.ImageActionMenuState
+import com.websarva.wings.android.slevo.ui.common.resolveImageActionMenuState
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 
 /**
  * 画像メニューで扱うアクション種別。
@@ -57,9 +66,7 @@ enum class ImageMenuAction {
 /**
  * 画像メニューのボトムシートを表示する。
  *
- * 表示条件を満たす場合のみメニューを描画し、選択アクションを通知する。
- *
- * レス内画像が複数ある場合は一括保存の項目を追加する。
+ * 表示条件を満たす場合のみメニューを描画し、状態に応じた項目を表示する。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +74,8 @@ fun ImageMenuSheet(
     show: Boolean,
     imageUrl: String?,
     imageUrls: List<String>,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    loadingImageUrls: Set<String>,
     onActionSelected: (ImageMenuAction) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
@@ -75,92 +84,166 @@ fun ImageMenuSheet(
         return
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val menuState = resolveImageActionMenuState(
+        imageUrl = imageUrl,
+        imageUrls = imageUrls,
+        imageLoadFailureByUrl = imageLoadFailureByUrl,
+        loadingImageUrls = loadingImageUrls,
+    )
     SlevoBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
     ) {
-        ImageMenuSheetContent(
-            onActionSelected = onActionSelected,
-            saveAllImageCount = imageUrls.size,
-        )
+        AnimatedContent(
+            targetState = menuState,
+            transitionSpec = {
+                (fadeIn() togetherWith fadeOut()).using(
+                    SizeTransform(clip = false)
+                )
+            },
+            label = "imageMenuContent",
+        ) { state ->
+            ImageMenuSheetContent(
+                menuState = state,
+                onActionSelected = onActionSelected,
+            )
+        }
     }
 }
 
 /**
  * 画像メニューの項目一覧を表示する。
  *
- * 各項目は選択されたアクションを上位へ渡す。
+ * 画像の読み込み状態に応じてアクションを切り替えて表示し、選択項目を上位へ渡す。
  */
 @Composable
 fun ImageMenuSheetContent(
+    menuState: ImageActionMenuState,
     onActionSelected: (ImageMenuAction) -> Unit,
-    saveAllImageCount: Int,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        BottomSheetListItem(
-            text = stringResource(R.string.image_menu_add_ng),
-            icon = Icons.Outlined.Block,
-            onClick = { onActionSelected(ImageMenuAction.ADD_NG) }
-        )
-        HorizontalDivider()
-        BottomSheetListItem(
-            text = stringResource(R.string.image_menu_save_image),
-            icon = Icons.Outlined.Download,
-            onClick = { onActionSelected(ImageMenuAction.SAVE_IMAGE) }
-        )
-        if (saveAllImageCount >= 2) {
-            BottomSheetListItem(
-                text = stringResource(
-                    R.string.image_menu_save_all_images_with_count,
-                    saveAllImageCount,
-                ),
-                leadingContent = {
-                    BadgedMenuIcon(
-                        baseIcon = Icons.Outlined.Download,
-                        badgeIcon = Icons.Outlined.Layers,
+        when (menuState.group) {
+            ImageActionMenuGroup.LOADING -> {
+                RenderFailureMenu(
+                    includeSearch = true,
+                    onActionSelected = onActionSelected,
+                )
+            }
+
+            ImageActionMenuGroup.FAIL_404_410 -> {
+                RenderFailureMenu(
+                    includeSearch = false,
+                    onActionSelected = onActionSelected,
+                )
+            }
+
+            ImageActionMenuGroup.FAIL_OTHER -> {
+                RenderFailureMenu(
+                    includeSearch = true,
+                    onActionSelected = onActionSelected,
+                )
+            }
+
+            ImageActionMenuGroup.SUCCESS -> {
+                BottomSheetListItem(
+                    text = stringResource(R.string.image_menu_add_ng),
+                    icon = Icons.Outlined.Block,
+                    onClick = { onActionSelected(ImageMenuAction.ADD_NG) }
+                )
+                HorizontalDivider()
+                BottomSheetListItem(
+                    text = stringResource(R.string.image_menu_save_image),
+                    icon = Icons.Outlined.Download,
+                    onClick = { onActionSelected(ImageMenuAction.SAVE_IMAGE) }
+                )
+                if (menuState.saveAllImageCount >= 2) {
+                    BottomSheetListItem(
+                        text = stringResource(
+                            R.string.image_menu_save_all_images_with_count,
+                            menuState.saveAllImageCount,
+                        ),
+                        leadingContent = {
+                            BadgedMenuIcon(
+                                baseIcon = Icons.Outlined.Download,
+                                badgeIcon = Icons.Outlined.Layers,
+                            )
+                        },
+                        onClick = { onActionSelected(ImageMenuAction.SAVE_ALL_IMAGES) }
                     )
-                },
-                onClick = { onActionSelected(ImageMenuAction.SAVE_ALL_IMAGES) }
-            )
+                }
+                BottomSheetListItem(
+                    text = stringResource(R.string.image_menu_copy_image),
+                    leadingContent = {
+                        BadgedMenuIcon(
+                            baseIcon = Icons.Outlined.ContentCopy,
+                            badgeIcon = Icons.Outlined.Image,
+                        )
+                    },
+                    onClick = { onActionSelected(ImageMenuAction.COPY_IMAGE) }
+                )
+                BottomSheetListItem(
+                    text = stringResource(R.string.image_menu_copy_image_url),
+                    leadingContent = {
+                        BadgedMenuIcon(
+                            baseIcon = Icons.Outlined.ContentCopy,
+                            badgeIcon = Icons.Outlined.Link,
+                        )
+                    },
+                    onClick = { onActionSelected(ImageMenuAction.COPY_IMAGE_URL) }
+                )
+                HorizontalDivider()
+                BottomSheetListItem(
+                    text = stringResource(R.string.image_menu_open_in_other_app),
+                    icon = Icons.AutoMirrored.Outlined.OpenInNew,
+                    onClick = { onActionSelected(ImageMenuAction.OPEN_IN_OTHER_APP) }
+                )
+                BottomSheetListItem(
+                    text = stringResource(R.string.image_menu_search_web),
+                    icon = Icons.Outlined.Search,
+                    onClick = { onActionSelected(ImageMenuAction.SEARCH_WEB) }
+                )
+                BottomSheetListItem(
+                    text = stringResource(R.string.image_menu_share_image),
+                    icon = Icons.Outlined.Share,
+                    onClick = { onActionSelected(ImageMenuAction.SHARE_IMAGE) }
+                )
+            }
         }
-        BottomSheetListItem(
-            text = stringResource(R.string.image_menu_copy_image),
-            leadingContent = {
-                BadgedMenuIcon(
-                    baseIcon = Icons.Outlined.ContentCopy,
-                    badgeIcon = Icons.Outlined.Image,
-                )
-            },
-            onClick = { onActionSelected(ImageMenuAction.COPY_IMAGE) }
-        )
-        BottomSheetListItem(
-            text = stringResource(R.string.image_menu_copy_image_url),
-            leadingContent = {
-                BadgedMenuIcon(
-                    baseIcon = Icons.Outlined.ContentCopy,
-                    badgeIcon = Icons.Outlined.Link,
-                )
-            },
-            onClick = { onActionSelected(ImageMenuAction.COPY_IMAGE_URL) }
-        )
-        HorizontalDivider()
-        BottomSheetListItem(
-            text = stringResource(R.string.image_menu_open_in_other_app),
-            icon = Icons.AutoMirrored.Outlined.OpenInNew,
-            onClick = { onActionSelected(ImageMenuAction.OPEN_IN_OTHER_APP) }
-        )
+    }
+}
+
+/**
+ * 失敗・読み込み中向けの限定メニュー項目を描画する。
+ */
+@Composable
+private fun RenderFailureMenu(
+    includeSearch: Boolean,
+    onActionSelected: (ImageMenuAction) -> Unit,
+) {
+    BottomSheetListItem(
+        text = stringResource(R.string.image_menu_add_ng),
+        icon = Icons.Outlined.Block,
+        onClick = { onActionSelected(ImageMenuAction.ADD_NG) }
+    )
+    BottomSheetListItem(
+        text = stringResource(R.string.image_menu_copy_image_url),
+        leadingContent = {
+            BadgedMenuIcon(
+                baseIcon = Icons.Outlined.ContentCopy,
+                badgeIcon = Icons.Outlined.Link,
+            )
+        },
+        onClick = { onActionSelected(ImageMenuAction.COPY_IMAGE_URL) }
+    )
+    if (includeSearch) {
         BottomSheetListItem(
             text = stringResource(R.string.image_menu_search_web),
             icon = Icons.Outlined.Search,
             onClick = { onActionSelected(ImageMenuAction.SEARCH_WEB) }
         )
-        BottomSheetListItem(
-            text = stringResource(R.string.image_menu_share_image),
-            icon = Icons.Outlined.Share,
-            onClick = { onActionSelected(ImageMenuAction.SHARE_IMAGE) }
-        )
     }
 }
+
 
 /**
  * メニュー内で複数系アクションを示す合成アイコン。
@@ -231,6 +314,8 @@ private fun ImageMenuSheetPreview() {
                 "https://example.com/image.png",
                 "https://example.com/image2.png",
             ),
+            imageLoadFailureByUrl = emptyMap(),
+            loadingImageUrls = emptySet(),
             onActionSelected = {},
             onDismissRequest = {},
         )
@@ -242,8 +327,11 @@ private fun ImageMenuSheetPreview() {
 private fun ImageMenuSheetContentPreview() {
     SlevoTheme {
         ImageMenuSheetContent(
+            menuState = ImageActionMenuState(
+                group = ImageActionMenuGroup.SUCCESS,
+                saveAllImageCount = 3,
+            ),
             onActionSelected = {},
-            saveAllImageCount = 3
         )
     }
 }

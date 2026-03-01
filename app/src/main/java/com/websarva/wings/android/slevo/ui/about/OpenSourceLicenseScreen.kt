@@ -8,11 +8,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import com.mikepenz.aboutlibraries.ui.compose.android.rememberLibraries
+import com.mikepenz.aboutlibraries.ui.compose.android.produceLibraries
 import com.mikepenz.aboutlibraries.ui.compose.m3.LibrariesContainer
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 
+/**
+ * Renders the open source licenses screen backed by AboutLibraries metadata.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OpenSourceLicenseScreen(
@@ -26,7 +29,7 @@ fun OpenSourceLicenseScreen(
             )
         }
     ) { innerPadding ->
-        val libraries by rememberLibraries(R.raw.aboutlibraries)
+        val libraries by produceLibraries(R.raw.aboutlibraries)
         LibrariesContainer(
             libraries = libraries,
             modifier = Modifier
@@ -35,4 +38,3 @@ fun OpenSourceLicenseScreen(
         )
     }
 }
-

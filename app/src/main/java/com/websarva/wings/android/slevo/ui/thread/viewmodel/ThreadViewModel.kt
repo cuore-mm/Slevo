@@ -39,11 +39,14 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDial
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
+import com.websarva.wings.android.slevo.ui.util.extractImageUrls
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import dagger.assisted.Assisted
@@ -255,6 +258,7 @@ class ThreadViewModel @AssistedInject constructor(
                 postGroups = emptyList(),
                 lastLoadedResCount = 0,
                 latestArrivalGroupIndex = null,
+                imageLoadFailureByUrl = emptyMap(),
             )
         }
     }
@@ -339,6 +343,7 @@ class ThreadViewModel @AssistedInject constructor(
             _uiState.update { state ->
                 state.copy(sortType = if (isTree) ThreadSortType.TREE else ThreadSortType.NUMBER)
             }
+            startThreadLoad(ThreadLoadingSource.INITIAL)
             initialize(force)
         }
     }
@@ -382,7 +387,14 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     override suspend fun loadData(isRefresh: Boolean) {
-        startThreadLoad()
+        val source = if (isRefresh) {
+            ThreadLoadingSource.MANUAL
+        } else {
+            ThreadLoadingSource.INITIAL
+        }
+        if (uiState.value.loadingSource == ThreadLoadingSource.NONE) {
+            startThreadLoad(source)
+        }
         val boardUrl = uiState.value.boardInfo.url
         val key = uiState.value.threadInfo.key
 
@@ -407,8 +419,14 @@ class ThreadViewModel @AssistedInject constructor(
     /**
      * 読み込み開始時の UIState を初期化する。
      */
-    private fun startThreadLoad() {
-        _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
+    private fun startThreadLoad(source: ThreadLoadingSource) {
+        _uiState.update {
+            it.copy(
+                isLoading = true,
+                loadProgress = 0f,
+                loadingSource = source,
+            )
+        }
     }
 
     /**
@@ -473,11 +491,13 @@ class ThreadViewModel @AssistedInject constructor(
      * 取得成功時の UIState を一括で更新する。
      */
     private fun applyLoadSuccess(derived: ThreadLoadDerived) {
+        val activeImageUrls = deriveActiveImageUrls(derived.uiPosts)
         _uiState.update {
             it.copy(
                 posts = derived.uiPosts,
                 isLoading = false,
                 loadProgress = 1f,
+                loadingSource = ThreadLoadingSource.NONE,
                 threadInfo = it.threadInfo.copy(
                     title = derived.threadTitle ?: it.threadInfo.title,
                     resCount = derived.resCount,
@@ -489,15 +509,101 @@ class ThreadViewModel @AssistedInject constructor(
                 replySourceMap = derived.replySourceMap,
                 treeOrder = derived.treeOrder,
                 treeDepthMap = derived.treeDepthMap,
+                imageLoadFailureByUrl = it.imageLoadFailureByUrl.filterKeys { url ->
+                    url in activeImageUrls
+                },
+                imageLoadingUrls = it.imageLoadingUrls.filter { url ->
+                    url in activeImageUrls
+                }.toSet(),
             )
         }
+    }
+
+    /**
+     * サムネイル画像の読み込み失敗URLを UI 状態へ記録する。
+     */
+    fun onThreadImageLoadError(imageUrl: String, failureType: ImageLoadFailureType) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは失敗管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl +
+                    (imageUrl to failureType),
+                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
+            )
+        }
+    }
+
+    /**
+     * サムネイル画像の読み込み開始URLを読み込み中状態へ追加する。
+     */
+    fun onThreadImageLoadStart(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは読み込み管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(imageLoadingUrls = state.imageLoadingUrls + imageUrl)
+        }
+    }
+
+    /**
+     * サムネイル画像の読み込み成功URLを失敗状態から解除する。
+     */
+    fun onThreadImageLoadSuccess(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは失敗管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl,
+                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
+            )
+        }
+    }
+
+    /**
+     * ユーザーの明示リトライ操作に合わせて失敗状態を解除する。
+     */
+    fun onThreadImageRetry(imageUrl: String) {
+        if (imageUrl.isBlank()) {
+            // Guard: 空URLは失敗管理対象にしない。
+            return
+        }
+        _uiState.update { state ->
+            state.copy(
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl - imageUrl,
+                imageLoadingUrls = state.imageLoadingUrls - imageUrl,
+            )
+        }
+    }
+
+    /**
+     * 投稿一覧から表示対象の画像URL集合を抽出する。
+     */
+    private fun deriveActiveImageUrls(posts: List<ThreadPostUiModel>): Set<String> {
+        return posts
+            .asSequence()
+            .filter { post -> post.meta.urlFlags and ReplyInfo.HAS_IMAGE_URL != 0 }
+            .flatMap { post -> extractImageUrls(post.body.content).asSequence() }
+            .filter { url -> url.isNotBlank() }
+            .toSet()
     }
 
     /**
      * 取得失敗時にローディングを解除し、必要ならログを出力する。
      */
     private fun handleLoadFailure(boardUrl: String, key: String, shouldLog: Boolean) {
-        _uiState.update { it.copy(isLoading = false, loadProgress = 1f) }
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                loadProgress = 1f,
+                loadingSource = ThreadLoadingSource.NONE,
+            )
+        }
         if (shouldLog) {
             Timber.e("Failed to load thread data for board: $boardUrl key: $key")
         }
@@ -745,7 +851,18 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     fun reloadThread() {
+        startThreadLoad(ThreadLoadingSource.MANUAL)
         initialize(force = true) // 強制的に初期化処理を再実行
+    }
+
+    /**
+     * 下端プル更新でスレッドを再読み込みする。
+     */
+    fun reloadThreadFromBottomPull() {
+        startThreadLoad(ThreadLoadingSource.BOTTOM_PULL)
+        viewModelScope.launch {
+            loadData(isRefresh = true)
+        }
     }
 
     fun toggleAutoScroll() {
@@ -761,7 +878,8 @@ class ThreadViewModel @AssistedInject constructor(
         val now = System.currentTimeMillis()
         if (lastAutoRefreshTime == 0L || now - lastAutoRefreshTime >= 10_000L) {
             lastAutoRefreshTime = now
-            reloadThread()
+            startThreadLoad(ThreadLoadingSource.AUTO_SCROLL)
+            initialize(force = true)
         }
     }
 
@@ -882,7 +1000,8 @@ class ThreadViewModel @AssistedInject constructor(
             }
             val updated = stack.toMutableList()
             updated[index] = target.copy(size = size)
-            state.copy(popupStack = updated)
+            val nextState = state.copy(popupStack = updated)
+            withUpdatedTabSwipeState(nextState)
         }
     }
 
@@ -895,7 +1014,8 @@ class ThreadViewModel @AssistedInject constructor(
                 // 表示対象がない場合は何もしない。
                 return@update state
             }
-            state.copy(popupStack = state.popupStack.dropLast(1))
+            val nextState = state.copy(popupStack = state.popupStack.dropLast(1))
+            withUpdatedTabSwipeState(nextState)
         }
     }
 
@@ -1023,8 +1143,27 @@ class ThreadViewModel @AssistedInject constructor(
 
     private fun appendPopup(info: PopupInfo) {
         _uiState.update { state ->
-            state.copy(popupStack = appendPopupIfDistinct(state.popupStack, info))
+            val updatedStack = appendPopupIfDistinct(state.popupStack, info)
+            val nextState = state.copy(popupStack = updatedStack)
+            withUpdatedTabSwipeState(nextState)
         }
+    }
+
+
+    /**
+     * タブ横スワイプ可否を最新状態へ同期したUI状態を返す。
+     */
+    private fun withUpdatedTabSwipeState(state: ThreadUiState): ThreadUiState {
+        return state.copy(isTabSwipeEnabled = shouldEnableTabSwipe(state))
+    }
+
+    /**
+     * タブ横スワイプを有効化できるか判定する。
+     *
+     * 検索モード中またはポップアップ表示中はスワイプを無効化する。
+     */
+    private fun shouldEnableTabSwipe(state: ThreadUiState): Boolean {
+        return !state.isSearchMode && state.popupStack.isEmpty()
     }
 
     /**
@@ -1162,12 +1301,18 @@ class ThreadViewModel @AssistedInject constructor(
 
     // 書き込み画面を表示
     fun startSearch() {
-        _uiState.update { it.copy(isSearchMode = true) }
+        _uiState.update { state ->
+            val nextState = state.copy(isSearchMode = true)
+            withUpdatedTabSwipeState(nextState)
+        }
         updateDisplayPosts()
     }
 
     fun closeSearch() {
-        _uiState.update { it.copy(isSearchMode = false, searchQuery = "") }
+        _uiState.update { state ->
+            val nextState = state.copy(isSearchMode = false, searchQuery = "")
+            withUpdatedTabSwipeState(nextState)
+        }
         updateDisplayPosts()
     }
 

@@ -1,6 +1,5 @@
 package com.websarva.wings.android.slevo.ui.settings
 
-import android.R.attr.onClick
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,10 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -25,19 +21,29 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.ui.common.ConfirmBottomDialog
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
+import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenu
+import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuItem
+import com.websarva.wings.android.slevo.ui.common.ConfirmBottomDialog
+import com.websarva.wings.android.slevo.ui.common.FeedbackTooltipIconButton
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
+import kotlin.math.roundToInt
 
+/**
+ * ジェスチャー設定画面の状態管理と UI を接続する。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsGestureScreen(
@@ -53,6 +59,8 @@ fun SettingsGestureScreen(
         toggleShowActionHints = { viewModel.toggleGestureShowActionHints(it) },
         onGestureItemClick = { viewModel.onGestureItemClick(it) },
         dismissGestureDialog = { viewModel.dismissGestureDialog() },
+        showResetDialog = { viewModel.showResetDialog() },
+        dismissResetDialog = { viewModel.dismissResetDialog() },
         assignGestureAction = { direction, action ->
             viewModel.assignGestureAction(
                 direction,
@@ -63,6 +71,11 @@ fun SettingsGestureScreen(
     )
 }
 
+/**
+ * ジェスチャー設定画面のコンテンツを描画する。
+ *
+ * 画面内の各カードやメニュー表示をまとめて構成する。
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsGestureScreenContent(
@@ -72,12 +85,18 @@ fun SettingsGestureScreenContent(
     toggleShowActionHints: (Boolean) -> Unit,
     onGestureItemClick: (GestureDirection) -> Unit,
     dismissGestureDialog: () -> Unit,
+    showResetDialog: () -> Unit,
+    dismissResetDialog: () -> Unit,
     assignGestureAction: (GestureDirection, GestureAction?) -> Unit,
     resetGestureSettings: () -> Unit,
 ) {
+    // --- State ---
     val haptic = LocalHapticFeedback.current
     var isMenuExpanded by remember { mutableStateOf(false) }
-    var showResetDialog by remember { mutableStateOf(false) }
+    var menuAnchorBounds by remember { mutableStateOf<IntRect?>(null) }
+    val closeMenu = { isMenuExpanded = false }
+
+    // --- Layout ---
     Scaffold(
         topBar = {
             SlevoTopAppBar(
@@ -85,25 +104,36 @@ fun SettingsGestureScreenContent(
                 onNavigateUp = onNavigateUp,
                 actions = {
                     Box {
-                        IconButton(onClick = { isMenuExpanded = true }) {
+                        FeedbackTooltipIconButton(
+                            tooltipText = stringResource(id = R.string.other_options),
+                            modifier = Modifier.onGloballyPositioned { coordinates ->
+                                val rect = coordinates.boundsInWindow()
+                                menuAnchorBounds = IntRect(
+                                    left = rect.left.roundToInt(),
+                                    top = rect.top.roundToInt(),
+                                    right = rect.right.roundToInt(),
+                                    bottom = rect.bottom.roundToInt(),
+                                )
+                            },
+                            onClick = { isMenuExpanded = true },
+                        ) {
                             Icon(
                                 imageVector = Icons.Filled.MoreVert,
-                                contentDescription = stringResource(id = R.string.more)
+                                contentDescription = stringResource(id = R.string.other_options)
                             )
                         }
-                        DropdownMenu(
+                        AnchoredOverlayMenu(
                             expanded = isMenuExpanded,
-                            onDismissRequest = { isMenuExpanded = false },
-                            shape = MaterialTheme.shapes.largeIncreased
+                            anchorBoundsInWindow = menuAnchorBounds,
+                            hazeState = null,
+                            onDismissRequest = closeMenu,
                         ) {
-                            DropdownMenuItem(
-                                text = { Text(text = stringResource(id = R.string.gesture_reset_settings),
-                                    style = MaterialTheme.typography.bodyLarge) },
+                            AnchoredOverlayMenuItem(
+                                text = stringResource(id = R.string.gesture_reset_settings),
                                 onClick = {
-                                    isMenuExpanded = false
-                                    showResetDialog = true
+                                    closeMenu()
+                                    showResetDialog()
                                 },
-                                contentPadding = PaddingValues(horizontal = 16.dp),
                             )
                         }
                     }
@@ -111,6 +141,7 @@ fun SettingsGestureScreenContent(
             )
         }
     ) { innerPadding ->
+        // --- Gesture groups ---
         val rightDirections = setOf(
             GestureDirection.Right,
             GestureDirection.RightUp,
@@ -207,6 +238,7 @@ fun SettingsGestureScreenContent(
         }
     }
 
+    // Guard: 選択中ジェスチャーがある場合のみダイアログを表示する。
     uiState.selectedDirection?.let { direction ->
         val currentAction = uiState.gestureItems.firstOrNull { it.direction == direction }?.action
         val actions = GestureAction.entries.toList()
@@ -219,17 +251,19 @@ fun SettingsGestureScreenContent(
         )
     }
 
-    if (showResetDialog) {
+    if (uiState.isResetDialogVisible) {
         ResetGestureSettingsDialog(
-            onDismissRequest = { showResetDialog = false },
+            onDismissRequest = { dismissResetDialog() },
             onConfirm = {
                 resetGestureSettings()
-                showResetDialog = false
             }
         )
     }
 }
 
+/**
+ * ジェスチャー設定の初期化確認ダイアログを表示する。
+ */
 @Composable
 private fun ResetGestureSettingsDialog(
     onDismissRequest: () -> Unit,
@@ -246,6 +280,9 @@ private fun ResetGestureSettingsDialog(
     )
 }
 
+/**
+ * 方向別のジェスチャー項目をカードとして表示する。
+ */
 @Composable
 private fun GestureDirectionGroupCard(
     gestureItems: List<GestureItem>,
@@ -288,7 +325,6 @@ private fun SettingsGestureScreenPreview() {
         gestureItems = GestureDirection.entries.map { direction ->
             GestureItem(direction = direction, action = GestureAction.entries.firstOrNull())
         },
-//        selectedDirection = GestureDirection.entries.first(),
     )
 
     MaterialTheme {
@@ -299,6 +335,8 @@ private fun SettingsGestureScreenPreview() {
             toggleShowActionHints = {},
             onGestureItemClick = {},
             dismissGestureDialog = {},
+            showResetDialog = {},
+            dismissResetDialog = {},
             assignGestureAction = { _, _ -> },
             resetGestureSettings = {},
         )

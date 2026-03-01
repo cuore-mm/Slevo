@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -28,7 +29,15 @@ import com.websarva.wings.android.slevo.ui.theme.urlColor
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.max
 
+/**
+ * スレッドのミニマップバーを描画し、スクロール位置と投稿属性に応じたマーカーを重ねる。
+ *
+ * タップは目標位置移動、ドラッグは連続スクロールで追従させる。
+ * posts の順序が LazyList の表示順と一致する前提で、各投稿を均等高さに正規化して表示する。
+ */
 @Composable
 fun MomentumBar(
     modifier: Modifier = Modifier,
@@ -38,10 +47,12 @@ fun MomentumBar(
     firstAfterIndex: Int = -1,
     myPostNumbers: Set<Int> = emptySet()
 ) {
+    // --- 色と表示設定 ---
     val barColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
     val indicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
     val maxBarWidthDp = 24.dp
 
+    // --- マーカー色の準備 ---
     val imageColor = imageUrlColor()
     val threadColor = threadUrlColor()
     val otherColor = urlColor()
@@ -52,50 +63,106 @@ fun MomentumBar(
     val arrivalMarkerColor = MaterialTheme.colorScheme.tertiary
     val myPostMarkerColor = MaterialTheme.colorScheme.primary
 
-    var barHeight by remember { mutableStateOf(0) }
+    // --- 状態とイベント ---
+    var barHeight by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
+
 
     Canvas(
         modifier = modifier
             .onSizeChanged { barHeight = it.height }
             .pointerInput(posts, barHeight) {
                 detectTapGestures { offset ->
-                    if (barHeight > 0 && posts.isNotEmpty()) {
-                        val postHeight = barHeight.toFloat() / posts.size
-                        val index = (offset.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
-                        scope.launch { lazyListState.scrollToItem(index) }
+                    if (barHeight <= 0 || posts.isEmpty()) {
+                        // Guard: バーサイズ未確定/投稿なしの場合は操作を無視する。
+                        return@detectTapGestures
                     }
+                    val postHeight = barHeight.toFloat() / posts.size
+                    val index = (offset.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
+                    scope.launch { lazyListState.scrollToItem(index) }
                 }
             }
-            .pointerInput(posts, barHeight) {
+            .pointerInput(posts, barHeight, lazyListState) {
                 detectVerticalDragGestures(
                     onDragStart = { offset ->
-                        if (barHeight > 0 && posts.isNotEmpty()) {
-                            val postHeight = barHeight.toFloat() / posts.size
-                            val index = (offset.y / postHeight).toInt().coerceIn(0, posts.lastIndex)
-                            scope.launch { lazyListState.scrollToItem(index) }
+                        if (barHeight <= 0 || posts.isEmpty()) {
+                            // Guard: バーサイズ未確定/投稿なしの場合は操作を無視する。
+                            return@detectVerticalDragGestures
                         }
+                        val layoutInfo = lazyListState.layoutInfo
+                        val visibleItems = layoutInfo.visibleItemsInfo
+                        if (visibleItems.isEmpty()) {
+                            // Guard: 可視アイテムが取得できない場合は追従しない。
+                            return@detectVerticalDragGestures
+                        }
+                        val averageItemSize =
+                            visibleItems.sumOf { it.size }.toFloat() / visibleItems.size
+                        if (averageItemSize <= 0f) {
+                            // Guard: 異常値は連続追従の計算対象外にする。
+                            return@detectVerticalDragGestures
+                        }
+                        val targetDelta = calculateDragDelta(
+                            pointerY = offset.y,
+                            barHeight = barHeight.toFloat(),
+                            postCount = posts.size,
+                            averageItemSize = averageItemSize,
+                            lazyListState = lazyListState,
+                        )
+                        if (abs(targetDelta) < MIN_SCROLL_DELTA_PX) {
+                            return@detectVerticalDragGestures
+                        }
+                        lazyListState.dispatchRawDelta(targetDelta)
                     },
                     onVerticalDrag = { change, _ ->
-                        if (barHeight > 0 && posts.isNotEmpty()) {
-                            val postHeight = barHeight.toFloat() / posts.size
-                            val index = (change.position.y / postHeight).toInt()
-                                .coerceIn(0, posts.lastIndex)
-                            scope.launch { lazyListState.scrollToItem(index) }
+                        if (barHeight <= 0 || posts.isEmpty()) {
+                            // Guard: バーサイズ未確定/投稿なしの場合は操作を無視する。
+                            return@detectVerticalDragGestures
                         }
+                        val layoutInfo = lazyListState.layoutInfo
+                        val visibleItems = layoutInfo.visibleItemsInfo
+                        if (visibleItems.isEmpty()) {
+                            // Guard: 可視アイテムが取得できない場合は追従しない。
+                            return@detectVerticalDragGestures
+                        }
+                        val averageItemSize =
+                            visibleItems.sumOf { it.size }.toFloat() / visibleItems.size
+                        if (averageItemSize <= 0f) {
+                            // Guard: 異常値は連続追従の計算対象外にする。
+                            return@detectVerticalDragGestures
+                        }
+                        val targetDelta = calculateDragDelta(
+                            pointerY = change.position.y,
+                            barHeight = barHeight.toFloat(),
+                            postCount = posts.size,
+                            averageItemSize = averageItemSize,
+                            lazyListState = lazyListState,
+                        )
+                        if (abs(targetDelta) < MIN_SCROLL_DELTA_PX) {
+                            // Guard: 微小なドラッグは連続スクロールの負荷を抑えるため無視する。
+                            return@detectVerticalDragGestures
+                        }
+                        // バー操作中は他の入力処理へ伝播させない。
+                        change.consume()
+                        lazyListState.dispatchRawDelta(targetDelta)
                     }
                 )
             }
     ) {
+        // --- 描画領域の基準値 ---
         val canvasHeight = size.height
         val canvasWidth = size.width
         val maxBarWidthPx = maxBarWidthDp.toPx()
 
+        // ガード: 投稿が無い場合は描画対象が存在しない。
         if (posts.isNotEmpty()) {
+            // --- ミニマップの正規化 ---
             val postHeight = canvasHeight / posts.size
 
+            // --- 勢いグラフとスクロール指標 ---
+            // 単一投稿の場合は勢いグラフと指標の算出を省略する。
             if (posts.size > 1) {
                 val windowSize = 1
+                // 勢いは投稿順のまま簡易平滑化し、棒の幅へマッピングする。
                 val smoothedMomentum = posts.mapIndexed { index, _ ->
                     val start = (index - windowSize / 2).coerceAtLeast(0)
                     val end = (index + windowSize / 2).coerceAtMost(posts.lastIndex)
@@ -126,19 +193,54 @@ fun MomentumBar(
                     close()
                 }
                 drawPath(path, color = barColor)
-                val firstVisible = lazyListState.firstVisibleItemIndex
-                val visibleCount = lazyListState.layoutInfo.visibleItemsInfo.size
-                if (visibleCount > 0) {
-                    val indicatorTop = firstVisible * postHeight
-                    val indicatorHeight = visibleCount * postHeight
-                    drawRect(
-                        color = indicatorColor,
-                        topLeft = Offset(x = 0f, y = indicatorTop),
-                        size = Size(width = canvasWidth, height = indicatorHeight)
-                    )
+                // --- 表示中インジケータ ---
+                val layoutInfo = lazyListState.layoutInfo
+                val visibleItems = layoutInfo.visibleItemsInfo
+                // ガード: 可視アイテムが無い場合は指標を描画しない。
+                if (visibleItems.isNotEmpty()) {
+                    // 可視ピクセルの比率を投稿数相当に換算する。
+                    val viewportStart = layoutInfo.viewportStartOffset
+                    val viewportEnd = layoutInfo.viewportEndOffset
+                    val visibleFractionCount = visibleItems.fold(0f) { acc, item ->
+                        val itemSize = item.size
+                        if (itemSize <= 0) {
+                            return@fold acc
+                        }
+                        val itemStart = item.offset
+                        val itemEnd = item.offset + itemSize
+                        val visibleStart = itemStart.coerceAtLeast(viewportStart)
+                        val visibleEnd = itemEnd.coerceAtMost(viewportEnd)
+                        val visiblePx = (visibleEnd - visibleStart).coerceAtLeast(0)
+                        acc + (visiblePx.toFloat() / itemSize)
+                    }
+                    val indicatorHeight = (visibleFractionCount * postHeight)
+                        .coerceIn(0f, canvasHeight)
+
+                    // 先頭要素の隠れ量から連続的なスクロール位置を求める。
+                    val firstItem = visibleItems.first()
+                    val firstItemSize = firstItem.size
+                    val hiddenTopPx = (viewportStart - firstItem.offset)
+                        .coerceIn(0, firstItemSize)
+                    val firstItemHiddenFraction = if (firstItemSize > 0) {
+                        hiddenTopPx.toFloat() / firstItemSize
+                    } else {
+                        0f
+                    }
+                    val rawIndicatorTop = (firstItem.index + firstItemHiddenFraction) * postHeight
+                    val maxIndicatorTop = (canvasHeight - indicatorHeight).coerceAtLeast(0f)
+                    val indicatorTop = rawIndicatorTop.coerceIn(0f, maxIndicatorTop)
+
+                    if (indicatorHeight > 0f) {
+                        drawRect(
+                            color = indicatorColor,
+                            topLeft = Offset(x = 0f, y = indicatorTop),
+                            size = Size(width = canvasWidth, height = indicatorHeight)
+                        )
+                    }
                 }
             }
 
+            // --- URL マーカー ---
             val dotRadius = 3.dp.toPx()
             val dotSpacing = dotRadius * 1.3f // 重なりを減らすため間隔を広げる
             val rightMarginPx = 4.dp.toPx() // 右端の余白
@@ -169,6 +271,7 @@ fun MomentumBar(
                 }
             }
 
+            // --- 返信数マーカー ---
             val triangleMaxHeight = 8.dp.toPx()
             replyColors.forEachIndexed { index, color ->
                 if (color != Color.Unspecified) {
@@ -185,7 +288,7 @@ fun MomentumBar(
                 }
             }
 
-            // 書き込みマーク（自分の投稿）
+            // --- 書き込みマーク（自分の投稿） ---
             val diamondSize = 8.dp.toPx()
             myPostNumbers.forEach { num ->
                 val index = num - 1
@@ -204,7 +307,7 @@ fun MomentumBar(
                 }
             }
 
-            // 新着マーク
+            // --- 新着マーク ---
             if (firstAfterIndex in 0..posts.size) {
                 val y = firstAfterIndex * postHeight
                 val strokeWidth = 1.dp.toPx()
@@ -257,4 +360,39 @@ fun MomentumBarPreview() {
         firstAfterIndex = 10,
         myPostNumbers = myPosts
     )
+}
+
+// --- Drag tuning ---
+private const val MIN_SCROLL_DELTA_PX = 0.5f
+
+/**
+ * ミニマップの指位置から目標スクロール差分を算出する。
+ *
+ * 指の絶対位置に合わせてスクロール差分を出すことで、相対ドラッグの揺れを抑える。
+ */
+private fun calculateDragDelta(
+    pointerY: Float,
+    barHeight: Float,
+    postCount: Int,
+    averageItemSize: Float,
+    lazyListState: LazyListState,
+): Float {
+    // --- Validation ---
+    val clampedPointerY = pointerY.coerceIn(0f, max(0f, barHeight))
+    val safePostCount = max(1, postCount)
+
+    // --- Target mapping ---
+    val targetFraction = if (barHeight > 0f) clampedPointerY / barHeight else 0f
+    val totalContentHeight = averageItemSize * safePostCount
+    val viewportSize = lazyListState.layoutInfo.viewportSize.height.toFloat()
+    val totalScrollable = (totalContentHeight - viewportSize).coerceAtLeast(0f)
+    val targetScroll = targetFraction * totalScrollable
+
+    // --- Current mapping ---
+    val currentIndex = lazyListState.firstVisibleItemIndex.toFloat()
+    val currentOffset = lazyListState.firstVisibleItemScrollOffset.toFloat()
+    val currentScroll = currentIndex * averageItemSize + currentOffset
+
+    // --- Delta ---
+    return (targetScroll - currentScroll).coerceIn(-totalScrollable, totalScrollable)
 }

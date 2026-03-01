@@ -47,7 +47,7 @@ fun AddGroupDialog(
     onColorSelected: (String) -> Unit,
     selectedColor: String,
 ) {
-    val colors = BookmarkColor.values()
+    val colors = BookmarkColor.entries.toTypedArray()
 
     AlertDialog(
         modifier = modifier,

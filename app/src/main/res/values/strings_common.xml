@@ -20,6 +20,6 @@
     <string name="open_in_external_browser">外部ブラウザで開く</string>
     <string name="no_browser_app_found">ブラウザが見つかりませんでした</string>
     <string name="selected_count_label">件選択</string>
-    <string name="information">詳細</string>
     <string name="no_history">履歴がありません</string>
+    <string name="retry">再試行</string>
 </resources>

@@ -18,7 +18,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FlexibleBottomAppBar
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -43,13 +42,23 @@ import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 
+/**
+ * タブ型ボトムバーに並べる単体アクションの表示情報を保持する。
+ *
+ * アイコンとアクセシビリティ文言、実行コールバックをひとまとまりで扱う。
+ */
 data class TabToolBarAction(
     val icon: ImageVector,
-    @StringRes val contentDescriptionRes: Int,
+    @param:StringRes val contentDescriptionRes: Int,
     val onClick: () -> Unit,
     val tint: Color? = null,
 )
 
+/**
+ * 板/スレッド画面のボトムバー表示を共通化する。
+ *
+ * 上段はタイトル・ブックマーク・更新、下段はアクション群を並べる。
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TabToolBar(
@@ -68,6 +77,7 @@ fun TabToolBar(
     titleMaxLines: Int = 2,
     titleTextAlign: TextAlign = TextAlign.Start,
 ) {
+    // --- Layout ---
     Box(modifier = modifier.fillMaxWidth()) {
         FlexibleBottomAppBar(
             expandedHeight = 96.dp,
@@ -82,12 +92,16 @@ fun TabToolBar(
                     .fillMaxWidth()
                     .padding(vertical = 4.dp)
 
+                // --- Title row ---
                 val cardContent: @Composable () -> Unit = {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconButton(onClick = onBookmarkClick) {
+                        FeedbackTooltipIconButton(
+                            tooltipText = stringResource(R.string.bookmark),
+                            onClick = onBookmarkClick,
+                        ) {
                             if (bookmarkState.isBookmarked) {
                                 val tintColor =
                                     bookmarkState.selectedGroup?.colorName?.let { bookmarkColor(it) }
@@ -119,7 +133,10 @@ fun TabToolBar(
                             textAlign = titleTextAlign,
                             modifier = Modifier.weight(1f),
                         )
-                        IconButton(onClick = onRefreshClick) {
+                        FeedbackTooltipIconButton(
+                            tooltipText = stringResource(R.string.refresh),
+                            onClick = onRefreshClick,
+                        ) {
                             Icon(
                                 imageVector = Icons.Filled.Refresh,
                                 contentDescription = stringResource(R.string.refresh),
@@ -143,12 +160,16 @@ fun TabToolBar(
 
                 Spacer(modifier = Modifier.padding(2.dp))
 
+                // --- Actions row ---
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
                     actions.forEach { action ->
-                        IconButton(onClick = action.onClick) {
+                        FeedbackTooltipIconButton(
+                            tooltipText = stringResource(action.contentDescriptionRes),
+                            onClick = action.onClick,
+                        ) {
                             Icon(
                                 imageVector = action.icon,
                                 contentDescription = stringResource(action.contentDescriptionRes),

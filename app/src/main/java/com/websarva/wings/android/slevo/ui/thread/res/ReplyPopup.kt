@@ -18,18 +18,22 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -41,32 +45,55 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
+import kotlin.math.max
 import kotlin.math.min
 
-// アニメーションの速度（ミリ秒）
 private const val POPUP_ANIMATION_DURATION = 160
+private const val BASE_MAX_HEIGHT_RATIO = 0.75f
+private const val STEP_MAX_HEIGHT_RATIO = 0.05f
+private const val MIN_MAX_HEIGHT_RATIO = 0.55f
+private val POPUP_RIGHT_MARGIN = 4.dp
+private val POPUP_LEFT_MARGIN_STEP = 8.dp
+private val POPUP_BASE_LEFT_MARGIN = 4.dp
+private val POPUP_MAX_LEFT_MARGIN = 28.dp
+
+/**
+ * ポップアップ配置の計算結果を保持する。
+ */
+private data class PopupPlacement(
+    val leftMargin: Dp,
+    val maxWidth: Dp,
+    val offset: IntOffset,
+)
 
 /**
  * 返信ポップアップの表示と操作イベントを管理する。
  *
- * 投稿の長押しメニューやダイアログは呼び出し側へ委譲する。
+ * 投稿の長押しメニューやダイアログ、画像読み込みイベントは呼び出し側へ委譲する。
  */
 @SuppressLint("ConfigurationScreenWidthHeight")
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ReplyPopup(
+    modifier: Modifier = Modifier,
     popupStack: List<PopupInfo>,
     posts: List<ThreadPostUiModel>,
     replySourceMap: Map<Int, List<Int>>,
@@ -82,6 +109,11 @@ fun ReplyPopup(
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    onImageLoadStart: (String) -> Unit = {},
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit = { _, _ -> },
+    onImageLoadSuccess: (String) -> Unit = {},
+    onImageRetry: (String) -> Unit = {},
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
     onRequestTreePopup: (postNumber: Int, baseOffset: IntOffset) -> Unit,
@@ -95,6 +127,11 @@ fun ReplyPopup(
 ) {
     // --- 表示状態管理 ---
     val visibilityStates = rememberPopupVisibilityStates(popupStack.size)
+    val density = LocalDensity.current
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val screenWidthPx = with(density) {
+        screenWidthDp.dp.roundToPx()
+    }
 
     // --- 終了操作 ---
     val closeTopPopup: () -> Unit = {
@@ -110,10 +147,13 @@ fun ReplyPopup(
 
     // --- ポップアップ描画 ---
     val lastIndex = popupStack.lastIndex
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = modifier) {
         // --- 背景タップ ---
         PopupBackgroundOverlay(
             popupStack = popupStack,
+            screenWidthPx = screenWidthPx,
+            screenWidthDp = screenWidthDp,
+            density = density,
             onCloseTop = closeTopPopup,
         )
         popupStack.forEachIndexed { index, info ->
@@ -135,6 +175,9 @@ fun ReplyPopup(
             PopupCard(
                 info = info,
                 index = index,
+                screenWidthPx = screenWidthPx,
+                screenWidthDp = screenWidthDp,
+                density = density,
                 isTop = isTop,
                 visibleState = visibleState,
                 onCloseTop = closeTopPopup,
@@ -146,6 +189,10 @@ fun ReplyPopup(
             ) {
                 PopupPostList(
                     info = info,
+                    popupIndex = index,
+                    screenWidthPx = screenWidthPx,
+                    screenWidthDp = screenWidthDp,
+                    density = density,
                     posts = posts,
                     replySourceMap = replySourceMap,
                     idCountMap = idCountMap,
@@ -160,6 +207,11 @@ fun ReplyPopup(
                     onThreadUrlClick = onThreadUrlClick,
                     onImageClick = onImageClick,
                     onImageLongPress = onImageLongPress,
+                    imageLoadFailureByUrl = imageLoadFailureByUrl,
+                    onImageLoadStart = onImageLoadStart,
+                    onImageLoadError = onImageLoadError,
+                    onImageLoadSuccess = onImageLoadSuccess,
+                    onImageRetry = onImageRetry,
                     onRequestMenu = onRequestMenu,
                     onShowTextMenu = onShowTextMenu,
                     sharedTransitionScope = sharedTransitionScope,
@@ -167,29 +219,29 @@ fun ReplyPopup(
                     onContentClick = if (info.indentLevels.isNotEmpty()) {
                         null
                     } else {
-                        { postNum ->
+                        { postNum, baseOffset ->
                             onRequestTreePopup(
                                 postNum,
-                                calculatePopupOffset(popupStack[index])
+                                baseOffset,
                             )
                         }
                     },
-                    onReplyFromClick = { numbs ->
+                    onReplyFromClick = { numbs, baseOffset ->
                         onAddPopupForReplyFrom(
                             numbs,
-                            calculatePopupOffset(popupStack[index]),
+                            baseOffset,
                         )
                     },
-                    onReplyClick = { num ->
+                    onReplyClick = { num, baseOffset ->
                         onAddPopupForReplyNumber(
                             num,
-                            calculatePopupOffset(popupStack[index]),
+                            baseOffset,
                         )
                     },
-                    onIdClick = { id ->
+                    onIdClick = { id, baseOffset ->
                         onAddPopupForId(
                             id,
-                            calculatePopupOffset(popupStack[index]),
+                            baseOffset,
                         )
                     },
                 )
@@ -230,6 +282,9 @@ private fun rememberPopupVisibilityStates(
 @Composable
 private fun PopupBackgroundOverlay(
     popupStack: List<PopupInfo>,
+    screenWidthPx: Int,
+    screenWidthDp: Int,
+    density: Density,
     onCloseTop: () -> Unit,
 ) {
     if (popupStack.isEmpty()) {
@@ -241,8 +296,17 @@ private fun PopupBackgroundOverlay(
             .fillMaxSize()
             .pointerInput(popupStack.size) {
                 detectTapGestures { offset ->
+                    val topIndex = popupStack.lastIndex
                     val topInfo = popupStack.lastOrNull() ?: return@detectTapGestures
-                    if (isTapInsidePopup(offset, topInfo)) {
+                    if (isTapInsidePopup(
+                            tapOffset = offset,
+                            topInfo = topInfo,
+                            topIndex = topIndex,
+                            screenWidthPx = screenWidthPx,
+                            screenWidthDp = screenWidthDp,
+                            density = density,
+                        )
+                    ) {
                         return@detectTapGestures
                     }
                     onCloseTop()
@@ -258,6 +322,9 @@ private fun PopupBackgroundOverlay(
 private fun PopupCard(
     info: PopupInfo,
     index: Int,
+    screenWidthPx: Int,
+    screenWidthDp: Int,
+    density: Density,
     isTop: Boolean,
     visibleState: MutableTransitionState<Boolean>,
     onCloseTop: () -> Unit,
@@ -278,10 +345,24 @@ private fun PopupCard(
             animationSpec = tween(durationMillis = POPUP_ANIMATION_DURATION)
         )
     ) {
-        // --- カード描画 ---
+        val shape = MaterialTheme.shapes.small
+        val placement = calculatePopupPlacement(
+            info = info,
+            popupIndex = index,
+            screenWidthPx = screenWidthPx,
+            screenWidthDp = screenWidthDp,
+            density = density,
+        )
         Card(
             modifier = Modifier
-                .offset { calculatePopupOffset(info) }
+                .padding(
+                    start = placement.leftMargin,
+                    end = POPUP_RIGHT_MARGIN,
+                    top = 8.dp,
+                    bottom = 8.dp
+                )
+                .widthIn(max = placement.maxWidth)
+                .offset { placement.offset }
                 .zIndex(index.toFloat())
                 .onGloballyPositioned { coords ->
                     val size = coords.size
@@ -289,8 +370,10 @@ private fun PopupCard(
                         onSizeChanged(size)
                     }
                 }
-                .border(width = 2.dp, color = MaterialTheme.colorScheme.primary)
-                .disableInteractionOnUnderlay(isTop, onCloseTop)
+                .border(width = 2.dp, color = MaterialTheme.colorScheme.primary, shape = shape)
+                .disableInteractionOnUnderlay(isTop, onCloseTop),
+            shape = shape,
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         ) {
             content()
         }
@@ -305,6 +388,10 @@ private fun PopupCard(
 @Composable
 private fun PopupPostList(
     info: PopupInfo,
+    popupIndex: Int,
+    screenWidthPx: Int,
+    screenWidthDp: Int,
+    density: Density,
     posts: List<ThreadPostUiModel>,
     replySourceMap: Map<Int, List<Int>>,
     idCountMap: Map<String, Int>,
@@ -319,33 +406,148 @@ private fun PopupPostList(
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    onImageLoadStart: (String) -> Unit,
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
+    onImageLoadSuccess: (String) -> Unit,
+    onImageRetry: (String) -> Unit,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
-    onContentClick: ((Int) -> Unit)?,
-    onReplyFromClick: (List<Int>) -> Unit,
-    onReplyClick: (Int) -> Unit,
-    onIdClick: (String) -> Unit,
+    onContentClick: ((Int, IntOffset) -> Unit)?,
+    onReplyFromClick: (List<Int>, IntOffset) -> Unit,
+    onReplyClick: (Int, IntOffset) -> Unit,
+    onIdClick: (String, IntOffset) -> Unit,
 ) {
     // --- レイアウト ---
-    val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.75f
-    Column(
-        modifier = Modifier
-            .heightIn(max = maxHeight)
-            .verticalScroll(rememberScrollState())
+    val maxHeightRatio = calculatePopupMaxHeightRatio(popupIndex)
+    val maxHeight = LocalConfiguration.current.screenHeightDp.dp * maxHeightRatio
+    val listState = rememberLazyListState()
+    val showScrollbar by remember(listState) {
+        derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
+    }
+    Box(
+        modifier = Modifier.heightIn(max = maxHeight)
     ) {
-        // --- 投稿描画 ---
-        info.posts.forEachIndexed { i, p ->
+        SlevoLazyColumnScrollbar(
+            state = listState,
+            enabled = showScrollbar,
+        ) {
+            PopupPostLazyColumn(
+                info = info,
+                popupIndex = popupIndex,
+                screenWidthPx = screenWidthPx,
+                screenWidthDp = screenWidthDp,
+                density = density,
+                posts = posts,
+                replySourceMap = replySourceMap,
+                idCountMap = idCountMap,
+                idIndexList = idIndexList,
+                ngPostNumbers = ngPostNumbers,
+                myPostNumbers = myPostNumbers,
+                headerTextScale = headerTextScale,
+                bodyTextScale = bodyTextScale,
+                lineHeight = lineHeight,
+                searchQuery = searchQuery,
+                onUrlClick = onUrlClick,
+                onThreadUrlClick = onThreadUrlClick,
+                onImageClick = onImageClick,
+                onImageLongPress = onImageLongPress,
+                imageLoadFailureByUrl = imageLoadFailureByUrl,
+                onImageLoadStart = onImageLoadStart,
+                onImageLoadError = onImageLoadError,
+                onImageLoadSuccess = onImageLoadSuccess,
+                onImageRetry = onImageRetry,
+                onRequestMenu = onRequestMenu,
+                onShowTextMenu = onShowTextMenu,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+                onContentClick = onContentClick,
+                onReplyFromClick = onReplyFromClick,
+                onReplyClick = onReplyClick,
+                onIdClick = onIdClick,
+                maxHeight = maxHeight,
+                listState = listState,
+            )
+        }
+    }
+}
+
+/**
+ * 返信ポップアップ内の投稿一覧を LazyColumn で描画する。
+ */
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun PopupPostLazyColumn(
+    info: PopupInfo,
+    popupIndex: Int,
+    screenWidthPx: Int,
+    screenWidthDp: Int,
+    density: Density,
+    posts: List<ThreadPostUiModel>,
+    replySourceMap: Map<Int, List<Int>>,
+    idCountMap: Map<String, Int>,
+    idIndexList: List<Int>,
+    ngPostNumbers: Set<Int>,
+    myPostNumbers: Set<Int>,
+    headerTextScale: Float,
+    bodyTextScale: Float,
+    lineHeight: Float,
+    searchQuery: String,
+    onUrlClick: (String) -> Unit,
+    onThreadUrlClick: (AppRoute.Thread) -> Unit,
+    onImageClick: (String, List<String>, Int, String) -> Unit,
+    onImageLongPress: (String, List<String>) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    onImageLoadStart: (String) -> Unit,
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
+    onImageLoadSuccess: (String) -> Unit,
+    onImageRetry: (String) -> Unit,
+    onRequestMenu: (PostDialogTarget) -> Unit,
+    onShowTextMenu: (String, NgType) -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    onContentClick: ((Int, IntOffset) -> Unit)?,
+    onReplyFromClick: (List<Int>, IntOffset) -> Unit,
+    onReplyClick: (Int, IntOffset) -> Unit,
+    onIdClick: (String, IntOffset) -> Unit,
+    maxHeight: Dp,
+    listState: LazyListState,
+) {
+    LazyColumn(
+        modifier = Modifier.heightIn(max = maxHeight),
+        state = listState,
+    ) {
+        itemsIndexed(info.posts) { i, p ->
             val postIndex = posts.indexOf(p)
             val postNum = postIndex + 1
             val indentLevel = info.indentLevels.getOrElse(i) { 0 }
             val nextIndent = info.indentLevels.getOrElse(i + 1) { 0 }
+            var postOffset by remember { mutableStateOf(IntOffset.Zero) }
+            var isPostOffsetMeasured by remember { mutableStateOf(false) }
+            val baseOffset = if (isPostOffsetMeasured) {
+                postOffset
+            } else {
+                // レイアウト未計測時は現在のポップアップ配置結果をフォールバックに使う。
+                calculatePopupPlacement(
+                    info = info,
+                    popupIndex = popupIndex,
+                    screenWidthPx = screenWidthPx,
+                    screenWidthDp = screenWidthDp,
+                    density = density,
+                ).offset
+            }
             val transitionNamespace = ImageSharedTransitionKeyFactory.popupPostNamespace(
                 popupId = info.popupId,
                 postNumber = postNum,
             )
             PostItem(
+                modifier = Modifier.onGloballyPositioned { coords ->
+                    val position = coords.positionInRoot()
+                    postOffset = IntOffset(position.x.toInt(), position.y.toInt())
+                    isPostOffsetMeasured = true
+                },
                 post = p,
                 postNum = postNum,
                 idIndex = idIndexList[postIndex],
@@ -360,6 +562,11 @@ private fun PopupPostList(
                 transitionNamespace = transitionNamespace,
                 onImageClick = onImageClick,
                 onImageLongPress = onImageLongPress,
+                imageLoadFailureByUrl = imageLoadFailureByUrl,
+                onImageLoadStart = onImageLoadStart,
+                onImageLoadError = onImageLoadError,
+                onImageLoadSuccess = onImageLoadSuccess,
+                onImageRetry = onImageRetry,
                 onRequestMenu = onRequestMenu,
                 onShowTextMenu = onShowTextMenu,
                 sharedTransitionScope = sharedTransitionScope,
@@ -367,10 +574,10 @@ private fun PopupPostList(
                 isMyPost = postNum in myPostNumbers,
                 replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers }
                     ?: emptyList(),
-                onReplyFromClick = onReplyFromClick,
-                onReplyClick = onReplyClick,
-                onIdClick = onIdClick,
-                onContentClick = { onContentClick?.invoke(postNum) },
+                onReplyFromClick = { numbers -> onReplyFromClick(numbers, baseOffset) },
+                onReplyClick = { number -> onReplyClick(number, baseOffset) },
+                onIdClick = { id -> onIdClick(id, baseOffset) },
+                onContentClick = { onContentClick?.invoke(postNum, baseOffset) },
             )
             if (i < info.posts.size - 1) {
                 HorizontalDivider(
@@ -382,15 +589,87 @@ private fun PopupPostList(
 }
 
 /**
- * ポップアップの描画位置を計算する。
+ * ポップアップ配置を余白主導で計算する。
  *
- * 上端が画面外にならないように座標を補正する。
+ * 段数別左余白、幅上限、右端見切れ防止、Y補正を同一経路で扱う。
  */
-private fun calculatePopupOffset(info: PopupInfo): IntOffset {
-    return IntOffset(
-        info.offset.x,
-        (info.offset.y - info.size.height).coerceAtLeast(0)
+private fun calculatePopupPlacement(
+    info: PopupInfo,
+    popupIndex: Int,
+    screenWidthPx: Int,
+    screenWidthDp: Int,
+    density: Density,
+): PopupPlacement {
+    // --- Left margin ---
+    val leftMargin = calculatePopupLeftMargin(popupIndex)
+    val leftMarginPx = with(density) { leftMargin.roundToPx() }
+
+    // --- Width constraint ---
+    val maxWidth = (screenWidthDp.dp - leftMargin - POPUP_RIGHT_MARGIN).coerceAtLeast(1.dp)
+
+    // --- X clamp ---
+    val rightMarginPx = with(density) { POPUP_RIGHT_MARGIN.roundToPx() }
+    val clampedX = calculatePopupPlacementOffsetX(
+        desiredX = info.offset.x,
+        popupWidthPx = info.size.width,
+        screenWidthPx = screenWidthPx,
+        rightMarginPx = rightMarginPx,
+        leftMarginPx = leftMarginPx,
     )
+
+    // --- Y correction ---
+    val correctedY = (info.offset.y - info.size.height).coerceAtLeast(0)
+
+    return PopupPlacement(
+        leftMargin = leftMargin,
+        maxWidth = maxWidth,
+        offset = IntOffset(clampedX, correctedY),
+    )
+}
+
+/**
+ * ポップアップ配置用の X 座標を計算する。
+ *
+ * 未計測時は基準座標をそのまま使い、計測後は右余白を保つようクランプする。
+ */
+internal fun calculatePopupPlacementOffsetX(
+    desiredX: Int,
+    popupWidthPx: Int,
+    screenWidthPx: Int,
+    rightMarginPx: Int,
+    leftMarginPx: Int,
+): Int {
+    val desiredOffsetX = desiredX - leftMarginPx
+    if (popupWidthPx <= 0) {
+        // 幅未計測時は右端制約を適用せず、基準位置を優先する。
+        return desiredOffsetX.coerceAtLeast(0)
+    }
+    val rightEdgeMaxX = max(screenWidthPx - popupWidthPx - rightMarginPx - leftMarginPx, 0)
+    return min(desiredOffsetX, rightEdgeMaxX).coerceAtLeast(0)
+}
+
+/**
+ * ポップアップ段数ごとの左余白を返す。
+ *
+ * 1段目を基準に 8.dp ずつ増加し、[POPUP_MAX_LEFT_MARGIN] を上限とする。
+ */
+internal fun calculatePopupLeftMargin(popupIndex: Int): Dp {
+    val normalizedIndex = popupIndex.coerceAtLeast(0)
+    val margin = POPUP_BASE_LEFT_MARGIN + (POPUP_LEFT_MARGIN_STEP * normalizedIndex)
+    return if (margin > POPUP_MAX_LEFT_MARGIN) POPUP_MAX_LEFT_MARGIN else margin
+}
+
+/**
+ * ポップアップ段数に応じた最大高さ比率を返す。
+ *
+ * 1段目を基準とし、段数が増えるごとに一定値で縮小する。
+ * 縮小後の値は [MIN_MAX_HEIGHT_RATIO] を下回らない。
+ */
+internal fun calculatePopupMaxHeightRatio(popupIndex: Int): Float {
+    // 不正な負値入力は1段目として扱う。
+    val depth = popupIndex.coerceAtLeast(0)
+    val calculated = BASE_MAX_HEIGHT_RATIO - (depth * STEP_MAX_HEIGHT_RATIO)
+    return calculated.coerceAtLeast(MIN_MAX_HEIGHT_RATIO)
 }
 
 /**
@@ -423,15 +702,29 @@ private fun syncVisibilityStates(
 private fun isTapInsidePopup(
     tapOffset: Offset,
     topInfo: PopupInfo,
+    topIndex: Int,
+    screenWidthPx: Int,
+    screenWidthDp: Int,
+    density: Density,
 ): Boolean {
     val size = topInfo.size
     if (size == IntSize.Zero) {
         // サイズ確定前は外側判定を行わない。
         return true
     }
-    val topOffset = calculatePopupOffset(topInfo)
-    val insideX = tapOffset.x >= topOffset.x && tapOffset.x < topOffset.x + size.width
-    val insideY = tapOffset.y >= topOffset.y && tapOffset.y < topOffset.y + size.height
+    val topPlacement = calculatePopupPlacement(
+        info = topInfo,
+        popupIndex = topIndex,
+        screenWidthPx = screenWidthPx,
+        screenWidthDp = screenWidthDp,
+        density = density,
+    )
+    val topLeftMarginPx = with(density) { topPlacement.leftMargin.roundToPx().toFloat() }
+    val popupLeft = topPlacement.offset.x + topLeftMarginPx
+    val popupRight = popupLeft + size.width
+    val insideX = tapOffset.x in popupLeft..<popupRight
+    val insideY =
+        tapOffset.y >= topPlacement.offset.y && tapOffset.y < topPlacement.offset.y + size.height
     return insideX && insideY
 }
 
@@ -528,6 +821,7 @@ fun ReplyPopupPreview() {
                 onThreadUrlClick = {},
                 onImageClick = { _, _, _, _ -> },
                 onImageLongPress = { _, _ -> },
+                onImageLoadStart = {},
                 onRequestMenu = {},
                 onShowTextMenu = { _, _ -> },
                 onRequestTreePopup = { _, _ -> },

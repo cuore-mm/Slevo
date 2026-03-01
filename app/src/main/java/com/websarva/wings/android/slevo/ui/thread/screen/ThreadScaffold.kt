@@ -7,6 +7,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -16,40 +18,45 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.toClipEntry
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
+import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunner
+import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
-import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunner
-import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
+import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
+import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarOverflowMenu
+import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
+import com.websarva.wings.android.slevo.ui.thread.res.ReplyPopup
+import com.websarva.wings.android.slevo.ui.thread.res.rememberPostItemDialogState
 import com.websarva.wings.android.slevo.ui.thread.sheet.DisplaySettingsBottomSheet
-import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 /**
  * スレッド画面の主要UIを構築する。
@@ -70,6 +77,9 @@ fun ThreadScaffold(
     val context = LocalContext.current
     val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
     var isPopupVisible by remember { mutableStateOf(false) }
+    val popupDialogState = rememberPostItemDialogState()
+    var popupMenuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
+    var popupDialogTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
 
     val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, threadRoute.threadKey)
@@ -203,13 +213,21 @@ fun ThreadScaffold(
                 tabsViewModel = tabsViewModel,
                 showBottomBar = showBottomBar,
                 onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
-                onBottomRefresh = { viewModel.reloadThread() },
+                onBottomRefresh = { viewModel.reloadThreadFromBottomPull() },
                 onLastRead = { resNum ->
                     routeThreadId?.let { viewModel.updateThreadLastRead(it, resNum) }
                 },
-                onReplyToPost = { viewModel.postDialogActions.showReplyDialog(it) },
                 gestureSettings = uiState.gestureSettings,
+                onPopupVisibilityChange = { isPopupVisible = it },
+                onRequestPostMenu = { target -> popupMenuTarget = target },
+                onRequestTextMenu = { text, type -> popupDialogState.showTextMenu(text, type) },
                 onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
+                onImageLoadStart = { url -> viewModel.onThreadImageLoadStart(url) },
+                onImageLoadError = { url, failureType ->
+                    viewModel.onThreadImageLoadError(url, failureType)
+                },
+                onImageLoadSuccess = { url -> viewModel.onThreadImageLoadSuccess(url) },
+                onImageRetry = { url -> viewModel.onThreadImageRetry(url) },
                 onRequestTreePopup = { postNum, baseOffset ->
                     viewModel.addPopupForTree(baseOffset, postNum)
                 },
@@ -222,41 +240,39 @@ fun ThreadScaffold(
                 onAddPopupForId = { id, baseOffset ->
                     viewModel.addPopupForId(baseOffset, id)
                 },
-                onPopupSizeChange = { index, size ->
-                    viewModel.updatePopupSize(index, size)
-                },
-                onRemoveTopPopup = { viewModel.removeTopPopup() },
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
-                onPopupVisibilityChange = { isPopupVisible = it },
                 onGestureAction = { action ->
-                    when (action) {
-                        GestureAction.Refresh -> viewModel.reloadThread()
-                        GestureAction.PostOrCreateThread -> viewModel.postDialogActions.showDialog()
-                        GestureAction.Search -> viewModel.startSearch()
-                        GestureAction.OpenTabList -> openTabListSheet()
-                        GestureAction.OpenBookmarkList -> navController.navigate(AppRoute.BookmarkList)
-                        GestureAction.OpenBoardList -> navController.navigate(AppRoute.ServiceList)
-                        GestureAction.OpenHistory -> navController.navigate(AppRoute.HistoryList)
-                        GestureAction.OpenNewTab -> openUrlDialog()
-                        GestureAction.SwitchToNextTab -> tabsViewModel.animateThreadPage(1)
-                        GestureAction.SwitchToPreviousTab -> tabsViewModel.animateThreadPage(-1)
-                        GestureAction.CloseTab ->
-                            if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
-                                tabsViewModel.closeThreadTab(
-                                    uiState.threadInfo.key,
-                                    uiState.boardInfo.url
-                                )
-                            }
-
-                        GestureAction.ToTop, GestureAction.ToBottom -> Unit
-                    }
+                    dispatchCommonGestureAction(
+                        action = action,
+                        handlers = CommonGestureActionHandlers(
+                            onRefresh = { viewModel.reloadThread() },
+                            onPostOrCreateThread = { viewModel.postDialogActions.showDialog() },
+                            onSearch = { viewModel.startSearch() },
+                            onOpenTabList = openTabListSheet,
+                            onOpenBookmarkList = { navController.navigate(AppRoute.BookmarkList) },
+                            onOpenBoardList = { navController.navigate(AppRoute.ServiceList) },
+                            onOpenHistory = { navController.navigate(AppRoute.HistoryList) },
+                            onOpenNewTab = openUrlDialog,
+                            onSwitchToNextTab = { tabsViewModel.animateThreadPage(1) },
+                            onSwitchToPreviousTab = { tabsViewModel.animateThreadPage(-1) },
+                            onCloseTab = {
+                                if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
+                                    tabsViewModel.closeThreadTab(
+                                        uiState.threadInfo.key,
+                                        uiState.boardInfo.url,
+                                    )
+                                }
+                            },
+                        ),
+                    )
                 }
             )
         },
         optionalSheetContent = { viewModel, uiState ->
             val clipboard = LocalClipboard.current
             val coroutineScope = rememberCoroutineScope()
+            val uriHandler = LocalUriHandler.current
             val imageSavePermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission()
             ) { granted ->
@@ -278,6 +294,85 @@ fun ThreadScaffold(
                 }
             }
 
+            ReplyPopup(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .safeDrawingPadding(),
+                popupStack = uiState.popupStack,
+                posts = uiState.posts ?: emptyList(),
+                replySourceMap = uiState.replySourceMap,
+                idCountMap = uiState.idCountMap,
+                idIndexList = uiState.idIndexList,
+                ngPostNumbers = uiState.ngPostNumbers,
+                myPostNumbers = uiState.myPostNumbers,
+                headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
+                bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
+                lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT,
+                searchQuery = uiState.searchQuery,
+                onUrlClick = { url -> uriHandler.openUri(url) },
+                onThreadUrlClick = { route ->
+                    navController.navigateToThread(
+                        route = route,
+                        tabsViewModel = tabsViewModel,
+                    )
+                },
+                onImageClick = { _, imageUrls, tappedIndex, transitionNamespace ->
+                    val route = buildImageViewerRoute(
+                        imageUrls = imageUrls,
+                        tappedIndex = tappedIndex,
+                        transitionNamespace = transitionNamespace,
+                    )
+                    route?.let(navController::navigate)
+                },
+                onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
+                imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
+                onImageLoadStart = { url -> viewModel.onThreadImageLoadStart(url) },
+                onImageLoadError = { url, failureType ->
+                    viewModel.onThreadImageLoadError(url, failureType)
+                },
+                onImageLoadSuccess = { url -> viewModel.onThreadImageLoadSuccess(url) },
+                onImageRetry = { url -> viewModel.onThreadImageRetry(url) },
+                onRequestMenu = { target -> popupMenuTarget = target },
+                onShowTextMenu = { text, type -> popupDialogState.showTextMenu(text, type) },
+                onRequestTreePopup = { postNum, baseOffset ->
+                    viewModel.addPopupForTree(baseOffset, postNum)
+                },
+                onAddPopupForReplyFrom = { replyNumbers, baseOffset ->
+                    viewModel.addPopupForReplyFrom(baseOffset, replyNumbers)
+                },
+                onAddPopupForReplyNumber = { postNumber, baseOffset ->
+                    viewModel.addPopupForReplyNumber(baseOffset, postNumber)
+                },
+                onAddPopupForId = { id, baseOffset ->
+                    viewModel.addPopupForId(baseOffset, id)
+                },
+                onPopupSizeChange = { index, size ->
+                    viewModel.updatePopupSize(index, size)
+                },
+                onClose = { viewModel.removeTopPopup() },
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+            )
+
+            ReplyActionOverlayHost(
+                menuTarget = popupMenuTarget,
+                dialogTarget = popupDialogTarget,
+                boardName = uiState.boardInfo.name,
+                boardId = uiState.boardInfo.boardId,
+                scope = coroutineScope,
+                dialogState = popupDialogState,
+                onClearMenuTarget = { popupMenuTarget = null },
+                onReply = { target -> viewModel.postDialogActions.showReplyDialog(target.postNum) },
+                onCopy = { target ->
+                    popupDialogTarget = target
+                    popupDialogState.showCopyDialog()
+                },
+                onNg = { target ->
+                    popupDialogTarget = target
+                    popupDialogState.showNgSelectDialog()
+                },
+            )
+
             ThreadInfoBottomSheet(
                 showThreadInfoSheet = uiState.showThreadInfoSheet,
                 onDismissRequest = { viewModel.closeThreadInfoSheet() },
@@ -287,10 +382,14 @@ fun ThreadScaffold(
                 tabsViewModel = tabsViewModel,
             )
 
+            // --- Image menu state ---
+            val loadingImageUrls = uiState.imageLoadingUrls
             ImageMenuSheet(
                 show = uiState.showImageMenuSheet,
                 imageUrl = uiState.imageMenuTargetUrl,
                 imageUrls = uiState.imageMenuTargetUrls,
+                imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
+                loadingImageUrls = loadingImageUrls,
                 onActionSelected = { action ->
                     val targetUrl = uiState.imageMenuTargetUrl.orEmpty()
                     ImageMenuActionRunner.run(
@@ -426,20 +525,12 @@ fun ThreadScaffold(
                     },
                     onImageUpload = { uri -> viewModel.uploadImage(context, uri) },
                     onImageUrlClick = { urls, tappedIndex, transitionNamespace ->
-                        if (urls.isEmpty()) {
-                            // Guard: 画像が存在しない場合は遷移しない。
-                        } else {
-                            val encodedUrls = urls.map { imageUrl ->
-                                URLEncoder.encode(imageUrl, StandardCharsets.UTF_8.toString())
-                            }
-                            navController.navigate(
-                                AppRoute.ImageViewer(
-                                    imageUrls = encodedUrls,
-                                    initialIndex = tappedIndex.coerceIn(encodedUrls.indices),
-                                    transitionNamespace = transitionNamespace,
-                                )
-                            )
-                        }
+                        val route = buildImageViewerRoute(
+                            imageUrls = urls,
+                            tappedIndex = tappedIndex,
+                            transitionNamespace = transitionNamespace,
+                        )
+                        route?.let(navController::navigate)
                     },
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,

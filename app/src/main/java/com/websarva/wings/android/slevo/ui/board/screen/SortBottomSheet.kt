@@ -144,7 +144,7 @@ fun SortKeyItem(
 @Composable
 fun SortBottomSheetPreview() {
     SortBottomSheetContent(
-        sortKeys = ThreadSortKey.values().toList(),
+        sortKeys = ThreadSortKey.entries,
         currentSortKey = ThreadSortKey.MOMENTUM,
         isSortAscending = false,
         onSortKeySelected = {},

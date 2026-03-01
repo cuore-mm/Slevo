@@ -8,6 +8,7 @@ import com.websarva.wings.android.slevo.ui.bbsroute.BaseUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 
 /**
  * スレッド表示のソート種別。
@@ -32,6 +33,7 @@ data class ThreadUiState(
     override val bookmarkStatusState: BookmarkStatusState = BookmarkStatusState(),
     override val bookmarkSheetState: BookmarkSheetUiState = BookmarkSheetUiState(),
     override val isLoading: Boolean = false,
+    val loadingSource: ThreadLoadingSource = ThreadLoadingSource.NONE,
     val postDialogState: PostDialogState = PostDialogState(),
     val showThreadInfoSheet: Boolean = false,
     val showMoreSheet: Boolean = false,
@@ -48,6 +50,8 @@ data class ThreadUiState(
     val idIndexList: List<Int> = emptyList(),
     val replySourceMap: Map<Int, List<Int>> = emptyMap(),
     val ngPostNumbers: Set<Int> = emptySet(),
+    val imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    val imageLoadingUrls: Set<String> = emptySet(),
     val searchQuery: String = "",
     val isSearchMode: Boolean = false,
     val sortType: ThreadSortType = ThreadSortType.NUMBER,
@@ -69,6 +73,7 @@ data class ThreadUiState(
     val replyCounts: List<Int> = emptyList(),
     val firstAfterIndex: Int = -1,
     override val gestureSettings: GestureSettings = GestureSettings.DEFAULT,
+    override val isTabSwipeEnabled: Boolean = true,
 ) : BaseUiState<ThreadUiState> {
     override fun copyState(
         boardInfo: BoardInfo,
@@ -77,6 +82,7 @@ data class ThreadUiState(
         loadProgress: Float,
         gestureSettings: GestureSettings,
         isLoading: Boolean,
+        isTabSwipeEnabled: Boolean,
     ): ThreadUiState {
         return this.copy(
             boardInfo = boardInfo,
@@ -85,6 +91,21 @@ data class ThreadUiState(
             loadProgress = loadProgress,
             gestureSettings = gestureSettings,
             isLoading = isLoading,
+            loadingSource = if (isLoading) loadingSource else ThreadLoadingSource.NONE,
+            isTabSwipeEnabled = isTabSwipeEnabled,
         )
     }
+}
+
+/**
+ * スレッド更新の起点種別。
+ *
+ * ローディング表示や挙動の切り替えに利用する。
+ */
+enum class ThreadLoadingSource {
+    NONE,
+    INITIAL,
+    MANUAL,
+    BOTTOM_PULL,
+    AUTO_SCROLL,
 }

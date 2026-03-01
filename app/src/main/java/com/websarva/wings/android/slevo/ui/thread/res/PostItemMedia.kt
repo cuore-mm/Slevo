@@ -15,12 +15,14 @@ import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnailGrid
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 
 /**
  * 投稿本文に含まれる画像URLを抽出し、サムネイル一覧を表示する。
  *
  * 画像タップ時は対象URLと同一レス内の画像一覧とタップ位置、長押し時も同一レス内画像一覧を通知する。
+ * 読み込み開始/成功/失敗はコールバック経由で上位に伝播する。
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -29,6 +31,11 @@ internal fun PostItemMedia(
     transitionNamespace: String,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    onImageLoadStart: (String) -> Unit = {},
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit = { _, _ -> },
+    onImageLoadSuccess: (String) -> Unit = {},
+    onImageRetry: (String) -> Unit = {},
     enableSharedElement: Boolean = true,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
@@ -49,6 +56,11 @@ internal fun PostItemMedia(
                 onImageClick(url, urls, index, namespace)
             },
             onImageLongPress = onImageLongPress,
+            imageLoadFailureByUrl = imageLoadFailureByUrl,
+            onImageLoadStart = onImageLoadStart,
+            onImageLoadError = onImageLoadError,
+            onImageLoadSuccess = onImageLoadSuccess,
+            onImageRetry = onImageRetry,
             enableSharedElement = enableSharedElement,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope

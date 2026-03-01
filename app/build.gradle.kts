@@ -1,16 +1,15 @@
+import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.VariantOutputConfiguration
 import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 
-    id("kotlin-kapt")
     id("com.google.dagger.hilt.android")
 
     // Kotlin serialization plugin for type safe routes and navigation arguments
-    kotlin("plugin.serialization") version "2.1.0"
+    alias(libs.plugins.kotlin.serialization)
 
     id("com.google.devtools.ksp")
 
@@ -25,6 +24,12 @@ if (localPropertiesFile.exists()) {
     properties.load(localPropertiesFile.inputStream())
 }
 
+val appVersionName = "1.5.2"
+val aboutLibrariesResDir = layout.buildDirectory.dir("generated/aboutlibraries/res")
+val aboutLibrariesOutputFile = layout.buildDirectory.file(
+    "generated/aboutlibraries/res/raw/aboutlibraries.json"
+)
+
 android {
     namespace = "com.websarva.wings.android.slevo"
     compileSdk = 36
@@ -33,8 +38,8 @@ android {
         applicationId = "com.websarva.wings.android.slevo"
         minSdk = 24
         targetSdk = 35
-        versionCode = 13
-        versionName = "1.5.1"
+        versionCode = 14
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -64,32 +69,10 @@ android {
         }
     }
 
-    applicationVariants.all {
-        val variant = this
-        if (variant.buildType.name == "release") {
-            variant.outputs.all {
-                val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-                val fileName = "Slevo-${variant.versionName}.apk"
-                output.outputFileName = fileName
-            }
-            variant.assembleProvider.get().doLast {
-                val apkDir = rootProject.file("apk")
-                apkDir.mkdirs()
-                variant.outputs.forEach {
-                    val output = it as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-                    output.outputFile.copyTo(apkDir.resolve(output.outputFileName), overwrite = true)
-                }
-            }
-        }
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
         isCoreLibraryDesugaringEnabled = true
-    }
-    kotlinOptions {
-        jvmTarget = "11"
     }
     buildFeatures {
         compose = true
@@ -103,13 +86,29 @@ android {
 
     // exported schema をテストの assets として参照するようにする（schemas ディレクトリを追加）
     sourceSets {
-        getByName("test").assets.srcDir("$projectDir/schemas")
-        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+        // AboutLibraries の生成JSONを raw resource として取り込む
+        getByName("main").res.directories.add(aboutLibrariesResDir.get().asFile.absolutePath)
+        getByName("test").assets.directories.add("$projectDir/schemas")
+        getByName("androidTest").assets.directories.add("$projectDir/schemas")
     }
 }
 
 androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        val variantName = variant.name.replaceFirstChar { it.uppercase() }
+        val copyReleaseApkTask = tasks.register<Copy>("copy${variantName}ApkForDistribution") {
+            from(variant.artifacts.get(SingleArtifact.APK))
+            include("*.apk")
+            into(rootProject.layout.projectDirectory.dir("apk"))
+            rename { "Slevo-$appVersionName.apk" }
+        }
+        tasks.matching { it.name == "assemble$variantName" }.configureEach {
+            finalizedBy(copyReleaseApkTask)
+        }
+    }
+
     onVariants(selector().withBuildType("ci")) { variant ->
+        val variantName = variant.name.replaceFirstChar { it.uppercase() }
         val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
         if (runNumber != null) {
             variant.outputs.forEach { output ->
@@ -118,7 +117,25 @@ androidComponents {
                 }
             }
         }
+
+        val copyCiApkTask = tasks.register<Copy>("copy${variantName}ApkForVerification") {
+            from(variant.artifacts.get(SingleArtifact.APK))
+            include("*.apk")
+            into(rootProject.layout.projectDirectory.dir("apk"))
+            rename { "Slevo-${variant.name}.apk" }
+        }
+        tasks.matching { it.name == "assemble$variantName" }.configureEach {
+            finalizedBy(copyCiApkTask)
+        }
     }
+}
+
+tasks.register("testCiUnitTest") {
+    dependsOn("testDebugUnitTest")
+}
+
+tasks.named("preBuild") {
+    dependsOn("exportLibraryDefinitions")
 }
 
 dependencies {
@@ -150,6 +167,7 @@ dependencies {
     implementation(libs.material3)
 
     //okhttp
+    implementation(platform(libs.okhttp3.bom))
     implementation(libs.okhttp3.okhttp)
 
     // Coil
@@ -161,7 +179,7 @@ dependencies {
 
     //hilt
     implementation(libs.hilt.android)
-    kapt(libs.hilt.android.compiler)
+    ksp(libs.hilt.android.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
 
     //Moshi
@@ -188,7 +206,7 @@ dependencies {
     implementation(libs.okhttp3.logging.interceptor)
 
     // Preferences DataStore（1.1.5不具合あり）
-    implementation("androidx.datastore:datastore-preferences:1.1.4")
+    implementation(libs.androidx.datastore.preferences)
 
     // compose.foundation
     implementation(libs.androidx.foundation)
@@ -209,15 +227,6 @@ dependencies {
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 }
 
-// Allow references to generated code
-kapt {
-    correctErrorTypes = true
-    // kapt を使うアノテーションプロセッサ向けに schema 出力を指定（念のため）
-    arguments {
-        arg("room.schemaLocation", "$projectDir/schemas")
-    }
-}
-
 // KSP に対して Room の schema 出力先を指定
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
@@ -227,5 +236,9 @@ aboutLibraries {
     collect {
         // ここ以下に置いたJSONをマージできる
         configPath = file("aboutlibs")
+    }
+    export {
+        // Android側で R.raw.aboutlibraries として解決できる出力先へ固定する
+        outputFile = aboutLibrariesOutputFile.get().asFile
     }
 }

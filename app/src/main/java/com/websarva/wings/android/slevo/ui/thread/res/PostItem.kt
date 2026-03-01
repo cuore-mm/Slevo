@@ -14,6 +14,7 @@ import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 
 /**
  * スレッドの投稿1件をヘッダー・本文・メディア込みで表示する。
@@ -40,6 +41,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
  * @param transitionNamespace サムネイル shared transition 用の文脈識別子。
  * @param onImageClick 画像サムネイルタップ時のコールバック（URLと同一レス内画像一覧とタップ位置と文脈識別子）。
  * @param onImageLongPress 画像サムネイル長押し時のコールバック（URLと同一レス内画像一覧）。
+ * @param onImageLoadStart サムネイル読み込み開始時のコールバック。
  * @param enableSharedElement 画像サムネイルの共有トランジションを有効にするか。
  * @param onRequestMenu 投稿メニュー表示のリクエスト。
  * @param onShowTextMenu テキストメニュー表示のリクエスト。
@@ -71,6 +73,11 @@ fun PostItem(
     transitionNamespace: String,
     onImageClick: (String, List<String>, Int, String) -> Unit,
     onImageLongPress: (String, List<String>) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
+    onImageLoadStart: (String) -> Unit = {},
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit = { _, _ -> },
+    onImageLoadSuccess: (String) -> Unit = {},
+    onImageRetry: (String) -> Unit = {},
     enableSharedElement: Boolean = true,
     onRequestMenu: (PostDialogTarget) -> Unit,
     onShowTextMenu: (String, NgType) -> Unit,
@@ -141,6 +148,11 @@ fun PostItem(
             transitionNamespace = transitionNamespace,
             onImageClick = onImageClick,
             onImageLongPress = onImageLongPress,
+            imageLoadFailureByUrl = imageLoadFailureByUrl,
+            onImageLoadStart = onImageLoadStart,
+            onImageLoadError = onImageLoadError,
+            onImageLoadSuccess = onImageLoadSuccess,
+            onImageRetry = onImageRetry,
             enableSharedElement = enableSharedElement,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope

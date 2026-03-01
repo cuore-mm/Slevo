@@ -19,7 +19,7 @@ import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PostMenuSheet(
+fun ReplyActionMenuSheet(
     postNum: Int,
     onReplyClick: () -> Unit,
     onCopyClick: () -> Unit,
@@ -27,7 +27,7 @@ fun PostMenuSheet(
     onDismiss: () -> Unit
 ) {
     SlevoBottomSheet(onDismissRequest = onDismiss) {
-        PostMenuSheetContent(
+        ReplyActionMenuSheetContent(
             postNum = postNum,
             onReplyClick = onReplyClick,
             onCopyClick = onCopyClick,
@@ -37,7 +37,7 @@ fun PostMenuSheet(
 }
 
 @Composable
-fun PostMenuSheetContent(
+fun ReplyActionMenuSheetContent(
     postNum: Int,
     onReplyClick: () -> Unit,
     onCopyClick: () -> Unit,
@@ -69,8 +69,8 @@ fun PostMenuSheetContent(
 
 @Preview(showBackground = true)
 @Composable
-fun PostMenuSheetPreview() {
-    PostMenuSheetContent(
+fun ReplyActionMenuSheetPreview() {
+    ReplyActionMenuSheetContent(
         postNum = 123,
         onReplyClick = {},
         onCopyClick = {},

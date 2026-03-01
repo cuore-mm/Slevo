@@ -1,74 +1,55 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TooltipAnchorPosition
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenu
 import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuDriver
 import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuItem
+import com.websarva.wings.android.slevo.ui.common.FeedbackTooltipIconButton
+import com.websarva.wings.android.slevo.ui.common.ImageActionMenuGroup
+import com.websarva.wings.android.slevo.ui.common.ImageActionMenuState
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
  * 画像ビューアのトップバーを表示する。
  *
  * 戻る・保存・その他メニューの各アクションを持ち、表示可否は呼び出し元で制御する。
+ * 画像読み込み状態に合わせてその他メニューの構成を切り替える。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,9 +59,9 @@ internal fun ImageViewerTopBar(
     imageCount: Int,
     barBackgroundColor: Color,
     foregroundColor: Color,
-    tooltipBackgroundColor: Color,
     hazeState: HazeState?,
     barExitDurationMillis: Int,
+    menuState: ImageActionMenuState,
     onNavigateUp: () -> Unit,
     onSaveClick: () -> Unit,
     onShareClick: () -> Unit,
@@ -103,53 +84,44 @@ internal fun ImageViewerTopBar(
                 FeedbackTooltipIconButton(
                     tooltipText = stringResource(R.string.back),
                     showTooltipHost = isVisible && !isMenuExpanded,
-                    foregroundColor = foregroundColor,
-                    tooltipBackgroundColor = tooltipBackgroundColor,
                     hazeState = hazeState,
                     onClick = onNavigateUp,
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                         contentDescription = stringResource(R.string.back),
-                        tint = foregroundColor,
                     )
                 }
             },
             actions = {
-                FeedbackTooltipIconButton(
-                    tooltipText = stringResource(R.string.save),
-                    showTooltipHost = isVisible && !isMenuExpanded,
-                    foregroundColor = foregroundColor,
-                    tooltipBackgroundColor = tooltipBackgroundColor,
-                    hazeState = hazeState,
-                    onClick = onSaveClick,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Download,
-                        contentDescription = stringResource(R.string.save),
-                        tint = foregroundColor,
-                    )
-                }
-                FeedbackTooltipIconButton(
-                    tooltipText = stringResource(R.string.share),
-                    showTooltipHost = isVisible && !isMenuExpanded,
-                    foregroundColor = foregroundColor,
-                    tooltipBackgroundColor = tooltipBackgroundColor,
-                    hazeState = hazeState,
-                    onClick = onShareClick,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = stringResource(R.string.share),
-                        tint = foregroundColor,
-                    )
+                if (menuState.group == ImageActionMenuGroup.SUCCESS) {
+                    FeedbackTooltipIconButton(
+                        tooltipText = stringResource(R.string.save),
+                        showTooltipHost = isVisible && !isMenuExpanded,
+                        hazeState = hazeState,
+                        onClick = onSaveClick,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = stringResource(R.string.save),
+                        )
+                    }
+                    FeedbackTooltipIconButton(
+                        tooltipText = stringResource(R.string.share),
+                        showTooltipHost = isVisible && !isMenuExpanded,
+                        hazeState = hazeState,
+                        onClick = onShareClick,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = stringResource(R.string.share),
+                        )
+                    }
                 }
                 Box {
                     FeedbackTooltipIconButton(
                         tooltipText = stringResource(R.string.other_options),
                         showTooltipHost = isVisible && !isMenuExpanded,
-                        foregroundColor = foregroundColor,
-                        tooltipBackgroundColor = tooltipBackgroundColor,
                         hazeState = hazeState,
                         modifier = Modifier.onGloballyPositioned { coordinates ->
                             val rect = coordinates.boundsInWindow()
@@ -165,7 +137,6 @@ internal fun ImageViewerTopBar(
                         Icon(
                             imageVector = Icons.Default.MoreVert,
                             contentDescription = stringResource(R.string.other_options),
-                            tint = foregroundColor,
                         )
                     }
                     AnchoredOverlayMenu(
@@ -174,37 +145,46 @@ internal fun ImageViewerTopBar(
                         hazeState = hazeState,
                         onDismissRequest = onDismissMenu,
                     ) {
-                        AnchoredOverlayMenuItem(
-                            text = stringResource(R.string.image_menu_add_ng),
-                            onClick = { onMenuActionClick(ImageMenuAction.ADD_NG) },
-                        )
-                        AnchoredOverlayMenuDriver()
-                        AnchoredOverlayMenuItem(
-                            text = stringResource(R.string.image_menu_copy_image),
-                            onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE) },
-                        )
-                        AnchoredOverlayMenuItem(
-                            text = stringResource(R.string.image_menu_copy_image_url),
-                            onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE_URL) },
-                        )
-                        AnchoredOverlayMenuDriver()
-                        AnchoredOverlayMenuItem(
-                            text = stringResource(R.string.image_menu_open_in_other_app),
-                            onClick = { onMenuActionClick(ImageMenuAction.OPEN_IN_OTHER_APP) },
-                        )
-                        AnchoredOverlayMenuItem(
-                            text = stringResource(R.string.image_menu_search_web),
-                            onClick = { onMenuActionClick(ImageMenuAction.SEARCH_WEB) },
-                        )
-                        if (imageCount >= 2) {
-                            AnchoredOverlayMenuDriver()
-                            AnchoredOverlayMenuItem(
-                                text = stringResource(
-                                    R.string.image_menu_save_all_images_short,
-                                    imageCount,
-                                ),
-                                onClick = { onMenuActionClick(ImageMenuAction.SAVE_ALL_IMAGES) },
-                            )
+                        AnimatedContent(
+                            targetState = menuState.group,
+                            transitionSpec = {
+                                (fadeIn() togetherWith fadeOut()).using(
+                                    SizeTransform(clip = false)
+                                )
+                            },
+                            label = "imageViewerMenuContent",
+                        ) { group ->
+                            Column {
+                                when (group) {
+                                    ImageActionMenuGroup.LOADING -> {
+                                        RenderLimitedMenuItems(
+                                            includeSearch = true,
+                                            onMenuActionClick = onMenuActionClick,
+                                        )
+                                    }
+
+                                    ImageActionMenuGroup.FAIL_404_410 -> {
+                                        RenderLimitedMenuItems(
+                                            includeSearch = false,
+                                            onMenuActionClick = onMenuActionClick,
+                                        )
+                                    }
+
+                                    ImageActionMenuGroup.FAIL_OTHER -> {
+                                        RenderLimitedMenuItems(
+                                            includeSearch = true,
+                                            onMenuActionClick = onMenuActionClick,
+                                        )
+                                    }
+
+                                    ImageActionMenuGroup.SUCCESS -> {
+                                        RenderSuccessMenuItems(
+                                            imageCount = imageCount,
+                                            onMenuActionClick = onMenuActionClick,
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -221,107 +201,68 @@ internal fun ImageViewerTopBar(
 }
 
 /**
- * 画像ビューア用のフィードバック付きアイコンボタンを表示する。
+ * 失敗・読み込み中向けの限定メニュー項目を描画する。
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun FeedbackTooltipIconButton(
-    tooltipText: String,
-    showTooltipHost: Boolean,
-    foregroundColor: Color,
-    tooltipBackgroundColor: Color,
-    hazeState: HazeState?,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-    icon: @Composable () -> Unit,
+private fun RenderLimitedMenuItems(
+    includeSearch: Boolean,
+    onMenuActionClick: (ImageMenuAction) -> Unit,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val tooltipState = rememberTooltipState()
-    val coroutineScope = rememberCoroutineScope()
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else 1f,
-        animationSpec = tween(durationMillis = 100),
-        label = "topBarIconPressScale",
+    AnchoredOverlayMenuItem(
+        text = stringResource(R.string.image_menu_add_ng),
+        onClick = { onMenuActionClick(ImageMenuAction.ADD_NG) },
     )
-
-    // Guard: バー非表示時やメニュー表示中はツールチップを閉じる。
-    LaunchedEffect(showTooltipHost) {
-        if (!showTooltipHost) {
-            tooltipState.dismiss()
-        }
+    AnchoredOverlayMenuItem(
+        text = stringResource(R.string.image_menu_copy_image_url),
+        onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE_URL) },
+    )
+    if (includeSearch) {
+        AnchoredOverlayMenuItem(
+            text = stringResource(R.string.image_menu_search_web),
+            onClick = { onMenuActionClick(ImageMenuAction.SEARCH_WEB) },
+        )
     }
+}
 
-    TooltipBox(
-        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
-            TooltipAnchorPosition.Below,
-        ),
-        tooltip = {
-            val tooltipShape = MaterialTheme.shapes.largeIncreased
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .shadow(
-                        elevation = 1.dp,
-                        shape = tooltipShape,
-                        clip = false,
-                    )
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .clip(tooltipShape)
-                        .let { baseModifier ->
-                            if (hazeState != null) {
-                                baseModifier.hazeEffect(state = hazeState)
-                            } else {
-                                baseModifier
-                            }
-                        },
-                    shape = tooltipShape,
-                    color = tooltipBackgroundColor,
-                    contentColor = foregroundColor,
-                    tonalElevation = 1.dp,
-                    shadowElevation = 0.dp,
-                ) {
-                    Text(
-                        text = tooltipText,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = foregroundColor,
-                    )
-                }
-            }
-        },
-        state = tooltipState,
-        enableUserInput = false,
-    ) {
-        Box(
-            modifier = modifier
-                .size(48.dp)
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                }
-                .clip(CircleShape)
-                .background(color = Color.Transparent, shape = CircleShape)
-                .combinedClickable(
-                    interactionSource = interactionSource,
-                    indication = LocalIndication.current,
-                    role = Role.Button,
-                    onClick = {
-                        coroutineScope.launch { tooltipState.dismiss() }
-                        onClick()
-                    },
-                    onLongClick = {
-                        if (showTooltipHost) {
-                            coroutineScope.launch { tooltipState.show() }
-                        }
-                    },
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            icon()
-        }
+/**
+ * 読み込み成功時のメニュー項目を描画する。
+ */
+@Composable
+private fun RenderSuccessMenuItems(
+    imageCount: Int,
+    onMenuActionClick: (ImageMenuAction) -> Unit,
+) {
+    AnchoredOverlayMenuItem(
+        text = stringResource(R.string.image_menu_add_ng),
+        onClick = { onMenuActionClick(ImageMenuAction.ADD_NG) },
+    )
+    AnchoredOverlayMenuDriver()
+    AnchoredOverlayMenuItem(
+        text = stringResource(R.string.image_menu_copy_image),
+        onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE) },
+    )
+    AnchoredOverlayMenuItem(
+        text = stringResource(R.string.image_menu_copy_image_url),
+        onClick = { onMenuActionClick(ImageMenuAction.COPY_IMAGE_URL) },
+    )
+    AnchoredOverlayMenuDriver()
+    AnchoredOverlayMenuItem(
+        text = stringResource(R.string.image_menu_open_in_other_app),
+        onClick = { onMenuActionClick(ImageMenuAction.OPEN_IN_OTHER_APP) },
+    )
+    AnchoredOverlayMenuItem(
+        text = stringResource(R.string.image_menu_search_web),
+        onClick = { onMenuActionClick(ImageMenuAction.SEARCH_WEB) },
+    )
+    if (imageCount >= 2) {
+        AnchoredOverlayMenuDriver()
+        AnchoredOverlayMenuItem(
+            text = stringResource(
+                R.string.image_menu_save_all_images_short,
+                imageCount,
+            ),
+            onClick = { onMenuActionClick(ImageMenuAction.SAVE_ALL_IMAGES) },
+        )
     }
 }
 
@@ -335,9 +276,12 @@ private fun ImageViewerTopBarPreview() {
             imageCount = 3,
             barBackgroundColor = Color.Black.copy(alpha = 0.5f),
             foregroundColor = Color.White,
-            tooltipBackgroundColor = Color.Black.copy(alpha = 0.5f),
             hazeState = null,
             barExitDurationMillis = 300,
+            menuState = ImageActionMenuState(
+                group = ImageActionMenuGroup.SUCCESS,
+                saveAllImageCount = 3,
+            ),
             onNavigateUp = {},
             onSaveClick = {},
             onShareClick = {},
@@ -358,9 +302,12 @@ private fun ImageViewerTopBarMenuExpandedPreview() {
             imageCount = 3,
             barBackgroundColor = Color.Black.copy(alpha = 0.5f),
             foregroundColor = Color.White,
-            tooltipBackgroundColor = Color.Black.copy(alpha = 0.5f),
             hazeState = null,
             barExitDurationMillis = 300,
+            menuState = ImageActionMenuState(
+                group = ImageActionMenuGroup.SUCCESS,
+                saveAllImageCount = 3,
+            ),
             onNavigateUp = {},
             onSaveClick = {},
             onShareClick = {},
