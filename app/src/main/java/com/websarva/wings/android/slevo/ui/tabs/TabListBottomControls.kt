@@ -62,51 +62,81 @@ internal fun TabListBottomControls(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 3.dp,
-            shadowElevation = 3.dp,
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                TabListSegmentRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    selectedIndex = pagerState.currentPage,
-                    onSelect = { index ->
-                        if (pagerState.currentPage != index) {
-                            // 切り替え時のみアニメーションで遷移する。
-                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                        }
-                    },
-                )
-            }
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // left slot: future "other" button
-            Spacer(modifier = Modifier.size(40.dp))
-            // center slot: create
-            TabActionButton(
-                imageVector = Icons.Default.Add,
-                contentDescription = stringResource(R.string.open_url),
-                onClick = onCreateTabClick,
+        TabListSwitchSection(
+            selectedIndex = pagerState.currentPage,
+            onSelect = { index ->
+                if (pagerState.currentPage != index) {
+                    // 切り替え時のみアニメーションで遷移する。
+                    coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                }
+            },
+        )
+        TabListActionSection(
+            isBoardPage = isBoardPage,
+            onCreateTabClick = onCreateTabClick,
+            onRefreshClick = onRefreshClick,
+        )
+    }
+}
+
+/**
+ * 下部操作群の上段に板/スレ切替UIを表示する。
+ */
+@Composable
+private fun TabListSwitchSection(
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp,
+        shadowElevation = 3.dp,
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+            TabListSegmentRow(
+                modifier = Modifier.fillMaxWidth(),
+                selectedIndex = selectedIndex,
+                onSelect = onSelect,
             )
-            // right slot: refresh (thread only)
-            if (isBoardPage) {
-                Spacer(modifier = Modifier.size(40.dp))
-            } else {
-                TabActionButton(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = stringResource(R.string.refresh),
-                    onClick = onRefreshClick,
-                )
-            }
+        }
+    }
+}
+
+/**
+ * 下部操作群の下段に固定3スロットのアイコンボタン列を表示する。
+ */
+@Composable
+private fun TabListActionSection(
+    isBoardPage: Boolean,
+    onCreateTabClick: () -> Unit,
+    onRefreshClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // left slot: future "other" button
+        Spacer(modifier = Modifier.size(40.dp))
+        // center slot: create
+        TabActionButton(
+            imageVector = Icons.Default.Add,
+            contentDescription = stringResource(R.string.open_url),
+            onClick = onCreateTabClick,
+        )
+        // right slot: refresh (thread only)
+        if (isBoardPage) {
+            Spacer(modifier = Modifier.size(40.dp))
+        } else {
+            TabActionButton(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = stringResource(R.string.refresh),
+                onClick = onRefreshClick,
+            )
         }
     }
 }
