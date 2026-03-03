@@ -3,7 +3,6 @@ package com.websarva.wings.android.slevo.ui.tabs
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,10 +28,19 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.rememberHazeState
 import com.websarva.wings.android.slevo.R
 import kotlinx.coroutines.launch
 
@@ -50,15 +58,43 @@ internal object TabListBottomControlsDefaults {
 internal fun TabListBottomControls(
     modifier: Modifier = Modifier,
     pagerState: PagerState,
+    hazeState: HazeState,
     onCreateTabClick: () -> Unit,
     onRefreshClick: () -> Unit,
 ) {
     val isBoardPage = pagerState.currentPage == 0
     val coroutineScope = rememberCoroutineScope()
 
+    // --- Haze style ---
+    val hazeStyle = HazeStyle(
+        tints = listOf(
+            HazeTint(MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)),
+            HazeTint(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+        ),
+    )
+
     // --- Floating controls layout ---
     Column(
-        modifier = modifier,
+        modifier = modifier
+            .hazeEffect(state = hazeState, style = hazeStyle) {
+                mask = Brush.verticalGradient(
+                    0f to 0f,
+                    1f to 1f,
+                )
+            }
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(pass = PointerEventPass.Final)
+                        event.changes.forEach { change ->
+                            if (!change.isConsumed) {
+                                // 下部操作群内の空白タップを下層リストへ透過させない。
+                                change.consume()
+                            }
+                        }
+                    }
+                }
+            },
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         TabListSwitchSection(
@@ -94,9 +130,9 @@ private fun TabListSwitchSection(
                 width = 1.dp,
                 color = MaterialTheme.colorScheme.outlineVariant,
                 shape = RoundedCornerShape(20.dp),
-            ),
+            )
         shape = roundedCornerShape,
-        color = MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
         shadowElevation = 3.dp,
     ) {
         val options = listOf(
@@ -205,11 +241,13 @@ private fun TabActionButton(
 @Composable
 private fun TabListBottomControlsBoardPreview() {
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
+    val hazeState = rememberHazeState()
     TabListBottomControls(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         pagerState = pagerState,
+        hazeState = hazeState,
         onCreateTabClick = {},
         onRefreshClick = {},
     )
@@ -219,11 +257,13 @@ private fun TabListBottomControlsBoardPreview() {
 @Composable
 private fun TabListBottomControlsThreadPreview() {
     val pagerState = rememberPagerState(initialPage = 1, pageCount = { 2 })
+    val hazeState = rememberHazeState()
     TabListBottomControls(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         pagerState = pagerState,
+        hazeState = hazeState,
         onCreateTabClick = {},
         onRefreshClick = {},
     )
