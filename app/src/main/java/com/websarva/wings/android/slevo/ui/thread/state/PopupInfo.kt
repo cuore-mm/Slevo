@@ -9,6 +9,8 @@ import androidx.compose.ui.unit.IntSize
  * [popupId] is a stable identifier allocated when the popup is appended.
  * Offset and size are used to position and measure the popup, while [indentLevels]
  * aligns with [posts] to describe tree indentation.
+ *
+ * ルート番号はポップアップ内のツリー境界を判断するために保持する。
  */
 data class PopupInfo(
     val popupId: Long,
@@ -16,4 +18,5 @@ data class PopupInfo(
     val offset: IntOffset,
     val size: IntSize = IntSize.Zero,
     val indentLevels: List<Int> = emptyList(),
+    val rootNumbers: List<Int> = emptyList(),
 )

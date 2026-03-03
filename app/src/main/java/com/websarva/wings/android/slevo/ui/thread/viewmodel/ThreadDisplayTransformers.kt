@@ -95,6 +95,34 @@ internal fun deriveTreeOrder(posts: List<ThreadPostUiModel>): Pair<List<Int>, Ma
 }
 
 /**
+ * ツリー順から各投稿のルート番号を導出する。
+ *
+ * 深さ 0 をツリー開始とみなし、同一ツリー内の投稿にルート番号を割り当てる。
+ */
+internal fun deriveTreeRoots(
+    treeOrder: List<Int>,
+    treeDepthMap: Map<Int, Int>,
+): Map<Int, Int> {
+    // --- Guard clauses ---
+    if (treeOrder.isEmpty()) {
+        // Guard: ツリー順が空ならルート情報も空にする。
+        return emptyMap()
+    }
+
+    // --- Root mapping ---
+    val roots = mutableMapOf<Int, Int>()
+    var currentRoot = treeOrder.first()
+    treeOrder.forEach { num ->
+        val depth = treeDepthMap[num] ?: 0
+        if (depth == 0) {
+            currentRoot = num
+        }
+        roots[num] = currentRoot
+    }
+    return roots
+}
+
+/**
  * 指定レスが属するツリー全体の投稿番号とインデントを抽出する。
  *
  * 最上位祖先から全子孫までを順序付きで返す。
@@ -149,9 +177,20 @@ internal fun buildOrderedPosts(
     order: List<Int>,
     sortType: ThreadSortType,
     treeDepthMap: Map<Int, Int>,
+    treeRootMap: Map<Int, Int>,
     firstNewResNo: Int?,
     prevResCount: Int
 ): List<DisplayPost> {
+    // --- Guard clauses ---
+    if (sortType == ThreadSortType.TREE && treeRootMap.isEmpty()) {
+        // Guard: ツリー表示でルート情報がない場合は既存順序にフォールバックする。
+        return order.mapNotNull { num ->
+            posts.getOrNull(num - 1)?.let { post ->
+                val depth = treeDepthMap[num] ?: 0
+                DisplayPost(num, post, dimmed = false, isAfter = false, depth = depth, rootNumber = num)
+            }
+        }
+    }
     if (sortType == ThreadSortType.TREE && firstNewResNo != null) {
         // --- 親子リレーション構築 ---
         val parentMap = mutableMapOf<Int, Int>()
@@ -184,7 +223,17 @@ internal fun buildOrderedPosts(
             if (beforeSet.contains(num)) {
                 posts.getOrNull(num - 1)?.let { post ->
                     val depth = treeDepthMap[num] ?: 0
-                    before.add(DisplayPost(num, post, dimmed = false, isAfter = false, depth = depth))
+                    val rootNumber = treeRootMap[num] ?: num
+                    before.add(
+                        DisplayPost(
+                            num,
+                            post,
+                            dimmed = false,
+                            isAfter = false,
+                            depth = depth,
+                            rootNumber = rootNumber,
+                        )
+                    )
                 }
             }
         }
@@ -201,7 +250,17 @@ internal fun buildOrderedPosts(
             if (isAfter) {
                 posts.getOrNull(num - 1)?.let { post ->
                     val depth = (treeDepthMap[num] ?: 0) - shift
-                    after.add(DisplayPost(num, post, dimmed = false, isAfter = true, depth = depth))
+                    val rootNumber = treeRootMap[num] ?: num
+                    after.add(
+                        DisplayPost(
+                            num,
+                            post,
+                            dimmed = false,
+                            isAfter = true,
+                            depth = depth,
+                            rootNumber = rootNumber,
+                        )
+                    )
                 }
             }
             childrenMap[num]?.forEach { child -> traverse(child, shift) }
@@ -220,7 +279,8 @@ internal fun buildOrderedPosts(
                                 p,
                                 dimmed = true,
                                 isAfter = true,
-                                depth = 0
+                                depth = 0,
+                                rootNumber = parent,
                             )
                         )
                     }
@@ -240,7 +300,8 @@ internal fun buildOrderedPosts(
             posts.getOrNull(num - 1)?.let { post ->
                 val isAfter = firstNewResNo != null && num >= firstNewResNo
                 val depth = if (sortType == ThreadSortType.TREE) treeDepthMap[num] ?: 0 else 0
-                DisplayPost(num, post, false, isAfter, depth)
+                val rootNumber = treeRootMap[num] ?: num
+                DisplayPost(num, post, false, isAfter, depth, rootNumber)
             }
         }
     }
@@ -256,6 +317,7 @@ internal fun buildGroupDisplayPosts(
     order: List<Int>,
     sortType: ThreadSortType,
     treeDepthMap: Map<Int, Int>,
+    treeRootMap: Map<Int, Int>,
     firstNewResNo: Int?,
     prevResCount: Int
 ): List<DisplayPost> {
@@ -264,6 +326,7 @@ internal fun buildGroupDisplayPosts(
         order = order,
         sortType = sortType,
         treeDepthMap = treeDepthMap,
+        treeRootMap = treeRootMap,
         firstNewResNo = firstNewResNo,
         prevResCount = prevResCount
     )

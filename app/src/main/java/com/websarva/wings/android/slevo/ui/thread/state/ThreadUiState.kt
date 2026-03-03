@@ -57,6 +57,7 @@ data class ThreadUiState(
     val sortType: ThreadSortType = ThreadSortType.NUMBER,
     val treeOrder: List<Int> = emptyList(),
     val treeDepthMap: Map<Int, Int> = emptyMap(),
+    val treeRootMap: Map<Int, Int> = emptyMap(),
     val postGroups: List<ThreadPostGroup> = emptyList(),
     val lastLoadedResCount: Int = 0,
     val latestArrivalGroupIndex: Int? = null,

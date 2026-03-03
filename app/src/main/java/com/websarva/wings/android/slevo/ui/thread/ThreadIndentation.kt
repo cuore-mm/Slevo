@@ -7,12 +7,13 @@ private const val TREE_INDENT_MAX_RATIO = 0.25f
 internal val DEFAULT_TREE_INDENT_STEP = 16.dp
 
 /**
- * ツリー表示の段数から、各投稿のインデント幅を算出するユーティリティ。
+ * ツリー表示の段数とルート番号から、各投稿のインデント幅を算出するユーティリティ。
  *
  * インデント上限は通常レス横幅の 1/4 とし、ツリーごとに増分を調整する。
  */
 internal fun calculateTreeIndentWidths(
     depths: List<Int>,
+    rootNumbers: List<Int>,
     containerWidth: Dp,
     defaultStep: Dp = DEFAULT_TREE_INDENT_STEP,
     maxIndentRatio: Float = TREE_INDENT_MAX_RATIO,
@@ -22,13 +23,17 @@ internal fun calculateTreeIndentWidths(
         // Guard: 空入力は空のインデント一覧を返す。
         return emptyList()
     }
+    if (depths.size != rootNumbers.size) {
+        // Guard: 対応関係が壊れている場合は例外で通知する。
+        throw IllegalArgumentException("depths and rootNumbers must have same size")
+    }
     if (containerWidth <= 0.dp) {
         // Guard: 幅未計測時はデフォルト増分で計算する。
         return depths.map { depth -> defaultStep * depth.toFloat() }
     }
 
     // --- Max depth mapping ---
-    val maxDepths = mapTreeMaxDepths(depths)
+    val maxDepths = mapTreeMaxDepthsByRoot(depths, rootNumbers)
 
     // --- Width calculation ---
     return depths.mapIndexed { index, depth ->
@@ -70,38 +75,36 @@ internal fun calculateTreeIndentStep(
 }
 
 /**
- * ツリー表示順の深さリストから、各要素が属するツリーの最大深さを算出する。
+ * ツリー表示順の深さとルート番号から、各要素が属するツリーの最大深さを算出する。
  *
- * 深さ 0 をツリー開始とみなし、次の深さ 0 までを同一ツリーとして扱う。
+ * ルート番号でツリー境界を判断し、フィルタ後でも誤結合を防ぐ。
  */
-internal fun mapTreeMaxDepths(depths: List<Int>): List<Int> {
+internal fun mapTreeMaxDepthsByRoot(
+    depths: List<Int>,
+    rootNumbers: List<Int>,
+): List<Int> {
     // --- Guard clauses ---
     if (depths.isEmpty()) {
         // Guard: 空入力は空の最大深さ一覧を返す。
         return emptyList()
     }
-
-    val result = IntArray(depths.size)
-    var startIndex = 0
-    while (startIndex < depths.size) {
-        // --- Tree boundary detection ---
-        var endIndex = startIndex + 1
-        while (endIndex < depths.size && depths[endIndex] != 0) {
-            endIndex++
-        }
-
-        // --- Max depth calculation ---
-        var maxDepth = 0
-        for (i in startIndex until endIndex) {
-            if (depths[i] > maxDepth) {
-                maxDepth = depths[i]
-            }
-        }
-        // --- Mapping ---
-        for (i in startIndex until endIndex) {
-            result[i] = maxDepth
-        }
-        startIndex = endIndex
+    if (depths.size != rootNumbers.size) {
+        // Guard: 対応関係が壊れている場合は例外で通知する。
+        throw IllegalArgumentException("depths and rootNumbers must have same size")
     }
-    return result.toList()
+
+    // --- Max depth lookup ---
+    val maxDepthByRoot = mutableMapOf<Int, Int>()
+    depths.forEachIndexed { index, depth ->
+        val root = rootNumbers[index]
+        val currentMax = maxDepthByRoot[root] ?: 0
+        if (depth > currentMax) {
+            maxDepthByRoot[root] = depth
+        }
+    }
+
+    // --- Mapping ---
+    return depths.mapIndexed { index, _ ->
+        maxDepthByRoot[rootNumbers[index]] ?: 0
+    }
 }

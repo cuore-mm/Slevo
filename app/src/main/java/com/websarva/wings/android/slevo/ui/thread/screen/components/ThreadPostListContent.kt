@@ -65,6 +65,7 @@ fun LazyListScope.threadPostListContent(
     val indentWidths = if (uiState.sortType == ThreadSortType.TREE) {
         calculateTreeIndentWidths(
             depths = visiblePosts.map { it.depth },
+            rootNumbers = visiblePosts.map { it.rootNumber },
             containerWidth = containerWidth,
         )
     } else {

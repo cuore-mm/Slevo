@@ -526,10 +526,21 @@ private fun PopupPostLazyColumn(
 ) {
     // --- Tree indent calculation ---
     val indentWidths = if (info.indentLevels.isNotEmpty()) {
-        calculateTreeIndentWidths(
-            depths = info.indentLevels,
-            containerWidth = maxWidth,
-        )
+        if (info.rootNumbers.isEmpty()) {
+            // Guard: ルート情報がない場合は単一ツリーとして扱う。
+            val fallbackRoot = info.posts.firstOrNull()?.number ?: 0
+            calculateTreeIndentWidths(
+                depths = info.indentLevels,
+                rootNumbers = List(info.indentLevels.size) { fallbackRoot },
+                containerWidth = maxWidth,
+            )
+        } else {
+            calculateTreeIndentWidths(
+                depths = info.indentLevels,
+                rootNumbers = info.rootNumbers,
+                containerWidth = maxWidth,
+            )
+        }
     } else {
         List(info.posts.size) { 0.dp }
     }

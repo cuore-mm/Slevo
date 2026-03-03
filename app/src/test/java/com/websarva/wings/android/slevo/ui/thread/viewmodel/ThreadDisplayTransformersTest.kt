@@ -75,16 +75,17 @@ class ThreadDisplayTransformersTest {
             order = order,
             sortType = ThreadSortType.TREE,
             treeDepthMap = depthMap,
+            treeRootMap = deriveTreeRoots(order, depthMap),
             firstNewResNo = 4,
             prevResCount = 3
         )
 
         val expected = listOf(
-            DisplayPost(1, posts[0], dimmed = false, isAfter = false, depth = 0),
-            DisplayPost(2, posts[1], dimmed = false, isAfter = false, depth = 1),
-            DisplayPost(3, posts[2], dimmed = false, isAfter = false, depth = 2),
-            DisplayPost(1, posts[0], dimmed = true, isAfter = true, depth = 0),
-            DisplayPost(4, posts[3], dimmed = false, isAfter = true, depth = 1)
+            DisplayPost(1, posts[0], dimmed = false, isAfter = false, depth = 0, rootNumber = 1),
+            DisplayPost(2, posts[1], dimmed = false, isAfter = false, depth = 1, rootNumber = 1),
+            DisplayPost(3, posts[2], dimmed = false, isAfter = false, depth = 2, rootNumber = 1),
+            DisplayPost(1, posts[0], dimmed = true, isAfter = true, depth = 0, rootNumber = 1),
+            DisplayPost(4, posts[3], dimmed = false, isAfter = true, depth = 1, rootNumber = 1)
         )
         assertEquals(expected, result)
         assertTrue(result.drop(3).all { it.isAfter })
@@ -105,15 +106,34 @@ class ThreadDisplayTransformersTest {
             order = order,
             sortType = ThreadSortType.TREE,
             treeDepthMap = depthMap,
+            treeRootMap = deriveTreeRoots(order, depthMap),
             firstNewResNo = 4,
             prevResCount = 3
         )
 
         val expected = listOf(
-            DisplayPost(1, posts[0], dimmed = true, isAfter = true, depth = 0),
-            DisplayPost(4, posts[3], dimmed = false, isAfter = true, depth = 1)
+            DisplayPost(1, posts[0], dimmed = true, isAfter = true, depth = 0, rootNumber = 1),
+            DisplayPost(4, posts[3], dimmed = false, isAfter = true, depth = 1, rootNumber = 1)
         )
         assertEquals(expected, result)
+    }
+
+    @Test
+    fun deriveTreeRoots_assignsRootNumberPerTree() {
+        val posts = listOf(
+            post(content = "root1", id = "id1"),
+            post(content = ">>1 child1", id = "id2"),
+            post(content = "root2", id = "id3"),
+            post(content = ">>3 child2", id = "id4"),
+        )
+        val (order, depthMap) = deriveTreeOrder(posts)
+
+        val result = deriveTreeRoots(order, depthMap)
+
+        assertEquals(1, result[1])
+        assertEquals(1, result[2])
+        assertEquals(3, result[3])
+        assertEquals(3, result[4])
     }
 
     @Test
@@ -128,6 +148,7 @@ class ThreadDisplayTransformersTest {
             order = listOf(1, 2),
             sortType = ThreadSortType.NUMBER,
             treeDepthMap = emptyMap(),
+            treeRootMap = emptyMap(),
             firstNewResNo = null,
             prevResCount = 0
         )
@@ -149,6 +170,7 @@ class ThreadDisplayTransformersTest {
             order = listOf(1, 2, 3),
             sortType = ThreadSortType.NUMBER,
             treeDepthMap = emptyMap(),
+            treeRootMap = emptyMap(),
             firstNewResNo = 3,
             prevResCount = 2
         )
@@ -163,9 +185,9 @@ class ThreadDisplayTransformersTest {
     @Test
     fun buildThreadListItemKey_keepsKeysUniqueWithDuplicatePosts() {
         val duplicated = listOf(
-            DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = false, depth = 0),
-            DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = true, depth = 0),
-            DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = true, depth = 1)
+            DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = false, depth = 0, rootNumber = 388),
+            DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = true, depth = 0, rootNumber = 388),
+            DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = true, depth = 1, rootNumber = 388)
         )
 
         val keys = duplicated.mapIndexed(::buildThreadListItemKey)
