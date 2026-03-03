@@ -43,7 +43,7 @@ import kotlinx.coroutines.launch
  * タブ一覧の下部操作群で利用するデフォルト寸法を保持する。
  */
 internal object TabListBottomControlsDefaults {
-    val listBottomPadding: Dp = 64.dp
+    val listBottomPadding: Dp = 40.dp
 }
 
 /**
@@ -71,7 +71,7 @@ internal fun TabListBottomControls(
             tonalElevation = 3.dp,
             shadowElevation = 3.dp,
         ) {
-            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
                 TabListSegmentRow(
                     modifier = Modifier.fillMaxWidth(),
                     selectedIndex = pagerState.currentPage,
