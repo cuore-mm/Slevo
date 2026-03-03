@@ -60,7 +60,7 @@ internal fun TabListBottomControls(
     // --- Floating controls layout ---
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         TabListSwitchSection(
             selectedIndex = pagerState.currentPage,
@@ -98,7 +98,6 @@ private fun TabListSwitchSection(
             ),
         shape = roundedCornerShape,
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 3.dp,
         shadowElevation = 3.dp,
     ) {
         val options = listOf(
@@ -118,7 +117,7 @@ private fun TabListSwitchSection(
                     shape = roundedCornerShape,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isSelected) {
-                            MaterialTheme.colorScheme.primary
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                         } else {
                             MaterialTheme.colorScheme.surface
                         },
@@ -149,7 +148,7 @@ private fun TabListActionSection(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {

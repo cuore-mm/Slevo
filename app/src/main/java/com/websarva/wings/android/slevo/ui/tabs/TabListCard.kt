@@ -94,7 +94,7 @@ internal fun TabListCard(
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         headerTrailingContent()
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         IconButton(
                             modifier = Modifier
                                 .border(
@@ -131,7 +131,7 @@ internal fun TabListCard(
                 ) {
                     Text(
                         text = bodyTitle,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }

@@ -69,7 +69,7 @@ fun TabScreenContent(
             TabListBottomControls(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
                 pagerState = pagerState,
                 onCreateTabClick = {
                     urlError = null
