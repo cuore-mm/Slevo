@@ -6,20 +6,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
@@ -84,34 +76,13 @@ private fun OpenBoardCard(
         modifier = Modifier.padding(horizontal = 12.dp),
         accentColor = color,
         onClick = onClick,
-        headerContent = {
-            Text(
-                text = serviceName,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            IconButton(
-                onClick = {
-                    // タブクローズ操作は一覧遷移より優先して処理する。
-                    onCloseClick()
-                }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = stringResource(R.string.close),
-                )
-            }
-        },
-        bodyContent = {
-            Text(
-                text = tab.boardName,
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                text = tab.boardUrl,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        headerTitle = serviceName,
+        headerMeta = null,
+        headerBadgeText = null,
+        bodyTitle = tab.boardName,
+        onCloseClick = {
+            // タブクローズ操作は一覧遷移より優先して処理する。
+            onCloseClick()
         },
     )
 }

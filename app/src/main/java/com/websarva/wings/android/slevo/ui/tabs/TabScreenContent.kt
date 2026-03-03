@@ -19,8 +19,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -271,21 +271,27 @@ private fun TabListBottomControls(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(
+                FloatingActionButton(
                     onClick = onCreateTabClick,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(999.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = stringResource(R.string.open_url),
-                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
                 if (!isBoardPage) {
-                    IconButton(onClick = onRefreshClick) {
+                    FloatingActionButton(
+                        onClick = onRefreshClick,
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(999.dp),
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = stringResource(R.string.refresh),
-                            tint = MaterialTheme.colorScheme.primary,
                         )
                     }
                 }

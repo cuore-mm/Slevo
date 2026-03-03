@@ -1,31 +1,17 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
@@ -98,55 +84,13 @@ private fun OpenThreadCard(
         modifier = Modifier.padding(horizontal = 12.dp),
         accentColor = color,
         onClick = onClick,
-        headerContent = {
-            Text(
-                text = tab.boardName,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = tab.resCount.toString(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (newResCount > 0) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "$newResCount",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier
-                            .background(
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = RoundedCornerShape(999.dp),
-                            )
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
-                }
-                IconButton(
-                    onClick = {
-                        // タブクローズ操作は一覧遷移より優先して処理する。
-                        onCloseClick()
-                    }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(R.string.close),
-                    )
-                }
-            }
-        },
-        bodyContent = {
-            Text(
-                text = tab.title,
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                text = tab.boardUrl,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        headerTitle = tab.boardName,
+        headerMeta = tab.resCount.toString(),
+        headerBadgeText = newResCount.takeIf { it > 0 }?.let { "+$it" },
+        bodyTitle = tab.title,
+        onCloseClick = {
+            // タブクローズ操作は一覧遷移より優先して処理する。
+            onCloseClick()
         },
     )
 }
