@@ -18,7 +18,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +54,7 @@ import kotlinx.coroutines.launch
  *
  * URL入力は検証に失敗した場合、ダイアログ内にエラーを表示する。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TabScreenContent(
     modifier: Modifier = Modifier,
@@ -95,6 +97,7 @@ fun TabScreenContent(
         },
     ) { innerPadding ->
         val listPadding = PaddingValues(
+            top = 24.dp,
             bottom = innerPadding.calculateBottomPadding() + TabListBottomControlsDefaults.listBottomPadding,
         )
 
@@ -104,7 +107,7 @@ fun TabScreenContent(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                CircularProgressIndicator()
+                CircularWavyProgressIndicator()
             }
         } else {
             TabsPagerContent(
@@ -215,7 +218,7 @@ fun TabScreenContent(
  * タブ一覧の下部操作群で利用するデフォルト寸法を保持する。
  */
 private object TabListBottomControlsDefaults {
-    val listBottomPadding: Dp = 120.dp
+    val listBottomPadding: Dp = 80.dp
 }
 
 /**
@@ -257,47 +260,40 @@ private fun TabListBottomControls(
                 )
             }
         }
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 2.dp,
-            shadowElevation = 8.dp,
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+            FloatingActionButton(
+                onClick = onCreateTabClick,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary,
+                shape = RoundedCornerShape(999.dp),
             ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = stringResource(R.string.open_url),
+                )
+            }
+            if (!isBoardPage) {
                 FloatingActionButton(
-                    onClick = onCreateTabClick,
+                    onClick = onRefreshClick,
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.primary,
                     shape = RoundedCornerShape(999.dp),
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = stringResource(R.string.open_url),
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = stringResource(R.string.refresh),
                     )
-                }
-                if (!isBoardPage) {
-                    FloatingActionButton(
-                        onClick = onRefreshClick,
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        contentColor = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(999.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = stringResource(R.string.refresh),
-                        )
-                    }
                 }
             }
         }
     }
+
 }
 
 /**

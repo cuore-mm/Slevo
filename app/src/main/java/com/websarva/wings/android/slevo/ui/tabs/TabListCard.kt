@@ -56,7 +56,10 @@ internal fun TabListCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 1.dp,
         ),
     ) {
         Row(modifier = Modifier.height(IntrinsicSize.Min)) {
@@ -93,9 +96,9 @@ internal fun TabListCard(
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         headerTrailingContent()
+                        Spacer(modifier = Modifier.width(8.dp))
                         IconButton(
                             modifier = Modifier
-                                .size(28.dp)
                                 .border(
                                     width = 1.dp,
                                     color = MaterialTheme.colorScheme.outlineVariant,
@@ -104,7 +107,8 @@ internal fun TabListCard(
                                 .background(
                                     color = MaterialTheme.colorScheme.surfaceVariant,
                                     shape = CircleShape,
-                                ),
+                                )
+                                .size(20.dp),
                             onClick = {
                                 // タブクローズ操作は一覧遷移より優先して処理する。
                                 onCloseClick()
@@ -121,7 +125,7 @@ internal fun TabListCard(
                 // --- Body ---
                 Text(
                     text = bodyTitle,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                 )
             }
         }
