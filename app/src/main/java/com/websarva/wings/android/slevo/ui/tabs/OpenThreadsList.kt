@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -16,13 +17,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +34,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import java.net.URI
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -41,9 +43,8 @@ import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 
 /**
- * 開いているスレッドタブの一覧を表示し、選択されたタブへ遷移する。
+ * 開いているスレッドタブの一覧をカード表示し、選択されたタブへ遷移する。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OpenThreadsList(
     modifier: Modifier = Modifier,
@@ -51,99 +52,151 @@ fun OpenThreadsList(
     onCloseClick: (ThreadTabInfo) -> Unit = {},
     navController: NavHostController,
     closeDrawer: () -> Unit,
-    isRefreshing: Boolean = false,
-    onRefresh: () -> Unit = {},
+    contentPadding: PaddingValues = PaddingValues(0.dp),
     newResCounts: Map<String, Int> = emptyMap(),
     onItemClick: (ThreadTabInfo) -> Unit = {},
     tabsViewModel: TabsViewModel? = null,
 ) {
-    PullToRefreshBox(
-        modifier = modifier,
-        isRefreshing = isRefreshing,
-        onRefresh = onRefresh,
+    // --- List ---
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = contentPadding,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(openTabs, key = { it.id.value }) { tab ->
-                val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
-                Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-                    if (color != null) {
-                        Box(
-                            modifier = Modifier
-                                .width(8.dp)
-                                .fillMaxHeight()
-                                .background(color)
+        items(openTabs, key = { it.id.value }) { tab ->
+            OpenThreadCard(
+                tab = tab,
+                newResCount = newResCounts[tab.id.value] ?: 0,
+                onClick = {
+                    closeDrawer()
+                    onItemClick(tab)
+                    val route = AppRoute.Thread(
+                        threadKey = tab.threadKey,
+                        boardUrl = tab.boardUrl,
+                        boardName = tab.boardName,
+                        boardId = tab.boardId,
+                        threadTitle = tab.title,
+                        resCount = tab.resCount
+                    )
+                    navController.navigateToThread(
+                        route = route,
+                        tabsViewModel = tabsViewModel,
+                    ) {
+                        restoreState = true
+                    }
+                },
+                onCloseClick = { onCloseClick(tab) },
+            )
+        }
+    }
+}
+
+/**
+ * スレッドタブをカード表示する。
+ */
+@Composable
+private fun OpenThreadCard(
+    tab: ThreadTabInfo,
+    newResCount: Int,
+    onClick: () -> Unit,
+    onCloseClick: () -> Unit,
+) {
+    // --- Card highlight ---
+    val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
+    val serviceName = extractServiceName(tab.boardUrl)
+
+    Row(
+        modifier = Modifier
+            .height(IntrinsicSize.Min)
+            .padding(horizontal = 12.dp)
+    ) {
+        if (color != null) {
+            Box(
+                modifier = Modifier
+                    .width(8.dp)
+                    .fillMaxHeight()
+                    .background(color, RoundedCornerShape(8.dp))
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+            ),
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                // --- Header info ---
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = serviceName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = tab.boardName,
+                            style = MaterialTheme.typography.labelMedium,
                         )
                     }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                closeDrawer()
-                                onItemClick(tab)
-                                val route = AppRoute.Thread(
-                                    threadKey = tab.threadKey,
-                                    boardUrl = tab.boardUrl,
-                                    boardName = tab.boardName,
-                                    boardId = tab.boardId,
-                                    threadTitle = tab.title,
-                                    resCount = tab.resCount
-                                )
-                                navController.navigateToThread(
-                                    route = route,
-                                    tabsViewModel = tabsViewModel,
-                                ) {
-                                    restoreState = true
-                                }
-                            }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = tab.resCount.toString(),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (newResCount > 0) {
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = tab.title,
-                                style = MaterialTheme.typography.bodyLarge,
-                                // タイトルが長くなっても改行して全文表示されるようにする
+                                text = "$newResCount",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier
+                                    .background(
+                                        color = MaterialTheme.colorScheme.primary,
+                                        shape = RoundedCornerShape(999.dp),
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = tab.boardName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = tab.resCount.toString(),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            IconButton(onClick = { onCloseClick(tab) }) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = stringResource(R.string.close)
-                                )
+                        IconButton(
+                            onClick = {
+                                // タブクローズ操作は一覧遷移より優先して処理する。
+                                onCloseClick()
                             }
-                            val diff = newResCounts[tab.id.value] ?: 0
-                            if (diff > 0) {
-                                Text(
-                                    text = "+$diff",
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.close),
+                            )
                         }
                     }
                 }
-                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = tab.title,
+                    style = MaterialTheme.typography.titleMedium,
+                )
             }
         }
     }
+}
+
+/**
+ * 板URLからサービス名に相当するホスト名を取り出す。
+ */
+private fun extractServiceName(boardUrl: String): String {
+    return runCatching { URI(boardUrl).host }
+        .getOrNull()
+        ?.takeIf { it.isNotBlank() }
+        ?: boardUrl // URL解析に失敗した場合はそのまま表示する。
 }
 
 @Preview(showBackground = true)
@@ -182,8 +235,7 @@ fun OpenThreadsListPreview() {
         onCloseClick = {},
         navController = rememberNavController(),
         closeDrawer = {},
-        isRefreshing = false,
-        onRefresh = {},
+        contentPadding = PaddingValues(0.dp),
         newResCounts = emptyMap(),
         onItemClick = {}
     )
