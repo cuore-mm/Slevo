@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.HorizontalDivider
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
@@ -28,7 +29,7 @@ import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransiti
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.screen.resolvePopupBaseOffset
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
-import kotlin.math.min
+import com.websarva.wings.android.slevo.ui.thread.calculateTreeIndentWidths
 
 /**
  * スレッド投稿一覧の `LazyColumn` コンテンツを構築する。
@@ -41,6 +42,7 @@ fun LazyListScope.threadPostListContent(
     visiblePosts: List<DisplayPost>,
     firstAfterIndex: Int,
     popupStack: List<PopupInfo>,
+    containerWidth: Dp,
     enableSharedElements: Boolean,
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
@@ -59,15 +61,25 @@ fun LazyListScope.threadPostListContent(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
+    // --- Tree indent calculation ---
+    val indentWidths = if (uiState.sortType == ThreadSortType.TREE) {
+        calculateTreeIndentWidths(
+            depths = visiblePosts.map { it.depth },
+            containerWidth = containerWidth,
+        )
+    } else {
+        List(visiblePosts.size) { 0.dp }
+    }
+
     // --- Header divider ---
     if (visiblePosts.isNotEmpty()) {
         val firstIndent = if (uiState.sortType == ThreadSortType.TREE) {
-            visiblePosts.first().depth
+            indentWidths.firstOrNull() ?: 0.dp
         } else {
-            0
+            0.dp
         }
         item(key = "thread_header_divider") {
-            HorizontalDivider(modifier = Modifier.padding(start = 16.dp * firstIndent))
+            HorizontalDivider(modifier = Modifier.padding(start = firstIndent))
         }
     }
 
@@ -80,14 +92,14 @@ fun LazyListScope.threadPostListContent(
         val post = display.post
         val index = postNum - 1
         val indent = if (uiState.sortType == ThreadSortType.TREE) {
-            display.depth
+            indentWidths.getOrElse(idx) { 0.dp }
         } else {
-            0
+            0.dp
         }
         val nextIndent = if (idx + 1 < visiblePosts.size && uiState.sortType == ThreadSortType.TREE) {
-            visiblePosts[idx + 1].depth
+            indentWidths.getOrElse(idx + 1) { 0.dp }
         } else {
-            0
+            0.dp
         }
         val itemOffset = remember { OffsetRef(IntOffset.Zero) }
         val transitionNamespace = remember(postNum) {
@@ -122,7 +134,7 @@ fun LazyListScope.threadPostListContent(
                 } else {
                     DEFAULT_THREAD_LINE_HEIGHT
                 },
-                indentLevel = indent,
+                indentWidth = indent,
                 replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
                 isMyPost = postNum in uiState.myPostNumbers,
                 dimmed = display.dimmed,
@@ -161,7 +173,7 @@ fun LazyListScope.threadPostListContent(
             )
             HorizontalDivider(
                 modifier = Modifier.padding(
-                    start = 16.dp * min(indent, nextIndent),
+                    start = minOf(indent, nextIndent),
                 ),
             )
         }

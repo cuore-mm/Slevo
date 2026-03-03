@@ -62,6 +62,7 @@ import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransiti
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.thread.calculateTreeIndentWidths
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import kotlin.math.max
 import kotlin.math.min
@@ -468,6 +469,13 @@ private fun PopupPostList(
                 onReplyClick = onReplyClick,
                 onIdClick = onIdClick,
                 maxHeight = maxHeight,
+                maxWidth = calculatePopupPlacement(
+                    info = info,
+                    popupIndex = popupIndex,
+                    screenWidthPx = screenWidthPx,
+                    screenWidthDp = screenWidthDp,
+                    density = density,
+                ).maxWidth,
                 listState = listState,
             )
         }
@@ -513,8 +521,19 @@ private fun PopupPostLazyColumn(
     onReplyClick: (Int, IntOffset) -> Unit,
     onIdClick: (String, IntOffset) -> Unit,
     maxHeight: Dp,
+    maxWidth: Dp,
     listState: LazyListState,
 ) {
+    // --- Tree indent calculation ---
+    val indentWidths = if (info.indentLevels.isNotEmpty()) {
+        calculateTreeIndentWidths(
+            depths = info.indentLevels,
+            containerWidth = maxWidth,
+        )
+    } else {
+        List(info.posts.size) { 0.dp }
+    }
+
     LazyColumn(
         modifier = Modifier.heightIn(max = maxHeight),
         state = listState,
@@ -522,8 +541,8 @@ private fun PopupPostLazyColumn(
         itemsIndexed(info.posts) { i, p ->
             val postIndex = posts.indexOf(p)
             val postNum = postIndex + 1
-            val indentLevel = info.indentLevels.getOrElse(i) { 0 }
-            val nextIndent = info.indentLevels.getOrElse(i + 1) { 0 }
+            val indentWidth = indentWidths.getOrElse(i) { 0.dp }
+            val nextIndentWidth = indentWidths.getOrElse(i + 1) { 0.dp }
             var postOffset by remember { mutableStateOf(IntOffset.Zero) }
             var isPostOffsetMeasured by remember { mutableStateOf(false) }
             val baseOffset = if (isPostOffsetMeasured) {
@@ -555,7 +574,7 @@ private fun PopupPostLazyColumn(
                 headerTextScale = headerTextScale,
                 bodyTextScale = bodyTextScale,
                 lineHeight = lineHeight,
-                indentLevel = indentLevel,
+                indentWidth = indentWidth,
                 searchQuery = searchQuery,
                 onUrlClick = onUrlClick,
                 onThreadUrlClick = onThreadUrlClick,
@@ -581,7 +600,7 @@ private fun PopupPostLazyColumn(
             )
             if (i < info.posts.size - 1) {
                 HorizontalDivider(
-                    modifier = Modifier.padding(start = 16.dp * min(indentLevel, nextIndent))
+                    modifier = Modifier.padding(start = minOf(indentWidth, nextIndentWidth))
                 )
             }
         }
