@@ -1,13 +1,21 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -23,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -79,30 +88,72 @@ internal fun TabListBottomControls(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(
-                onClick = onCreateTabClick,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(R.string.open_url),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-            if (!isBoardPage) {
-                IconButton(
-                    onClick = onRefreshClick,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = stringResource(R.string.refresh),
-                        tint = MaterialTheme.colorScheme.primary,
+            AnimatedContent(
+                targetState = isBoardPage,
+                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                label = "tabBottomActionButtons"
+            ) { boardPage ->
+                if (boardPage) {
+                    TabActionButton(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = stringResource(R.string.open_url),
+                        onClick = onCreateTabClick,
                     )
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TabActionButton(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = stringResource(R.string.open_url),
+                            onClick = onCreateTabClick,
+                        )
+                        TabActionButton(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = stringResource(R.string.refresh),
+                            onClick = onRefreshClick,
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+/**
+ * 下部操作群の丸形アイコンボタンを表示する。
+ */
+@Composable
+private fun TabActionButton(
+    imageVector: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    IconButton(
+        modifier = Modifier
+            .size(40.dp)
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+                shape = CircleShape,
+            )
+            .background(
+                color = MaterialTheme.colorScheme.surface,
+                shape = CircleShape,
+            ),
+        onClick = onClick,
+    ) {
+        Icon(
+            modifier = Modifier.size(20.dp),
+            imageVector = imageVector,
+            contentDescription = contentDescription,
+            tint = MaterialTheme.colorScheme.primary,
+        )
     }
 }
 
