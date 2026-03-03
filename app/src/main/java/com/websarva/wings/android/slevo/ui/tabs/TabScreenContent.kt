@@ -72,9 +72,7 @@ fun TabScreenContent(
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
             TabListBottomControls(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 pagerState = pagerState,
                 hazeState = hazeState,
                 onCreateTabClick = {
