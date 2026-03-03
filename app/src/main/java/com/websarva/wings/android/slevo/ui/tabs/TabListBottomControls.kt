@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,7 +34,7 @@ import kotlinx.coroutines.launch
  * タブ一覧の下部操作群で利用するデフォルト寸法を保持する。
  */
 internal object TabListBottomControlsDefaults {
-    val listBottomPadding: Dp = 80.dp
+    val listBottomPadding: Dp = 64.dp
 }
 
 /**
@@ -60,8 +59,8 @@ internal fun TabListBottomControls(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 2.dp,
-            shadowElevation = 8.dp,
+            tonalElevation = 3.dp,
+            shadowElevation = 3.dp,
         ) {
             Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                 TabListSegmentRow(
