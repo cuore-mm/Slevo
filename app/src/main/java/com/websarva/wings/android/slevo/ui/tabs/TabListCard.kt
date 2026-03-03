@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,7 +35,7 @@ import java.net.URI
 /**
  * タブ一覧カードの共通外枠と情報配置を提供する。
  *
- * 上部はタイトル・メタ情報・閉じるボタン、下部は主要タイトルを表示する。
+ * 上部はタイトル・追加情報スロット・閉じるボタン、下部は主要タイトルを表示する。
  */
 @Composable
 internal fun TabListCard(
@@ -42,8 +43,7 @@ internal fun TabListCard(
     accentColor: Color?,
     onClick: () -> Unit,
     headerTitle: String,
-    headerMeta: String?,
-    headerBadgeText: String?,
+    headerTrailingContent: @Composable RowScope.() -> Unit = {},
     bodyTitle: String,
     onCloseClick: () -> Unit,
 ) {
@@ -89,28 +89,7 @@ internal fun TabListCard(
                         )
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (headerMeta != null) {
-                            Text(
-                                text = headerMeta,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        if (headerBadgeText != null) {
-                            // 新着バッジは板画面の強調スタイルに合わせる。
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = headerBadgeText,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier
-                                    .background(
-                                        color = MaterialTheme.colorScheme.primary,
-                                        shape = RoundedCornerShape(999.dp),
-                                    )
-                                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                            )
-                        }
+                        headerTrailingContent()
                         IconButton(
                             onClick = {
                                 // タブクローズ操作は一覧遷移より優先して処理する。
@@ -142,8 +121,25 @@ fun TabListCardPreview() {
         accentColor = MaterialTheme.colorScheme.primary,
         onClick = {},
         headerTitle = "example.com",
-        headerMeta = "120",
-        headerBadgeText = "+3",
+        headerTrailingContent = {
+            Text(
+                text = "120",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "+3",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(999.dp),
+                    )
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        },
         bodyTitle = "カードのタイトル",
         onCloseClick = {},
     )

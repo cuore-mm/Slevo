@@ -1,11 +1,17 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -85,8 +91,28 @@ private fun OpenThreadCard(
         accentColor = color,
         onClick = onClick,
         headerTitle = tab.boardName,
-        headerMeta = tab.resCount.toString(),
-        headerBadgeText = newResCount.takeIf { it > 0 }?.let { "+$it" },
+        headerTrailingContent = {
+            Text(
+                text = tab.resCount.toString(),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (newResCount > 0) {
+                // 新着バッジは板画面の強調スタイルに合わせる。
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "+$newResCount",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier
+                        .background(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = RoundedCornerShape(999.dp),
+                        )
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
+        },
         bodyTitle = tab.title,
         onCloseClick = {
             // タブクローズ操作は一覧遷移より優先して処理する。

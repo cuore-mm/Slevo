@@ -77,8 +77,6 @@ private fun OpenBoardCard(
         accentColor = color,
         onClick = onClick,
         headerTitle = serviceName,
-        headerMeta = null,
-        headerBadgeText = null,
         bodyTitle = tab.boardName,
         onCloseClick = {
             // タブクローズ操作は一覧遷移より優先して処理する。
