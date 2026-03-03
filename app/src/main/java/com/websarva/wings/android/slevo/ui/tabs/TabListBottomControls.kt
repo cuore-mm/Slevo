@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.tabs
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,9 +30,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -78,8 +79,8 @@ internal fun TabListBottomControls(
         modifier = modifier
             .hazeEffect(state = hazeState, style = hazeStyle) {
                 mask = Brush.verticalGradient(
-                    0f to 0f,
-                    1f to 1f,
+                    0f to Color.Transparent,
+                    1f to Color.Black,
                 )
             }
             .pointerInput(Unit) {
@@ -130,7 +131,7 @@ private fun TabListSwitchSection(
                 width = 1.dp,
                 color = MaterialTheme.colorScheme.outlineVariant,
                 shape = RoundedCornerShape(20.dp),
-            )
+            ),
         shape = roundedCornerShape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
         shadowElevation = 3.dp,
