@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,7 +13,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -47,30 +50,30 @@ internal fun TabListCard(
     bodyTitle: String,
     onCloseClick: () -> Unit,
 ) {
-    Row(
-        modifier = modifier.height(IntrinsicSize.Min),
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
     ) {
-        // --- Accent bar ---
-        if (accentColor != null) {
-            Spacer(
-                modifier = Modifier
-                    .width(8.dp)
-                    .fillMaxHeight()
-                    .background(accentColor, RoundedCornerShape(8.dp))
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-        }
+        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+            // --- Accent bar ---
+            if (accentColor != null) {
+                Spacer(
+                    modifier = Modifier
+                        .width(8.dp)
+                        .fillMaxHeight()
+                        .background(
+                            color = accentColor,
+                            shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
+                        )
+                )
+            }
 
-        // --- Card body ---
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-            ),
-        ) {
+            // --- Card body ---
             Column(
                 modifier = Modifier.padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -91,12 +94,24 @@ internal fun TabListCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         headerTrailingContent()
                         IconButton(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .border(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                    shape = CircleShape,
+                                )
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = CircleShape,
+                                ),
                             onClick = {
                                 // タブクローズ操作は一覧遷移より優先して処理する。
                                 onCloseClick()
                             }
                         ) {
                             Icon(
+                                modifier = Modifier.size(14.dp),
                                 imageVector = Icons.Default.Close,
                                 contentDescription = stringResource(R.string.close),
                             )
