@@ -23,6 +23,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 
@@ -32,7 +33,7 @@ import kotlinx.coroutines.CoroutineScope
 @Composable
 internal fun PostItemContainer(
     modifier: Modifier,
-    indentLevel: Int,
+    indentWidth: Dp,
     dimmed: Boolean,
     isPressed: Boolean,
     scope: CoroutineScope,
@@ -50,10 +51,10 @@ internal fun PostItemContainer(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 16.dp * indentLevel)
+            .padding(start = indentWidth)
             .alpha(if (dimmed) 0.6f else 1f)
             .drawBehind {
-                if (indentLevel > 0) {
+                if (indentWidth > 0.dp) {
                     val strokeWidth = 1.dp.toPx()
                     drawLine(
                         color = boundaryColor,
@@ -118,7 +119,7 @@ private fun PostItemContainerPreview() {
     val scope = rememberCoroutineScope()
     PostItemContainer(
         modifier = Modifier,
-        indentLevel = 1,
+        indentWidth = 16.dp,
         dimmed = false,
         isPressed = false,
         scope = scope,

@@ -93,6 +93,7 @@ private data class ThreadLoadDerived(
     val replySourceMap: Map<Int, List<Int>>,
     val treeOrder: List<Int>,
     val treeDepthMap: Map<Int, Int>,
+    val treeRootMap: Map<Int, Int>,
 )
 
 /**
@@ -455,6 +456,7 @@ class ThreadViewModel @AssistedInject constructor(
         // --- 派生マップ ---
         val (idCountMap, idIndexList, replySourceMap) = deriveReplyMaps(uiPosts)
         val (treeOrder, treeDepthMap) = deriveTreeOrder(uiPosts)
+        val treeRootMap = deriveTreeRoots(treeOrder, treeDepthMap)
 
         // --- スレ情報 ---
         val resCount = uiPosts.size
@@ -484,6 +486,7 @@ class ThreadViewModel @AssistedInject constructor(
             replySourceMap = replySourceMap,
             treeOrder = treeOrder,
             treeDepthMap = treeDepthMap,
+            treeRootMap = treeRootMap,
         )
     }
 
@@ -509,6 +512,7 @@ class ThreadViewModel @AssistedInject constructor(
                 replySourceMap = derived.replySourceMap,
                 treeOrder = derived.treeOrder,
                 treeDepthMap = derived.treeDepthMap,
+                treeRootMap = derived.treeRootMap,
                 imageLoadFailureByUrl = it.imageLoadFailureByUrl.filterKeys { url ->
                     url in activeImageUrls
                 },
@@ -774,6 +778,7 @@ class ThreadViewModel @AssistedInject constructor(
         sortType: ThreadSortType,
         treeOrder: List<Int>,
         treeDepthMap: Map<Int, Int>,
+        treeRootMap: Map<Int, Int>,
         latestArrivalGroupIndex: Int?
     ): List<DisplayPost> {
         // --- グループ毎の変換 ---
@@ -796,6 +801,7 @@ class ThreadViewModel @AssistedInject constructor(
                 order = order,
                 sortType = sortType,
                 treeDepthMap = treeDepthMap,
+                treeRootMap = treeRootMap,
                 firstNewResNo = firstNewResNo,
                 prevResCount = group.prevResCount
             )
@@ -820,6 +826,7 @@ class ThreadViewModel @AssistedInject constructor(
             sortType = uiState.value.sortType,
             treeOrder = uiState.value.treeOrder,
             treeDepthMap = uiState.value.treeDepthMap,
+            treeRootMap = uiState.value.treeRootMap,
             latestArrivalGroupIndex = uiState.value.latestArrivalGroupIndex
         )
 
@@ -1030,13 +1037,23 @@ class ThreadViewModel @AssistedInject constructor(
             return
         }
         val ngNumbers = uiState.value.ngPostNumbers
-        val targets = replyNumbers.filterNot { it in ngNumbers }
-            .mapNotNull { num -> posts.getOrNull(num - 1) }
+        val targetNumbers = replyNumbers.filterNot { it in ngNumbers }
+        val targets = targetNumbers.mapNotNull { num -> posts.getOrNull(num - 1) }
+        val rootNumbers = targetNumbers.map { num ->
+            uiState.value.treeRootMap[num] ?: num
+        }
         if (targets.isEmpty()) {
             // 有効な対象がない場合は追加しない。
             return
         }
-        appendPopup(PopupInfo(popupId = nextPopupId(), posts = targets, offset = baseOffset))
+        appendPopup(
+            PopupInfo(
+                popupId = nextPopupId(),
+                posts = targets,
+                offset = baseOffset,
+                rootNumbers = rootNumbers,
+            )
+        )
     }
 
     /**
@@ -1059,6 +1076,7 @@ class ThreadViewModel @AssistedInject constructor(
                 popupId = nextPopupId(),
                 posts = listOf(posts[postNumber - 1]),
                 offset = baseOffset,
+                rootNumbers = listOf(postNumber),
             )
         )
     }
@@ -1074,15 +1092,26 @@ class ThreadViewModel @AssistedInject constructor(
             return
         }
         val ngNumbers = uiState.value.ngPostNumbers
-        val targets = posts.mapIndexedNotNull { idx, post ->
+        val targetNumbers = posts.mapIndexedNotNull { idx, post ->
             val num = idx + 1
-            if (post.header.id == id && num !in ngNumbers) post else null
+            if (post.header.id == id && num !in ngNumbers) num else null
+        }
+        val targets = targetNumbers.mapNotNull { num -> posts.getOrNull(num - 1) }
+        val rootNumbers = targetNumbers.map { num ->
+            uiState.value.treeRootMap[num] ?: num
         }
         if (targets.isEmpty()) {
             // 有効な対象がない場合は追加しない。
             return
         }
-        appendPopup(PopupInfo(popupId = nextPopupId(), posts = targets, offset = baseOffset))
+        appendPopup(
+            PopupInfo(
+                popupId = nextPopupId(),
+                posts = targets,
+                offset = baseOffset,
+                rootNumbers = rootNumbers,
+            )
+        )
     }
 
     /**
@@ -1110,13 +1139,16 @@ class ThreadViewModel @AssistedInject constructor(
         // --- Build targets ---
         val targets = mutableListOf<ThreadPostUiModel>()
         val indentLevels = mutableListOf<Int>()
+        val rootNumbers = mutableListOf<Int>()
         selection.numbers.zip(selection.indentLevels).forEach { (num, depth) ->
             if (num in state.ngPostNumbers) {
                 return@forEach
             }
             val post = posts.getOrNull(num - 1) ?: return@forEach
+            val rootNumber = state.treeRootMap[num] ?: num
             targets.add(post)
             indentLevels.add(depth)
+            rootNumbers.add(rootNumber)
         }
         if (targets.size <= 1) {
             // NG除外後に単独になった場合は追加しない。
@@ -1130,6 +1162,7 @@ class ThreadViewModel @AssistedInject constructor(
                 posts = targets,
                 offset = baseOffset,
                 indentLevels = indentLevels,
+                rootNumbers = rootNumbers,
             )
         )
     }
@@ -1389,7 +1422,9 @@ internal fun isSamePopupContent(
     left: PopupInfo,
     right: PopupInfo,
 ): Boolean {
-    return left.posts == right.posts && left.indentLevels == right.indentLevels
+    return left.posts == right.posts &&
+        left.indentLevels == right.indentLevels &&
+        left.rootNumbers == right.rootNumbers
 }
 
 /**

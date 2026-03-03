@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -30,10 +31,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -98,6 +101,10 @@ fun ThreadScreen(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
+    // --- Layout measurement ---
+    var listSize by remember { mutableStateOf(IntSize.Zero) }
+    val density = LocalDensity.current
+
     // 投稿一覧（nullの場合は空リスト）
     val posts = uiState.posts ?: emptyList()
     // 表示対象の投稿（フィルタ済み）
@@ -209,21 +216,22 @@ fun ThreadScreen(
             }
     ) {
         val lazyColumnContent: LazyListScope.() -> Unit = {
-        threadPostListContent(
-            uiState = uiState,
-            visiblePosts = visiblePosts,
-            firstAfterIndex = firstAfterIndex,
-            popupStack = popupStack,
-            enableSharedElements = enableListSharedElements,
-            onUrlClick = onUrlClick,
-            onThreadUrlClick = onThreadUrlClick,
-            onImageClick = onImageClick,
-            onImageLongPress = onImageLongPress,
-            onImageLoadStart = onImageLoadStart,
-            onImageLoadError = onImageLoadError,
-            onImageLoadSuccess = onImageLoadSuccess,
-            onImageRetry = onImageRetry,
-            onRequestMenu = onRequestMenu,
+            threadPostListContent(
+                uiState = uiState,
+                visiblePosts = visiblePosts,
+                firstAfterIndex = firstAfterIndex,
+                popupStack = popupStack,
+                containerWidth = with(density) { listSize.width.toDp() },
+                enableSharedElements = enableListSharedElements,
+                onUrlClick = onUrlClick,
+                onThreadUrlClick = onThreadUrlClick,
+                onImageClick = onImageClick,
+                onImageLongPress = onImageLongPress,
+                onImageLoadStart = onImageLoadStart,
+                onImageLoadError = onImageLoadError,
+                onImageLoadSuccess = onImageLoadSuccess,
+                onImageRetry = onImageRetry,
+                onRequestMenu = onRequestMenu,
                 onShowTextMenu = onShowTextMenu,
                 onRequestTreePopup = onRequestTreePopup,
                 onAddPopupForReplyFrom = onAddPopupForReplyFrom,
@@ -240,9 +248,10 @@ fun ThreadScreen(
                     modifier = Modifier
                         .fillMaxHeight()
                         .weight(1f)
-                        .nestedScroll(bottomRefreshHandle.nestedScrollConnection),
+                        .nestedScroll(bottomRefreshHandle.nestedScrollConnection)
+                        .onSizeChanged { size -> listSize = size },
                     state = listState,
-                    content = lazyColumnContent
+                    content = lazyColumnContent,
                 )
                 // 中央の区切り線
                 VerticalDivider()
@@ -268,9 +277,10 @@ fun ThreadScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .nestedScroll(bottomRefreshHandle.nestedScrollConnection),
+                        .nestedScroll(bottomRefreshHandle.nestedScrollConnection)
+                        .onSizeChanged { size -> listSize = size },
                     state = listState,
-                    content = lazyColumnContent
+                    content = lazyColumnContent,
                 )
             }
         }

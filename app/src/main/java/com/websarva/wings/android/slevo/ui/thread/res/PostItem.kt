@@ -10,6 +10,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.data.model.NgType
@@ -28,7 +30,7 @@ import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
  * @param headerTextScale ヘッダーテキストの拡大率。
  * @param bodyTextScale 本文テキストの拡大率。
  * @param lineHeight 行間の倍率。
- * @param indentLevel インデントの段数。
+ * @param indentWidth インデントの実幅。
  * @param replyFromNumbers 返信元番号の一覧。
  * @param isMyPost 自分の投稿かどうか。
  * @param dimmed 文字を薄く表示するかどうか。
@@ -60,7 +62,7 @@ fun PostItem(
     headerTextScale: Float,
     bodyTextScale: Float,
     lineHeight: Float,
-    indentLevel: Int = 0,
+    indentWidth: Dp = 0.dp,
     replyFromNumbers: List<Int> = emptyList(),
     isMyPost: Boolean = false,
     dimmed: Boolean = false,
@@ -95,7 +97,7 @@ fun PostItem(
     val headerFontSize = MaterialTheme.typography.bodyMedium.fontSize * headerTextScale
     PostItemContainer(
         modifier = modifier,
-        indentLevel = indentLevel,
+        indentWidth = indentWidth,
         dimmed = dimmed,
         isPressed = interactionState.isContentPressed,
         scope = scope,
