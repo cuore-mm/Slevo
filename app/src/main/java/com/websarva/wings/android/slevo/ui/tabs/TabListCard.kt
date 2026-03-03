@@ -52,9 +52,9 @@ internal fun TabListCard(
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 1.dp,
@@ -76,12 +76,12 @@ internal fun TabListCard(
 
             // --- Card body ---
             Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 // --- Header ---
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
@@ -121,10 +121,20 @@ internal fun TabListCard(
                     }
                 }
                 // --- Body ---
-                Text(
-                    text = bodyTitle,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ),
+
+                ) {
+                    Text(
+                        text = bodyTitle,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
             }
         }
     }
@@ -133,6 +143,38 @@ internal fun TabListCard(
 @Preview(showBackground = true)
 @Composable
 fun TabListCardPreview() {
+    TabListCard(
+        modifier = Modifier.padding(12.dp),
+        accentColor = null,
+        onClick = {},
+        headerTitle = "example.com",
+        headerTrailingContent = {
+            Text(
+                text = "120",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "+3",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(999.dp),
+                    )
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        },
+        bodyTitle = "カードのタイトル",
+        onCloseClick = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ColoredTabListCardPreview() {
     TabListCard(
         modifier = Modifier.padding(12.dp),
         accentColor = MaterialTheme.colorScheme.primary,

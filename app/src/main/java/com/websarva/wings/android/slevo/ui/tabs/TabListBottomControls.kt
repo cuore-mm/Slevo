@@ -87,6 +87,7 @@ private fun TabListSwitchSection(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
 ) {
+    val roundedCornerShape = RoundedCornerShape(20.dp)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -95,17 +96,43 @@ private fun TabListSwitchSection(
                 color = MaterialTheme.colorScheme.outlineVariant,
                 shape = RoundedCornerShape(20.dp),
             ),
-        shape = RoundedCornerShape(20.dp),
+        shape = roundedCornerShape,
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 3.dp,
         shadowElevation = 3.dp,
     ) {
-        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-            TabListSegmentRow(
-                modifier = Modifier.fillMaxWidth(),
-                selectedIndex = selectedIndex,
-                onSelect = onSelect,
-            )
+        val options = listOf(
+            stringResource(R.string.board),
+            stringResource(R.string.thread),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            options.forEachIndexed { index, label ->
+                val isSelected = selectedIndex == index
+                Button(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp),
+                    shape = roundedCornerShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isSelected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        },
+                        contentColor = if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
+                    ),
+                    onClick = { onSelect(index) },
+                ) {
+                    Text(text = label, style = MaterialTheme.typography.labelLarge)
+                }
+            }
         }
     }
 }
@@ -143,51 +170,6 @@ private fun TabListActionSection(
                 contentDescription = stringResource(R.string.refresh),
                 onClick = onRefreshClick,
             )
-        }
-    }
-}
-
-/**
- * 板/スレ切替のセグメントボタンを描画する。
- */
-@Composable
-private fun TabListSegmentRow(
-    modifier: Modifier = Modifier,
-    selectedIndex: Int,
-    onSelect: (Int) -> Unit,
-) {
-    // --- Segmented options ---
-    val options = listOf(
-        stringResource(R.string.board),
-        stringResource(R.string.thread),
-    )
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        options.forEachIndexed { index, label ->
-            val isSelected = selectedIndex == index
-            Button(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(36.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isSelected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    },
-                    contentColor = if (isSelected) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    }
-                ),
-                onClick = { onSelect(index) },
-            ) {
-                Text(text = label, style = MaterialTheme.typography.labelLarge)
-            }
         }
     }
 }
