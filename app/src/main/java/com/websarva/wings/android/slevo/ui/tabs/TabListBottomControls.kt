@@ -1,8 +1,9 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,7 +21,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -28,7 +28,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -60,7 +59,7 @@ internal fun TabListBottomControls(
     // --- Floating controls layout ---
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         TabListSwitchSection(
             selectedIndex = pagerState.currentPage,
@@ -153,7 +152,7 @@ private fun TabListActionSection(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // left slot: future "other" button
-        Spacer(modifier = Modifier.size(40.dp))
+        Spacer(modifier = Modifier.size(44.dp))
         // center slot: create
         TabActionButton(
             imageVector = Icons.Default.Add,
@@ -162,7 +161,7 @@ private fun TabListActionSection(
         )
         // right slot: refresh (thread only)
         if (isBoardPage) {
-            Spacer(modifier = Modifier.size(40.dp))
+            Spacer(modifier = Modifier.size(44.dp))
         } else {
             TabActionButton(
                 imageVector = Icons.Default.Refresh,
@@ -182,31 +181,23 @@ private fun TabActionButton(
     contentDescription: String,
     onClick: () -> Unit,
 ) {
-    IconButton(
-        modifier = Modifier
-            .size(40.dp)
-            .shadow(
-                elevation = 3.dp,
-                shape = CircleShape,
-                clip = false,
-            )
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant,
-                shape = CircleShape,
-            )
-            .background(
-                color = MaterialTheme.colorScheme.surface,
-                shape = CircleShape,
-            ),
+    Surface(
         onClick = onClick,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shadowElevation = 3.dp,
+        tonalElevation = 0.dp,
+        modifier = Modifier.size(44.dp),
     ) {
-        Icon(
-            modifier = Modifier.size(20.dp),
-            imageVector = imageVector,
-            contentDescription = contentDescription,
-            tint = MaterialTheme.colorScheme.primary,
-        )
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                modifier = Modifier.size(28.dp),
+                imageVector = imageVector,
+                contentDescription = contentDescription,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
     }
 }
 

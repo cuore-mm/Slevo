@@ -54,7 +54,7 @@ internal fun TabListCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 1.dp,
@@ -131,7 +131,7 @@ internal fun TabListCard(
                 ) {
                     Text(
                         text = bodyTitle,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }
