@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.PagerState
@@ -52,7 +51,7 @@ import kotlinx.coroutines.launch
  */
 internal object TabListBottomControlsDefaults {
     val listBottomPadding: Dp = 16.dp
-    val hazeTopOverlap: Dp = 12.dp
+    val hazeTopOverlap: Dp = 40.dp
 }
 
 /**
@@ -72,8 +71,8 @@ internal fun TabListBottomControls(
     // --- Haze style ---
     val hazeStyle = HazeStyle(
         tints = listOf(
-            HazeTint(MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)),
-            HazeTint(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+            HazeTint(MaterialTheme.colorScheme.surface.copy(alpha = 0.35f)),
+            HazeTint(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f)),
         ),
     )
 
@@ -83,31 +82,33 @@ internal fun TabListBottomControls(
     Box(modifier = modifier) {
         Box(
             modifier = Modifier
+                .fillMaxWidth()
                 .matchParentSize()
-                .offset(y = -TabListBottomControlsDefaults.hazeTopOverlap)
                 .hazeEffect(state = hazeState, style = hazeStyle) {
                     mask = Brush.verticalGradient(
-                        0f to Color.Transparent,
-                        1f to Color.Black,
+                        0.0f to Color.Transparent,
+                        0.10f to Color.White.copy(alpha = 0.7f),
+                        0.8f to Color.White,
                     )
                 }
+                .padding(top = TabListBottomControlsDefaults.hazeTopOverlap)
         )
         Column(
             modifier = Modifier
+                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
                 .clickable(
                     interactionSource = tapGuardInteractionSource,
                     indication = null,
                     onClick = {},
-                ),
+                )
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             TabListSwitchSection(
                 selectedIndex = pagerState.currentPage,
                 onSelect = { index ->
                     if (pagerState.currentPage != index) {
-                        // 切り替え時のみアニメーションで遷移する。
                         coroutineScope.launch { pagerState.animateScrollToPage(index) }
                     }
                 },
