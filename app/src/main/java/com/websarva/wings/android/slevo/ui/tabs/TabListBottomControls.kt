@@ -7,23 +7,22 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -54,7 +53,7 @@ import kotlinx.coroutines.launch
  */
 internal object TabListBottomControlsDefaults {
     val listBottomPadding: Dp = 0.dp
-    val hazeTopOverlap: Dp = 48.dp
+    val hazeTopOverlap: Dp = 32.dp
 }
 
 /**
@@ -116,21 +115,60 @@ internal fun TabListBottomControls(
 }
 
 /**
+ * 下部操作群を1段で配置し、左から作成・切替・更新を表示する。
+ */
+@Composable
+private fun TabListInlineSection(
+    selectedIndex: Int,
+    isBoardPage: Boolean,
+    onSelect: (Int) -> Unit,
+    onCreateTabClick: () -> Unit,
+    onRefreshClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TabActionButton(
+            imageVector = Icons.Default.Add,
+            contentDescription = stringResource(R.string.open_url),
+            onClick = onCreateTabClick,
+        )
+        TabListSwitchSection(
+            modifier = Modifier.weight(1f),
+            selectedIndex = selectedIndex,
+            onSelect = onSelect,
+        )
+        if (isBoardPage) {
+            Spacer(modifier = Modifier.size(48.dp))
+        } else {
+            TabActionButton(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = stringResource(R.string.refresh),
+                onClick = onRefreshClick,
+            )
+        }
+    }
+}
+
+/**
  * 下部操作群の上段に板/スレ切替UIを表示する。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun TabListSwitchSection(
     modifier: Modifier = Modifier,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
 ) {
-    val roundedCornerShape = RoundedCornerShape(20.dp)
+    val roundedCornerShape = MaterialTheme.shapes.extraLargeIncreased
     Surface(
         modifier = modifier
             .border(
                 width = 1.dp,
                 color = MaterialTheme.colorScheme.outlineVariant,
-                shape = RoundedCornerShape(20.dp),
+                shape = roundedCornerShape,
             ),
         shape = roundedCornerShape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
@@ -148,7 +186,8 @@ private fun TabListSwitchSection(
                 Button(
                     modifier = Modifier
                         .weight(1f)
-                        .height(40.dp),
+                        .height(48.dp)
+                        .padding(horizontal = 2.dp, vertical = 2.dp),
                     shape = roundedCornerShape,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isSelected) {
@@ -162,6 +201,7 @@ private fun TabListSwitchSection(
                             MaterialTheme.colorScheme.onSurface
                         }
                     ),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                     onClick = { onSelect(index) },
                 ) {
                     Text(
@@ -177,44 +217,6 @@ private fun TabListSwitchSection(
 }
 
 /**
- * 下部操作群を1段で配置し、左から作成・切替・更新を表示する。
- */
-@Composable
-private fun TabListInlineSection(
-    selectedIndex: Int,
-    isBoardPage: Boolean,
-    onSelect: (Int) -> Unit,
-    onCreateTabClick: () -> Unit,
-    onRefreshClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        TabActionButton(
-            imageVector = Icons.Default.Add,
-            contentDescription = stringResource(R.string.open_url),
-            onClick = onCreateTabClick,
-        )
-        TabListSwitchSection(
-            modifier = Modifier.weight(1f),
-            selectedIndex = selectedIndex,
-            onSelect = onSelect,
-        )
-        if (isBoardPage) {
-            Spacer(modifier = Modifier.size(44.dp))
-        } else {
-            TabActionButton(
-                imageVector = Icons.Default.Refresh,
-                contentDescription = stringResource(R.string.refresh),
-                onClick = onRefreshClick,
-            )
-        }
-    }
-}
-
-/**
  * 下部操作群の丸形アイコンボタンを表示する。
  */
 @Composable
@@ -225,11 +227,11 @@ private fun TabActionButton(
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.size(44.dp),
+        modifier = Modifier.size(48.dp),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        ) {
+    ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 modifier = Modifier.size(28.dp),

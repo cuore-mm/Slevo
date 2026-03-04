@@ -81,7 +81,9 @@ internal fun TabListCard(
             ) {
                 // --- Header ---
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
@@ -106,7 +108,7 @@ internal fun TabListCard(
                                     color = MaterialTheme.colorScheme.surfaceVariant,
                                     shape = CircleShape,
                                 )
-                                .size(20.dp),
+                                .size(24.dp),
                             onClick = {
                                 // タブクローズ操作は一覧遷移より優先して処理する。
                                 onCloseClick()
@@ -122,13 +124,15 @@ internal fun TabListCard(
                 }
                 // --- Body ---
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                     ),
 
-                ) {
+                    ) {
                     Text(
                         text = bodyTitle,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
