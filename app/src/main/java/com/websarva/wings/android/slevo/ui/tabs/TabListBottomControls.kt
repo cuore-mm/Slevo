@@ -23,9 +23,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -211,11 +214,21 @@ private fun TabListSwitchSection(
             Row(modifier = Modifier.fillMaxSize()) {
                 options.forEachIndexed { index, label ->
                     val isSelected = selectedIndex == index
+                    val segmentShape = when (index) {
+                        0 -> RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp)
+                        options.lastIndex -> RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)
+                        else -> RoundedCornerShape(0.dp)
+                    }
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .clickable { onSelect(index) },
+                            .clip(segmentShape)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = rememberRipple(bounded = true),
+                                onClick = { onSelect(index) },
+                            ),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
