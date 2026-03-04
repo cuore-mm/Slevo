@@ -31,18 +31,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import dev.chrisbanes.haze.HazeProgressive
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.launch
 
@@ -50,13 +51,14 @@ import kotlinx.coroutines.launch
  * タブ一覧の下部操作群で利用するデフォルト寸法を保持する。
  */
 internal object TabListBottomControlsDefaults {
-    val listBottomPadding: Dp = 16.dp
-    val hazeTopOverlap: Dp = 40.dp
+    val listBottomPadding: Dp = 0.dp
+    val hazeTopOverlap: Dp = 48.dp
 }
 
 /**
  * 下部の2段操作群を表示し、板/スレ切替とタブ操作を提供する。
  */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 internal fun TabListBottomControls(
     modifier: Modifier = Modifier,
@@ -68,41 +70,32 @@ internal fun TabListBottomControls(
     val isBoardPage = pagerState.currentPage == 0
     val coroutineScope = rememberCoroutineScope()
 
-    // --- Haze style ---
-    val hazeStyle = HazeStyle(
-        tints = listOf(
-            HazeTint(MaterialTheme.colorScheme.surface.copy(alpha = 0.35f)),
-            HazeTint(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f)),
-        ),
-    )
-
     val tapGuardInteractionSource = remember { MutableInteractionSource() }
 
     // --- Floating controls layout ---
     Box(modifier = modifier) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
                 .matchParentSize()
-                .hazeEffect(state = hazeState, style = hazeStyle) {
-                    mask = Brush.verticalGradient(
-                        0.0f to Color.Transparent,
-                        0.10f to Color.White.copy(alpha = 0.7f),
-                        0.8f to Color.White,
+                .hazeEffect(state = hazeState, style = HazeMaterials.ultraThin()) {
+                    progressive = HazeProgressive.verticalGradient(
+                        startIntensity = 0f,
+                        endIntensity = 0.5f,
+                        preferPerformance = true
                     )
                 }
-                .padding(top = TabListBottomControlsDefaults.hazeTopOverlap)
         )
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .padding(top = TabListBottomControlsDefaults.hazeTopOverlap)
                 .clickable(
                     interactionSource = tapGuardInteractionSource,
                     indication = null,
                     onClick = {},
                 )
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             TabListSwitchSection(
@@ -162,7 +155,7 @@ private fun TabListSwitchSection(
                         containerColor = if (isSelected) {
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                         } else {
-                            MaterialTheme.colorScheme.surface
+                            Color.Transparent
                         },
                         contentColor = if (isSelected) {
                             MaterialTheme.colorScheme.onPrimary
@@ -172,7 +165,12 @@ private fun TabListSwitchSection(
                     ),
                     onClick = { onSelect(index) },
                 ) {
-                    Text(text = label, style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
                 }
             }
         }
@@ -227,12 +225,12 @@ private fun TabActionButton(
 ) {
     Surface(
         onClick = onClick,
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        shadowElevation = 3.dp,
-        tonalElevation = 0.dp,
         modifier = Modifier.size(44.dp),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
+        shadowElevation = 3.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(

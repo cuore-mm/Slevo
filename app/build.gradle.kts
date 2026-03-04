@@ -217,6 +217,7 @@ dependencies {
 
     // Haze
     implementation(libs.haze)
+    implementation(libs.haze.materials)
 
     // AboutLibraries
     implementation(libs.aboutlibraries.compose.m3)
