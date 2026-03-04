@@ -1,25 +1,14 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -30,8 +19,6 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * 開いているスレッドタブの一覧をカード表示し、選択されたタブへ遷移する。
@@ -48,56 +35,41 @@ fun OpenThreadsList(
     onItemClick: (ThreadTabInfo) -> Unit = {},
     tabsViewModel: TabsViewModel? = null,
 ) {
-    val removingTabs = remember { mutableStateMapOf<String, Boolean>() }
-    val coroutineScope = rememberCoroutineScope()
-
     // --- List ---
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
+    RemovableTabList(
+        modifier = modifier,
+        tabItems = openTabs,
+        keyOf = { it.id.value },
         contentPadding = contentPadding,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        items(openTabs, key = { it.id.value }) { tab ->
-            val isRemoving = removingTabs[tab.id.value] == true
-            AnimatedVisibility(
-                visible = !isRemoving,
-                exit = shrinkVertically(animationSpec = tween(180)) +
-                    fadeOut(animationSpec = tween(180)),
-            ) {
-                OpenThreadCard(
-                    tab = tab,
-                    newResCount = newResCounts[tab.id.value] ?: 0,
-                    onClick = {
-                        if (isRemoving) return@OpenThreadCard
-                        closeDrawer()
-                        onItemClick(tab)
-                        val route = AppRoute.Thread(
-                            threadKey = tab.threadKey,
-                            boardUrl = tab.boardUrl,
-                            boardName = tab.boardName,
-                            boardId = tab.boardId,
-                            threadTitle = tab.title,
-                            resCount = tab.resCount
-                        )
-                        navController.navigateToThread(
-                            route = route,
-                            tabsViewModel = tabsViewModel,
-                        ) {
-                            restoreState = true
-                        }
-                    },
-                    onCloseClick = {
-                        if (isRemoving) return@OpenThreadCard
-                        removingTabs[tab.id.value] = true
-                        coroutineScope.launch {
-                            delay(180)
-                            onCloseClick(tab)
-                            removingTabs.remove(tab.id.value)
-                        }
-                    },
+        onRemoveConfirmed = { onCloseClick(it) },
+    ) { tab, isRemoving, requestRemove ->
+        OpenThreadCard(
+            tab = tab,
+            newResCount = newResCounts[tab.id.value] ?: 0,
+            onClick = {
+                if (isRemoving) return@OpenThreadCard
+                closeDrawer()
+                onItemClick(tab)
+                val route = AppRoute.Thread(
+                    threadKey = tab.threadKey,
+                    boardUrl = tab.boardUrl,
+                    boardName = tab.boardName,
+                    boardId = tab.boardId,
+                    threadTitle = tab.title,
+                    resCount = tab.resCount
                 )
-            }
-        }
+                navController.navigateToThread(
+                    route = route,
+                    tabsViewModel = tabsViewModel,
+                ) {
+                    restoreState = true
+                }
+            },
+            onCloseClick = {
+                if (isRemoving) return@OpenThreadCard
+                requestRemove()
+            },
+        )
     }
 }
 
