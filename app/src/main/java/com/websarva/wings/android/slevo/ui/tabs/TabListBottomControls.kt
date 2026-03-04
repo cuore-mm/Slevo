@@ -134,7 +134,6 @@ private fun TabListSwitchSection(
             ),
         shape = roundedCornerShape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
-        shadowElevation = 3.dp,
     ) {
         val options = listOf(
             stringResource(R.string.board),
@@ -228,10 +227,8 @@ private fun TabActionButton(
         modifier = Modifier.size(44.dp),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
-        shadowElevation = 3.dp,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-
-    ) {
+        ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 modifier = Modifier.size(28.dp),
