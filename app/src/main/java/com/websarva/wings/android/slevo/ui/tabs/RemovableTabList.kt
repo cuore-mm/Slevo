@@ -59,7 +59,7 @@ internal fun <T> RemovableTabList(
                 itemContent(
                     item,
                     isRemoving,
-                    requestRemove = {
+                    {
                         if (!isRemoving) {
                             // 退出アニメーション完了後に削除契約を実行する。
                             removingItems[itemKey] = true
