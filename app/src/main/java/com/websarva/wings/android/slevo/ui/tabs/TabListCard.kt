@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -20,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -49,7 +49,7 @@ import java.net.URI
 @Composable
 internal fun TabListCard(
     modifier: Modifier = Modifier,
-    accentColor: Color?,
+    bookmarkColor: Color?,
     onClick: () -> Unit,
     headerTitle: String,
     headerTrailingContent: @Composable RowScope.() -> Unit = {},
@@ -69,19 +69,6 @@ internal fun TabListCard(
         ),
     ) {
         Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-            // --- Accent bar ---
-            if (accentColor != null) {
-                Spacer(
-                    modifier = Modifier
-                        .width(8.dp)
-                        .fillMaxHeight()
-                        .background(
-                            color = accentColor,
-                            shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
-                        )
-                )
-            }
-
             // --- Card body ---
             Column(
                 modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
@@ -95,7 +82,19 @@ internal fun TabListCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (bookmarkColor != null) {
+                            Icon(
+                                modifier = Modifier.size(14.dp),
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = bookmarkColor,
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
                         Text(
                             text = headerTitle,
                             style = MaterialTheme.typography.labelSmall,
@@ -174,7 +173,7 @@ internal fun TabListCard(
 fun TabListCardPreview() {
     TabListCard(
         modifier = Modifier.padding(12.dp),
-        accentColor = null,
+        bookmarkColor = null,
         onClick = {},
         headerTitle = "example.com",
         headerTrailingContent = {
@@ -206,7 +205,7 @@ fun TabListCardPreview() {
 fun ColoredTabListCardPreview() {
     TabListCard(
         modifier = Modifier.padding(12.dp),
-        accentColor = MaterialTheme.colorScheme.primary,
+        bookmarkColor = MaterialTheme.colorScheme.primary,
         onClick = {},
         headerTitle = "example.com",
         headerTrailingContent = {

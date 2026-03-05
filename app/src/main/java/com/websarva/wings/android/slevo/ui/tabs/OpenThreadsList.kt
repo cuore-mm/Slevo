@@ -88,7 +88,7 @@ private fun OpenThreadCard(
 
     TabListCard(
         modifier = Modifier.padding(horizontal = 12.dp),
-        accentColor = color,
+        bookmarkColor = color,
         onClick = onClick,
         headerTitle = tab.boardName,
         headerTrailingContent = {

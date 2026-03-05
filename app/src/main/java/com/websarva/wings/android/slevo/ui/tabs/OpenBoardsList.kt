@@ -74,7 +74,7 @@ private fun OpenBoardCard(
 
     TabListCard(
         modifier = Modifier.padding(horizontal = 12.dp),
-        accentColor = color,
+        bookmarkColor = color,
         onClick = onClick,
         headerTitle = serviceName,
         bodyTitle = tab.boardName,
