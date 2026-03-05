@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -78,7 +79,7 @@ internal fun TabListCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp, end = 8.dp),
+                        .padding(start = 8.dp, end = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
@@ -87,13 +88,23 @@ internal fun TabListCard(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (bookmarkColor != null) {
-                            Icon(
-                                modifier = Modifier.size(14.dp),
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                                tint = bookmarkColor,
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.StarBorder,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Icon(
+                                    imageVector = Icons.Filled.Star,
+                                    contentDescription = null,
+                                    tint = bookmarkColor,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                        } else {
+                            Spacer(modifier = Modifier.width(8.dp))
                         }
                         Text(
                             text = headerTitle,
@@ -144,7 +155,7 @@ internal fun TabListCard(
                     val verticalPadding = 8.dp
                     val textMinHeight =
                         with(density) { (bodyStyle.lineHeight * bodyMaxLines).toDp() } +
-                            verticalPadding * 2
+                                verticalPadding * 2
 
                     Box(
                         modifier = Modifier
