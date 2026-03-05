@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateMapOf
@@ -14,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 
 /**
  * タブ一覧の削除アニメーション付きリスト表示を共通化する。
@@ -34,6 +37,7 @@ internal fun <T> RemovableTabList(
 ) {
     // --- State ---
     val removingItems = remember { mutableStateMapOf<String, Boolean>() }
+    val listState = rememberLazyListState()
 
     // --- Cleanup ---
     LaunchedEffect(tabItems) {
@@ -43,34 +47,43 @@ internal fun <T> RemovableTabList(
     }
 
     // --- List ---
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = contentPadding,
-        verticalArrangement = Arrangement.spacedBy(verticalSpacing),
+    SlevoLazyColumnScrollbar(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(bottom = contentPadding.calculateBottomPadding()),
+        state = listState,
+        enabled = tabItems.size > 1,
     ) {
-        items(tabItems, key = { keyOf(it) }) { item ->
-            val itemKey = keyOf(item)
-            val isRemoving = removingItems[itemKey] == true
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
+            verticalArrangement = Arrangement.spacedBy(verticalSpacing),
+        ) {
+            items(tabItems, key = { keyOf(it) }) { item ->
+                val itemKey = keyOf(item)
+                val isRemoving = removingItems[itemKey] == true
 
-            // --- Removal animation ---
-            Box(
-                modifier = Modifier.animateItem(
-                    fadeInSpec = tween(removalDurationMillis),
-                    fadeOutSpec = tween(removalDurationMillis),
-                    placementSpec = tween(removalDurationMillis),
-                )
-            ) {
-                itemContent(
-                    item,
-                    isRemoving,
-                    {
-                        if (!isRemoving) {
-                            // 退出アニメーションはリスト更新に合わせて適用される。
-                            removingItems[itemKey] = true
-                            onRemoveConfirmed(item)
+                // --- Removal animation ---
+                Box(
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = tween(removalDurationMillis),
+                        fadeOutSpec = tween(removalDurationMillis),
+                        placementSpec = tween(removalDurationMillis),
+                    )
+                ) {
+                    itemContent(
+                        item,
+                        isRemoving,
+                        {
+                            if (!isRemoving) {
+                                // 退出アニメーションはリスト更新に合わせて適用される。
+                                removingItems[itemKey] = true
+                                onRemoveConfirmed(item)
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
     }
