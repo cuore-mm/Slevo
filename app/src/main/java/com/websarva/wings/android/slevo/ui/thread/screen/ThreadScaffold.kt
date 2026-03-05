@@ -139,9 +139,8 @@ fun ThreadScaffold(
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setThreadCurrentPage(it) },
         animateToPageFlow = tabsViewModel.threadPageAnimation,
-        bottomBarScrollBehavior = { listState ->
+        bottomBarScrollBehavior = {
             rememberBottomBarShowOnBottomBehavior(
-                listState = listState,
                 scrollEnabled = !isPopupVisible
             )
         },

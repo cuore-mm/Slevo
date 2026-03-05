@@ -114,7 +114,7 @@ fun BoardScaffold(
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setBoardCurrentPage(it) },
         animateToPageFlow = tabsViewModel.boardPageAnimation,
-        bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
+        bottomBarScrollBehavior = { rememberBottomBarShowOnBottomBehavior() },
         bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
             val actions = listOf(
                 TabToolBarAction(
