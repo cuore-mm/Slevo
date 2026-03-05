@@ -49,9 +49,6 @@ fun TabScreenContent(
     initialPage: Int = 0,
     onPageChanged: (Int) -> Unit = {}
 ) {
-    // --- Dialog state ---
-    var showUrlDialog by remember { mutableStateOf(false) }
-    var urlError by remember { mutableStateOf<String?>(null) }
     val uiState by tabsViewModel.uiState.collectAsState()
     val invalidUrlMessage = stringResource(R.string.invalid_url)
     val coroutineScope = rememberCoroutineScope()
@@ -76,8 +73,8 @@ fun TabScreenContent(
                 pagerState = pagerState,
                 hazeState = hazeState,
                 onCreateTabClick = {
-                    urlError = null
-                    showUrlDialog = true
+                    tabsViewModel.setUrlErrorMessage(null)
+                    tabsViewModel.setUrlDialogVisible(true)
                 },
                 onRefreshClick = { tabsViewModel.refreshOpenThreads() },
             )
@@ -113,18 +110,17 @@ fun TabScreenContent(
             }
 
             // --- URL dialog ---
-            if (showUrlDialog) {
+            if (uiState.showUrlDialog) {
                 UrlOpenDialog(
                     onDismissRequest = {
-                        showUrlDialog = false
-                        urlError = null
+                        tabsViewModel.setUrlDialogVisible(false)
                     },
-                    isError = urlError != null,
-                    errorMessage = urlError,
+                    isError = uiState.urlErrorMessage != null,
+                    errorMessage = uiState.urlErrorMessage,
                     isValidating = uiState.isUrlValidating,
                     onValueChange = {
-                        if (urlError != null) {
-                            urlError = null
+                        if (uiState.urlErrorMessage != null) {
+                            tabsViewModel.setUrlErrorMessage(null)
                         }
                     },
                     onOpen = { url ->
@@ -133,7 +129,7 @@ fun TabScreenContent(
                         // --- itest board handling ---
                         if (resolved is ResolvedUrl.ItestBoard) {
                             // itest URLはホスト解決が必要なため非同期で処理する。
-                            urlError = null
+                            tabsViewModel.setUrlErrorMessage(null)
                             coroutineScope.launch {
                                 try {
                                     val host = tabsViewModel.resolveBoardHost(resolved.boardKey)
@@ -147,12 +143,12 @@ fun TabScreenContent(
                                             route = route,
                                             tabsViewModel = tabsViewModel,
                                         )
-                                        urlError = null
-                                        showUrlDialog = false
+                                        tabsViewModel.setUrlErrorMessage(null)
+                                        tabsViewModel.setUrlDialogVisible(false)
                                         closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
                                     } else {
                                         // URL解析に失敗したため、エラーを表示して閉じない。
-                                        urlError = invalidUrlMessage
+                                        tabsViewModel.setUrlErrorMessage(invalidUrlMessage)
                                     }
                                 } finally {
                                     tabsViewModel.finishUrlValidation()
@@ -173,8 +169,8 @@ fun TabScreenContent(
                                 route = route,
                                 tabsViewModel = tabsViewModel,
                             )
-                            urlError = null
-                            showUrlDialog = false
+                            tabsViewModel.setUrlErrorMessage(null)
+                            tabsViewModel.setUrlDialogVisible(false)
                             closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
                             tabsViewModel.finishUrlValidation()
                             return@UrlOpenDialog
@@ -182,27 +178,27 @@ fun TabScreenContent(
                         // --- Board URL handling ---
                         if (resolved is ResolvedUrl.Board) {
                             val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
-                            val route = AppRoute.Board(
-                                boardName = boardUrl,
-                                boardUrl = boardUrl
-                            )
+                        val route = AppRoute.Board(
+                            boardName = boardUrl,
+                            boardUrl = boardUrl
+                        )
                             navController.navigateToBoard(
                                 route = route,
                                 tabsViewModel = tabsViewModel,
                             )
-                            urlError = null
-                            showUrlDialog = false
-                            closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
-                            tabsViewModel.finishUrlValidation()
-                            return@UrlOpenDialog
-                        }
-                        // --- Invalid URL ---
-                        // URL解析に失敗したため、エラーを表示して閉じない。
-                        urlError = invalidUrlMessage
+                        tabsViewModel.setUrlErrorMessage(null)
+                        tabsViewModel.setUrlDialogVisible(false)
+                        closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
                         tabsViewModel.finishUrlValidation()
+                        return@UrlOpenDialog
                     }
-                )
-            }
+                    // --- Invalid URL ---
+                    // URL解析に失敗したため、エラーを表示して閉じない。
+                    tabsViewModel.setUrlErrorMessage(invalidUrlMessage)
+                    tabsViewModel.finishUrlValidation()
+                }
+            )
         }
     }
+}
 }

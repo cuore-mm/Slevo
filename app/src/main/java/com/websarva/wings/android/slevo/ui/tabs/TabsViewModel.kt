@@ -47,12 +47,16 @@ class TabsViewModel @Inject constructor(
     }
 
     private val urlValidationState = MutableStateFlow(false)
+    private val urlDialogState = MutableStateFlow(false)
+    private val urlErrorState = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<TabsUiState> = combine(
         boardTabsState,
         threadTabsState,
         urlValidationState,
-    ) { boardState, threadState, isUrlValidating ->
+        urlDialogState,
+        urlErrorState,
+    ) { boardState, threadState, isUrlValidating, showUrlDialog, urlErrorMessage ->
         TabsUiState(
             openThreadTabs = threadState.openThreadTabs,
             openBoardTabs = boardState.openBoardTabs,
@@ -61,6 +65,8 @@ class TabsViewModel @Inject constructor(
             isRefreshing = threadState.isRefreshing,
             newResCounts = threadState.newResCounts,
             isUrlValidating = isUrlValidating,
+            showUrlDialog = showUrlDialog,
+            urlErrorMessage = urlErrorMessage,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, TabsUiState())
 
@@ -163,6 +169,23 @@ class TabsViewModel @Inject constructor(
 
     fun finishUrlValidation() {
         urlValidationState.value = false
+    }
+
+    /**
+     * URL入力ダイアログの表示状態を切り替える。
+     */
+    fun setUrlDialogVisible(visible: Boolean) {
+        urlDialogState.value = visible
+        if (!visible) {
+            urlErrorState.value = null
+        }
+    }
+
+    /**
+     * URL入力ダイアログに表示するエラーメッセージを更新する。
+     */
+    fun setUrlErrorMessage(message: String?) {
+        urlErrorState.value = message
     }
 
     /**

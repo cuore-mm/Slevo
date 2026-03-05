@@ -11,6 +11,8 @@ data class TabsUiState(
     val isRefreshing: Boolean = false,
     val newResCounts: Map<String, Int> = emptyMap(),
     val isUrlValidating: Boolean = false,
+    val showUrlDialog: Boolean = false,
+    val urlErrorMessage: String? = null,
 ) {
     // isLoadingを他の状態から計算する算出プロパティとして定義
     val isLoading: Boolean
