@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.tabs
 
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -22,12 +23,14 @@ fun TabsBottomSheet(
         modifier = modifier,
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
+        sheetGesturesEnabled = false,
+        containerColor = MaterialTheme.colorScheme.background,
     ) {
         TabScreenContent(
-            modifier = Modifier.fillMaxHeight(0.8f),
+            modifier = Modifier.fillMaxHeight(0.95f),
             tabsViewModel = tabsViewModel,
             navController = navController,
-            closeDrawer = onDismissRequest, // ボトムシートを閉じる
+            closeDrawer = onDismissRequest,
             initialPage = initialPage
         )
     }

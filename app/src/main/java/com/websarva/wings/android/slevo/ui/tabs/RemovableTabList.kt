@@ -47,13 +47,7 @@ internal fun <T> RemovableTabList(
     }
 
     // --- List ---
-    SlevoLazyColumnScrollbar(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(bottom = contentPadding.calculateBottomPadding()),
-        state = listState,
-        enabled = tabItems.size > 1,
-    ) {
+    Box {
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
@@ -74,17 +68,23 @@ internal fun <T> RemovableTabList(
                 ) {
                     itemContent(
                         item,
-                        isRemoving,
-                        {
-                            if (!isRemoving) {
-                                // 退出アニメーションはリスト更新に合わせて適用される。
-                                removingItems[itemKey] = true
-                                onRemoveConfirmed(item)
-                            }
+                        isRemoving
+                    ) {
+                        if (!isRemoving) {
+                            // 退出アニメーションはリスト更新に合わせて適用される。
+                            removingItems[itemKey] = true
+                            onRemoveConfirmed(item)
                         }
-                    )
+                    }
                 }
             }
         }
+        SlevoLazyColumnScrollbar(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(bottom = contentPadding.calculateBottomPadding() - 24.dp),
+            state = listState,
+            enabled = tabItems.size > 1,
+        ) {}
     }
 }
