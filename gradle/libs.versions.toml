@@ -3,6 +3,7 @@ aboutlibrariesComposeM3 = "13.2.1"
 agp = "9.0.1"
 coilComposeVersion = "3.3.0"
 datastorePreferences = "1.2.0"
+hazeMaterials = "1.7.2"
 lazyColumnScrollbar = "2.2.0"
 hiltAndroid = "2.59.1"
 hiltNavigationCompose = "1.2.0"
@@ -50,6 +51,7 @@ androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coilComposeVersion" }
 coil3-coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilComposeVersion" }
 coil3-coil-gif = { module = "io.coil-kt.coil3:coil-gif", version.ref = "coilComposeVersion" }
+haze-materials = { module = "dev.chrisbanes.haze:haze-materials", version.ref = "hazeMaterials" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hiltAndroid" }
 hilt-android-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hiltAndroid" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }

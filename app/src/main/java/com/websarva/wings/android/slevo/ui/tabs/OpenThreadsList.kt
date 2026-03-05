@@ -1,39 +1,19 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
@@ -41,9 +21,8 @@ import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 
 /**
- * 開いているスレッドタブの一覧を表示し、選択されたタブへ遷移する。
+ * 開いているスレッドタブの一覧をカード表示し、選択されたタブへ遷移する。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OpenThreadsList(
     modifier: Modifier = Modifier,
@@ -51,99 +30,96 @@ fun OpenThreadsList(
     onCloseClick: (ThreadTabInfo) -> Unit = {},
     navController: NavHostController,
     closeDrawer: () -> Unit,
-    isRefreshing: Boolean = false,
-    onRefresh: () -> Unit = {},
+    contentPadding: PaddingValues = PaddingValues(0.dp),
     newResCounts: Map<String, Int> = emptyMap(),
     onItemClick: (ThreadTabInfo) -> Unit = {},
     tabsViewModel: TabsViewModel? = null,
 ) {
-    PullToRefreshBox(
+    // --- List ---
+    RemovableTabList(
         modifier = modifier,
-        isRefreshing = isRefreshing,
-        onRefresh = onRefresh,
-    ) {
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(openTabs, key = { it.id.value }) { tab ->
-                val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
-                Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-                    if (color != null) {
-                        Box(
-                            modifier = Modifier
-                                .width(8.dp)
-                                .fillMaxHeight()
-                                .background(color)
-                        )
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                closeDrawer()
-                                onItemClick(tab)
-                                val route = AppRoute.Thread(
-                                    threadKey = tab.threadKey,
-                                    boardUrl = tab.boardUrl,
-                                    boardName = tab.boardName,
-                                    boardId = tab.boardId,
-                                    threadTitle = tab.title,
-                                    resCount = tab.resCount
-                                )
-                                navController.navigateToThread(
-                                    route = route,
-                                    tabsViewModel = tabsViewModel,
-                                ) {
-                                    restoreState = true
-                                }
-                            }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = tab.title,
-                                style = MaterialTheme.typography.bodyLarge,
-                                // タイトルが長くなっても改行して全文表示されるようにする
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = tab.boardName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = tab.resCount.toString(),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            IconButton(onClick = { onCloseClick(tab) }) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = stringResource(R.string.close)
-                                )
-                            }
-                            val diff = newResCounts[tab.id.value] ?: 0
-                            if (diff > 0) {
-                                Text(
-                                    text = "+$diff",
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            }
-                        }
-                    }
+        tabItems = openTabs,
+        keyOf = { it.id.value },
+        contentPadding = contentPadding,
+        onRemoveConfirmed = { onCloseClick(it) },
+    ) { tab, isRemoving, requestRemove ->
+        OpenThreadCard(
+            tab = tab,
+            newResCount = newResCounts[tab.id.value] ?: 0,
+            onClick = {
+                if (isRemoving) return@OpenThreadCard
+                closeDrawer()
+                onItemClick(tab)
+                val route = AppRoute.Thread(
+                    threadKey = tab.threadKey,
+                    boardUrl = tab.boardUrl,
+                    boardName = tab.boardName,
+                    boardId = tab.boardId,
+                    threadTitle = tab.title,
+                    resCount = tab.resCount
+                )
+                navController.navigateToThread(
+                    route = route,
+                    tabsViewModel = tabsViewModel,
+                ) {
+                    restoreState = true
                 }
-                HorizontalDivider()
-            }
-        }
+            },
+            onCloseClick = {
+                if (isRemoving) return@OpenThreadCard
+                requestRemove()
+            },
+        )
     }
+}
+
+/**
+ * スレッドタブをカード表示する。
+ */
+@Composable
+private fun OpenThreadCard(
+    tab: ThreadTabInfo,
+    newResCount: Int,
+    onClick: () -> Unit,
+    onCloseClick: () -> Unit,
+) {
+    // --- Card highlight ---
+    val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
+
+    TabListCard(
+        modifier = Modifier.padding(horizontal = 12.dp),
+        bookmarkColor = color,
+        onClick = onClick,
+        headerTitle = tab.boardName,
+        headerTrailingContent = {
+            Text(
+                text = tab.resCount.toString(),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (newResCount > 0) {
+                // 新着バッジは板画面の強調スタイルに合わせる。
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "+$newResCount",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier
+                        .background(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = RoundedCornerShape(999.dp),
+                        )
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
+        },
+        bodyTitle = tab.title,
+        bodyMaxLines = 2,
+        onCloseClick = {
+            // タブクローズ操作は一覧遷移より優先して処理する。
+            onCloseClick()
+        },
+    )
 }
 
 @Preview(showBackground = true)
@@ -182,8 +158,7 @@ fun OpenThreadsListPreview() {
         onCloseClick = {},
         navController = rememberNavController(),
         closeDrawer = {},
-        isRefreshing = false,
-        onRefresh = {},
+        contentPadding = PaddingValues(0.dp),
         newResCounts = emptyMap(),
         onItemClick = {}
     )

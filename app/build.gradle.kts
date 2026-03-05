@@ -145,6 +145,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.foundation)
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
@@ -217,6 +218,7 @@ dependencies {
 
     // Haze
     implementation(libs.haze)
+    implementation(libs.haze.materials)
 
     // AboutLibraries
     implementation(libs.aboutlibraries.compose.m3)

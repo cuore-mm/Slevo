@@ -35,6 +35,7 @@ fun rememberSlevoScrollbarSettings(
     return remember(enabled, isThumbSelected, thumbThickness, colorScheme) {
         ScrollbarSettings.Default.copy(
             enabled = enabled,
+            scrollbarPadding = 4.dp,
             thumbThickness = thumbThickness,
             thumbUnselectedColor = colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
             thumbSelectedColor = colorScheme.primary.copy(alpha = 0.85f),

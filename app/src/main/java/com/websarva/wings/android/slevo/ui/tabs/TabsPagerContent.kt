@@ -1,76 +1,55 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.Text
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import com.websarva.wings.android.slevo.R
-import kotlinx.coroutines.launch
 
+/**
+ * タブ一覧のページャーを提供し、板/スレ一覧を切り替えて表示する。
+ */
 @Composable
 fun TabsPagerContent(
     modifier: Modifier = Modifier,
+    pagerState: PagerState,
     tabsViewModel: TabsViewModel,
     navController: NavHostController,
     closeDrawer: () -> Unit,
-    initialPage: Int = 0,
-    onPageChanged: (Int) -> Unit = {}
+    listContentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     val uiState by tabsViewModel.uiState.collectAsState()
 
-    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 2 })
-    val scope = rememberCoroutineScope()
+    HorizontalPager(
+        state = pagerState,
+        modifier = modifier.fillMaxSize(),
+    ) { page ->
+        when (page) {
+            0 -> OpenBoardsList(
+                openTabs = uiState.openBoardTabs,
+                onCloseClick = { tabsViewModel.closeBoardTab(it) },
+                navController = navController,
+                closeDrawer = closeDrawer,
+                contentPadding = listContentPadding,
+                tabsViewModel = tabsViewModel,
+            )
 
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }.collect { onPageChanged(it) }
-    }
-
-    Column(modifier = modifier) {
-        TabRow(selectedTabIndex = pagerState.currentPage) {
-            listOf(
-                stringResource(R.string.board),
-                stringResource(R.string.thread)
-            ).forEachIndexed { index, text ->
-                Tab(
-                    selected = pagerState.currentPage == index,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                    text = { Text(text) }
-                )
-            }
-        }
-        HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
-            when (page) {
-                0 -> OpenBoardsList(
-                    openTabs = uiState.openBoardTabs,
-                    onCloseClick = { tabsViewModel.closeBoardTab(it) },
-                    navController = navController,
-                    closeDrawer = closeDrawer,
-                    tabsViewModel = tabsViewModel
-                )
-
-                else -> OpenThreadsList(
-                    openTabs = uiState.openThreadTabs,
-                    onCloseClick = { tabsViewModel.closeThreadTab(it) },
-                    navController = navController,
-                    closeDrawer = closeDrawer,
-                    isRefreshing = uiState.isRefreshing,
-                    onRefresh = { tabsViewModel.refreshOpenThreads() },
-                    newResCounts = uiState.newResCounts,
-                    onItemClick = { tabsViewModel.clearNewResCount(it.id) },
-                    tabsViewModel = tabsViewModel
-                )
-            }
+            else -> OpenThreadsList(
+                openTabs = uiState.openThreadTabs,
+                onCloseClick = { tabsViewModel.closeThreadTab(it) },
+                navController = navController,
+                closeDrawer = closeDrawer,
+                contentPadding = listContentPadding,
+                newResCounts = uiState.newResCounts,
+                onItemClick = { tabsViewModel.clearNewResCount(it.id) },
+                tabsViewModel = tabsViewModel,
+            )
         }
     }
 }

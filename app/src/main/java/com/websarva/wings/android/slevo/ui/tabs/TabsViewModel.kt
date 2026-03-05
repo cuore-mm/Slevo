@@ -11,10 +11,10 @@ import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -47,12 +47,16 @@ class TabsViewModel @Inject constructor(
     }
 
     private val urlValidationState = MutableStateFlow(false)
+    private val urlDialogState = MutableStateFlow(false)
+    private val urlErrorState = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<TabsUiState> = combine(
         boardTabsState,
         threadTabsState,
         urlValidationState,
-    ) { boardState, threadState, isUrlValidating ->
+        urlDialogState,
+        urlErrorState,
+    ) { boardState, threadState, isUrlValidating, showUrlDialog, urlErrorMessage ->
         TabsUiState(
             openThreadTabs = threadState.openThreadTabs,
             openBoardTabs = boardState.openBoardTabs,
@@ -61,6 +65,8 @@ class TabsViewModel @Inject constructor(
             isRefreshing = threadState.isRefreshing,
             newResCounts = threadState.newResCounts,
             isUrlValidating = isUrlValidating,
+            showUrlDialog = showUrlDialog,
+            urlErrorMessage = urlErrorMessage,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, TabsUiState())
 
@@ -93,10 +99,6 @@ class TabsViewModel @Inject constructor(
         return boardTabsCoordinator.ensureBoardTab(route)
     }
 
-    fun openBoardTab(boardTabInfo: BoardTabInfo) {
-        boardTabsCoordinator.openBoardTab(boardTabInfo)
-    }
-
     fun closeBoardTab(tab: BoardTabInfo) {
         boardTabsCoordinator.closeBoardTab(tab)
     }
@@ -117,10 +119,6 @@ class TabsViewModel @Inject constructor(
         boardTabsCoordinator.setBoardCurrentPage(page)
     }
 
-    fun moveBoardPage(offset: Int) {
-        boardTabsCoordinator.moveBoardPage(offset)
-    }
-
     fun animateBoardPage(offset: Int) {
         boardTabsCoordinator.animateBoardPage(offset)
     }
@@ -139,10 +137,6 @@ class TabsViewModel @Inject constructor(
 
     fun setThreadCurrentPage(page: Int) {
         threadTabsCoordinator.setThreadCurrentPage(page)
-    }
-
-    fun moveThreadPage(offset: Int) {
-        threadTabsCoordinator.moveThreadPage(offset)
     }
 
     fun animateThreadPage(offset: Int) {
@@ -166,16 +160,29 @@ class TabsViewModel @Inject constructor(
     }
 
     /**
+     * URL入力ダイアログの表示状態を切り替える。
+     */
+    fun setUrlDialogVisible(visible: Boolean) {
+        urlDialogState.value = visible
+        if (!visible) {
+            urlErrorState.value = null
+        }
+    }
+
+    /**
+     * URL入力ダイアログに表示するエラーメッセージを更新する。
+     */
+    fun setUrlErrorMessage(message: String?) {
+        urlErrorState.value = message
+    }
+
+    /**
      * boardKey からホストを解決する。
      * DBに無い場合は bbsmenu を参照して補完する。
      */
     suspend fun resolveBoardHost(boardKey: String): String? {
         return boardRepository.resolveHostByBoardKey(boardKey)
             ?: bbsServiceRepository.resolveHostByBoardKeyFromMenu(boardKey)
-    }
-
-    fun getTabInfo(threadId: ThreadId): ThreadTabInfo? {
-        return threadTabsCoordinator.getTabInfo(threadId)
     }
 
     suspend fun resolveBoardInfo(

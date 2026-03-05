@@ -24,6 +24,7 @@
     - Prefer small, previewable composables
     - Keep state in `ViewModel`
     - UI parameters should be immutable
+    - When creating a new Composable, also create a corresponding `@Preview` function by default (unless the UI is not meaningfully previewable, e.g., requires runtime-only dependencies).
 
 ## Architecture / Separation of Concerns
 - Separate responsibilities into appropriate layers/files such as:
