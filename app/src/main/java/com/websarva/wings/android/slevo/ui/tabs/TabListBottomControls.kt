@@ -1,5 +1,7 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -9,7 +11,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -23,7 +24,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
@@ -33,9 +33,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -59,9 +58,10 @@ import kotlinx.coroutines.launch
 /**
  * タブ一覧の下部操作群で利用するデフォルト寸法を保持する。
  */
-internal object TabListBottomControlsDefaults {
-    val listBottomPadding: Dp = 0.dp
+private object ControlsDefaults {
     val hazeTopOverlap: Dp = 32.dp
+    val controlHeight: Dp = 48.dp
+    val actionIconSize: Dp = 28.dp
 }
 
 /**
@@ -98,7 +98,7 @@ internal fun TabListBottomControls(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(top = TabListBottomControlsDefaults.hazeTopOverlap)
+                .padding(top = ControlsDefaults.hazeTopOverlap)
                 .clickable(
                     interactionSource = tapGuardInteractionSource,
                     indication = null,
@@ -149,7 +149,7 @@ private fun TabListInlineSection(
             onSelect = onSelect,
         )
         if (isBoardPage) {
-            Spacer(modifier = Modifier.size(48.dp))
+            Spacer(modifier = Modifier.size(ControlsDefaults.controlHeight))
         } else {
             TabActionButton(
                 imageVector = Icons.Default.Refresh,
@@ -188,20 +188,21 @@ private fun TabListSwitchSection(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(ControlsDefaults.controlHeight)
                 .padding(horizontal = 2.dp, vertical = 2.dp)
         ) {
             // --- Sliding indicator ---
-            val segmentWidth = maxWidth / options.size
-            val indicatorOffsetX = animateDpAsState(
-                targetValue = segmentWidth * selectedIndex,
-                animationSpec = tween(durationMillis = 220),
-                label = "tabSwitchIndicatorOffset"
+            val segmentSpacing = 8.dp
+            val segmentWidth = (maxWidth - segmentSpacing) / 2
+            val indicatorOffsetX by animateDpAsState(
+                targetValue = if (selectedIndex == 0) 0.dp else (segmentWidth + segmentSpacing),
+                animationSpec = tween(220),
+                label = "tabSwitchIndicatorOffset",
             )
 
             Box(
                 modifier = Modifier
-                    .offset(x = indicatorOffsetX.value)
+                    .offset(x = indicatorOffsetX)
                     .width(segmentWidth)
                     .fillMaxHeight()
                     .background(
@@ -211,19 +212,17 @@ private fun TabListSwitchSection(
             )
 
             // --- Selectable labels ---
-            Row(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(segmentSpacing),
+            ) {
                 options.forEachIndexed { index, label ->
                     val isSelected = selectedIndex == index
-                    val segmentShape = when (index) {
-                        0 -> RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp)
-                        options.lastIndex -> RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)
-                        else -> RoundedCornerShape(0.dp)
-                    }
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .clip(segmentShape)
+                            .clip(roundedCornerShape)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = ripple(bounded = true),
@@ -239,7 +238,7 @@ private fun TabListSwitchSection(
                                 MaterialTheme.colorScheme.onSurface
                             },
                             style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = FontWeight.Bold
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
                         )
                     }
@@ -260,14 +259,14 @@ private fun TabActionButton(
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.size(48.dp),
+        modifier = Modifier.size(ControlsDefaults.controlHeight),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(ControlsDefaults.actionIconSize),
                 imageVector = imageVector,
                 contentDescription = contentDescription,
                 tint = MaterialTheme.colorScheme.primary,

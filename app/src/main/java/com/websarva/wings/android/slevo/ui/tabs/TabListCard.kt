@@ -1,8 +1,10 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
+import android.R.attr.contentDescription
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,7 +32,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
@@ -39,6 +45,7 @@ import java.net.URI
  *
  * 上部はタイトル・追加情報スロット・閉じるボタン、下部は主要タイトルを表示する。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun TabListCard(
     modifier: Modifier = Modifier,
@@ -52,7 +59,7 @@ internal fun TabListCard(
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.largeIncreased,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         ),
@@ -76,8 +83,8 @@ internal fun TabListCard(
 
             // --- Card body ---
             Column(
-                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 // --- Header ---
                 Row(
@@ -115,7 +122,7 @@ internal fun TabListCard(
                             }
                         ) {
                             Icon(
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier.size(16.dp),
                                 imageVector = Icons.Default.Close,
                                 contentDescription = stringResource(R.string.close),
                             )
@@ -126,18 +133,34 @@ internal fun TabListCard(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 4.dp),
-                    shape = RoundedCornerShape(16.dp),
+                        .padding(horizontal = 2.dp),
+                    shape = MaterialTheme.shapes.largeIncreased,
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                     ),
+                ) {
+                    val bodyStyle = MaterialTheme.typography.bodyMedium
+                    val density = LocalDensity.current
+                    val verticalPadding = 8.dp
+                    val textMinHeight =
+                        with(density) { (bodyStyle.lineHeight * 2).toDp() } + verticalPadding * 2
 
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = textMinHeight),
+                        contentAlignment = Alignment.CenterStart,
                     ) {
-                    Text(
-                        text = bodyTitle,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
+                        Text(
+                            text = bodyTitle,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = verticalPadding),
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = 2,
+                            style = bodyStyle,
+                        )
+                    }
                 }
             }
         }

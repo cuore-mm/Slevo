@@ -85,7 +85,7 @@ fun TabScreenContent(
     ) { innerPadding ->
         val listPadding = PaddingValues(
             top = 24.dp,
-            bottom = innerPadding.calculateBottomPadding() + TabListBottomControlsDefaults.listBottomPadding,
+            bottom = innerPadding.calculateBottomPadding(),
         )
 
         Box(
