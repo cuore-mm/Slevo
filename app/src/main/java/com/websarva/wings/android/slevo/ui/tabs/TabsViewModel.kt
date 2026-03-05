@@ -11,10 +11,10 @@ import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -99,10 +99,6 @@ class TabsViewModel @Inject constructor(
         return boardTabsCoordinator.ensureBoardTab(route)
     }
 
-    fun openBoardTab(boardTabInfo: BoardTabInfo) {
-        boardTabsCoordinator.openBoardTab(boardTabInfo)
-    }
-
     fun closeBoardTab(tab: BoardTabInfo) {
         boardTabsCoordinator.closeBoardTab(tab)
     }
@@ -123,10 +119,6 @@ class TabsViewModel @Inject constructor(
         boardTabsCoordinator.setBoardCurrentPage(page)
     }
 
-    fun moveBoardPage(offset: Int) {
-        boardTabsCoordinator.moveBoardPage(offset)
-    }
-
     fun animateBoardPage(offset: Int) {
         boardTabsCoordinator.animateBoardPage(offset)
     }
@@ -145,10 +137,6 @@ class TabsViewModel @Inject constructor(
 
     fun setThreadCurrentPage(page: Int) {
         threadTabsCoordinator.setThreadCurrentPage(page)
-    }
-
-    fun moveThreadPage(offset: Int) {
-        threadTabsCoordinator.moveThreadPage(offset)
     }
 
     fun animateThreadPage(offset: Int) {
@@ -195,10 +183,6 @@ class TabsViewModel @Inject constructor(
     suspend fun resolveBoardHost(boardKey: String): String? {
         return boardRepository.resolveHostByBoardKey(boardKey)
             ?: bbsServiceRepository.resolveHostByBoardKeyFromMenu(boardKey)
-    }
-
-    fun getTabInfo(threadId: ThreadId): ThreadTabInfo? {
-        return threadTabsCoordinator.getTabInfo(threadId)
     }
 
     suspend fun resolveBoardInfo(

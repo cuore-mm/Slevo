@@ -14,24 +14,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.launch
 
 /**
@@ -178,27 +175,27 @@ fun TabScreenContent(
                         // --- Board URL handling ---
                         if (resolved is ResolvedUrl.Board) {
                             val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
-                        val route = AppRoute.Board(
-                            boardName = boardUrl,
-                            boardUrl = boardUrl
-                        )
+                            val route = AppRoute.Board(
+                                boardName = boardUrl,
+                                boardUrl = boardUrl
+                            )
                             navController.navigateToBoard(
                                 route = route,
                                 tabsViewModel = tabsViewModel,
                             )
-                        tabsViewModel.setUrlErrorMessage(null)
-                        tabsViewModel.setUrlDialogVisible(false)
-                        closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
+                            tabsViewModel.setUrlErrorMessage(null)
+                            tabsViewModel.setUrlDialogVisible(false)
+                            closeDrawer() // ダイアログを閉じた後、ドロワーも閉じる
+                            tabsViewModel.finishUrlValidation()
+                            return@UrlOpenDialog
+                        }
+                        // --- Invalid URL ---
+                        // URL解析に失敗したため、エラーを表示して閉じない。
+                        tabsViewModel.setUrlErrorMessage(invalidUrlMessage)
                         tabsViewModel.finishUrlValidation()
-                        return@UrlOpenDialog
                     }
-                    // --- Invalid URL ---
-                    // URL解析に失敗したため、エラーを表示して閉じない。
-                    tabsViewModel.setUrlErrorMessage(invalidUrlMessage)
-                    tabsViewModel.finishUrlValidation()
-                }
-            )
+                )
+            }
         }
     }
-}
 }
