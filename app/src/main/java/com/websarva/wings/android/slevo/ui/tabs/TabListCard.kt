@@ -1,6 +1,5 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
-import android.R.attr.contentDescription
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +43,7 @@ import java.net.URI
  * タブ一覧カードの共通外枠と情報配置を提供する。
  *
  * 上部はタイトル・追加情報スロット・閉じるボタン、下部は主要タイトルを表示する。
+ * 本文タイトルの行数上限は呼び出し側が指定する。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -54,6 +54,7 @@ internal fun TabListCard(
     headerTitle: String,
     headerTrailingContent: @Composable RowScope.() -> Unit = {},
     bodyTitle: String,
+    bodyMaxLines: Int = 2,
     onCloseClick: () -> Unit,
 ) {
     Card(
@@ -143,7 +144,8 @@ internal fun TabListCard(
                     val density = LocalDensity.current
                     val verticalPadding = 8.dp
                     val textMinHeight =
-                        with(density) { (bodyStyle.lineHeight * 2).toDp() } + verticalPadding * 2
+                        with(density) { (bodyStyle.lineHeight * bodyMaxLines).toDp() } +
+                            verticalPadding * 2
 
                     Box(
                         modifier = Modifier
@@ -157,7 +159,7 @@ internal fun TabListCard(
                                 .fillMaxWidth()
                                 .padding(horizontal = 12.dp, vertical = verticalPadding),
                             overflow = TextOverflow.Ellipsis,
-                            maxLines = 2,
+                            maxLines = bodyMaxLines,
                             style = bodyStyle,
                         )
                     }

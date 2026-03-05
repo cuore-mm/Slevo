@@ -78,6 +78,7 @@ private fun OpenBoardCard(
         onClick = onClick,
         headerTitle = serviceName,
         bodyTitle = tab.boardName,
+        bodyMaxLines = 1,
         onCloseClick = {
             // タブクローズ操作は一覧遷移より優先して処理する。
             onCloseClick()

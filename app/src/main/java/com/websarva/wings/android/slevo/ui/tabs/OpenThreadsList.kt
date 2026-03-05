@@ -114,6 +114,7 @@ private fun OpenThreadCard(
             }
         },
         bodyTitle = tab.title,
+        bodyMaxLines = 2,
         onCloseClick = {
             // タブクローズ操作は一覧遷移より優先して処理する。
             onCloseClick()
