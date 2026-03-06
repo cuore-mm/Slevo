@@ -40,9 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.lerp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
@@ -61,6 +61,91 @@ data class TabToolBarAction(
     val onClick: () -> Unit,
     val tint: Color? = null,
 )
+
+private const val CollapsedTitleScale = 0.85f
+private const val IconEnableThreshold = 0.5f
+private val ExpandedHeight = 96.dp
+private val CollapsedHeight = 56.dp
+private val SideSlotMaxWidth = 48.dp
+private val ActionRowTranslation = 24.dp
+private val CollapsedIconTranslation = 8.dp
+private val ExpandedIconTranslation = 6.dp
+
+/**
+ * TabToolBar のレイアウト計算結果をまとめて保持する。
+ *
+ * 縮退率に応じた高さ・フォントサイズ・表示閾値を共有するために使う。
+ */
+data class TabToolBarLayoutState(
+    val clampedProgress: Float,
+    val collapsedAlpha: Float,
+    val expandedHeight: Dp,
+    val sideSlotWidth: Dp,
+    val titleFontSize: TextUnit,
+    val actionTranslationPx: Float,
+    val collapsedTranslationPx: Float,
+    val expandedTranslationPx: Float,
+    val collapsedIconEnabled: Boolean,
+    val expandedIconEnabled: Boolean,
+)
+
+/**
+ * TabToolBar の表示補間に使うレイアウト値を計算する。
+ *
+ * 進捗値とテキストスタイルから高さ・フォントサイズ・表示閾値を導出する。
+ */
+@Composable
+fun rememberTabToolBarLayoutState(
+    actionsProgress: Float,
+    titleStyle: TextStyle,
+): TabToolBarLayoutState {
+    // --- Progress ---
+    val clampedProgress = actionsProgress.coerceIn(0f, 1f)
+    val collapsedAlpha = 1f - clampedProgress
+
+    // --- Heights ---
+    val targetHeight = CollapsedHeight + (ExpandedHeight - CollapsedHeight) * clampedProgress
+    val expandedHeight by animateDpAsState(
+        targetValue = targetHeight,
+        label = "BottomBarHeight",
+    )
+    val sideSlotWidth by animateDpAsState(
+        targetValue = SideSlotMaxWidth * collapsedAlpha,
+        label = "CollapsedSideSlotWidth",
+    )
+
+    // --- Typography ---
+    val baseFontSize = if (titleStyle.fontSize != TextUnit.Unspecified) {
+        titleStyle.fontSize
+    } else {
+        MaterialTheme.typography.titleSmall.fontSize
+    }
+    val collapsedFontSize = baseFontSize * CollapsedTitleScale
+    val titleFontSize = baseFontSize + (collapsedFontSize - baseFontSize) * collapsedAlpha
+
+    // --- Translations ---
+    val density = LocalDensity.current
+    val actionTranslationPx = with(density) { ActionRowTranslation.toPx() }
+    val collapsedTranslationPx = with(density) { CollapsedIconTranslation.toPx() }
+    val expandedTranslationPx = with(density) { ExpandedIconTranslation.toPx() }
+
+    // --- Thresholds ---
+    val collapsedIconEnabled = collapsedAlpha > IconEnableThreshold
+    val expandedIconEnabled = clampedProgress > IconEnableThreshold
+
+    return TabToolBarLayoutState(
+        clampedProgress = clampedProgress,
+        collapsedAlpha = collapsedAlpha,
+        expandedHeight = expandedHeight,
+        sideSlotWidth = sideSlotWidth,
+        titleFontSize = titleFontSize,
+        actionTranslationPx = actionTranslationPx,
+        collapsedTranslationPx = collapsedTranslationPx,
+        expandedTranslationPx = expandedTranslationPx,
+        collapsedIconEnabled = collapsedIconEnabled,
+        expandedIconEnabled = expandedIconEnabled,
+    )
+}
 
 /**
  * 板/スレッド画面のボトムバー表示を共通化する。
@@ -91,29 +176,9 @@ fun TabToolBar(
     titleMaxLines: Int = 2,
     titleTextAlign: TextAlign = TextAlign.Start,
 ) {
-    // --- Height ---
-    val clampedProgress = actionsProgress.coerceIn(0f, 1f)
-    val collapsedAlpha = 1f - clampedProgress
-    val targetHeight = 56.dp + (40.dp * clampedProgress)
-    val expandedHeight by animateDpAsState(
-        targetValue = targetHeight,
-        label = "BottomBarHeight",
-    )
-    val actionTranslationPx = with(LocalDensity.current) { 24.dp.toPx() }
-    val collapsedTranslationPx = with(LocalDensity.current) { 8.dp.toPx() }
-    val expandedTranslationPx = with(LocalDensity.current) { 6.dp.toPx() }
-    val baseFontSize = if (titleStyle.fontSize != TextUnit.Unspecified) {
-        titleStyle.fontSize
-    } else {
-        MaterialTheme.typography.titleSmall.fontSize
-    }
-    val collapsedFontSize = baseFontSize * 0.85f
-    val titleFontSize = lerp(baseFontSize, collapsedFontSize, collapsedAlpha)
-    val collapsedIconEnabled = collapsedAlpha > 0.5f
-    val expandedIconEnabled = clampedProgress > 0.5f
-    val sideSlotWidth by animateDpAsState(
-        targetValue = 48.dp * collapsedAlpha,
-        label = "CollapsedSideSlotWidth",
+    val layoutState = rememberTabToolBarLayoutState(
+        actionsProgress = actionsProgress,
+        titleStyle = titleStyle,
     )
     val cardModifier = Modifier
         .fillMaxWidth()
@@ -122,7 +187,7 @@ fun TabToolBar(
     // --- Layout ---
     Box(modifier = modifier.fillMaxWidth()) {
         FlexibleBottomAppBar(
-            expandedHeight = expandedHeight,
+            expandedHeight = layoutState.expandedHeight,
         ) {
             Column(
                 modifier = Modifier
@@ -135,17 +200,19 @@ fun TabToolBar(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (clampedProgress > 0f) {
+                        if (layoutState.clampedProgress > 0f) {
                             FeedbackTooltipIconButton(
                                 modifier = Modifier.graphicsLayer {
-                                    alpha = clampedProgress
-                                    translationY = (1f - clampedProgress) * expandedTranslationPx
+                                    alpha = layoutState.clampedProgress
+                                    translationY =
+                                        (1f - layoutState.clampedProgress) *
+                                            layoutState.expandedTranslationPx
                                 },
                                 tooltipText = stringResource(R.string.bookmark),
-                                showTooltipHost = expandedIconEnabled,
+                                showTooltipHost = layoutState.expandedIconEnabled,
                                 onClick = {
                                     // Guard: 縮退中は誤タップを避ける。
-                                    if (expandedIconEnabled) {
+                                    if (layoutState.expandedIconEnabled) {
                                         onBookmarkClick()
                                     }
                                 },
@@ -176,23 +243,25 @@ fun TabToolBar(
                         Text(
                             text = title,
                             fontWeight = titleFontWeight,
-                            style = titleStyle.copy(fontSize = titleFontSize),
+                            style = titleStyle.copy(fontSize = layoutState.titleFontSize),
                             maxLines = titleMaxLines,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = titleTextAlign,
                             modifier = Modifier.weight(1f),
                         )
-                        if (clampedProgress > 0f) {
+                        if (layoutState.clampedProgress > 0f) {
                             FeedbackTooltipIconButton(
                                 modifier = Modifier.graphicsLayer {
-                                    alpha = clampedProgress
-                                    translationY = (1f - clampedProgress) * expandedTranslationPx
+                                    alpha = layoutState.clampedProgress
+                                    translationY =
+                                        (1f - layoutState.clampedProgress) *
+                                            layoutState.expandedTranslationPx
                                 },
                                 tooltipText = stringResource(R.string.refresh),
-                                showTooltipHost = expandedIconEnabled,
+                                showTooltipHost = layoutState.expandedIconEnabled,
                                 onClick = {
                                     // Guard: 縮退中は誤タップを避ける。
-                                    if (expandedIconEnabled) {
+                                    if (layoutState.expandedIconEnabled) {
                                         onRefreshClick()
                                     }
                                 },
@@ -211,20 +280,22 @@ fun TabToolBar(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
-                        modifier = Modifier.width(sideSlotWidth),
+                        modifier = Modifier.width(layoutState.sideSlotWidth),
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (collapsedAlpha > 0f) {
+                        if (layoutState.collapsedAlpha > 0f) {
                             FeedbackTooltipIconButton(
                                 modifier = Modifier.graphicsLayer {
-                                    alpha = collapsedAlpha
-                                    translationY = (1f - collapsedAlpha) * collapsedTranslationPx
+                                    alpha = layoutState.collapsedAlpha
+                                    translationY =
+                                        (1f - layoutState.collapsedAlpha) *
+                                            layoutState.collapsedTranslationPx
                                 },
                                 tooltipText = stringResource(tabIconContentDescriptionRes),
-                                showTooltipHost = collapsedIconEnabled,
+                                showTooltipHost = layoutState.collapsedIconEnabled,
                                 onClick = {
                                     // Guard: アイコンが薄い間は押下を抑止する。
-                                    if (collapsedIconEnabled) {
+                                    if (layoutState.collapsedIconEnabled) {
                                         onTabListClick()
                                     }
                                 },
@@ -251,20 +322,22 @@ fun TabToolBar(
                     }
 
                     Box(
-                        modifier = Modifier.width(sideSlotWidth),
+                        modifier = Modifier.width(layoutState.sideSlotWidth),
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (collapsedAlpha > 0f) {
+                        if (layoutState.collapsedAlpha > 0f) {
                             FeedbackTooltipIconButton(
                                 modifier = Modifier.graphicsLayer {
-                                    alpha = collapsedAlpha
-                                    translationY = (1f - collapsedAlpha) * collapsedTranslationPx
+                                    alpha = layoutState.collapsedAlpha
+                                    translationY =
+                                        (1f - layoutState.collapsedAlpha) *
+                                            layoutState.collapsedTranslationPx
                                 },
                                 tooltipText = stringResource(postIconContentDescriptionRes),
-                                showTooltipHost = collapsedIconEnabled,
+                                showTooltipHost = layoutState.collapsedIconEnabled,
                                 onClick = {
                                     // Guard: アイコンが薄い間は押下を抑止する。
-                                    if (collapsedIconEnabled) {
+                                    if (layoutState.collapsedIconEnabled) {
                                         onPostClick()
                                     }
                                 },
@@ -278,7 +351,7 @@ fun TabToolBar(
                     }
                 }
 
-                if (clampedProgress > 0f) {
+                if (layoutState.clampedProgress > 0f) {
                     Spacer(modifier = Modifier.padding(2.dp))
 
                     // --- Actions row ---
@@ -286,8 +359,10 @@ fun TabToolBar(
                         modifier = Modifier
                             .fillMaxWidth()
                             .graphicsLayer {
-                                alpha = clampedProgress
-                                translationY = (1f - clampedProgress) * actionTranslationPx
+                                alpha = layoutState.clampedProgress
+                                translationY =
+                                    (1f - layoutState.clampedProgress) *
+                                        layoutState.actionTranslationPx
                             },
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
