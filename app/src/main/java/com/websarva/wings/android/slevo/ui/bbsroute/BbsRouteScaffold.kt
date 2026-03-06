@@ -79,7 +79,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     bottomBar: @Composable (
         viewModel: ViewModel,
         uiState: UiState,
-        actionsVisible: Boolean,
+        actionProgress: Float,
         openTabListSheet: () -> Unit,
     ) -> Unit,
     content: @Composable (
@@ -234,7 +234,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             val showBottomBar = bottomBehavior?.let { behavior ->
                 {
                     // Guard: ToTop/ToBottom ジェスチャー時は常に全表示に戻す。
-                    actionVisibility.actionsVisible.value = true
+                    actionVisibility.progress.value = 1f
                     behavior.state.heightOffset = 0f
                 }
             }
@@ -251,7 +251,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         bottomBar(
                             viewModel,
                             uiState,
-                            actionVisibility.actionsVisible.value
+                            actionVisibility.progress.value
                         ) {
                             showTabListSheet = true
                         }

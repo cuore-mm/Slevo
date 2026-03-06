@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.util
 
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.material3.BottomAppBarDefaults
@@ -14,6 +15,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource.Companion.UserInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.unit.dp
 
 /**
  * スクロール方向に合わせてボトムバーの表示/非表示を制御する。
@@ -43,49 +49,68 @@ fun rememberBottomBarShowOnBottomBehavior(
 /**
  * ボトムバーのアクション行表示とスクロール連動をまとめて扱う。
  *
- * アクション行の表示状態と、スクロール方向を検知する接続を保持する。
+ * `progress` は 0f〜1f の範囲で縮退率を表す。
  */
 data class BottomBarActionVisibility(
-    val actionsVisible: MutableState<Boolean>,
+    val progress: MutableState<Float>,
     val nestedScrollConnection: NestedScrollConnection,
 )
 
 /**
  * ボトムバーのアクション行表示をスクロール方向に合わせて制御する。
  *
- * 下方向スクロールで非表示、上方向スクロールで表示に戻す。
+ * 下方向スクロールで縮退し、上方向で展開する。
  */
 @Composable
 fun rememberBottomBarActionVisibility(
     scrollEnabled: Boolean = true,
+    actionRowHeight: Dp = 48.dp,
 ): BottomBarActionVisibility {
     // --- State ---
-    val actionsVisible = remember { mutableStateOf(true) }
+    val progress = remember { mutableStateOf(1f) }
+    val density = LocalDensity.current
+    val actionRowHeightPx = with(density) { actionRowHeight.toPx().coerceAtLeast(1f) }
 
     // --- Scroll connection ---
-    val nestedScrollConnection = remember(scrollEnabled) {
+    val nestedScrollConnection = remember(scrollEnabled, actionRowHeightPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(
                 available: Offset,
                 source: NestedScrollSource,
             ): Offset {
-                if (!scrollEnabled || source != NestedScrollSource.UserInput) {
-                    // Guard: ユーザー入力以外は表示状態を変えない。
+                if (!scrollEnabled || source != UserInput) {
+                    // Guard: ユーザー入力以外は縮退率を変えない。
                     return Offset.Zero
                 }
-                if (available.y < 0f) {
-                    actionsVisible.value = false
-                } else if (available.y > 0f) {
-                    actionsVisible.value = true
-                }
+                val delta = available.y / actionRowHeightPx
+                val next = (progress.value + delta).coerceIn(0f, 1f)
+                progress.value = next
                 return Offset.Zero
+            }
+
+            override suspend fun onPostFling(
+                consumed: Velocity,
+                available: Velocity,
+            ): Velocity {
+                if (!scrollEnabled) {
+                    return Velocity.Zero
+                }
+                val target = if (progress.value >= 0.5f) 1f else 0f
+                animate(
+                    initialValue = progress.value,
+                    targetValue = target,
+                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                ) { value, _ ->
+                    progress.value = value
+                }
+                return Velocity.Zero
             }
         }
     }
 
     // --- Result ---
     return BottomBarActionVisibility(
-        actionsVisible = actionsVisible,
+        progress = progress,
         nestedScrollConnection = nestedScrollConnection,
     )
 }

@@ -139,7 +139,7 @@ fun ThreadScaffold(
         onPageChange = { tabsViewModel.setThreadCurrentPage(it) },
         animateToPageFlow = tabsViewModel.threadPageAnimation,
         bottomBarActionVisibilityEnabled = !isPopupVisible,
-        bottomBar = { viewModel, uiState, actionsVisible, openTabListSheet ->
+        bottomBar = { viewModel, uiState, actionProgress, openTabListSheet ->
             BbsRouteBottomBar(
                 isSearchMode = uiState.isSearchMode,
                 onCloseSearch = { viewModel.closeSearch() },
@@ -167,7 +167,7 @@ fun ThreadScaffold(
                         onThreadInfoClick = { viewModel.openThreadInfoSheet() },
                         onMoreClick = { viewModel.openMoreSheet() },
                         onAutoScrollClick = { viewModel.toggleAutoScroll() },
-                        actionsVisible = actionsVisible && !uiState.isSearchMode,
+                        actionsProgress = if (uiState.isSearchMode) 0f else actionProgress,
                     )
                 }
             )

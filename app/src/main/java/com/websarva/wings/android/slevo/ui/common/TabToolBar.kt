@@ -28,7 +28,9 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -59,7 +61,7 @@ data class TabToolBarAction(
  * 板/スレッド画面のボトムバー表示を共通化する。
  *
  * 上段はタイトル・ブックマーク・更新、下段はアクション群を並べる。
- * `actionsVisible` でアクション群の表示を切り替える。
+ * `actionsProgress` でアクション群の縮退率を制御する。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -69,7 +71,7 @@ fun TabToolBar(
     bookmarkState: BookmarkStatusState,
     onBookmarkClick: () -> Unit,
     actions: List<TabToolBarAction>,
-    actionsVisible: Boolean = true,
+    actionsProgress: Float = 1f,
     onTitleClick: (() -> Unit)? = null,
     onRefreshClick: (() -> Unit),
     isLoading: Boolean = false,
@@ -80,11 +82,13 @@ fun TabToolBar(
     titleTextAlign: TextAlign = TextAlign.Start,
 ) {
     // --- Height ---
-    val targetHeight = if (actionsVisible) 96.dp else 56.dp
+    val clampedProgress = actionsProgress.coerceIn(0f, 1f)
+    val targetHeight = 56.dp + (40.dp * clampedProgress)
     val expandedHeight by animateDpAsState(
         targetValue = targetHeight,
         label = "BottomBarHeight",
     )
+    val actionTranslationPx = with(LocalDensity.current) { 24.dp.toPx() }
 
     // --- Layout ---
     Box(modifier = modifier.fillMaxWidth()) {
@@ -166,12 +170,17 @@ fun TabToolBar(
                     }
                 }
 
-                if (actionsVisible) {
+                if (clampedProgress > 0f) {
                     Spacer(modifier = Modifier.padding(2.dp))
 
                     // --- Actions row ---
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                alpha = clampedProgress
+                                translationY = (1f - clampedProgress) * actionTranslationPx
+                            },
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
                         actions.forEach { action ->

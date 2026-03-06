@@ -38,7 +38,7 @@ fun ThreadToolBar(
     onThreadInfoClick: () -> Unit,
     onMoreClick: () -> Unit,
     onAutoScrollClick: () -> Unit,
-    actionsVisible: Boolean = true,
+    actionsProgress: Float = 1f,
 ) {
     val sortIcon = if (isTreeSort) Icons.Filled.AccountTree else Icons.Filled.FormatListNumbered
     val sortContentDescription = if (isTreeSort) R.string.tree_order else R.string.number_order
@@ -85,7 +85,7 @@ fun ThreadToolBar(
         bookmarkState = uiState.bookmarkStatusState,
         onBookmarkClick = onBookmarkClick,
         actions = actions,
-        actionsVisible = actionsVisible,
+        actionsProgress = actionsProgress,
         onTitleClick = onThreadInfoClick,
         onRefreshClick = onRefreshClick,
         isLoading = uiState.isLoading,

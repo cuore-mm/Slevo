@@ -113,7 +113,7 @@ fun BoardScaffold(
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setBoardCurrentPage(it) },
         animateToPageFlow = tabsViewModel.boardPageAnimation,
-        bottomBar = { viewModel, uiState, actionsVisible, openTabListSheet ->
+        bottomBar = { viewModel, uiState, actionProgress, openTabListSheet ->
             val actions = listOf(
                 TabToolBarAction(
                     icon = Icons.AutoMirrored.Filled.Sort,
@@ -157,7 +157,7 @@ fun BoardScaffold(
                         bookmarkState = uiState.bookmarkStatusState,
                         onBookmarkClick = { viewModel.openBookmarkSheet() },
                         actions = actions,
-                        actionsVisible = actionsVisible && !uiState.isSearchActive,
+                        actionsProgress = if (uiState.isSearchActive) 0f else actionProgress,
                         onRefreshClick = { viewModel.refreshBoardData() },
                         isLoading = uiState.isLoading,
                         loadProgress = uiState.loadProgress,
