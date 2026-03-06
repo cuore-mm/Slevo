@@ -69,7 +69,6 @@ fun BoardScreen(
     onRefresh: () -> Unit,
     listState: LazyListState = rememberLazyListState(),
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
-    showBottomBar: (() -> Unit)? = null,
     onGestureAction: (GestureAction) -> Unit = {},
     searchQuery: String,
 ) {
@@ -131,7 +130,6 @@ fun BoardScreen(
                                 action = action,
                                 listState = listState,
                                 fallbackItemCount = threads.size,
-                                showBottomBar = showBottomBar,
                             )
                         }
                     } else {

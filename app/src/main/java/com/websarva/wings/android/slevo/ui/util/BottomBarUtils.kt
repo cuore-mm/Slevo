@@ -1,114 +1,116 @@
 package com.websarva.wings.android.slevo.ui.util
 
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.rememberSplineBasedDecay
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberBottomAppBarState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource.Companion.UserInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
- * リストの最下部到達に合わせてボトムバーの表示/非表示を制御する。
+ * スクロール方向に合わせてボトムバーの表示/非表示を制御する。
  *
  * スクロール無効化が指定された場合はボトムバーの挙動を固定する。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun rememberBottomBarShowOnBottomBehavior(
-    listState: LazyListState,
-    showThreshold: Dp = 4.dp,     // 到達とみなすギャップ(px換算)
-    leaveThreshold: Dp = 48.dp,   // 可視のままでも離脱とみなすギャップ
-    leaveItemsThreshold: Int = 1, // 末尾から何アイテム離れたら解除するか
     scrollEnabled: Boolean = true,
 ): BottomAppBarScrollBehavior {
-    // --- 閾値計算 ---
-    val density = LocalDensity.current
-    val showThPx = with(density) { showThreshold.toPx() }
-    val leaveThPx = with(density) { leaveThreshold.toPx() }
-
-    // --- 状態 ---
+    // --- State ---
     val barState = rememberBottomAppBarState()
-    var atBottomSticky by remember { mutableStateOf(false) }
-    // 保持ロック (ミリ秒)。sticky にした時点から最低この時刻までは解除を無視する
-    var stickyLockUntil by remember { mutableLongStateOf(0L) }
-
-    // --- 末尾判定 ---
-    // 末尾アイテムが“可視か”と、そのときのビューポート下端との隙間(px)
-    val lastVisibleAndGap by remember {
-        derivedStateOf {
-            val info = listState.layoutInfo
-            val total = info.totalItemsCount
-            if (total == 0) return@derivedStateOf Triple(false, Float.POSITIVE_INFINITY, 0)
-
-            val lastVisible = info.visibleItemsInfo.lastOrNull()
-            val lastVisibleIndex = lastVisible?.index ?: -1
-            val isLastItemVisible = lastVisibleIndex >= total - 1
-
-            val gap = if (lastVisible != null) {
-                val viewportEnd = info.viewportEndOffset
-                val lastEnd = lastVisible.offset + lastVisible.size
-                (viewportEnd - lastEnd).toFloat()
-            } else {
-                Float.POSITIVE_INFINITY
-            }
-
-            // 末尾からどれだけ離れたか（アイテム数）
-            val itemsFromEnd = (total - 1 - lastVisibleIndex).coerceAtLeast(0)
-            Triple(isLastItemVisible, gap, itemsFromEnd)
-        }
-    }
-
-    // --- スティッキー制御 ---
-    LaunchedEffect(listState) {
-        snapshotFlow { lastVisibleAndGap }
-            .distinctUntilChanged()
-            .collect { (isLastVisible, gap, itemsFromEnd) ->
-                if (isLastVisible && gap <= showThPx) {
-                    // 最下部に到達 → 表示 & スティッキー ON
-                    if (!atBottomSticky) {
-                        atBottomSticky = true
-                        // スティッキーにして高さをゼロに固定
-                        barState.heightOffset = 0f
-                        // 最低保持時間を今から1秒後に設定
-                        stickyLockUntil = System.currentTimeMillis() + 1000L
-                    }
-                } else {
-                    // 離脱判定（ヒステリシス）
-                    val farFromEndByItems = itemsFromEnd >= leaveItemsThreshold
-                    val farFromEndByGap = gap > leaveThPx // 末尾が可視のまま広く空いた
-                    if (farFromEndByItems || farFromEndByGap) {
-                        // 最低保持時間が経過していなければ解除しない
-                        if (System.currentTimeMillis() >= stickyLockUntil) {
-                            atBottomSticky = false
-                        }
-                    }
-                }
-            }
-    }
-
-    // --- スクロール挙動 ---
+    // --- Animation ---
     val flingSpec = rememberSplineBasedDecay<Float>()
     val snapSpec = remember { spring<Float>(stiffness = Spring.StiffnessMediumLow) }
 
+    // --- Scroll behavior ---
     return BottomAppBarDefaults.exitAlwaysScrollBehavior(
         state = barState,
-        canScroll = { scrollEnabled && !atBottomSticky },   // スティッキー中は閉じ動作を無効化
+        canScroll = { scrollEnabled },
         snapAnimationSpec = snapSpec,
         flingAnimationSpec = flingSpec
+    )
+}
+
+/**
+ * ボトムバーのアクション行表示とスクロール連動をまとめて扱う。
+ *
+ * `progress` は 0f〜1f の範囲で縮退率を表す。
+ */
+data class BottomBarActionVisibility(
+    val progress: MutableState<Float>,
+    val nestedScrollConnection: NestedScrollConnection,
+)
+
+/**
+ * ボトムバーのアクション行表示をスクロール方向に合わせて制御する。
+ *
+ * 下方向スクロールで縮退し、上方向で展開する。
+ */
+@Composable
+fun rememberBottomBarActionVisibility(
+    scrollEnabled: Boolean = true,
+    actionRowHeight: Dp = 48.dp,
+): BottomBarActionVisibility {
+    // --- State ---
+    val progress = remember { mutableStateOf(1f) }
+    val density = LocalDensity.current
+    val actionRowHeightPx = with(density) { actionRowHeight.toPx().coerceAtLeast(1f) }
+
+    // --- Scroll connection ---
+    val nestedScrollConnection = remember(scrollEnabled, actionRowHeightPx) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                if (!scrollEnabled || source != UserInput) {
+                    // Guard: ユーザー入力以外は縮退率を変えない。
+                    return Offset.Zero
+                }
+                val delta = available.y / actionRowHeightPx
+                val next = (progress.value + delta).coerceIn(0f, 1f)
+                progress.value = next
+                return Offset.Zero
+            }
+
+            override suspend fun onPostFling(
+                consumed: Velocity,
+                available: Velocity,
+            ): Velocity {
+                if (!scrollEnabled) {
+                    return Velocity.Zero
+                }
+                val target = if (progress.value >= 0.5f) 1f else 0f
+                animate(
+                    initialValue = progress.value,
+                    targetValue = target,
+                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                ) { value, _ ->
+                    progress.value = value
+                }
+                return Velocity.Zero
+            }
+        }
+    }
+
+    // --- Result ---
+    return BottomBarActionVisibility(
+        progress = progress,
+        nestedScrollConnection = nestedScrollConnection,
     )
 }

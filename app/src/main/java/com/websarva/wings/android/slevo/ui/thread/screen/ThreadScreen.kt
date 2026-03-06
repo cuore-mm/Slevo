@@ -80,7 +80,6 @@ fun ThreadScreen(
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
     tabsViewModel: TabsViewModel? = null,
-    showBottomBar: (() -> Unit)? = null,
     onAutoScrollBottom: () -> Unit = {},
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
@@ -207,7 +206,6 @@ fun ThreadScreen(
                             action = action,
                             listState = listState,
                             fallbackItemCount = visiblePosts.size,
-                            showBottomBar = showBottomBar,
                         )
                     }
                 } else {

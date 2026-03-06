@@ -40,7 +40,6 @@ import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
-import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 
 /**
  * 板画面の表示とタブ解決をまとめて行う。
@@ -114,8 +113,7 @@ fun BoardScaffold(
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setBoardCurrentPage(it) },
         animateToPageFlow = tabsViewModel.boardPageAnimation,
-        bottomBarScrollBehavior = { listState -> rememberBottomBarShowOnBottomBehavior(listState) },
-        bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
+        bottomBar = { viewModel, uiState, actionProgress, openTabListSheet ->
             val actions = listOf(
                 TabToolBarAction(
                     icon = Icons.AutoMirrored.Filled.Sort,
@@ -159,7 +157,12 @@ fun BoardScaffold(
                         bookmarkState = uiState.bookmarkStatusState,
                         onBookmarkClick = { viewModel.openBookmarkSheet() },
                         actions = actions,
-                        scrollBehavior = barScrollBehavior,
+                        onTabListClick = openTabListSheet,
+                        onPostClick = { viewModel.postDialogActions.showDialog() },
+                        tabIconContentDescriptionRes = R.string.open_tablist,
+                        postIconContentDescriptionRes = R.string.create_thread,
+                        actionsProgress = if (uiState.isSearchActive) 0f else actionProgress,
+                        onTitleClick = {},
                         onRefreshClick = { viewModel.refreshBoardData() },
                         isLoading = uiState.isLoading,
                         loadProgress = uiState.loadProgress,
@@ -171,7 +174,7 @@ fun BoardScaffold(
                 }
             )
         },
-        content = { viewModel, uiState, listState, modifier, navController, showBottomBar, openTabListSheet, openUrlDialog ->
+        content = { viewModel, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
             LaunchedEffect(uiState.resetScroll) {
                 if (uiState.resetScroll) {
                     listState.scrollToItem(0)
@@ -203,7 +206,6 @@ fun BoardScaffold(
                 onRefresh = { viewModel.refreshBoardData() },
                 listState = listState,
                 gestureSettings = uiState.gestureSettings,
-                showBottomBar = showBottomBar,
                 onGestureAction = { action ->
                     dispatchCommonGestureAction(
                         action = action,

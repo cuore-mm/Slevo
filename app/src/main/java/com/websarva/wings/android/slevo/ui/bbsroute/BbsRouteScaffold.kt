@@ -40,6 +40,7 @@ import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
+import com.websarva.wings.android.slevo.ui.util.rememberBottomBarActionVisibility
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -78,7 +79,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     bottomBar: @Composable (
         viewModel: ViewModel,
         uiState: UiState,
-        scrollBehavior: BottomAppBarScrollBehavior?,
+        actionProgress: Float,
         openTabListSheet: () -> Unit,
     ) -> Unit,
     content: @Composable (
@@ -87,11 +88,11 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         listState: LazyListState,
         modifier: Modifier,
         navController: NavHostController,
-        showBottomBar: (() -> Unit)?,
         openTabListSheet: () -> Unit,
         openUrlDialog: () -> Unit,
     ) -> Unit,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
+    bottomBarActionVisibilityEnabled: Boolean = true,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
     // このComposableはタブベースの画面レイアウトを提供します。
@@ -226,15 +227,14 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
             val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
-            val showBottomBar = bottomBehavior?.let { behavior ->
-                {
-                    behavior.state.heightOffset = 0f
-                }
-            }
+            val actionVisibility = rememberBottomBarActionVisibility(
+                scrollEnabled = bottomBarActionVisibilityEnabled,
+            )
 
             Box(modifier = Modifier.fillMaxSize()) {
                 Scaffold(
                     modifier = Modifier
+                        .nestedScroll(actionVisibility.nestedScrollConnection)
                         .let { modifier ->
                             bottomBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
                                 ?: modifier
@@ -243,7 +243,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         bottomBar(
                             viewModel,
                             uiState,
-                            bottomBehavior
+                            actionVisibility.progress.value
                         ) {
                             showTabListSheet = true
                         }
@@ -259,7 +259,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         listState,
                         contentModifier,
                         navController,
-                        showBottomBar,
                         { showTabListSheet = true },
                         {
                             urlError = null

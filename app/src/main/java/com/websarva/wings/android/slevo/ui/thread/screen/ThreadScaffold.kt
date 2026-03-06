@@ -56,7 +56,6 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
-import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 
 /**
  * スレッド画面の主要UIを構築する。
@@ -139,13 +138,8 @@ fun ThreadScaffold(
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setThreadCurrentPage(it) },
         animateToPageFlow = tabsViewModel.threadPageAnimation,
-        bottomBarScrollBehavior = { listState ->
-            rememberBottomBarShowOnBottomBehavior(
-                listState = listState,
-                scrollEnabled = !isPopupVisible
-            )
-        },
-        bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
+        bottomBarActionVisibilityEnabled = !isPopupVisible,
+        bottomBar = { viewModel, uiState, actionProgress, openTabListSheet ->
             BbsRouteBottomBar(
                 isSearchMode = uiState.isSearchMode,
                 onCloseSearch = { viewModel.closeSearch() },
@@ -173,12 +167,12 @@ fun ThreadScaffold(
                         onThreadInfoClick = { viewModel.openThreadInfoSheet() },
                         onMoreClick = { viewModel.openMoreSheet() },
                         onAutoScrollClick = { viewModel.toggleAutoScroll() },
-                        scrollBehavior = barScrollBehavior,
+                        actionsProgress = if (uiState.isSearchMode) 0f else actionProgress,
                     )
                 }
             )
         },
-        content = { viewModel, uiState, listState, modifier, navController, showBottomBar, openTabListSheet, openUrlDialog ->
+        content = { viewModel, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
             LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
                 if (
@@ -211,7 +205,6 @@ fun ThreadScaffold(
                 listState = listState,
                 navController = navController,
                 tabsViewModel = tabsViewModel,
-                showBottomBar = showBottomBar,
                 onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
                 onBottomRefresh = { viewModel.reloadThreadFromBottomPull() },
                 onLastRead = { resNum ->
