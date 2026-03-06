@@ -73,6 +73,10 @@ private val ActionRowTranslation = 24.dp
 private val CollapsedIconTranslation = 8.dp
 private val ExpandedIconTranslation = 6.dp
 private val CollapsedTitleFontWeight = FontWeight.Normal
+private val CollapsedTitleHorizontalPadding = 6.dp
+private val ExpandedTitleHorizontalPadding = 0.dp
+private val CollapsedTitleVerticalPadding = 2.dp
+private val ExpandedTitleVerticalPadding = 0.dp
 
 /**
  * TabToolBar のレイアウト計算結果をまとめて保持する。
@@ -89,6 +93,8 @@ data class TabToolBarLayoutState(
     val titleFontSize: TextUnit,
     val titleFontWeight: FontWeight,
     val titleMaxLines: Int,
+    val titleHorizontalPadding: Dp,
+    val titleVerticalPadding: Dp,
     val actionTranslationPx: Float,
     val collapsedTranslationPx: Float,
     val expandedTranslationPx: Float,
@@ -99,7 +105,7 @@ data class TabToolBarLayoutState(
 /**
  * TabToolBar の表示補間に使うレイアウト値を計算する。
  *
- * 進捗値とテキストスタイルから高さ・文字サイズ・太さ・行数・表示閾値を導出する。
+ * 進捗値とテキストスタイルから高さ・文字サイズ・太さ・行数・余白・表示閾値を導出する。
  */
 @Composable
 fun rememberTabToolBarLayoutState(
@@ -141,6 +147,16 @@ fun rememberTabToolBarLayoutState(
         titleFontWeight
     }
     val resolvedTitleMaxLines = if (collapsedAlpha > 0.5f) 1 else titleMaxLines
+    val titleHorizontalPadding = lerp(
+        ExpandedTitleHorizontalPadding,
+        CollapsedTitleHorizontalPadding,
+        collapsedAlpha,
+    )
+    val titleVerticalPadding = lerp(
+        ExpandedTitleVerticalPadding,
+        CollapsedTitleVerticalPadding,
+        collapsedAlpha,
+    )
 
     // --- Translations ---
     val density = LocalDensity.current
@@ -161,6 +177,8 @@ fun rememberTabToolBarLayoutState(
         titleFontSize = titleFontSize,
         titleFontWeight = resolvedTitleFontWeight,
         titleMaxLines = resolvedTitleMaxLines,
+        titleHorizontalPadding = titleHorizontalPadding,
+        titleVerticalPadding = titleVerticalPadding,
         actionTranslationPx = actionTranslationPx,
         collapsedTranslationPx = collapsedTranslationPx,
         expandedTranslationPx = expandedTranslationPx,
@@ -384,17 +402,21 @@ private fun ExpandedTitleActions(
                 }
             }
 
-            Text(
-                text = title,
-                modifier = Modifier
-                    .weight(1f)
-                    .animateContentSize(),
-                fontWeight = layoutState.titleFontWeight,
-                style = titleStyle.copy(fontSize = layoutState.titleFontSize),
-                maxLines = layoutState.titleMaxLines,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = titleTextAlign,
-            )
+        Text(
+            text = title,
+            modifier = Modifier
+                .weight(1f)
+                .padding(
+                    horizontal = layoutState.titleHorizontalPadding,
+                    vertical = layoutState.titleVerticalPadding,
+                )
+                .animateContentSize(),
+            fontWeight = layoutState.titleFontWeight,
+            style = titleStyle.copy(fontSize = layoutState.titleFontSize),
+            maxLines = layoutState.titleMaxLines,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = titleTextAlign,
+        )
 
             ExpandedCardAction(
                 slotWidth = layoutState.cardSideSlotWidth,
