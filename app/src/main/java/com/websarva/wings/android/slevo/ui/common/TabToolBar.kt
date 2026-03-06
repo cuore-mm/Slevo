@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.CropSquare
@@ -110,6 +111,10 @@ fun TabToolBar(
     val titleFontSize = lerp(baseFontSize, collapsedFontSize, collapsedAlpha)
     val collapsedIconEnabled = collapsedAlpha > 0.5f
     val expandedIconEnabled = clampedProgress > 0.5f
+    val sideSlotWidth by animateDpAsState(
+        targetValue = 48.dp * collapsedAlpha,
+        label = "CollapsedSideSlotWidth",
+    )
     val cardModifier = Modifier
         .fillMaxWidth()
         .padding(vertical = 4.dp)
@@ -205,25 +210,30 @@ fun TabToolBar(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (collapsedAlpha > 0f) {
-                        FeedbackTooltipIconButton(
-                            modifier = Modifier.graphicsLayer {
-                                alpha = collapsedAlpha
-                                translationY = (1f - collapsedAlpha) * collapsedTranslationPx
-                            },
-                            tooltipText = stringResource(tabIconContentDescriptionRes),
-                            showTooltipHost = collapsedIconEnabled,
-                            onClick = {
-                                // Guard: アイコンが薄い間は押下を抑止する。
-                                if (collapsedIconEnabled) {
-                                    onTabListClick()
-                                }
-                            },
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.CropSquare,
-                                contentDescription = stringResource(tabIconContentDescriptionRes),
-                            )
+                    Box(
+                        modifier = Modifier.width(sideSlotWidth),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (collapsedAlpha > 0f) {
+                            FeedbackTooltipIconButton(
+                                modifier = Modifier.graphicsLayer {
+                                    alpha = collapsedAlpha
+                                    translationY = (1f - collapsedAlpha) * collapsedTranslationPx
+                                },
+                                tooltipText = stringResource(tabIconContentDescriptionRes),
+                                showTooltipHost = collapsedIconEnabled,
+                                onClick = {
+                                    // Guard: アイコンが薄い間は押下を抑止する。
+                                    if (collapsedIconEnabled) {
+                                        onTabListClick()
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.CropSquare,
+                                    contentDescription = stringResource(tabIconContentDescriptionRes),
+                                )
+                            }
                         }
                     }
 
@@ -240,25 +250,30 @@ fun TabToolBar(
                         }
                     }
 
-                    if (collapsedAlpha > 0f) {
-                        FeedbackTooltipIconButton(
-                            modifier = Modifier.graphicsLayer {
-                                alpha = collapsedAlpha
-                                translationY = (1f - collapsedAlpha) * collapsedTranslationPx
-                            },
-                            tooltipText = stringResource(postIconContentDescriptionRes),
-                            showTooltipHost = collapsedIconEnabled,
-                            onClick = {
-                                // Guard: アイコンが薄い間は押下を抑止する。
-                                if (collapsedIconEnabled) {
-                                    onPostClick()
-                                }
-                            },
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Create,
-                                contentDescription = stringResource(postIconContentDescriptionRes),
-                            )
+                    Box(
+                        modifier = Modifier.width(sideSlotWidth),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (collapsedAlpha > 0f) {
+                            FeedbackTooltipIconButton(
+                                modifier = Modifier.graphicsLayer {
+                                    alpha = collapsedAlpha
+                                    translationY = (1f - collapsedAlpha) * collapsedTranslationPx
+                                },
+                                tooltipText = stringResource(postIconContentDescriptionRes),
+                                showTooltipHost = collapsedIconEnabled,
+                                onClick = {
+                                    // Guard: アイコンが薄い間は押下を抑止する。
+                                    if (collapsedIconEnabled) {
+                                        onPostClick()
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Create,
+                                    contentDescription = stringResource(postIconContentDescriptionRes),
+                                )
+                            }
                         }
                     }
                 }
