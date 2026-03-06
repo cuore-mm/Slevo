@@ -76,12 +76,14 @@ private val ExpandedIconTranslation = 6.dp
  * TabToolBar のレイアウト計算結果をまとめて保持する。
  *
  * 縮退率に応じた高さ・フォントサイズ・表示閾値を共有するために使う。
+ * カード内外のアイコン枠幅もここでまとめて管理する。
  */
 data class TabToolBarLayoutState(
     val clampedProgress: Float,
     val collapsedAlpha: Float,
     val expandedHeight: Dp,
     val sideSlotWidth: Dp,
+    val cardSideSlotWidth: Dp,
     val titleFontSize: TextUnit,
     val actionTranslationPx: Float,
     val collapsedTranslationPx: Float,
@@ -114,6 +116,10 @@ fun rememberTabToolBarLayoutState(
         targetValue = SideSlotMaxWidth * collapsedAlpha,
         label = "CollapsedSideSlotWidth",
     )
+    val cardSideSlotWidth by animateDpAsState(
+        targetValue = SideSlotMaxWidth * clampedProgress,
+        label = "ExpandedCardSideSlotWidth",
+    )
 
     // --- Typography ---
     val baseFontSize = if (titleStyle.fontSize != TextUnit.Unspecified) {
@@ -139,6 +145,7 @@ fun rememberTabToolBarLayoutState(
         collapsedAlpha = collapsedAlpha,
         expandedHeight = expandedHeight,
         sideSlotWidth = sideSlotWidth,
+        cardSideSlotWidth = cardSideSlotWidth,
         titleFontSize = titleFontSize,
         actionTranslationPx = actionTranslationPx,
         collapsedTranslationPx = collapsedTranslationPx,
@@ -331,6 +338,7 @@ private fun TabToolBarHeader(
  * タイトルカード内の展開アイコンとタイトル文字列を描画する。
  *
  * 展開率に応じてカード内アイコンの表示とタイトル文字サイズを切り替える。
+ * アイコン用の幅を維持してタイトル幅の急変を防ぐ。
  */
 @Composable
 private fun ExpandedTitleActions(
@@ -349,6 +357,7 @@ private fun ExpandedTitleActions(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ExpandedCardAction(
+            slotWidth = layoutState.cardSideSlotWidth,
             alpha = layoutState.clampedProgress,
             translationY = layoutState.expandedTranslationPx,
             enabled = layoutState.expandedIconEnabled,
@@ -389,6 +398,7 @@ private fun ExpandedTitleActions(
         )
 
         ExpandedCardAction(
+            slotWidth = layoutState.cardSideSlotWidth,
             alpha = layoutState.clampedProgress,
             translationY = layoutState.expandedTranslationPx,
             enabled = layoutState.expandedIconEnabled,
@@ -447,9 +457,11 @@ private fun CollapsedSideAction(
  * タイトルカード内の展開アイコンを描画する。
  *
  * 展開率に応じた透過と移動を適用し、閾値未満では押下を抑止する。
+ * スロット幅を維持してタイトル領域の伸縮を滑らかにする。
  */
 @Composable
 private fun ExpandedCardAction(
+    slotWidth: Dp,
     alpha: Float,
     translationY: Float,
     enabled: Boolean,
@@ -457,25 +469,28 @@ private fun ExpandedCardAction(
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
 ) {
-    if (alpha <= 0f) {
-        return
-    }
-
-    FeedbackTooltipIconButton(
-        modifier = Modifier.graphicsLayer {
-            this.alpha = alpha
-            this.translationY = (1f - alpha) * translationY
-        },
-        tooltipText = tooltipText,
-        showTooltipHost = enabled,
-        onClick = {
-            // Guard: 縮退中は誤タップを避ける。
-            if (enabled) {
-                onClick()
-            }
-        },
+    Box(
+        modifier = Modifier.width(slotWidth),
+        contentAlignment = Alignment.Center,
     ) {
-        icon()
+        if (alpha > 0f) {
+            FeedbackTooltipIconButton(
+                modifier = Modifier.graphicsLayer {
+                    this.alpha = alpha
+                    this.translationY = (1f - alpha) * translationY
+                },
+                tooltipText = tooltipText,
+                showTooltipHost = enabled,
+                onClick = {
+                    // Guard: 縮退中は誤タップを避ける。
+                    if (enabled) {
+                        onClick()
+                    }
+                },
+            ) {
+                icon()
+            }
+        }
     }
 }
 
