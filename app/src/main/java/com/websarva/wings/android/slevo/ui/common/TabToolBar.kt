@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
@@ -106,7 +107,7 @@ fun TabToolBar(
         MaterialTheme.typography.titleSmall.fontSize
     }
     val collapsedFontSize = baseFontSize * 0.85f
-    val titleFontSize = baseFontSize + (collapsedFontSize - baseFontSize) * collapsedAlpha
+    val titleFontSize = lerp(baseFontSize, collapsedFontSize, collapsedAlpha)
     val collapsedIconEnabled = collapsedAlpha > 0.5f
     val expandedIconEnabled = clampedProgress > 0.5f
     val cardModifier = Modifier
