@@ -23,6 +23,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -77,10 +79,17 @@ fun TabToolBar(
     titleMaxLines: Int = 2,
     titleTextAlign: TextAlign = TextAlign.Start,
 ) {
+    // --- Height ---
+    val targetHeight = if (actionsVisible) 96.dp else 56.dp
+    val expandedHeight by animateDpAsState(
+        targetValue = targetHeight,
+        label = "BottomBarHeight",
+    )
+
     // --- Layout ---
     Box(modifier = modifier.fillMaxWidth()) {
         FlexibleBottomAppBar(
-            expandedHeight = 96.dp,
+            expandedHeight = expandedHeight,
         ) {
             Column(
                 modifier = Modifier
