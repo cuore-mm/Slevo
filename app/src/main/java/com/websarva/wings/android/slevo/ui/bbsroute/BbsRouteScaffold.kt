@@ -88,7 +88,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         listState: LazyListState,
         modifier: Modifier,
         navController: NavHostController,
-        showBottomBar: (() -> Unit)?,
         openTabListSheet: () -> Unit,
         openUrlDialog: () -> Unit,
     ) -> Unit,
@@ -231,13 +230,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             val actionVisibility = rememberBottomBarActionVisibility(
                 scrollEnabled = bottomBarActionVisibilityEnabled,
             )
-            val showBottomBar = bottomBehavior?.let { behavior ->
-                {
-                    // Guard: ToTop/ToBottom ジェスチャー時は常に全表示に戻す。
-                    actionVisibility.progress.value = 1f
-                    behavior.state.heightOffset = 0f
-                }
-            }
 
             Box(modifier = Modifier.fillMaxSize()) {
                 Scaffold(
@@ -267,7 +259,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         listState,
                         contentModifier,
                         navController,
-                        showBottomBar,
                         { showTabListSheet = true },
                         {
                             urlError = null

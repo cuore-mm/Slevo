@@ -14,17 +14,14 @@ suspend fun executeGestureScrollAction(
     action: GestureAction,
     listState: LazyListState,
     fallbackItemCount: Int,
-    showBottomBar: (() -> Unit)? = null,
 ): Boolean {
     return when (action) {
         GestureAction.ToTop -> {
-            showBottomBar?.invoke()
             listState.scrollToItem(0)
             true
         }
 
         GestureAction.ToBottom -> {
-            showBottomBar?.invoke()
             waitForViewportUpdate(listState)
             val targetIndex = resolveBottomTargetIndex(
                 totalItemsCount = listState.layoutInfo.totalItemsCount,

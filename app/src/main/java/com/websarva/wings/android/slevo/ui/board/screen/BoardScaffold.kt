@@ -174,7 +174,7 @@ fun BoardScaffold(
                 }
             )
         },
-        content = { viewModel, uiState, listState, modifier, navController, showBottomBar, openTabListSheet, openUrlDialog ->
+        content = { viewModel, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
             LaunchedEffect(uiState.resetScroll) {
                 if (uiState.resetScroll) {
                     listState.scrollToItem(0)
@@ -206,7 +206,6 @@ fun BoardScaffold(
                 onRefresh = { viewModel.refreshBoardData() },
                 listState = listState,
                 gestureSettings = uiState.gestureSettings,
-                showBottomBar = showBottomBar,
                 onGestureAction = { action ->
                     dispatchCommonGestureAction(
                         action = action,

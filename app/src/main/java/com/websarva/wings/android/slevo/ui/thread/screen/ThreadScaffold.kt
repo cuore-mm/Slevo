@@ -172,7 +172,7 @@ fun ThreadScaffold(
                 }
             )
         },
-        content = { viewModel, uiState, listState, modifier, navController, showBottomBar, openTabListSheet, openUrlDialog ->
+        content = { viewModel, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
             LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
                 if (
@@ -205,7 +205,6 @@ fun ThreadScaffold(
                 listState = listState,
                 navController = navController,
                 tabsViewModel = tabsViewModel,
-                showBottomBar = showBottomBar,
                 onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
                 onBottomRefresh = { viewModel.reloadThreadFromBottomPull() },
                 onLastRead = { resNum ->
