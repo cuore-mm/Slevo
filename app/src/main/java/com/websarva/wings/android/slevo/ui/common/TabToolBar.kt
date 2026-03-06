@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarOutline
@@ -37,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
@@ -62,6 +65,7 @@ data class TabToolBarAction(
  *
  * 上段はタイトル・ブックマーク・更新、下段はアクション群を並べる。
  * `actionsProgress` でアクション群の縮退率を制御する。
+ * 縮退時はタイトルを小さくし、カード外にタブ/書き込みアイコンを表示する。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +75,10 @@ fun TabToolBar(
     bookmarkState: BookmarkStatusState,
     onBookmarkClick: () -> Unit,
     actions: List<TabToolBarAction>,
+    onTabListClick: () -> Unit,
+    onPostClick: () -> Unit,
+    tabIconContentDescriptionRes: Int,
+    postIconContentDescriptionRes: Int,
     actionsProgress: Float = 1f,
     onTitleClick: (() -> Unit)? = null,
     onRefreshClick: (() -> Unit),
@@ -83,12 +91,27 @@ fun TabToolBar(
 ) {
     // --- Height ---
     val clampedProgress = actionsProgress.coerceIn(0f, 1f)
+    val collapsedAlpha = 1f - clampedProgress
     val targetHeight = 56.dp + (40.dp * clampedProgress)
     val expandedHeight by animateDpAsState(
         targetValue = targetHeight,
         label = "BottomBarHeight",
     )
     val actionTranslationPx = with(LocalDensity.current) { 24.dp.toPx() }
+    val collapsedTranslationPx = with(LocalDensity.current) { 8.dp.toPx() }
+    val expandedTranslationPx = with(LocalDensity.current) { 6.dp.toPx() }
+    val baseFontSize = if (titleStyle.fontSize != TextUnit.Unspecified) {
+        titleStyle.fontSize
+    } else {
+        MaterialTheme.typography.titleSmall.fontSize
+    }
+    val collapsedFontSize = baseFontSize * 0.85f
+    val titleFontSize = baseFontSize + (collapsedFontSize - baseFontSize) * collapsedAlpha
+    val collapsedIconEnabled = collapsedAlpha > 0.5f
+    val expandedIconEnabled = clampedProgress > 0.5f
+    val cardModifier = Modifier
+        .fillMaxWidth()
+        .padding(vertical = 4.dp)
 
     // --- Layout ---
     Box(modifier = modifier.fillMaxWidth()) {
@@ -100,73 +123,142 @@ fun TabToolBar(
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
             ) {
-                val cardModifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-
                 // --- Title row ---
                 val cardContent: @Composable () -> Unit = {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        FeedbackTooltipIconButton(
-                            tooltipText = stringResource(R.string.bookmark),
-                            onClick = onBookmarkClick,
-                        ) {
-                            if (bookmarkState.isBookmarked) {
-                                val tintColor =
-                                    bookmarkState.selectedGroup?.colorName?.let { bookmarkColor(it) }
-                                        ?: LocalContentColor.current
-                                Box {
-                                    Icon(
-                                        imageVector = Icons.Filled.Star,
-                                        contentDescription = null,
-                                        tint = tintColor,
-                                    )
+                        if (clampedProgress > 0f) {
+                            FeedbackTooltipIconButton(
+                                modifier = Modifier.graphicsLayer {
+                                    alpha = clampedProgress
+                                    translationY = (1f - clampedProgress) * expandedTranslationPx
+                                },
+                                tooltipText = stringResource(R.string.bookmark),
+                                showTooltipHost = expandedIconEnabled,
+                                onClick = {
+                                    // Guard: 縮退中は誤タップを避ける。
+                                    if (expandedIconEnabled) {
+                                        onBookmarkClick()
+                                    }
+                                },
+                            ) {
+                                if (bookmarkState.isBookmarked) {
+                                    val tintColor =
+                                        bookmarkState.selectedGroup?.colorName?.let { bookmarkColor(it) }
+                                            ?: LocalContentColor.current
+                                    Box {
+                                        Icon(
+                                            imageVector = Icons.Filled.Star,
+                                            contentDescription = null,
+                                            tint = tintColor,
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Outlined.StarOutline,
+                                            contentDescription = stringResource(R.string.bookmark),
+                                        )
+                                    }
+                                } else {
                                     Icon(
                                         imageVector = Icons.Outlined.StarOutline,
                                         contentDescription = stringResource(R.string.bookmark),
                                     )
                                 }
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Outlined.StarOutline,
-                                    contentDescription = stringResource(R.string.bookmark),
-                                )
                             }
                         }
                         Text(
                             text = title,
                             fontWeight = titleFontWeight,
-                            style = titleStyle,
+                            style = titleStyle.copy(fontSize = titleFontSize),
                             maxLines = titleMaxLines,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = titleTextAlign,
                             modifier = Modifier.weight(1f),
                         )
-                        FeedbackTooltipIconButton(
-                            tooltipText = stringResource(R.string.refresh),
-                            onClick = onRefreshClick,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = stringResource(R.string.refresh),
-                            )
+                        if (clampedProgress > 0f) {
+                            FeedbackTooltipIconButton(
+                                modifier = Modifier.graphicsLayer {
+                                    alpha = clampedProgress
+                                    translationY = (1f - clampedProgress) * expandedTranslationPx
+                                },
+                                tooltipText = stringResource(R.string.refresh),
+                                showTooltipHost = expandedIconEnabled,
+                                onClick = {
+                                    // Guard: 縮退中は誤タップを避ける。
+                                    if (expandedIconEnabled) {
+                                        onRefreshClick()
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = stringResource(R.string.refresh),
+                                )
+                            }
                         }
                     }
                 }
 
-                if (onTitleClick != null) {
-                    Card(
-                        modifier = cardModifier,
-                        onClick = onTitleClick,
-                    ) {
-                        cardContent()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (collapsedAlpha > 0f) {
+                        FeedbackTooltipIconButton(
+                            modifier = Modifier.graphicsLayer {
+                                alpha = collapsedAlpha
+                                translationY = (1f - collapsedAlpha) * collapsedTranslationPx
+                            },
+                            tooltipText = stringResource(tabIconContentDescriptionRes),
+                            showTooltipHost = collapsedIconEnabled,
+                            onClick = {
+                                // Guard: アイコンが薄い間は押下を抑止する。
+                                if (collapsedIconEnabled) {
+                                    onTabListClick()
+                                }
+                            },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.CropSquare,
+                                contentDescription = stringResource(tabIconContentDescriptionRes),
+                            )
+                        }
                     }
-                } else {
-                    Card(modifier = cardModifier) {
-                        cardContent()
+
+                    if (onTitleClick != null) {
+                        Card(
+                            modifier = cardModifier.weight(1f),
+                            onClick = onTitleClick,
+                        ) {
+                            cardContent()
+                        }
+                    } else {
+                        Card(modifier = cardModifier.weight(1f)) {
+                            cardContent()
+                        }
+                    }
+
+                    if (collapsedAlpha > 0f) {
+                        FeedbackTooltipIconButton(
+                            modifier = Modifier.graphicsLayer {
+                                alpha = collapsedAlpha
+                                translationY = (1f - collapsedAlpha) * collapsedTranslationPx
+                            },
+                            tooltipText = stringResource(postIconContentDescriptionRes),
+                            showTooltipHost = collapsedIconEnabled,
+                            onClick = {
+                                // Guard: アイコンが薄い間は押下を抑止する。
+                                if (collapsedIconEnabled) {
+                                    onPostClick()
+                                }
+                            },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Create,
+                                contentDescription = stringResource(postIconContentDescriptionRes),
+                            )
+                        }
                     }
                 }
 
