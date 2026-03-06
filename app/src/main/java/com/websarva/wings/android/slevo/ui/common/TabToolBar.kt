@@ -72,10 +72,10 @@ private val SideSlotMaxWidth = 48.dp
 private val ActionRowTranslation = 24.dp
 private val CollapsedIconTranslation = 8.dp
 private val ExpandedIconTranslation = 6.dp
-private val CollapsedTitleFontWeight = FontWeight.Normal
-private val CollapsedTitleHorizontalPadding = 6.dp
+private val CollapsedTitleFontWeight = FontWeight.Medium
+private val CollapsedTitleHorizontalPadding = 12.dp
 private val ExpandedTitleHorizontalPadding = 0.dp
-private val CollapsedTitleVerticalPadding = 2.dp
+private val CollapsedTitleVerticalPadding = 8.dp
 private val ExpandedTitleVerticalPadding = 0.dp
 
 /**
@@ -141,12 +141,12 @@ fun rememberTabToolBarLayoutState(
     }
     val collapsedFontSize = baseFontSize * CollapsedTitleScale
     val titleFontSize = lerp(baseFontSize, collapsedFontSize, collapsedAlpha)
-    val resolvedTitleFontWeight = if (collapsedAlpha >= 0.5f) {
+    val resolvedTitleFontWeight = if (collapsedAlpha > 0f) {
         CollapsedTitleFontWeight
     } else {
         titleFontWeight
     }
-    val resolvedTitleMaxLines = if (collapsedAlpha > 0.5f) 1 else titleMaxLines
+    val resolvedTitleMaxLines = if (collapsedAlpha > 0f) 1 else titleMaxLines
     val titleHorizontalPadding = lerp(
         ExpandedTitleHorizontalPadding,
         CollapsedTitleHorizontalPadding,
@@ -283,6 +283,7 @@ fun TabToolBar(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TabToolBarHeader(
+    modifier: Modifier = Modifier,
     title: String,
     bookmarkState: BookmarkStatusState,
     onBookmarkClick: () -> Unit,
@@ -298,7 +299,7 @@ private fun TabToolBarHeader(
     cardModifier: Modifier,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CollapsedSideAction(
@@ -344,11 +345,12 @@ private fun TabToolBarHeader(
 }
 
 /**
- * タイトルカード内の展開アイコンとタイトル文字列を描画する。
+ * タイトルカードの展開アイコンとタイトル文字列を描画する。
  *
  * 展開率に応じてカード内アイコンの表示とタイトル文字スタイルを切り替える。
  * アイコン用の幅を維持してタイトル幅の急変を防ぐ。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ExpandedTitleActions(
     modifier: Modifier = Modifier,
@@ -363,6 +365,7 @@ private fun ExpandedTitleActions(
 ) {
     Card(
         modifier = modifier,
+        shape = MaterialTheme.shapes.largeIncreased,
         onClick = onTitleClick,
     ) {
         Row(
@@ -402,21 +405,21 @@ private fun ExpandedTitleActions(
                 }
             }
 
-        Text(
-            text = title,
-            modifier = Modifier
-                .weight(1f)
-                .padding(
-                    horizontal = layoutState.titleHorizontalPadding,
-                    vertical = layoutState.titleVerticalPadding,
-                )
-                .animateContentSize(),
-            fontWeight = layoutState.titleFontWeight,
-            style = titleStyle.copy(fontSize = layoutState.titleFontSize),
-            maxLines = layoutState.titleMaxLines,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = titleTextAlign,
-        )
+            Text(
+                text = title,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(
+                        horizontal = layoutState.titleHorizontalPadding,
+                        vertical = layoutState.titleVerticalPadding,
+                    )
+                    .animateContentSize(),
+                fontWeight = layoutState.titleFontWeight,
+                style = titleStyle.copy(fontSize = layoutState.titleFontSize),
+                maxLines = layoutState.titleMaxLines,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = titleTextAlign,
+            )
 
             ExpandedCardAction(
                 slotWidth = layoutState.cardSideSlotWidth,
@@ -582,5 +585,31 @@ fun ThreadToolBarPreview() {
         onThreadInfoClick = {},
         onMoreClick = {},
         onAutoScrollClick = {}
+    )
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
+@Preview(showBackground = true, name = "ThreadToolBar Collapsed")
+@Composable
+fun ThreadToolBarCollapsedPreview() {
+    ThreadToolBar(
+        uiState = ThreadUiState(
+            threadInfo = ThreadInfo(title = "スレッドのタイトル"),
+            bookmarkStatusState = BookmarkStatusState(
+                isBookmarked = false,
+                selectedGroup = null
+            )
+        ),
+        isTreeSort = false,
+        onSortClick = {},
+        onPostClick = {},
+        onTabListClick = {},
+        onRefreshClick = {},
+        onSearchClick = {},
+        onBookmarkClick = {},
+        onThreadInfoClick = {},
+        onMoreClick = {},
+        onAutoScrollClick = {},
+        actionsProgress = 0f,
     )
 }
