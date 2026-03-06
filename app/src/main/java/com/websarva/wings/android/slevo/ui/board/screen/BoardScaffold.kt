@@ -162,6 +162,7 @@ fun BoardScaffold(
                         tabIconContentDescriptionRes = R.string.open_tablist,
                         postIconContentDescriptionRes = R.string.create_thread,
                         actionsProgress = if (uiState.isSearchActive) 0f else actionProgress,
+                        onTitleClick = {},
                         onRefreshClick = { viewModel.refreshBoardData() },
                         isLoading = uiState.isLoading,
                         loadProgress = uiState.loadProgress,

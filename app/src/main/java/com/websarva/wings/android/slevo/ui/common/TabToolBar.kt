@@ -1,6 +1,8 @@
 package com.websarva.wings.android.slevo.ui.common
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,7 +29,6 @@ import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -139,7 +140,7 @@ fun rememberTabToolBarLayoutState(
     } else {
         titleFontWeight
     }
-    val resolvedTitleMaxLines = if (collapsedAlpha > 0f) 1 else titleMaxLines
+    val resolvedTitleMaxLines = if (collapsedAlpha > 0.5f) 1 else titleMaxLines
 
     // --- Translations ---
     val density = LocalDensity.current
@@ -188,7 +189,7 @@ fun TabToolBar(
     tabIconContentDescriptionRes: Int,
     postIconContentDescriptionRes: Int,
     actionsProgress: Float = 1f,
-    onTitleClick: (() -> Unit)? = null,
+    onTitleClick: (() -> Unit),
     onRefreshClick: (() -> Unit),
     isLoading: Boolean = false,
     loadProgress: Float = 0f,
@@ -230,8 +231,6 @@ fun TabToolBar(
                     tabIconContentDescriptionRes = tabIconContentDescriptionRes,
                     postIconContentDescriptionRes = postIconContentDescriptionRes,
                     titleStyle = titleStyle,
-                    titleFontWeight = titleFontWeight,
-                    titleMaxLines = titleMaxLines,
                     titleTextAlign = titleTextAlign,
                     layoutState = layoutState,
                     cardModifier = cardModifier,
@@ -271,13 +270,11 @@ private fun TabToolBarHeader(
     onBookmarkClick: () -> Unit,
     onTabListClick: () -> Unit,
     onPostClick: () -> Unit,
-    onTitleClick: (() -> Unit)?,
+    onTitleClick: (() -> Unit),
     onRefreshClick: () -> Unit,
     @StringRes tabIconContentDescriptionRes: Int,
     @StringRes postIconContentDescriptionRes: Int,
     titleStyle: TextStyle,
-    titleFontWeight: FontWeight,
-    titleMaxLines: Int,
     titleTextAlign: TextAlign,
     layoutState: TabToolBarLayoutState,
     cardModifier: Modifier,
@@ -300,34 +297,17 @@ private fun TabToolBarHeader(
             )
         }
 
-        if (onTitleClick != null) {
-            Card(
-                modifier = cardModifier.weight(1f),
-                onClick = onTitleClick,
-            ) {
-                ExpandedTitleActions(
-                    title = title,
-                    bookmarkState = bookmarkState,
-                    onBookmarkClick = onBookmarkClick,
-                    onRefreshClick = onRefreshClick,
-                    titleStyle = titleStyle,
-                    titleTextAlign = titleTextAlign,
-                    layoutState = layoutState,
-                )
-            }
-        } else {
-            Card(modifier = cardModifier.weight(1f)) {
-                ExpandedTitleActions(
-                    title = title,
-                    bookmarkState = bookmarkState,
-                    onBookmarkClick = onBookmarkClick,
-                    onRefreshClick = onRefreshClick,
-                    titleStyle = titleStyle,
-                    titleTextAlign = titleTextAlign,
-                    layoutState = layoutState,
-                )
-            }
-        }
+        ExpandedTitleActions(
+            modifier = cardModifier.weight(1f),
+            title = title,
+            bookmarkState = bookmarkState,
+            onTitleClick = onTitleClick,
+            onBookmarkClick = onBookmarkClick,
+            onRefreshClick = onRefreshClick,
+            titleStyle = titleStyle,
+            titleTextAlign = titleTextAlign,
+            layoutState = layoutState,
+        )
 
         CollapsedSideAction(
             slotWidth = layoutState.sideSlotWidth,
@@ -353,71 +333,82 @@ private fun TabToolBarHeader(
  */
 @Composable
 private fun ExpandedTitleActions(
+    modifier: Modifier = Modifier,
     title: String,
     bookmarkState: BookmarkStatusState,
+    onTitleClick: () -> Unit,
     onBookmarkClick: () -> Unit,
     onRefreshClick: () -> Unit,
     titleStyle: TextStyle,
     titleTextAlign: TextAlign,
     layoutState: TabToolBarLayoutState,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+    Card(
+        modifier = modifier,
+        onClick = onTitleClick,
     ) {
-        ExpandedCardAction(
-            slotWidth = layoutState.cardSideSlotWidth,
-            alpha = layoutState.clampedProgress,
-            translationY = layoutState.expandedTranslationPx,
-            enabled = layoutState.expandedIconEnabled,
-            tooltipText = stringResource(R.string.bookmark),
-            onClick = onBookmarkClick,
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .animateContentSize(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (bookmarkState.isBookmarked) {
-                val tintColor =
-                    bookmarkState.selectedGroup?.colorName?.let { bookmarkColor(it) }
-                        ?: LocalContentColor.current
-                Box {
-                    Icon(
-                        imageVector = Icons.Filled.Star,
-                        contentDescription = null,
-                        tint = tintColor,
-                    )
+            ExpandedCardAction(
+                slotWidth = layoutState.cardSideSlotWidth,
+                alpha = layoutState.clampedProgress,
+                translationY = layoutState.expandedTranslationPx,
+                enabled = layoutState.expandedIconEnabled,
+                tooltipText = stringResource(R.string.bookmark),
+                onClick = onBookmarkClick,
+            ) {
+                if (bookmarkState.isBookmarked) {
+                    val tintColor =
+                        bookmarkState.selectedGroup?.colorName?.let { bookmarkColor(it) }
+                            ?: LocalContentColor.current
+                    Box {
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = null,
+                            tint = tintColor,
+                        )
+                        Icon(
+                            imageVector = Icons.Outlined.StarOutline,
+                            contentDescription = stringResource(R.string.bookmark),
+                        )
+                    }
+                } else {
                     Icon(
                         imageVector = Icons.Outlined.StarOutline,
                         contentDescription = stringResource(R.string.bookmark),
                     )
                 }
-            } else {
+            }
+
+            Text(
+                text = title,
+                modifier = Modifier
+                    .weight(1f)
+                    .animateContentSize(),
+                fontWeight = layoutState.titleFontWeight,
+                style = titleStyle.copy(fontSize = layoutState.titleFontSize),
+                maxLines = layoutState.titleMaxLines,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = titleTextAlign,
+            )
+
+            ExpandedCardAction(
+                slotWidth = layoutState.cardSideSlotWidth,
+                alpha = layoutState.clampedProgress,
+                translationY = layoutState.expandedTranslationPx,
+                enabled = layoutState.expandedIconEnabled,
+                tooltipText = stringResource(R.string.refresh),
+                onClick = onRefreshClick,
+            ) {
                 Icon(
-                    imageVector = Icons.Outlined.StarOutline,
-                    contentDescription = stringResource(R.string.bookmark),
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = stringResource(R.string.refresh),
                 )
             }
-        }
-
-        Text(
-            text = title,
-            fontWeight = layoutState.titleFontWeight,
-            style = titleStyle.copy(fontSize = layoutState.titleFontSize),
-            maxLines = layoutState.titleMaxLines,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = titleTextAlign,
-            modifier = Modifier.weight(1f),
-        )
-
-        ExpandedCardAction(
-            slotWidth = layoutState.cardSideSlotWidth,
-            alpha = layoutState.clampedProgress,
-            translationY = layoutState.expandedTranslationPx,
-            enabled = layoutState.expandedIconEnabled,
-            tooltipText = stringResource(R.string.refresh),
-            onClick = onRefreshClick,
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Refresh,
-                contentDescription = stringResource(R.string.refresh),
-            )
         }
     }
 }
@@ -526,7 +517,7 @@ private fun BottomActionsRow(
                 alpha = layoutState.clampedProgress
                 translationY =
                     (1f - layoutState.clampedProgress) *
-                        layoutState.actionTranslationPx
+                            layoutState.actionTranslationPx
             },
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
