@@ -71,6 +71,7 @@ private val SideSlotMaxWidth = 48.dp
 private val ActionRowTranslation = 24.dp
 private val CollapsedIconTranslation = 8.dp
 private val ExpandedIconTranslation = 6.dp
+private val CollapsedTitleFontWeight = FontWeight.Normal
 
 /**
  * TabToolBar のレイアウト計算結果をまとめて保持する。
@@ -85,6 +86,8 @@ data class TabToolBarLayoutState(
     val sideSlotWidth: Dp,
     val cardSideSlotWidth: Dp,
     val titleFontSize: TextUnit,
+    val titleFontWeight: FontWeight,
+    val titleMaxLines: Int,
     val actionTranslationPx: Float,
     val collapsedTranslationPx: Float,
     val expandedTranslationPx: Float,
@@ -95,12 +98,14 @@ data class TabToolBarLayoutState(
 /**
  * TabToolBar の表示補間に使うレイアウト値を計算する。
  *
- * 進捗値とテキストスタイルから高さ・フォントサイズ・表示閾値を導出する。
+ * 進捗値とテキストスタイルから高さ・文字サイズ・太さ・行数・表示閾値を導出する。
  */
 @Composable
 fun rememberTabToolBarLayoutState(
     actionsProgress: Float,
     titleStyle: TextStyle,
+    titleFontWeight: FontWeight,
+    titleMaxLines: Int,
 ): TabToolBarLayoutState {
     // --- Progress ---
     val clampedProgress = actionsProgress.coerceIn(0f, 1f)
@@ -129,6 +134,12 @@ fun rememberTabToolBarLayoutState(
     }
     val collapsedFontSize = baseFontSize * CollapsedTitleScale
     val titleFontSize = lerp(baseFontSize, collapsedFontSize, collapsedAlpha)
+    val resolvedTitleFontWeight = if (collapsedAlpha >= 0.5f) {
+        CollapsedTitleFontWeight
+    } else {
+        titleFontWeight
+    }
+    val resolvedTitleMaxLines = if (collapsedAlpha > 0f) 1 else titleMaxLines
 
     // --- Translations ---
     val density = LocalDensity.current
@@ -147,6 +158,8 @@ fun rememberTabToolBarLayoutState(
         sideSlotWidth = sideSlotWidth,
         cardSideSlotWidth = cardSideSlotWidth,
         titleFontSize = titleFontSize,
+        titleFontWeight = resolvedTitleFontWeight,
+        titleMaxLines = resolvedTitleMaxLines,
         actionTranslationPx = actionTranslationPx,
         collapsedTranslationPx = collapsedTranslationPx,
         expandedTranslationPx = expandedTranslationPx,
@@ -188,6 +201,8 @@ fun TabToolBar(
     val layoutState = rememberTabToolBarLayoutState(
         actionsProgress = actionsProgress,
         titleStyle = titleStyle,
+        titleFontWeight = titleFontWeight,
+        titleMaxLines = titleMaxLines,
     )
     val cardModifier = Modifier
         .fillMaxWidth()
@@ -296,8 +311,6 @@ private fun TabToolBarHeader(
                     onBookmarkClick = onBookmarkClick,
                     onRefreshClick = onRefreshClick,
                     titleStyle = titleStyle,
-                    titleFontWeight = titleFontWeight,
-                    titleMaxLines = titleMaxLines,
                     titleTextAlign = titleTextAlign,
                     layoutState = layoutState,
                 )
@@ -310,8 +323,6 @@ private fun TabToolBarHeader(
                     onBookmarkClick = onBookmarkClick,
                     onRefreshClick = onRefreshClick,
                     titleStyle = titleStyle,
-                    titleFontWeight = titleFontWeight,
-                    titleMaxLines = titleMaxLines,
                     titleTextAlign = titleTextAlign,
                     layoutState = layoutState,
                 )
@@ -337,7 +348,7 @@ private fun TabToolBarHeader(
 /**
  * タイトルカード内の展開アイコンとタイトル文字列を描画する。
  *
- * 展開率に応じてカード内アイコンの表示とタイトル文字サイズを切り替える。
+ * 展開率に応じてカード内アイコンの表示とタイトル文字スタイルを切り替える。
  * アイコン用の幅を維持してタイトル幅の急変を防ぐ。
  */
 @Composable
@@ -347,8 +358,6 @@ private fun ExpandedTitleActions(
     onBookmarkClick: () -> Unit,
     onRefreshClick: () -> Unit,
     titleStyle: TextStyle,
-    titleFontWeight: FontWeight,
-    titleMaxLines: Int,
     titleTextAlign: TextAlign,
     layoutState: TabToolBarLayoutState,
 ) {
@@ -389,9 +398,9 @@ private fun ExpandedTitleActions(
 
         Text(
             text = title,
-            fontWeight = titleFontWeight,
+            fontWeight = layoutState.titleFontWeight,
             style = titleStyle.copy(fontSize = layoutState.titleFontSize),
-            maxLines = titleMaxLines,
+            maxLines = layoutState.titleMaxLines,
             overflow = TextOverflow.Ellipsis,
             textAlign = titleTextAlign,
             modifier = Modifier.weight(1f),
