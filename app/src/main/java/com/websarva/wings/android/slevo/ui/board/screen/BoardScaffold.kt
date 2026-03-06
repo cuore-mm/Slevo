@@ -40,7 +40,6 @@ import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
-import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 
 /**
  * 板画面の表示とタブ解決をまとめて行う。
@@ -114,8 +113,7 @@ fun BoardScaffold(
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setBoardCurrentPage(it) },
         animateToPageFlow = tabsViewModel.boardPageAnimation,
-        bottomBarScrollBehavior = { rememberBottomBarShowOnBottomBehavior() },
-        bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
+        bottomBar = { viewModel, uiState, actionsVisible, openTabListSheet ->
             val actions = listOf(
                 TabToolBarAction(
                     icon = Icons.AutoMirrored.Filled.Sort,
@@ -159,7 +157,7 @@ fun BoardScaffold(
                         bookmarkState = uiState.bookmarkStatusState,
                         onBookmarkClick = { viewModel.openBookmarkSheet() },
                         actions = actions,
-                        scrollBehavior = barScrollBehavior,
+                        actionsVisible = actionsVisible && !uiState.isSearchActive,
                         onRefreshClick = { viewModel.refreshBoardData() },
                         isLoading = uiState.isLoading,
                         loadProgress = uiState.loadProgress,

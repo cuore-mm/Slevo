@@ -40,6 +40,7 @@ import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
+import com.websarva.wings.android.slevo.ui.util.rememberBottomBarActionVisibility
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -78,7 +79,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     bottomBar: @Composable (
         viewModel: ViewModel,
         uiState: UiState,
-        scrollBehavior: BottomAppBarScrollBehavior?,
+        actionsVisible: Boolean,
         openTabListSheet: () -> Unit,
     ) -> Unit,
     content: @Composable (
@@ -92,6 +93,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         openUrlDialog: () -> Unit,
     ) -> Unit,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
+    bottomBarActionVisibilityEnabled: Boolean = true,
     optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
 ) {
     // このComposableはタブベースの画面レイアウトを提供します。
@@ -226,8 +228,13 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
             val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
+            val actionVisibility = rememberBottomBarActionVisibility(
+                scrollEnabled = bottomBarActionVisibilityEnabled,
+            )
             val showBottomBar = bottomBehavior?.let { behavior ->
                 {
+                    // Guard: ToTop/ToBottom ジェスチャー時は常に全表示に戻す。
+                    actionVisibility.actionsVisible.value = true
                     behavior.state.heightOffset = 0f
                 }
             }
@@ -235,6 +242,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             Box(modifier = Modifier.fillMaxSize()) {
                 Scaffold(
                     modifier = Modifier
+                        .nestedScroll(actionVisibility.nestedScrollConnection)
                         .let { modifier ->
                             bottomBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
                                 ?: modifier
@@ -243,7 +251,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         bottomBar(
                             viewModel,
                             uiState,
-                            bottomBehavior
+                            actionVisibility.actionsVisible.value
                         ) {
                             showTabListSheet = true
                         }

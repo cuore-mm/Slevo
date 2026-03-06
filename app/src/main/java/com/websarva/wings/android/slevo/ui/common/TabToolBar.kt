@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarOutline
-import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -58,6 +57,7 @@ data class TabToolBarAction(
  * 板/スレッド画面のボトムバー表示を共通化する。
  *
  * 上段はタイトル・ブックマーク・更新、下段はアクション群を並べる。
+ * `actionsVisible` でアクション群の表示を切り替える。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -67,7 +67,7 @@ fun TabToolBar(
     bookmarkState: BookmarkStatusState,
     onBookmarkClick: () -> Unit,
     actions: List<TabToolBarAction>,
-    scrollBehavior: BottomAppBarScrollBehavior? = null,
+    actionsVisible: Boolean = true,
     onTitleClick: (() -> Unit)? = null,
     onRefreshClick: (() -> Unit),
     isLoading: Boolean = false,
@@ -81,7 +81,6 @@ fun TabToolBar(
     Box(modifier = modifier.fillMaxWidth()) {
         FlexibleBottomAppBar(
             expandedHeight = 96.dp,
-            scrollBehavior = scrollBehavior,
         ) {
             Column(
                 modifier = Modifier
@@ -158,23 +157,25 @@ fun TabToolBar(
                     }
                 }
 
-                Spacer(modifier = Modifier.padding(2.dp))
+                if (actionsVisible) {
+                    Spacer(modifier = Modifier.padding(2.dp))
 
-                // --- Actions row ---
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    actions.forEach { action ->
-                        FeedbackTooltipIconButton(
-                            tooltipText = stringResource(action.contentDescriptionRes),
-                            onClick = action.onClick,
-                        ) {
-                            Icon(
-                                imageVector = action.icon,
-                                contentDescription = stringResource(action.contentDescriptionRes),
-                                tint = action.tint ?: LocalContentColor.current,
-                            )
+                    // --- Actions row ---
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                    ) {
+                        actions.forEach { action ->
+                            FeedbackTooltipIconButton(
+                                tooltipText = stringResource(action.contentDescriptionRes),
+                                onClick = action.onClick,
+                            ) {
+                                Icon(
+                                    imageVector = action.icon,
+                                    contentDescription = stringResource(action.contentDescriptionRes),
+                                    tint = action.tint ?: LocalContentColor.current,
+                                )
+                            }
                         }
                     }
                 }

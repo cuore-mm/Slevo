@@ -56,7 +56,6 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
-import com.websarva.wings.android.slevo.ui.util.rememberBottomBarShowOnBottomBehavior
 
 /**
  * スレッド画面の主要UIを構築する。
@@ -139,12 +138,8 @@ fun ThreadScaffold(
         currentPage = currentPage,
         onPageChange = { tabsViewModel.setThreadCurrentPage(it) },
         animateToPageFlow = tabsViewModel.threadPageAnimation,
-        bottomBarScrollBehavior = {
-            rememberBottomBarShowOnBottomBehavior(
-                scrollEnabled = !isPopupVisible
-            )
-        },
-        bottomBar = { viewModel, uiState, barScrollBehavior, openTabListSheet ->
+        bottomBarActionVisibilityEnabled = !isPopupVisible,
+        bottomBar = { viewModel, uiState, actionsVisible, openTabListSheet ->
             BbsRouteBottomBar(
                 isSearchMode = uiState.isSearchMode,
                 onCloseSearch = { viewModel.closeSearch() },
@@ -172,7 +167,7 @@ fun ThreadScaffold(
                         onThreadInfoClick = { viewModel.openThreadInfoSheet() },
                         onMoreClick = { viewModel.openMoreSheet() },
                         onAutoScrollClick = { viewModel.toggleAutoScroll() },
-                        scrollBehavior = barScrollBehavior,
+                        actionsVisible = actionsVisible && !uiState.isSearchMode,
                     )
                 }
             )

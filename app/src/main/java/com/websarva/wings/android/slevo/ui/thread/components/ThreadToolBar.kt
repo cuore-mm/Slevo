@@ -9,7 +9,6 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -39,7 +38,7 @@ fun ThreadToolBar(
     onThreadInfoClick: () -> Unit,
     onMoreClick: () -> Unit,
     onAutoScrollClick: () -> Unit,
-    scrollBehavior: BottomAppBarScrollBehavior? = null,
+    actionsVisible: Boolean = true,
 ) {
     val sortIcon = if (isTreeSort) Icons.Filled.AccountTree else Icons.Filled.FormatListNumbered
     val sortContentDescription = if (isTreeSort) R.string.tree_order else R.string.number_order
@@ -86,7 +85,7 @@ fun ThreadToolBar(
         bookmarkState = uiState.bookmarkStatusState,
         onBookmarkClick = onBookmarkClick,
         actions = actions,
-        scrollBehavior = scrollBehavior,
+        actionsVisible = actionsVisible,
         onTitleClick = onThreadInfoClick,
         onRefreshClick = onRefreshClick,
         isLoading = uiState.isLoading,
