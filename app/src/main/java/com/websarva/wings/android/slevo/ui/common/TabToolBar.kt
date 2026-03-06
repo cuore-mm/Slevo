@@ -43,6 +43,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
@@ -121,7 +122,7 @@ fun rememberTabToolBarLayoutState(
         MaterialTheme.typography.titleSmall.fontSize
     }
     val collapsedFontSize = baseFontSize * CollapsedTitleScale
-    val titleFontSize = baseFontSize + (collapsedFontSize - baseFontSize) * collapsedAlpha
+    val titleFontSize = lerp(baseFontSize, collapsedFontSize, collapsedAlpha)
 
     // --- Translations ---
     val density = LocalDensity.current
@@ -176,6 +177,7 @@ fun TabToolBar(
     titleMaxLines: Int = 2,
     titleTextAlign: TextAlign = TextAlign.Start,
 ) {
+    // --- Layout state ---
     val layoutState = rememberTabToolBarLayoutState(
         actionsProgress = actionsProgress,
         titleStyle = titleStyle,
@@ -194,192 +196,30 @@ fun TabToolBar(
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
             ) {
-                // --- Title row ---
-                val cardContent: @Composable () -> Unit = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (layoutState.clampedProgress > 0f) {
-                            FeedbackTooltipIconButton(
-                                modifier = Modifier.graphicsLayer {
-                                    alpha = layoutState.clampedProgress
-                                    translationY =
-                                        (1f - layoutState.clampedProgress) *
-                                            layoutState.expandedTranslationPx
-                                },
-                                tooltipText = stringResource(R.string.bookmark),
-                                showTooltipHost = layoutState.expandedIconEnabled,
-                                onClick = {
-                                    // Guard: 縮退中は誤タップを避ける。
-                                    if (layoutState.expandedIconEnabled) {
-                                        onBookmarkClick()
-                                    }
-                                },
-                            ) {
-                                if (bookmarkState.isBookmarked) {
-                                    val tintColor =
-                                        bookmarkState.selectedGroup?.colorName?.let { bookmarkColor(it) }
-                                            ?: LocalContentColor.current
-                                    Box {
-                                        Icon(
-                                            imageVector = Icons.Filled.Star,
-                                            contentDescription = null,
-                                            tint = tintColor,
-                                        )
-                                        Icon(
-                                            imageVector = Icons.Outlined.StarOutline,
-                                            contentDescription = stringResource(R.string.bookmark),
-                                        )
-                                    }
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Outlined.StarOutline,
-                                        contentDescription = stringResource(R.string.bookmark),
-                                    )
-                                }
-                            }
-                        }
-                        Text(
-                            text = title,
-                            fontWeight = titleFontWeight,
-                            style = titleStyle.copy(fontSize = layoutState.titleFontSize),
-                            maxLines = titleMaxLines,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = titleTextAlign,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (layoutState.clampedProgress > 0f) {
-                            FeedbackTooltipIconButton(
-                                modifier = Modifier.graphicsLayer {
-                                    alpha = layoutState.clampedProgress
-                                    translationY =
-                                        (1f - layoutState.clampedProgress) *
-                                            layoutState.expandedTranslationPx
-                                },
-                                tooltipText = stringResource(R.string.refresh),
-                                showTooltipHost = layoutState.expandedIconEnabled,
-                                onClick = {
-                                    // Guard: 縮退中は誤タップを避ける。
-                                    if (layoutState.expandedIconEnabled) {
-                                        onRefreshClick()
-                                    }
-                                },
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Refresh,
-                                    contentDescription = stringResource(R.string.refresh),
-                                )
-                            }
-                        }
-                    }
-                }
+                // --- Header ---
+                TabToolBarHeader(
+                    title = title,
+                    bookmarkState = bookmarkState,
+                    onBookmarkClick = onBookmarkClick,
+                    onTabListClick = onTabListClick,
+                    onPostClick = onPostClick,
+                    onTitleClick = onTitleClick,
+                    onRefreshClick = onRefreshClick,
+                    tabIconContentDescriptionRes = tabIconContentDescriptionRes,
+                    postIconContentDescriptionRes = postIconContentDescriptionRes,
+                    titleStyle = titleStyle,
+                    titleFontWeight = titleFontWeight,
+                    titleMaxLines = titleMaxLines,
+                    titleTextAlign = titleTextAlign,
+                    layoutState = layoutState,
+                    cardModifier = cardModifier,
+                )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        modifier = Modifier.width(layoutState.sideSlotWidth),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (layoutState.collapsedAlpha > 0f) {
-                            FeedbackTooltipIconButton(
-                                modifier = Modifier.graphicsLayer {
-                                    alpha = layoutState.collapsedAlpha
-                                    translationY =
-                                        (1f - layoutState.collapsedAlpha) *
-                                            layoutState.collapsedTranslationPx
-                                },
-                                tooltipText = stringResource(tabIconContentDescriptionRes),
-                                showTooltipHost = layoutState.collapsedIconEnabled,
-                                onClick = {
-                                    // Guard: アイコンが薄い間は押下を抑止する。
-                                    if (layoutState.collapsedIconEnabled) {
-                                        onTabListClick()
-                                    }
-                                },
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.CropSquare,
-                                    contentDescription = stringResource(tabIconContentDescriptionRes),
-                                )
-                            }
-                        }
-                    }
-
-                    if (onTitleClick != null) {
-                        Card(
-                            modifier = cardModifier.weight(1f),
-                            onClick = onTitleClick,
-                        ) {
-                            cardContent()
-                        }
-                    } else {
-                        Card(modifier = cardModifier.weight(1f)) {
-                            cardContent()
-                        }
-                    }
-
-                    Box(
-                        modifier = Modifier.width(layoutState.sideSlotWidth),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (layoutState.collapsedAlpha > 0f) {
-                            FeedbackTooltipIconButton(
-                                modifier = Modifier.graphicsLayer {
-                                    alpha = layoutState.collapsedAlpha
-                                    translationY =
-                                        (1f - layoutState.collapsedAlpha) *
-                                            layoutState.collapsedTranslationPx
-                                },
-                                tooltipText = stringResource(postIconContentDescriptionRes),
-                                showTooltipHost = layoutState.collapsedIconEnabled,
-                                onClick = {
-                                    // Guard: アイコンが薄い間は押下を抑止する。
-                                    if (layoutState.collapsedIconEnabled) {
-                                        onPostClick()
-                                    }
-                                },
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Create,
-                                    contentDescription = stringResource(postIconContentDescriptionRes),
-                                )
-                            }
-                        }
-                    }
-                }
-
-                if (layoutState.clampedProgress > 0f) {
-                    Spacer(modifier = Modifier.padding(2.dp))
-
-                    // --- Actions row ---
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .graphicsLayer {
-                                alpha = layoutState.clampedProgress
-                                translationY =
-                                    (1f - layoutState.clampedProgress) *
-                                        layoutState.actionTranslationPx
-                            },
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                    ) {
-                        actions.forEach { action ->
-                            FeedbackTooltipIconButton(
-                                tooltipText = stringResource(action.contentDescriptionRes),
-                                onClick = action.onClick,
-                            ) {
-                                Icon(
-                                    imageVector = action.icon,
-                                    contentDescription = stringResource(action.contentDescriptionRes),
-                                    tint = action.tint ?: LocalContentColor.current,
-                                )
-                            }
-                        }
-                    }
-                }
+                // --- Actions row ---
+                BottomActionsRow(
+                    actions = actions,
+                    layoutState = layoutState,
+                )
             }
         }
         if (isLoading) {
@@ -392,6 +232,291 @@ fun TabToolBar(
                 trackColor = ProgressIndicatorDefaults.linearTrackColor,
                 strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
             )
+        }
+    }
+}
+
+/**
+ * TabToolBar の上段ヘッダーを組み立てる。
+ *
+ * 左右の縮退アイコンと中央のタイトルカードをまとめて配置する。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TabToolBarHeader(
+    title: String,
+    bookmarkState: BookmarkStatusState,
+    onBookmarkClick: () -> Unit,
+    onTabListClick: () -> Unit,
+    onPostClick: () -> Unit,
+    onTitleClick: (() -> Unit)?,
+    onRefreshClick: () -> Unit,
+    @StringRes tabIconContentDescriptionRes: Int,
+    @StringRes postIconContentDescriptionRes: Int,
+    titleStyle: TextStyle,
+    titleFontWeight: FontWeight,
+    titleMaxLines: Int,
+    titleTextAlign: TextAlign,
+    layoutState: TabToolBarLayoutState,
+    cardModifier: Modifier,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CollapsedSideAction(
+            slotWidth = layoutState.sideSlotWidth,
+            alpha = layoutState.collapsedAlpha,
+            translationY = layoutState.collapsedTranslationPx,
+            enabled = layoutState.collapsedIconEnabled,
+            tooltipText = stringResource(tabIconContentDescriptionRes),
+            onClick = onTabListClick,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.CropSquare,
+                contentDescription = stringResource(tabIconContentDescriptionRes),
+            )
+        }
+
+        if (onTitleClick != null) {
+            Card(
+                modifier = cardModifier.weight(1f),
+                onClick = onTitleClick,
+            ) {
+                ExpandedTitleActions(
+                    title = title,
+                    bookmarkState = bookmarkState,
+                    onBookmarkClick = onBookmarkClick,
+                    onRefreshClick = onRefreshClick,
+                    titleStyle = titleStyle,
+                    titleFontWeight = titleFontWeight,
+                    titleMaxLines = titleMaxLines,
+                    titleTextAlign = titleTextAlign,
+                    layoutState = layoutState,
+                )
+            }
+        } else {
+            Card(modifier = cardModifier.weight(1f)) {
+                ExpandedTitleActions(
+                    title = title,
+                    bookmarkState = bookmarkState,
+                    onBookmarkClick = onBookmarkClick,
+                    onRefreshClick = onRefreshClick,
+                    titleStyle = titleStyle,
+                    titleFontWeight = titleFontWeight,
+                    titleMaxLines = titleMaxLines,
+                    titleTextAlign = titleTextAlign,
+                    layoutState = layoutState,
+                )
+            }
+        }
+
+        CollapsedSideAction(
+            slotWidth = layoutState.sideSlotWidth,
+            alpha = layoutState.collapsedAlpha,
+            translationY = layoutState.collapsedTranslationPx,
+            enabled = layoutState.collapsedIconEnabled,
+            tooltipText = stringResource(postIconContentDescriptionRes),
+            onClick = onPostClick,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Create,
+                contentDescription = stringResource(postIconContentDescriptionRes),
+            )
+        }
+    }
+}
+
+/**
+ * タイトルカード内の展開アイコンとタイトル文字列を描画する。
+ *
+ * 展開率に応じてカード内アイコンの表示とタイトル文字サイズを切り替える。
+ */
+@Composable
+private fun ExpandedTitleActions(
+    title: String,
+    bookmarkState: BookmarkStatusState,
+    onBookmarkClick: () -> Unit,
+    onRefreshClick: () -> Unit,
+    titleStyle: TextStyle,
+    titleFontWeight: FontWeight,
+    titleMaxLines: Int,
+    titleTextAlign: TextAlign,
+    layoutState: TabToolBarLayoutState,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ExpandedCardAction(
+            alpha = layoutState.clampedProgress,
+            translationY = layoutState.expandedTranslationPx,
+            enabled = layoutState.expandedIconEnabled,
+            tooltipText = stringResource(R.string.bookmark),
+            onClick = onBookmarkClick,
+        ) {
+            if (bookmarkState.isBookmarked) {
+                val tintColor =
+                    bookmarkState.selectedGroup?.colorName?.let { bookmarkColor(it) }
+                        ?: LocalContentColor.current
+                Box {
+                    Icon(
+                        imageVector = Icons.Filled.Star,
+                        contentDescription = null,
+                        tint = tintColor,
+                    )
+                    Icon(
+                        imageVector = Icons.Outlined.StarOutline,
+                        contentDescription = stringResource(R.string.bookmark),
+                    )
+                }
+            } else {
+                Icon(
+                    imageVector = Icons.Outlined.StarOutline,
+                    contentDescription = stringResource(R.string.bookmark),
+                )
+            }
+        }
+
+        Text(
+            text = title,
+            fontWeight = titleFontWeight,
+            style = titleStyle.copy(fontSize = layoutState.titleFontSize),
+            maxLines = titleMaxLines,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = titleTextAlign,
+            modifier = Modifier.weight(1f),
+        )
+
+        ExpandedCardAction(
+            alpha = layoutState.clampedProgress,
+            translationY = layoutState.expandedTranslationPx,
+            enabled = layoutState.expandedIconEnabled,
+            tooltipText = stringResource(R.string.refresh),
+            onClick = onRefreshClick,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Refresh,
+                contentDescription = stringResource(R.string.refresh),
+            )
+        }
+    }
+}
+
+/**
+ * 縮退時にカード外へ表示する左右アクションを描画する。
+ *
+ * スロット幅を保ちながらアイコンの透過と移動を同期させる。
+ */
+@Composable
+private fun CollapsedSideAction(
+    slotWidth: Dp,
+    alpha: Float,
+    translationY: Float,
+    enabled: Boolean,
+    tooltipText: String,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit,
+) {
+    Box(
+        modifier = Modifier.width(slotWidth),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (alpha > 0f) {
+            FeedbackTooltipIconButton(
+                modifier = Modifier.graphicsLayer {
+                    this.alpha = alpha
+                    this.translationY = (1f - alpha) * translationY
+                },
+                tooltipText = tooltipText,
+                showTooltipHost = enabled,
+                onClick = {
+                    // Guard: アイコンが薄い間は押下を抑止する。
+                    if (enabled) {
+                        onClick()
+                    }
+                },
+            ) {
+                icon()
+            }
+        }
+    }
+}
+
+/**
+ * タイトルカード内の展開アイコンを描画する。
+ *
+ * 展開率に応じた透過と移動を適用し、閾値未満では押下を抑止する。
+ */
+@Composable
+private fun ExpandedCardAction(
+    alpha: Float,
+    translationY: Float,
+    enabled: Boolean,
+    tooltipText: String,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit,
+) {
+    if (alpha <= 0f) {
+        return
+    }
+
+    FeedbackTooltipIconButton(
+        modifier = Modifier.graphicsLayer {
+            this.alpha = alpha
+            this.translationY = (1f - alpha) * translationY
+        },
+        tooltipText = tooltipText,
+        showTooltipHost = enabled,
+        onClick = {
+            // Guard: 縮退中は誤タップを避ける。
+            if (enabled) {
+                onClick()
+            }
+        },
+    ) {
+        icon()
+    }
+}
+
+/**
+ * 下段のアクションボタン群を描画する。
+ *
+ * 展開率に応じて透過と移動を適用し、タイトルカードの下に並べる。
+ */
+@Composable
+private fun BottomActionsRow(
+    actions: List<TabToolBarAction>,
+    layoutState: TabToolBarLayoutState,
+) {
+    if (layoutState.clampedProgress <= 0f) {
+        return
+    }
+
+    Spacer(modifier = Modifier.padding(2.dp))
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = layoutState.clampedProgress
+                translationY =
+                    (1f - layoutState.clampedProgress) *
+                        layoutState.actionTranslationPx
+            },
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        actions.forEach { action ->
+            FeedbackTooltipIconButton(
+                tooltipText = stringResource(action.contentDescriptionRes),
+                onClick = action.onClick,
+            ) {
+                Icon(
+                    imageVector = action.icon,
+                    contentDescription = stringResource(action.contentDescriptionRes),
+                    tint = action.tint ?: LocalContentColor.current,
+                )
+            }
         }
     }
 }
