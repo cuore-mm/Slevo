@@ -131,6 +131,7 @@ thread_histories
 - `thread_states.latestResCount` は表示できる。
 - 既読済みとは扱わない。
 - 新着レス数バッジは表示しない。
+- 開いているタブにスクロール位置が残っていても、表示モデルでは先頭位置として扱う。
 
 ### `open_thread_tabs` はタブ固有状態に限定する
 
@@ -151,6 +152,18 @@ open_thread_tabs
   JOIN thread_states      ON threadId
   LEFT JOIN thread_histories ON threadId
 ```
+
+スクロール位置は DB 上では `open_thread_tabs` に保存するが、有効なのは `thread_histories` が存在する場合だけとする。履歴がないスレッドは未訪問扱いなので、保存済みスクロール位置をそのまま使わず、表示モデル上は先頭位置へ丸める。
+
+```text
+ThreadTabInfo.firstVisibleItemIndex =
+  if thread_histories exists then open_thread_tabs.firstVisibleItemIndex else 0
+
+ThreadTabInfo.firstVisibleItemScrollOffset =
+  if thread_histories exists then open_thread_tabs.firstVisibleItemScrollOffset else 0
+```
+
+履歴削除時に `open_thread_tabs` のスクロール位置を即時更新する必要はない。`thread_histories` の削除が Flow に反映されれば、表示モデル生成時にスクロール位置が無効化される。
 
 タブを閉じた場合:
 - `open_thread_tabs` の行だけ削除する。
@@ -219,6 +232,10 @@ thread_summaries
 - タブを閉じても履歴や既読位置は残るべきで、タブテーブルに入れるとライフサイクルが混ざる。
 - `open_thread_tabs` と `thread_histories` の二重更新をなくせる。
 
+スクロール位置はタブ固有状態として保存するが、履歴がない場合は未訪問扱いを優先して使用しない。これにより、履歴削除後にタブを開いたとき、過去の途中位置から再開せず先頭から表示できる。
+
+代替案として履歴削除時に `open_thread_tabs.firstVisibleItemIndex` と `firstVisibleItemScrollOffset` を 0 へ更新する方法もあるが、履歴削除処理がタブテーブルを直接更新する必要があり責務が混ざるため採用しない。
+
 ### Decision 4: 新着レス数は保存せず導出する
 
 新着レス数は `thread_states.latestResCount` と `thread_histories` の既読状態から導出する。
@@ -273,6 +290,7 @@ thread_summaries（現役または保持対象の板キャッシュ）
 - [Risk] Room マイグレーションで既存データの統合条件が複雑になる → マイグレーションテストでタブのみ、履歴のみ、板キャッシュのみ、複数に存在するスレッドのケースを検証する。
 - [Risk] `ThreadId` 生成に必要な host/board/threadKey が移行元によって不足する → 既存の `ThreadId` カラムを優先し、板キャッシュ由来の行は既存 `thread_states` の補完に使う。
 - [Risk] 履歴がないタブの新着バッジが表示されなくなる → スレッドを開く経路で履歴を作成する既存挙動を確認し、履歴未作成タブは未訪問として扱う。
+- [Risk] 履歴削除後も `open_thread_tabs` に古いスクロール位置が残る → 表示モデル生成時に履歴の有無を見てスクロール位置を無効化し、DB 上の残存値を UI に使わない。
 - [Risk] JOIN や Flow 合成が増えて一覧表示の負荷が増える → `thread_states.threadId`、`boardId`、`boardUrl` に index を付与し、Repository 側では必要な板・開いているタブに絞って監視する。
 - [Risk] 既読更新とレス数更新が競合して新着範囲が不整合になる → 最新レス数更新は `thread_states`、既読更新は `thread_histories` に分けつつ、UI 表示用の合成はトランザクションまたは Flow 合成時の一貫したスナップショットで扱う。
 

@@ -26,6 +26,7 @@
 - [ ] 4.2 `TabsRepository.saveOpenThreadTabs` がタブの並び順とスクロール位置を保存し、レス数・既読状態の正本を上書きしないようにする
 - [ ] 4.3 `ThreadTabsCoordinator.refreshOpenThreads` が取得したレス数を `thread_states` へ保存し、タブ一覧の新着バッジを `thread_states + thread_histories` 由来にする
 - [ ] 4.4 タブ削除時にタブ固有状態だけを削除し、`thread_states` と `thread_histories` を保持するようにする
+- [ ] 4.5 `TabsRepository.observeOpenThreadTabs` が履歴なしタブの保存済みスクロール位置を無効化し、表示モデル上は先頭位置として返すようにする
 
 ## 5. スレッド画面との接続
 
@@ -40,4 +41,5 @@
 - [ ] 6.3 板更新後にタブ一覧の新着レス数が同期されることを Repository または ViewModel レベルで検証する
 - [ ] 6.4 タブ一覧更新後に板画面の新着レス数が同期されることを Repository または ViewModel レベルで検証する
 - [ ] 6.5 スレッド閲覧後に板画面とタブ一覧の新着レス数が同じ値へ更新されることを検証する
-- [ ] 6.6 Android CI のビルドとユニットテストを実行し、失敗があれば修正する
+- [ ] 6.6 履歴削除後に開いているタブを表示した場合、保存済みスクロール位置ではなく先頭位置から開くことを検証する
+- [ ] 6.7 Android CI のビルドとユニットテストを実行し、失敗があれば修正する
