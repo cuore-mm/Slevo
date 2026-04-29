@@ -238,7 +238,33 @@ thread_summaries.threadId = thread_states.threadKey
 
 代替案として `thread_read_states` を別テーブルに分離する方法もあるが、現行 DB では `thread_histories` がすでに `ThreadReadState` を持っているため、まずは既存構造を活かす。
 
-### Decision 3: `open_thread_tabs` はタブ固有状態に限定する
+履歴削除時に同じスレッドのタブが開いている場合でも、既読状態は削除する。開いているタブは残るが、表示モデルでは未訪問として扱い、新着バッジを表示せず、保存済みスクロール位置も先頭位置として扱う。
+
+### Decision 3: `thread_histories.resCount` は履歴表示用スナップショットとして残す
+
+`thread_histories.resCount` は削除せず、履歴を記録・更新した時点のレス数スナップショットとして残す。最新レス数の正本は `thread_states.latestResCount` とし、新着レス数の計算には `thread_histories.resCount` を使わない。
+
+更新方針:
+```text
+板更新:
+  thread_states.latestResCount 更新
+  thread_histories.resCount は更新しない
+
+タブ一覧更新:
+  thread_states.latestResCount 更新
+  thread_histories.resCount は更新しない
+
+スレッド閲覧/履歴記録:
+  thread_states.latestResCount 更新
+  thread_histories.resCount 更新
+```
+
+理由:
+- 既存履歴画面や Repository への影響を抑えながら、最新レス数の正本を `thread_states` へ移せる。
+- 履歴表示で「閲覧・履歴記録時点のレス数」を扱える。
+- 将来的に不要と判断できた場合は、別 change で削除を検討できる。
+
+### Decision 4: `open_thread_tabs` はタブ固有状態に限定する
 
 `open_thread_tabs` には `threadId`、`sortOrder`、スクロール位置のみを残す。タブ一覧の表示に必要なタイトル・レス数・既読状態は `thread_states` と `thread_histories` から合成する。
 
@@ -250,7 +276,7 @@ thread_summaries.threadId = thread_states.threadKey
 
 代替案として履歴削除時に `open_thread_tabs.firstVisibleItemIndex` と `firstVisibleItemScrollOffset` を 0 へ更新する方法もあるが、履歴削除処理がタブテーブルを直接更新する必要があり責務が混ざるため採用しない。
 
-### Decision 4: 新着レス数は保存せず導出する
+### Decision 5: 新着レス数は保存せず導出する
 
 新着レス数は `thread_states.latestResCount` と `thread_histories` の既読状態から導出する。
 
@@ -268,7 +294,7 @@ history がある && firstNewResNo が null:
 
 `latestResCount <= lastReadResNo` の場合は常に 0 とする。
 
-### Decision 5: 更新経路は状態の種類ごとに分ける
+### Decision 6: 更新経路は状態の種類ごとに分ける
 
 板更新、タブ一覧更新、スレッド閲覧・更新で判明した最新レス数は `thread_states` に保存する。スレッド閲覧中の既読位置更新は `thread_histories` に保存する。
 
@@ -285,19 +311,38 @@ history がある && firstNewResNo が null:
 スレッド閲覧:
   thread_states.latestResCount/title 更新
   thread_histories 作成/更新
+  thread_histories.resCount 更新
   thread_histories.lastReadResNo/firstNewResNo 更新
 ```
 
-### Decision 6: `thread_states` は参照がなくなった時だけ GC する
+### Decision 7: `thread_states` はイベント後の遅延 GC で削除する
 
-`thread_states` はタブ閉鎖や履歴削除では即時削除しない。以下のどこからも参照されず、必要に応じて `updatedAt` が一定期間より古い場合に削除対象とする。
+`thread_states` はタブ閉鎖や履歴削除では即時削除しない。参照がなくなった可能性のあるイベント後に GC を起動し、以下の条件をすべて満たす古い孤立行だけを削除する。
 
 ```text
-open_thread_tabs
-thread_histories
-bookmark_threads
-thread_summaries（現役または保持対象の板キャッシュ）
+削除条件:
+  updatedAt < now - 30 days
+  AND open_thread_tabs に threadId が存在しない
+  AND thread_histories に threadId が存在しない
+  AND bookmark_threads に同一スレッドが存在しない
+  AND thread_summaries の保持対象に boardId + threadKey が存在しない
 ```
+
+GC 起動タイミング:
+```text
+履歴削除後
+タブ削除後
+板キャッシュ整理後
+明示的なキャッシュ削除後
+アプリ起動時（少量のみ）
+```
+
+1 回の GC では削除件数に上限を設ける。起動時 GC は UI 起動を阻害しないよう少量に限定する。実装では削除対象の `threadId` を先に取得し、上限件数分を削除する方式を基本とする。
+
+理由:
+- 参照関係の反映が一時的に遅れた場合でも、30 日 TTL により誤削除を避けられる。
+- タブ、履歴、ブックマーク、板キャッシュのどこにも存在しない古い状態だけを削除するため、ユーザーが再訪する可能性がある状態を保守的に残せる。
+- 定期的な起動時 GC とイベント後 GC により、長期的な DB 肥大化を抑えられる。
 
 ## Risks / Trade-offs
 
@@ -308,6 +353,7 @@ thread_summaries（現役または保持対象の板キャッシュ）
 - [Risk] 履歴削除後も `open_thread_tabs` に古いスクロール位置が残る → 表示モデル生成時に履歴の有無を見てスクロール位置を無効化し、DB 上の残存値を UI に使わない。
 - [Risk] JOIN や Flow 合成が増えて一覧表示の負荷が増える → `thread_states.threadId`、`boardId`、`boardUrl` に index を付与し、Repository 側では必要な板・開いているタブに絞って監視する。
 - [Risk] 既読更新とレス数更新が競合して新着範囲が不整合になる → 最新レス数更新は `thread_states`、既読更新は `thread_histories` に分けつつ、UI 表示用の合成はトランザクションまたは Flow 合成時の一貫したスナップショットで扱う。
+- [Risk] `thread_states` の GC が必要な状態を削除する → 参照なし判定に加えて 30 日 TTL と削除件数上限を設け、マイグレーションテストと Repository テストで参照あり行が残ることを検証する。
 
 ## Migration Plan
 
@@ -324,6 +370,4 @@ Rollback は DB バージョンを進める変更のため、アプリ内で旧�
 
 ## Open Questions
 
-- 履歴削除時に、開いているタブが同じスレッドを参照している場合でも既読状態を消すか。現方針では「履歴削除 = 既読状態削除」とする。
-- `thread_histories.resCount` を履歴表示用スナップショットとして残すか、将来的に `thread_states.latestResCount` へ完全移行して削除するか。
-- `thread_states` の GC をどのタイミングで実行するか。候補は履歴削除後、板キャッシュ整理後、アプリ起動時、明示的なキャッシュ削除時。
+なし。履歴削除時の既読状態削除、`thread_histories.resCount` の扱い、`thread_states` GC 方針はいずれも Decisions に反映済み。
