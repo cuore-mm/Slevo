@@ -1,15 +1,186 @@
 ## Context
 
-現在のスレッド状態は、板一覧キャッシュの `thread_summaries`、閲覧履歴の `thread_histories`、開いているスレッドタブの `open_thread_tabs` に分散している。板画面は `thread_summaries.resCount` と履歴の `resCount` から新着レス数を計算し、タブ一覧は `open_thread_tabs.resCount` と一時的な `_newResCounts` から新着レス数を表示している。
+現在のスレッド関連 DB は、板一覧キャッシュ、閲覧履歴、開いているスレッドタブの各テーブルにレス数・既読状態が分散している。板画面は `thread_summaries.resCount` と履歴の `resCount` から新着レス数を計算し、タブ一覧は `open_thread_tabs.resCount` と一時的な `_newResCounts` から新着レス数を表示している。
 
-この構造では、板更新・タブ一覧更新・スレッド閲覧のどの経路で更新されたかによって参照する値が異なり、同一スレッドでも画面間で新着レス数や既読状態が一致しない。Room DB の既存データを保持したまま、スレッド単位の状態を正規化する必要がある。
+ユーザー視点では、既読位置や新着開始位置は「閲覧履歴」の一部である。履歴を削除したのに既読位置だけが残ると不自然なため、今回の設計では「スレッドの客観状態」と「ユーザーの閲覧状態」を分離し、既読位置は履歴に紐づける。
+
+## Current DB Design
+
+### `thread_summaries`
+
+板の subject.txt 由来キャッシュを保持する。
+
+```text
+thread_summaries
+  boardId             Long     PK part
+  threadId            String   PK part / 板内 thread key
+  title               String
+  resCount            Int      subject.txt 上のレス数
+  firstSeenAt         Long
+  isArchived          Boolean
+  subjectRank         Int
+```
+
+課題:
+- `resCount` は板一覧キャッシュとしては必要だが、タブ一覧やスレッド画面が見る最新レス数の正本にはなっていない。
+- `threadId` は板内 key であり、グローバルな `ThreadId` としては不足する場合がある。
+
+### `thread_histories`
+
+閲覧したスレッドの履歴と既読状態を保持する。
+
+```text
+thread_histories
+  id                  Long     PK
+  threadId            ThreadId unique
+  boardUrl            String
+  boardId             Long
+  boardName           String
+  title               String
+  resCount            Int      履歴記録時/閲覧時のレス数
+  prevResCount        Int      ThreadReadState
+  lastReadResNo       Int      ThreadReadState
+  firstNewResNo       Int?     ThreadReadState
+```
+
+評価:
+- 既読位置・新着開始位置が履歴にあること自体は UX 的に自然。
+- ただし `resCount` が最新レス数の正本としても扱われると、板・タブ側の値とズレる。
+
+### `open_thread_tabs`
+
+開いているスレッドタブの表示情報、レス数、既読状態、スクロール位置を保持する。
+
+```text
+open_thread_tabs
+  threadId                        ThreadId PK
+  boardUrl                        String
+  boardId                         Long
+  boardName                       String
+  title                           String
+  resCount                        Int
+  prevResCount                    Int      ThreadReadState
+  lastReadResNo                   Int      ThreadReadState
+  firstNewResNo                   Int?     ThreadReadState
+  sortOrder                       Int
+  firstVisibleItemIndex           Int
+  firstVisibleItemScrollOffset    Int
+```
+
+課題:
+- タブを閉じると失われるべきタブ固有状態と、残したいスレッド/既読状態が混在している。
+- 履歴にも同じ既読状態があり、`ThreadReadStateRepository` が二重更新している。
+- タブ一覧更新で `open_thread_tabs.resCount` だけが進むと、板画面の新着レス数と同期しない。
+
+## Target DB Design
+
+### `thread_states` を追加する
+
+`thread_states` はスレッドの客観状態の正本として追加する。ここには「このスレッドが現在何レスまで確認できているか」「最新タイトルは何か」といった、履歴を消しても板キャッシュ・タブ・お気に入りから参照されうる状態だけを持たせる。
+
+```text
+thread_states
+  threadId            ThreadId PK
+  boardId             Long
+  boardUrl            String
+  boardName           String
+  title               String
+  latestResCount      Int      板更新/タブ更新/スレ閲覧で確認した最大レス数
+  updatedAt           Long
+```
+
+Index:
+```text
+PRIMARY KEY(threadId)
+INDEX(boardId)
+INDEX(boardUrl)
+INDEX(updatedAt)
+```
+
+保持しないもの:
+- `lastReadResNo`
+- `firstNewResNo`
+- `prevResCount`
+
+これらはユーザーの閲覧事実なので、`thread_histories` 側に保持する。
+
+### `thread_histories` は閲覧履歴と既読状態の正本にする
+
+履歴は「ユーザーが読んだ事実」を表す。既読位置や新着開始位置はこの意味に属するため、`thread_histories` に残す。
+
+```text
+thread_histories
+  id                  Long     PK
+  threadId            ThreadId unique
+  boardUrl            String
+  boardId             Long
+  boardName           String
+  title               String   履歴表示用タイトル
+  resCount            Int      履歴表示用スナップショット、正本ではない
+  prevResCount        Int
+  lastReadResNo       Int
+  firstNewResNo       Int?
+```
+
+削除方針:
+- ユーザーが履歴を削除した場合、当該 `thread_histories` 行を削除する。
+- それにより既読位置・新着開始位置も削除される。
+- `thread_states` は履歴削除だけでは削除しない。板キャッシュ、開いているタブ、お気に入り等から参照される客観状態として残りうる。
+
+履歴がないスレッドの表示:
+- `thread_states.latestResCount` は表示できる。
+- 既読済みとは扱わない。
+- 新着レス数バッジは表示しない。
+
+### `open_thread_tabs` はタブ固有状態に限定する
+
+タブテーブルは「開いているか」「順番」「スクロール位置」を保持する。タイトル・レス数・既読状態は正本として持たない。
+
+```text
+open_thread_tabs
+  threadId                        ThreadId PK
+  sortOrder                       Int
+  firstVisibleItemIndex           Int
+  firstVisibleItemScrollOffset    Int
+```
+
+表示モデル生成時は以下を合成する。
+
+```text
+open_thread_tabs
+  JOIN thread_states      ON threadId
+  LEFT JOIN thread_histories ON threadId
+```
+
+タブを閉じた場合:
+- `open_thread_tabs` の行だけ削除する。
+- `thread_histories` は削除しない。
+- `thread_states` は削除しない。
+
+### `thread_summaries` は板一覧キャッシュとして維持する
+
+`thread_summaries` は subject.txt の順序、dat 落ち状態、板一覧キャッシュとして残す。
+
+```text
+thread_summaries
+  boardId
+  threadId
+  title
+  resCount
+  firstSeenAt
+  isArchived
+  subjectRank
+```
+
+板更新時は `thread_summaries` を更新しつつ、グローバル `ThreadId` を解決できる場合は `thread_states.latestResCount` と `title` も更新する。
 
 ## Goals / Non-Goals
 
 **Goals:**
-- スレッドごとの最新レス数・最終既読レス番号・最初の新着レス番号を、共通の永続状態として管理する。
-- 板画面とタブ一覧の新着レス数を、同じ計算規則と同じ DB 状態から導出する。
-- `open_thread_tabs` をタブ固有状態中心のテーブルへ寄せ、レス数・既読状態の正本を共通スレッド状態へ移す。
+- 最新レス数・タイトルなどの客観状態を `thread_states` に集約する。
+- 既読位置・新着開始位置などの閲覧状態を `thread_histories` に紐づけ、履歴削除時に消えるようにする。
+- 板画面とタブ一覧の新着レス数を、`thread_states` と `thread_histories` の同じ組み合わせから導出する。
+- `open_thread_tabs` をタブ固有状態だけへ寄せ、タブ閉鎖と履歴/既読状態のライフサイクルを分離する。
 - 既存 DB から安全に移行し、既存のタブ順・スクロール位置・履歴情報を維持する。
 
 **Non-Goals:**
@@ -20,70 +191,106 @@
 
 ## Decisions
 
-### Decision 1: スレッド状態の正本テーブルを導入する
+### Decision 1: `thread_states` は客観状態だけを持つ
 
-`thread_states` のような共通テーブルを追加し、スレッド ID を主キーとして以下の状態を保持する。
+`thread_states` は `latestResCount`、`title`、板情報、更新時刻を保持する。`lastReadResNo`、`firstNewResNo`、`prevResCount` は保持しない。
 
-- `threadId`: `ThreadId` 形式の一意キー
-- `boardId` / `boardUrl`: 板との関連付け
-- `title`: スレッドタイトルの最新表示名
-- `latestResCount`: 板更新・タブ更新・スレッド閲覧で確認した最新レス数
-- `prevResCount`: 新着範囲を作る直前のレス数
-- `lastReadResNo`: ユーザーが最後に既読化したレス番号
-- `firstNewResNo`: 新着レス範囲の開始番号。新着がなければ `null`
-- `updatedAt`: 最後に状態を更新した時刻
+理由:
+- 履歴を削除しても最新レス数やタイトルが残ることは自然だが、既読位置が残ることは不自然。
+- 板更新・タブ更新・スレッド閲覧で確認した最新レス数は、画面や履歴の有無に依存しない客観状態として扱える。
 
-代替案として `thread_histories` を正本にする方法もあるが、履歴は「閲覧したことがあるスレッド」を表す意味を持っており、未閲覧でも板更新やタブ更新で状態を持ちたいケースと責務が混ざる。タブテーブルを正本にする方法もあるが、閉じたタブの状態が失われるため、板画面との同期元として不適切である。
+代替案として `thread_states` に既読状態も持たせる方法があるが、履歴削除時の UX と矛盾するため採用しない。
 
-### Decision 2: `open_thread_tabs` はタブ固有状態に限定する
+### Decision 2: 既読状態は `thread_histories` に紐づける
 
-`open_thread_tabs` には `threadId`、`sortOrder`、スクロール位置、必要に応じて表示に必要な補助情報のみを残し、レス数・既読状態は共通スレッド状態から JOIN または Repository の合成で読み出す。
+`thread_histories` の `ThreadReadState` を既読状態の正本として扱う。履歴削除は既読位置削除も意味する。
 
-代替案として `open_thread_tabs` にレス数を残して都度同期する方法もあるが、二重管理が継続し、同期漏れが再発する。タブ一覧の表示モデルは `open_thread_tabs` と `thread_states` を合成して作る。
+理由:
+- 「どこまで読んだか」はユーザーの閲覧履歴そのものに近い。
+- 履歴がないスレッドは未訪問として扱い、新着レス数バッジを表示しない方が既存の板画面挙動にも近い。
 
-### Decision 3: 新着レス数は共通の計算規則で導出する
+代替案として `thread_read_states` を別テーブルに分離する方法もあるが、現行 DB では `thread_histories` がすでに `ThreadReadState` を持っているため、まずは既存構造を活かす。
 
-板画面・タブ一覧ともに、新着レス数は `latestResCount`、`lastReadResNo`、`firstNewResNo` から導出する。基本規則は以下とする。
+### Decision 3: `open_thread_tabs` はタブ固有状態に限定する
 
-- `firstNewResNo` が有効な場合は `latestResCount - firstNewResNo + 1` を 0 以上に丸める。
-- `firstNewResNo` が無効な場合は `latestResCount - lastReadResNo` を 0 以上に丸める。
-- `latestResCount` が `lastReadResNo` 以下の場合、新着レス数は 0 とする。
+`open_thread_tabs` には `threadId`、`sortOrder`、スクロール位置のみを残す。タブ一覧の表示に必要なタイトル・レス数・既読状態は `thread_states` と `thread_histories` から合成する。
 
-代替案として画面ごとに差分計算を残す方法もあるが、同期要件の中心が「同じ値を表示する」ことであるため、計算規則を共有する方が保守しやすい。
+理由:
+- タブを閉じても履歴や既読位置は残るべきで、タブテーブルに入れるとライフサイクルが混ざる。
+- `open_thread_tabs` と `thread_histories` の二重更新をなくせる。
 
-### Decision 4: 更新経路は同じ Repository API に集約する
+### Decision 4: 新着レス数は保存せず導出する
 
-板更新、タブ一覧更新、スレッド閲覧・更新、既読位置更新は、共通スレッド状態を更新する Repository API を経由する。各画面の Coordinator は DB テーブルを直接意識せず、状態更新の意図を Repository に渡す。
+新着レス数は `thread_states.latestResCount` と `thread_histories` の既読状態から導出する。
 
-代替案として各 DAO を既存 Coordinator から直接更新する方法もあるが、トランザクション境界と新着計算が分散するため、今回の同期要件に合わない。
+```text
+history がない:
+  isVisited = false
+  newResCount = 0
 
-### Decision 5: 移行時は既存値の最大情報を優先する
+history がある && firstNewResNo が有効:
+  newResCount = max(0, latestResCount - firstNewResNo + 1)
 
-マイグレーションでは、既存の `thread_histories`、`open_thread_tabs`、`thread_summaries` から `thread_states` を作成する。レス数は利用可能な値の最大値を採用し、既読状態は既存の `lastReadResNo` と `firstNewResNo` を優先する。タイトル・板情報は、履歴またはタブに存在する詳細情報を優先し、不足する場合は板キャッシュの情報で補完する。
+history がある && firstNewResNo が null:
+  newResCount = max(0, latestResCount - lastReadResNo)
+```
 
-代替案として履歴のみを移行元にする方法もあるが、未履歴の開いているタブや板キャッシュの最新レス数を失う可能性がある。
+`latestResCount <= lastReadResNo` の場合は常に 0 とする。
+
+### Decision 5: 更新経路は状態の種類ごとに分ける
+
+板更新、タブ一覧更新、スレッド閲覧・更新で判明した最新レス数は `thread_states` に保存する。スレッド閲覧中の既読位置更新は `thread_histories` に保存する。
+
+更新例:
+```text
+板更新:
+  thread_summaries 更新
+  thread_states.latestResCount/title 更新
+
+タブ一覧更新:
+  thread_states.latestResCount/title 更新
+  open_thread_tabs は上書きしない
+
+スレッド閲覧:
+  thread_states.latestResCount/title 更新
+  thread_histories 作成/更新
+  thread_histories.lastReadResNo/firstNewResNo 更新
+```
+
+### Decision 6: `thread_states` は参照がなくなった時だけ GC する
+
+`thread_states` はタブ閉鎖や履歴削除では即時削除しない。以下のどこからも参照されず、必要に応じて `updatedAt` が一定期間より古い場合に削除対象とする。
+
+```text
+open_thread_tabs
+thread_histories
+bookmark_threads
+thread_summaries（現役または保持対象の板キャッシュ）
+```
 
 ## Risks / Trade-offs
 
 - [Risk] Room マイグレーションで既存データの統合条件が複雑になる → マイグレーションテストでタブのみ、履歴のみ、板キャッシュのみ、複数に存在するスレッドのケースを検証する。
-- [Risk] `ThreadId` 生成に必要な host/board/threadKey が移行元によって不足する → 既存の `ThreadId` カラムを優先し、板キャッシュ由来の行は `boardUrl` から生成できるものだけ移行対象にする。
-- [Risk] JOIN や Flow 合成が増えて一覧表示の負荷が増える → `thread_states.threadId`、`boardId`、`boardUrl` に必要な index を付与し、Repository 側では必要な板・開いているタブに絞って監視する。
-- [Risk] 既読更新とレス数更新が競合して新着範囲が不整合になる → DB トランザクション内で現在状態を読み取り、最新レス数と既読レス番号を同時に評価して更新する。
-- [Risk] `thread_histories.resCount` の意味が変わる場合に既存履歴画面へ影響する → 履歴画面が表示に必要な値を共通スレッド状態から補完するか、履歴側の値を履歴メタ情報として残すかを実装時に明確化する。
+- [Risk] `ThreadId` 生成に必要な host/board/threadKey が移行元によって不足する → 既存の `ThreadId` カラムを優先し、板キャッシュ由来の行は既存 `thread_states` の補完に使う。
+- [Risk] 履歴がないタブの新着バッジが表示されなくなる → スレッドを開く経路で履歴を作成する既存挙動を確認し、履歴未作成タブは未訪問として扱う。
+- [Risk] JOIN や Flow 合成が増えて一覧表示の負荷が増える → `thread_states.threadId`、`boardId`、`boardUrl` に index を付与し、Repository 側では必要な板・開いているタブに絞って監視する。
+- [Risk] 既読更新とレス数更新が競合して新着範囲が不整合になる → 最新レス数更新は `thread_states`、既読更新は `thread_histories` に分けつつ、UI 表示用の合成はトランザクションまたは Flow 合成時の一貫したスナップショットで扱う。
 
 ## Migration Plan
 
-1. 新しい `thread_states` テーブルを作成し、主キーと必要な index を定義する。
-2. 既存 `thread_histories` と `open_thread_tabs` から、`threadId` ごとの状態候補を作成する。
-3. `thread_summaries` から板キャッシュ上のレス数・タイトルを補完し、既存候補がある場合は `latestResCount` の最大値を採用する。
-4. `open_thread_tabs` はタブ固有状態を保持する新テーブルへ移行し、レス数・既読状態カラムを参照しない構造へ移す。
-5. Repository と Coordinator を共通スレッド状態へ接続し、既存 UI モデルには互換的に `resCount`、`firstNewResNo`、`lastReadResNo`、`newResCount` を供給する。
-6. マイグレーションテストと状態同期テストを追加し、既存ユーザーの代表的なデータで同期結果を確認する。
+1. `thread_states` テーブルを作成し、主キーと index を定義する。
+2. 既存 `open_thread_tabs` から `thread_states` を作成する。`resCount` は `latestResCount`、`title` と板情報は客観状態の初期値として移行する。
+3. 既存 `thread_histories` から `thread_states` を作成または補完する。同じ `threadId` がある場合、`latestResCount` は `max(existing.latestResCount, thread_histories.resCount)` とする。既読状態は `thread_histories` に残す。
+4. 既存 `thread_summaries` は、同じ `boardId` と thread key から既存 `thread_states` を特定できる場合に `latestResCount` と `title` の補完に使う。単独で安全な `ThreadId` を生成できない場合は新規 `thread_states` 作成には使わない。
+5. `open_thread_tabs_new` を作成し、`threadId`、`sortOrder`、`firstVisibleItemIndex`、`firstVisibleItemScrollOffset` のみをコピーする。
+6. 旧 `open_thread_tabs` を削除し、`open_thread_tabs_new` を `open_thread_tabs` にリネームする。
+7. Repository と Coordinator を `open_thread_tabs + thread_states + thread_histories` の合成へ接続する。
+8. マイグレーションテストと状態同期テストを追加し、既存ユーザーの代表的なデータで同期結果を確認する。
 
-Rollback は DB バージョンを進める変更のため、アプリ内で旧スキーマへ自動的に戻すことは想定しない。問題発生時は修正マイグレーションを追加し、共通スレッド状態を再計算できるようにする。
+Rollback は DB バージョンを進める変更のため、アプリ内で旧スキーマへ自動的に戻すことは想定しない。問題発生時は修正マイグレーションを追加し、`thread_states` を再計算できるようにする。
 
 ## Open Questions
 
-- `thread_histories.resCount` を削除または非正本化するか、履歴画面用のスナップショットとして残すか。
-- 板キャッシュ由来で `ThreadId` を安全に生成できない既存行を移行対象外にするか、補助的な変換ルールを追加するか。
-- `firstNewResNo` の初期値を、既読済みスレッドでは `lastReadResNo + 1` にするか、既存値がない場合は `null` にして新着なしとして扱うか。
+- 履歴削除時に、開いているタブが同じスレッドを参照している場合でも既読状態を消すか。現方針では「履歴削除 = 既読状態削除」とする。
+- `thread_histories.resCount` を履歴表示用スナップショットとして残すか、将来的に `thread_states.latestResCount` へ完全移行して削除するか。
+- `thread_states` の GC をどのタイミングで実行するか。候補は履歴削除後、板キャッシュ整理後、アプリ起動時、明示的なキャッシュ削除時。
