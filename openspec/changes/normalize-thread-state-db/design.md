@@ -84,6 +84,7 @@ thread_states
   boardId             Long
   boardUrl            String
   boardName           String
+  threadKey           String   板内 thread key / thread_summaries 連携用
   title               String
   latestResCount      Int      板更新/タブ更新/スレ閲覧で確認した最大レス数
   updatedAt           Long
@@ -92,10 +93,13 @@ thread_states
 Index:
 ```text
 PRIMARY KEY(threadId)
+INDEX(boardId, threadKey)
 INDEX(boardId)
 INDEX(boardUrl)
 INDEX(updatedAt)
 ```
+
+`threadId` はタブ・履歴と JOIN するためのグローバル一意キーとして使う。`threadKey` は `thread_summaries` と照合するための板内キーとして保持する。`threadKey` は `threadId` から Kotlin 側で容易に取り出せるが、SQLite の JOIN・GC・移行処理で文字列分解に依存しないよう、検索用の冗長カラムとして保持する。
 
 保持しないもの:
 - `lastReadResNo`
@@ -187,6 +191,13 @@ thread_summaries
 
 板更新時は `thread_summaries` を更新しつつ、グローバル `ThreadId` を解決できる場合は `thread_states.latestResCount` と `title` も更新する。
 
+`thread_summaries` との照合は `thread_states.boardId + thread_states.threadKey` を使う。
+
+```text
+thread_summaries.boardId = thread_states.boardId
+thread_summaries.threadId = thread_states.threadKey
+```
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -206,13 +217,16 @@ thread_summaries
 
 ### Decision 1: `thread_states` は客観状態だけを持つ
 
-`thread_states` は `latestResCount`、`title`、板情報、更新時刻を保持する。`lastReadResNo`、`firstNewResNo`、`prevResCount` は保持しない。
+`thread_states` は `latestResCount`、`title`、板情報、`threadKey`、更新時刻を保持する。`lastReadResNo`、`firstNewResNo`、`prevResCount` は保持しない。
 
 理由:
 - 履歴を削除しても最新レス数やタイトルが残ることは自然だが、既読位置が残ることは不自然。
 - 板更新・タブ更新・スレッド閲覧で確認した最新レス数は、画面や履歴の有無に依存しない客観状態として扱える。
+- `threadKey` を持つことで、`thread_summaries` との JOIN や孤立状態の GC を `boardId + threadKey` で単純に実行できる。
 
 代替案として `thread_states` に既読状態も持たせる方法があるが、履歴削除時の UX と矛盾するため採用しない。
+
+代替案として `threadId` 文字列から SQL 側で `threadKey` を取り出す方法もあるが、文字列表現に依存し index も効きにくいため採用しない。`thread_states.threadKey` は `threadId` に含まれる thread key と一致しなければならない。
 
 ### Decision 2: 既読状態は `thread_histories` に紐づける
 
@@ -288,7 +302,8 @@ thread_summaries（現役または保持対象の板キャッシュ）
 ## Risks / Trade-offs
 
 - [Risk] Room マイグレーションで既存データの統合条件が複雑になる → マイグレーションテストでタブのみ、履歴のみ、板キャッシュのみ、複数に存在するスレッドのケースを検証する。
-- [Risk] `ThreadId` 生成に必要な host/board/threadKey が移行元によって不足する → 既存の `ThreadId` カラムを優先し、板キャッシュ由来の行は既存 `thread_states` の補完に使う。
+- [Risk] `ThreadId` 生成に必要な host/board/threadKey が移行元によって不足する → 既存の `ThreadId` カラムを優先し、板キャッシュ由来の行は `boardId + threadKey` で既存 `thread_states` の補完に使う。
+- [Risk] `thread_states.threadKey` と `threadId` 内の thread key が不一致になる → Entity 作成・Repository 更新時に `ThreadId.threadKey` から設定し、マイグレーションテストで一致を検証する。
 - [Risk] 履歴がないタブの新着バッジが表示されなくなる → スレッドを開く経路で履歴を作成する既存挙動を確認し、履歴未作成タブは未訪問として扱う。
 - [Risk] 履歴削除後も `open_thread_tabs` に古いスクロール位置が残る → 表示モデル生成時に履歴の有無を見てスクロール位置を無効化し、DB 上の残存値を UI に使わない。
 - [Risk] JOIN や Flow 合成が増えて一覧表示の負荷が増える → `thread_states.threadId`、`boardId`、`boardUrl` に index を付与し、Repository 側では必要な板・開いているタブに絞って監視する。
@@ -296,10 +311,10 @@ thread_summaries（現役または保持対象の板キャッシュ）
 
 ## Migration Plan
 
-1. `thread_states` テーブルを作成し、主キーと index を定義する。
-2. 既存 `open_thread_tabs` から `thread_states` を作成する。`resCount` は `latestResCount`、`title` と板情報は客観状態の初期値として移行する。
+1. `thread_states` テーブルを作成し、主キーと index を定義する。`threadKey` は `threadId` から取り出した板内 key として保存する。
+2. 既存 `open_thread_tabs` から `thread_states` を作成する。`resCount` は `latestResCount`、`title` と板情報は客観状態の初期値、`threadKey` は `threadId` から取り出した値として移行する。
 3. 既存 `thread_histories` から `thread_states` を作成または補完する。同じ `threadId` がある場合、`latestResCount` は `max(existing.latestResCount, thread_histories.resCount)` とする。既読状態は `thread_histories` に残す。
-4. 既存 `thread_summaries` は、同じ `boardId` と thread key から既存 `thread_states` を特定できる場合に `latestResCount` と `title` の補完に使う。単独で安全な `ThreadId` を生成できない場合は新規 `thread_states` 作成には使わない。
+4. 既存 `thread_summaries` は、`boardId + threadKey` から既存 `thread_states` を特定できる場合に `latestResCount` と `title` の補完に使う。単独で安全な `ThreadId` を生成できない場合は新規 `thread_states` 作成には使わない。
 5. `open_thread_tabs_new` を作成し、`threadId`、`sortOrder`、`firstVisibleItemIndex`、`firstVisibleItemScrollOffset` のみをコピーする。
 6. 旧 `open_thread_tabs` を削除し、`open_thread_tabs_new` を `open_thread_tabs` にリネームする。
 7. Repository と Coordinator を `open_thread_tabs + thread_states + thread_histories` の合成へ接続する。

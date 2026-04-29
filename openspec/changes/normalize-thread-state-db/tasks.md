@@ -1,11 +1,12 @@
 ## 1. DB スキーマと移行
 
-- [ ] 1.1 共通客観状態を表す `thread_states` Room Entity を追加し、`threadId` 主キー、板情報、タイトル、最新レス数、更新時刻を保持できるようにする
+- [ ] 1.1 共通客観状態を表す `thread_states` Room Entity を追加し、`threadId` 主キー、`threadKey`、板情報、タイトル、最新レス数、更新時刻を保持できるようにする
 - [ ] 1.2 `thread_states` 用 DAO を追加し、`threadId` 単位、板単位、開いているタブ単位で監視・取得・更新できるクエリを定義する
 - [ ] 1.3 `thread_histories` の `ThreadReadState` を既読状態の正本として扱う方針に合わせ、履歴削除時に既読位置も削除されることを確認・整理する
 - [ ] 1.4 `open_thread_tabs` をタブ固有状態中心の構造へ移行するマイグレーションを設計し、レス数・既読状態を正本として扱わない形にする
-- [ ] 1.5 既存 `open_thread_tabs`、`thread_histories`、`thread_summaries` から `thread_states` を生成・補完する DB マイグレーションを追加する
-- [ ] 1.6 `thread_states` の `threadId`、`boardId`、`boardUrl` に必要な index を追加し、一覧監視とタブ一覧監視の負荷を抑える
+- [ ] 1.5 既存 `open_thread_tabs`、`thread_histories`、`thread_summaries` から `thread_states` を生成・補完し、`threadId` から取り出した `threadKey` を保存する DB マイグレーションを追加する
+- [ ] 1.6 `thread_states` の `threadId`、`boardId`、`boardUrl`、`boardId + threadKey` に必要な index を追加し、一覧監視・タブ一覧監視・板一覧キャッシュ照合の負荷を抑える
+- [ ] 1.7 `thread_states.threadKey` が `threadId` に含まれる thread key と一致することを Entity 作成・Repository 更新・マイグレーションで保証する
 
 ## 2. スレッド状態 Repository
 
