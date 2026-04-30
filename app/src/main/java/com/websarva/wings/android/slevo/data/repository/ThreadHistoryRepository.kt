@@ -16,7 +16,8 @@ import javax.inject.Singleton
 
 @Singleton
 class ThreadHistoryRepository @Inject constructor(
-    private val dao: ThreadHistoryDao
+    private val dao: ThreadHistoryDao,
+    private val threadStateRepository: ThreadStateRepository,
 ) {
     fun observeHistories(): Flow<List<ThreadHistoryDao.HistoryWithLastAccess>> =
         dao.observeHistories()
@@ -41,6 +42,16 @@ class ThreadHistoryRepository @Inject constructor(
     ): Long {
         val (host, board) = parseBoardUrl(boardInfo.url) ?: return 0
         val threadId = ThreadId.of(host, board, threadInfo.key)
+        threadStateRepository.saveThreadState(
+            ThreadStateRepository.ThreadStateUpdate(
+                threadId = threadId,
+                boardId = boardInfo.boardId,
+                boardUrl = boardInfo.url,
+                boardName = boardInfo.name,
+                title = threadInfo.title,
+                latestResCount = resCount,
+            )
+        )
         val existing = dao.find(threadId)
         val history = ThreadHistoryEntity(
             id = existing?.id ?: 0,

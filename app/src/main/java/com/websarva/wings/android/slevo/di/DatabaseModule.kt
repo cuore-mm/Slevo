@@ -22,6 +22,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostHi
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostIdentityHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostLastIdentityDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.state.ThreadStateDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -61,7 +62,8 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_1_2, // v.1.1.0 で追加
                 AppDatabase.MIGRATION_2_3, // v.1.1.3 で追加
                 AppDatabase.MIGRATION_3_4, // v.?.?.? で追加
-                AppDatabase.MIGRATION_4_5
+                AppDatabase.MIGRATION_4_5,
+                AppDatabase.MIGRATION_5_6
             )
             .addCallback(callback)
             .apply {
@@ -171,4 +173,8 @@ object DatabaseModule {
     @Provides
     fun providePostLastIdentityDao(db: AppDatabase): PostLastIdentityDao =
         db.postLastIdentityDao()
+
+    @Provides
+    fun provideThreadStateDao(db: AppDatabase): ThreadStateDao =
+        db.threadStateDao()
 }

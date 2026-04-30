@@ -4,6 +4,7 @@ import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import dagger.hilt.android.scopes.ViewModelScoped
@@ -34,6 +35,7 @@ class ThreadTabsCoordinator @Inject constructor(
     private val tabsRepository: TabsRepository,
     private val threadBookmarkRepository: ThreadBookmarkRepository,
     private val datRepository: DatRepository,
+    private val threadStateRepository: ThreadStateRepository,
     private val tabViewModelRegistry: TabViewModelRegistry,
 ) {
     private val _openThreadTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
@@ -208,6 +210,18 @@ class ThreadTabsCoordinator @Inject constructor(
             _openThreadTabs.value = updatedTabs
             _newResCounts.value = resultMap
             _isRefreshing.value = false
+            threadStateRepository.saveThreadStates(
+                updatedTabs.map { tab ->
+                    ThreadStateRepository.ThreadStateUpdate(
+                        threadId = tab.id,
+                        boardId = tab.boardId,
+                        boardUrl = tab.boardUrl,
+                        boardName = tab.boardName,
+                        title = tab.title,
+                        latestResCount = tab.resCount,
+                    )
+                }
+            )
             tabsRepository.saveOpenThreadTabs(_openThreadTabs.value)
         }
     }

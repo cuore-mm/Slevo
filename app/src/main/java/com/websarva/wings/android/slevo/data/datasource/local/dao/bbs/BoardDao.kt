@@ -26,6 +26,10 @@ interface BoardDao {
     @Query("SELECT * FROM boards WHERE url = :boardUrl LIMIT 1")
     suspend fun findBoardByUrl(boardUrl: String): BoardEntity?
 
+    /** boardId から BoardEntity を取得 */
+    @Query("SELECT * FROM boards WHERE boardId = :boardId LIMIT 1")
+    suspend fun findBoardById(boardId: Long): BoardEntity?
+
     /**
      * URLパターンに一致する板一覧を取得する。
      * boardKey を含むURL候補の取得に使用する。

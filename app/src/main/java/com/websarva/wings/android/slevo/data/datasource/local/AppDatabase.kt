@@ -23,6 +23,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardFet
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostIdentityHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostLastIdentityDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.state.ThreadStateDao
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BbsServiceEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BoardCategoryCrossRef
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BoardEntity
@@ -42,6 +43,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.Board
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostHistoryEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityHistoryEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostLastIdentityEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.state.ThreadStateEntity
 
 @TypeConverters(NgTypeConverter::class)
 @Database(
@@ -64,9 +66,10 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.history.Pos
         BoardFetchMetaEntity::class,
         PostHistoryEntity::class,
         PostIdentityHistoryEntity::class,
-        PostLastIdentityEntity::class
+        PostLastIdentityEntity::class,
+        ThreadStateEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -88,6 +91,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun postHistoryDao(): PostHistoryDao
     abstract fun postIdentityHistoryDao(): PostIdentityHistoryDao
     abstract fun postLastIdentityDao(): PostLastIdentityDao
+    abstract fun threadStateDao(): ThreadStateDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -223,6 +227,164 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE INDEX IF NOT EXISTS index_post_last_identities_boardId ON post_last_identities(boardId)"
                 )
             }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS thread_states (" +
+                        "threadId TEXT NOT NULL, " +
+                        "boardId INTEGER NOT NULL, " +
+                        "boardUrl TEXT NOT NULL, " +
+                        "boardName TEXT NOT NULL, " +
+                        "threadKey TEXT NOT NULL, " +
+                        "title TEXT NOT NULL, " +
+                        "latestResCount INTEGER NOT NULL, " +
+                        "updatedAt INTEGER NOT NULL, " +
+                        "PRIMARY KEY(threadId))"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_thread_states_boardId_threadKey " +
+                        "ON thread_states(boardId, threadKey)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_thread_states_boardId " +
+                        "ON thread_states(boardId)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_thread_states_boardUrl " +
+                        "ON thread_states(boardUrl)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_thread_states_updatedAt " +
+                        "ON thread_states(updatedAt)"
+                )
+
+                val now = System.currentTimeMillis()
+                migrateThreadStatesFromTabs(db, now)
+                migrateThreadStatesFromHistories(db, now)
+                migrateThreadStatesFromSummaries(db, now)
+            }
+        }
+
+        /**
+         * 既存の開いているスレッドタブから共通客観状態を作成する。
+         * タブ由来の行はグローバル `threadId` があるため、新規 `thread_states` の初期値に使う。
+         */
+        private fun migrateThreadStatesFromTabs(db: SupportSQLiteDatabase, updatedAt: Long) {
+            db.query(
+                "SELECT threadId, boardId, boardUrl, boardName, title, resCount FROM open_thread_tabs"
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val threadId = cursor.getString(0)
+                    upsertMigratedThreadState(
+                        db = db,
+                        threadId = threadId,
+                        boardId = cursor.getLong(1),
+                        boardUrl = cursor.getString(2),
+                        boardName = cursor.getString(3),
+                        threadKey = threadId.substringAfterLast('/'),
+                        title = cursor.getString(4),
+                        latestResCount = cursor.getInt(5),
+                        updatedAt = updatedAt,
+                    )
+                }
+            }
+        }
+
+        /**
+         * 既存の閲覧履歴から共通客観状態を作成または補完する。
+         * 同じ `threadId` がすでにある場合は、履歴レス数を含めた最大レス数を保持する。
+         */
+        private fun migrateThreadStatesFromHistories(db: SupportSQLiteDatabase, updatedAt: Long) {
+            db.query(
+                "SELECT threadId, boardId, boardUrl, boardName, title, resCount FROM thread_histories"
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val threadId = cursor.getString(0)
+                    upsertMigratedThreadState(
+                        db = db,
+                        threadId = threadId,
+                        boardId = cursor.getLong(1),
+                        boardUrl = cursor.getString(2),
+                        boardName = cursor.getString(3),
+                        threadKey = threadId.substringAfterLast('/'),
+                        title = cursor.getString(4),
+                        latestResCount = cursor.getInt(5),
+                        updatedAt = updatedAt,
+                    )
+                }
+            }
+        }
+
+        /**
+         * 既存の板一覧キャッシュで、作成済みの共通客観状態を補完する。
+         * `thread_summaries` 単独では安全なグローバル `threadId` を作れないため、既存行だけ更新する。
+         */
+        private fun migrateThreadStatesFromSummaries(db: SupportSQLiteDatabase, updatedAt: Long) {
+            db.query(
+                "SELECT boardId, threadId, title, resCount FROM thread_summaries"
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    db.execSQL(
+                        "UPDATE thread_states SET " +
+                            "title = ?, " +
+                            "latestResCount = CASE " +
+                            "WHEN latestResCount < ? THEN ? ELSE latestResCount END, " +
+                            "updatedAt = ? " +
+                            "WHERE boardId = ? AND threadKey = ?",
+                        arrayOf(
+                            cursor.getString(2),
+                            cursor.getInt(3),
+                            cursor.getInt(3),
+                            updatedAt,
+                            cursor.getLong(0),
+                            cursor.getString(1),
+                        )
+                    )
+                }
+            }
+        }
+
+        /**
+         * マイグレーション元の1行を `thread_states` へ統合する。
+         * 先に挿入を試し、既存行はレス数を最大値に保ちながら最新の板情報とタイトルで補完する。
+         */
+        private fun upsertMigratedThreadState(
+            db: SupportSQLiteDatabase,
+            threadId: String,
+            boardId: Long,
+            boardUrl: String,
+            boardName: String,
+            threadKey: String,
+            title: String,
+            latestResCount: Int,
+            updatedAt: Long,
+        ) {
+            db.execSQL(
+                "INSERT OR IGNORE INTO thread_states (" +
+                    "threadId, boardId, boardUrl, boardName, threadKey, title, latestResCount, updatedAt" +
+                    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                arrayOf(threadId, boardId, boardUrl, boardName, threadKey, title, latestResCount, updatedAt)
+            )
+            db.execSQL(
+                "UPDATE thread_states SET " +
+                    "boardId = ?, boardUrl = ?, boardName = ?, threadKey = ?, title = ?, " +
+                    "latestResCount = CASE " +
+                    "WHEN latestResCount < ? THEN ? ELSE latestResCount END, " +
+                    "updatedAt = ? WHERE threadId = ?",
+                arrayOf(
+                    boardId,
+                    boardUrl,
+                    boardName,
+                    threadKey,
+                    title,
+                    latestResCount,
+                    latestResCount,
+                    updatedAt,
+                    threadId,
+                )
+            )
         }
     }
 }
