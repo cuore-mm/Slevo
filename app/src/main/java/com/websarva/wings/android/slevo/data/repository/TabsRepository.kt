@@ -27,6 +27,7 @@ class TabsRepository @Inject constructor(
     private val boardDao: OpenBoardTabDao,
     private val threadDao: OpenThreadTabDao,
     private val tabsLocalDataSource: TabsLocalDataSource,
+    private val threadStateRepository: ThreadStateRepository,
     private val db: AppDatabase,
 ) {
     fun observeOpenBoardTabs(): Flow<List<BoardTabInfo>> =
@@ -113,27 +114,28 @@ class TabsRepository @Inject constructor(
 
     /**
      * 開いているスレッドタブの並び順とスクロール位置を保存する。
-     * 既存行のタイトル・レス数・既読状態列は保持し、最新レス数や既読状態の正本を上書きしない。
+     * タイトル・レス数などの客観状態は `thread_states` へ保存し、タブテーブルには書き込まない。
      */
     suspend fun saveOpenThreadTabs(tabs: List<ThreadTabInfo>) = withContext(Dispatchers.IO) {
         db.withTransaction {
             val existing = threadDao.getAll().associateBy { it.threadId.value }
+            threadStateRepository.saveThreadStates(
+                tabs.map { info ->
+                    ThreadStateRepository.ThreadStateUpdate(
+                        threadId = info.id,
+                        boardId = info.boardId,
+                        boardUrl = info.boardUrl,
+                        boardName = info.boardName,
+                        title = info.title,
+                        latestResCount = info.resCount,
+                    )
+                }
+            )
             val upserts = mutableListOf<OpenThreadTabEntity>()
             val ids = mutableListOf<String>()
             tabs.forEachIndexed { index, info ->
-                val current = existing[info.id.value]
                 val entity = OpenThreadTabEntity(
                     threadId = info.id,
-                    boardUrl = current?.boardUrl ?: info.boardUrl,
-                    boardId = current?.boardId ?: info.boardId,
-                    boardName = current?.boardName ?: info.boardName,
-                    title = current?.title ?: info.title,
-                    resCount = current?.resCount ?: info.resCount,
-                    readState = current?.readState ?: ThreadReadState(
-                        prevResCount = info.prevResCount,
-                        lastReadResNo = info.lastReadResNo,
-                        firstNewResNo = info.firstNewResNo,
-                    ),
                     sortOrder = index,
                     firstVisibleItemIndex = info.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = info.firstVisibleItemScrollOffset
@@ -152,6 +154,7 @@ class TabsRepository @Inject constructor(
             } else {
                 threadDao.deleteNotIn(ids)
             }
+            threadStateRepository.collectGarbage()
         }
     }
 

@@ -63,7 +63,8 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_2_3, // v.1.1.3 で追加
                 AppDatabase.MIGRATION_3_4, // v.?.?.? で追加
                 AppDatabase.MIGRATION_4_5,
-                AppDatabase.MIGRATION_5_6
+                AppDatabase.MIGRATION_5_6,
+                AppDatabase.MIGRATION_6_7
             )
             .addCallback(callback)
             .apply {

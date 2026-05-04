@@ -28,13 +28,13 @@
 
 ## 3. Phase 3: `open_thread_tabs` 整理・GC・仕上げ
 
-- [ ] 3.1 `open_thread_tabs` をタブ固有状態中心の構造へ移行するマイグレーションを追加し、`threadId`、`sortOrder`、スクロール位置のみを保持する形にする
-- [ ] 3.2 `OpenThreadTabDao.updateReadState()` など、タブテーブルへレス数・既読状態を書き込む不要 DAO / Repository 処理を削除する
-- [ ] 3.3 タブ削除時にタブ固有状態だけを削除し、`thread_states` と `thread_histories` を保持するようにする
-- [ ] 3.4 参照なし、30日TTL、削除件数上限を条件にした `thread_states` GC 用 Repository API を追加する
-- [ ] 3.5 GC 対象判定で `open_thread_tabs`、`thread_histories`、ブックマーク、保持対象 `thread_summaries` の参照有無を確認する
-- [ ] 3.6 履歴削除後、タブ削除後、板キャッシュ整理後、明示的キャッシュ削除後、アプリ起動時に `thread_states` の遅延 GC を起動する
-- [ ] 3.7 起動時 GC は削除件数上限つきで実行し、UI 起動を阻害しないようにする
-- [ ] 3.8 `thread_states` GC が参照あり行を削除せず、参照なしで30日以上古い行だけを削除対象にすることを検証する
-- [ ] 3.9 Phase 1〜3 全体のマイグレーション、Repository、ViewModel レベルの回帰テストを整理する
-- [ ] 3.10 Android CI のビルドとユニットテストを実行し、失敗があれば修正する
+- [x] 3.1 `open_thread_tabs` をタブ固有状態中心の構造へ移行するマイグレーションを追加し、`threadId`、`sortOrder`、スクロール位置のみを保持する形にする
+- [x] 3.2 `OpenThreadTabDao.updateReadState()` など、タブテーブルへレス数・既読状態を書き込む不要 DAO / Repository 処理を削除する
+- [x] 3.3 タブ削除時にタブ固有状態だけを削除し、`thread_states` と `thread_histories` を保持するようにする
+- [x] 3.4 参照なし、30日TTL、削除件数上限を条件にした `thread_states` GC 用 Repository API を追加する
+- [x] 3.5 GC 対象判定で `open_thread_tabs`、`thread_histories`、ブックマーク、保持対象 `thread_summaries` の参照有無を確認する
+- [x] 3.6 履歴削除後、タブ削除後、板キャッシュ整理後、明示的キャッシュ削除後、アプリ起動時に `thread_states` の遅延 GC を起動する
+- [x] 3.7 起動時 GC は削除件数上限つきで実行し、UI 起動を阻害しないようにする
+- [x] 3.8 `thread_states` GC が参照あり行を削除せず、参照なしで30日以上古い行だけを削除対象にすることを検証する
+- [x] 3.9 Phase 1〜3 全体のマイグレーション、Repository、ViewModel レベルの回帰テストを整理する
+- [x] 3.10 Android CI のビルドとユニットテストを実行し、失敗があれば修正する

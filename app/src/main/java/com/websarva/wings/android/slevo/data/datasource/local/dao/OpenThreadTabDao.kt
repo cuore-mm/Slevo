@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 interface OpenThreadTabDao {
     /**
      * タブ固有状態、スレッド客観状態、履歴既読状態を合成して返す投影モデル。
-     * Phase 2 では旧タブ列を fallback として残し、`thread_states` が欠けてもタブを表示できる。
+     * タブ一覧表示では `open_thread_tabs` の並び順とスクロール位置に、共通状態と履歴を JOIN して使う。
      */
     data class OpenThreadTabWithState(
         val threadId: ThreadId,
@@ -35,11 +35,11 @@ interface OpenThreadTabDao {
     @Query(
         "SELECT " +
             "t.threadId AS threadId, " +
-            "COALESCE(s.boardUrl, t.boardUrl) AS boardUrl, " +
-            "COALESCE(s.boardId, t.boardId) AS boardId, " +
-            "COALESCE(s.boardName, t.boardName) AS boardName, " +
-            "COALESCE(s.title, t.title) AS title, " +
-            "COALESCE(s.latestResCount, t.resCount) AS latestResCount, " +
+            "s.boardUrl AS boardUrl, " +
+            "s.boardId AS boardId, " +
+            "s.boardName AS boardName, " +
+            "s.title AS title, " +
+            "s.latestResCount AS latestResCount, " +
             "t.sortOrder AS sortOrder, " +
             "t.firstVisibleItemIndex AS firstVisibleItemIndex, " +
             "t.firstVisibleItemScrollOffset AS firstVisibleItemScrollOffset, " +
@@ -48,7 +48,7 @@ interface OpenThreadTabDao {
             "h.firstNewResNo AS historyFirstNewResNo, " +
             "CASE WHEN h.threadId IS NULL THEN 0 ELSE 1 END AS hasHistory " +
             "FROM open_thread_tabs t " +
-            "LEFT JOIN thread_states s ON s.threadId = t.threadId " +
+            "INNER JOIN thread_states s ON s.threadId = t.threadId " +
             "LEFT JOIN thread_histories h ON h.threadId = t.threadId " +
             "ORDER BY t.sortOrder ASC"
     )
@@ -66,14 +66,4 @@ interface OpenThreadTabDao {
     @Query("DELETE FROM open_thread_tabs")
     suspend fun deleteAll()
 
-    @Query(
-        "UPDATE open_thread_tabs SET prevResCount = :prevResCount, lastReadResNo = :lastReadResNo, " +
-            "firstNewResNo = :firstNewResNo WHERE threadId = :threadId"
-    )
-    suspend fun updateReadState(
-        threadId: ThreadId,
-        prevResCount: Int,
-        lastReadResNo: Int,
-        firstNewResNo: Int?,
-    )
 }

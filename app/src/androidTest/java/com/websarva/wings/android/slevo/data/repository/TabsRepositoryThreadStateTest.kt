@@ -38,6 +38,7 @@ class TabsRepositoryThreadStateTest {
             boardDao = db.openBoardTabDao(),
             threadDao = db.openThreadTabDao(),
             tabsLocalDataSource = FakeTabsLocalDataSource(),
+            threadStateRepository = ThreadStateRepository(db.threadStateDao()),
             db = db,
         )
     }
@@ -90,6 +91,16 @@ class TabsRepositoryThreadStateTest {
     fun observeOpenThreadTabs_resetsScrollPosition_whenHistoryDoesNotExist() = runBlocking {
         val threadId = ThreadId.of("example.com", "test", "456")
         insertOpenThreadTab(threadId, scrollIndex = 5, scrollOffset = 20)
+        ThreadStateRepository(db.threadStateDao()).saveThreadState(
+            ThreadStateRepository.ThreadStateUpdate(
+                threadId = threadId,
+                boardId = 1,
+                boardUrl = "https://example.com/test/",
+                boardName = "Test Board",
+                title = "Thread State Title",
+                latestResCount = 90,
+            )
+        )
 
         val tab = repository.observeOpenThreadTabs().first().single()
 
@@ -99,8 +110,8 @@ class TabsRepositoryThreadStateTest {
     }
 
     /**
-     * テスト用の開いているスレッドタブを旧タブ列付きで保存する。
-     * thread_states がない場合の fallback も確認できるよう、表示情報をタブ列にも入れる。
+     * テスト用の開いているスレッドタブを保存する。
+     * Phase 3 ではタブ固有状態だけを保存し、タイトルやレス数は `thread_states` 側で用意する。
      */
     private suspend fun insertOpenThreadTab(
         threadId: ThreadId,
@@ -111,11 +122,6 @@ class TabsRepositoryThreadStateTest {
             listOf(
                 OpenThreadTabEntity(
                     threadId = threadId,
-                    boardUrl = "https://example.com/test/",
-                    boardId = 1,
-                    boardName = "Test Board",
-                    title = "Tab Title",
-                    resCount = 90,
                     sortOrder = 0,
                     firstVisibleItemIndex = scrollIndex,
                     firstVisibleItemScrollOffset = scrollOffset,

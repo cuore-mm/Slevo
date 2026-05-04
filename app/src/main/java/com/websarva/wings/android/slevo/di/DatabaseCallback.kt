@@ -25,7 +25,7 @@ class DatabaseCallback @Inject constructor(
     @ApplicationContext private val context: Context,
     private val bbsServiceRepositoryProvider: Provider<BbsServiceRepository>,
     private val bookmarkBoardRepositoryProvider: Provider<BookmarkBoardRepository>,
-    private val bookmarkThreadRepositoryProvider: Provider<ThreadBookmarkRepository>
+    private val bookmarkThreadRepositoryProvider: Provider<ThreadBookmarkRepository>,
 ) : RoomDatabase.Callback() {
 
     // データベース操作用のコルーチンスコープ
@@ -38,6 +38,47 @@ class DatabaseCallback @Inject constructor(
         super.onCreate(db)
         applicationScope.launch {
             populateInitialData()
+        }
+    }
+
+    /**
+     * データベースが開かれたタイミングで少量の孤立スレッド客観状態を削除する。
+     * 起動処理を阻害しないよう、削除件数上限は Repository 側の起動時用設定を使用する。
+     */
+    override fun onOpen(db: SupportSQLiteDatabase) {
+        super.onOpen(db)
+        applicationScope.launch {
+            collectStartupThreadStateGarbage(db)
+        }
+    }
+
+    /**
+     * 起動時に古い孤立 `thread_states` を少量だけ削除する。
+     * RoomDatabase 構築中の循環参照を避けるため、Callback 内では SupportSQLiteDatabase を直接使う。
+     */
+    private fun collectStartupThreadStateGarbage(db: SupportSQLiteDatabase) {
+        val updatedBefore = System.currentTimeMillis() - THREAD_STATE_GARBAGE_TTL_MILLIS
+        val targets = mutableListOf<String>()
+        db.query(
+            "SELECT s.threadId FROM thread_states s " +
+                "LEFT JOIN open_thread_tabs t ON t.threadId = s.threadId " +
+                "LEFT JOIN thread_histories h ON h.threadId = s.threadId " +
+                "LEFT JOIN bookmark_threads b ON b.boardUrl = s.boardUrl AND b.threadKey = s.threadKey " +
+                "LEFT JOIN thread_summaries ts ON ts.boardId = s.boardId " +
+                "AND ts.threadId = s.threadKey AND ts.isArchived = 0 " +
+                "WHERE s.updatedAt < $updatedBefore " +
+                "AND t.threadId IS NULL " +
+                "AND h.threadId IS NULL " +
+                "AND b.threadKey IS NULL " +
+                "AND ts.threadId IS NULL " +
+                "ORDER BY s.updatedAt ASC LIMIT $STARTUP_THREAD_STATE_GARBAGE_LIMIT"
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                targets += cursor.getString(0)
+            }
+        }
+        targets.forEach { threadId ->
+            db.execSQL("DELETE FROM thread_states WHERE threadId = ?", arrayOf(threadId))
         }
     }
 
@@ -62,5 +103,13 @@ class DatabaseCallback @Inject constructor(
             name = threadBookmarkGroupName,
             colorName = BookmarkColor.YELLOW.value
         )
+    }
+
+    /**
+     * 起動時 GC の保持期間と削除件数上限を保持する定数置き場。
+     */
+    companion object {
+        private const val THREAD_STATE_GARBAGE_TTL_MILLIS = 30L * 24 * 60 * 60 * 1000
+        private const val STARTUP_THREAD_STATE_GARBAGE_LIMIT = 20
     }
 }

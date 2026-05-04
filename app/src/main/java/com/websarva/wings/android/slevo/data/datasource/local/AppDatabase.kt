@@ -69,7 +69,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.state.Threa
         PostLastIdentityEntity::class,
         ThreadStateEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -264,6 +264,27 @@ abstract class AppDatabase : RoomDatabase() {
                 migrateThreadStatesFromTabs(db, now)
                 migrateThreadStatesFromHistories(db, now)
                 migrateThreadStatesFromSummaries(db, now)
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS open_thread_tabs_new (" +
+                        "threadId TEXT NOT NULL, " +
+                        "sortOrder INTEGER NOT NULL, " +
+                        "firstVisibleItemIndex INTEGER NOT NULL, " +
+                        "firstVisibleItemScrollOffset INTEGER NOT NULL, " +
+                        "PRIMARY KEY(threadId))"
+                )
+                db.execSQL(
+                    "INSERT INTO open_thread_tabs_new (" +
+                        "threadId, sortOrder, firstVisibleItemIndex, firstVisibleItemScrollOffset" +
+                        ") SELECT threadId, sortOrder, firstVisibleItemIndex, " +
+                        "firstVisibleItemScrollOffset FROM open_thread_tabs"
+                )
+                db.execSQL("DROP TABLE open_thread_tabs")
+                db.execSQL("ALTER TABLE open_thread_tabs_new RENAME TO open_thread_tabs")
             }
         }
 

@@ -19,6 +19,15 @@ class ThreadStateRepository @Inject constructor(
     private val dao: ThreadStateDao,
 ) {
     /**
+     * GC の保持期間と削除件数上限をまとめる定数置き場。
+     */
+    companion object {
+        private const val GARBAGE_TTL_MILLIS = 30L * 24 * 60 * 60 * 1000
+        private const val DEFAULT_GARBAGE_LIMIT = 100
+        private const val STARTUP_GARBAGE_LIMIT = 20
+    }
+
+    /**
      * 指定板のスレッド客観状態を板内 thread key で引ける Map として監視する。
      * 板一覧キャッシュと合成するときは `boardId + threadKey` の対応関係を保つ。
      */
@@ -44,6 +53,27 @@ class ThreadStateRepository @Inject constructor(
         }
         dao.upsertAllKeepingMaxResCount(updates.map { update -> update.toEntity() })
     }
+
+    /**
+     * 参照がなく、30日以上更新されていないスレッド客観状態を削除する。
+     * タブ・履歴・ブックマーク・保持中の板一覧キャッシュのいずれかから参照される行は残す。
+     */
+    suspend fun collectGarbage(
+        nowMillis: Long = System.currentTimeMillis(),
+        limit: Int = DEFAULT_GARBAGE_LIMIT,
+    ): Int {
+        val normalizedLimit = limit.coerceAtLeast(0)
+        if (normalizedLimit == 0) {
+            // Guard: 上限 0 の呼び出しでは削除処理を行わない。
+            return 0
+        }
+        return dao.deleteGarbage(
+            updatedBefore = nowMillis - GARBAGE_TTL_MILLIS,
+            limit = normalizedLimit,
+        )
+    }
+
+    suspend fun collectStartupGarbage(): Int = collectGarbage(limit = STARTUP_GARBAGE_LIMIT)
 
     /**
      * Repository 間で受け渡すスレッド客観状態の更新内容。

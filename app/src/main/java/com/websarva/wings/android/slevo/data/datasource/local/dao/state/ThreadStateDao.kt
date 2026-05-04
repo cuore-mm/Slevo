@@ -29,6 +29,25 @@ abstract class ThreadStateDao {
     abstract suspend fun findByBoard(boardId: Long): List<ThreadStateEntity>
 
     @Query(
+        "SELECT s.threadId FROM thread_states s " +
+            "LEFT JOIN open_thread_tabs t ON t.threadId = s.threadId " +
+            "LEFT JOIN thread_histories h ON h.threadId = s.threadId " +
+            "LEFT JOIN bookmark_threads b ON b.boardUrl = s.boardUrl AND b.threadKey = s.threadKey " +
+            "LEFT JOIN thread_summaries ts ON ts.boardId = s.boardId " +
+            "AND ts.threadId = s.threadKey AND ts.isArchived = 0 " +
+            "WHERE s.updatedAt < :updatedBefore " +
+            "AND t.threadId IS NULL " +
+            "AND h.threadId IS NULL " +
+            "AND b.threadKey IS NULL " +
+            "AND ts.threadId IS NULL " +
+            "ORDER BY s.updatedAt ASC LIMIT :limit"
+    )
+    abstract suspend fun findGarbageCandidates(updatedBefore: Long, limit: Int): List<ThreadId>
+
+    @Query("DELETE FROM thread_states WHERE threadId IN (:threadIds)")
+    abstract suspend fun deleteByThreadIds(threadIds: List<ThreadId>)
+
+    @Query(
         "SELECT s.* FROM thread_states s " +
             "INNER JOIN open_thread_tabs t ON t.threadId = s.threadId " +
             "ORDER BY t.sortOrder ASC"
@@ -87,5 +106,20 @@ abstract class ThreadStateDao {
     @Transaction
     open suspend fun upsertAllKeepingMaxResCount(entities: List<ThreadStateEntity>) {
         entities.forEach { entity -> upsertKeepingMaxResCount(entity) }
+    }
+
+    /**
+     * 古い孤立スレッド客観状態を削除する。
+     * 削除候補を先に上限件数分だけ取得し、同じトランザクション内でまとめて削除する。
+     */
+    @Transaction
+    open suspend fun deleteGarbage(updatedBefore: Long, limit: Int): Int {
+        val targets = findGarbageCandidates(updatedBefore, limit)
+        if (targets.isEmpty()) {
+            // Guard: 候補が無い場合は DELETE を発行しない。
+            return 0
+        }
+        deleteByThreadIds(targets)
+        return targets.size
     }
 }

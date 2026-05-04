@@ -183,6 +183,7 @@ class BoardRepository @Inject constructor(
                     }
                     val removed = existingIds.minus(newIds.toSet())
                     if (removed.isNotEmpty()) threadSummaryDao.markArchived(boardId, removed)
+                    if (removed.isNotEmpty()) threadStateRepository.collectGarbage()
                     fetchMetaDao.upsert(
                         BoardFetchMetaEntity(boardId, result.etag, result.lastModified, now)
                     )

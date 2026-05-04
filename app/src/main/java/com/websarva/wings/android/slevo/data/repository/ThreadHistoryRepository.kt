@@ -42,6 +42,7 @@ class ThreadHistoryRepository @Inject constructor(
 
     suspend fun deleteHistories(threadIds: Collection<ThreadId>) {
         threadIds.forEach { dao.delete(it) }
+        threadStateRepository.collectGarbage()
     }
 
     suspend fun recordHistory(
