@@ -19,10 +19,10 @@ class ThreadNewResCalculatorTest {
         val readState = ThreadReadState(
             prevResCount = 80,
             lastReadResNo = 90,
-            firstNewResNo = 85,
+            firstNewResNo = 95,
         )
 
-        assertEquals(16, ThreadNewResCalculator.calculate(100, readState))
+        assertEquals(6, ThreadNewResCalculator.calculate(100, readState))
     }
 
     @Test
