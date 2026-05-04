@@ -14,17 +14,17 @@
 
 ## 2. Phase 2: 板画面・タブ一覧・スレッド画面の参照切替
 
-- [ ] 2.1 `thread_states.latestResCount` と `thread_histories` の既読状態から新着レス数を導出する共通ロジックを追加する
-- [ ] 2.2 `thread_histories.resCount` を履歴表示用スナップショットとして残し、最新レス数の正本や新着計算には使わないように整理する
-- [ ] 2.3 `ThreadReadStateRepository` を整理し、既読位置更新は `thread_histories` の `ThreadReadState` のみに保存するようにする
-- [ ] 2.4 `BoardRepository.observeThreads` または `ThreadListCoordinator` が `thread_states` と `thread_histories` を参照して `ThreadInfo.newResCount` と既読状態を生成するようにする
-- [ ] 2.5 `TabsRepository.observeOpenThreadTabs` が `open_thread_tabs`、`thread_states`、`thread_histories` を合成して `ThreadTabInfo` を生成するようにする
-- [ ] 2.6 `TabsRepository.saveOpenThreadTabs` がタブの並び順とスクロール位置を保存し、レス数・既読状態の正本を上書きしないようにする
-- [ ] 2.7 `ThreadTabsCoordinator.refreshOpenThreads` が `thread_states` を最新レス数の正本として更新し、タブ一覧の新着バッジを `thread_states + thread_histories` 由来にする
-- [ ] 2.8 `TabsRepository.observeOpenThreadTabs` が履歴なしタブの保存済みスクロール位置を無効化し、表示モデル上は先頭位置として返すようにする
-- [ ] 2.9 スレッド画面で新着範囲を表示するための `firstNewResNo` と `prevResCount` を `thread_histories` から供給する
-- [ ] 2.10 スレッド閲覧・履歴記録時のみ `thread_histories.resCount` を履歴表示用スナップショットとして更新する
-- [ ] 2.11 Phase 2 の検証として、新着レス数導出、板更新→タブ同期、タブ更新→板同期、スレッド閲覧→新着反映、履歴なしスクロール位置のテストを追加する
+- [x] 2.1 `thread_states.latestResCount` と `thread_histories` の既読状態から新着レス数を導出する共通ロジックを追加する
+- [x] 2.2 `thread_histories.resCount` を履歴表示用スナップショットとして残し、最新レス数の正本や新着計算には使わないように整理する
+- [x] 2.3 `ThreadReadStateRepository` を整理し、既読位置更新は `thread_histories` の `ThreadReadState` のみに保存するようにする
+- [x] 2.4 `BoardRepository.observeThreads` または `ThreadListCoordinator` が `thread_states` と `thread_histories` を参照して `ThreadInfo.newResCount` と既読状態を生成するようにする
+- [x] 2.5 `TabsRepository.observeOpenThreadTabs` が `open_thread_tabs`、`thread_states`、`thread_histories` を合成して `ThreadTabInfo` を生成するようにする
+- [x] 2.6 `TabsRepository.saveOpenThreadTabs` がタブの並び順とスクロール位置を保存し、レス数・既読状態の正本を上書きしないようにする
+- [x] 2.7 `ThreadTabsCoordinator.refreshOpenThreads` が `thread_states` を最新レス数の正本として更新し、タブ一覧の新着バッジを `thread_states + thread_histories` 由来にする
+- [x] 2.8 `TabsRepository.observeOpenThreadTabs` が履歴なしタブの保存済みスクロール位置を無効化し、表示モデル上は先頭位置として返すようにする
+- [x] 2.9 スレッド画面で新着範囲を表示するための `firstNewResNo` と `prevResCount` を `thread_histories` から供給する
+- [x] 2.10 スレッド閲覧・履歴記録時のみ `thread_histories.resCount` を履歴表示用スナップショットとして更新する
+- [x] 2.11 Phase 2 の検証として、新着レス数導出、板更新→タブ同期、タブ更新→板同期、スレッド閲覧→新着反映、履歴なしスクロール位置のテストを追加する
 
 ## 3. Phase 3: `open_thread_tabs` 整理・GC・仕上げ
 

@@ -27,6 +27,15 @@ class ThreadHistoryRepository @Inject constructor(
             list.associate { it.threadId.threadKey to it.resCount }
         }
 
+    /**
+     * 指定板の履歴を板内 thread key で引ける Map として監視する。
+     * 出力は履歴スナップショットと既読状態を含み、一覧表示の新着導出に使う。
+     */
+    fun observeHistoryReadStateMap(boardUrl: String): Flow<Map<String, ThreadHistoryDao.HistorySimple>> =
+        dao.observeByBoard(boardUrl).map { list ->
+            list.associateBy { it.threadId.threadKey }
+        }
+
     suspend fun getHistoryMap(boardUrl: String): Map<String, Int> {
         return dao.findByBoard(boardUrl).associate { it.threadId.threadKey to it.resCount }
     }

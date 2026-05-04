@@ -7,7 +7,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenBoardTa
 import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadTabEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
-import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.util.ThreadNewResCalculator
 import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +18,10 @@ import androidx.room.withTransaction
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * 開いている板タブとスレッドタブを永続化し、UI 表示モデルとして監視する Repository。
+ * スレッドタブは Phase 2 以降、タブ固有状態に `thread_states` と履歴既読状態を合成して返す。
+ */
 @Singleton
 class TabsRepository @Inject constructor(
     private val boardDao: OpenBoardTabDao,
@@ -70,39 +74,62 @@ class TabsRepository @Inject constructor(
         }
     }
 
+    /**
+     * 開いているスレッドタブを、客観状態と履歴既読状態を合成した表示モデルとして監視する。
+     * 履歴がないタブは未訪問扱いにし、新着数とスクロール位置を 0 に丸める。
+     */
     fun observeOpenThreadTabs(): Flow<List<ThreadTabInfo>> =
-        threadDao.observeOpenThreadTabs().map { list ->
+        threadDao.observeOpenThreadTabsWithState().map { list ->
             list.sortedBy { it.sortOrder }.map { entity ->
+                val readState = if (entity.hasHistory) {
+                    ThreadReadState(
+                        prevResCount = entity.historyPrevResCount ?: 0,
+                        lastReadResNo = entity.historyLastReadResNo ?: 0,
+                        firstNewResNo = entity.historyFirstNewResNo,
+                    )
+                } else {
+                    null
+                }
                 ThreadTabInfo(
                     id = entity.threadId,
                     title = entity.title,
                     boardName = entity.boardName,
                     boardUrl = entity.boardUrl,
                     boardId = entity.boardId,
-                    resCount = entity.resCount,
-                    prevResCount = entity.readState.prevResCount,
-                    lastReadResNo = entity.readState.lastReadResNo,
-                    firstNewResNo = entity.readState.firstNewResNo,
-                    firstVisibleItemIndex = entity.firstVisibleItemIndex,
-                    firstVisibleItemScrollOffset = entity.firstVisibleItemScrollOffset
+                    resCount = entity.latestResCount,
+                    newResCount = ThreadNewResCalculator.calculate(entity.latestResCount, readState),
+                    prevResCount = readState?.prevResCount ?: 0,
+                    lastReadResNo = readState?.lastReadResNo ?: 0,
+                    firstNewResNo = readState?.firstNewResNo,
+                    firstVisibleItemIndex = if (entity.hasHistory) entity.firstVisibleItemIndex else 0,
+                    firstVisibleItemScrollOffset = if (entity.hasHistory) {
+                        entity.firstVisibleItemScrollOffset
+                    } else {
+                        0
+                    }
                 )
             }
         }
 
+    /**
+     * 開いているスレッドタブの並び順とスクロール位置を保存する。
+     * 既存行のタイトル・レス数・既読状態列は保持し、最新レス数や既読状態の正本を上書きしない。
+     */
     suspend fun saveOpenThreadTabs(tabs: List<ThreadTabInfo>) = withContext(Dispatchers.IO) {
         db.withTransaction {
             val existing = threadDao.getAll().associateBy { it.threadId.value }
             val upserts = mutableListOf<OpenThreadTabEntity>()
             val ids = mutableListOf<String>()
             tabs.forEachIndexed { index, info ->
+                val current = existing[info.id.value]
                 val entity = OpenThreadTabEntity(
                     threadId = info.id,
-                    boardUrl = info.boardUrl,
-                    boardId = info.boardId,
-                    boardName = info.boardName,
-                    title = info.title,
-                    resCount = info.resCount,
-                    readState = ThreadReadState(
+                    boardUrl = current?.boardUrl ?: info.boardUrl,
+                    boardId = current?.boardId ?: info.boardId,
+                    boardName = current?.boardName ?: info.boardName,
+                    title = current?.title ?: info.title,
+                    resCount = current?.resCount ?: info.resCount,
+                    readState = current?.readState ?: ThreadReadState(
                         prevResCount = info.prevResCount,
                         lastReadResNo = info.lastReadResNo,
                         firstNewResNo = info.firstNewResNo,

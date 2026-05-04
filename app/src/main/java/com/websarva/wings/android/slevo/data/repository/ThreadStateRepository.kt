@@ -4,6 +4,8 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.state.ThreadSt
 import com.websarva.wings.android.slevo.data.datasource.local.entity.state.ThreadStateEntity
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.threadKey
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,6 +18,13 @@ import javax.inject.Singleton
 class ThreadStateRepository @Inject constructor(
     private val dao: ThreadStateDao,
 ) {
+    /**
+     * 指定板のスレッド客観状態を板内 thread key で引ける Map として監視する。
+     * 板一覧キャッシュと合成するときは `boardId + threadKey` の対応関係を保つ。
+     */
+    fun observeThreadStateMapByBoard(boardId: Long): Flow<Map<String, ThreadStateEntity>> =
+        dao.observeByBoard(boardId).map { states -> states.associateBy { it.threadKey } }
+
     /**
      * 1件のスレッド客観状態を保存する。
      * `threadKey` は必ず `threadId` から導出し、冗長カラムと主キー内のキーを一致させる。

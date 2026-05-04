@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryAccessEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryEntity
 import com.websarva.wings.android.slevo.data.model.ThreadId
@@ -13,13 +14,22 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ThreadHistoryDao {
+    /**
+     * 履歴本体と最終アクセス時刻を合わせて履歴一覧へ返す投影モデル。
+     */
     data class HistoryWithLastAccess(
         @Embedded val history: ThreadHistoryEntity,
         val lastAccess: Long?
     )
+
+    /**
+     * 板一覧やタブ一覧の表示合成に使う履歴の最小投影モデル。
+     * `resCount` は履歴表示用スナップショットとして残し、新着計算には `readState` を使う。
+     */
     data class HistorySimple(
         val threadId: ThreadId,
         val resCount: Int,
+        @Embedded val readState: ThreadReadState,
     )
 
 
@@ -33,10 +43,10 @@ interface ThreadHistoryDao {
 
     @Query("SELECT * FROM thread_histories WHERE threadId = :threadId LIMIT 1")
     suspend fun find(threadId: ThreadId): ThreadHistoryEntity?
-    @Query("SELECT threadId, resCount FROM thread_histories WHERE boardUrl = :boardUrl")
+    @Query("SELECT threadId, resCount, prevResCount, lastReadResNo, firstNewResNo FROM thread_histories WHERE boardUrl = :boardUrl")
     suspend fun findByBoard(boardUrl: String): List<HistorySimple>
 
-    @Query("SELECT threadId, resCount FROM thread_histories WHERE boardUrl = :boardUrl")
+    @Query("SELECT threadId, resCount, prevResCount, lastReadResNo, firstNewResNo FROM thread_histories WHERE boardUrl = :boardUrl")
     fun observeByBoard(boardUrl: String): Flow<List<HistorySimple>>
 
 
