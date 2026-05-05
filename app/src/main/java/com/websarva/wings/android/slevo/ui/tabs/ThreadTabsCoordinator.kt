@@ -249,6 +249,11 @@ class ThreadTabsCoordinator @Inject constructor(
             } catch (cancellationException: CancellationException) {
                 throw cancellationException
             } finally {
+                val completedJob = currentCoroutineContext()[Job]
+                // Guard: 先行ジョブの終了処理で新しい更新状態を上書きしない。
+                if (refreshJob !== completedJob) {
+                    return@launch
+                }
                 // --- Refresh end ---
                 // Guard: 正常完了時のみ 100% を短時間表示してから非表示にする。
                 if (completedNormally) {
