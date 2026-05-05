@@ -8,9 +8,11 @@ import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import dagger.hilt.android.scopes.ViewModelScoped
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -41,6 +43,13 @@ class ThreadTabsCoordinator @Inject constructor(
     private val threadStateRepository: ThreadStateRepository,
     private val tabViewModelRegistry: TabViewModelRegistry,
 ) {
+    /**
+     * 正常完了時に 100% の進捗を表示し続ける時間。
+     */
+    private companion object {
+        const val REFRESH_COMPLETION_VISIBILITY_MILLIS = 300L
+    }
+
     private val _openThreadTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
     val openThreadTabs: StateFlow<List<ThreadTabInfo>> = _openThreadTabs.asStateFlow()
 
@@ -206,6 +215,7 @@ class ThreadTabsCoordinator @Inject constructor(
         // Guard: 更新対象が空の場合は何もしない。
         if (snapshotTabs.isEmpty()) return
         refreshJob = currentScope.launch {
+            var completedNormally = false
             try {
                 // --- Refresh start ---
                 _isRefreshing.value = true
@@ -235,8 +245,15 @@ class ThreadTabsCoordinator @Inject constructor(
                         progress?.copy(completedCount = index + 1)
                     }
                 }
+                completedNormally = true
+            } catch (cancellationException: CancellationException) {
+                throw cancellationException
             } finally {
                 // --- Refresh end ---
+                // Guard: 正常完了時のみ 100% を短時間表示してから非表示にする。
+                if (completedNormally) {
+                    delay(REFRESH_COMPLETION_VISIBILITY_MILLIS)
+                }
                 _isRefreshing.value = false
                 _refreshProgress.value = null
                 refreshJob = null
