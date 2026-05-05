@@ -2,8 +2,11 @@ package com.websarva.wings.android.slevo.ui.board.viewmodel
 
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
+import com.websarva.wings.android.slevo.data.util.ThreadNewResCalculator
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
 import com.websarva.wings.android.slevo.ui.util.toHiragana
@@ -24,13 +27,14 @@ import kotlinx.coroutines.launch
 class ThreadListCoordinator @AssistedInject constructor(
     private val repository: BoardRepository,
     private val historyRepository: ThreadHistoryRepository,
+    private val threadStateRepository: ThreadStateRepository,
     @Assisted private val uiState: MutableStateFlow<BoardUiState>,
     @Assisted private val scope: CoroutineScope,
 ) {
 
     private var originalThreads: List<ThreadInfo>? = null
     private var baseThreads: List<ThreadInfo> = emptyList()
-    private var currentHistoryMap: Map<String, Int> = emptyMap()
+    private var currentHistoryMap: Map<String, ThreadHistoryDao.HistorySimple> = emptyMap()
     private var isObservingThreads: Boolean = false
     private var threadTitleNg: List<Pair<Long?, Regex>> = emptyList()
 
@@ -145,16 +149,19 @@ class ThreadListCoordinator @AssistedInject constructor(
     /**
      * 既読履歴を突き合わせて未読数・既読状態を更新する。
      */
-    fun mergeHistory(historyMap: Map<String, Int>) {
+    fun mergeHistory(historyMap: Map<String, ThreadHistoryDao.HistorySimple>) {
         if (baseThreads.isEmpty()) {
             // 表示対象がない場合は統合処理を行わない。
             return
         }
         val merged = baseThreads.map { thread ->
-            val oldRes = historyMap[thread.key]
-            if (oldRes != null) {
-                val diff = (thread.resCount - oldRes).coerceAtLeast(0)
-                thread.copy(isVisited = true, newResCount = diff)
+            val history = historyMap[thread.key]
+            if (history != null) {
+                val newResCount = ThreadNewResCalculator.calculate(
+                    latestResCount = thread.resCount,
+                    readState = history.readState,
+                )
+                thread.copy(isVisited = true, newResCount = newResCount)
             } else {
                 thread
             }
@@ -176,11 +183,20 @@ class ThreadListCoordinator @AssistedInject constructor(
         scope.launch {
             combine(
                 repository.observeThreads(boardId),
-                historyRepository.observeHistoryMap(boardUrl)
-            ) { threads, historyMap ->
-                threads to historyMap
-            }.collect { (threads, historyMap) ->
-                baseThreads = threads
+                historyRepository.observeHistoryReadStateMap(boardUrl),
+                threadStateRepository.observeThreadStateMapByBoard(boardId),
+            ) { threads, historyMap, stateMap ->
+                Triple(threads, historyMap, stateMap)
+            }.collect { (threads, historyMap, stateMap) ->
+                baseThreads = threads.map { thread ->
+                    val state = stateMap[thread.key]
+                    if (state != null) {
+                        // thread_states の客観状態を、板一覧キャッシュ由来の表示行へ合成する。
+                        thread.copy(title = state.title, resCount = state.latestResCount)
+                    } else {
+                        thread
+                    }
+                }
                 if (!uiState.value.isLoading) {
                     mergeHistory(historyMap)
                 } else {

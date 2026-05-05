@@ -6,6 +6,9 @@ import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -335,6 +338,232 @@ class AppDatabaseMigrationTest {
             writable.execSQL(
                 "INSERT INTO post_last_identities (boardId, name, email, updatedAt) VALUES (99, 'Ghost', 'ghost@example.com', 3000)"
             )
+        }
+
+        db.close()
+    }
+
+    /**
+     * v5 のタブ・履歴・板キャッシュから `thread_states` を作成し、同一スレッドを最大レス数で統合する。
+     */
+    @Test
+    fun migrate5To6_createsThreadStates_andMergesExistingSources() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.deleteDatabase(TEST_DB)
+
+        helper.createDatabase(TEST_DB, 5).apply {
+            execSQL("INSERT INTO services (serviceId, domain, displayName, menuUrl) VALUES (1, 'example.com', 'Example', NULL)")
+            execSQL("INSERT INTO boards (boardId, serviceId, url, name) VALUES (1, 1, 'https://example.com/test/', 'Test Board')")
+            execSQL(
+                "INSERT INTO open_thread_tabs (" +
+                    "threadId, boardUrl, boardId, boardName, title, resCount, prevResCount, " +
+                    "lastReadResNo, firstNewResNo, sortOrder, firstVisibleItemIndex, firstVisibleItemScrollOffset" +
+                    ") VALUES ('example.com/test/123', 'https://example.com/test/', 1, " +
+                    "'Test Board', 'Tab title', 10, 0, 0, NULL, 0, 0, 0)"
+            )
+            execSQL(
+                "INSERT INTO thread_histories (" +
+                    "threadId, boardUrl, boardId, boardName, title, resCount, prevResCount, " +
+                    "lastReadResNo, firstNewResNo" +
+                    ") VALUES ('example.com/test/123', 'https://example.com/test/', 1, " +
+                    "'Test Board', 'History title', 14, 10, 14, NULL)"
+            )
+            execSQL(
+                "INSERT INTO thread_histories (" +
+                    "threadId, boardUrl, boardId, boardName, title, resCount, prevResCount, " +
+                    "lastReadResNo, firstNewResNo" +
+                    ") VALUES ('example.com/test/456', 'https://example.com/test/', 1, " +
+                    "'Test Board', 'History only', 5, 0, 0, NULL)"
+            )
+            execSQL(
+                "INSERT INTO thread_summaries (boardId, threadId, title, resCount, firstSeenAt, isArchived, subjectRank) " +
+                    "VALUES (1, '123', 'Summary title', 20, 0, 0, 0)"
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            6,
+            true,
+            AppDatabase.MIGRATION_5_6
+        )
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
+            .addMigrations(AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7)
+            .build()
+
+        db.openHelper.writableDatabase.query(
+            "SELECT threadKey, title, latestResCount FROM thread_states WHERE threadId = 'example.com/test/123'"
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("123", cursor.getString(0))
+            assertEquals("Summary title", cursor.getString(1))
+            assertEquals(20, cursor.getInt(2))
+        }
+        db.openHelper.writableDatabase.query(
+            "SELECT threadKey, title, latestResCount FROM thread_states WHERE threadId = 'example.com/test/456'"
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("456", cursor.getString(0))
+            assertEquals("History only", cursor.getString(1))
+            assertEquals(5, cursor.getInt(2))
+        }
+
+        db.close()
+    }
+
+    /**
+     * `ThreadStateRepository` が `threadId` 由来の `threadKey` を保存し、レス数を小さく戻さないことを検証する。
+     */
+    @Test
+    fun threadStateRepository_keepsMaxResCount_andDerivesThreadKey() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        val repository = ThreadStateRepository(db.threadStateDao())
+        val threadId = ThreadId.of("example.com", "test", "123")
+
+        repository.saveThreadState(
+            ThreadStateRepository.ThreadStateUpdate(
+                threadId = threadId,
+                boardId = 1,
+                boardUrl = "https://example.com/test/",
+                boardName = "Test Board",
+                title = "Initial",
+                latestResCount = 20,
+                updatedAt = 1000,
+            )
+        )
+        repository.saveThreadState(
+            ThreadStateRepository.ThreadStateUpdate(
+                threadId = threadId,
+                boardId = 1,
+                boardUrl = "https://example.com/test/",
+                boardName = "Test Board",
+                title = "Renamed",
+                latestResCount = 10,
+                updatedAt = 2000,
+            )
+        )
+
+        val state = db.threadStateDao().find(threadId)
+        assertEquals("123", state?.threadKey)
+        assertEquals("Renamed", state?.title)
+        assertEquals(20, state?.latestResCount)
+        assertEquals(2000, state?.updatedAt)
+
+        db.close()
+    }
+
+    /**
+     * v6 の `open_thread_tabs` から表示情報と既読状態カラムを削除し、タブ固有状態だけを保持する。
+     */
+    @Test
+    fun migrate6To7_keepsOnlyThreadTabSpecificColumns() {
+        // --- Setup ---
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.deleteDatabase(TEST_DB)
+
+        helper.createDatabase(TEST_DB, 6).apply {
+            execSQL(
+                "INSERT INTO open_thread_tabs (" +
+                    "threadId, boardUrl, boardId, boardName, title, resCount, prevResCount, " +
+                    "lastReadResNo, firstNewResNo, sortOrder, firstVisibleItemIndex, firstVisibleItemScrollOffset" +
+                    ") VALUES ('example.com/test/123', 'https://example.com/test/', 1, " +
+                    "'Test Board', 'Tab title', 10, 8, 9, 10, 3, 4, 5)"
+            )
+            close()
+        }
+
+        // --- Migration ---
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            7,
+            true,
+            AppDatabase.MIGRATION_6_7
+        )
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
+            .addMigrations(AppDatabase.MIGRATION_6_7)
+            .build()
+
+        // --- Validation ---
+        db.openHelper.writableDatabase.query("PRAGMA table_info('open_thread_tabs')").use { cursor ->
+            val columns = mutableListOf<String>()
+            while (cursor.moveToNext()) {
+                columns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
+            }
+            assertEquals(
+                listOf(
+                    "threadId",
+                    "sortOrder",
+                    "firstVisibleItemIndex",
+                    "firstVisibleItemScrollOffset",
+                ),
+                columns,
+            )
+        }
+        db.openHelper.writableDatabase.query(
+            "SELECT threadId, sortOrder, firstVisibleItemIndex, firstVisibleItemScrollOffset FROM open_thread_tabs"
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("example.com/test/123", cursor.getString(0))
+            assertEquals(3, cursor.getInt(1))
+            assertEquals(4, cursor.getInt(2))
+            assertEquals(5, cursor.getInt(3))
+        }
+
+        db.close()
+    }
+
+    /**
+     * `thread_states` の GC が古い孤立行だけを削除し、各参照元がある行を保持することを検証する。
+     */
+    @Test
+    fun threadStateRepository_collectGarbage_deletesOnlyOldOrphans() = runBlocking {
+        // --- Setup ---
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        val repository = ThreadStateRepository(db.threadStateDao())
+        val writable = db.openHelper.writableDatabase
+        writable.execSQL("INSERT INTO services (serviceId, domain, displayName, menuUrl) VALUES (1, 'example.com', 'Example', NULL)")
+        writable.execSQL("INSERT INTO boards (boardId, serviceId, url, name) VALUES (1, 1, 'https://example.com/test/', 'Test Board')")
+        writable.execSQL("INSERT INTO thread_bookmark_groups (groupId, name, colorName, sortOrder) VALUES (1, 'Bookmarks', 'yellow', 0)")
+
+        val now = 40L * 24 * 60 * 60 * 1000
+        val oldUpdatedAt = 0L
+        val recentUpdatedAt = now - 1_000
+        val threadIds = listOf("orphan", "recent", "tab", "history", "bookmark", "summary")
+        threadIds.forEach { key ->
+            repository.saveThreadState(
+                ThreadStateRepository.ThreadStateUpdate(
+                    threadId = ThreadId.of("example.com", "test", key),
+                    boardId = 1,
+                    boardUrl = "https://example.com/test/",
+                    boardName = "Test Board",
+                    title = key,
+                    latestResCount = 1,
+                    updatedAt = if (key == "recent") recentUpdatedAt else oldUpdatedAt,
+                )
+            )
+        }
+        writable.execSQL("INSERT INTO open_thread_tabs (threadId, sortOrder, firstVisibleItemIndex, firstVisibleItemScrollOffset) VALUES ('example.com/test/tab', 0, 0, 0)")
+        writable.execSQL("INSERT INTO thread_histories (threadId, boardUrl, boardId, boardName, title, resCount, prevResCount, lastReadResNo, firstNewResNo) VALUES ('example.com/test/history', 'https://example.com/test/', 1, 'Test Board', 'history', 1, 0, 0, NULL)")
+        writable.execSQL("INSERT INTO bookmark_threads (threadKey, boardUrl, boardId, groupId, title, boardName, resCount) VALUES ('bookmark', 'https://example.com/test/', 1, 1, 'bookmark', 'Test Board', 1)")
+        writable.execSQL("INSERT INTO thread_summaries (boardId, threadId, title, resCount, firstSeenAt, isArchived, subjectRank) VALUES (1, 'summary', 'summary', 1, 0, 0, 0)")
+
+        // --- GC ---
+        val deleted = repository.collectGarbage(nowMillis = now, limit = 10)
+
+        // --- Validation ---
+        assertEquals(1, deleted)
+        assertEquals(null, db.threadStateDao().find(ThreadId.of("example.com", "test", "orphan")))
+        listOf("recent", "tab", "history", "bookmark", "summary").forEach { key ->
+            assertTrue(db.threadStateDao().find(ThreadId.of("example.com", "test", key)) != null)
         }
 
         db.close()

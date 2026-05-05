@@ -4,6 +4,7 @@ import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import dagger.hilt.android.scopes.ViewModelScoped
@@ -34,6 +35,7 @@ class ThreadTabsCoordinator @Inject constructor(
     private val tabsRepository: TabsRepository,
     private val threadBookmarkRepository: ThreadBookmarkRepository,
     private val datRepository: DatRepository,
+    private val threadStateRepository: ThreadStateRepository,
     private val tabViewModelRegistry: TabViewModelRegistry,
 ) {
     private val _openThreadTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
@@ -83,6 +85,9 @@ class ThreadTabsCoordinator @Inject constructor(
                 tabs.map { tab -> tab.copy(bookmarkColorName = colorMap[tab.id.value]) }
             }.collect { threads ->
                 _openThreadTabs.value = threads
+                _newResCounts.value = threads
+                    .filter { tab -> tab.newResCount > 0 }
+                    .associate { tab -> tab.id.value to tab.newResCount }
                 _threadLoaded.value = true
             }
         }
@@ -177,38 +182,33 @@ class ThreadTabsCoordinator @Inject constructor(
     }
 
     /**
-     * 開いているタブをリフレッシュして、レス数の差分を計算し、_newResCounts と _openThreadTabs を更新する。
-     * 非同期処理のため scope が必要。完了時に永続化も行う。
+     * 開いているタブをリフレッシュして、取得した最新レス数を `thread_states` へ保存する。
+     * 新着バッジは保存後の `thread_states + thread_histories` 合成 Flow から再導出する。
      */
     fun refreshOpenThreads() {
         val currentScope = scope ?: return
         currentScope.launch {
             _isRefreshing.value = true
             val currentTabs = _openThreadTabs.value
-            val resultMap = mutableMapOf<String, Int>()
             val updatedTabs = currentTabs.map { tab ->
                 val res = datRepository.getThread(tab.boardUrl, tab.threadKey)
                 val size = res?.first?.size ?: tab.resCount
-                val diff = size - tab.resCount
-                if (diff > 0) {
-                    resultMap[tab.id.value] = diff
-                }
-                val candidate =
-                    if (tab.firstNewResNo == null || tab.firstNewResNo <= tab.lastReadResNo) {
-                        tab.lastReadResNo + 1
-                    } else {
-                        tab.firstNewResNo
-                    }
-                val newFirst = if (candidate > size) null else candidate
-                tab.copy(
-                    resCount = size,
-                    firstNewResNo = newFirst,
-                )
+                tab.copy(resCount = size)
             }
             _openThreadTabs.value = updatedTabs
-            _newResCounts.value = resultMap
+            threadStateRepository.saveThreadStates(
+                updatedTabs.map { tab ->
+                    ThreadStateRepository.ThreadStateUpdate(
+                        threadId = tab.id,
+                        boardId = tab.boardId,
+                        boardUrl = tab.boardUrl,
+                        boardName = tab.boardName,
+                        title = tab.title,
+                        latestResCount = tab.resCount,
+                    )
+                }
+            )
             _isRefreshing.value = false
-            tabsRepository.saveOpenThreadTabs(_openThreadTabs.value)
         }
     }
 

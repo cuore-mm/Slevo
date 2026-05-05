@@ -45,7 +45,7 @@ fun OpenThreadsList(
     ) { tab, isRemoving, requestRemove ->
         OpenThreadCard(
             tab = tab,
-            newResCount = newResCounts[tab.id.value] ?: 0,
+            newResCount = newResCounts[tab.id.value] ?: tab.newResCount,
             onClick = {
                 if (isRemoving) return@OpenThreadCard
                 closeDrawer()

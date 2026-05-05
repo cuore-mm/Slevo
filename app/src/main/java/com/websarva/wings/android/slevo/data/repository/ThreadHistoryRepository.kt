@@ -16,7 +16,8 @@ import javax.inject.Singleton
 
 @Singleton
 class ThreadHistoryRepository @Inject constructor(
-    private val dao: ThreadHistoryDao
+    private val dao: ThreadHistoryDao,
+    private val threadStateRepository: ThreadStateRepository,
 ) {
     fun observeHistories(): Flow<List<ThreadHistoryDao.HistoryWithLastAccess>> =
         dao.observeHistories()
@@ -26,12 +27,22 @@ class ThreadHistoryRepository @Inject constructor(
             list.associate { it.threadId.threadKey to it.resCount }
         }
 
+    /**
+     * 指定板の履歴を板内 thread key で引ける Map として監視する。
+     * 出力は履歴スナップショットと既読状態を含み、一覧表示の新着導出に使う。
+     */
+    fun observeHistoryReadStateMap(boardUrl: String): Flow<Map<String, ThreadHistoryDao.HistorySimple>> =
+        dao.observeByBoard(boardUrl).map { list ->
+            list.associateBy { it.threadId.threadKey }
+        }
+
     suspend fun getHistoryMap(boardUrl: String): Map<String, Int> {
         return dao.findByBoard(boardUrl).associate { it.threadId.threadKey to it.resCount }
     }
 
     suspend fun deleteHistories(threadIds: Collection<ThreadId>) {
         threadIds.forEach { dao.delete(it) }
+        threadStateRepository.collectGarbage()
     }
 
     suspend fun recordHistory(
@@ -41,6 +52,16 @@ class ThreadHistoryRepository @Inject constructor(
     ): Long {
         val (host, board) = parseBoardUrl(boardInfo.url) ?: return 0
         val threadId = ThreadId.of(host, board, threadInfo.key)
+        threadStateRepository.saveThreadState(
+            ThreadStateRepository.ThreadStateUpdate(
+                threadId = threadId,
+                boardId = boardInfo.boardId,
+                boardUrl = boardInfo.url,
+                boardName = boardInfo.name,
+                title = threadInfo.title,
+                latestResCount = resCount,
+            )
+        )
         val existing = dao.find(threadId)
         val history = ThreadHistoryEntity(
             id = existing?.id ?: 0,

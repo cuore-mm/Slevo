@@ -15,9 +15,11 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.Board
 import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.ThreadSummaryEntity
 import com.websarva.wings.android.slevo.data.datasource.remote.BoardRemoteDataSource
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.util.ThreadListParser.calculateThreadDate
 import com.websarva.wings.android.slevo.data.util.ThreadListParser.parseSubjectTxt
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -35,6 +37,7 @@ class BoardRepository @Inject constructor(
     private val threadSummaryDao: ThreadSummaryDao,
     private val boardVisitDao: BoardVisitDao,
     private val fetchMetaDao: BoardFetchMetaDao,
+    private val threadStateRepository: ThreadStateRepository,
     private val db: AppDatabase,
 ) {
     /**
@@ -132,6 +135,8 @@ class BoardRepository @Inject constructor(
             200 -> {
                 val threads = parseSubjectTxt(result.body ?: return@withContext false)
                 db.withTransaction {
+                    val boardEntity = boardDao.findBoardById(boardId)
+                    val boardKey = boardEntity?.url?.let { parseBoardUrl(it) }
                     val existingIds = threadSummaryDao.getThreadIds(boardId)
                     val newIds = mutableListOf<String>()
                     val inserts = mutableListOf<ThreadSummaryEntity>()
@@ -160,8 +165,25 @@ class BoardRepository @Inject constructor(
                         }
                     }
                     if (inserts.isNotEmpty()) threadSummaryDao.insertAll(inserts)
+                    if (boardEntity != null && boardKey != null) {
+                        // subject.txt 由来の一覧を、板キャッシュと同じ順序で共通客観状態へ反映する。
+                        threadStateRepository.saveThreadStates(
+                            threads.map { thread ->
+                                ThreadStateRepository.ThreadStateUpdate(
+                                    threadId = ThreadId.of(boardKey.first, boardKey.second, thread.key),
+                                    boardId = boardId,
+                                    boardUrl = boardEntity.url,
+                                    boardName = boardEntity.name,
+                                    title = thread.title,
+                                    latestResCount = thread.resCount,
+                                    updatedAt = now,
+                                )
+                            }
+                        )
+                    }
                     val removed = existingIds.minus(newIds.toSet())
                     if (removed.isNotEmpty()) threadSummaryDao.markArchived(boardId, removed)
+                    if (removed.isNotEmpty()) threadStateRepository.collectGarbage()
                     fetchMetaDao.upsert(
                         BoardFetchMetaEntity(boardId, result.etag, result.lastModified, now)
                     )
