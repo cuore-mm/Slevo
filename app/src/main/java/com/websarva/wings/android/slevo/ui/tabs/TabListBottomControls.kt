@@ -87,7 +87,7 @@ internal fun TabListBottomControls(
     val isBoardPage = pagerState.currentPage == 0
     val coroutineScope = rememberCoroutineScope()
     val indicatorProgress = refreshProgress?.progress ?: 0f
-    val showProgress = isRefreshing && !isBoardPage
+    val showProgress = isRefreshing
 
     val tapGuardInteractionSource = remember { MutableInteractionSource() }
 
@@ -154,14 +154,14 @@ private fun TabListInlineSection(
     onCancelRefreshClick: () -> Unit,
 ) {
     // --- Refresh button state ---
-    val isThreadRefreshing = !isBoardPage && isRefreshing
-    val refreshIcon = if (isThreadRefreshing) Icons.Default.Close else Icons.Default.Refresh
-    val refreshDescription = if (isThreadRefreshing) {
+    val isRefreshingAnyPage = isRefreshing
+    val refreshIcon = if (isRefreshingAnyPage) Icons.Default.Close else Icons.Default.Refresh
+    val refreshDescription = if (isRefreshingAnyPage) {
         stringResource(R.string.cancel)
     } else {
         stringResource(R.string.refresh)
     }
-    val refreshAction = if (isThreadRefreshing) onCancelRefreshClick else onRefreshClick
+    val refreshAction = if (isRefreshingAnyPage) onCancelRefreshClick else onRefreshClick
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -178,7 +178,7 @@ private fun TabListInlineSection(
             selectedIndex = selectedIndex,
             onSelect = onSelect,
         )
-        if (isBoardPage) {
+        if (isBoardPage && !isRefreshingAnyPage) {
             Spacer(modifier = Modifier.size(ControlsDefaults.controlHeight))
         } else {
             TabActionButton(
