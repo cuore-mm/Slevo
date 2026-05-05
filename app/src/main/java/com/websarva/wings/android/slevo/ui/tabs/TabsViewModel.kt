@@ -20,6 +20,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * タブ一覧画面の UI 状態と操作を統合する ViewModel。
+ *
+ * 板/スレッドタブの状態を集約し、更新進捗や URL 入力ダイアログの状態も管理する。
+ */
 @HiltViewModel
 class TabsViewModel @Inject constructor(
     private val tabsRepository: TabsRepository,
@@ -41,9 +46,16 @@ class TabsViewModel @Inject constructor(
         threadTabsCoordinator.openThreadTabs,
         threadTabsCoordinator.threadLoaded,
         threadTabsCoordinator.isRefreshing,
+        threadTabsCoordinator.refreshProgress,
         threadTabsCoordinator.newResCounts,
-    ) { openThreadTabs, threadLoaded, isRefreshing, newResCounts ->
-        ThreadTabsState(openThreadTabs, threadLoaded, isRefreshing, newResCounts)
+    ) { openThreadTabs, threadLoaded, isRefreshing, refreshProgress, newResCounts ->
+        ThreadTabsState(
+            openThreadTabs = openThreadTabs,
+            threadLoaded = threadLoaded,
+            isRefreshing = isRefreshing,
+            refreshProgress = refreshProgress,
+            newResCounts = newResCounts,
+        )
     }
 
     private val urlValidationState = MutableStateFlow(false)
@@ -63,6 +75,7 @@ class TabsViewModel @Inject constructor(
             boardLoaded = boardState.boardLoaded,
             threadLoaded = threadState.threadLoaded,
             isRefreshing = threadState.isRefreshing,
+            refreshProgress = threadState.refreshProgress,
             newResCounts = threadState.newResCounts,
             isUrlValidating = isUrlValidating,
             showUrlDialog = showUrlDialog,
@@ -151,6 +164,13 @@ class TabsViewModel @Inject constructor(
         threadTabsCoordinator.refreshOpenThreads()
     }
 
+    /**
+     * スレッドタブ一覧の更新処理をキャンセルする。
+     */
+    fun cancelRefreshOpenThreads() {
+        threadTabsCoordinator.cancelRefreshOpenThreads()
+    }
+
     fun startUrlValidation() {
         urlValidationState.value = true
     }
@@ -207,14 +227,21 @@ class TabsViewModel @Inject constructor(
     }
 }
 
+/**
+ * 板タブ一覧のロード状態とタブ情報をまとめる内部状態。
+ */
 private data class BoardTabsState(
     val openBoardTabs: List<BoardTabInfo>,
     val boardLoaded: Boolean,
 )
 
+/**
+ * スレッドタブ一覧のロード状態、更新進捗、新着件数をまとめる内部状態。
+ */
 private data class ThreadTabsState(
     val openThreadTabs: List<ThreadTabInfo>,
     val threadLoaded: Boolean,
     val isRefreshing: Boolean,
+    val refreshProgress: ThreadTabRefreshProgress?,
     val newResCounts: Map<String, Int>,
 )
