@@ -209,7 +209,6 @@ private fun TabListRefreshProgressSlot(
                 modifier = Modifier.fillMaxWidth(),
                 color = ProgressIndicatorDefaults.linearColor,
                 trackColor = ProgressIndicatorDefaults.linearTrackColor,
-                strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
             )
         }
     }
