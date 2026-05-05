@@ -29,10 +29,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -65,7 +64,7 @@ private object ControlsDefaults {
     val hazeTopOverlap: Dp = 32.dp
     val controlHeight: Dp = 48.dp
     val actionIconSize: Dp = 28.dp
-    val progressHeight: Dp = 4.dp
+    val progressHeight: Dp = 8.dp
 }
 
 /**
@@ -114,10 +113,11 @@ internal fun TabListBottomControls(
                     indication = null,
                     onClick = {},
                 )
-                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             TabListInlineSection(
+                modifier = Modifier.padding(horizontal = 16.dp),
                 selectedIndex = pagerState.currentPage,
                 isBoardPage = isBoardPage,
                 isRefreshing = isRefreshing,
@@ -143,6 +143,7 @@ internal fun TabListBottomControls(
  */
 @Composable
 private fun TabListInlineSection(
+    modifier: Modifier = Modifier,
     selectedIndex: Int,
     isBoardPage: Boolean,
     isRefreshing: Boolean,
@@ -162,7 +163,7 @@ private fun TabListInlineSection(
     val refreshAction = if (isThreadRefreshing) onCancelRefreshClick else onRefreshClick
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -207,8 +208,6 @@ private fun TabListRefreshProgressSlot(
             LinearWavyProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth(),
-                color = ProgressIndicatorDefaults.linearColor,
-                trackColor = ProgressIndicatorDefaults.linearTrackColor,
             )
         }
     }
