@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -198,6 +199,12 @@ private fun TabListRefreshProgressSlot(
     isVisible: Boolean,
     progress: Float,
 ) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = tween(durationMillis = 300),
+        label = "tabRefreshProgress",
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -206,7 +213,7 @@ private fun TabListRefreshProgressSlot(
     ) {
         if (isVisible) {
             LinearWavyProgressIndicator(
-                progress = { progress },
+                progress = { animatedProgress },
                 modifier = Modifier.fillMaxWidth(),
             )
         }
