@@ -257,7 +257,12 @@ class ThreadTabsCoordinator @Inject constructor(
                 // --- Refresh end ---
                 // Guard: 正常完了時のみ 100% を短時間表示してから非表示にする。
                 if (completedNormally) {
-                    delay(REFRESH_COMPLETION_VISIBILITY_MILLIS)
+                    // Guard: 表示待機中にキャンセルされても cleanup は継続する。
+                    try {
+                        delay(REFRESH_COMPLETION_VISIBILITY_MILLIS)
+                    } catch (_: CancellationException) {
+                        // no-op
+                    }
                 }
                 _isRefreshing.value = false
                 _refreshProgress.value = null
