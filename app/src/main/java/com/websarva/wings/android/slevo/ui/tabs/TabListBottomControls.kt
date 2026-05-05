@@ -26,10 +26,13 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -62,6 +65,7 @@ private object ControlsDefaults {
     val hazeTopOverlap: Dp = 32.dp
     val controlHeight: Dp = 48.dp
     val actionIconSize: Dp = 28.dp
+    val progressHeight: Dp = 4.dp
 }
 
 /**
@@ -73,11 +77,17 @@ internal fun TabListBottomControls(
     modifier: Modifier = Modifier,
     pagerState: PagerState,
     hazeState: HazeState,
+    isRefreshing: Boolean,
+    refreshProgress: ThreadTabRefreshProgress?,
     onCreateTabClick: () -> Unit,
     onRefreshClick: () -> Unit,
+    onCancelRefreshClick: () -> Unit,
 ) {
+    // --- State ---
     val isBoardPage = pagerState.currentPage == 0
     val coroutineScope = rememberCoroutineScope()
+    val indicatorProgress = refreshProgress?.progress ?: 0f
+    val showProgress = isRefreshing && !isBoardPage
 
     val tapGuardInteractionSource = remember { MutableInteractionSource() }
 
@@ -110,6 +120,7 @@ internal fun TabListBottomControls(
             TabListInlineSection(
                 selectedIndex = pagerState.currentPage,
                 isBoardPage = isBoardPage,
+                isRefreshing = isRefreshing,
                 onSelect = { index ->
                     if (pagerState.currentPage != index) {
                         coroutineScope.launch { pagerState.animateScrollToPage(index) }
@@ -117,22 +128,39 @@ internal fun TabListBottomControls(
                 },
                 onCreateTabClick = onCreateTabClick,
                 onRefreshClick = onRefreshClick,
+                onCancelRefreshClick = onCancelRefreshClick,
+            )
+            TabListRefreshProgressSlot(
+                isVisible = showProgress,
+                progress = indicatorProgress,
             )
         }
     }
 }
 
 /**
- * 下部操作群を1段で配置し、左から作成・切替・更新を表示する。
+ * 下部操作群の 1 段レイアウトを構成し、作成・切替・更新を表示する。
  */
 @Composable
 private fun TabListInlineSection(
     selectedIndex: Int,
     isBoardPage: Boolean,
+    isRefreshing: Boolean,
     onSelect: (Int) -> Unit,
     onCreateTabClick: () -> Unit,
     onRefreshClick: () -> Unit,
+    onCancelRefreshClick: () -> Unit,
 ) {
+    // --- Refresh button state ---
+    val isThreadRefreshing = !isBoardPage && isRefreshing
+    val refreshIcon = if (isThreadRefreshing) Icons.Default.Close else Icons.Default.Refresh
+    val refreshDescription = if (isThreadRefreshing) {
+        stringResource(R.string.cancel)
+    } else {
+        stringResource(R.string.refresh)
+    }
+    val refreshAction = if (isThreadRefreshing) onCancelRefreshClick else onRefreshClick
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -152,9 +180,36 @@ private fun TabListInlineSection(
             Spacer(modifier = Modifier.size(ControlsDefaults.controlHeight))
         } else {
             TabActionButton(
-                imageVector = Icons.Default.Refresh,
-                contentDescription = stringResource(R.string.refresh),
-                onClick = onRefreshClick,
+                imageVector = refreshIcon,
+                contentDescription = refreshDescription,
+                onClick = refreshAction,
+            )
+        }
+    }
+}
+
+/**
+ * 更新中のみ進捗を描画するための固定スロットを提供する。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun TabListRefreshProgressSlot(
+    isVisible: Boolean,
+    progress: Float,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(ControlsDefaults.progressHeight),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (isVisible) {
+            LinearWavyProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth(),
+                color = ProgressIndicatorDefaults.linearColor,
+                trackColor = ProgressIndicatorDefaults.linearTrackColor,
+                strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
             )
         }
     }
@@ -286,8 +341,11 @@ private fun TabListBottomControlsBoardPreview() {
             .padding(horizontal = 16.dp, vertical = 12.dp),
         pagerState = pagerState,
         hazeState = hazeState,
+        isRefreshing = false,
+        refreshProgress = null,
         onCreateTabClick = {},
         onRefreshClick = {},
+        onCancelRefreshClick = {},
     )
 }
 
@@ -302,7 +360,32 @@ private fun TabListBottomControlsThreadPreview() {
             .padding(horizontal = 16.dp, vertical = 12.dp),
         pagerState = pagerState,
         hazeState = hazeState,
+        isRefreshing = false,
+        refreshProgress = null,
         onCreateTabClick = {},
         onRefreshClick = {},
+        onCancelRefreshClick = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun TabListBottomControlsRefreshingPreview() {
+    val pagerState = rememberPagerState(initialPage = 1, pageCount = { 2 })
+    val hazeState = rememberHazeState()
+    TabListBottomControls(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        pagerState = pagerState,
+        hazeState = hazeState,
+        isRefreshing = true,
+        refreshProgress = ThreadTabRefreshProgress(
+            completedCount = 3,
+            totalCount = 8,
+        ),
+        onCreateTabClick = {},
+        onRefreshClick = {},
+        onCancelRefreshClick = {},
     )
 }

@@ -69,11 +69,14 @@ fun TabScreenContent(
                 modifier = Modifier.fillMaxWidth(),
                 pagerState = pagerState,
                 hazeState = hazeState,
+                isRefreshing = uiState.isRefreshing,
+                refreshProgress = uiState.refreshProgress,
                 onCreateTabClick = {
                     tabsViewModel.setUrlErrorMessage(null)
                     tabsViewModel.setUrlDialogVisible(true)
                 },
                 onRefreshClick = { tabsViewModel.refreshOpenThreads() },
+                onCancelRefreshClick = { tabsViewModel.cancelRefreshOpenThreads() },
             )
         },
     ) { innerPadding ->

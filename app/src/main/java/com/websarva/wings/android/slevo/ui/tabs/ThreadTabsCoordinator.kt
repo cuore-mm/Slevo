@@ -9,6 +9,8 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import dagger.hilt.android.scopes.ViewModelScoped
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -18,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ensureActive
 import javax.inject.Inject
 
 /**
@@ -47,6 +50,9 @@ class ThreadTabsCoordinator @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    private val _refreshProgress = MutableStateFlow<ThreadTabRefreshProgress?>(null)
+    val refreshProgress: StateFlow<ThreadTabRefreshProgress?> = _refreshProgress.asStateFlow()
+
     private val _newResCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
     val newResCounts: StateFlow<Map<String, Int>> = _newResCounts.asStateFlow()
 
@@ -57,6 +63,11 @@ class ThreadTabsCoordinator @Inject constructor(
     val threadPageAnimation: SharedFlow<Int> = _threadPageAnimation.asSharedFlow()
 
     private var scope: CoroutineScope? = null
+
+    /**
+     * 実行中のスレッドタブ更新ジョブを保持する。
+     */
+    private var refreshJob: Job? = null
 
     /**
      * コーディネータを指定の CoroutineScope にバインドする。
@@ -183,33 +194,61 @@ class ThreadTabsCoordinator @Inject constructor(
 
     /**
      * 開いているタブをリフレッシュして、取得した最新レス数を `thread_states` へ保存する。
+     *
+     * 更新中は進捗状態を更新し、取得できたタブから順次反映する。
      * 新着バッジは保存後の `thread_states + thread_histories` 合成 Flow から再導出する。
      */
     fun refreshOpenThreads() {
-        val currentScope = scope ?: return
-        currentScope.launch {
-            _isRefreshing.value = true
-            val currentTabs = _openThreadTabs.value
-            val updatedTabs = currentTabs.map { tab ->
-                val res = datRepository.getThread(tab.boardUrl, tab.threadKey)
-                val size = res?.first?.size ?: tab.resCount
-                tab.copy(resCount = size)
-            }
-            _openThreadTabs.value = updatedTabs
-            threadStateRepository.saveThreadStates(
-                updatedTabs.map { tab ->
-                    ThreadStateRepository.ThreadStateUpdate(
-                        threadId = tab.id,
-                        boardId = tab.boardId,
-                        boardUrl = tab.boardUrl,
-                        boardName = tab.boardName,
-                        title = tab.title,
-                        latestResCount = tab.resCount,
-                    )
+        val currentScope = scope ?: return // Guard: bind 前は更新を開始しない。
+        // Guard: 既に更新中の場合は重複開始しない。
+        if (refreshJob?.isActive == true) return
+        val snapshotTabs = _openThreadTabs.value
+        // Guard: 更新対象が空の場合は何もしない。
+        if (snapshotTabs.isEmpty()) return
+        refreshJob = currentScope.launch {
+            try {
+                // --- Refresh start ---
+                _isRefreshing.value = true
+                _refreshProgress.value = ThreadTabRefreshProgress(0, snapshotTabs.size)
+
+                // --- Refresh loop ---
+                snapshotTabs.forEachIndexed { index, tab ->
+                    // Guard: キャンセル済みなら即座に中断する。
+                    currentCoroutineContext().ensureActive()
+                    val result = datRepository.getThread(tab.boardUrl, tab.threadKey)
+                    val latestResCount = result?.first?.size
+                    val isTabStillOpen = _openThreadTabs.value.any { it.id == tab.id }
+                    if (latestResCount != null && isTabStillOpen) {
+                        // 削除済みタブには反映せず、開いているタブのみ更新対象にする。
+                        // 取得済みの最新レス数を thread_states に保存する。
+                        val update = ThreadStateRepository.ThreadStateUpdate(
+                            threadId = tab.id,
+                            boardId = tab.boardId,
+                            boardUrl = tab.boardUrl,
+                            boardName = tab.boardName,
+                            title = tab.title,
+                            latestResCount = latestResCount,
+                        )
+                        threadStateRepository.saveThreadState(update)
+                    }
+                    _refreshProgress.update { progress ->
+                        progress?.copy(completedCount = index + 1)
+                    }
                 }
-            )
-            _isRefreshing.value = false
+            } finally {
+                // --- Refresh end ---
+                _isRefreshing.value = false
+                _refreshProgress.value = null
+                refreshJob = null
+            }
         }
+    }
+
+    /**
+     * 実行中のスレッドタブ更新をキャンセルする。
+     */
+    fun cancelRefreshOpenThreads() {
+        refreshJob?.cancel()
     }
 
     /**
