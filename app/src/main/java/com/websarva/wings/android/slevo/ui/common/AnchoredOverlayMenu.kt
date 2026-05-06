@@ -123,15 +123,15 @@ fun AnchoredOverlayMenu(
         // --- Animated content ---
         AnimatedVisibility(
             visibleState = visibleState,
-            enter = fadeIn(animationSpec = tween(durationMillis = 90)) +
+            enter = fadeIn(animationSpec = tween(durationMillis = 140)) +
                     scaleIn(
-                        animationSpec = tween(durationMillis = 120),
+                        animationSpec = tween(durationMillis = 180),
                         initialScale = 0.92f,
                         transformOrigin = TransformOrigin(0.5f, 0f),
                     ),
-            exit = fadeOut(animationSpec = tween(durationMillis = 75)) +
+            exit = fadeOut(animationSpec = tween(durationMillis = 110)) +
                     scaleOut(
-                        animationSpec = tween(durationMillis = 90),
+                        animationSpec = tween(durationMillis = 140),
                         targetScale = 0.96f,
                         transformOrigin = TransformOrigin(0.5f, 0f),
                     ),

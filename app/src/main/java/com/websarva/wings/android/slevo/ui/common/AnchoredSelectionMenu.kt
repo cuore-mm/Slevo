@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
@@ -48,6 +49,8 @@ fun <T> AnchoredSelectionMenu(
         expanded = expanded,
         anchorBoundsInWindow = anchorBoundsInWindow,
         hazeState = null,
+        horizontalAlignment = HorizontalAnchorAlignment.Start,
+        offset = DpOffset(8.dp, 40.dp),
         onDismissRequest = onDismissRequest,
     ) {
         options.forEach { option ->
