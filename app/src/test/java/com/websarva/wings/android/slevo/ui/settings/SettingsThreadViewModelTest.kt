@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.settings
 
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
+import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -9,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 
 /**
@@ -16,6 +18,9 @@ import org.junit.Test
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsThreadViewModelTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
     @Test
     fun collectThreadSettings_updatesUiState() = runTest {
         val treeSortFlow = MutableStateFlow(false)

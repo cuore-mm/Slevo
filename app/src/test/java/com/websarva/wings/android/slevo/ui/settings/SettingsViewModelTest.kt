@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.settings
 
 import com.websarva.wings.android.slevo.data.model.ThemeMode
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
+import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Rule
 import org.junit.Test
 
 /**
@@ -17,6 +19,9 @@ import org.junit.Test
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
     @Test
     fun collectThemeMode_updatesUiState() = runTest {
         val themeFlow = MutableStateFlow(ThemeMode.SYSTEM)
