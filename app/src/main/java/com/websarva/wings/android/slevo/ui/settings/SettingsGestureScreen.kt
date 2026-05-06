@@ -304,7 +304,7 @@ private fun GestureDirectionGroupCard(
             },
             headlineText = directionLabel,
             supportingText = actionLabel,
-            supportingStyle = MaterialTheme.typography.labelLarge.copy(
+            customSupportingStyle = MaterialTheme.typography.labelLarge.copy(
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Normal,
             ),

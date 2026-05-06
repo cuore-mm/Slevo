@@ -38,21 +38,42 @@ data class SwitchSpec(
     val enabled: Boolean = true,
 )
 
+/**
+ * supporting text の用途を表す表示ロール。
+ */
+enum class SupportingTextRole {
+    /** 現在選択中の値を示すテキスト。 */
+    SelectedValue,
+
+    /** 補足説明を示すテキスト。 */
+    Description,
+}
+
 // Textベース定義を手早く作るためのファクトリ（拡張）
 // 見出しの太さなどは引数で調整可能にしておく
 @Composable
 fun listItemSpecOfBasic(
     headlineText: String,
     supportingText: String? = null,
+    supportingTextRole: SupportingTextRole = SupportingTextRole.Description,
     leadingContent: (@Composable () -> Unit)? = null,
     switchSpec: SwitchSpec? = null,
     onClick: (() -> Unit)? = null,
     headlineStyle: TextStyle = MaterialTheme.typography.bodyLarge.copy(
         fontWeight = FontWeight.Medium
     ),
-    supportingStyle: TextStyle = MaterialTheme.typography.labelLarge,
+    customSupportingStyle: TextStyle? = null,
 ): ListItemSpec {
     val haptic = LocalHapticFeedback.current
+    val supportingStyle = customSupportingStyle ?: when (supportingTextRole) {
+        SupportingTextRole.SelectedValue -> MaterialTheme.typography.bodyMedium.copy(
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Medium,
+        )
+
+        SupportingTextRole.Description -> MaterialTheme.typography.labelLarge
+    }
+
     val trailingContent: (@Composable () -> Unit)? = switchSpec?.let { spec ->
         {
             Switch(

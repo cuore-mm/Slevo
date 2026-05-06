@@ -102,6 +102,7 @@ fun SettingsThreadScreenContent(
                                 } else {
                                     stringResource(R.string.number_order)
                                 },
+                                supportingTextRole = SupportingTextRole.SelectedValue,
                                 onClick = { isSortMenuExpanded = true },
                             ),
                             listItemSpecOfBasic(

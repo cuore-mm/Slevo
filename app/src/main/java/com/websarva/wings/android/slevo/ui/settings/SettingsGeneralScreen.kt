@@ -77,6 +77,7 @@ fun SettingsGeneralScreen(
                             listItemSpecOfBasic(
                                 headlineText = stringResource(R.string.theme_setting),
                                 supportingText = themeMode.toDisplayLabel(),
+                                supportingTextRole = SupportingTextRole.SelectedValue,
                                 onClick = { isThemeMenuExpanded = true },
                             )
                         )
