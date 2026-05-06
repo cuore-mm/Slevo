@@ -105,6 +105,7 @@ private val INDIVIDUAL_TEXT_SCALE_KEY = booleanPreferencesKey("individual_text_s
 private val HEADER_TEXT_SCALE_KEY = floatPreferencesKey("header_text_scale")
 private val BODY_TEXT_SCALE_KEY = floatPreferencesKey("body_text_scale")
 private val LINE_HEIGHT_KEY = floatPreferencesKey("line_height")
+private val REDIRECT_5CH_NET_TO_IO_KEY = booleanPreferencesKey("redirect_5ch_net_to_io")
 private val GESTURE_ENABLED_KEY = booleanPreferencesKey("gesture_enabled")
 private val GESTURE_SHOW_HINT_KEY = booleanPreferencesKey("gesture_show_action_hint")
 // 初期化フラグ: 一度でもマイグレーション（または初期化処理）を行ったかを示す
@@ -207,6 +208,24 @@ class SettingsLocalDataSourceImpl @Inject constructor(
     override suspend fun setLineHeight(height: Float) {
         context.dataStore.edit { prefs ->
             prefs[LINE_HEIGHT_KEY] = height
+        }
+    }
+
+    /**
+     * 5ch.net を 5ch.io として開く設定を監視する。
+     *
+     * 未設定時はデフォルトで有効として扱う。
+     */
+    override fun observeIsRedirect5chNetToIoEnabled(): Flow<Boolean> =
+        context.dataStore.data
+            .map { prefs -> prefs[REDIRECT_5CH_NET_TO_IO_KEY] ?: true }
+
+    /**
+     * 5ch.net を 5ch.io として開く設定を保存する。
+     */
+    override suspend fun setRedirect5chNetToIoEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[REDIRECT_5CH_NET_TO_IO_KEY] = enabled
         }
     }
 

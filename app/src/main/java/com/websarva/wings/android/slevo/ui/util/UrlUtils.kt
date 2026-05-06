@@ -14,6 +14,42 @@ data class ItestUrlInfo(
     val threadKey: String?
 )
 
+/**
+ * 5ch.net を 5ch.io に正規化するための入力情報。
+ */
+data class BoardUrlNormalizationInput(
+    val boardUrl: String,
+    val isEnabled: Boolean,
+)
+
+/**
+ * 5ch.net の板URLを 5ch.io に正規化する。
+ *
+ * 正規化は設定が有効な場合のみ行い、保存済みデータは変更しない。
+ */
+fun normalizeBoardUrlTo5chIo(input: BoardUrlNormalizationInput): String {
+    // 設定がオフの場合は入力URLをそのまま使う。
+    if (!input.isEnabled) return input.boardUrl
+    // 不正URLは変換対象外として元の文字列を返す。
+    val uri = parseUriOrNull(input.boardUrl) ?: return input.boardUrl
+    // host を解決できないURLは変換しない。
+    val host = uri.host ?: return input.boardUrl
+    // 5ch.net 以外のドメインは変換しない。
+    if (!host.endsWith(".5ch.net")) return input.boardUrl
+    // 5ch.net ドメインのみを 5ch.io へ置き換える。
+    val normalizedHost = host.removeSuffix(".5ch.net") + ".5ch.io"
+    val normalizedUri = URI(
+        uri.scheme,
+        uri.userInfo,
+        normalizedHost,
+        uri.port,
+        uri.path,
+        uri.query,
+        uri.fragment,
+    )
+    return normalizedUri.toString()
+}
+
 fun keyToDatUrl(boardUrl:String, key: String): String {
     return "${boardUrl}dat/${key}.dat"
 }
@@ -80,14 +116,14 @@ fun parseThreadUrl(url: String): Triple<String, String, String>? {
 }
 
 /**
- * itest.5ch.net のURLから板/スレ情報を抽出する。
+ * itest 系URLから板/スレ情報を抽出する。
  *
  * スレURLの場合は threadKey を含めて返し、板URLの場合は threadKey を null とする。
  */
 fun parseItestUrl(url: String): ItestUrlInfo? {
     val uri = parseUriOrNull(url) ?: return null
     val host = uri.host ?: return null
-    val allowedHosts = setOf("itest.5ch.net", "itest.bbspink.com")
+    val allowedHosts = setOf("itest.5ch.net", "itest.5ch.io", "itest.bbspink.com")
     if (host !in allowedHosts) return null
     val segments = pathSegments(uri)
     if (segments.isEmpty()) return null

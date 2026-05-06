@@ -31,6 +31,12 @@ class SettingsViewModel @Inject constructor(
                     _uiState.update { it.copy(themeMode = mode) }
                 }
         }
+        viewModelScope.launch {
+            repository.observeIsRedirect5chNetToIoEnabled()
+                .collect { enabled ->
+                    _uiState.update { it.copy(isRedirect5chNetToIoEnabled = enabled) }
+                }
+        }
     }
 
     /**
@@ -41,11 +47,21 @@ class SettingsViewModel @Inject constructor(
             repository.setThemeMode(mode)
         }
     }
+
+    /**
+     * 5ch.net を 5ch.io として開く設定を更新する。
+     */
+    fun updateRedirect5chNetToIoEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setRedirect5chNetToIoEnabled(enabled)
+        }
+    }
 }
 
 /**
  * 全般設定画面の表示状態。
  */
 data class SettingsUiState(
-    val themeMode: ThemeMode = ThemeMode.SYSTEM
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val isRedirect5chNetToIoEnabled: Boolean = true,
 )

@@ -19,12 +19,33 @@ class UrlRoutingResolverTest {
     }
 
     @Test
+    fun resolveUrl_parsesPcBoardUrlForIo() {
+        val resolved = resolveUrl("https://agree.5ch.io/operate/")
+
+        assertTrue(resolved is ResolvedUrl.Board)
+        resolved as ResolvedUrl.Board
+        assertEquals("agree.5ch.io", resolved.host)
+        assertEquals("operate", resolved.boardKey)
+    }
+
+    @Test
     fun resolveUrl_parsesPcThreadUrl() {
         val resolved = resolveUrl("https://agree.5ch.net/test/read.cgi/operate/1767525739/")
 
         assertTrue(resolved is ResolvedUrl.Thread)
         resolved as ResolvedUrl.Thread
         assertEquals("agree.5ch.net", resolved.host)
+        assertEquals("operate", resolved.boardKey)
+        assertEquals("1767525739", resolved.threadKey)
+    }
+
+    @Test
+    fun resolveUrl_parsesPcThreadUrlForIo() {
+        val resolved = resolveUrl("https://agree.5ch.io/test/read.cgi/operate/1767525739/")
+
+        assertTrue(resolved is ResolvedUrl.Thread)
+        resolved as ResolvedUrl.Thread
+        assertEquals("agree.5ch.io", resolved.host)
         assertEquals("operate", resolved.boardKey)
         assertEquals("1767525739", resolved.threadKey)
     }
@@ -40,12 +61,33 @@ class UrlRoutingResolverTest {
     }
 
     @Test
+    fun resolveUrl_parsesItestBoardUrlForIo() {
+        val resolved = resolveUrl("https://itest.5ch.io/subback/operate")
+
+        assertTrue(resolved is ResolvedUrl.ItestBoard)
+        resolved as ResolvedUrl.ItestBoard
+        assertEquals("operate", resolved.boardKey)
+        assertEquals(null, resolved.host)
+    }
+
+    @Test
     fun resolveUrl_parsesItestThreadUrl() {
         val resolved = resolveUrl("https://itest.5ch.net/agree/test/read.cgi/operate/1767525739/")
 
         assertTrue(resolved is ResolvedUrl.Thread)
         resolved as ResolvedUrl.Thread
         assertEquals("agree.5ch.net", resolved.host)
+        assertEquals("operate", resolved.boardKey)
+        assertEquals("1767525739", resolved.threadKey)
+    }
+
+    @Test
+    fun resolveUrl_parsesItestThreadUrlForIo() {
+        val resolved = resolveUrl("https://itest.5ch.io/agree/test/read.cgi/operate/1767525739/")
+
+        assertTrue(resolved is ResolvedUrl.Thread)
+        resolved as ResolvedUrl.Thread
+        assertEquals("agree.5ch.io", resolved.host)
         assertEquals("operate", resolved.boardKey)
         assertEquals("1767525739", resolved.threadKey)
     }

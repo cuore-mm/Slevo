@@ -21,12 +21,33 @@ class DeepLinkUtilsTest {
     }
 
     @Test
+    fun resolveDeepLinkUrl_returnsThreadTargetForIo() {
+        val target = resolveDeepLinkUrl("https://agree.5ch.io/test/read.cgi/operate/1234567890/")
+
+        assertTrue(target is ResolvedUrl.Thread)
+        target as ResolvedUrl.Thread
+        assertEquals("agree.5ch.io", target.host)
+        assertEquals("operate", target.boardKey)
+        assertEquals("1234567890", target.threadKey)
+    }
+
+    @Test
     fun resolveDeepLinkUrl_returnsBoardTarget() {
         val target = resolveDeepLinkUrl("https://agree.5ch.net/operate/")
 
         assertTrue(target is ResolvedUrl.Board)
         target as ResolvedUrl.Board
         assertEquals("agree.5ch.net", target.host)
+        assertEquals("operate", target.boardKey)
+    }
+
+    @Test
+    fun resolveDeepLinkUrl_returnsBoardTargetForIo() {
+        val target = resolveDeepLinkUrl("https://agree.5ch.io/operate/")
+
+        assertTrue(target is ResolvedUrl.Board)
+        target as ResolvedUrl.Board
+        assertEquals("agree.5ch.io", target.host)
         assertEquals("operate", target.boardKey)
     }
 
@@ -41,12 +62,33 @@ class DeepLinkUtilsTest {
     }
 
     @Test
+    fun resolveDeepLinkUrl_returnsItestBoardTargetForIo() {
+        val target = resolveDeepLinkUrl("https://itest.5ch.io/subback/operate")
+
+        assertTrue(target is ResolvedUrl.ItestBoard)
+        target as ResolvedUrl.ItestBoard
+        assertEquals("operate", target.boardKey)
+        assertNull(target.host)
+    }
+
+    @Test
     fun resolveDeepLinkUrl_returnsItestThreadTarget() {
         val target = resolveDeepLinkUrl("https://itest.5ch.net/agree/test/read.cgi/operate/1234567890/")
 
         assertTrue(target is ResolvedUrl.Thread)
         target as ResolvedUrl.Thread
         assertEquals("agree.5ch.net", target.host)
+        assertEquals("operate", target.boardKey)
+        assertEquals("1234567890", target.threadKey)
+    }
+
+    @Test
+    fun resolveDeepLinkUrl_returnsItestThreadTargetForIo() {
+        val target = resolveDeepLinkUrl("https://itest.5ch.io/agree/test/read.cgi/operate/1234567890/")
+
+        assertTrue(target is ResolvedUrl.Thread)
+        target as ResolvedUrl.Thread
+        assertEquals("agree.5ch.io", target.host)
         assertEquals("operate", target.boardKey)
         assertEquals("1234567890", target.threadKey)
     }

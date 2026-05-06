@@ -27,13 +27,15 @@ import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import kotlin.math.roundToInt
 
 /**
- * 全般設定画面のテーマ選択UIを表示する。
+ * 全般設定画面のテーマ選択と 5ch ドメイン切り替え設定を表示する。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsGeneralScreen(
     themeMode: ThemeMode,
+    isRedirect5chNetToIoEnabled: Boolean,
     onSelectThemeMode: (ThemeMode) -> Unit,
+    onToggleRedirect5chNetToIoEnabled: (Boolean) -> Unit,
     onNavigateUp: () -> Unit,
 ) {
     // --- Menu state ---
@@ -92,6 +94,24 @@ fun SettingsGeneralScreen(
                     )
                 }
             }
+            item {
+                SettingsCardWithListItems(
+                    items = listOf(
+                        listItemSpecOfBasic(
+                            headlineText = stringResource(R.string.redirect_5ch_net_to_io_title),
+                            supportingText = stringResource(R.string.redirect_5ch_net_to_io_description),
+                            supportingTextRole = SupportingTextRole.Description,
+                            switchSpec = SwitchSpec(
+                                checked = isRedirect5chNetToIoEnabled,
+                                onCheckedChange = onToggleRedirect5chNetToIoEnabled,
+                            ),
+                            onClick = {
+                                onToggleRedirect5chNetToIoEnabled(!isRedirect5chNetToIoEnabled)
+                            },
+                        )
+                    )
+                )
+            }
         }
     }
 }
@@ -114,7 +134,9 @@ private fun SettingsGeneralScreenPreview() {
     SlevoTheme {
         SettingsGeneralScreen(
             themeMode = ThemeMode.SYSTEM,
+            isRedirect5chNetToIoEnabled = true,
             onSelectThemeMode = {},
+            onToggleRedirect5chNetToIoEnabled = {},
             onNavigateUp = {},
         )
     }

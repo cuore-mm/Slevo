@@ -6,15 +6,18 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.BbsServiceRepository
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
+import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -33,6 +36,7 @@ class TabsViewModel @Inject constructor(
     private val boardTabsCoordinator: BoardTabsCoordinator,
     private val threadTabsCoordinator: ThreadTabsCoordinator,
     private val tabViewModelRegistry: TabViewModelRegistry,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val boardTabsState = combine(
@@ -61,6 +65,8 @@ class TabsViewModel @Inject constructor(
     private val urlValidationState = MutableStateFlow(false)
     private val urlDialogState = MutableStateFlow(false)
     private val urlErrorState = MutableStateFlow<String?>(null)
+
+    private val redirect5chNetToIoState = MutableStateFlow(true)
 
     val uiState: StateFlow<TabsUiState> = combine(
         boardTabsState,
@@ -94,6 +100,12 @@ class TabsViewModel @Inject constructor(
     init {
         boardTabsCoordinator.bind(viewModelScope)
         threadTabsCoordinator.bind(viewModelScope)
+        viewModelScope.launch {
+            settingsRepository.observeIsRedirect5chNetToIoEnabled()
+                .collectLatest { enabled ->
+                    redirect5chNetToIoState.value = enabled
+                }
+        }
     }
 
     fun getOrCreateThreadViewModel(viewModelKey: String): ThreadViewModel {
@@ -204,6 +216,18 @@ class TabsViewModel @Inject constructor(
         return boardRepository.resolveHostByBoardKey(boardKey)
             ?: bbsServiceRepository.resolveHostByBoardKeyFromMenu(boardKey)
     }
+
+    /**
+     * 5ch.net を 5ch.io として開く設定の監視を公開する。
+     */
+    fun observeIsRedirect5chNetToIoEnabled(): Flow<Boolean> =
+        settingsRepository.observeIsRedirect5chNetToIoEnabled()
+
+    /**
+     * 5ch.net を 5ch.io として開く設定の現在値を返す。
+     */
+    fun isRedirect5chNetToIoEnabled(): Boolean =
+        redirect5chNetToIoState.value
 
     suspend fun resolveBoardInfo(
         boardId: Long?,
