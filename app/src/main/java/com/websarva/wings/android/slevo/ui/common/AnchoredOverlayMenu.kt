@@ -2,6 +2,12 @@ package com.websarva.wings.android.slevo.ui.common
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
@@ -37,6 +43,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
@@ -71,11 +78,18 @@ fun AnchoredOverlayMenu(
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    if (!expanded || anchorBoundsInWindow == null) {
-        // Guard: メニュー非表示時やアンカー未確定時は描画しない。
+    // --- Visibility state ---
+    val visibleState = remember {
+        MutableTransitionState(false)
+    }
+    visibleState.targetState = expanded
+
+    // Guard: 非表示完了時、またはアンカー未確定時は描画しない。
+    if ((!visibleState.currentState && !visibleState.targetState) || anchorBoundsInWindow == null) {
         return
     }
 
+    // --- Position setup ---
     val density = LocalDensity.current
     val offsetPx = with(density) {
         IntOffset(
@@ -105,32 +119,50 @@ fun AnchoredOverlayMenu(
         } else {
             MaterialTheme.colorScheme.surfaceBright
         }
-        Box(
-            modifier = Modifier
-                .width(IntrinsicSize.Max)
-                .padding(horizontal = 8.dp, vertical = 8.dp)
-                .shadow(
-                    elevation = 3.dp,
-                    shape = menuShape,
-                    clip = false,
-                )
+
+        // --- Animated content ---
+        AnimatedVisibility(
+            visibleState = visibleState,
+            enter = fadeIn(animationSpec = tween(durationMillis = 90)) +
+                    scaleIn(
+                        animationSpec = tween(durationMillis = 120),
+                        initialScale = 0.92f,
+                        transformOrigin = TransformOrigin(0.5f, 0f),
+                    ),
+            exit = fadeOut(animationSpec = tween(durationMillis = 75)) +
+                    scaleOut(
+                        animationSpec = tween(durationMillis = 90),
+                        targetScale = 0.96f,
+                        transformOrigin = TransformOrigin(0.5f, 0f),
+                    ),
         ) {
-            Surface(
+            Box(
                 modifier = Modifier
-                    .clip(menuShape)
-                    .let { baseModifier ->
-                        if (hazeState != null) {
-                            baseModifier.hazeEffect(state = hazeState)
-                        } else {
-                            baseModifier
-                        }
-                    },
-                shape = menuShape,
-                color = menuColor,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                tonalElevation = 3.dp,
+                    .width(IntrinsicSize.Max)
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                    .shadow(
+                        elevation = 3.dp,
+                        shape = menuShape,
+                        clip = false,
+                    )
             ) {
-                Column(content = content)
+                Surface(
+                    modifier = Modifier
+                        .clip(menuShape)
+                        .let { baseModifier ->
+                            if (hazeState != null) {
+                                baseModifier.hazeEffect(state = hazeState)
+                            } else {
+                                baseModifier
+                            }
+                        },
+                    shape = menuShape,
+                    color = menuColor,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    tonalElevation = 3.dp,
+                ) {
+                    Column(content = content)
+                }
             }
         }
     }
