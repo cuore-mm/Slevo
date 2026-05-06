@@ -3,14 +3,18 @@ package com.websarva.wings.android.slevo.data.datasource.local
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
 import com.websarva.wings.android.slevo.data.model.GestureSettings
+import com.websarva.wings.android.slevo.data.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * 設定値のローカル永続化アクセスを抽象化するデータソース。
+ */
 interface SettingsLocalDataSource {
-    /** ダークモード設定を監視する */
-    fun observeIsDarkMode(): Flow<Boolean>
+    /** テーマモード設定を監視する */
+    fun observeThemeMode(): Flow<ThemeMode>
 
-    /** ダークモード設定を保存する */
-    suspend fun setDarkMode(enabled: Boolean)
+    /** テーマモード設定を保存する */
+    suspend fun setThemeMode(mode: ThemeMode)
 
     /** レスのデフォルト並び順（ツリー順か）を監視する */
     fun observeIsTreeSort(): Flow<Boolean>

@@ -13,6 +13,7 @@ import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
 import com.websarva.wings.android.slevo.data.model.GestureSettings
+import com.websarva.wings.android.slevo.data.model.ThemeMode
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -96,7 +97,7 @@ private val Context.dataStore by preferencesDataStore(
         )
     }
 )
-private val DARK_MODE_KEY = booleanPreferencesKey("dark_mode")
+private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
 private val TREE_SORT_KEY = booleanPreferencesKey("tree_sort")
 private val THREAD_MINIMAP_SCROLLBAR_KEY = booleanPreferencesKey("thread_minimap_scrollbar")
 private val TEXT_SCALE_KEY = floatPreferencesKey("text_scale")
@@ -112,17 +113,30 @@ private val GESTURE_ACTION_KEYS = GestureDirection.entries.associateWith { direc
     stringPreferencesKey("gesture_action_${direction.name.lowercase(Locale.ROOT)}")
 }
 
+/**
+ * [SettingsLocalDataSource] の DataStore 実装。
+ *
+ * ユーザー設定の永続化と監視を Preference DataStore で提供する。
+ */
 @Singleton
 class SettingsLocalDataSourceImpl @Inject constructor(
     @ApplicationContext private val context: Context
 ) : SettingsLocalDataSource {
-    override fun observeIsDarkMode(): Flow<Boolean> =
+    /**
+     * 永続化されたテーマモードを監視する。
+     *
+     * 未設定または不正値は `SYSTEM` として扱う。
+     */
+    override fun observeThemeMode(): Flow<ThemeMode> =
         context.dataStore.data
-            .map { prefs -> prefs[DARK_MODE_KEY] ?: false }
+            .map { prefs -> ThemeMode.fromStorageValue(prefs[THEME_MODE_KEY]) }
 
-    override suspend fun setDarkMode(enabled: Boolean) {
+    /**
+     * テーマモードを単一キーへ保存する。
+     */
+    override suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { prefs ->
-            prefs[DARK_MODE_KEY] = enabled
+            prefs[THEME_MODE_KEY] = mode.storageValue
         }
     }
 

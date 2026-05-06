@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,6 +44,8 @@ class MainActivity : ComponentActivity() {
         // --- Compose content ---
         setContent {
             val uiState by settingsViewModel.uiState.collectAsState()
+            val isSystemDark = isSystemInDarkTheme()
+            val isDarkTheme = uiState.themeMode.resolveDarkTheme(isSystemDark)
 
             // 2) LocalView を使って Window を取り出し、InsetsController を作成
             val view = LocalView.current
@@ -52,10 +55,10 @@ class MainActivity : ComponentActivity() {
             // 3) サイドエフェクトで毎フレーム、ステータスバーのアイコン色を制御
             SideEffect {
                 // true にすると「ステータスバー背景が明るい → アイコンをダークに」なる
-                insetsController.isAppearanceLightStatusBars = !uiState.isDark
+                insetsController.isAppearanceLightStatusBars = !isDarkTheme
             }
 
-            SlevoTheme(darkTheme = uiState.isDark) {
+            SlevoTheme(darkTheme = isDarkTheme) {
                 AppScaffold(
                     settingsViewModel = settingsViewModel,
                     tabsViewModel = tabsViewModel,
