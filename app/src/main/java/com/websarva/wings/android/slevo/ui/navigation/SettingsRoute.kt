@@ -38,8 +38,8 @@ fun NavGraphBuilder.addSettingsRoute(
         composable<AppRoute.SettingsGeneral> {
             val uiState by viewModel.uiState.collectAsState()
             SettingsGeneralScreen(
-                isDark = uiState.isDark,
-                onToggleTheme = { viewModel.toggleTheme() },
+                themeMode = uiState.themeMode,
+                onSelectThemeMode = { viewModel.updateThemeMode(it) },
                 onNavigateUp = { navController.navigateUp() }
             )
         }
@@ -65,4 +65,3 @@ fun NavGraphBuilder.addSettingsRoute(
         }
     }
 }
-

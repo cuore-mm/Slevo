@@ -1,61 +1,121 @@
 package com.websarva.wings.android.slevo.ui.settings
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
+import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.ThemeMode
+import com.websarva.wings.android.slevo.ui.common.AnchoredSelectionMenu
+import com.websarva.wings.android.slevo.ui.common.SelectionMenuOption
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
+import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
+import kotlin.math.roundToInt
 
+/**
+ * 全般設定画面のテーマ選択UIを表示する。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsGeneralScreen(
-    isDark: Boolean,
-    onToggleTheme: () -> Unit,
+    themeMode: ThemeMode,
+    onSelectThemeMode: (ThemeMode) -> Unit,
     onNavigateUp: () -> Unit,
 ) {
+    // --- Menu state ---
+    var isThemeMenuExpanded by remember { mutableStateOf(false) }
+    var themeMenuAnchorBounds by remember { mutableStateOf<IntRect?>(null) }
+    val themeOptions = listOf(
+        SelectionMenuOption(ThemeMode.LIGHT, stringResource(R.string.theme_mode_light)),
+        SelectionMenuOption(ThemeMode.DARK, stringResource(R.string.theme_mode_dark)),
+        SelectionMenuOption(ThemeMode.SYSTEM, stringResource(R.string.theme_mode_system)),
+    )
+
     Scaffold(
         topBar = {
             SlevoTopAppBar(
-                title = "全般",
+                title = stringResource(R.string.settings_general),
                 onNavigateUp = onNavigateUp,
             )
         }
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(innerPadding)
-                .fillMaxSize()
+                .fillMaxSize(),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "ダークテーマ",
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Switch(
-                    checked = isDark,
-                    onCheckedChange = { onToggleTheme() }
-                )
+            item {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 8.dp, vertical = 8.dp)
+                        .onGloballyPositioned { coordinates ->
+                            val rect = coordinates.boundsInWindow()
+                            themeMenuAnchorBounds = IntRect(
+                                left = rect.left.roundToInt(),
+                                top = rect.top.roundToInt(),
+                                right = rect.right.roundToInt(),
+                                bottom = rect.bottom.roundToInt(),
+                            )
+                        }
+                ) {
+                    SettingsCardWithListItems(
+                        items = listOf(
+                            listItemSpecOfBasic(
+                                headlineText = stringResource(R.string.theme_setting),
+                                supportingText = themeMode.toDisplayLabel(),
+                                supportingTextRole = SupportingTextRole.SelectedValue,
+                                onClick = { isThemeMenuExpanded = true },
+                            )
+                        )
+                    )
+                    AnchoredSelectionMenu(
+                        expanded = isThemeMenuExpanded,
+                        anchorBoundsInWindow = themeMenuAnchorBounds,
+                        options = themeOptions,
+                        selectedValue = themeMode,
+                        onSelect = onSelectThemeMode,
+                        onDismissRequest = { isThemeMenuExpanded = false },
+                    )
+                }
             }
-            HorizontalDivider()
         }
     }
 }
 
+/**
+ * [ThemeMode] を設定画面で表示する文字列へ変換する。
+ */
+@Composable
+private fun ThemeMode.toDisplayLabel(): String {
+    return when (this) {
+        ThemeMode.LIGHT -> stringResource(R.string.theme_mode_light)
+        ThemeMode.DARK -> stringResource(R.string.theme_mode_dark)
+        ThemeMode.SYSTEM -> stringResource(R.string.theme_mode_system)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SettingsGeneralScreenPreview() {
+    SlevoTheme {
+        SettingsGeneralScreen(
+            themeMode = ThemeMode.SYSTEM,
+            onSelectThemeMode = {},
+            onNavigateUp = {},
+        )
+    }
+}

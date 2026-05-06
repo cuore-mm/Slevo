@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * スレッド表示設定画面のUI状態を管理するViewModel。
+ */
 @HiltViewModel
 class SettingsThreadViewModel @Inject constructor(
     private val repository: SettingsRepository
@@ -31,12 +34,18 @@ class SettingsThreadViewModel @Inject constructor(
         }
     }
 
+    /**
+     * デフォルト並び順を更新する。
+     */
     fun updateSort(isTree: Boolean) {
         viewModelScope.launch {
             repository.setTreeSort(isTree)
         }
     }
 
+    /**
+     * ミニマップ付きスクロールバー設定を更新する。
+     */
     fun updateMinimapScrollbar(enabled: Boolean) {
         viewModelScope.launch {
             repository.setThreadMinimapScrollbarEnabled(enabled)
@@ -44,6 +53,9 @@ class SettingsThreadViewModel @Inject constructor(
     }
 }
 
+/**
+ * スレッド表示設定画面の表示状態。
+ */
 data class SettingsThreadUiState(
     val isTreeSort: Boolean = false,
     val showMinimapScrollbar: Boolean = true,

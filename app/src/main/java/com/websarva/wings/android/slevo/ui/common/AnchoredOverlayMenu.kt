@@ -2,6 +2,12 @@ package com.websarva.wings.android.slevo.ui.common
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
@@ -22,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -34,7 +41,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
@@ -47,22 +56,53 @@ import dev.chrisbanes.haze.hazeEffect
  *
  * メニューはアンカー上に重ねて表示し、画面外へはみ出す場合は画面内へ補正する。
  */
+enum class HorizontalAnchorAlignment {
+    Start,
+    Center,
+    End,
+}
+
+/**
+ * アンカー座標を基準に表示するオーバーレイメニュー。
+ *
+ * [horizontalAlignment] と [offset] で、アンカー基準位置からの表示位置を調整できる。
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AnchoredOverlayMenu(
     expanded: Boolean,
     anchorBoundsInWindow: IntRect?,
     hazeState: HazeState?,
+    horizontalAlignment: HorizontalAnchorAlignment = HorizontalAnchorAlignment.Center,
+    offset: DpOffset = DpOffset.Zero,
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    if (!expanded || anchorBoundsInWindow == null) {
-        // Guard: メニュー非表示時やアンカー未確定時は描画しない。
+    // --- Visibility state ---
+    val visibleState = remember {
+        MutableTransitionState(false)
+    }
+    visibleState.targetState = expanded
+
+    // Guard: 非表示完了時、またはアンカー未確定時は描画しない。
+    if ((!visibleState.currentState && !visibleState.targetState) || anchorBoundsInWindow == null) {
         return
     }
 
-    val positionProvider = remember(anchorBoundsInWindow) {
-        AnchoredOverlayMenuPositionProvider(anchorBoundsInWindow)
+    // --- Position setup ---
+    val density = LocalDensity.current
+    val offsetPx = with(density) {
+        IntOffset(
+            x = offset.x.roundToPx(),
+            y = offset.y.roundToPx(),
+        )
+    }
+    val positionProvider = remember(anchorBoundsInWindow, horizontalAlignment, offsetPx) {
+        AnchoredOverlayMenuPositionProvider(
+            anchorBoundsInWindow = anchorBoundsInWindow,
+            horizontalAlignment = horizontalAlignment,
+            offsetPx = offsetPx,
+        )
     }
     Popup(
         popupPositionProvider = positionProvider,
@@ -79,32 +119,50 @@ fun AnchoredOverlayMenu(
         } else {
             MaterialTheme.colorScheme.surfaceBright
         }
-        Box(
-            modifier = Modifier
-                .width(IntrinsicSize.Max)
-                .padding(horizontal = 8.dp, vertical = 8.dp)
-                .shadow(
-                    elevation = 3.dp,
-                    shape = menuShape,
-                    clip = false,
-                )
+
+        // --- Animated content ---
+        AnimatedVisibility(
+            visibleState = visibleState,
+            enter = fadeIn(animationSpec = tween(durationMillis = 140)) +
+                    scaleIn(
+                        animationSpec = tween(durationMillis = 180),
+                        initialScale = 0.92f,
+                        transformOrigin = TransformOrigin(0.5f, 0f),
+                    ),
+            exit = fadeOut(animationSpec = tween(durationMillis = 110)) +
+                    scaleOut(
+                        animationSpec = tween(durationMillis = 140),
+                        targetScale = 0.96f,
+                        transformOrigin = TransformOrigin(0.5f, 0f),
+                    ),
         ) {
-            Surface(
+            Box(
                 modifier = Modifier
-                    .clip(menuShape)
-                    .let { baseModifier ->
-                        if (hazeState != null) {
-                            baseModifier.hazeEffect(state = hazeState)
-                        } else {
-                            baseModifier
-                        }
-                    },
-                shape = menuShape,
-                color = menuColor,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                tonalElevation = 3.dp,
+                    .width(IntrinsicSize.Max)
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                    .shadow(
+                        elevation = 3.dp,
+                        shape = menuShape,
+                        clip = false,
+                    )
             ) {
-                Column(content = content)
+                Surface(
+                    modifier = Modifier
+                        .clip(menuShape)
+                        .let { baseModifier ->
+                            if (hazeState != null) {
+                                baseModifier.hazeEffect(state = hazeState)
+                            } else {
+                                baseModifier
+                            }
+                        },
+                    shape = menuShape,
+                    color = menuColor,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    tonalElevation = 3.dp,
+                ) {
+                    Column(content = content)
+                }
             }
         }
     }
@@ -115,6 +173,8 @@ fun AnchoredOverlayMenu(
  */
 private class AnchoredOverlayMenuPositionProvider(
     private val anchorBoundsInWindow: IntRect,
+    private val horizontalAlignment: HorizontalAnchorAlignment,
+    private val offsetPx: IntOffset,
 ) : PopupPositionProvider {
     private val overlapPx = 12
 
@@ -130,12 +190,19 @@ private class AnchoredOverlayMenuPositionProvider(
         val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
         val maxY = (windowSize.height - popupContentSize.height).coerceAtLeast(0)
 
-        val centeredX = anchorBoundsInWindow.left +
-                ((anchorBoundsInWindow.width - popupContentSize.width) / 2)
-        val x = centeredX.coerceIn(0, maxX)
+        val alignedX = when (horizontalAlignment) {
+            HorizontalAnchorAlignment.Start -> anchorBoundsInWindow.left
+            HorizontalAnchorAlignment.Center -> {
+                anchorBoundsInWindow.left +
+                        ((anchorBoundsInWindow.width - popupContentSize.width) / 2)
+            }
+
+            HorizontalAnchorAlignment.End -> anchorBoundsInWindow.right - popupContentSize.width
+        }
+        val x = (alignedX + offsetPx.x).coerceIn(0, maxX)
 
         // ボタンの上端付近にメニューを重ねる。画面外はクランプする。
-        val desiredY = anchorBoundsInWindow.top - overlapPx
+        val desiredY = anchorBoundsInWindow.top - overlapPx + offsetPx.y
         val y = desiredY.coerceIn(0, maxY)
 
         return IntOffset(x, y)

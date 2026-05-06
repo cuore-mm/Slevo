@@ -4,19 +4,25 @@ import com.websarva.wings.android.slevo.data.datasource.local.SettingsLocalDataS
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
 import com.websarva.wings.android.slevo.data.model.GestureSettings
+import com.websarva.wings.android.slevo.data.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * アプリ設定の読み書きを仲介するリポジトリ。
+ *
+ * UI層はこのリポジトリ経由で DataStore 由来の設定状態を購読・更新する。
+ */
 @Singleton
 class SettingsRepository @Inject constructor(
     private val local: SettingsLocalDataSource
 ) {
-    fun observeIsDarkMode(): Flow<Boolean> =
-        local.observeIsDarkMode()
+    fun observeThemeMode(): Flow<ThemeMode> =
+        local.observeThemeMode()
 
-    suspend fun setDarkMode(enabled: Boolean) =
-        local.setDarkMode(enabled)
+    suspend fun setThemeMode(mode: ThemeMode) =
+        local.setThemeMode(mode)
 
     fun observeIsTreeSort(): Flow<Boolean> =
         local.observeIsTreeSort()
