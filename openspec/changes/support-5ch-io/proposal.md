@@ -10,12 +10,12 @@
 - 既定で追加/参照する5ch BBSMenu URLを `5ch.io` 側へ変更する。
 - 全般設定に `5ch.net` の板/スレを `5ch.io` として開く設定を追加する。
   - デフォルトはオン。
-  - 変換は板/スレを開く直前の `boardUrl` 正規化に限定し、投稿処理やネットワーク層では追加変換しない。
+  - 変換は全ての入口で板/スレを開く直前の `boardUrl` 正規化に限定し、保存済みデータ、投稿処理、ネットワーク層では追加変換しない。
 
 ## Capabilities
 
 ### New Capabilities
-- `open-5ch-io`: 5ch.io ドメインの板/スレを開く動作と、5ch.net を開く際の5ch.io正規化設定を扱う。
+- `open-5ch-io`: 5ch.io ドメインの板/スレを開く動作と、全ての入口で5ch.netを開く際の5ch.io正規化設定を扱う。
 - `default-5ch-menu`: 既定の5ch BBSMenu取得先を新ドメインへ移行する動作を扱う。
 
 ### Modified Capabilities
@@ -25,6 +25,7 @@
 
 ## Impact
 
-- 影響範囲: `AndroidManifest.xml`、URLリゾルバ、Deep Link処理、URL入力処理、全般設定画面/設定永続化、BBSMenu既定URL、関連ユニットテスト。
+- 影響範囲: `AndroidManifest.xml`、URLリゾルバ、Deep Link処理、URL入力処理、共通ナビゲーション処理、既存タブ/ブックマーク/履歴などの画面内入口、全般設定画面/設定永続化、BBSMenu既定URL、関連ユニットテスト。
+- 保存済みブックマーク、履歴、既存タブなどの永続化データは直接変更せず、開く時だけ `5ch.io` の `boardUrl` として扱う。
 - 投稿リクエスト、スレ立てリクエスト、OkHttpクライアント全体の通信変換は対象外とする。
 - 既存の `bbspink.com` / `2ch.sc` のURL処理は維持する。
