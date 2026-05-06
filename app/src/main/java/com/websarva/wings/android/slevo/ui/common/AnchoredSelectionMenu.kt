@@ -1,10 +1,13 @@
 package com.websarva.wings.android.slevo.ui.common
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
@@ -65,21 +68,26 @@ fun <T> AnchoredSelectionMenu(
                         onDismissRequest()
                     }
                     .padding(horizontal = 24.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = option.label,
-                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
                     color = textColor,
                     fontWeight = fontWeight,
                 )
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
+                Spacer(modifier = Modifier.width(24.dp))
+                Box(
+                    modifier = Modifier.size(24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (isSelected) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             }
         }
