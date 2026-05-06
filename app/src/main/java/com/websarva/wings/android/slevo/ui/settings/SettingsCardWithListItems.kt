@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
  */
 data class ListItemSpec(
     val leadingContent: (@Composable () -> Unit)? = null,
-    val headlineContent: @Composable () -> Unit,
+    val headlineContent: (@Composable () -> Unit)? = null,
     val supportingContent: (@Composable () -> Unit)? = null,
     val trailingContent: (@Composable () -> Unit)? = null,
     val onClick: (() -> Unit)? = null,
@@ -129,13 +129,16 @@ fun SettingsCardWithListItems(
                     modifier = modifier,
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     leadingContent = spec.leadingContent,
-                    headlineContent = spec.headlineContent,
+                    headlineContent = spec.headlineContent ?: {},
                     supportingContent = spec.supportingContent,
                     trailingContent = spec.trailingContent,
                 )
 
                 if (index != items.lastIndex) {
-                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp, end = 16.dp))
+                    val dividerStartPadding = if (spec.headlineContent != null) 56.dp else 16.dp
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = dividerStartPadding, end = 16.dp)
+                    )
                 }
             }
         }
