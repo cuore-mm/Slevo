@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -34,6 +35,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
@@ -47,12 +50,25 @@ import dev.chrisbanes.haze.hazeEffect
  *
  * メニューはアンカー上に重ねて表示し、画面外へはみ出す場合は画面内へ補正する。
  */
+enum class HorizontalAnchorAlignment {
+    Start,
+    Center,
+    End,
+}
+
+/**
+ * アンカー座標を基準に表示するオーバーレイメニュー。
+ *
+ * [horizontalAlignment] と [offset] で、アンカー基準位置からの表示位置を調整できる。
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AnchoredOverlayMenu(
     expanded: Boolean,
     anchorBoundsInWindow: IntRect?,
     hazeState: HazeState?,
+    horizontalAlignment: HorizontalAnchorAlignment = HorizontalAnchorAlignment.Center,
+    offset: DpOffset = DpOffset.Zero,
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -61,8 +77,16 @@ fun AnchoredOverlayMenu(
         return
     }
 
-    val positionProvider = remember(anchorBoundsInWindow) {
-        AnchoredOverlayMenuPositionProvider(anchorBoundsInWindow)
+    val density = LocalDensity.current
+    val offsetPx = with(density) {
+        offset.round()
+    }
+    val positionProvider = remember(anchorBoundsInWindow, horizontalAlignment, offsetPx) {
+        AnchoredOverlayMenuPositionProvider(
+            anchorBoundsInWindow = anchorBoundsInWindow,
+            horizontalAlignment = horizontalAlignment,
+            offsetPx = offsetPx,
+        )
     }
     Popup(
         popupPositionProvider = positionProvider,
@@ -115,6 +139,8 @@ fun AnchoredOverlayMenu(
  */
 private class AnchoredOverlayMenuPositionProvider(
     private val anchorBoundsInWindow: IntRect,
+    private val horizontalAlignment: HorizontalAnchorAlignment,
+    private val offsetPx: IntOffset,
 ) : PopupPositionProvider {
     private val overlapPx = 12
 
@@ -130,12 +156,19 @@ private class AnchoredOverlayMenuPositionProvider(
         val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
         val maxY = (windowSize.height - popupContentSize.height).coerceAtLeast(0)
 
-        val centeredX = anchorBoundsInWindow.left +
-                ((anchorBoundsInWindow.width - popupContentSize.width) / 2)
-        val x = centeredX.coerceIn(0, maxX)
+        val alignedX = when (horizontalAlignment) {
+            HorizontalAnchorAlignment.Start -> anchorBoundsInWindow.left
+            HorizontalAnchorAlignment.Center -> {
+                anchorBoundsInWindow.left +
+                        ((anchorBoundsInWindow.width - popupContentSize.width) / 2)
+            }
+
+            HorizontalAnchorAlignment.End -> anchorBoundsInWindow.right - popupContentSize.width
+        }
+        val x = (alignedX + offsetPx.x).coerceIn(0, maxX)
 
         // ボタンの上端付近にメニューを重ねる。画面外はクランプする。
-        val desiredY = anchorBoundsInWindow.top - overlapPx
+        val desiredY = anchorBoundsInWindow.top - overlapPx + offsetPx.y
         val y = desiredY.coerceIn(0, maxY)
 
         return IntOffset(x, y)
