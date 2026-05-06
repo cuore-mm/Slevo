@@ -304,10 +304,7 @@ private fun GestureDirectionGroupCard(
             },
             headlineText = directionLabel,
             supportingText = actionLabel,
-            customSupportingStyle = MaterialTheme.typography.labelLarge.copy(
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Normal,
-            ),
+            supportingTextRole = SupportingTextRole.SelectedValue,
             onClick = if (isGestureEnabled) {
                 { onGestureItemClick(item.direction) }
             } else null,

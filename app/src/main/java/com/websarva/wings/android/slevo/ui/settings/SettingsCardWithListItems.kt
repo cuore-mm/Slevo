@@ -66,12 +66,14 @@ fun listItemSpecOfBasic(
 ): ListItemSpec {
     val haptic = LocalHapticFeedback.current
     val supportingStyle = customSupportingStyle ?: when (supportingTextRole) {
-        SupportingTextRole.SelectedValue -> MaterialTheme.typography.bodyMedium.copy(
+        SupportingTextRole.SelectedValue -> MaterialTheme.typography.labelLarge.copy(
             color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.Normal,
         )
 
-        SupportingTextRole.Description -> MaterialTheme.typography.labelLarge
+        SupportingTextRole.Description -> MaterialTheme.typography.labelLarge.copy(
+            fontWeight = FontWeight.Normal,
+        )
     }
 
     val trailingContent: (@Composable () -> Unit)? = switchSpec?.let { spec ->
