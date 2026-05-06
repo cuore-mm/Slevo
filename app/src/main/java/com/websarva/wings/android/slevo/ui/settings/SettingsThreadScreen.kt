@@ -69,7 +69,7 @@ fun SettingsThreadScreenContent(
     Scaffold(
         topBar = {
             SlevoTopAppBar(
-                title = stringResource(R.string.thread),
+                title = stringResource(R.string.settings_thread),
                 onNavigateUp = onNavigateUp,
             )
         }

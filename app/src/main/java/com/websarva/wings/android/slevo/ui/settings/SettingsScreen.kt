@@ -67,11 +67,11 @@ fun SettingsScreen(
             item {
                 val threadGroup = listOf(
                     listItemSpecOfBasic(
-                        headlineText = stringResource(id = R.string.thread_display),
+                        headlineText = stringResource(id = R.string.settings_thread),
                         leadingContent = {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ViewList,
-                                contentDescription = stringResource(id = R.string.thread_display),
+                                contentDescription = stringResource(id = R.string.settings_thread),
                             )
                         },
                         onClick = onThreadClick,
