@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
@@ -79,7 +78,10 @@ fun AnchoredOverlayMenu(
 
     val density = LocalDensity.current
     val offsetPx = with(density) {
-        offset.round()
+        IntOffset(
+            x = offset.x.roundToPx(),
+            y = offset.y.roundToPx(),
+        )
     }
     val positionProvider = remember(anchorBoundsInWindow, horizontalAlignment, offsetPx) {
         AnchoredOverlayMenuPositionProvider(
