@@ -25,6 +25,8 @@ class SettingsThreadViewModelTest {
         every { repository.observeIsThreadMinimapScrollbarEnabled() } returns scrollbarFlow
         val viewModel = SettingsThreadViewModel(repository)
 
+        // ViewModel の初期購読コルーチンを先に開始させる。
+        advanceUntilIdle()
         treeSortFlow.value = true
         scrollbarFlow.value = false
         advanceUntilIdle()
@@ -40,6 +42,7 @@ class SettingsThreadViewModelTest {
         every { repository.observeIsThreadMinimapScrollbarEnabled() } returns MutableStateFlow(true)
         val viewModel = SettingsThreadViewModel(repository)
 
+        advanceUntilIdle()
         viewModel.updateSort(true)
         viewModel.updateMinimapScrollbar(false)
         advanceUntilIdle()

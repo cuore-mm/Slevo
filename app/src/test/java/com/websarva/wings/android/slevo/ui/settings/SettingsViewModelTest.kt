@@ -24,6 +24,8 @@ class SettingsViewModelTest {
         every { repository.observeThemeMode() } returns themeFlow
         val viewModel = SettingsViewModel(repository)
 
+        // ViewModel の初期購読コルーチンを先に開始させる。
+        advanceUntilIdle()
         themeFlow.value = ThemeMode.DARK
         advanceUntilIdle()
 
@@ -36,6 +38,7 @@ class SettingsViewModelTest {
         every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
         val viewModel = SettingsViewModel(repository)
 
+        advanceUntilIdle()
         viewModel.updateThemeMode(ThemeMode.LIGHT)
         advanceUntilIdle()
 
