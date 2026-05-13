@@ -19,10 +19,11 @@ import org.junit.Test
 class ThreadTabsCoordinatorTest {
 
     /**
-     * タイトル未取得（null）の route でタブを作成した場合、空文字タイトルで保存されることを確認する。
+     * タイトル未取得（null）の route でタブを作成した場合、
+     * 正規化後 boardUrl と threadKey から構築したURLをタイトルとして保存することを確認する。
      */
     @Test
-    fun ensureThreadTab_savesEmptyTitleWhenThreadTitleIsNull() {
+    fun ensureThreadTab_savesThreadUrlWhenThreadTitleIsNull() {
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val coordinator = createCoordinator(tabsRepository)
 
@@ -37,7 +38,10 @@ class ThreadTabsCoordinatorTest {
 
         assertEquals(0, index)
         assertEquals(1, coordinator.openThreadTabs.value.size)
-        assertEquals("", coordinator.openThreadTabs.value.first().title)
+        assertEquals(
+            "https://medaka.5ch.io/mmominor/test/read.cgi/mmominor/1723111700/",
+            coordinator.openThreadTabs.value.first().title
+        )
         coVerify(exactly = 0) { tabsRepository.saveOpenThreadTabs(any()) }
     }
 

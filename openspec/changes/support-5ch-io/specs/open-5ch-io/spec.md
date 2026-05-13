@@ -54,6 +54,7 @@
 #### Scenario: URL由来のスレをタイトル未設定で開く
 - **WHEN** URL入力、Deep Link、レス本文リンクなど、スレタイトルをまだ取得できない入口からスレを開く
 - **THEN** システムは元URLを `threadTitle` として保存しない
+- **AND** タイトル未取得中は正規化後 `boardUrl` と `threadKey` から組み立てたスレURLを表示する
 - **AND** スレ読み込み後に取得したタイトルでタブ表示名を更新する
 
 #### Scenario: 5ch.net以外のURLを開く
