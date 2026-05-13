@@ -33,7 +33,8 @@
 #### Scenario: 既存タブから5ch.netのスレを開く
 - **WHEN** 設定がオンの状態で保存済みタブが持つ `https://agree.5ch.net/operate/` のスレを開く
 - **THEN** システムは `https://agree.5ch.io/operate/` を板URLとしてスレを表示する
-- **AND** 現在のタブ保存routeも `https://agree.5ch.io/operate/` を保持する
+- **AND** `https://agree.5ch.net/operate/` の既存タブを自動更新または統合しない
+- **AND** 必要に応じて `https://agree.5ch.io/operate/` のタブを別タブとして保存する
 
 #### Scenario: ブックマークから5ch.netのスレを開く
 - **WHEN** 設定がオンの状態でブックマークが持つ `https://agree.5ch.net/operate/` のスレを開く
