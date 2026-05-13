@@ -364,7 +364,7 @@ class ThreadViewModel @AssistedInject constructor(
         if (tabIndex != -1) {
             return currentTabs.toMutableList().apply {
                 this[tabIndex] = this[tabIndex].copy(
-                    title = args.threadTitle,
+                    title = args.threadTitle.orEmpty(),
                     boardName = args.boardInfo.name,
                     boardId = ensuredBoardId
                 )
@@ -380,7 +380,7 @@ class ThreadViewModel @AssistedInject constructor(
         val (host, board) = parsed
         return currentTabs + ThreadTabInfo(
             id = ThreadId.of(host, board, args.threadKey),
-            title = args.threadTitle,
+            title = args.threadTitle.orEmpty(),
             boardName = args.boardInfo.name,
             boardUrl = args.boardInfo.url,
             boardId = ensuredBoardId
