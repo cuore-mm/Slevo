@@ -88,6 +88,10 @@ private fun AppRoute.Thread.normalizeThreadRoute(
     tabsViewModel: TabsViewModel?,
 ): AppRoute.Thread {
     val normalizedUrl = normalizeBoardUrl(boardUrl, tabsViewModel)
-    if (normalizedUrl == boardUrl) return this
-    return copy(boardUrl = normalizedUrl)
+    val normalizedTitle = normalizeBoardUrl(threadTitle, tabsViewModel)
+    if (normalizedUrl == boardUrl && normalizedTitle == threadTitle) return this
+    return copy(
+        boardUrl = normalizedUrl,
+        threadTitle = normalizedTitle,
+    )
 }
