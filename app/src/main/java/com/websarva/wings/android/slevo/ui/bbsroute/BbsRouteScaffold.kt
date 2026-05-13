@@ -346,7 +346,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                             threadKey = resolved.threadKey,
                             boardUrl = boardUrl,
                             boardName = resolved.boardKey,
-                            threadTitle = url
+                            threadTitle = null
                         )
                         navController.navigateToThread(
                             route = route,

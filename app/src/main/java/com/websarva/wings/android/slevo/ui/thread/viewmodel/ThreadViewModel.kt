@@ -104,7 +104,7 @@ private data class ThreadLoadDerived(
 data class ThreadInitArgs(
     val threadKey: String,
     val boardInfo: BoardInfo,
-    val threadTitle: String,
+    val threadTitle: String?,
 )
 
 /**
@@ -224,7 +224,7 @@ class ThreadViewModel @AssistedInject constructor(
     fun initializeThread(
         threadKey: String,
         boardInfo: BoardInfo,
-        threadTitle: String
+        threadTitle: String?
     ) {
         initializeFlow(
             ThreadInitArgs(
@@ -248,7 +248,7 @@ class ThreadViewModel @AssistedInject constructor(
     override fun applyInitialUiState(args: ThreadInitArgs) {
         val threadInfo = ThreadInfo(
             key = args.threadKey,
-            title = args.threadTitle,
+            title = args.threadTitle.orEmpty(),
             url = args.boardInfo.url
         )
         _uiState.update { state ->

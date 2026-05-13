@@ -78,7 +78,7 @@ private suspend fun handleDeepLinkUrl(
                 threadKey = target.threadKey,
                 boardUrl = boardUrl,
                 boardName = target.boardKey,
-                threadTitle = url
+                threadTitle = null
             )
             navController.navigateToThread(
                 route = route,

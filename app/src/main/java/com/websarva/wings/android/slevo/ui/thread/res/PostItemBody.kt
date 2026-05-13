@@ -202,7 +202,7 @@ private fun Modifier.postBodyGestures(
                                 threadKey = resolved.threadKey,
                                 boardUrl = boardUrl,
                                 boardName = resolved.boardKey,
-                                threadTitle = url
+                                threadTitle = null
                             )
                             onThreadUrlClick(route)
                         } else {

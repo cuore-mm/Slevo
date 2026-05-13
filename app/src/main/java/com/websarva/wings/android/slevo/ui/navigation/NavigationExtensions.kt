@@ -83,15 +83,13 @@ private fun AppRoute.Board.normalizeBoardRoute(
 
 /**
  * スレルートの boardUrl を正規化して返す。
+ *
+ * `threadTitle` は表示用名称のため、URL正規化対象には含めない。
  */
 private fun AppRoute.Thread.normalizeThreadRoute(
     tabsViewModel: TabsViewModel?,
 ): AppRoute.Thread {
     val normalizedUrl = normalizeBoardUrl(boardUrl, tabsViewModel)
-    val normalizedTitle = normalizeBoardUrl(threadTitle, tabsViewModel)
-    if (normalizedUrl == boardUrl && normalizedTitle == threadTitle) return this
-    return copy(
-        boardUrl = normalizedUrl,
-        threadTitle = normalizedTitle,
-    )
+    if (normalizedUrl == boardUrl) return this
+    return copy(boardUrl = normalizedUrl)
 }

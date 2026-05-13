@@ -121,7 +121,7 @@ class ThreadTabsCoordinator @Inject constructor(
         val (host, board) = parseBoardUrl(route.boardUrl) ?: return -1
         val tabInfo = ThreadTabInfo(
             id = ThreadId.of(host, board, route.threadKey),
-            title = route.threadTitle,
+            title = route.threadTitle.orEmpty(),
             boardName = route.boardName,
             boardUrl = route.boardUrl,
             boardId = route.boardId ?: 0L,

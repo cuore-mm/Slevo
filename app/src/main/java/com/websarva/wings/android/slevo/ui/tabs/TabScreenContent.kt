@@ -163,7 +163,7 @@ fun TabScreenContent(
                                 threadKey = resolved.threadKey,
                                 boardUrl = boardUrl,
                                 boardName = resolved.boardKey,
-                                threadTitle = url
+                                threadTitle = null
                             )
                             navController.navigateToThread(
                                 route = route,
