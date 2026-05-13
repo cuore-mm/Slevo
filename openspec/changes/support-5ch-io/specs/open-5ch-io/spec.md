@@ -16,7 +16,7 @@
 - **THEN** システムは `agree.5ch.io` の `operate` 板にある `1234567890` スレを表示する
 
 ### Requirement: 5ch.net を 5ch.io として開く設定
-システムは全般設定で `5ch.net` の板/スレURLを `5ch.io` として開く設定を提供することを SHALL 要求する。未設定時のデフォルトはオンであることを SHALL 要求する。設定オン時の変換は、保存済みデータを変更せず、板/スレを開くための一時的な遷移先 `boardUrl` にのみ適用することを SHALL 要求する。
+システムは全般設定で `5ch.net` の板/スレURLを `5ch.io` として開く設定を提供することを SHALL 要求する。未設定時のデフォルトはオンであることを SHALL 要求する。設定オン時の変換は、ブックマーク、履歴、板DBなどの既存保存データを一括移行せず、共通ナビゲーションで正規化したrouteを開く先とタブ保存に使用することを SHALL 要求する。
 
 #### Scenario: 設定オンで5ch.netの板URLを開く
 - **WHEN** 設定がオンの状態でユーザーが `https://agree.5ch.net/operate/` を開く
@@ -32,19 +32,28 @@
 
 #### Scenario: 既存タブから5ch.netのスレを開く
 - **WHEN** 設定がオンの状態で保存済みタブが持つ `https://agree.5ch.net/operate/` のスレを開く
-- **THEN** システムは保存済みタブのURLを変更せず、`https://agree.5ch.io/operate/` を遷移先の板URLとしてスレを表示する
+- **THEN** システムは `https://agree.5ch.io/operate/` を板URLとしてスレを表示する
+- **AND** 現在のタブ保存routeも `https://agree.5ch.io/operate/` を保持する
 
 #### Scenario: ブックマークから5ch.netのスレを開く
 - **WHEN** 設定がオンの状態でブックマークが持つ `https://agree.5ch.net/operate/` のスレを開く
-- **THEN** システムはブックマークの保存URLを変更せず、`https://agree.5ch.io/operate/` を遷移先の板URLとしてスレを表示する
+- **THEN** システムはブックマークの保存URLを変更せず、`https://agree.5ch.io/operate/` を板URLとしてスレを表示する
+- **AND** 開いたタブの保存routeは `https://agree.5ch.io/operate/` を保持する
 
 #### Scenario: 履歴から5ch.netのスレを開く
 - **WHEN** 設定がオンの状態で履歴が持つ `https://agree.5ch.net/operate/` のスレを開く
-- **THEN** システムは履歴の保存URLを変更せず、`https://agree.5ch.io/operate/` を遷移先の板URLとしてスレを表示する
+- **THEN** システムは履歴の保存URLを変更せず、`https://agree.5ch.io/operate/` を板URLとしてスレを表示する
+- **AND** 開いたタブの保存routeは `https://agree.5ch.io/operate/` を保持する
 
 #### Scenario: 画面内リンクから5ch.netのスレを開く
 - **WHEN** 設定がオンの状態でレス本文や板画面などのアプリ内入口から `https://agree.5ch.net/operate/` のスレを開く
-- **THEN** システムは `https://agree.5ch.io/operate/` を遷移先の板URLとしてスレを表示する
+- **THEN** システムは `https://agree.5ch.io/operate/` を板URLとしてスレを表示する
+- **AND** 開いたタブの保存routeは `https://agree.5ch.io/operate/` を保持する
+
+#### Scenario: URL由来のスレをタイトル未設定で開く
+- **WHEN** URL入力、Deep Link、レス本文リンクなど、スレタイトルをまだ取得できない入口からスレを開く
+- **THEN** システムは元URLを `threadTitle` として保存しない
+- **AND** スレ読み込み後に取得したタイトルでタブ表示名を更新する
 
 #### Scenario: 5ch.net以外のURLを開く
 - **WHEN** ユーザーが `https://example.com/test/read.cgi/operate/1234567890/` または `https://example.bbspink.com/test/read.cgi/operate/1234567890/` を開く
