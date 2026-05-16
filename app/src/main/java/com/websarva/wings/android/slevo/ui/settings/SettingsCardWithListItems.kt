@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.settings
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -11,14 +12,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
+import com.websarva.wings.android.slevo.ui.common.AnchoredSelectionMenu
+import com.websarva.wings.android.slevo.ui.common.SelectionMenuOption
+import kotlin.math.roundToInt
 
 /**
  * ListItem の仕様を型として保持するデータクラス。
@@ -29,6 +40,8 @@ data class ListItemSpec(
     val supportingContent: (@Composable () -> Unit)? = null,
     val trailingContent: (@Composable () -> Unit)? = null,
     val onClick: (() -> Unit)? = null,
+    val itemModifier: Modifier = Modifier,
+    val overlayContent: (@Composable () -> Unit)? = null,
 )
 
 data class SwitchSpec(
@@ -104,6 +117,57 @@ fun listItemSpecOfBasic(
 }
 
 /**
+ * 1つの設定項目にアンカー付き単一選択メニューを関連付けた `ListItemSpec` を作成する。
+ *
+ * メニューの表示位置は項目の描画領域をアンカーとして決定する。
+ */
+@Composable
+fun <T> listItemSpecOfSelectionMenu(
+    headlineText: String,
+    supportingText: String,
+    selectedValue: T,
+    options: List<SelectionMenuOption<T>>,
+    onSelect: (T) -> Unit,
+    supportingTextRole: SupportingTextRole = SupportingTextRole.SelectedValue,
+    headlineStyle: TextStyle = MaterialTheme.typography.bodyLarge.copy(
+        fontWeight = FontWeight.Medium
+    ),
+): ListItemSpec {
+    var isExpanded by remember { mutableStateOf(false) }
+    var anchorBoundsInWindow by remember { mutableStateOf<IntRect?>(null) }
+
+    val baseSpec = listItemSpecOfBasic(
+        headlineText = headlineText,
+        supportingText = supportingText,
+        supportingTextRole = supportingTextRole,
+        onClick = { isExpanded = true },
+        headlineStyle = headlineStyle,
+    )
+
+    return baseSpec.copy(
+        itemModifier = Modifier.onGloballyPositioned { coordinates ->
+            val rect = coordinates.boundsInWindow()
+            anchorBoundsInWindow = IntRect(
+                left = rect.left.roundToInt(),
+                top = rect.top.roundToInt(),
+                right = rect.right.roundToInt(),
+                bottom = rect.bottom.roundToInt(),
+            )
+        },
+        overlayContent = {
+            AnchoredSelectionMenu(
+                expanded = isExpanded,
+                anchorBoundsInWindow = anchorBoundsInWindow,
+                options = options,
+                selectedValue = selectedValue,
+                onSelect = onSelect,
+                onDismissRequest = { isExpanded = false },
+            )
+        }
+    )
+}
+
+/**
  * 複数の ListItemSpec を受け取り、それらを `SettingsCard` で包むコンポーザブル。
  * アイテム間には `HorizontalDivider` を挿入します。
  */
@@ -118,21 +182,24 @@ fun SettingsCardWithListItems(
         Column {
             items.forEachIndexed { index, spec ->
                 val modifier = if (cardEnabled && spec.onClick != null) {
-                    Modifier
+                    spec.itemModifier
                         .fillMaxWidth()
                         .clickable { spec.onClick.invoke() }
                 } else {
-                    Modifier.fillMaxWidth()
+                    spec.itemModifier.fillMaxWidth()
                 }
 
-                ListItem(
-                    modifier = modifier,
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    leadingContent = spec.leadingContent,
-                    headlineContent = spec.headlineContent,
-                    supportingContent = spec.supportingContent,
-                    trailingContent = spec.trailingContent,
-                )
+                Box {
+                    ListItem(
+                        modifier = modifier,
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        leadingContent = spec.leadingContent,
+                        headlineContent = spec.headlineContent,
+                        supportingContent = spec.supportingContent,
+                        trailingContent = spec.trailingContent,
+                    )
+                    spec.overlayContent?.invoke()
+                }
 
                 if (index != items.lastIndex) {
                     val dividerStartPadding = if (spec.leadingContent != null) 56.dp else 16.dp
