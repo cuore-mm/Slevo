@@ -22,7 +22,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class DatabaseCallback @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val bbsServiceRepositoryProvider: Provider<BbsServiceRepository>,
     private val bookmarkBoardRepositoryProvider: Provider<BookmarkBoardRepository>,
     private val bookmarkThreadRepositoryProvider: Provider<ThreadBookmarkRepository>,
@@ -87,7 +87,7 @@ class DatabaseCallback @Inject constructor(
      */
     private suspend fun populateInitialData() {
         // デフォルトの5chサービスを登録
-        bbsServiceRepositoryProvider.get().addOrUpdateService("https://menu.5ch.net/bbsmenu.html")
+        bbsServiceRepositoryProvider.get().addOrUpdateService("https://menu.5ch.io/bbsmenu.html")
 
         // 文字列リソースから「お気に入り」を取得
         val bookmarkGroupName = context.getString(R.string.bookmark) // ← Context を使って文字列を取得
