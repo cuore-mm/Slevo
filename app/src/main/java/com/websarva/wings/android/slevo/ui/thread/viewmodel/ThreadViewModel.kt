@@ -411,13 +411,13 @@ class ThreadViewModel @AssistedInject constructor(
         threadTitle: String?,
     ): String {
         threadTitle?.takeIf { it.isNotBlank() }?.let { return it }
-        val normalizedBoardUrl = boardUrl.trimEnd('/')
-        val boardKey = parseBoardUrl(boardUrl)?.second
-        if (boardKey == null) {
+        val parsed = parseBoardUrl(boardUrl)
+        if (parsed == null) {
             // URL解析に失敗した場合は空文字にフォールバックする。
             return ""
         }
-        return "$normalizedBoardUrl/test/read.cgi/$boardKey/$threadKey/"
+        val (host, boardKey) = parsed
+        return "https://$host/test/read.cgi/$boardKey/$threadKey/"
     }
 
     override suspend fun loadData(isRefresh: Boolean) {

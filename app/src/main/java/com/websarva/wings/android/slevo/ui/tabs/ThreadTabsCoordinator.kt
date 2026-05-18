@@ -138,9 +138,9 @@ class ThreadTabsCoordinator @Inject constructor(
      */
     private fun buildInitialThreadTitle(route: AppRoute.Thread): String {
         route.threadTitle?.takeIf { it.isNotBlank() }?.let { return it }
-        val boardUrl = route.boardUrl.trimEnd('/')
-        val boardKey = parseBoardUrl(route.boardUrl)?.second ?: route.boardName
-        return "$boardUrl/test/read.cgi/$boardKey/${route.threadKey}/"
+        val parsed = parseBoardUrl(route.boardUrl) ?: return ""
+        val (host, boardKey) = parsed
+        return "https://$host/test/read.cgi/$boardKey/${route.threadKey}/"
     }
 
     /**

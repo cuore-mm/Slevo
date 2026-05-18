@@ -39,7 +39,7 @@ class ThreadTabsCoordinatorTest {
         assertEquals(0, index)
         assertEquals(1, coordinator.openThreadTabs.value.size)
         assertEquals(
-            "https://medaka.5ch.io/mmominor/test/read.cgi/mmominor/1723111700/",
+            "https://medaka.5ch.io/test/read.cgi/mmominor/1723111700/",
             coordinator.openThreadTabs.value.first().title
         )
         coVerify(exactly = 0) { tabsRepository.saveOpenThreadTabs(any()) }
