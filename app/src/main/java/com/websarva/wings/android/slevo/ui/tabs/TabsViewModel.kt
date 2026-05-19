@@ -223,12 +223,15 @@ class TabsViewModel @Inject constructor(
     /**
      * itest板URLの入力元と設定値から、host補完に使うメニュードメインを決定する。
      */
-    private fun resolveMenuDomainForHostLookup(sourceUrl: String?): String? {
+    private suspend fun resolveMenuDomainForHostLookup(sourceUrl: String?): String? {
         val sourceHost = sourceUrl
             ?.let { kotlin.runCatching { java.net.URI(it).host?.lowercase() }.getOrNull() }
             ?: return null
         return when (sourceHost) {
-            "itest.5ch.net" -> if (isRedirect5chNetToIoEnabled() == true) "5ch.io" else "5ch.net"
+            "itest.5ch.net" -> {
+                // 初期読込中のキャッシュ値に依存せず、永続化済み設定値を直接参照する。
+                if (settingsRepository.getIsRedirect5chNetToIoEnabled()) "5ch.io" else "5ch.net"
+            }
             "itest.5ch.io" -> "5ch.io"
             else -> null
         }

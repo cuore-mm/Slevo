@@ -61,6 +61,9 @@ interface SettingsLocalDataSource {
     /** 5ch.net を 5ch.io として開く設定を監視する */
     fun observeIsRedirect5chNetToIoEnabled(): Flow<Boolean>
 
+    /** 5ch.net を 5ch.io として開く設定の現在値を取得する */
+    suspend fun getIsRedirect5chNetToIoEnabled(): Boolean
+
     /** 5ch.net を 5ch.io として開く設定を保存する */
     suspend fun setRedirect5chNetToIoEnabled(enabled: Boolean)
 

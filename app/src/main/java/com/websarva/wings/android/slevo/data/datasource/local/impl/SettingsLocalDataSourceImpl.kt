@@ -16,6 +16,7 @@ import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThemeMode
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.Locale
 import javax.inject.Inject
@@ -219,6 +220,16 @@ class SettingsLocalDataSourceImpl @Inject constructor(
     override fun observeIsRedirect5chNetToIoEnabled(): Flow<Boolean> =
         context.dataStore.data
             .map { prefs -> prefs[REDIRECT_5CH_NET_TO_IO_KEY] ?: true }
+
+    /**
+     * 5ch.net を 5ch.io として開く設定の現在値を取得する。
+     *
+     * 未設定時はデフォルトで有効として扱う。
+     */
+    override suspend fun getIsRedirect5chNetToIoEnabled(): Boolean {
+        val prefs = context.dataStore.data.first()
+        return prefs[REDIRECT_5CH_NET_TO_IO_KEY] ?: true
+    }
 
     /**
      * 5ch.net を 5ch.io として開く設定を保存する。
