@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -19,6 +20,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
+import kotlinx.coroutines.launch
 
 /**
  * 開いているスレッドタブの一覧をカード表示し、選択されたタブへ遷移する。
@@ -35,6 +37,7 @@ fun OpenThreadsList(
     onItemClick: (ThreadTabInfo) -> Unit = {},
     tabsViewModel: TabsViewModel? = null,
 ) {
+    val coroutineScope = rememberCoroutineScope()
     // --- List ---
     RemovableTabList(
         modifier = modifier,
@@ -58,11 +61,14 @@ fun OpenThreadsList(
                     threadTitle = tab.title,
                     resCount = tab.resCount
                 )
-                navController.navigateToThread(
-                    route = route,
-                    tabsViewModel = tabsViewModel,
-                ) {
-                    restoreState = true
+                coroutineScope.launch {
+                    val normalizedRoute = tabsViewModel?.normalizeThreadRouteForNavigation(route) ?: route
+                    navController.navigateToThread(
+                        route = normalizedRoute,
+                        tabsViewModel = tabsViewModel,
+                    ) {
+                        restoreState = true
+                    }
                 }
             },
             onCloseClick = {

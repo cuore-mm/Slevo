@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +59,7 @@ import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.util.ExternalBrowserUtil
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import kotlinx.coroutines.launch
 import java.text.DecimalFormat
 
 /**
@@ -81,6 +83,7 @@ fun ThreadInfoBottomSheet(
     var showCopyDialog by remember { mutableStateOf(false) }
     var showNgDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     // --- Thread URL ---
     val threadUrl = parseBoardUrl(threadInfo.url)?.let { (host, boardKey) ->
@@ -99,16 +102,24 @@ fun ThreadInfoBottomSheet(
                 boardName = boardInfo.name,
                 showBoardAction = showBoardAction,
                 onBoardClick = {
-                    val route = AppRoute.Board(
-                        boardId = boardInfo.boardId,
-                        boardName = boardInfo.name,
-                        boardUrl = boardInfo.url
-                    )
-                    navController.navigateToBoard(
-                        route = route,
-                        tabsViewModel = tabsViewModel,
-                    )
-                    onDismissRequest()
+                    coroutineScope.launch {
+                        val route = tabsViewModel?.normalizeBoardRouteForNavigation(
+                            AppRoute.Board(
+                                boardId = boardInfo.boardId,
+                                boardName = boardInfo.name,
+                                boardUrl = boardInfo.url
+                            )
+                        ) ?: AppRoute.Board(
+                            boardId = boardInfo.boardId,
+                            boardName = boardInfo.name,
+                            boardUrl = boardInfo.url
+                        )
+                        navController.navigateToBoard(
+                            route = route,
+                            tabsViewModel = tabsViewModel,
+                        )
+                        onDismissRequest()
+                    }
                 },
                 onOpenBrowserClick = {
                     if (threadUrl.isBlank()) {

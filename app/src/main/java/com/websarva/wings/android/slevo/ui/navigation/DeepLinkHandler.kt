@@ -65,9 +65,11 @@ private suspend fun handleDeepLinkUrl(
                 sourceUrl = target.rawUrl,
             ) ?: return false
             val boardUrl = "https://$host/${target.boardKey}/"
-            val route = AppRoute.Board(
-                boardName = boardUrl,
-                boardUrl = boardUrl
+            val route = tabsViewModel.normalizeBoardRouteForNavigation(
+                AppRoute.Board(
+                    boardName = boardUrl,
+                    boardUrl = boardUrl
+                )
             )
             navController.navigateToBoard(
                 route = route,
@@ -77,11 +79,13 @@ private suspend fun handleDeepLinkUrl(
         }
         is ResolvedUrl.Thread -> {
             val boardUrl = "https://${target.host}/${target.boardKey}/"
-            val route = AppRoute.Thread(
-                threadKey = target.threadKey,
-                boardUrl = boardUrl,
-                boardName = target.boardKey,
-                threadTitle = null
+            val route = tabsViewModel.normalizeThreadRouteForNavigation(
+                AppRoute.Thread(
+                    threadKey = target.threadKey,
+                    boardUrl = boardUrl,
+                    boardName = target.boardKey,
+                    threadTitle = null
+                )
             )
             navController.navigateToThread(
                 route = route,
@@ -91,9 +95,11 @@ private suspend fun handleDeepLinkUrl(
         }
         is ResolvedUrl.Board -> {
             val boardUrl = "https://${target.host}/${target.boardKey}/"
-            val route = AppRoute.Board(
-                boardName = boardUrl,
-                boardUrl = boardUrl
+            val route = tabsViewModel.normalizeBoardRouteForNavigation(
+                AppRoute.Board(
+                    boardName = boardUrl,
+                    boardUrl = boardUrl
+                )
             )
             navController.navigateToBoard(
                 route = route,

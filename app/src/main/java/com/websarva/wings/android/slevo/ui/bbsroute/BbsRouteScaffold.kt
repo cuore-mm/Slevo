@@ -322,9 +322,11 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                 )
                                 if (host != null) {
                                     val boardUrl = "https://$host/${resolved.boardKey}/"
-                                    val route = AppRoute.Board(
-                                        boardName = boardUrl,
-                                        boardUrl = boardUrl,
+                                    val route = tabsViewModel.normalizeBoardRouteForNavigation(
+                                        AppRoute.Board(
+                                            boardName = boardUrl,
+                                            boardUrl = boardUrl,
+                                        )
                                     )
                                     navController.navigateToBoard(
                                         route = route,
@@ -344,36 +346,44 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     }
                     // --- Thread URL handling ---
                     if (resolved is ResolvedUrl.Thread) {
-                        val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
-                        val route = AppRoute.Thread(
-                            threadKey = resolved.threadKey,
-                            boardUrl = boardUrl,
-                            boardName = resolved.boardKey,
-                            threadTitle = null
-                        )
-                        navController.navigateToThread(
-                            route = route,
-                            tabsViewModel = tabsViewModel,
-                        )
-                        urlError = null
-                        showUrlDialog = false
-                        tabsViewModel.finishUrlValidation()
+                        coroutineScope.launch {
+                            val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
+                            val route = tabsViewModel.normalizeThreadRouteForNavigation(
+                                AppRoute.Thread(
+                                    threadKey = resolved.threadKey,
+                                    boardUrl = boardUrl,
+                                    boardName = resolved.boardKey,
+                                    threadTitle = null
+                                )
+                            )
+                            navController.navigateToThread(
+                                route = route,
+                                tabsViewModel = tabsViewModel,
+                            )
+                            urlError = null
+                            showUrlDialog = false
+                            tabsViewModel.finishUrlValidation()
+                        }
                         return@UrlOpenDialog
                     }
                     // --- Board URL handling ---
                     if (resolved is ResolvedUrl.Board) {
-                        val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
-                        val route = AppRoute.Board(
-                            boardName = boardUrl,
-                            boardUrl = boardUrl,
-                        )
-                        navController.navigateToBoard(
-                            route = route,
-                            tabsViewModel = tabsViewModel,
-                        )
-                        urlError = null
-                        showUrlDialog = false
-                        tabsViewModel.finishUrlValidation()
+                        coroutineScope.launch {
+                            val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
+                            val route = tabsViewModel.normalizeBoardRouteForNavigation(
+                                AppRoute.Board(
+                                    boardName = boardUrl,
+                                    boardUrl = boardUrl,
+                                )
+                            )
+                            navController.navigateToBoard(
+                                route = route,
+                                tabsViewModel = tabsViewModel,
+                            )
+                            urlError = null
+                            showUrlDialog = false
+                            tabsViewModel.finishUrlValidation()
+                        }
                         return@UrlOpenDialog
                     }
                     // --- Invalid URL ---

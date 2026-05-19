@@ -304,10 +304,13 @@ fun ThreadScaffold(
                 searchQuery = uiState.searchQuery,
                 onUrlClick = { url -> uriHandler.openUri(url) },
                 onThreadUrlClick = { route ->
-                    navController.navigateToThread(
-                        route = route,
-                        tabsViewModel = tabsViewModel,
-                    )
+                    coroutineScope.launch {
+                        val normalizedRoute = tabsViewModel.normalizeThreadRouteForNavigation(route)
+                        navController.navigateToThread(
+                            route = normalizedRoute,
+                            tabsViewModel = tabsViewModel,
+                        )
+                    }
                 },
                 onImageClick = { _, imageUrls, tappedIndex, transitionNamespace ->
                     val route = buildImageViewerRoute(

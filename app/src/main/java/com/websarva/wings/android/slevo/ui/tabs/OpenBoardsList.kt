@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.tabs
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -12,6 +13,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
+import kotlinx.coroutines.launch
 
 /**
  * 開いている板タブの一覧をカード表示し、選択されたタブへ遷移する。
@@ -26,6 +28,7 @@ fun OpenBoardsList(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     tabsViewModel: TabsViewModel? = null,
 ) {
+    val coroutineScope = rememberCoroutineScope()
     // --- List ---
     RemovableTabList(
         modifier = modifier,
@@ -44,11 +47,14 @@ fun OpenBoardsList(
                     boardName = tab.boardName,
                     boardUrl = tab.boardUrl
                 )
-                navController.navigateToBoard(
-                    route = route,
-                    tabsViewModel = tabsViewModel,
-                ) {
-                    restoreState = true
+                coroutineScope.launch {
+                    val normalizedRoute = tabsViewModel?.normalizeBoardRouteForNavigation(route) ?: route
+                    navController.navigateToBoard(
+                        route = normalizedRoute,
+                        tabsViewModel = tabsViewModel,
+                    ) {
+                        restoreState = true
+                    }
                 }
             },
             onCloseClick = {

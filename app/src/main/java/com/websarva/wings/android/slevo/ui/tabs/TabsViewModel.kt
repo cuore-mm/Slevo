@@ -11,12 +11,13 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
+import com.websarva.wings.android.slevo.ui.util.BoardUrlNormalizationInput
+import com.websarva.wings.android.slevo.ui.util.normalizeBoardUrlTo5chIo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -65,8 +66,6 @@ class TabsViewModel @Inject constructor(
     private val urlDialogState = MutableStateFlow(false)
     private val urlErrorState = MutableStateFlow<String?>(null)
 
-    private val redirect5chNetToIoState = MutableStateFlow<Boolean?>(null)
-
     val uiState: StateFlow<TabsUiState> = combine(
         boardTabsState,
         threadTabsState,
@@ -99,12 +98,36 @@ class TabsViewModel @Inject constructor(
     init {
         boardTabsCoordinator.bind(viewModelScope)
         threadTabsCoordinator.bind(viewModelScope)
-        viewModelScope.launch {
-            settingsRepository.observeIsRedirect5chNetToIoEnabled()
-                .collectLatest { enabled ->
-                    redirect5chNetToIoState.value = enabled
-                }
-        }
+    }
+
+    /**
+     * 板routeを永続化済み設定値に従って正規化する。
+     */
+    suspend fun normalizeBoardRouteForNavigation(route: AppRoute.Board): AppRoute.Board {
+        val isEnabled = settingsRepository.getIsRedirect5chNetToIoEnabled()
+        val normalizedUrl = normalizeBoardUrlTo5chIo(
+            BoardUrlNormalizationInput(
+                boardUrl = route.boardUrl,
+                isEnabled = isEnabled,
+            )
+        )
+        if (normalizedUrl == route.boardUrl) return route
+        return route.copy(boardUrl = normalizedUrl)
+    }
+
+    /**
+     * スレrouteを永続化済み設定値に従って正規化する。
+     */
+    suspend fun normalizeThreadRouteForNavigation(route: AppRoute.Thread): AppRoute.Thread {
+        val isEnabled = settingsRepository.getIsRedirect5chNetToIoEnabled()
+        val normalizedUrl = normalizeBoardUrlTo5chIo(
+            BoardUrlNormalizationInput(
+                boardUrl = route.boardUrl,
+                isEnabled = isEnabled,
+            )
+        )
+        if (normalizedUrl == route.boardUrl) return route
+        return route.copy(boardUrl = normalizedUrl)
     }
 
     fun getOrCreateThreadViewModel(viewModelKey: String): ThreadViewModel {
@@ -240,14 +263,6 @@ class TabsViewModel @Inject constructor(
             else -> null
         }
     }
-
-    /**
-     * 5ch.net を 5ch.io として開く設定の現在値を返す。
-     *
-     * 未読込時は `null` を返し、呼び出し側で変換処理を保留/回避できるようにする。
-     */
-    fun isRedirect5chNetToIoEnabled(): Boolean? =
-        redirect5chNetToIoState.value
 
     suspend fun resolveBoardInfo(
         boardId: Long?,

@@ -11,6 +11,7 @@ import androidx.compose.material3.TopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -22,6 +23,7 @@ import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +35,7 @@ fun HistoryListScaffold(
 ) {
     val viewModel: HistoryViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
 
@@ -72,18 +75,22 @@ fun HistoryListScaffold(
             selectedThreadIds = uiState.selectedThreadIds,
             isSelectionMode = isSelectionMode,
             onOpenThread = { history ->
-                val route = AppRoute.Thread(
-                    threadKey = history.history.threadId.threadKey,
-                    boardUrl = history.history.boardUrl,
-                    boardName = history.history.boardName,
-                    boardId = history.history.boardId,
-                    threadTitle = history.history.title,
-                    resCount = history.history.resCount
-                )
-                navController.navigateToThread(
-                    route = route,
-                    tabsViewModel = tabsViewModel,
-                )
+                coroutineScope.launch {
+                    val route = tabsViewModel.normalizeThreadRouteForNavigation(
+                        AppRoute.Thread(
+                            threadKey = history.history.threadId.threadKey,
+                            boardUrl = history.history.boardUrl,
+                            boardName = history.history.boardName,
+                            boardId = history.history.boardId,
+                            threadTitle = history.history.title,
+                            resCount = history.history.resCount
+                        )
+                    )
+                    navController.navigateToThread(
+                        route = route,
+                        tabsViewModel = tabsViewModel,
+                    )
+                }
             },
             onToggleSelection = { viewModel.toggleSelection(it) },
             onStartSelection = { viewModel.startSelection(it) }
