@@ -237,15 +237,29 @@ class BoardRepository @Inject constructor(
 
     /**
      * boardKey から既存板のホストを取得する。
-     * DB内のURL候補を検索し、最初に一致したホストを返す。
+     *
+     * `requiredDomain` が指定された場合は、そのドメインに一致するhostのみ返す。
      */
-    suspend fun resolveHostByBoardKey(boardKey: String): String? = withContext(Dispatchers.IO) {
+    suspend fun resolveHostByBoardKey(
+        boardKey: String,
+        requiredDomain: String? = null,
+    ): String? = withContext(Dispatchers.IO) {
         // --- Query ---
         val candidates = boardDao.findBoardsByUrlPattern("%/$boardKey/%")
         // --- Match ---
         val matched = candidates.firstOrNull { entity ->
             val segments = entity.url.toUri().pathSegments
-            segments.firstOrNull() == boardKey
+            if (segments.firstOrNull() != boardKey) {
+                return@firstOrNull false
+            }
+
+            if (requiredDomain == null) {
+                return@firstOrNull true
+            }
+
+            // 入力元URLのドメイン制約がある場合のみ、host末尾一致を確認する。
+            val host = entity.url.toUri().host ?: return@firstOrNull false
+            host.endsWith(".$requiredDomain")
         } ?: return@withContext null
         matched.url.toUri().host
     }

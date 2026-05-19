@@ -43,7 +43,7 @@ Issue 472 では、5ch のドメイン変更に合わせて `5ch.io` のDeep Lin
 
 また itest host補完のメニュー選択は `SettingsRepository` 経由で永続化済み設定の現在値を取得して判定する。これにより `TabsViewModel` の一時キャッシュ状態に依存せず、起動直後でも設定オフを反映できる。
 
-加えて host補完のDBキャッシュ参照では、入力元から決まった `menuDomain` と一致するhostのみ採用する。例えば `itest.5ch.net` かつ設定オフで `menuDomain=5ch.net` の場合、DBに `agree.5ch.io` しか無い時はキャッシュを採用せず、`5ch.net` 側メニュー参照にフォールバックする。
+加えて host補完のDBキャッシュ参照では、`BoardRepository` 側で `menuDomain` 一致条件を含めて検索する。例えば `itest.5ch.net` かつ設定オフで `menuDomain=5ch.net` の場合、`agree.5ch.io` は検索段階で除外し、`.5ch.net` host が見つからない時だけ `5ch.net` 側メニュー参照にフォールバックする。
 
 設定画面には `SwitchSpec` を使った項目を追加する。ラベルと説明文は string resource に定義し、プレビューにもデフォルトオン状態を反映する。
 
