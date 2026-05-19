@@ -56,6 +56,7 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import kotlinx.coroutines.launch
 
 /**
  * スレッド画面の主要UIを構築する。
