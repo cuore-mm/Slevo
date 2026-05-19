@@ -38,6 +38,11 @@
 - **WHEN** 設定がオフの状態でユーザーが `https://itest.5ch.net/subback/operate` を開く
 - **THEN** システムは `https://agree.5ch.net/operate/` を板URLとして表示する
 
+#### Scenario: 設定オフでキャッシュに5ch.io板があっても itest.5ch.net は5ch.netで開く
+- **WHEN** 設定がオフの状態で、`operate` のDBキャッシュに `https://agree.5ch.io/operate/` が存在する
+- **AND** ユーザーが `https://itest.5ch.net/subback/operate` を開く
+- **THEN** システムは `https://agree.5ch.net/operate/` を板URLとして表示する
+
 #### Scenario: 既存タブから5ch.netのスレを開く
 - **WHEN** 設定がオンの状態で保存済みタブが持つ `https://agree.5ch.net/operate/` のスレを開く
 - **THEN** システムは `https://agree.5ch.io/operate/` を板URLとしてスレを表示する

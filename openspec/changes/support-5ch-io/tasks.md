@@ -47,3 +47,4 @@
 - [x] 6.8 `itest.5ch.net/subback/{board}` のhost補完は設定オフ時に `5ch.net` を優先し、設定オン時のみ `5ch.io` を優先する
 - [x] 6.9 設定値の初期読込前に `5ch.io` 変換を仮適用せず、設定オフ時の起動直後ナビゲーションで `5ch.net` を維持する
 - [x] 6.10 itest host補完の設定参照を `SettingsRepository` 経由に統一し、永続化済み設定の現在値で判定する
+- [x] 6.11 itest host補完のDBキャッシュ結果を `menuDomain` でフィルタし、不一致hostはメニュー参照へフォールバックする

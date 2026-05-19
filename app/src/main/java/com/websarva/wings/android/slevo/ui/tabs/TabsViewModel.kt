@@ -213,11 +213,25 @@ class TabsViewModel @Inject constructor(
      */
     suspend fun resolveBoardHost(boardKey: String, sourceUrl: String? = null): String? {
         val menuDomain = resolveMenuDomainForHostLookup(sourceUrl)
-        return boardRepository.resolveHostByBoardKey(boardKey)
-            ?: bbsServiceRepository.resolveHostByBoardKeyFromMenu(
+        val cachedHost = boardRepository.resolveHostByBoardKey(boardKey)
+        if (isHostAllowedForMenuDomain(cachedHost, menuDomain)) {
+            return cachedHost
+        }
+        return bbsServiceRepository.resolveHostByBoardKeyFromMenu(
                 boardKey = boardKey,
                 menuDomain = menuDomain,
             )
+    }
+
+    /**
+     * DBキャッシュで解決したhostが、入力元URLから求めたメニュードメイン条件を満たすか判定する。
+     *
+     * `menuDomain` が `null` の場合はドメイン制約なしとして許可する。
+     */
+    private fun isHostAllowedForMenuDomain(host: String?, menuDomain: String?): Boolean {
+        if (host.isNullOrBlank()) return false
+        if (menuDomain == null) return true
+        return host.endsWith(".$menuDomain")
     }
 
     /**
