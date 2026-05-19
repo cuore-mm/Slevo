@@ -30,6 +30,10 @@
 - **WHEN** 設定がオフの状態でユーザーが `https://agree.5ch.net/test/read.cgi/operate/1234567890/` を開く
 - **THEN** システムは `https://agree.5ch.net/operate/` を板URLとして `1234567890` スレを表示する
 
+#### Scenario: 設定オフで起動直後に5ch.netのスレURLを開く
+- **WHEN** ユーザーが過去に設定をオフにしており、アプリ起動直後（設定読込前）に `https://agree.5ch.net/test/read.cgi/operate/1234567890/` を開く
+- **THEN** システムは設定オフを優先し、`https://agree.5ch.net/operate/` を板URLとして `1234567890` スレを表示する
+
 #### Scenario: 設定オフで itest.5ch.net の板URLを開く
 - **WHEN** 設定がオフの状態でユーザーが `https://itest.5ch.net/subback/operate` を開く
 - **THEN** システムは `https://agree.5ch.net/operate/` を板URLとして表示する

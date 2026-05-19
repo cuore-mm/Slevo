@@ -61,7 +61,8 @@ private fun normalizeBoardUrl(
     boardUrl: String,
     tabsViewModel: TabsViewModel?,
 ): String {
-    val isEnabled = tabsViewModel?.isRedirect5chNetToIoEnabled() ?: false
+    // 設定未読込中は変換を行わず、誤って 5ch.io に寄せることを防ぐ。
+    val isEnabled = tabsViewModel?.isRedirect5chNetToIoEnabled() == true
     return normalizeBoardUrlTo5chIo(
         BoardUrlNormalizationInput(
             boardUrl = boardUrl,

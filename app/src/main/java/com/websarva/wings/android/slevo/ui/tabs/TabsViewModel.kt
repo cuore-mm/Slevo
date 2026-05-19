@@ -12,7 +12,6 @@ import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -66,7 +65,7 @@ class TabsViewModel @Inject constructor(
     private val urlDialogState = MutableStateFlow(false)
     private val urlErrorState = MutableStateFlow<String?>(null)
 
-    private val redirect5chNetToIoState = MutableStateFlow(true)
+    private val redirect5chNetToIoState = MutableStateFlow<Boolean?>(null)
 
     val uiState: StateFlow<TabsUiState> = combine(
         boardTabsState,
@@ -229,22 +228,18 @@ class TabsViewModel @Inject constructor(
             ?.let { kotlin.runCatching { java.net.URI(it).host?.lowercase() }.getOrNull() }
             ?: return null
         return when (sourceHost) {
-            "itest.5ch.net" -> if (isRedirect5chNetToIoEnabled()) "5ch.io" else "5ch.net"
+            "itest.5ch.net" -> if (isRedirect5chNetToIoEnabled() == true) "5ch.io" else "5ch.net"
             "itest.5ch.io" -> "5ch.io"
             else -> null
         }
     }
 
     /**
-     * 5ch.net を 5ch.io として開く設定の監視を公開する。
-     */
-    fun observeIsRedirect5chNetToIoEnabled(): Flow<Boolean> =
-        settingsRepository.observeIsRedirect5chNetToIoEnabled()
-
-    /**
      * 5ch.net を 5ch.io として開く設定の現在値を返す。
+     *
+     * 未読込時は `null` を返し、呼び出し側で変換処理を保留/回避できるようにする。
      */
-    fun isRedirect5chNetToIoEnabled(): Boolean =
+    fun isRedirect5chNetToIoEnabled(): Boolean? =
         redirect5chNetToIoState.value
 
     suspend fun resolveBoardInfo(
