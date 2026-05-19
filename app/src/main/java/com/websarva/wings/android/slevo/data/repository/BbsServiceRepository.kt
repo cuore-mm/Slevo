@@ -25,9 +25,9 @@ class BbsServiceRepository @Inject constructor(
 ) {
     companion object {
         private const val TAG = "BbsServiceRepository"
-        private const val DEFAULT_MENU_URL = "https://menu.5ch.io/bbsmenu.json"
+        private const val DEFAULT_MENU_URL = "https://menu.5ch.io/bbsmenu.html"
         private const val MENU_URL_5CH_NET = "https://menu.5ch.net/bbsmenu.html"
-        private const val MENU_URL_5CH_IO = "https://menu.5ch.io/bbsmenu.json"
+        private const val MENU_URL_5CH_IO = "https://menu.5ch.io/bbsmenu.html"
     }
 
     /** サービス一覧＋板数 */

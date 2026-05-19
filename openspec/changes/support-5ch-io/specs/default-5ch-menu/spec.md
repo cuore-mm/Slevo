@@ -5,7 +5,7 @@
 
 #### Scenario: 既定BBSMenuから板hostを解決する
 - **WHEN** システムがDBに存在しないboardKeyのhostを既定BBSMenuから補完する
-- **THEN** システムは `https://menu.5ch.io/bbsmenu.json` を取得先として使用する
+- **THEN** システムは `https://menu.5ch.io/bbsmenu.html` を取得先として使用する
 
 #### Scenario: 既定サービスを追加または更新する
 - **WHEN** システムが既定の5chサービスを追加または更新する

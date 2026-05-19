@@ -55,13 +55,13 @@ Issue 472 では、5ch のドメイン変更に合わせて `5ch.io` のDeep Lin
 
 ### 5. 既定BBSMenu URLは `5ch.io` 側に変更する
 
-`BbsServiceRepository` の既定BBSMenu URLを `https://menu.5ch.io/bbsmenu.json` に変更する。URL入力やitest板URLのhost補完でメニュー参照を行う場合も、新しいメニューを参照する。
+`BbsServiceRepository` の既定BBSMenu URLを `https://menu.5ch.io/bbsmenu.html` に変更する。URL入力やitest板URLのhost補完でメニュー参照を行う場合も、新しいメニューを参照する。
 
 ただし `itest.5ch.net/subback/{board}` のようにhost未解決な板URLは、全般設定の `5ch.net` → `5ch.io` 切り替え状態に従って参照先メニューを切り替える。設定オフ時は `5ch.net` 側メニューを使って `.5ch.net` host を補完し、設定オン時は `5ch.io` 側メニューを使って `.5ch.io` host を補完する。
 
 ## Risks / Trade-offs
 
-- [Risk] `https://menu.5ch.io/bbsmenu.json` が利用できない、または形式が既存と異なる可能性がある → 実装時に取得可否を確認し、既存パーサーで扱えない場合は追加対応を検討する。
+- [Risk] `https://menu.5ch.io/bbsmenu.html` が利用できない、または形式が既存と異なる可能性がある → 実装時に取得可否を確認し、既存パーサーで扱えない場合は追加対応を検討する。
 - [Risk] `5ch.net` URLを `5ch.io` として開くため、表示中の画面URLと保存済みのタブ/履歴/ブックマークURLが異なる場合がある → 設定名と説明文で「保存データは変えず、開く先を5ch.ioにする」ことを明示する。
 - [Risk] itest板URLは板host解決にBBSMenuを使うため、メニュー上に該当boardKeyがない場合は開けない → 既存と同様にエラー扱いとし、今回の変更ではフォールバック探索を増やさない。
 - [Risk] 投稿時変換を行わないため、正規化を通らずに `5ch.net` の保存済みURLを直接利用する処理が残ると旧hostへ送信される可能性がある → 板/スレを開く入口は共通ナビゲーションで正規化し、投稿処理自体には追加変換を入れないことを検証する。
@@ -79,4 +79,4 @@ Rollback は、設定項目と正規化処理を戻し、既定BBSMenu URLとMan
 
 ## Open Questions
 
-- `https://menu.5ch.io/bbsmenu.json` が本番で安定提供されているかは実装時に確認する。
+- `https://menu.5ch.io/bbsmenu.html` が本番で安定提供されているかは実装時に確認する。

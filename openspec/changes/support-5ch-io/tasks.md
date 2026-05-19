@@ -24,9 +24,9 @@
 
 ## 4. 既定BBSMenu更新
 
-- [x] 4.1 既定BBSMenu URLを `https://menu.5ch.io/bbsmenu.json` に変更する
+- [x] 4.1 既定BBSMenu URLを `https://menu.5ch.io/bbsmenu.html` に変更する
 - [x] 4.2 boardKeyからhostを補完する既定メニュー参照が `5ch.io` 側を使うことを確認する
-- [x] 4.3 実装時に `https://menu.5ch.io/bbsmenu.json` の取得可否と既存パーサー互換性を確認する
+- [x] 4.3 実装時に `https://menu.5ch.io/bbsmenu.html` の取得可否と既存パーサー互換性を確認する
 
 ## 5. 検証
 
