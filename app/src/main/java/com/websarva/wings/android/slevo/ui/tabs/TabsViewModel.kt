@@ -212,9 +212,27 @@ class TabsViewModel @Inject constructor(
      * boardKey からホストを解決する。
      * DBに無い場合は bbsmenu を参照して補完する。
      */
-    suspend fun resolveBoardHost(boardKey: String): String? {
+    suspend fun resolveBoardHost(boardKey: String, sourceUrl: String? = null): String? {
+        val menuDomain = resolveMenuDomainForHostLookup(sourceUrl)
         return boardRepository.resolveHostByBoardKey(boardKey)
-            ?: bbsServiceRepository.resolveHostByBoardKeyFromMenu(boardKey)
+            ?: bbsServiceRepository.resolveHostByBoardKeyFromMenu(
+                boardKey = boardKey,
+                menuDomain = menuDomain,
+            )
+    }
+
+    /**
+     * itest板URLの入力元と設定値から、host補完に使うメニュードメインを決定する。
+     */
+    private fun resolveMenuDomainForHostLookup(sourceUrl: String?): String? {
+        val sourceHost = sourceUrl
+            ?.let { kotlin.runCatching { java.net.URI(it).host?.lowercase() }.getOrNull() }
+            ?: return null
+        return when (sourceHost) {
+            "itest.5ch.net" -> if (isRedirect5chNetToIoEnabled()) "5ch.io" else "5ch.net"
+            "itest.5ch.io" -> "5ch.io"
+            else -> null
+        }
     }
 
     /**

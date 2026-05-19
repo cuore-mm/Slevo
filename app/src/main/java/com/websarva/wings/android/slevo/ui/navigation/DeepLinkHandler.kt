@@ -60,7 +60,10 @@ private suspend fun handleDeepLinkUrl(
     // --- Navigation ---
     return when (target) {
         is ResolvedUrl.ItestBoard -> {
-            val host = tabsViewModel.resolveBoardHost(target.boardKey) ?: return false
+            val host = tabsViewModel.resolveBoardHost(
+                boardKey = target.boardKey,
+                sourceUrl = target.rawUrl,
+            ) ?: return false
             val boardUrl = "https://$host/${target.boardKey}/"
             val route = AppRoute.Board(
                 boardName = boardUrl,

@@ -30,6 +30,10 @@
 - **WHEN** 設定がオフの状態でユーザーが `https://agree.5ch.net/test/read.cgi/operate/1234567890/` を開く
 - **THEN** システムは `https://agree.5ch.net/operate/` を板URLとして `1234567890` スレを表示する
 
+#### Scenario: 設定オフで itest.5ch.net の板URLを開く
+- **WHEN** 設定がオフの状態でユーザーが `https://itest.5ch.net/subback/operate` を開く
+- **THEN** システムは `https://agree.5ch.net/operate/` を板URLとして表示する
+
 #### Scenario: 既存タブから5ch.netのスレを開く
 - **WHEN** 設定がオンの状態で保存済みタブが持つ `https://agree.5ch.net/operate/` のスレを開く
 - **THEN** システムは `https://agree.5ch.io/operate/` を板URLとしてスレを表示する

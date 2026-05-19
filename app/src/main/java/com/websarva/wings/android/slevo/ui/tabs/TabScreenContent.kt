@@ -132,7 +132,10 @@ fun TabScreenContent(
                             tabsViewModel.setUrlErrorMessage(null)
                             coroutineScope.launch {
                                 try {
-                                    val host = tabsViewModel.resolveBoardHost(resolved.boardKey)
+                                    val host = tabsViewModel.resolveBoardHost(
+                                        boardKey = resolved.boardKey,
+                                        sourceUrl = resolved.rawUrl,
+                                    )
                                     if (host != null) {
                                         val boardUrl = "https://$host/${resolved.boardKey}/"
                                         val route = AppRoute.Board(

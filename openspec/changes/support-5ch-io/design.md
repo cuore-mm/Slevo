@@ -51,6 +51,8 @@ Issue 472 では、5ch のドメイン変更に合わせて `5ch.io` のDeep Lin
 
 `BbsServiceRepository` の既定BBSMenu URLを `https://menu.5ch.io/bbsmenu.json` に変更する。URL入力やitest板URLのhost補完でメニュー参照を行う場合も、新しいメニューを参照する。
 
+ただし `itest.5ch.net/subback/{board}` のようにhost未解決な板URLは、全般設定の `5ch.net` → `5ch.io` 切り替え状態に従って参照先メニューを切り替える。設定オフ時は `5ch.net` 側メニューを使って `.5ch.net` host を補完し、設定オン時は `5ch.io` 側メニューを使って `.5ch.io` host を補完する。
+
 ## Risks / Trade-offs
 
 - [Risk] `https://menu.5ch.io/bbsmenu.json` が利用できない、または形式が既存と異なる可能性がある → 実装時に取得可否を確認し、既存パーサーで扱えない場合は追加対応を検討する。
