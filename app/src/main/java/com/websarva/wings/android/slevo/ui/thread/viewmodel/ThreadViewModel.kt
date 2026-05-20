@@ -104,7 +104,7 @@ private data class ThreadLoadDerived(
 data class ThreadInitArgs(
     val threadKey: String,
     val boardInfo: BoardInfo,
-    val threadTitle: String,
+    val threadTitle: String?,
 )
 
 /**
@@ -224,7 +224,7 @@ class ThreadViewModel @AssistedInject constructor(
     fun initializeThread(
         threadKey: String,
         boardInfo: BoardInfo,
-        threadTitle: String
+        threadTitle: String?
     ) {
         initializeFlow(
             ThreadInitArgs(
@@ -248,7 +248,11 @@ class ThreadViewModel @AssistedInject constructor(
     override fun applyInitialUiState(args: ThreadInitArgs) {
         val threadInfo = ThreadInfo(
             key = args.threadKey,
-            title = args.threadTitle,
+            title = buildInitialThreadTitle(
+                boardUrl = args.boardInfo.url,
+                threadKey = args.threadKey,
+                threadTitle = args.threadTitle,
+            ),
             url = args.boardInfo.url
         )
         _uiState.update { state ->
@@ -364,7 +368,11 @@ class ThreadViewModel @AssistedInject constructor(
         if (tabIndex != -1) {
             return currentTabs.toMutableList().apply {
                 this[tabIndex] = this[tabIndex].copy(
-                    title = args.threadTitle,
+                    title = buildInitialThreadTitle(
+                        boardUrl = args.boardInfo.url,
+                        threadKey = args.threadKey,
+                        threadTitle = args.threadTitle,
+                    ),
                     boardName = args.boardInfo.name,
                     boardId = ensuredBoardId
                 )
@@ -380,11 +388,36 @@ class ThreadViewModel @AssistedInject constructor(
         val (host, board) = parsed
         return currentTabs + ThreadTabInfo(
             id = ThreadId.of(host, board, args.threadKey),
-            title = args.threadTitle,
+            title = buildInitialThreadTitle(
+                boardUrl = args.boardInfo.url,
+                threadKey = args.threadKey,
+                threadTitle = args.threadTitle,
+            ),
             boardName = args.boardInfo.name,
             boardUrl = args.boardInfo.url,
             boardId = ensuredBoardId
         )
+    }
+
+    /**
+     * スレタイトル未取得時の初期表示名を組み立てる。
+     *
+     * `threadTitle` が空の場合は、正規化済み `boardUrl` と `threadKey` から
+     * スレURLを組み立てる。
+     */
+    private fun buildInitialThreadTitle(
+        boardUrl: String,
+        threadKey: String,
+        threadTitle: String?,
+    ): String {
+        threadTitle?.takeIf { it.isNotBlank() }?.let { return it }
+        val parsed = parseBoardUrl(boardUrl)
+        if (parsed == null) {
+            // URL解析に失敗した場合は空文字にフォールバックする。
+            return ""
+        }
+        val (host, boardKey) = parsed
+        return "https://$host/test/read.cgi/$boardKey/$threadKey/"
     }
 
     override suspend fun loadData(isRefresh: Boolean) {

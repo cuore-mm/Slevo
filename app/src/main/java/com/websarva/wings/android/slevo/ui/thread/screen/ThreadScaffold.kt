@@ -56,6 +56,7 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import kotlinx.coroutines.launch
 
 /**
  * スレッド画面の主要UIを構築する。
@@ -304,10 +305,13 @@ fun ThreadScaffold(
                 searchQuery = uiState.searchQuery,
                 onUrlClick = { url -> uriHandler.openUri(url) },
                 onThreadUrlClick = { route ->
-                    navController.navigateToThread(
-                        route = route,
-                        tabsViewModel = tabsViewModel,
-                    )
+                    coroutineScope.launch {
+                        val normalizedRoute = tabsViewModel.normalizeThreadRouteForNavigation(route)
+                        navController.navigateToThread(
+                            route = normalizedRoute,
+                            tabsViewModel = tabsViewModel,
+                        )
+                    }
                 },
                 onImageClick = { _, imageUrls, tappedIndex, transitionNamespace ->
                     val route = buildImageViewerRoute(

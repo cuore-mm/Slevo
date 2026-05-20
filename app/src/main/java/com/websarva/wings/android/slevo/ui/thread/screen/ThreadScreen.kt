@@ -125,10 +125,13 @@ fun ThreadScreen(
     // --- ナビゲーション ---
     val onUrlClick: (String) -> Unit = { url -> uriHandler.openUri(url) }
     val onThreadUrlClick: (AppRoute.Thread) -> Unit = { route ->
-        navController.navigateToThread(
-            route = route,
-            tabsViewModel = tabsViewModel,
-        )
+        coroutineScope.launch {
+            val normalizedRoute = tabsViewModel?.normalizeThreadRouteForNavigation(route) ?: route
+            navController.navigateToThread(
+                route = normalizedRoute,
+                tabsViewModel = tabsViewModel,
+            )
+        }
     }
     val onImageClick: (String, List<String>, Int, String) -> Unit =
         { _, imageUrls, tappedIndex, transitionNamespace ->

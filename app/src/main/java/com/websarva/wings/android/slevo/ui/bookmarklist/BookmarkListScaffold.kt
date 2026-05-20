@@ -19,6 +19,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -29,6 +30,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,6 +43,7 @@ fun BookmarkListScaffold(
 ) {
     val bookmarkViewModel: BookmarkViewModel = hiltViewModel()
     val uiState by bookmarkViewModel.uiState.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topBarState)
 
@@ -86,30 +89,38 @@ fun BookmarkListScaffold(
             scrollBehavior = scrollBehavior,
             boardGroups = uiState.boardList,
             onBoardClick = { board ->
-                val route = AppRoute.Board(
-                    boardId = board.boardId,
-                    boardName = board.name,
-                    boardUrl = board.url
-                )
-                navController.navigateToBoard(
-                    route = route,
-                    tabsViewModel = tabsViewModel,
-                )
+                coroutineScope.launch {
+                    val route = tabsViewModel.normalizeBoardRouteForNavigation(
+                        AppRoute.Board(
+                            boardId = board.boardId,
+                            boardName = board.name,
+                            boardUrl = board.url
+                        )
+                    )
+                    navController.navigateToBoard(
+                        route = route,
+                        tabsViewModel = tabsViewModel,
+                    )
+                }
             },
             threadGroups = uiState.groupedThreadBookmarks,
             onThreadClick = { thread ->
-                val route = AppRoute.Thread(
-                    threadKey = thread.threadKey,
-                    boardName = thread.boardName,
-                    boardUrl = thread.boardUrl,
-                    threadTitle = thread.title,
-                    boardId = thread.boardId,
-                    resCount = thread.resCount
-                )
-                navController.navigateToThread(
-                    route = route,
-                    tabsViewModel = tabsViewModel,
-                )
+                coroutineScope.launch {
+                    val route = tabsViewModel.normalizeThreadRouteForNavigation(
+                        AppRoute.Thread(
+                            threadKey = thread.threadKey,
+                            boardName = thread.boardName,
+                            boardUrl = thread.boardUrl,
+                            threadTitle = thread.title,
+                            boardId = thread.boardId,
+                            resCount = thread.resCount
+                        )
+                    )
+                    navController.navigateToThread(
+                        route = route,
+                        tabsViewModel = tabsViewModel,
+                    )
+                }
             },
             selectMode = uiState.selectMode,
             selectedBoardIds = uiState.selectedBoards,

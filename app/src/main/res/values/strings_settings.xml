@@ -16,6 +16,8 @@
     <string name="theme_mode_light">ライト</string>
     <string name="theme_mode_dark">ダーク</string>
     <string name="theme_mode_system">システムテーマに従う</string>
+    <string name="redirect_5ch_net_to_io_title">5ch.net を 5ch.io で開く</string>
+    <string name="redirect_5ch_net_to_io_description">5ch.net の板・スレを開くときに 5ch.io のURLに置き換えます</string>
 
     <!-- Gesture settings -->
     <string name="gesture_settings">ジェスチャー</string>

@@ -1,6 +1,5 @@
 package com.websarva.wings.android.slevo.ui.settings
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,23 +8,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.ui.common.AnchoredSelectionMenu
 import com.websarva.wings.android.slevo.ui.common.SelectionMenuOption
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
-import kotlin.math.roundToInt
 
 /**
  * スレッド表示設定画面と [SettingsThreadViewModel] を接続する。
@@ -57,10 +48,6 @@ fun SettingsThreadScreenContent(
     onSelectSort: (Boolean) -> Unit,
     onToggleMinimapScrollbar: (Boolean) -> Unit,
 ) {
-    // --- Menu state ---
-    var isSortMenuExpanded by remember { mutableStateOf(false) }
-    var sortMenuAnchorBounds by remember { mutableStateOf<IntRect?>(null) }
-
     val sortOptions = listOf(
         SelectionMenuOption(false, stringResource(R.string.number_order)),
         SelectionMenuOption(true, stringResource(R.string.tree_order)),
@@ -80,53 +67,32 @@ fun SettingsThreadScreenContent(
                 .fillMaxSize(),
         ) {
             item {
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 8.dp, vertical = 8.dp)
-                        .onGloballyPositioned { coordinates ->
-                            val rect = coordinates.boundsInWindow()
-                            sortMenuAnchorBounds = IntRect(
-                                left = rect.left.roundToInt(),
-                                top = rect.top.roundToInt(),
-                                right = rect.right.roundToInt(),
-                                bottom = rect.bottom.roundToInt(),
-                            )
-                        }
-                ) {
-                    SettingsCardWithListItems(
-                        items = listOf(
-                            listItemSpecOfBasic(
-                                headlineText = stringResource(R.string.default_thread_sort_order),
-                                supportingText = if (uiState.isTreeSort) {
-                                    stringResource(R.string.tree_order)
-                                } else {
-                                    stringResource(R.string.number_order)
-                                },
-                                supportingTextRole = SupportingTextRole.SelectedValue,
-                                onClick = { isSortMenuExpanded = true },
+                SettingsCardWithListItems(
+                    items = listOf(
+                        listItemSpecOfSelectionMenu(
+                            headlineText = stringResource(R.string.default_thread_sort_order),
+                            supportingText = if (uiState.isTreeSort) {
+                                stringResource(R.string.tree_order)
+                            } else {
+                                stringResource(R.string.number_order)
+                            },
+                            selectedValue = uiState.isTreeSort,
+                            options = sortOptions,
+                            onSelect = onSelectSort,
+                        ),
+                        listItemSpecOfBasic(
+                            headlineText = stringResource(R.string.show_minimap_scrollbar),
+                            supportingText = stringResource(R.string.show_minimap_scrollbar_description),
+                            switchSpec = SwitchSpec(
+                                checked = uiState.showMinimapScrollbar,
+                                onCheckedChange = onToggleMinimapScrollbar,
                             ),
-                            listItemSpecOfBasic(
-                                headlineText = stringResource(R.string.show_minimap_scrollbar),
-                                supportingText = stringResource(R.string.show_minimap_scrollbar_description),
-                                switchSpec = SwitchSpec(
-                                    checked = uiState.showMinimapScrollbar,
-                                    onCheckedChange = onToggleMinimapScrollbar,
-                                ),
-                                onClick = {
-                                    onToggleMinimapScrollbar(!uiState.showMinimapScrollbar)
-                                }
-                            )
+                            onClick = {
+                                onToggleMinimapScrollbar(!uiState.showMinimapScrollbar)
+                            }
                         )
                     )
-                    AnchoredSelectionMenu(
-                        expanded = isSortMenuExpanded,
-                        anchorBoundsInWindow = sortMenuAnchorBounds,
-                        options = sortOptions,
-                        selectedValue = uiState.isTreeSort,
-                        onSelect = onSelectSort,
-                        onDismissRequest = { isSortMenuExpanded = false },
-                    )
-                }
+                )
             }
         }
     }

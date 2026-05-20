@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -37,6 +38,7 @@ import com.websarva.wings.android.slevo.ui.bbslist.service.ServiceListViewModel
 import com.websarva.wings.android.slevo.ui.common.SelectedTopBarScreen
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.util.isInRoute
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.addRegisteredBBSNavigation(
@@ -273,6 +275,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
         ) {
             val viewModel: BbsBoardViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
+            val coroutineScope = rememberCoroutineScope()
 
             Scaffold(
                 topBar = {
@@ -297,20 +300,24 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                     ),
                     boards = uiState.boards,
                     onBoardClick = { board ->
-                        val route = AppRoute.Board(
-                            boardId = board.boardId,
-                            boardName = board.name,
-                            boardUrl = board.url
-                        )
-                        navController.navigateToBoard(
-                            route = route,
-                            tabsViewModel = tabsViewModel,
-                        ) {
-                            popUpTo(route) {
-                                inclusive = false
-                                saveState = true
+                        coroutineScope.launch {
+                            val route = tabsViewModel.normalizeBoardRouteForNavigation(
+                                AppRoute.Board(
+                                    boardId = board.boardId,
+                                    boardName = board.name,
+                                    boardUrl = board.url
+                                )
+                            )
+                            navController.navigateToBoard(
+                                route = route,
+                                tabsViewModel = tabsViewModel,
+                            ) {
+                                popUpTo(route) {
+                                    inclusive = false
+                                    saveState = true
+                                }
+                                restoreState = true
                             }
-                            restoreState = true
                         }
                     }
                 )

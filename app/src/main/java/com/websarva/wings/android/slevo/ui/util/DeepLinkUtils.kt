@@ -58,5 +58,6 @@ private fun parseUriOrNull(url: String): URI? {
 private val ALLOWED_HOST_SUFFIXES = listOf(
     "bbspink.com",
     "5ch.net",
+    "5ch.io",
     "2ch.sc"
 )

@@ -6,10 +6,13 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.BbsServiceRepository
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
+import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
+import com.websarva.wings.android.slevo.ui.util.BoardUrlNormalizationInput
+import com.websarva.wings.android.slevo.ui.util.normalizeBoardUrlTo5chIo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -33,6 +36,7 @@ class TabsViewModel @Inject constructor(
     private val boardTabsCoordinator: BoardTabsCoordinator,
     private val threadTabsCoordinator: ThreadTabsCoordinator,
     private val tabViewModelRegistry: TabViewModelRegistry,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val boardTabsState = combine(
@@ -94,6 +98,36 @@ class TabsViewModel @Inject constructor(
     init {
         boardTabsCoordinator.bind(viewModelScope)
         threadTabsCoordinator.bind(viewModelScope)
+    }
+
+    /**
+     * 板routeを永続化済み設定値に従って正規化する。
+     */
+    suspend fun normalizeBoardRouteForNavigation(route: AppRoute.Board): AppRoute.Board {
+        val isEnabled = settingsRepository.getIsRedirect5chNetToIoEnabled()
+        val normalizedUrl = normalizeBoardUrlTo5chIo(
+            BoardUrlNormalizationInput(
+                boardUrl = route.boardUrl,
+                isEnabled = isEnabled,
+            )
+        )
+        if (normalizedUrl == route.boardUrl) return route
+        return route.copy(boardUrl = normalizedUrl)
+    }
+
+    /**
+     * スレrouteを永続化済み設定値に従って正規化する。
+     */
+    suspend fun normalizeThreadRouteForNavigation(route: AppRoute.Thread): AppRoute.Thread {
+        val isEnabled = settingsRepository.getIsRedirect5chNetToIoEnabled()
+        val normalizedUrl = normalizeBoardUrlTo5chIo(
+            BoardUrlNormalizationInput(
+                boardUrl = route.boardUrl,
+                isEnabled = isEnabled,
+            )
+        )
+        if (normalizedUrl == route.boardUrl) return route
+        return route.copy(boardUrl = normalizedUrl)
     }
 
     fun getOrCreateThreadViewModel(viewModelKey: String): ThreadViewModel {
@@ -200,9 +234,34 @@ class TabsViewModel @Inject constructor(
      * boardKey からホストを解決する。
      * DBに無い場合は bbsmenu を参照して補完する。
      */
-    suspend fun resolveBoardHost(boardKey: String): String? {
-        return boardRepository.resolveHostByBoardKey(boardKey)
-            ?: bbsServiceRepository.resolveHostByBoardKeyFromMenu(boardKey)
+    suspend fun resolveBoardHost(boardKey: String, sourceUrl: String? = null): String? {
+        val menuDomain = resolveMenuDomainForHostLookup(sourceUrl)
+        val cachedHost = boardRepository.resolveHostByBoardKey(
+            boardKey = boardKey,
+            requiredDomain = menuDomain,
+        )
+        if (cachedHost != null) return cachedHost
+        return bbsServiceRepository.resolveHostByBoardKeyFromMenu(
+                boardKey = boardKey,
+                menuDomain = menuDomain,
+            )
+    }
+
+    /**
+     * itest板URLの入力元と設定値から、host補完に使うメニュードメインを決定する。
+     */
+    private suspend fun resolveMenuDomainForHostLookup(sourceUrl: String?): String? {
+        val sourceHost = sourceUrl
+            ?.let { kotlin.runCatching { java.net.URI(it).host?.lowercase() }.getOrNull() }
+            ?: return null
+        return when (sourceHost) {
+            "itest.5ch.net" -> {
+                // 初期読込中のキャッシュ値に依存せず、永続化済み設定値を直接参照する。
+                if (settingsRepository.getIsRedirect5chNetToIoEnabled()) "5ch.io" else "5ch.net"
+            }
+            "itest.5ch.io" -> "5ch.io"
+            else -> null
+        }
     }
 
     suspend fun resolveBoardInfo(

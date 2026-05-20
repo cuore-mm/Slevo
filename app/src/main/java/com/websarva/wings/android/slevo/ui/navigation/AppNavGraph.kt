@@ -319,7 +319,7 @@ sealed class AppRoute {
         val boardUrl: String,      // 必須：板URL（datUrl導出、投稿情報のため）
         val boardName: String,     // 推奨：表示用
         val boardId: Long? = null, // 任意：未登録の場合は画面側で解決
-        val threadTitle: String,   // 推奨：UX向上（即時タイトル表示）のため
+        val threadTitle: String? = null, // 任意：未取得時はnull（読み込み後に実タイトルで更新）
         val resCount: Int = 0      // 表示用: レス数
     ) : AppRoute()
 

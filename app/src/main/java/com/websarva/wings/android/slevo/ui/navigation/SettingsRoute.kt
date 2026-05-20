@@ -39,7 +39,11 @@ fun NavGraphBuilder.addSettingsRoute(
             val uiState by viewModel.uiState.collectAsState()
             SettingsGeneralScreen(
                 themeMode = uiState.themeMode,
+                isRedirect5chNetToIoEnabled = uiState.isRedirect5chNetToIoEnabled,
                 onSelectThemeMode = { viewModel.updateThemeMode(it) },
+                onToggleRedirect5chNetToIoEnabled = {
+                    viewModel.updateRedirect5chNetToIoEnabled(it)
+                },
                 onNavigateUp = { navController.navigateUp() }
             )
         }

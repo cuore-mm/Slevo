@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -40,6 +41,7 @@ import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import kotlinx.coroutines.launch
 
 /**
  * 板画面の表示とタブ解決をまとめて行う。
@@ -59,6 +61,7 @@ fun BoardScaffold(
     val tabsUiState by tabsViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val currentPage by tabsViewModel.boardCurrentPage.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(boardRoute) {
         // --- Board resolution ---
@@ -186,18 +189,22 @@ fun BoardScaffold(
                 modifier = modifier,
                 threads = uiState.threads ?: emptyList(),
                 onClick = { threadInfo ->
-                    val route = AppRoute.Thread(
-                        threadKey = threadInfo.key,
-                        boardUrl = uiState.boardInfo.url,
-                        boardName = uiState.boardInfo.name,
-                        boardId = uiState.boardInfo.boardId,
-                        threadTitle = threadInfo.title,
-                        resCount = threadInfo.resCount
-                    )
-                    navController.navigateToThread(
-                        route = route,
-                        tabsViewModel = tabsViewModel,
-                    )
+                    coroutineScope.launch {
+                        val route = tabsViewModel.normalizeThreadRouteForNavigation(
+                            AppRoute.Thread(
+                                threadKey = threadInfo.key,
+                                boardUrl = uiState.boardInfo.url,
+                                boardName = uiState.boardInfo.name,
+                                boardId = uiState.boardInfo.boardId,
+                                threadTitle = threadInfo.title,
+                                resCount = threadInfo.resCount
+                            )
+                        )
+                        navController.navigateToThread(
+                            route = route,
+                            tabsViewModel = tabsViewModel,
+                        )
+                    }
                 },
                 onLongClick = { threadInfo ->
                     viewModel.openThreadInfoSheet(threadInfo)

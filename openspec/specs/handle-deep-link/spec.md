@@ -17,7 +17,7 @@ TBD - created by archiving change add-bbs-deep-link. Update Purpose after archiv
 - **THEN** システムはスキームを変更せずに解析を継続する
 
 ### Requirement: Deep Link の板/スレ遷移
-システムは共通URLリゾルバを用いて Deep Link を解析し、板またはスレに解決できる場合のみ遷移することを SHALL 要求する。
+システムは共通URLリゾルバを用いて Deep Link を解析し、板またはスレに解決できる場合のみ遷移することを SHALL 要求する。対象ドメインには `5ch.net` と `5ch.io` を含めることを SHALL 要求する。
 
 #### Scenario: PC版のスレURLを開く
 - **WHEN** `https://{host}/test/read.cgi/{board}/{thread}/` の Deep Link を開く
@@ -31,6 +31,14 @@ TBD - created by archiving change add-bbs-deep-link. Update Purpose after archiv
 - **WHEN** `https://itest.{domain}/{server}/test/read.cgi/{board}/{thread}/` の Deep Link を開く
 - **THEN** システムは該当スレを表示する
 
+#### Scenario: 5ch.io のPC版スレDeep Linkを開く
+- **WHEN** `https://agree.5ch.io/test/read.cgi/operate/1234567890/` の Deep Link を開く
+- **THEN** システムは `agree.5ch.io` の `operate` 板にある `1234567890` スレを表示する
+
+#### Scenario: 5ch.io のitest版スレDeep Linkを開く
+- **WHEN** `https://itest.5ch.io/agree/test/read.cgi/operate/1234567890/` の Deep Link を開く
+- **THEN** システムは `agree.5ch.io` の `operate` 板にある `1234567890` スレを表示する
+
 ### Requirement: 未対応URLの通知
 システムは許可ドメイン外、対象パターン外、または itest 非対応ドメインの Deep Link を受け取った場合、遷移を行わずエラートーストで通知することを SHALL 要求する。
 
@@ -41,4 +49,3 @@ TBD - created by archiving change add-bbs-deep-link. Update Purpose after archiv
 #### Scenario: 2ch.sc の itest URL を開く
 - **WHEN** `https://itest.2ch.sc/subback/{board}` の Deep Link を開く
 - **THEN** システムはエラートーストを表示する
-

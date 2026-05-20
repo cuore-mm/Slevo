@@ -121,13 +121,26 @@ class ThreadTabsCoordinator @Inject constructor(
         val (host, board) = parseBoardUrl(route.boardUrl) ?: return -1
         val tabInfo = ThreadTabInfo(
             id = ThreadId.of(host, board, route.threadKey),
-            title = route.threadTitle,
+            title = buildInitialThreadTitle(route),
             boardName = route.boardName,
             boardUrl = route.boardUrl,
             boardId = route.boardId ?: 0L,
             resCount = route.resCount,
         )
         return upsertThreadTab(tabInfo)
+    }
+
+    /**
+     * スレタイトル未取得時の初期表示名を組み立てる。
+     *
+     * `threadTitle` が空の場合は、正規化済み `boardUrl` と `threadKey` から
+     * スレURLを組み立てて表示文字列にする。
+     */
+    private fun buildInitialThreadTitle(route: AppRoute.Thread): String {
+        route.threadTitle?.takeIf { it.isNotBlank() }?.let { return it }
+        val parsed = parseBoardUrl(route.boardUrl) ?: return ""
+        val (host, boardKey) = parsed
+        return "https://$host/test/read.cgi/$boardKey/${route.threadKey}/"
     }
 
     /**
