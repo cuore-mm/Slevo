@@ -25,6 +25,7 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
+import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardUiEvent
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
@@ -178,6 +179,15 @@ fun BoardScaffold(
             )
         },
         content = { viewModel, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
+            LaunchedEffect(viewModel) {
+                viewModel.uiEvents.collect { event ->
+                    when (event) {
+                        is BoardUiEvent.ShowToast -> {
+                            Toast.makeText(context, event.messageResId, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
             LaunchedEffect(uiState.resetScroll) {
                 if (uiState.resetScroll) {
                     listState.scrollToItem(0)

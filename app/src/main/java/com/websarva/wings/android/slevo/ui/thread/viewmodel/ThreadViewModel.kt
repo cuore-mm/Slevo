@@ -2,9 +2,11 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import android.content.Context
 import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.viewModelScope
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
@@ -97,6 +99,16 @@ private data class ThreadLoadDerived(
 )
 
 /**
+ * スレ画面向けの one-shot UI イベント。
+ */
+sealed interface ThreadUiEvent {
+    /**
+     * ユーザーへ短い通知を表示する Toast イベント。
+     */
+    data class ShowToast(@StringRes val messageResId: Int) : ThreadUiEvent
+}
+
+/**
  * ThreadViewModel の初期化に必要な入力。
  *
  * スレッド識別子と表示情報を初期化フローで利用する。
@@ -142,6 +154,8 @@ class ThreadViewModel @AssistedInject constructor(
     private val imageSaveCoordinator = ImageSaveCoordinator()
     private val _imageSaveEvents = MutableSharedFlow<ImageSaveUiEvent>(extraBufferCapacity = 1)
     val imageSaveEvents: SharedFlow<ImageSaveUiEvent> = _imageSaveEvents.asSharedFlow()
+    private val _uiEvents = MutableSharedFlow<ThreadUiEvent>(extraBufferCapacity = 1)
+    val uiEvents: SharedFlow<ThreadUiEvent> = _uiEvents.asSharedFlow()
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
     private var bookmarkStatusJob: Job? = null
@@ -436,7 +450,7 @@ class ThreadViewModel @AssistedInject constructor(
             val threadData = fetchThreadData(boardUrl, key)
             if (threadData == null) {
                 // データ取得に失敗した場合はここで終了する。
-                handleLoadFailure(boardUrl, key, shouldLog = true)
+                handleLoadFailure(boardUrl, key)
                 return
             }
             val derived = buildThreadLoadDerived(threadData, key)
@@ -444,9 +458,9 @@ class ThreadViewModel @AssistedInject constructor(
             updatePostGroupsOnLoad(derived.uiPosts)
             updateNgPostNumbers()
             handleHistoryOnLoad(derived.uiPosts, derived.threadTitle)
-        } catch (_: Exception) {
-            // 例外時はログを出さずにローディングを解除する。
-            handleLoadFailure(boardUrl, key, shouldLog = false)
+        } catch (e: Exception) {
+            // 例外詳細はログへ出し、ユーザーには短い文言を通知する。
+            handleLoadFailure(boardUrl, key, error = e)
         }
     }
 
@@ -633,7 +647,7 @@ class ThreadViewModel @AssistedInject constructor(
     /**
      * 取得失敗時にローディングを解除し、必要ならログを出力する。
      */
-    private fun handleLoadFailure(boardUrl: String, key: String, shouldLog: Boolean) {
+    private fun handleLoadFailure(boardUrl: String, key: String, error: Throwable? = null) {
         _uiState.update {
             it.copy(
                 isLoading = false,
@@ -641,9 +655,12 @@ class ThreadViewModel @AssistedInject constructor(
                 loadingSource = ThreadLoadingSource.NONE,
             )
         }
-        if (shouldLog) {
+        if (error != null) {
+            Timber.e(error, "Failed to load thread data for board: $boardUrl key: $key")
+        } else {
             Timber.e("Failed to load thread data for board: $boardUrl key: $key")
         }
+        _uiEvents.tryEmit(ThreadUiEvent.ShowToast(R.string.thread_load_failed))
     }
 
     /**
