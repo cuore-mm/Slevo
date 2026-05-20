@@ -18,9 +18,10 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -90,16 +91,13 @@ class BoardViewModelTest {
         } returns false
 
         val viewModel = createViewModel(repository = repository)
-        val events = mutableListOf<BoardUiEvent>()
-        val job = backgroundScope.launch { viewModel.uiEvents.collect { events.add(it) } }
+        val eventDeferred = async { viewModel.uiEvents.first() }
         advanceUntilIdle()
 
         viewModel.initializeFlow(BoardInitArgs(BoardInfo(0, "test", "https://example.com/test/")))
         advanceUntilIdle()
 
-        assertEquals(1, events.size)
-        assertEquals(BoardUiEvent.ShowToast(R.string.board_load_failed), events[0])
-        job.cancel()
+        assertEquals(BoardUiEvent.ShowToast(R.string.board_load_failed), eventDeferred.await())
     }
 
     @Test
@@ -112,15 +110,12 @@ class BoardViewModelTest {
         } throws IOException("network error")
 
         val viewModel = createViewModel(repository = repository)
-        val events = mutableListOf<BoardUiEvent>()
-        val job = backgroundScope.launch { viewModel.uiEvents.collect { events.add(it) } }
+        val eventDeferred = async { viewModel.uiEvents.first() }
         advanceUntilIdle()
 
         viewModel.initializeFlow(BoardInitArgs(BoardInfo(0, "test", "https://example.com/test/")))
         advanceUntilIdle()
 
-        assertEquals(1, events.size)
-        assertEquals(BoardUiEvent.ShowToast(R.string.board_load_failed), events[0])
-        job.cancel()
+        assertEquals(BoardUiEvent.ShowToast(R.string.board_load_failed), eventDeferred.await())
     }
 }

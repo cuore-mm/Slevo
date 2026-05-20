@@ -23,9 +23,10 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -113,8 +114,7 @@ class ThreadViewModelTest {
             datRepository = datRepository,
             boardRepository = boardRepository,
         )
-        val events = mutableListOf<ThreadUiEvent>()
-        val job = backgroundScope.launch { viewModel.uiEvents.collect { events.add(it) } }
+        val eventDeferred = async { viewModel.uiEvents.first() }
         advanceUntilIdle()
 
         viewModel.initializeFlow(
@@ -126,9 +126,7 @@ class ThreadViewModelTest {
         )
         advanceUntilIdle()
 
-        assertEquals(1, events.size)
-        assertEquals(ThreadUiEvent.ShowToast(R.string.thread_load_failed), events[0])
-        job.cancel()
+        assertEquals(ThreadUiEvent.ShowToast(R.string.thread_load_failed), eventDeferred.await())
     }
 
     @Test
@@ -144,8 +142,7 @@ class ThreadViewModelTest {
             datRepository = datRepository,
             boardRepository = boardRepository,
         )
-        val events = mutableListOf<ThreadUiEvent>()
-        val job = backgroundScope.launch { viewModel.uiEvents.collect { events.add(it) } }
+        val eventDeferred = async { viewModel.uiEvents.first() }
         advanceUntilIdle()
 
         viewModel.initializeFlow(
@@ -157,8 +154,6 @@ class ThreadViewModelTest {
         )
         advanceUntilIdle()
 
-        assertEquals(1, events.size)
-        assertEquals(ThreadUiEvent.ShowToast(R.string.thread_load_failed), events[0])
-        job.cancel()
+        assertEquals(ThreadUiEvent.ShowToast(R.string.thread_load_failed), eventDeferred.await())
     }
 }
