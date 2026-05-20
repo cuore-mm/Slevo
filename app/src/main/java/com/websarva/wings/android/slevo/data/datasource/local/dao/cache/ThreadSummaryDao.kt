@@ -10,25 +10,22 @@ import kotlinx.coroutines.flow.Flow
 /**
  * 板ごとのスレッド一覧キャッシュを読み書きする DAO。
  *
- * `thread_summaries` の現役/アーカイブ状態を扱い、板更新時の差分反映で利用する。
+ * `thread_summaries` の現役一覧を扱い、板更新時の差分反映で利用する。
  */
 @Dao
 interface ThreadSummaryDao {
-    @Query("SELECT * FROM thread_summaries WHERE boardId = :boardId AND isArchived = 0 ORDER BY subjectRank ASC LIMIT :limit")
+    @Query("SELECT * FROM thread_summaries WHERE boardId = :boardId ORDER BY subjectRank ASC LIMIT :limit")
     fun observeThreadSummaries(boardId: Long, limit: Int = Int.MAX_VALUE): Flow<List<ThreadSummaryEntity>>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(entities: List<ThreadSummaryEntity>)
 
-    @Query("UPDATE thread_summaries SET title = :title, resCount = :resCount, isArchived = 0, subjectRank = :rank WHERE boardId = :boardId AND threadId = :threadId")
+    @Query("UPDATE thread_summaries SET title = :title, resCount = :resCount, subjectRank = :rank WHERE boardId = :boardId AND threadId = :threadId")
     suspend fun updateExisting(boardId: Long, threadId: String, title: String, resCount: Int, rank: Int)
 
-    @Query("UPDATE thread_summaries SET isArchived = 1 WHERE boardId = :boardId AND threadId IN (:threadIds)")
-    suspend fun markArchived(boardId: Long, threadIds: List<String>)
+    @Query("DELETE FROM thread_summaries WHERE boardId = :boardId AND threadId IN (:threadIds)")
+    suspend fun deleteByThreadIds(boardId: Long, threadIds: List<String>)
 
     @Query("SELECT threadId FROM thread_summaries WHERE boardId = :boardId")
     suspend fun getAllThreadIds(boardId: Long): List<String>
-
-    @Query("SELECT threadId FROM thread_summaries WHERE boardId = :boardId AND isArchived = 0")
-    suspend fun getActiveThreadIds(boardId: Long): List<String>
 }

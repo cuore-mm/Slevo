@@ -65,7 +65,7 @@ class DatabaseCallback @Inject constructor(
                 "LEFT JOIN thread_histories h ON h.threadId = s.threadId " +
                 "LEFT JOIN bookmark_threads b ON b.boardUrl = s.boardUrl AND b.threadKey = s.threadKey " +
                 "LEFT JOIN thread_summaries ts ON ts.boardId = s.boardId " +
-                "AND ts.threadId = s.threadKey AND ts.isArchived = 0 " +
+                "AND ts.threadId = s.threadKey " +
                 "WHERE s.updatedAt < $updatedBefore " +
                 "AND t.threadId IS NULL " +
                 "AND h.threadId IS NULL " +

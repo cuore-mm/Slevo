@@ -14,12 +14,12 @@ class BoardRepositoryArchiveChunkTest {
      * 件数が上限を超える場合に複数チャンクへ分割されることを確認する。
      */
     @Test
-    fun chunkThreadIdsForArchive_splitsLargeListIntoMultipleChunks() {
+    fun chunkThreadIdsForDeletion_splitsLargeListIntoMultipleChunks() {
         // --- Arrange ---
         val ids = (1..2_050).map { it.toString() }
 
         // --- Act ---
-        val chunks = chunkThreadIdsForArchive(ids, chunkSize = 900)
+        val chunks = chunkThreadIdsForDeletion(ids, chunkSize = 900)
 
         // --- Assert ---
         assertEquals(3, chunks.size)
@@ -33,9 +33,9 @@ class BoardRepositoryArchiveChunkTest {
      * 空入力では SQL 発行対象が存在しないため、空チャンクを返すことを確認する。
      */
     @Test
-    fun chunkThreadIdsForArchive_returnsEmptyWhenNoIds() {
+    fun chunkThreadIdsForDeletion_returnsEmptyWhenNoIds() {
         // --- Act ---
-        val chunks = chunkThreadIdsForArchive(emptyList(), chunkSize = 900)
+        val chunks = chunkThreadIdsForDeletion(emptyList(), chunkSize = 900)
 
         // --- Assert ---
         assertTrue(chunks.isEmpty())
@@ -45,13 +45,13 @@ class BoardRepositoryArchiveChunkTest {
      * 未アーカイブ集合だけを差分計算の母集合に使うことを確認する。
      */
     @Test
-    fun calculateRemovedActiveThreadIds_returnsOnlyIdsMissingFromLatestSubject() {
+    fun calculateRemovedThreadIds_returnsOnlyIdsMissingFromLatestSubject() {
         // --- Arrange ---
-        val activeExistingIds = listOf("100", "200", "300", "400")
+        val existingIds = listOf("100", "200", "300", "400")
         val latestSubjectIds = listOf("200", "400", "500")
 
         // --- Act ---
-        val removed = calculateRemovedActiveThreadIds(activeExistingIds, latestSubjectIds)
+        val removed = calculateRemovedThreadIds(existingIds, latestSubjectIds)
 
         // --- Assert ---
         assertEquals(listOf("100", "300"), removed)
