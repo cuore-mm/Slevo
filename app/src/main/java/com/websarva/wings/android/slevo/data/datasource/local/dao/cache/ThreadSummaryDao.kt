@@ -7,6 +7,11 @@ import androidx.room.Query
 import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.ThreadSummaryEntity
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * 板ごとのスレッド一覧キャッシュを読み書きする DAO。
+ *
+ * `thread_summaries` の現役/アーカイブ状態を扱い、板更新時の差分反映で利用する。
+ */
 @Dao
 interface ThreadSummaryDao {
     @Query("SELECT * FROM thread_summaries WHERE boardId = :boardId AND isArchived = 0 ORDER BY subjectRank ASC LIMIT :limit")
@@ -22,5 +27,8 @@ interface ThreadSummaryDao {
     suspend fun markArchived(boardId: Long, threadIds: List<String>)
 
     @Query("SELECT threadId FROM thread_summaries WHERE boardId = :boardId")
-    suspend fun getThreadIds(boardId: Long): List<String>
+    suspend fun getAllThreadIds(boardId: Long): List<String>
+
+    @Query("SELECT threadId FROM thread_summaries WHERE boardId = :boardId AND isArchived = 0")
+    suspend fun getActiveThreadIds(boardId: Long): List<String>
 }
