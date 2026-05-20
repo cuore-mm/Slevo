@@ -6,9 +6,9 @@
 
 - 板更新時に最新 subject.txt から消えた `thread_summaries` 行は、`isArchived = 1` へ更新せず削除する。
 - `thread_summaries` は「現在 subject.txt に存在するスレッド一覧キャッシュ」として扱う。
-- 既存 DB に残っている `isArchived = 1` の過去行は、移行または初回クリーンアップで削除する。
+- `isArchived` カラムを `thread_summaries` から削除し、アーカイブ状態を持たないテーブル定義へ移行する。
+- 既存 DB の移行時には `isArchived = 0` の現役 summary だけを新テーブルへコピーし、`isArchived = 1` の過去行は破棄する。
 - 履歴・ブックマーク・開いているタブ・共通客観状態は、それぞれの独立データとして保持し、summary 削除に巻き込まない。
-- `isArchived` カラムの物理削除は別段階で検討し、この変更では削除方式への挙動変更と既存アーカイブ行の整理を優先する。
 
 ## Capabilities
 
@@ -20,7 +20,6 @@
 
 ## Impact
 
-- 影響範囲: `BoardRepository.refreshThreadList`、`ThreadSummaryDao`、`ThreadSummaryEntity`、DB migration / cleanup、関連テスト。
-- `thread_summaries` の過去アーカイブ行は削除対象になる。
-- `isArchived` カラムは当面残す想定だが、新規の板更新処理ではアーカイブ用途に依存しない。
+- 影響範囲: `BoardRepository.refreshThreadList`、`ThreadSummaryDao`、`ThreadSummaryEntity`、DB migration、関連テスト。
+- `thread_summaries` の過去アーカイブ行と `isArchived` カラムは削除対象になる。
 - 履歴、ブックマーク、開いているタブ、`thread_states` のデータ保持仕様は変更しない。

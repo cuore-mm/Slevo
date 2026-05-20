@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: 板一覧キャッシュの現役スレッド限定保持
-システムは `thread_summaries` を最新 subject.txt に存在する現役スレッドのキャッシュとして保持しなければならないMUST。板更新時に最新 subject.txt から消えた summary は、アーカイブ状態へ更新せず削除しなければならないMUST。
+システムは `thread_summaries` を最新 subject.txt に存在する現役スレッドのキャッシュとして保持しなければならないMUST。板更新時に最新 subject.txt から消えた summary は、アーカイブ状態へ更新せず削除しなければならないMUST。`thread_summaries` はアーカイブ状態を保持してはならないMUST NOT。
 
 #### Scenario: 現役 summary が subject.txt から消える
 - **WHEN** 更新開始時点で `thread_summaries` に存在する現役スレッドが最新 subject.txt に存在しない
@@ -33,13 +33,17 @@
 - **WHEN** summary の分割削除中に DB 更新エラーが発生する
 - **THEN** システムは板更新トランザクションを確定せず、部分的なキャッシュ更新を残さない
 
-### Requirement: 既存アーカイブ済み summary の整理
-システムは既存 DB に残る `isArchived = 1` の `thread_summaries` 行を削除対象として扱わなければならないMUST。整理処理は `isArchived = 0` の現役 summary を削除してはならないMUST NOT。
+### Requirement: isArchived カラムの削除移行
+システムは既存 DB の `thread_summaries` を、`isArchived` カラムを持たないスキーマへ移行しなければならないMUST。移行時には旧テーブルの `isArchived = 0` の行だけを新テーブルへコピーし、`isArchived = 1` の行をコピーしてはならないMUST NOT。
 
 #### Scenario: 既存 DB にアーカイブ済み summary が残っている
 - **WHEN** アプリ更新後の DB に `isArchived = 1` の `thread_summaries` 行が存在する
-- **THEN** システムは migration または cleanup により当該行を削除対象にする
+- **THEN** システムは migration で当該行を新しい `thread_summaries` へコピーしない
 
 #### Scenario: 現役 summary が存在する
 - **WHEN** `thread_summaries` に `isArchived = 0` の行が存在する
-- **THEN** システムは既存アーカイブ行の整理処理で当該行を削除しない
+- **THEN** システムは migration で当該行を新しい `thread_summaries` へコピーする
+
+#### Scenario: 移行後の thread_summaries を参照する
+- **WHEN** システムが移行後の `thread_summaries` を読み書きする
+- **THEN** システムは `isArchived` カラムや `isArchived = 0` 条件に依存しない
