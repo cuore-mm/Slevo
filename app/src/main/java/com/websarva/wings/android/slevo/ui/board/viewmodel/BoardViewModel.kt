@@ -8,21 +8,21 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
+import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
-import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
-import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUploader
-import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
-import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
-import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
 import com.websarva.wings.android.slevo.ui.common.bookmark.BoardTarget
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUploader
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
+import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -30,9 +30,9 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -45,7 +45,7 @@ sealed interface BoardUiEvent {
     /**
      * ユーザーへ短い通知を表示する Toast イベント。
      */
-    data class ShowToast(@StringRes val messageResId: Int) : BoardUiEvent
+    data class ShowToast(@param:StringRes val messageResId: Int) : BoardUiEvent
 }
 
 /**
@@ -78,7 +78,10 @@ class BoardViewModel @AssistedInject constructor(
 
     private var bookmarkStatusJob: Job? = null
     val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
-    private val _uiEvents = MutableSharedFlow<BoardUiEvent>(extraBufferCapacity = 1)
+    private val _uiEvents = MutableSharedFlow<BoardUiEvent>(
+        replay = 1,
+        extraBufferCapacity = 1
+    )
 
     /**
      * 板画面の one-shot UI イベントを公開する。

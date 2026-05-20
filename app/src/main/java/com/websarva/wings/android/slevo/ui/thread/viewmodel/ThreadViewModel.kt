@@ -46,9 +46,9 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
-import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.toHiragana
 import dagger.assisted.Assisted
@@ -105,7 +105,7 @@ sealed interface ThreadUiEvent {
     /**
      * ユーザーへ短い通知を表示する Toast イベント。
      */
-    data class ShowToast(@StringRes val messageResId: Int) : ThreadUiEvent
+    data class ShowToast(@param:StringRes val messageResId: Int) : ThreadUiEvent
 }
 
 /**
@@ -154,7 +154,10 @@ class ThreadViewModel @AssistedInject constructor(
     private val imageSaveCoordinator = ImageSaveCoordinator()
     private val _imageSaveEvents = MutableSharedFlow<ImageSaveUiEvent>(extraBufferCapacity = 1)
     val imageSaveEvents: SharedFlow<ImageSaveUiEvent> = _imageSaveEvents.asSharedFlow()
-    private val _uiEvents = MutableSharedFlow<ThreadUiEvent>(extraBufferCapacity = 1)
+    private val _uiEvents = MutableSharedFlow<ThreadUiEvent>(
+        replay = 1,
+        extraBufferCapacity = 1
+    )
     val uiEvents: SharedFlow<ThreadUiEvent> = _uiEvents.asSharedFlow()
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
@@ -393,12 +396,8 @@ class ThreadViewModel @AssistedInject constructor(
             }
         }
 
-        // --- Add new ---
-        val parsed = parseBoardUrl(args.boardInfo.url)
-        if (parsed == null) {
-            // URL解析に失敗した場合はタブ追加を行わない。
-            return null
-        }
+        // URL解析に失敗した場合はタブ追加を行わない。
+        val parsed = parseBoardUrl(args.boardInfo.url) ?: return null
         val (host, board) = parsed
         return currentTabs + ThreadTabInfo(
             id = ThreadId.of(host, board, args.threadKey),
@@ -425,11 +424,8 @@ class ThreadViewModel @AssistedInject constructor(
         threadTitle: String?,
     ): String {
         threadTitle?.takeIf { it.isNotBlank() }?.let { return it }
-        val parsed = parseBoardUrl(boardUrl)
-        if (parsed == null) {
-            // URL解析に失敗した場合は空文字にフォールバックする。
-            return ""
-        }
+        // URL解析に失敗した場合は空文字にフォールバックする。
+        val parsed = parseBoardUrl(boardUrl) ?: return ""
         val (host, boardKey) = parsed
         return "https://$host/test/read.cgi/$boardKey/$threadKey/"
     }
@@ -581,7 +577,7 @@ class ThreadViewModel @AssistedInject constructor(
         _uiState.update { state ->
             state.copy(
                 imageLoadFailureByUrl = state.imageLoadFailureByUrl +
-                    (imageUrl to failureType),
+                        (imageUrl to failureType),
                 imageLoadingUrls = state.imageLoadingUrls - imageUrl,
             )
         }
@@ -1254,7 +1250,7 @@ class ThreadViewModel @AssistedInject constructor(
      *
      * 空URLを除外し、重複を除いた順序で返す。
      */
-    fun requestImageSave(context: android.content.Context, urls: List<String>) {
+    fun requestImageSave(context: Context, urls: List<String>) {
         when (val preparation = imageSaveCoordinator.prepareSave(context, urls)) {
             ImageSavePreparation.Ignore -> Unit
             is ImageSavePreparation.RequestPermission -> {
@@ -1270,7 +1266,7 @@ class ThreadViewModel @AssistedInject constructor(
     /**
      * 権限要求の結果を受け取り、許可時は保留していた保存処理を再開する。
      */
-    fun onImageSavePermissionResult(context: android.content.Context, granted: Boolean) {
+    fun onImageSavePermissionResult(context: Context, granted: Boolean) {
         if (!granted) {
             imageSaveCoordinator.clearPendingUrls()
             _imageSaveEvents.tryEmit(
@@ -1290,7 +1286,7 @@ class ThreadViewModel @AssistedInject constructor(
     /**
      * 指定URL一覧の保存処理を実行し、進行中通知と結果通知イベントを発行する。
      */
-    private fun launchImageSave(context: android.content.Context, urls: List<String>) {
+    private fun launchImageSave(context: Context, urls: List<String>) {
         if (urls.isEmpty()) {
             // Guard: 空URL一覧では保存処理を開始しない。
             return
@@ -1473,8 +1469,8 @@ internal fun isSamePopupContent(
     right: PopupInfo,
 ): Boolean {
     return left.posts == right.posts &&
-        left.indentLevels == right.indentLevels &&
-        left.rootNumbers == right.rootNumbers
+            left.indentLevels == right.indentLevels &&
+            left.rootNumbers == right.rootNumbers
 }
 
 /**
