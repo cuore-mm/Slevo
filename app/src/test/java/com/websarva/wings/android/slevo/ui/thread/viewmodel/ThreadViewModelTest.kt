@@ -19,10 +19,8 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUploader
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
-import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.every
-import io.mockk.just
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -76,7 +74,6 @@ class ThreadViewModelTest {
         every { ngRepository.observeNgs() } returns flowOf(emptyList())
 
         every { tabsRepository.observeOpenThreadTabs() } returns flowOf(emptyList())
-        coEvery { tabsRepository.saveOpenThreadTabs(any()) } just Runs
 
         val postDialogController = mockk<PostDialogController>(relaxed = true)
         every {
