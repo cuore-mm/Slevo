@@ -115,6 +115,7 @@ class ThreadViewModelTest {
         )
         val events = mutableListOf<ThreadUiEvent>()
         val job = backgroundScope.launch { viewModel.uiEvents.collect { events.add(it) } }
+        advanceUntilIdle()
 
         viewModel.initializeFlow(
             ThreadInitArgs(
@@ -145,6 +146,7 @@ class ThreadViewModelTest {
         )
         val events = mutableListOf<ThreadUiEvent>()
         val job = backgroundScope.launch { viewModel.uiEvents.collect { events.add(it) } }
+        advanceUntilIdle()
 
         viewModel.initializeFlow(
             ThreadInitArgs(

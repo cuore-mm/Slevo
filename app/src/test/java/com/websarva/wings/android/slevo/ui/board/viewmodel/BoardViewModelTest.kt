@@ -92,6 +92,7 @@ class BoardViewModelTest {
         val viewModel = createViewModel(repository = repository)
         val events = mutableListOf<BoardUiEvent>()
         val job = backgroundScope.launch { viewModel.uiEvents.collect { events.add(it) } }
+        advanceUntilIdle()
 
         viewModel.initializeFlow(BoardInitArgs(BoardInfo(0, "test", "https://example.com/test/")))
         advanceUntilIdle()
@@ -113,6 +114,7 @@ class BoardViewModelTest {
         val viewModel = createViewModel(repository = repository)
         val events = mutableListOf<BoardUiEvent>()
         val job = backgroundScope.launch { viewModel.uiEvents.collect { events.add(it) } }
+        advanceUntilIdle()
 
         viewModel.initializeFlow(BoardInitArgs(BoardInfo(0, "test", "https://example.com/test/")))
         advanceUntilIdle()
