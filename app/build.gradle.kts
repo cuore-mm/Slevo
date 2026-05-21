@@ -47,6 +47,19 @@ android {
         buildConfigField("String", "IMGBB_API_KEY", "\"$apiKey\"")
     }
 
+    signingConfigs {
+        create("ci") {
+            val ciKeystorePath = System.getenv("CI_KEYSTORE_PATH")
+
+            if (!ciKeystorePath.isNullOrBlank()) {
+                storeFile = file(ciKeystorePath)
+                storePassword = System.getenv("CI_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("CI_KEY_ALIAS")
+                keyPassword = System.getenv("CI_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -66,6 +79,7 @@ android {
             versionNameSuffix = "-ci"
             matchingFallbacks += listOf("debug")
             resValue("string", "app_name", "Slevo (CI)")
+            signingConfig = signingConfigs.getByName("ci")
         }
     }
 

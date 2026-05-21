@@ -25,7 +25,16 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
+      - name: Decode CI keystore
+        run: |
+          echo "${{ secrets.CI_KEYSTORE_BASE64 }}" | base64 -d > ci-release.keystore
+
       - name: Test + Build CI APK (retry once on failure)
+        env:
+          CI_KEYSTORE_PATH: ${{ github.workspace }}/ci-release.keystore
+          CI_KEYSTORE_PASSWORD: ${{ secrets.CI_KEYSTORE_PASSWORD }}
+          CI_KEY_ALIAS: ${{ secrets.CI_KEY_ALIAS }}
+          CI_KEY_PASSWORD: ${{ secrets.CI_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           ./gradlew testCiUnitTest assembleCi --stacktrace || (
