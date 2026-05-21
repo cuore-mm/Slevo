@@ -519,6 +519,53 @@ class AppDatabaseMigrationTest {
     }
 
     /**
+     * v7 の `thread_summaries` から `isArchived` カラムを削除し、現役行だけを保持する。
+     */
+    @Test
+    fun migrate7To8_recreatesThreadSummariesWithoutIsArchived() {
+        // --- Setup ---
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.deleteDatabase(TEST_DB)
+
+        helper.createDatabase(TEST_DB, 7).apply {
+            execSQL("INSERT INTO services (serviceId, domain, displayName, menuUrl) VALUES (1, 'example.com', 'Example', NULL)")
+            execSQL("INSERT INTO boards (boardId, serviceId, url, name) VALUES (1, 1, 'https://example.com/test/', 'Test Board')")
+            execSQL("INSERT INTO thread_summaries (boardId, threadId, title, resCount, firstSeenAt, isArchived, subjectRank) VALUES (1, 'live', 'Live', 10, 100, 0, 0)")
+            execSQL("INSERT INTO thread_summaries (boardId, threadId, title, resCount, firstSeenAt, isArchived, subjectRank) VALUES (1, 'old', 'Old', 1, 90, 1, 1)")
+            close()
+        }
+
+        // --- Migration ---
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            8,
+            true,
+            AppDatabase.MIGRATION_7_8
+        )
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
+            .addMigrations(AppDatabase.MIGRATION_7_8)
+            .build()
+
+        // --- Validation ---
+        db.openHelper.writableDatabase.query("PRAGMA table_info('thread_summaries')").use { cursor ->
+            val columns = mutableListOf<String>()
+            while (cursor.moveToNext()) {
+                columns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
+            }
+            assertFalse(columns.contains("isArchived"))
+            assertTrue(columns.containsAll(listOf("boardId", "threadId", "title", "resCount", "firstSeenAt", "subjectRank")))
+        }
+        db.openHelper.writableDatabase.query("SELECT threadId FROM thread_summaries ORDER BY threadId").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("live", cursor.getString(0))
+            assertFalse(cursor.moveToNext())
+        }
+
+        db.close()
+    }
+
+    /**
      * `thread_states` の GC が古い孤立行だけを削除し、各参照元がある行を保持することを検証する。
      */
     @Test
@@ -554,7 +601,7 @@ class AppDatabaseMigrationTest {
         writable.execSQL("INSERT INTO open_thread_tabs (threadId, sortOrder, firstVisibleItemIndex, firstVisibleItemScrollOffset) VALUES ('example.com/test/tab', 0, 0, 0)")
         writable.execSQL("INSERT INTO thread_histories (threadId, boardUrl, boardId, boardName, title, resCount, prevResCount, lastReadResNo, firstNewResNo) VALUES ('example.com/test/history', 'https://example.com/test/', 1, 'Test Board', 'history', 1, 0, 0, NULL)")
         writable.execSQL("INSERT INTO bookmark_threads (threadKey, boardUrl, boardId, groupId, title, boardName, resCount) VALUES ('bookmark', 'https://example.com/test/', 1, 1, 'bookmark', 'Test Board', 1)")
-        writable.execSQL("INSERT INTO thread_summaries (boardId, threadId, title, resCount, firstSeenAt, isArchived, subjectRank) VALUES (1, 'summary', 'summary', 1, 0, 0, 0)")
+        writable.execSQL("INSERT INTO thread_summaries (boardId, threadId, title, resCount, firstSeenAt, subjectRank) VALUES (1, 'summary', 'summary', 1, 0, 0)")
 
         // --- GC ---
         val deleted = repository.collectGarbage(nowMillis = now, limit = 10)

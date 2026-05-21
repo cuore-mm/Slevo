@@ -30,6 +30,8 @@ data class BoardUiState(
     val searchQuery: String = "",
     val postDialogState: PostDialogState = PostDialogState(),
     val resetScroll: Boolean = false,
+    /** 未表示のToastメッセージリソースID。表示後は consumeToast() で null に戻す。 */
+    val pendingToastResId: Int? = null,
     override val loadProgress: Float = 0f,
     override val gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     override val isLoading: Boolean = false,

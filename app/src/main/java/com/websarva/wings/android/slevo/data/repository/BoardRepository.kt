@@ -40,6 +40,13 @@ class BoardRepository @Inject constructor(
     private val threadStateRepository: ThreadStateRepository,
     private val db: AppDatabase,
 ) {
+    private companion object {
+        /**
+         * `boardId` バインド 1 件を含めても SQLite 変数上限に十分余裕を持たせるための分割サイズ。
+         */
+        const val SQL_VARIABLE_CHUNK_SIZE = 900
+    }
+
     /**
      * 指定した板IDのスレッド一覧を監視するFlowを返す。
      * スレッド情報・基準時刻・メタ情報を組み合わせてThreadInfoリストを生成。
@@ -137,7 +144,7 @@ class BoardRepository @Inject constructor(
                 db.withTransaction {
                     val boardEntity = boardDao.findBoardById(boardId)
                     val boardKey = boardEntity?.url?.let { parseBoardUrl(it) }
-                    val existingIds = threadSummaryDao.getThreadIds(boardId)
+                    val existingIds = threadSummaryDao.getAllThreadIds(boardId).toHashSet()
                     val newIds = mutableListOf<String>()
                     val inserts = mutableListOf<ThreadSummaryEntity>()
                     threads.forEachIndexed { index, t ->
@@ -158,7 +165,6 @@ class BoardRepository @Inject constructor(
                                     title = t.title,
                                     resCount = t.resCount,
                                     firstSeenAt = now,
-                                    isArchived = false,
                                     subjectRank = index
                                 )
                             )
@@ -181,8 +187,8 @@ class BoardRepository @Inject constructor(
                             }
                         )
                     }
-                    val removed = existingIds.minus(newIds.toSet())
-                    if (removed.isNotEmpty()) threadSummaryDao.markArchived(boardId, removed)
+                    val removed = calculateRemovedThreadIds(existingIds.toList(), newIds)
+                    deleteThreadSummariesInChunks(boardId, removed)
                     if (removed.isNotEmpty()) threadStateRepository.collectGarbage()
                     fetchMetaDao.upsert(
                         BoardFetchMetaEntity(boardId, result.etag, result.lastModified, now)
@@ -317,4 +323,43 @@ class BoardRepository @Inject constructor(
             if (insertedId != -1L) insertedId else boardDao.findBoardIdByUrl(boardInfo.url)
         }
     }
+
+    /**
+     * 削除対象 ID をチャンク分割して削除する。
+     *
+     * 1 回の SQL 変数数を抑え、`too many SQL variables` を回避する。
+     */
+    private suspend fun deleteThreadSummariesInChunks(boardId: Long, threadIds: List<String>) {
+        // 空集合の場合は SQL を発行せずに終了する。
+        if (threadIds.isEmpty()) {
+            return
+        }
+
+        // SQLite の変数上限を超えないように固定サイズで分割する。
+        chunkThreadIdsForDeletion(threadIds, SQL_VARIABLE_CHUNK_SIZE).forEach { chunk ->
+            threadSummaryDao.deleteByThreadIds(boardId, chunk)
+        }
+    }
+}
+
+/**
+ * 削除対象のスレッド ID を SQL 安全サイズに分割する。
+ *
+ * 返却順は入力順を維持し、全要素を重複なく 1 回ずつ含む。
+ */
+internal fun chunkThreadIdsForDeletion(threadIds: List<String>, chunkSize: Int): List<List<String>> {
+    // 分割単位が不正な場合は呼び出し側の設定ミスとして即時失敗させる。
+    require(chunkSize > 0) { "chunkSize must be greater than 0" }
+    return threadIds.chunked(chunkSize)
+}
+
+/**
+ * 既存スレッド一覧から、最新 subject.txt に存在しない ID を抽出する。
+ */
+internal fun calculateRemovedThreadIds(
+    existingIds: List<String>,
+    latestSubjectIds: List<String>,
+): List<String> {
+    val latestIdSet = latestSubjectIds.toHashSet()
+    return existingIds.filterNot { it in latestIdSet }
 }

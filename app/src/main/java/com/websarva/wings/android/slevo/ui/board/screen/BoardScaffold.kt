@@ -178,6 +178,12 @@ fun BoardScaffold(
             )
         },
         content = { viewModel, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
+            LaunchedEffect(uiState.pendingToastResId) {
+                uiState.pendingToastResId?.let { resId ->
+                    Toast.makeText(context, resId, Toast.LENGTH_SHORT).show()
+                    viewModel.consumeToast()
+                }
+            }
             LaunchedEffect(uiState.resetScroll) {
                 if (uiState.resetScroll) {
                     listState.scrollToItem(0)

@@ -3,24 +3,25 @@ package com.websarva.wings.android.slevo.ui.board.viewmodel
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
+import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
-import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
-import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUploader
-import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
-import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
-import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
 import com.websarva.wings.android.slevo.ui.common.bookmark.BoardTarget
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUploader
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
+import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import timber.log.Timber
 
 /**
  * BoardViewModel の初期化に必要な入力。
@@ -218,7 +220,7 @@ class BoardViewModel @AssistedInject constructor(
         val normalizedUrl = boardUrl.trimEnd('/')
         try {
             // subject.txt を使ってスレッド一覧を取得（進捗コールバックで UI 更新）
-            repository.refreshThreadList(
+            val success = repository.refreshThreadList(
                 boardInfo.boardId,
                 "$normalizedUrl/subject.txt",
                 refreshStartAt,
@@ -226,8 +228,13 @@ class BoardViewModel @AssistedInject constructor(
             ) { progress ->
                 _uiState.update { state -> state.copy(loadProgress = progress) }
             }
-        } catch (_: Exception) {
-            // 取得失敗は UI で黙殺（既存処理維持）
+            if (!success) {
+                _uiState.update { it.copy(pendingToastResId = R.string.board_load_failed) }
+            }
+        } catch (e: Exception) {
+            // 例外詳細はログへ出し、ユーザーには短い文言を通知する。
+            Timber.e(e, "Failed to refresh board threads: ${boardInfo.url}")
+            _uiState.update { it.copy(pendingToastResId = R.string.board_load_failed) }
         } finally {
             // 読み込み終了後の UI 更新とスレッドコーディネータへの通知
             _uiState.update { it.copy(isLoading = false, loadProgress = 1f, resetScroll = true) }
@@ -245,6 +252,13 @@ class BoardViewModel @AssistedInject constructor(
     // スクロールリセットフラグの消費（UI 側で呼ぶ）
     fun consumeResetScroll() {
         _uiState.update { it.copy(resetScroll = false) }
+    }
+
+    /**
+     * 未表示Toastの消費（UI 側で表示後に呼ぶ）。
+     */
+    fun consumeToast() {
+        _uiState.update { it.copy(pendingToastResId = null) }
     }
 
     // --- ブックマークシート関連 ---

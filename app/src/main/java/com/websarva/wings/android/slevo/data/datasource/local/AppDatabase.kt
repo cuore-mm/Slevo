@@ -69,7 +69,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.state.Threa
         PostLastIdentityEntity::class,
         ThreadStateEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -285,6 +285,36 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL("DROP TABLE open_thread_tabs")
                 db.execSQL("ALTER TABLE open_thread_tabs_new RENAME TO open_thread_tabs")
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS thread_summaries_new (" +
+                        "boardId INTEGER NOT NULL, " +
+                        "threadId TEXT NOT NULL, " +
+                        "title TEXT NOT NULL, " +
+                        "resCount INTEGER NOT NULL, " +
+                        "firstSeenAt INTEGER NOT NULL, " +
+                        "subjectRank INTEGER NOT NULL, " +
+                        "PRIMARY KEY(boardId, threadId), " +
+                        "FOREIGN KEY(boardId) REFERENCES boards(boardId) ON DELETE CASCADE)"
+                )
+                db.execSQL(
+                    "INSERT INTO thread_summaries_new (" +
+                        "boardId, threadId, title, resCount, firstSeenAt, subjectRank" +
+                        ") SELECT boardId, threadId, title, resCount, firstSeenAt, subjectRank " +
+                        "FROM thread_summaries WHERE isArchived = 0"
+                )
+                db.execSQL("DROP TABLE thread_summaries")
+                db.execSQL("ALTER TABLE thread_summaries_new RENAME TO thread_summaries")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_thread_summaries_boardId ON thread_summaries(boardId)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_thread_summaries_boardId_subjectRank ON thread_summaries(boardId, subjectRank)"
+                )
             }
         }
 

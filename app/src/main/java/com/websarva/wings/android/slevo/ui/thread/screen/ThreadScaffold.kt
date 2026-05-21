@@ -288,6 +288,14 @@ fun ThreadScaffold(
                 }
             }
 
+            // --- Load error event ---
+            LaunchedEffect(uiState.pendingToastResId) {
+                uiState.pendingToastResId?.let { resId ->
+                    Toast.makeText(context, resId, Toast.LENGTH_SHORT).show()
+                    viewModel.consumeToast()
+                }
+            }
+
             ReplyPopup(
                 modifier = Modifier
                     .fillMaxSize()

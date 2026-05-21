@@ -18,6 +18,7 @@
     <string name="open_url">URLを開く</string>
     <string name="enter_url">板またはスレッドのURLを入力してください</string>
     <string name="invalid_url">無効なURLです</string>
+    <string name="board_load_failed">板の読み込みに失敗しました</string>
     <string name="new_label">new</string>
     <string name="new_responses">新着</string>
 </resources>
