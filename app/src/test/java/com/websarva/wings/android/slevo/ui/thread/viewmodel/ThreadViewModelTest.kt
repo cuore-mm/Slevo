@@ -23,13 +23,12 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import java.io.IOException
@@ -102,7 +101,7 @@ class ThreadViewModelTest {
     }
 
     @Test
-    fun loadData_datRepositoryReturnsNull_emitsShowToast() = runTest {
+    fun loadData_datRepositoryReturnsNull_setsPendingToast() = runTest {
         val datRepository = mockk<DatRepository>(relaxed = true)
         coEvery { datRepository.getThread(any(), any(), any()) } returns null
 
@@ -114,9 +113,6 @@ class ThreadViewModelTest {
             datRepository = datRepository,
             boardRepository = boardRepository,
         )
-        val eventDeferred = async { viewModel.uiEvents.first() }
-        advanceUntilIdle()
-
         viewModel.initializeFlow(
             ThreadInitArgs(
                 threadKey = "1234567890",
@@ -126,11 +122,11 @@ class ThreadViewModelTest {
         )
         advanceUntilIdle()
 
-        assertEquals(ThreadUiEvent.ShowToast(R.string.thread_load_failed), eventDeferred.await())
+        assertEquals(R.string.thread_load_failed, viewModel.uiState.value.pendingToastResId)
     }
 
     @Test
-    fun loadData_datRepositoryThrows_emitsShowToast() = runTest {
+    fun loadData_datRepositoryThrows_setsPendingToast() = runTest {
         val datRepository = mockk<DatRepository>(relaxed = true)
         coEvery { datRepository.getThread(any(), any(), any()) } throws IOException("network error")
 
@@ -142,9 +138,6 @@ class ThreadViewModelTest {
             datRepository = datRepository,
             boardRepository = boardRepository,
         )
-        val eventDeferred = async { viewModel.uiEvents.first() }
-        advanceUntilIdle()
-
         viewModel.initializeFlow(
             ThreadInitArgs(
                 threadKey = "1234567890",
@@ -154,6 +147,32 @@ class ThreadViewModelTest {
         )
         advanceUntilIdle()
 
-        assertEquals(ThreadUiEvent.ShowToast(R.string.thread_load_failed), eventDeferred.await())
+        assertEquals(R.string.thread_load_failed, viewModel.uiState.value.pendingToastResId)
+    }
+
+    @Test
+    fun consumeToast_clearsPendingToast() = runTest {
+        val datRepository = mockk<DatRepository>(relaxed = true)
+        coEvery { datRepository.getThread(any(), any(), any()) } returns null
+
+        val boardRepository = mockk<BoardRepository>(relaxed = true)
+        coEvery { boardRepository.ensureBoard(any()) } returns 1L
+        coEvery { boardRepository.fetchBoardNoname(any()) } returns null
+
+        val viewModel = createViewModel(
+            datRepository = datRepository,
+            boardRepository = boardRepository,
+        )
+        viewModel.initializeFlow(
+            ThreadInitArgs(
+                threadKey = "1234567890",
+                boardInfo = BoardInfo(0, "test", "https://example.com/test/"),
+                threadTitle = null,
+            )
+        )
+        advanceUntilIdle()
+        viewModel.consumeToast()
+
+        assertNull(viewModel.uiState.value.pendingToastResId)
     }
 }

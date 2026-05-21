@@ -18,13 +18,12 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import java.io.IOException
@@ -82,7 +81,7 @@ class BoardViewModelTest {
     }
 
     @Test
-    fun loadData_refreshThreadListReturnsFalse_emitsShowToast() = runTest {
+    fun loadData_refreshThreadListReturnsFalse_setsPendingToast() = runTest {
         val repository = mockk<BoardRepository>(relaxed = true)
         coEvery { repository.ensureBoard(any()) } returns 1L
         coEvery { repository.fetchBoardNoname(any()) } returns null
@@ -91,17 +90,14 @@ class BoardViewModelTest {
         } returns false
 
         val viewModel = createViewModel(repository = repository)
-        val eventDeferred = async { viewModel.uiEvents.first() }
-        advanceUntilIdle()
-
         viewModel.initializeFlow(BoardInitArgs(BoardInfo(0, "test", "https://example.com/test/")))
         advanceUntilIdle()
 
-        assertEquals(BoardUiEvent.ShowToast(R.string.board_load_failed), eventDeferred.await())
+        assertEquals(R.string.board_load_failed, viewModel.uiState.value.pendingToastResId)
     }
 
     @Test
-    fun loadData_refreshThreadListThrows_emitsShowToast() = runTest {
+    fun loadData_refreshThreadListThrows_setsPendingToast() = runTest {
         val repository = mockk<BoardRepository>(relaxed = true)
         coEvery { repository.ensureBoard(any()) } returns 1L
         coEvery { repository.fetchBoardNoname(any()) } returns null
@@ -110,12 +106,26 @@ class BoardViewModelTest {
         } throws IOException("network error")
 
         val viewModel = createViewModel(repository = repository)
-        val eventDeferred = async { viewModel.uiEvents.first() }
-        advanceUntilIdle()
-
         viewModel.initializeFlow(BoardInitArgs(BoardInfo(0, "test", "https://example.com/test/")))
         advanceUntilIdle()
 
-        assertEquals(BoardUiEvent.ShowToast(R.string.board_load_failed), eventDeferred.await())
+        assertEquals(R.string.board_load_failed, viewModel.uiState.value.pendingToastResId)
+    }
+
+    @Test
+    fun consumeToast_clearsPendingToast() = runTest {
+        val repository = mockk<BoardRepository>(relaxed = true)
+        coEvery { repository.ensureBoard(any()) } returns 1L
+        coEvery { repository.fetchBoardNoname(any()) } returns null
+        coEvery {
+            repository.refreshThreadList(any(), any(), any(), any(), any())
+        } returns false
+
+        val viewModel = createViewModel(repository = repository)
+        viewModel.initializeFlow(BoardInitArgs(BoardInfo(0, "test", "https://example.com/test/")))
+        advanceUntilIdle()
+        viewModel.consumeToast()
+
+        assertNull(viewModel.uiState.value.pendingToastResId)
     }
 }

@@ -2,7 +2,6 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import android.content.Context
 import android.net.Uri
-import androidx.annotation.StringRes
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.viewModelScope
@@ -99,16 +98,6 @@ private data class ThreadLoadDerived(
 )
 
 /**
- * スレ画面向けの one-shot UI イベント。
- */
-sealed interface ThreadUiEvent {
-    /**
-     * ユーザーへ短い通知を表示する Toast イベント。
-     */
-    data class ShowToast(@param:StringRes val messageResId: Int) : ThreadUiEvent
-}
-
-/**
  * ThreadViewModel の初期化に必要な入力。
  *
  * スレッド識別子と表示情報を初期化フローで利用する。
@@ -154,11 +143,6 @@ class ThreadViewModel @AssistedInject constructor(
     private val imageSaveCoordinator = ImageSaveCoordinator()
     private val _imageSaveEvents = MutableSharedFlow<ImageSaveUiEvent>(extraBufferCapacity = 1)
     val imageSaveEvents: SharedFlow<ImageSaveUiEvent> = _imageSaveEvents.asSharedFlow()
-    private val _uiEvents = MutableSharedFlow<ThreadUiEvent>(
-        replay = 1,
-        extraBufferCapacity = 1
-    )
-    val uiEvents: SharedFlow<ThreadUiEvent> = _uiEvents.asSharedFlow()
     private var observedThreadHistoryId: Long? = null
     private var postHistoryCollectJob: Job? = null
     private var bookmarkStatusJob: Job? = null
@@ -656,7 +640,14 @@ class ThreadViewModel @AssistedInject constructor(
         } else {
             Timber.e("Failed to load thread data for board: $boardUrl key: $key")
         }
-        _uiEvents.tryEmit(ThreadUiEvent.ShowToast(R.string.thread_load_failed))
+        _uiState.update { it.copy(pendingToastResId = R.string.thread_load_failed) }
+    }
+
+    /**
+     * 未表示Toastの消費（UI 側で表示後に呼ぶ）。
+     */
+    fun consumeToast() {
+        _uiState.update { it.copy(pendingToastResId = null) }
     }
 
     /**

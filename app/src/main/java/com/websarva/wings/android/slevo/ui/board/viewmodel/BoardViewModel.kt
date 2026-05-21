@@ -2,7 +2,6 @@ package com.websarva.wings.android.slevo.ui.board.viewmodel
 
 import android.content.Context
 import android.net.Uri
-import androidx.annotation.StringRes
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -29,24 +28,11 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import timber.log.Timber
-
-/**
- * 板画面向けの one-shot UI イベント。
- */
-sealed interface BoardUiEvent {
-    /**
-     * ユーザーへ短い通知を表示する Toast イベント。
-     */
-    data class ShowToast(@param:StringRes val messageResId: Int) : BoardUiEvent
-}
 
 /**
  * BoardViewModel の初期化に必要な入力。
@@ -78,15 +64,6 @@ class BoardViewModel @AssistedInject constructor(
 
     private var bookmarkStatusJob: Job? = null
     val bookmarkSheetHolder = bookmarkSheetStateHolderFactory.create(viewModelScope)
-    private val _uiEvents = MutableSharedFlow<BoardUiEvent>(
-        replay = 1,
-        extraBufferCapacity = 1
-    )
-
-    /**
-     * 板画面の one-shot UI イベントを公開する。
-     */
-    val uiEvents: SharedFlow<BoardUiEvent> = _uiEvents.asSharedFlow()
 
     // UI 状態の StateFlow（View 側で監視される）
     override val _uiState = MutableStateFlow(BoardUiState())
@@ -252,12 +229,12 @@ class BoardViewModel @AssistedInject constructor(
                 _uiState.update { state -> state.copy(loadProgress = progress) }
             }
             if (!success) {
-                emitBoardLoadFailureToast()
+                _uiState.update { it.copy(pendingToastResId = R.string.board_load_failed) }
             }
         } catch (e: Exception) {
             // 例外詳細はログへ出し、ユーザーには短い文言を通知する。
             Timber.e(e, "Failed to refresh board threads: ${boardInfo.url}")
-            emitBoardLoadFailureToast()
+            _uiState.update { it.copy(pendingToastResId = R.string.board_load_failed) }
         } finally {
             // 読み込み終了後の UI 更新とスレッドコーディネータへの通知
             _uiState.update { it.copy(isLoading = false, loadProgress = 1f, resetScroll = true) }
@@ -265,13 +242,6 @@ class BoardViewModel @AssistedInject constructor(
         }
         // 取得結果を監視させる（リアルタイム更新の開始）
         threadListCoordinator.startObservingThreads(boardInfo.boardId, boardUrl)
-    }
-
-    /**
-     * 板読み込み失敗時の Toast イベントを発行する。
-     */
-    private fun emitBoardLoadFailureToast() {
-        _uiEvents.tryEmit(BoardUiEvent.ShowToast(R.string.board_load_failed))
     }
 
     // Pull-to-refresh 用のメソッド（外部から強制再初期化）
@@ -282,6 +252,13 @@ class BoardViewModel @AssistedInject constructor(
     // スクロールリセットフラグの消費（UI 側で呼ぶ）
     fun consumeResetScroll() {
         _uiState.update { it.copy(resetScroll = false) }
+    }
+
+    /**
+     * 未表示Toastの消費（UI 側で表示後に呼ぶ）。
+     */
+    fun consumeToast() {
+        _uiState.update { it.copy(pendingToastResId = null) }
     }
 
     // --- ブックマークシート関連 ---

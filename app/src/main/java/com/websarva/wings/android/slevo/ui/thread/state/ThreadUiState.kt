@@ -65,6 +65,8 @@ data class ThreadUiState(
     val prevResCount: Int = 0,
     val isAutoScroll: Boolean = false,
     val showMinimapScrollbar: Boolean = true,
+    /** 未表示のToastメッセージリソースID。表示後は consumeToast() で null に戻す。 */
+    val pendingToastResId: Int? = null,
     val textScale: Float = 1f,
     val isIndividualTextScale: Boolean = false,
     val headerTextScale: Float = 0.85f,

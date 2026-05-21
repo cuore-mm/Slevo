@@ -55,7 +55,6 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.DisplaySettingsBottomShe
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadUiEvent
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import kotlinx.coroutines.launch
 
@@ -290,13 +289,10 @@ fun ThreadScaffold(
             }
 
             // --- Load error event ---
-            LaunchedEffect(viewModel) {
-                viewModel.uiEvents.collect { event ->
-                    when (event) {
-                        is ThreadUiEvent.ShowToast -> {
-                            Toast.makeText(context, event.messageResId, Toast.LENGTH_SHORT).show()
-                        }
-                    }
+            LaunchedEffect(uiState.pendingToastResId) {
+                uiState.pendingToastResId?.let { resId ->
+                    Toast.makeText(context, resId, Toast.LENGTH_SHORT).show()
+                    viewModel.consumeToast()
                 }
             }
 
