@@ -26,8 +26,11 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Decode CI keystore
+        env:
+          CI_KEYSTORE_BASE64: ${{ secrets.CI_KEYSTORE_BASE64 }}
         run: |
-          echo "${{ secrets.CI_KEYSTORE_BASE64 }}" | base64 -d > ci-release.keystore
+          printf '%s' "$CI_KEYSTORE_BASE64" | base64 --decode > ci-release.keystore
+          keytool -list -keystore ci-release.keystore -storepass "${{ secrets.CI_KEYSTORE_PASSWORD }}" >/dev/null
 
       - name: Test + Build CI APK (retry once on failure)
         env:
