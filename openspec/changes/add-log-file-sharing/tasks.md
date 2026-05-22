@@ -33,5 +33,5 @@
 - [x] 5.3 `app.log` / `app.log.old` の 1 世代ローテーション後もログ書き込みが継続することを単体テストで確認する。
 - [x] 5.4 クラッシュ記録処理が既存 handler へ委譲し、書き込み失敗時も委譲を妨げないことをテストする。
 - [x] 5.5 ログ共有 helper がログなし、空ログ、一時コピー作成、共有可能ログの各状態を正しく扱うことをテストする。
-- [ ] 5.6 AndroidManifest / FileProvider 設定、About 画面表示、共有 Intent の手動確認観点を整理する。
-- [ ] 5.7 実装後に CI または指定された build / unit test を実行し、成功を確認する。
+- [x] 5.6 AndroidManifest / FileProvider 設定、About 画面表示、共有 Intent の手動確認観点を整理する。
+- [x] 5.7 実装後に CI または指定された build / unit test を実行し、成功を確認する。
