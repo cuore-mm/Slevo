@@ -14,18 +14,13 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import timber.log.Timber
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import javax.inject.Inject
 
-/**
- * ViewModel for the BBS service screen.
- * - サービス一覧の取得・表示
- * - サービス（menuUrl）追加・更新
- * - サービス削除
- */
 @HiltViewModel
 class ServiceListViewModel @Inject constructor(
-    private val repository: BbsServiceRepository
+    private val repository: BbsServiceRepository,
+    private val logger: AppLogger
 ) : ViewModel() {
 
     companion object {
@@ -77,7 +72,7 @@ class ServiceListViewModel @Inject constructor(
             try {
                 repository.addOrUpdateService(menuUrl)
             } catch (e: Exception) {
-                Timber.e(e, "サービス追加/更新に失敗: $menuUrl")
+                logger.e(message = "サービス追加/更新に失敗: $menuUrl", throwable = e)
                 _uiState.update { it.copy(errorMessage = "サービス追加に失敗しました") }
             } finally {
                 _uiState.update { it.copy(isLoading = false) }

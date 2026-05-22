@@ -18,6 +18,7 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetSt
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUploader
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
 import io.mockk.coEvery
 import io.mockk.every
@@ -56,6 +57,7 @@ class ThreadViewModelTest {
         postDialogImageUploaderFactory: PostDialogImageUploader.Factory = mockk(relaxed = true),
         postDialogControllerFactory: PostDialogController.Factory = mockk(relaxed = true),
         replyPostDialogExecutor: ThreadReplyPostDialogExecutor = mockk(relaxed = true),
+        logger: AppLogger = mockk(relaxed = true),
     ): ThreadViewModel {
         every { settingsRepository.observeTextScale() } returns flowOf(1.0f)
         every { settingsRepository.observeIsIndividualTextScale() } returns flowOf(false)
@@ -96,6 +98,7 @@ class ThreadViewModelTest {
             postDialogImageUploaderFactory = postDialogImageUploaderFactory,
             postDialogControllerFactory = postDialogControllerFactory,
             replyPostDialogExecutor = replyPostDialogExecutor,
+            logger = logger,
             viewModelKey = "test",
         )
     }

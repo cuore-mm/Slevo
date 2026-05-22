@@ -49,7 +49,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import com.websarva.wings.android.slevo.R
-import timber.log.Timber
+
 import kotlin.math.abs
 
 /**
@@ -118,7 +118,6 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     } else {
         emptyList()
     }
-    Timber.d("tabs: $tabs")
     val currentTabInfo = tabs.find(currentRoutePredicate)
 
     if (tabs.isNotEmpty()) {

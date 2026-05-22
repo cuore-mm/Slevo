@@ -32,7 +32,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import timber.log.Timber
+import com.websarva.wings.android.slevo.core.log.AppLogger
 
 /**
  * BoardViewModel の初期化に必要な入力。
@@ -59,6 +59,7 @@ class BoardViewModel @AssistedInject constructor(
     postDialogControllerFactory: PostDialogController.Factory,
     private val threadCreatePostDialogExecutor: ThreadCreatePostDialogExecutor,
     postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
+    private val logger: AppLogger,
     @Assisted("viewModelKey") viewModelKey: String
 ) : BaseViewModel<BoardUiState, BoardInitArgs>() {
 
@@ -233,7 +234,7 @@ class BoardViewModel @AssistedInject constructor(
             }
         } catch (e: Exception) {
             // 例外詳細はログへ出し、ユーザーには短い文言を通知する。
-            Timber.e(e, "Failed to refresh board threads: ${boardInfo.url}")
+            logger.e(message = "Failed to refresh board threads: ${boardInfo.url}", throwable = e)
             _uiState.update { it.copy(pendingToastResId = R.string.board_load_failed) }
         } finally {
             // 読み込み終了後の UI 更新とスレッドコーディネータへの通知

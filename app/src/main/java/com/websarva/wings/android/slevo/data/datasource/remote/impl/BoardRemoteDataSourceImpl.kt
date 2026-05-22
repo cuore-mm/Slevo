@@ -1,6 +1,6 @@
 package com.websarva.wings.android.slevo.data.datasource.remote.impl
 
-import android.util.Log
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.data.datasource.remote.BoardRemoteDataSource
 import com.websarva.wings.android.slevo.data.datasource.remote.SubjectFetchResult
 import kotlinx.coroutines.Dispatchers
@@ -9,7 +9,6 @@ import okhttp3.CacheControl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.ResponseBody
-import timber.log.Timber
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.charset.Charset
@@ -20,7 +19,8 @@ import javax.inject.Singleton
 @Singleton
 class BoardRemoteDataSourceImpl @Inject constructor(
     private val client: OkHttpClient,
-    @Named("UserAgent") private val userAgent: String
+    @param:Named("UserAgent") private val userAgent: String,
+    private val logger: AppLogger
 ) : BoardRemoteDataSource {
 
     override suspend fun fetchSubjectTxt(
@@ -29,50 +29,57 @@ class BoardRemoteDataSourceImpl @Inject constructor(
         lastModified: String?,
         onProgress: (Float) -> Unit,
     ): SubjectFetchResult? = withContext(Dispatchers.IO) {
-            val requestBuilder = Request.Builder()
-                .url(url)
-                .header("User-Agent", userAgent)
-                .cacheControl(CacheControl.FORCE_NETWORK)
+        val requestBuilder = Request.Builder()
+            .url(url)
+            .header("User-Agent", userAgent)
+            .cacheControl(CacheControl.FORCE_NETWORK)
 
-            if (etag != null) {
-                requestBuilder.header("If-None-Match", etag)
-            }
-            if (lastModified != null) {
-                requestBuilder.header("If-Modified-Since", lastModified)
-            }
+        if (etag != null) {
+            requestBuilder.header("If-None-Match", etag)
+        }
+        if (lastModified != null) {
+            requestBuilder.header("If-Modified-Since", lastModified)
+        }
 
-            val request = requestBuilder.build()
+        val request = requestBuilder.build()
 
-            try {
-                client.newCall(request).execute().use { response ->
-                    val newEtag = response.header("ETag")
-                    val newLastModified = response.header("Last-Modified")
-                    return@withContext when (response.code) {
-                        200 -> {
-                            val body = response.body ?: return@withContext null
-                            val bytes = readBytesWithProgress(body, onProgress)
-                            SubjectFetchResult(bytes.toString(Charset.forName("Shift_JIS")), newEtag, newLastModified, 200)
-                        }
-                        304 -> {
-                            onProgress(1f)
-                            SubjectFetchResult(null, newEtag, newLastModified, 304)
-                        }
-                        else -> {
-                            onProgress(1f)
-                            Timber.e("Unexpected response code ${response.code} for $url")
-                            null
-                        }
+        try {
+            client.newCall(request).execute().use { response ->
+                val newEtag = response.header("ETag")
+                val newLastModified = response.header("Last-Modified")
+                return@withContext when (response.code) {
+                    200 -> {
+                        val body = response.body ?: return@withContext null
+                        val bytes = readBytesWithProgress(body, onProgress)
+                        SubjectFetchResult(
+                            bytes.toString(Charset.forName("Shift_JIS")),
+                            newEtag,
+                            newLastModified,
+                            200
+                        )
+                    }
+
+                    304 -> {
+                        onProgress(1f)
+                        SubjectFetchResult(null, newEtag, newLastModified, 304)
+                    }
+
+                    else -> {
+                        onProgress(1f)
+                        logger.e("Unexpected response code ${response.code} for $url")
+                        null
                     }
                 }
-            } catch (e: IOException) {
-                onProgress(1f)
-                Timber.e(e, "IOException for $url: ${e.message}")
-                null
-            } catch (e: Exception) {
-                onProgress(1f)
-                Timber.e(e, "Exception for $url: ${e.message}")
-                null
             }
+        } catch (e: IOException) {
+            onProgress(1f)
+            logger.e(message = "IOException for $url: ${e.message}", throwable = e)
+            null
+        } catch (e: Exception) {
+            onProgress(1f)
+            logger.e(message = "Exception for $url: ${e.message}", throwable = e)
+            null
+        }
     }
 
     override suspend fun fetchSettingTxt(url: String): String? =
@@ -87,10 +94,10 @@ class BoardRemoteDataSourceImpl @Inject constructor(
                 if (!response.isSuccessful) return@withContext null
                 response.body?.bytes()?.toString(Charset.forName("Shift_JIS"))
             } catch (e: IOException) {
-                Timber.e(e, "IOException for $url: ${e.message}")
+                logger.e(message = "IOException for $url: ${e.message}", throwable = e)
                 null
             } catch (e: Exception) {
-                Timber.e(e, "Exception for $url: ${e.message}")
+                logger.e(message = "Exception for $url: ${e.message}", throwable = e)
                 null
             }
         }

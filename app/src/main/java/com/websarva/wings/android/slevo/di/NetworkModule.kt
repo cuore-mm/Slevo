@@ -15,8 +15,8 @@ import dagger.hilt.components.SingletonComponent
 import okhttp3.Cache
 import okhttp3.Cookie
 import okhttp3.OkHttpClient
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import okhttp3.logging.HttpLoggingInterceptor
-import timber.log.Timber
 import java.io.File
 import javax.inject.Named
 import javax.inject.Singleton
@@ -40,10 +40,11 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(
         @ApplicationContext context: Context,
-        cookieJar: PersistentCookieJar
+        cookieJar: PersistentCookieJar,
+        logger: AppLogger
     ): OkHttpClient {
         val logging = HttpLoggingInterceptor { message ->
-            Timber.tag("OkHttp").d(message)
+            logger.d(message, tag = "OkHttp")
         }.apply {
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BODY

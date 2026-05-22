@@ -1,20 +1,19 @@
 package com.websarva.wings.android.slevo.data.datasource.remote.impl
 
-import android.util.Log
 import com.squareup.moshi.Json
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.data.datasource.remote.BbsMenuDataSource
 import com.websarva.wings.android.slevo.data.model.BbsMenuContent
 import com.websarva.wings.android.slevo.data.model.Board
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.Jsoup
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import timber.log.Timber
 
 /**
  * BBS メニューを取得する DataSource の実装。
@@ -23,12 +22,9 @@ import timber.log.Timber
  */
 @Singleton
 class BbsMenuDataSourceImpl @Inject constructor(
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    private val logger: AppLogger
 ) : BbsMenuDataSource {
-
-    companion object {
-        private const val TAG = "BbsMenuDataSourceImpl"
-    }
 
     /**
      * 指定された menuUrl から BBS メニューを取得し、
@@ -49,7 +45,7 @@ class BbsMenuDataSourceImpl @Inject constructor(
                 val body = response.body?.string() ?: return@withContext null
                 return@withContext parseMenuResponse(body)
             } catch (e: Exception) {
-                Timber.e(e, "Failed to fetch menu from $menuUrl")
+                logger.e(message = "Failed to fetch menu from $menuUrl", throwable = e)
                 null
             }
         }
@@ -133,23 +129,23 @@ class BbsMenuDataSourceImpl @Inject constructor(
 
             return contents.ifEmpty { null }
         } catch (e: Exception) {
-            Timber.e(e, "Failed to parse bbsmenu HTML")
+            logger.e(message = "Failed to parse bbsmenu HTML", throwable = e)
             return null
         }
     }
 
     // JSON パース用の内部 DTO 定義
     private data class BbsMenuResponse(
-        @Json(name = "menu_list") val menuList: List<CategoryData>
+        @property:Json(name = "menu_list") val menuList: List<CategoryData>,
     )
 
     private data class CategoryData(
-        @Json(name = "category_name") val categoryName: String,
-        @Json(name = "category_content") val categoryContent: List<BoardData>
+        @property:Json(name = "category_name") val categoryName: String,
+        @property:Json(name = "category_content") val categoryContent: List<BoardData>
     )
 
     private data class BoardData(
-        @Json(name = "board_name") val boardName: String,
-        @Json(name = "url") val url: String
+        @property:Json(name = "board_name") val boardName: String,
+        @property:Json(name = "url") val url: String
     )
 }
