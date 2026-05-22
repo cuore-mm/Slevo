@@ -7,8 +7,8 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressInterceptor
 import dagger.hilt.android.HiltAndroidApp
 import okhttp3.OkHttpClient
-import co.touchlab.kermit.AndroidLogWriter
 import co.touchlab.kermit.Logger
+import co.touchlab.kermit.platformLogWriter
 
 /**
  * アプリ全体の初期化を担う Application 実装。
@@ -40,10 +40,10 @@ class SlevoApplication : Application() {
         }
 
         // --- Logging setup ---
-        // デバッグビルドの場合のみ AndroidLogWriter を設定し、
+        // デバッグビルドの場合のみ platformLogWriter を設定し、
         // リリースビルドでは writer を空にしてログを出力しない
         if (BuildConfig.DEBUG) {
-            Logger.setLogWriters(AndroidLogWriter())
+            Logger.setLogWriters(platformLogWriter())
         } else {
             Logger.setLogWriters()
         }

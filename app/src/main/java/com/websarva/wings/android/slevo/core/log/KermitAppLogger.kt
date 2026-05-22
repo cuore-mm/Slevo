@@ -13,14 +13,14 @@ import javax.inject.Inject
 class KermitAppLogger @Inject constructor() : AppLogger {
 
     override fun d(message: String, tag: String?, throwable: Throwable?) {
-        Logger.d(tagString = tag, throwable = throwable) { message }
+        Logger.d(throwable = throwable, tag = tag ?: Logger.tag) { message }
     }
 
     override fun i(message: String, tag: String?, throwable: Throwable?) {
-        Logger.i(tagString = tag, throwable = throwable) { message }
+        Logger.i(throwable = throwable, tag = tag ?: Logger.tag) { message }
     }
 
     override fun e(message: String, tag: String?, throwable: Throwable?) {
-        Logger.e(tagString = tag, throwable = throwable) { message }
+        Logger.e(throwable = throwable, tag = tag ?: Logger.tag) { message }
     }
 }
