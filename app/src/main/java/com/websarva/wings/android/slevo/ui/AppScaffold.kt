@@ -25,7 +25,6 @@ import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.ui.bottombar.MoreMenuDialog
 import com.websarva.wings.android.slevo.ui.bottombar.RenderBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.DeepLinkHandler
-import com.websarva.wings.android.slevo.core.log.LogFileManager
 import com.websarva.wings.android.slevo.ui.navigation.AppNavGraph
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
@@ -45,7 +44,6 @@ fun AppScaffold(
     tabsViewModel: TabsViewModel,
     deepLinkUrlFlow: StateFlow<String?>,
     onDeepLinkConsumed: () -> Unit,
-    logFileManager: LogFileManager,
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val deepLinkUrl by deepLinkUrlFlow.collectAsState()
@@ -96,7 +94,6 @@ fun AppScaffold(
                 openDrawer = openDrawer,
                 tabsViewModel = tabsViewModel,
                 sharedTransitionScope = this,
-                logFileManager = logFileManager,
             )
         }
     }

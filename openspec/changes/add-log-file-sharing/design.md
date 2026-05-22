@@ -50,9 +50,11 @@ Debug ビルドでは `platformLogWriter()` とファイル writer の両方を�
 
 共有用コピーは cache 領域に置き、共有処理の前後または次回共有時に古いコピーを削除する。これにより、保存用ログと共有用ファイルの責務を分離し、FileProvider の公開範囲も共有用 cache ディレクトリに限定できる。
 
-### 共有は UI から分離した helper で扱う
+### About 画面のログ共有は ViewModel 経由で扱う
 
-`AboutScreen` はクリック callback を受け取るだけにし、Intent 作成、FileProvider URI 化、Toast 表示など Android 依存の処理は `ui/util` などの helper に分離する。これにより Composable は表示に集中し、既存の stateless な画面構造を維持できる。
+`AboutScreen` は stateless のままクリック callback を受け取り、実際のログ共有処理は `AboutViewModel` で行う。`AboutViewModel` は Hilt から `LogFileManager` を注入し、`LogShareUtil` を呼び出して共有処理を実行する。
+
+これにより `MainActivity`、`AppScaffold`、`AppNavGraph` の各層で `LogFileManager` を引き回す必要がなくなり、About 画面に関係する処理を About 層へ集約できる。また将来「ログなし」「共有失敗」などの状態管理や one-shot event を追加しやすい。
 
 ### FileProvider で共有用 cache ディレクトリを公開する
 
@@ -75,6 +77,8 @@ Debug ビルドでは `platformLogWriter()` とファイル writer の両方を�
 4. FileProvider の paths に共有用 cache ディレクトリを追加する。
 5. ログ共有 helper で現行ログの一時コピー作成と共有 Intent 作成を行う。
 6. About 画面と navigation callback を接続する。
+7. `AboutViewModel` を追加し、`LogFileManager` を注入してログ共有処理を担当する。
+8. `MainActivity`、`AppScaffold`、`AppNavGraph` から `LogFileManager` の引き回しを削除し、`AboutViewModel` 経由で処理する。
 7. ログ保存、ログなし共有、共有 Intent、クラッシュ記録のテストを追加する。
 
 ロールバックする場合は、`SlevoApplication` からファイル writer と未捕捉例外 handler の登録を外し、About 画面の共有項目と FileProvider path 追加を戻す。

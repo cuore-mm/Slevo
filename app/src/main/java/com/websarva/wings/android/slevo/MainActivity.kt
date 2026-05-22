@@ -14,13 +14,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowInsetsControllerCompat
-import com.websarva.wings.android.slevo.core.log.LogFileManager
 import com.websarva.wings.android.slevo.ui.AppScaffold
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -29,9 +27,6 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    @Inject
-    lateinit var logFileManager: LogFileManager
-
     private val settingsViewModel: SettingsViewModel by viewModels()
     private val tabsViewModel: TabsViewModel by viewModels()
     private val deepLinkUrlState = MutableStateFlow<String?>(null)
@@ -69,7 +64,6 @@ class MainActivity : ComponentActivity() {
                     tabsViewModel = tabsViewModel,
                     deepLinkUrlFlow = deepLinkUrlState.asStateFlow(),
                     onDeepLinkConsumed = { deepLinkUrlState.value = null },
-                    logFileManager = logFileManager,
                 )
             }
         }
