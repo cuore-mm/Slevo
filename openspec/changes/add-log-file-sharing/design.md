@@ -10,7 +10,7 @@
 
 - Kermit の writer としてファイル出力を追加し、既存の `AppLogger` 呼び出しからログファイルへ保存できるようにする。
 - 未捕捉例外発生時にクラッシュ情報をログファイルへ追記する。
-- 内部 files 領域のログファイルを FileProvider 経由で共有する。
+- 共有時点のログ内容を cache 領域へ一時コピーし、そのコピーを FileProvider 経由で共有する。
 - 「このアプリについて」画面に「ログを共有」項目を追加する。
 - ログ未作成、空ログ、共有先なし、共有失敗時にアプリがクラッシュしないようにする。
 - ログファイルの肥大化を防ぐ上限管理を行う。
@@ -26,7 +26,7 @@
 
 ### 内部 files 領域にログを保存する
 
-ログ保存先は `context.filesDir/logs/app.log` とする。内部領域を使うことで外部ストレージ権限を不要にし、FileProvider の `<files-path>` で共有対象を限定できる。
+ログ保存先は `context.filesDir/logs/app.log` とする。内部領域を使うことで外部ストレージ権限を不要にし、アプリ管理下の診断情報として保持できる。
 
 代替案として cache 領域への保存も考えられるが、OS やアプリのキャッシュ削除で失われやすく、クラッシュ後の調査用途には不安定である。外部ストレージへの保存は権限や Android バージョン差分が増えるため採用しない。
 
@@ -34,7 +34,7 @@
 
 既存の `AppLogger` は維持し、Kermit の writer 構成にファイル writer を追加する。これにより、Repository、DataSource、ViewModel など既存のログ呼び出し箇所を変更せずにファイル保存を有効化できる。
 
-Debug ビルドでは `platformLogWriter()` とファイル writer の両方を設定する。Release ビルドでは障害解析に必要なログを残すためファイル writer を設定するが、出力内容は既存ログ呼び出しの範囲に限定し、機微情報を含む新規ログ追加は避ける。
+Debug ビルドでは `platformLogWriter()` とファイル writer の両方を設定し、DEBUG / INFO / ERROR を保存する。Release ビルドでは障害解析に必要な最小限の情報に絞り、ERROR 以上と未捕捉例外のクラッシュ情報のみをファイルへ保存する。これにより、Release 端末内に詳細な操作ログや機微情報が残るリスクを抑える。
 
 ### クラッシュ情報は既存 handler に委譲する前に記録する
 
@@ -42,32 +42,38 @@ Debug ビルドでは `platformLogWriter()` とファイル writer の両方を�
 
 ### ログファイルにはサイズ上限を設ける
 
-ログファイルが肥大化し続けないように、追記前または追記後にサイズを確認し、上限を超えた場合はローテーションまたは古い内容の破棄を行う。初期方針は実装を単純に保つため、単一世代の `app.log` と `app.log.old` のローテーション、または上限超過時の再作成とする。
+ログファイルが肥大化し続けないように、追記前または追記後にサイズを確認し、上限を超えた場合は `app.log` を `app.log.old` へ退避して新しい `app.log` を作成する。初回実装では `app.log` と `app.log.old` の 1 世代保持とし、それぞれの目安上限は 1MB とする。
+
+### 共有時は現行ログの一時コピーを作成する
+
+共有対象には `filesDir/logs/app.log` を直接使わず、共有操作時点の内容を `cacheDir/shared_logs/slevo-log-YYYYMMDD-HHMMSS.log` のような一時ファイルへコピーしてから FileProvider URI を作成する。現行ログは共有中にも追記やローテーションが起こり得るため、共有時点の内容を固定したコピーを使うことで、共有先が読み取る内容を安定させる。
+
+共有用コピーは cache 領域に置き、共有処理の前後または次回共有時に古いコピーを削除する。これにより、保存用ログと共有用ファイルの責務を分離し、FileProvider の公開範囲も共有用 cache ディレクトリに限定できる。
 
 ### 共有は UI から分離した helper で扱う
 
 `AboutScreen` はクリック callback を受け取るだけにし、Intent 作成、FileProvider URI 化、Toast 表示など Android 依存の処理は `ui/util` などの helper に分離する。これにより Composable は表示に集中し、既存の stateless な画面構造を維持できる。
 
-### FileProvider でログディレクトリのみを公開する
+### FileProvider で共有用 cache ディレクトリを公開する
 
-`file_paths.xml` に `<files-path name="logs" path="logs/" />` を追加する。共有 Intent には `Intent.FLAG_GRANT_READ_URI_PERMISSION` と `ClipData` を設定し、共有先アプリに対象ログファイルの読み取り権限だけを一時付与する。
+`file_paths.xml` に `<cache-path name="shared_logs" path="shared_logs/" />` を追加する。共有 Intent には `Intent.FLAG_GRANT_READ_URI_PERMISSION` と `ClipData` を設定し、共有先アプリに一時コピーされたログファイルの読み取り権限だけを一時付与する。
 
 ## Risks / Trade-offs
 
 - ログに個人情報や投稿内容、URL などが含まれる可能性がある → 新規ログ追加時は機微情報を避け、今回の変更では既存ログの保存先追加を中心にする。
-- Release ビルドでファイルログを有効にすると端末内に診断情報が残る → アプリ内部領域に保存し、ユーザー操作でのみ共有する。
+- Release ビルドでファイルログを有効にすると端末内に診断情報が残る → Release では ERROR 以上とクラッシュ情報のみ保存し、ユーザー操作でのみ共有する。
 - クラッシュ発生直後のファイル書き込みが失敗する可能性がある → handler 内では例外を握りつぶし、既存 handler への委譲を優先する。
 - ログ共有対象ファイルが存在しない場合がある → 共有処理前に存在・サイズを確認し、ログがない旨を通知する。
 - 共有先アプリがない場合がある → ActivityNotFoundException などを捕捉し、共有できない旨を通知する。
-- ログローテーションの途中で共有される可能性がある → 共有時は現行ログファイルを対象とし、必要なら一時コピーを作成して安定した共有対象にする。
+- ログローテーションの途中で共有される可能性がある → 共有時は現行ログを cache 領域へ一時コピーし、そのコピーを共有対象にする。
 
 ## Migration Plan
 
 1. ファイルログ writer とログファイル管理処理を追加する。
 2. `SlevoApplication` の Kermit 初期化にファイル writer を組み込む。
 3. 未捕捉例外 handler を追加し、既存 handler へ委譲する。
-4. FileProvider の paths にログディレクトリを追加する。
-5. ログ共有 helper を追加する。
+4. FileProvider の paths に共有用 cache ディレクトリを追加する。
+5. ログ共有 helper で現行ログの一時コピー作成と共有 Intent 作成を行う。
 6. About 画面と navigation callback を接続する。
 7. ログ保存、ログなし共有、共有 Intent、クラッシュ記録のテストを追加する。
 
@@ -75,6 +81,4 @@ Debug ビルドでは `platformLogWriter()` とファイル writer の両方を�
 
 ## Open Questions
 
-- Release ビルドで保存するログレベルを全レベルにするか、Error 以上に限定するか。
-- ログローテーションは `app.log.old` の 1 世代保持で十分か、複数世代が必要か。
-- 共有時に現行ログを直接共有するか、一時コピーを作成してから共有するか。
+- なし。初回実装では Release ビルドは ERROR 以上とクラッシュ情報のみ保存し、ローテーションは `app.log` / `app.log.old` の 1 世代保持、共有時は cache 領域の一時コピーを共有対象とする。
