@@ -28,11 +28,11 @@
 
 ## 6. AboutViewModel への責務移動
 
-- [ ] 6.1 `AboutViewModel` を追加し、`LogFileManager` を Hilt で注入する。
-- [ ] 6.2 `AboutViewModel` にログ共有メソッドを追加し、`LogShareUtil` を呼び出す。
-- [ ] 6.3 `MainActivity` から `LogFileManager` の inject と `AppScaffold` への引き渡しを削除する。
-- [ ] 6.4 `AppScaffold` と `AppNavGraph` から `logFileManager` 引数を削除する。
-- [ ] 6.5 `AppNavGraph` の About route で `AboutViewModel` を `hiltViewModel()` で取得し、`onShareLogClick` を接続する。
+- [x] 6.1 `AboutViewModel` を追加し、`LogFileManager` を Hilt で注入する。
+- [x] 6.2 `AboutViewModel` にログ共有メソッドを追加し、`LogShareUtil` を呼び出す。
+- [x] 6.3 `MainActivity` から `LogFileManager` の inject と `AppScaffold` への引き渡しを削除する。
+- [x] 6.4 `AppScaffold` と `AppNavGraph` から `logFileManager` 引数を削除する。
+- [x] 6.5 `AppNavGraph` の About route で `AboutViewModel` を `hiltViewModel()` で取得し、`onShareLogClick` を接続する。
 
 ## 5. テストと確認
 
