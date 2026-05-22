@@ -7,7 +7,8 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressInterceptor
 import dagger.hilt.android.HiltAndroidApp
 import okhttp3.OkHttpClient
-import timber.log.Timber
+import co.touchlab.kermit.AndroidLogWriter
+import co.touchlab.kermit.Logger
 
 /**
  * アプリ全体の初期化を担う Application 実装。
@@ -39,11 +40,12 @@ class SlevoApplication : Application() {
         }
 
         // --- Logging setup ---
-        // デバッグビルドの場合にのみ、ログを出力するDebugTreeを植える
+        // デバッグビルドの場合のみ AndroidLogWriter を設定し、
+        // リリースビルドでは writer を空にしてログを出力しない
         if (BuildConfig.DEBUG) {
-            Timber.plant(Timber.DebugTree())
+            Logger.setLogWriters(AndroidLogWriter())
+        } else {
+            Logger.setLogWriters()
         }
-        // リリースビルドの場合は何もplantしないので、ログは出力されない
-        // ※クラッシュレポートツールと連携する際は、ここに設定を追加します
     }
 }

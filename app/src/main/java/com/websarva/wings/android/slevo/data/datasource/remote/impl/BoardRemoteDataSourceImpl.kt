@@ -9,7 +9,7 @@ import okhttp3.CacheControl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.ResponseBody
-import timber.log.Timber
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.charset.Charset
@@ -20,7 +20,8 @@ import javax.inject.Singleton
 @Singleton
 class BoardRemoteDataSourceImpl @Inject constructor(
     private val client: OkHttpClient,
-    @Named("UserAgent") private val userAgent: String
+    @Named("UserAgent") private val userAgent: String,
+    private val logger: AppLogger
 ) : BoardRemoteDataSource {
 
     override suspend fun fetchSubjectTxt(
@@ -59,18 +60,18 @@ class BoardRemoteDataSourceImpl @Inject constructor(
                         }
                         else -> {
                             onProgress(1f)
-                            Timber.e("Unexpected response code ${response.code} for $url")
+                            logger.e("Unexpected response code ${response.code} for $url")
                             null
                         }
                     }
                 }
             } catch (e: IOException) {
                 onProgress(1f)
-                Timber.e(e, "IOException for $url: ${e.message}")
+                logger.e(message = "IOException for $url: ${e.message}", throwable = e)
                 null
             } catch (e: Exception) {
                 onProgress(1f)
-                Timber.e(e, "Exception for $url: ${e.message}")
+                logger.e(message = "Exception for $url: ${e.message}", throwable = e)
                 null
             }
     }
@@ -87,10 +88,10 @@ class BoardRemoteDataSourceImpl @Inject constructor(
                 if (!response.isSuccessful) return@withContext null
                 response.body?.bytes()?.toString(Charset.forName("Shift_JIS"))
             } catch (e: IOException) {
-                Timber.e(e, "IOException for $url: ${e.message}")
+                logger.e(message = "IOException for $url: ${e.message}", throwable = e)
                 null
             } catch (e: Exception) {
-                Timber.e(e, "Exception for $url: ${e.message}")
+                logger.e(message = "Exception for $url: ${e.message}", throwable = e)
                 null
             }
         }

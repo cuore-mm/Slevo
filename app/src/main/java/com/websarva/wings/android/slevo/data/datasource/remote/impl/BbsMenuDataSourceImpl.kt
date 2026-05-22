@@ -14,7 +14,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import timber.log.Timber
+import com.websarva.wings.android.slevo.core.log.AppLogger
 
 /**
  * BBS メニューを取得する DataSource の実装。
@@ -23,7 +23,8 @@ import timber.log.Timber
  */
 @Singleton
 class BbsMenuDataSourceImpl @Inject constructor(
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    private val logger: AppLogger
 ) : BbsMenuDataSource {
 
     companion object {
@@ -49,7 +50,7 @@ class BbsMenuDataSourceImpl @Inject constructor(
                 val body = response.body?.string() ?: return@withContext null
                 return@withContext parseMenuResponse(body)
             } catch (e: Exception) {
-                Timber.e(e, "Failed to fetch menu from $menuUrl")
+                logger.e(message = "Failed to fetch menu from $menuUrl", throwable = e)
                 null
             }
         }
@@ -133,7 +134,7 @@ class BbsMenuDataSourceImpl @Inject constructor(
 
             return contents.ifEmpty { null }
         } catch (e: Exception) {
-            Timber.e(e, "Failed to parse bbsmenu HTML")
+            logger.e(message = "Failed to parse bbsmenu HTML", throwable = e)
             return null
         }
     }

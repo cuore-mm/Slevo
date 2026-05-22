@@ -6,19 +6,13 @@ import com.websarva.wings.android.slevo.di.PersistentCookieJar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Response
-import timber.log.Timber
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import javax.inject.Inject
-
-// 書き込み結果の表現
-sealed class PostResult {
-    data class Success(val resNum: Int? = null) : PostResult() // 書き込み成功（レス番号付き）
-    data class Confirm(val confirmationData: ConfirmationData) : PostResult() // 書き込み確認画面
-    data class Error(val html: String, val message: String) : PostResult() // その他のエラー（WebView表示用）
-}
 
 class PostRepository @Inject constructor(
     private val remoteDataSource: PostRemoteDataSource, // DIでDataSourceを受け取る
     private val cookieJar: PersistentCookieJar,
+    private val logger: AppLogger
 ) {
     private suspend fun handlePostResponse(response: okhttp3.Response?): PostResult {
         if (response == null) {
@@ -48,7 +42,7 @@ class PostRepository @Inject constructor(
                 sc.startsWith("MonaTicket=", ignoreCase = true) &&
                         sc.contains("Expires=", ignoreCase = true) // 過去期限で失効させている合図
             }
-        Timber.d("headerHit: $headerHit, cookieHit: $cookieHit")
+        logger.d("headerHit: $headerHit, cookieHit: $cookieHit")
         return headerHit || cookieHit
     }
 
@@ -72,7 +66,7 @@ class PostRepository @Inject constructor(
                 handlePostResponse(response)
             }
         } catch (e: Exception) {
-            Timber.e(e, "初回投稿リクエスト失敗")
+            logger.e(message = "初回投稿リクエスト失敗", throwable = e)
             PostResult.Error("", e.message ?: "不明なエラー")
         }
     }
@@ -87,7 +81,7 @@ class PostRepository @Inject constructor(
             val response = remoteDataSource.postSecondPhase(host, board, threadKey, confirmationData)
             handlePostResponse(response)
         } catch (e: Exception) {
-            Timber.e(e, "2回目投稿リクエスト失敗")
+            logger.e(message = "2回目投稿リクエスト失敗", throwable = e)
             PostResult.Error("", e.message ?: "不明なエラー")
         }
     }

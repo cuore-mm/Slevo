@@ -7,11 +7,12 @@ import com.websarva.wings.android.slevo.ui.util.keyToDatUrl
 import com.websarva.wings.android.slevo.ui.util.keyToOysterUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import timber.log.Timber
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import javax.inject.Inject
 
 class DatRepository @Inject constructor(
-    private val remoteDataSource: DatRemoteDataSource
+    private val remoteDataSource: DatRemoteDataSource,
+    private val logger: AppLogger
 ) {
     suspend fun getThread(
         boardUrl: String,
@@ -31,11 +32,11 @@ class DatRepository @Inject constructor(
                 val repliesWithMomentum = calculateMomentum(parsedReplies)
                 Pair(repliesWithMomentum, title)
             } catch (e: Exception) {
-                Timber.i("Failed to parse DAT content: ${e.message}")
+                logger.i("Failed to parse DAT content: ${e.message}")
                 null
             }
         } else {
-            Timber.i("Failed to fetch DAT content from $primaryUrl and $oysterUrl")
+            logger.i("Failed to fetch DAT content from $primaryUrl and $oysterUrl")
             null
         }
     }

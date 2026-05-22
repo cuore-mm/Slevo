@@ -14,14 +14,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import timber.log.Timber
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class BbsServiceRepository @Inject constructor(
     private val local: BbsLocalDataSource,
-    private val remote: BbsMenuDataSource
+    private val remote: BbsMenuDataSource,
+    private val logger: AppLogger
 ) {
     companion object {
         private const val TAG = "BbsServiceRepository"
@@ -83,7 +84,7 @@ class BbsServiceRepository @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            Timber.e(e, "サービス追加／更新失敗: $menuUrl")
+            logger.e(message = "サービス追加／更新失敗: $menuUrl", throwable = e)
         }
     }
 

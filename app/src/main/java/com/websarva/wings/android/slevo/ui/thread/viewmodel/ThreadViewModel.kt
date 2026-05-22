@@ -45,6 +45,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
@@ -62,7 +63,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import timber.log.Timber
+
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.max
 
@@ -127,6 +128,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
     private val postDialogControllerFactory: PostDialogController.Factory,
     private val replyPostDialogExecutor: ThreadReplyPostDialogExecutor,
+    private val logger: AppLogger,
     @Assisted @Suppress("unused") val viewModelKey: String,
 ) : BaseViewModel<ThreadUiState, ThreadInitArgs>() {
 
@@ -636,9 +638,9 @@ class ThreadViewModel @AssistedInject constructor(
             )
         }
         if (error != null) {
-            Timber.e(error, "Failed to load thread data for board: $boardUrl key: $key")
-        } else {
-            Timber.e("Failed to load thread data for board: $boardUrl key: $key")
+            logger.e(message = "Failed to load thread data for board: $boardUrl key: $key", throwable = error)
+
+            logger.e("Failed to load thread data for board: $boardUrl key: $key")
         }
         _uiState.update { it.copy(pendingToastResId = R.string.thread_load_failed) }
     }

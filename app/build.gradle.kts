@@ -237,8 +237,8 @@ dependencies {
     // AboutLibraries
     implementation(libs.aboutlibraries.compose.m3)
 
-    // Timber
-    implementation(libs.timber)
+    // Kermit
+    implementation(libs.kermit)
 
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 }

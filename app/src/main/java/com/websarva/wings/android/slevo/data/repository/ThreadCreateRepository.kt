@@ -4,11 +4,12 @@ import com.websarva.wings.android.slevo.data.datasource.remote.ThreadCreateRemot
 import com.websarva.wings.android.slevo.data.util.PostParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import timber.log.Timber
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import javax.inject.Inject
 
 class ThreadCreateRepository @Inject constructor(
-    private val remoteDataSource: ThreadCreateRemoteDataSource
+    private val remoteDataSource: ThreadCreateRemoteDataSource,
+    private val logger: AppLogger
 ) {
     private suspend fun handlePostResponse(response: okhttp3.Response?): PostResult {
         if (response == null) {
@@ -36,7 +37,7 @@ class ThreadCreateRepository @Inject constructor(
                 remoteDataSource.createThreadFirstPhase(host, board, subject, name, mail, message)
             handlePostResponse(response)
         } catch (e: Exception) {
-            Timber.e(e, "スレ立て初回リクエスト失敗")
+            logger.e(message = "スレ立て初回リクエスト失敗", throwable = e)
             PostResult.Error("", e.message ?: "不明なエラー")
         }
     }
@@ -50,7 +51,7 @@ class ThreadCreateRepository @Inject constructor(
             val response = remoteDataSource.createThreadSecondPhase(host, board, confirmationData)
             handlePostResponse(response)
         } catch (e: Exception) {
-            Timber.e(e, "スレ立て2回目リクエスト失敗")
+            logger.e(message = "スレ立て2回目リクエスト失敗", throwable = e)
             PostResult.Error("", e.message ?: "不明なエラー")
         }
     }

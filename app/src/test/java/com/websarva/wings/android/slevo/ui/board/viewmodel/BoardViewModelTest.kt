@@ -13,6 +13,7 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetSt
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUploader
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
 import io.mockk.coEvery
 import io.mockk.every
@@ -47,6 +48,7 @@ class BoardViewModelTest {
         postDialogControllerFactory: PostDialogController.Factory = mockk(relaxed = true),
         threadCreatePostDialogExecutor: ThreadCreatePostDialogExecutor = mockk(relaxed = true),
         postDialogImageUploaderFactory: PostDialogImageUploader.Factory = mockk(relaxed = true),
+        logger: AppLogger = mockk(relaxed = true),
     ): BoardViewModel {
         every { settingsRepository.observeGestureSettings() } returns flowOf(GestureSettings.DEFAULT)
         every { ngRepository.observeNgs() } returns flowOf(emptyList())
@@ -76,6 +78,7 @@ class BoardViewModelTest {
             postDialogControllerFactory = postDialogControllerFactory,
             threadCreatePostDialogExecutor = threadCreatePostDialogExecutor,
             postDialogImageUploaderFactory = postDialogImageUploaderFactory,
+            logger = logger,
             viewModelKey = "test",
         )
     }
