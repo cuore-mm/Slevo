@@ -94,14 +94,14 @@ class LogFileManagerTest {
 
     @Test
     fun `clearOldSharedLogs removes existing shared files`() {
-        val sharedDir = logFileManager.logFile.parentFile?.parentFile
-            ?.let { java.io.File(it.parentFile, "cache/shared_logs") }
-        sharedDir?.mkdirs()
-        val oldFile = java.io.File(sharedDir, "old.log")
-        oldFile.writeText("old")
+        logFileManager.logFile.parentFile?.mkdirs()
+        logFileManager.logFile.writeText("test content for sharing")
+        val tempFile = logFileManager.createTempCopyForSharing()
+        assertNotNull(tempFile)
+        assertTrue(tempFile!!.exists())
 
         logFileManager.clearOldSharedLogs()
 
-        assertFalse(oldFile.exists())
+        assertFalse(tempFile.exists())
     }
 }

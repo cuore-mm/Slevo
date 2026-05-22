@@ -25,6 +25,10 @@ class FileLogWriter(
     }
 
     override fun log(severity: Severity, message: String, tag: String, throwable: Throwable?) {
+        if (!isLoggable(tag, severity)) {
+            return
+        }
+
         // --- Rotation check ---
         logFileManager.rotateIfNeeded()
 
