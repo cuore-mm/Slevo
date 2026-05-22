@@ -9,6 +9,13 @@ import okhttp3.Response
 import com.websarva.wings.android.slevo.core.log.AppLogger
 import javax.inject.Inject
 
+// 書き込み結果の表現
+sealed class PostResult {
+    data class Success(val resNum: Int? = null) : PostResult() // 書き込み成功（レス番号付き）
+    data class Confirm(val confirmationData: ConfirmationData) : PostResult() // 書き込み確認画面
+    data class Error(val html: String, val message: String) : PostResult() // その他のエラー（WebView表示用）
+}
+
 class PostRepository @Inject constructor(
     private val remoteDataSource: PostRemoteDataSource, // DIでDataSourceを受け取る
     private val cookieJar: PersistentCookieJar,
