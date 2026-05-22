@@ -35,6 +35,15 @@ import kotlinx.coroutines.runBlocking
 import com.websarva.wings.android.slevo.core.log.AppLogger
 
 /**
+ * BoardViewModel の初期化に必要な入力。
+ *
+ * BoardInfo を初期化フローで利用する。
+ */
+data class BoardInitArgs(
+    val boardInfo: BoardInfo,
+)
+
+/**
  * 板画面の表示と操作を担うViewModel。
  *
  * スレッド一覧やブックマーク状態などのUI状態を管理する。
