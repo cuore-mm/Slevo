@@ -3,4 +3,8 @@
     <cache-path
         name="image_cache"
         path="image_cache/" />
+
+    <cache-path
+        name="shared_logs"
+        path="shared_logs/" />
 </paths>

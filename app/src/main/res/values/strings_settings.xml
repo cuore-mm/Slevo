@@ -58,6 +58,11 @@
     <string name="github">GitHub</string>
     <string name="github_url">https://github.com/cuore-mm/Slevo</string>
     <string name="open_source_licenses">オープンソースライセンス</string>
+    <string name="share_log">ログを共有</string>
+    <string name="share_log_title">ログを共有</string>
+    <string name="share_log_no_logs">共有可能なログがありません</string>
+    <string name="share_log_no_target">ログを共有できるアプリがありません</string>
+    <string name="share_log_failed">ログの共有に失敗しました</string>
 
     <!-- Cookie management -->
     <string name="cookie_management">Cookieの管理</string>

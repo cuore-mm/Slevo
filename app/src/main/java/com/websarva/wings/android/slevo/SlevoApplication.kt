@@ -8,7 +8,10 @@ import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressInterceptor
 import dagger.hilt.android.HiltAndroidApp
 import okhttp3.OkHttpClient
 import co.touchlab.kermit.Logger
+import co.touchlab.kermit.Severity
 import co.touchlab.kermit.platformLogWriter
+import com.websarva.wings.android.slevo.core.log.FileLogWriter
+import com.websarva.wings.android.slevo.core.log.LogFileManager
 
 /**
  * アプリ全体の初期化を担う Application 実装。
@@ -40,12 +43,32 @@ class SlevoApplication : Application() {
         }
 
         // --- Logging setup ---
-        // デバッグビルドの場合のみ platformLogWriter を設定し、
-        // リリースビルドでは writer を空にしてログを出力しない
+        val logFileManager = LogFileManager(this)
+        val fileLogWriter = FileLogWriter(
+            logFileManager = logFileManager,
+            minSeverity = if (BuildConfig.DEBUG) Severity.Debug else Severity.Error
+        )
+
         if (BuildConfig.DEBUG) {
-            Logger.setLogWriters(platformLogWriter())
+            Logger.setLogWriters(platformLogWriter(), fileLogWriter)
         } else {
-            Logger.setLogWriters()
+            Logger.setLogWriters(fileLogWriter)
+        }
+
+        // --- Crash handler setup ---
+        val existingHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                fileLogWriter.log(
+                    severity = Severity.Error,
+                    message = "Uncaught exception on thread ${thread.name}",
+                    tag = "CrashHandler",
+                    throwable = throwable
+                )
+            } catch (_: Exception) {
+                // クラッシュ記録失敗は握りつぶし、既存 handler 委譲を優先する
+            }
+            existingHandler?.uncaughtException(thread, throwable)
         }
     }
 }

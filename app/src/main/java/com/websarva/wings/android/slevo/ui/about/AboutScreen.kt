@@ -10,6 +10,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -21,7 +22,8 @@ import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 @Composable
 fun AboutScreen(
     onNavigateUp: () -> Unit,
-    onOpenSourceLicenseClick: () -> Unit
+    onOpenSourceLicenseClick: () -> Unit,
+    onShareLogClick: () -> Unit
 ) {
     val versionName = BuildConfig.VERSION_NAME
     val githubUrl = stringResource(R.string.github_url)
@@ -62,11 +64,28 @@ fun AboutScreen(
             }
             item {
                 ListItem(
+                    modifier = Modifier.clickable(onClick = onShareLogClick),
+                    headlineContent = { Text(stringResource(R.string.share_log)) }
+                )
+                HorizontalDivider()
+            }
+            item {
+                ListItem(
                     modifier = Modifier.clickable(onClick = onOpenSourceLicenseClick),
                     headlineContent = { Text(stringResource(R.string.open_source_licenses)) }
                 )
             }
         }
     }
+}
+
+@Preview
+@Composable
+private fun AboutScreenPreview() {
+    AboutScreen(
+        onNavigateUp = {},
+        onOpenSourceLicenseClick = {},
+        onShareLogClick = {}
+    )
 }
 

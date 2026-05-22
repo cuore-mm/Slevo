@@ -12,6 +12,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
+import com.websarva.wings.android.slevo.core.log.LogFileManager
 import com.websarva.wings.android.slevo.ui.about.AboutScreen
 import com.websarva.wings.android.slevo.ui.about.OpenSourceLicenseScreen
 import com.websarva.wings.android.slevo.ui.board.screen.BoardScaffold
@@ -37,6 +38,7 @@ fun AppNavGraph(
     openDrawer: () -> Unit,
     tabsViewModel: TabsViewModel,
     sharedTransitionScope: SharedTransitionScope,
+    logFileManager: LogFileManager,
 ) {
     NavHost(
         navController = navController,
@@ -240,9 +242,16 @@ fun AppNavGraph(
             popEnterTransition = { defaultPopEnterTransition() },
             popExitTransition = { defaultPopExitTransition() }
         ) {
+            val context = androidx.compose.ui.platform.LocalContext.current
             AboutScreen(
                 onNavigateUp = { navController.navigateUp() },
-                onOpenSourceLicenseClick = { navController.navigate(AppRoute.OpenSourceLicense) }
+                onOpenSourceLicenseClick = { navController.navigate(AppRoute.OpenSourceLicense) },
+                onShareLogClick = {
+                    com.websarva.wings.android.slevo.ui.util.LogShareUtil.shareLog(
+                        context,
+                        logFileManager
+                    )
+                }
             )
         }
         //オープンソースライセンス
