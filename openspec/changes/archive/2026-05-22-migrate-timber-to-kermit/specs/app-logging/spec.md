@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Logging through application interface
-アプリ内のログ出力は、ログライブラリを直接参照せず、アプリ定義の logging interface を介して行わなければならない。logging interface は Android SDK 型および Kermit 型を公開 API に含めてはならない。
+アプリ内のログ出力 SHALL、ログライブラリを直接参照せず、アプリ定義の logging interface を介して行わなければならない。logging interface SHALL Android SDK 型および Kermit 型を公開 API に含めてはならない。
 
 #### Scenario: Application code writes logs
 - **WHEN** Repository、DataSource、ViewModel、NetworkModule がログを出力する
@@ -12,7 +12,7 @@
 - **THEN** 公開 API は Kotlin 標準型を中心に構成され、Android SDK 型および Kermit 型を含まない
 
 ### Requirement: Kermit backed logging implementation
-アプリは Kermit をログ出力の実装として利用しなければならない。Kermit への委譲、tag の指定、Throwable の受け渡しは logging interface の実装内で扱わなければならない。
+アプリ SHALL Kermit をログ出力の実装として利用しなければならない。Kermit への委譲、tag の指定、Throwable の受け渡し SHALL logging interface の実装内で扱わなければならない。
 
 #### Scenario: Error log includes throwable
 - **WHEN** 呼び出し側が logging interface にエラーメッセージと Throwable を渡す
@@ -23,7 +23,7 @@
 - **THEN** Kermit 実装は指定された tag をログ出力に反映する
 
 ### Requirement: Timber removal
-アプリは Timber 依存を持ってはならず、アプリコードに `Timber` の import または呼び出しが残っていてはならない。
+アプリ SHALL Timber 依存を持ってはならず、アプリコードに `Timber` の import または呼び出しが残っていてはならない。
 
 #### Scenario: Dependencies are inspected
 - **WHEN** Gradle の依存定義を確認する
@@ -34,14 +34,14 @@
 - **THEN** `import timber.log.Timber` および `Timber.` の直接呼び出しは存在しない
 
 ### Requirement: Preserve user-visible behavior
-ログ基盤の移行はユーザー向け機能の挙動を変更してはならない。既存のエラー処理、画面状態、通信処理、データ取得処理は logging interface への置き換え後も同じ結果を返さなければならない。
+ログ基盤の移行 SHALL ユーザー向け機能の挙動を変更してはならない。既存のエラー処理、画面状態、通信処理、データ取得処理 SHALL logging interface への置き換え後も同じ結果を返さなければならない。
 
 #### Scenario: Existing error handling runs after logging migration
 - **WHEN** Repository、DataSource、ViewModel の既存エラー処理が実行される
 - **THEN** ログ出力の有無に関わらず、既存の戻り値、UiState 更新、通知処理は移行前と同等に動作する
 
 ### Requirement: Future KMP readiness boundary
-ログ基盤は、現時点で KMP module を追加せずに、将来 shared module へ移しやすい境界を提供しなければならない。
+ログ基盤 SHALL、現時点で KMP module を追加せずに、将来 shared module へ移しやすい境界を提供しなければならない。
 
 #### Scenario: Future shared module extraction is considered
 - **WHEN** logging interface を将来 shared module に移すことを検討する
