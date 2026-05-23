@@ -1,18 +1,17 @@
 package com.websarva.wings.android.slevo.ui.about
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.GitHub
+import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -22,9 +21,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.BuildConfig
@@ -58,79 +59,84 @@ fun AboutScreen(
         topBar = {
             SlevoTopAppBar(
                 title = stringResource(R.string.about_this_app),
-                onNavigateUp = onNavigateUp
+                onNavigateUp = onNavigateUp,
             )
-        }
+        },
     ) { innerPadding ->
-        LazyColumn(
+        val items = listOf(
+            listItemSpecOfBasic(
+                headlineText = stringResource(R.string.github),
+                supportingText = githubUrl,
+                leadingContent = {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_github),
+                        contentDescription = stringResource(R.string.github),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                },
+                onClick = { uriHandler.openUri(githubUrl) },
+            ),
+            listItemSpecOfBasic(
+                headlineText = stringResource(R.string.share_log),
+                leadingContent = {
+                    Icon(
+                        imageVector = Icons.Filled.Share,
+                        contentDescription = stringResource(R.string.share_log),
+                    )
+                },
+                onClick = onShareLogClick,
+            ),
+            listItemSpecOfBasic(
+                headlineText = stringResource(R.string.open_source_licenses),
+                leadingContent = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Article,
+                        contentDescription = stringResource(R.string.open_source_licenses),
+                    )
+                },
+                onClick = onOpenSourceLicenseClick,
+            ),
+        )
+
+        Column(
             modifier = Modifier
                 .padding(innerPadding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(8.dp)
+                .fillMaxSize()
+                .padding(horizontal = 8.dp, vertical = 32.dp),
         ) {
-            // --- App Info Header ---
-            item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center,
+            ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Image(
-                        painter = painterResource(id = R.mipmap.ic_launcher),
+                        painter = painterResource(R.drawable.ic_app_icon_about),
                         contentDescription = stringResource(R.string.app_name),
-                        modifier = Modifier.size(80.dp)
+                        modifier = Modifier
+                            .size(144.dp)
+                            .clip(RoundedCornerShape(32.dp)),
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.headlineSmall
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Medium,
+                        ),
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = stringResource(R.string.version_name_label, versionName),
-                        style = MaterialTheme.typography.bodyMedium
+                        text = "v$versionName",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyLarge,
                     )
                 }
             }
-
-            // --- Action Items Card ---
-            item {
-                val items = listOf(
-                    listItemSpecOfBasic(
-                        headlineText = stringResource(R.string.github),
-                        supportingText = githubUrl,
-                        leadingContent = {
-                            Icon(
-                                imageVector = Icons.Filled.GitHub,
-                                contentDescription = stringResource(R.string.github),
-                            )
-                        },
-                        onClick = { uriHandler.openUri(githubUrl) },
-                    ),
-                    listItemSpecOfBasic(
-                        headlineText = stringResource(R.string.share_log),
-                        leadingContent = {
-                            Icon(
-                                imageVector = Icons.Filled.Share,
-                                contentDescription = stringResource(R.string.share_log),
-                            )
-                        },
-                        onClick = onShareLogClick,
-                    ),
-                    listItemSpecOfBasic(
-                        headlineText = stringResource(R.string.open_source_licenses),
-                        leadingContent = {
-                            Icon(
-                                imageVector = Icons.Filled.Description,
-                                contentDescription = stringResource(R.string.open_source_licenses),
-                            )
-                        },
-                        onClick = onOpenSourceLicenseClick,
-                    ),
-                )
-                SettingsCardWithListItems(items = items)
-            }
+            Spacer(modifier = Modifier.weight(1f))
+            SettingsCardWithListItems(items = items)
         }
     }
 }
