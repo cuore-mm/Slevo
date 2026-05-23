@@ -1,14 +1,16 @@
 package com.websarva.wings.android.slevo.ui.about
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
@@ -59,59 +61,24 @@ fun AboutScreen(
         topBar = {
             SlevoTopAppBar(
                 title = stringResource(R.string.about_this_app),
-                onNavigateUp = onNavigateUp,
+                onNavigateUp = onNavigateUp
             )
-        },
+        }
     ) { innerPadding ->
-        val items = listOf(
-            listItemSpecOfBasic(
-                headlineText = stringResource(R.string.github),
-                supportingText = githubUrl,
-                leadingContent = {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_github),
-                        contentDescription = stringResource(R.string.github),
-                        tint = MaterialTheme.colorScheme.onSurface,
-                    )
-                },
-                onClick = { uriHandler.openUri(githubUrl) },
-            ),
-            listItemSpecOfBasic(
-                headlineText = stringResource(R.string.share_log),
-                leadingContent = {
-                    Icon(
-                        imageVector = Icons.Filled.Share,
-                        contentDescription = stringResource(R.string.share_log),
-                    )
-                },
-                onClick = onShareLogClick,
-            ),
-            listItemSpecOfBasic(
-                headlineText = stringResource(R.string.open_source_licenses),
-                leadingContent = {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Article,
-                        contentDescription = stringResource(R.string.open_source_licenses),
-                    )
-                },
-                onClick = onOpenSourceLicenseClick,
-            ),
-        )
-
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(innerPadding)
-                .fillMaxSize()
-                .padding(horizontal = 8.dp, vertical = 32.dp),
+                .fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center,
-            ) {
+            // --- App Info Header ---
+            item {
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Image(
                         painter = painterResource(R.drawable.ic_app_icon_about),
@@ -124,19 +91,56 @@ fun AboutScreen(
                     Text(
                         text = stringResource(R.string.app_name),
                         style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.Medium,
-                        ),
+                            fontWeight = FontWeight.Medium
+                        )
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "v$versionName",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.bodyLarge
                     )
                 }
             }
-            Spacer(modifier = Modifier.weight(1f))
-            SettingsCardWithListItems(items = items)
+
+            // --- Action Items Card ---
+            item {
+                val items = listOf(
+                    listItemSpecOfBasic(
+                        headlineText = stringResource(R.string.github),
+                        supportingText = githubUrl,
+                        leadingContent = {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_github),
+                                contentDescription = stringResource(R.string.github),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        onClick = { uriHandler.openUri(githubUrl) },
+                    ),
+                    listItemSpecOfBasic(
+                        headlineText = stringResource(R.string.share_log),
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Filled.Share,
+                                contentDescription = stringResource(R.string.share_log),
+                            )
+                        },
+                        onClick = onShareLogClick,
+                    ),
+                    listItemSpecOfBasic(
+                        headlineText = stringResource(R.string.open_source_licenses),
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Article,
+                                contentDescription = stringResource(R.string.open_source_licenses),
+                            )
+                        },
+                        onClick = onOpenSourceLicenseClick,
+                    ),
+                )
+                SettingsCardWithListItems(items = items)
+            }
         }
     }
 }
