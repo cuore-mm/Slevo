@@ -41,7 +41,7 @@ GitHub、ログ共有、OSS ライセンスは現在もクリック可能な Lis
 ### leading icon は Material Icons を優先する
 
 各操作項目の leading icon は、既存の設定画面と同じ Material Icons の `Icon` を使う。
-候補は GitHub に `Public` または `Code`、ログ共有に `Share`、OSS ライセンスに `Article` または `Description` とする。
+GitHub は `Icons.Extended.GitHub`（`material-icons-extended` に含まれる既存依存）、ログ共有に `Share`、OSS ライセンスに `Description` とする。
 プロジェクトに導入済みの icon artifact で利用可能なものを選び、追加依存は発生させない。
 
 ## Risks / Trade-offs

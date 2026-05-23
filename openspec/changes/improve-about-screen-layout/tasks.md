@@ -15,7 +15,7 @@
 
 ## 3. Leading icon とリソース
 
-- [ ] 3.1 GitHub、ログ共有、OSS ライセンスそれぞれに、内容が分かる Material Icons の leading icon を追加する。
+- [ ] 3.1 GitHub、ログ共有、OSS ライセンスそれぞれに leading icon を追加する。GitHub は `Icons.Extended.GitHub`、ログ共有は `Share`、OSS ライセンスは `Description` を使う。
 - [ ] 3.2 アイコンの contentDescription は項目名の string resource を使う。
 - [ ] 3.3 既存依存関係で利用可能な icon を選び、新しい依存関係を追加しない。
 
