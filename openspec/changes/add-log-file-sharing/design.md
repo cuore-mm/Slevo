@@ -40,6 +40,8 @@ Debug ビルドでは `platformLogWriter()` とファイル writer の両方を�
 
 `Thread.getDefaultUncaughtExceptionHandler()` で既存 handler を保持し、新しい handler で例外情報をログファイルへ追記してから既存 handler に委譲する。これにより Android 標準のクラッシュ処理や将来追加される handler の動作を妨げない。
 
+クラッシュ記録中に `OutOfMemoryError` など `Exception` ではない致命的エラーが起きた場合も、既存 handler への委譲が欠けるとクラッシュ処理やレポートが途切れる。そのため、ログ記録を `try`/`catch (Throwable)` で包み、既存 handler への委譲は `finally` ブロックで必ず実行する。
+
 ### ログファイルにはサイズ上限を設ける
 
 ログファイルが肥大化し続けないように、追記前または追記後にサイズを確認し、上限を超えた場合は `app.log` を `app.log.old` へ退避して新しい `app.log` を作成する。初回実装では `app.log` と `app.log.old` の 1 世代保持とし、それぞれの目安上限は 1MB とする。

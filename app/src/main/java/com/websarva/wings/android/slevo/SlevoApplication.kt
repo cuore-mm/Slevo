@@ -65,10 +65,11 @@ class SlevoApplication : Application() {
                     tag = "CrashHandler",
                     throwable = throwable
                 )
-            } catch (_: Exception) {
+            } catch (_: Throwable) {
                 // クラッシュ記録失敗は握りつぶし、既存 handler 委譲を優先する
+            } finally {
+                existingHandler?.uncaughtException(thread, throwable)
             }
-            existingHandler?.uncaughtException(thread, throwable)
         }
     }
 }

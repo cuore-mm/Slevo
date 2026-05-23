@@ -47,3 +47,4 @@
 ## 6. レビュー後修正
 
 - [x] 6.1 `FileLogWriter` のタイムスタンプフォーマットを `SimpleDateFormat` から thread-safe な `DateTimeFormatter` に変更する。
+- [ ] 6.2 クラッシュハンドラ内の例外捕捉を `catch (Exception)` から `catch (Throwable)` に変更し、既存 handler への委譲を `finally` ブロックで保証する。
