@@ -60,6 +60,12 @@ Debug ビルドでは `platformLogWriter()` とファイル writer の両方を�
 
 `file_paths.xml` に `<cache-path name="shared_logs" path="shared_logs/" />` を追加する。共有 Intent には `Intent.FLAG_GRANT_READ_URI_PERMISSION` と `ClipData` を設定し、共有先アプリに一時コピーされたログファイルの読み取り権限だけを一時付与する。
 
+### タイムスタンプフォーマットは thread-safe な `DateTimeFormatter` を使う
+
+ログは複数スレッド（OkHttp、coroutine、main thread、crash handler）から同時に出力される可能性がある。`SimpleDateFormat` は mutable で thread-safe ではないため、タイムスタンプの競合でログ出力自体が不安定になるリスクがある。
+
+そのため、`java.time.format.DateTimeFormatter` を使い、フォーマッタをプロパティとして安全に共有する。プロジェクトは `coreLibraryDesugaring` を有効にしており、minSdk 24 でも `java.time` API が利用できる。
+
 ## Risks / Trade-offs
 
 - ログに個人情報や投稿内容、URL などが含まれる可能性がある → 新規ログ追加時は機微情報を避け、今回の変更では既存ログの保存先追加を中心にする。

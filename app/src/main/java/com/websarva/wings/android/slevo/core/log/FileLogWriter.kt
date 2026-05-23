@@ -2,8 +2,9 @@ package com.websarva.wings.android.slevo.core.log
 
 import co.touchlab.kermit.LogWriter
 import co.touchlab.kermit.Severity
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
@@ -18,7 +19,10 @@ class FileLogWriter(
     private val minSeverity: Severity = Severity.Debug
 ) : LogWriter() {
 
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
+    private val dateFormatter = DateTimeFormatter
+        .ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+        .withLocale(Locale.getDefault())
+        .withZone(ZoneId.systemDefault())
 
     override fun isLoggable(tag: String, severity: Severity): Boolean {
         return severity.ordinal >= minSeverity.ordinal
@@ -33,7 +37,7 @@ class FileLogWriter(
         logFileManager.rotateIfNeeded()
 
         // --- Format log line ---
-        val timestamp = dateFormat.format(Date())
+        val timestamp = dateFormatter.format(Instant.now())
         val logLine = buildString {
             append(timestamp)
             append(" [")
