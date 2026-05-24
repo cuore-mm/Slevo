@@ -2,26 +2,17 @@ package com.websarva.wings.android.slevo.ui.thread.sheet
 
 import android.content.Intent
 import android.widget.Toast
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -31,9 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -51,7 +40,8 @@ import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.common.CopyDialog
 import com.websarva.wings.android.slevo.ui.common.CopyItem
-import com.websarva.wings.android.slevo.ui.common.LabeledIconButton
+import com.websarva.wings.android.slevo.ui.common.InfoActionButton
+import com.websarva.wings.android.slevo.ui.common.InfoBottomSheetContent
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
@@ -205,21 +195,9 @@ private fun ThreadInfoBottomSheetContent(
     // --- Summary data ---
     val momentumFormatter = remember { DecimalFormat("0.0") }
     val date = threadInfo.date
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = threadInfo.title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
-        // --- Counts & meta ---
+
+    // --- サブ情報：レス数・日付・勢い ---
+    val subtitle: @Composable () -> Unit = {
         Text(
             text = buildAnnotatedString {
                 append(stringResource(R.string.res_count_prefix) + " ")
@@ -254,93 +232,56 @@ private fun ThreadInfoBottomSheetContent(
                 textAlign = TextAlign.Center
             )
         }
-        // --- Actions ---
-        val actionButtons = buildList {
-            // 板画面から開いた場合は板遷移ボタンを省略する。
-            if (showBoardAction) {
-                add(
-                    ThreadInfoActionButton(
-                        icon = Icons.AutoMirrored.Filled.Article,
-                        label = boardName,
-                        onClick = onBoardClick
-                    )
-                )
-            }
-            add(
-                ThreadInfoActionButton(
-                    icon = Icons.Filled.ContentCopy,
-                    label = stringResource(R.string.copy),
-                    onClick = onCopyClick
-                )
-            )
-            add(
-                ThreadInfoActionButton(
-                    icon = Icons.Filled.Block,
-                    label = stringResource(R.string.ng_registration),
-                    onClick = onNgClick
-                )
-            )
-            add(
-                ThreadInfoActionButton(
-                    icon = Icons.Filled.OpenInBrowser,
-                    label = stringResource(R.string.open_in_external_browser),
-                    onClick = onOpenBrowserClick
-                )
-            )
-            add(
-                ThreadInfoActionButton(
-                    icon = Icons.Filled.Share,
-                    label = stringResource(R.string.share),
-                    onClick = onShareClick
-                )
-            )
-        }
-        val totalSlots = THREAD_INFO_GRID_COLUMNS * THREAD_INFO_GRID_ROWS
-        val placeholders = (totalSlots - actionButtons.size).coerceAtLeast(0)
-
-        Spacer(modifier = Modifier.padding(8.dp))
-        Card {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(THREAD_INFO_GRID_COLUMNS),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                userScrollEnabled = false,
-                contentPadding = PaddingValues(horizontal = 16.dp)
-            ) {
-                items(actionButtons) { action ->
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        LabeledIconButton(
-                            icon = action.icon,
-                            label = action.label,
-                            onClick = action.onClick,
-                        )
-                    }
-                }
-                items(placeholders) {
-                    Box(modifier = Modifier.fillMaxWidth())
-                }
-            }
-        }
     }
+
+    // --- アクションボタン ---
+    val actionButtons = buildList {
+        // 板画面から開いた場合は板遷移ボタンを省略する。
+        if (showBoardAction) {
+            add(
+                InfoActionButton(
+                    icon = Icons.AutoMirrored.Filled.Article,
+                    label = boardName,
+                    onClick = onBoardClick
+                )
+            )
+        }
+        add(
+            InfoActionButton(
+                icon = Icons.Filled.ContentCopy,
+                label = stringResource(R.string.copy),
+                onClick = onCopyClick
+            )
+        )
+        add(
+            InfoActionButton(
+                icon = Icons.Filled.Block,
+                label = stringResource(R.string.ng_registration),
+                onClick = onNgClick
+            )
+        )
+        add(
+            InfoActionButton(
+                icon = Icons.Filled.OpenInBrowser,
+                label = stringResource(R.string.open_in_external_browser),
+                onClick = onOpenBrowserClick
+            )
+        )
+        add(
+            InfoActionButton(
+                icon = Icons.Filled.Share,
+                label = stringResource(R.string.share),
+                onClick = onShareClick
+            )
+        )
+    }
+
+    InfoBottomSheetContent(
+        title = threadInfo.title,
+        subtitleContent = subtitle,
+        actionButtons = actionButtons,
+    )
 }
-
-private const val THREAD_INFO_GRID_COLUMNS = 4
-private const val THREAD_INFO_GRID_ROWS = 2
-
-/**
- * スレッド情報シートで使うアクションボタンの表示情報。
- */
-private data class ThreadInfoActionButton(
-    val icon: ImageVector,
-    val label: String,
-    val onClick: () -> Unit
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)

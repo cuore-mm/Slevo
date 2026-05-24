@@ -22,7 +22,7 @@ data class BoardUiState(
     val showThreadInfoSheet: Boolean = false,
     val threadInfoSheetTarget: ThreadInfo = ThreadInfo(),
     val serviceName: String = "",
-    val showInfoDialog: Boolean = false,
+    val showBoardInfoSheet: Boolean = false,
     val currentSortKey: ThreadSortKey = ThreadSortKey.DEFAULT,
     val isSortAscending: Boolean = false,
     val sortKeys: List<ThreadSortKey> = ThreadSortKey.entries,

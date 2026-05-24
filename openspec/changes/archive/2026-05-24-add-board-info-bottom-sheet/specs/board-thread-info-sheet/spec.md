@@ -1,20 +1,4 @@
-# board-thread-info-sheet Specification
-
-## Purpose
-板画面とスレッド画面で、長押しまたはタイトルカードタップにより情報ボトムシートを表示する。スレッド情報シートと板情報シートは共通UIを利用し、コピー・外部ブラウザ・共有などの操作を提供する。
-
-## Requirements
-
-### Requirement: 板画面のスレッド情報シート
-板画面のスレッド一覧で項目を長押しした場合、システムは選択したThreadInfoとBoardInfoを用いたThreadInfoBottomSheetを表示しなければならない（SHALL）。
-
-#### Scenario: スレッド項目を長押ししたとき
-- **WHEN** 板画面のスレッド項目を長押しする
-- **THEN** そのスレッドの情報を表示するThreadInfoBottomSheetが表示される
-
-#### Scenario: スレッド項目をタップしたとき
-- **WHEN** スレッド項目をタップする
-- **THEN** スレッド画面へ遷移し、情報シートは表示されない
+## ADDED Requirements
 
 ### Requirement: 板画面の板情報シート
 板画面のボトムバータイトルカードをタップした場合、システムは現在表示中の板情報を表示する BoardInfoBottomSheet を表示しなければならない（SHALL）。
@@ -68,4 +52,3 @@ ThreadInfoBottomSheet と BoardInfoBottomSheet は、タイトル、サブ情報
 #### Scenario: 板情報シートを表示するとき
 - **WHEN** BoardInfoBottomSheet が表示される
 - **THEN** 共通情報シートUIを通して板名、サービス名、板用アクションが表示される
-
