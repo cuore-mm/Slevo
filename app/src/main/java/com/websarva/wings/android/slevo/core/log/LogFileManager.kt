@@ -13,8 +13,10 @@ import javax.inject.Singleton
 /**
  * アプリ内部ログファイルの保存先、ローテーション、一時コピーを管理する。
  *
- * ログは `filesDir/logs/app.log` に保存し、サイズ上限を超えた場合は
+ * ログは `noBackupFilesDir/logs/app.log` に保存し、サイズ上限を超えた場合は
  * `app.log.old` へ 1 世代退避する。共有時には cache 領域へ一時コピーを作成する。
+ *
+ * `noBackupFilesDir` を使うことで、ログが Android Auto Backup の対象外になる。
  */
 @Singleton
 class LogFileManager @Inject constructor(
@@ -30,7 +32,7 @@ class LogFileManager @Inject constructor(
 
     /** ログファイル格納ディレクトリ */
     val logsDir: File
-        get() = File(context.filesDir, LOG_DIR).apply { mkdirs() }
+        get() = File(context.noBackupFilesDir, LOG_DIR).apply { mkdirs() }
 
     /** 現行ログファイル */
     val logFile: File

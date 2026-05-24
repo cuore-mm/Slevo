@@ -1,7 +1,7 @@
 ## 1. ログファイル基盤
 
 - [x] 1.1 `core/log` 配下にログファイルの保存先、1MB の最大サイズ、`app.log` / `app.log.old` の 1 世代ローテーション方針を管理するクラスまたは utility を追加する。
-- [x] 1.2 Kermit の LogWriter として動作し、時刻・レベル・tag・メッセージ・Throwable を `filesDir/logs/app.log` に追記するファイル writer を追加する。
+- [x] 1.2 Kermit の LogWriter として動作し、時刻・レベル・tag・メッセージ・Throwable を `noBackupFilesDir/logs/app.log` に追記するファイル writer を追加する。
 - [x] 1.3 ログファイルがサイズ上限を超えた場合に、既存の `app.log.old` を削除し、`app.log` を `app.log.old` へ退避して新しい `app.log` への書き込みを継続できるようにする。
 - [x] 1.4 ファイル書き込みやローテーション失敗時に、ログ処理がアプリ本体の処理をクラッシュさせないように例外処理を追加する。
 
@@ -47,4 +47,4 @@
 ## 6. レビュー後修正
 
 - [x] 6.1 `FileLogWriter` のタイムスタンプフォーマットを `SimpleDateFormat` から thread-safe な `DateTimeFormatter` に変更する。
-- [ ] 6.2 クラッシュハンドラ内の例外捕捉を `catch (Exception)` から `catch (Throwable)` に変更し、既存 handler への委譲を `finally` ブロックで保証する。
+- [x] 6.2 クラッシュハンドラ内の例外捕捉を `catch (Exception)` から `catch (Throwable)` に変更し、既存 handler への委譲を `finally` ブロックで保証する。
