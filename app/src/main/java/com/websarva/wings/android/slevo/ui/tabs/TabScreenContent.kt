@@ -64,25 +64,13 @@ fun TabScreenContent(
     Scaffold(
         modifier = modifier,
         contentWindowInsets = WindowInsets(0),
-        bottomBar = {
-            TabListBottomControls(
-                modifier = Modifier.fillMaxWidth(),
-                pagerState = pagerState,
-                hazeState = hazeState,
-                isRefreshing = uiState.isRefreshing,
-                refreshProgress = uiState.refreshProgress,
-                onCreateTabClick = {
-                    tabsViewModel.setUrlErrorMessage(null)
-                    tabsViewModel.setUrlDialogVisible(true)
-                },
-                onRefreshClick = { tabsViewModel.refreshOpenThreads() },
-                onCancelRefreshClick = { tabsViewModel.cancelRefreshOpenThreads() },
-            )
-        },
     ) { innerPadding ->
+        // TabListBottomControls の高さ分の bottom padding。
+        // hazeTopOverlap(32) + controlHeight(48) + spacing(8) + progressHeight(8) + bottomPadding(16) = 112.dp
+        val bottomControlsHeight = 112.dp
         val listPadding = PaddingValues(
             top = 24.dp,
-            bottom = innerPadding.calculateBottomPadding(),
+            bottom = bottomControlsHeight,
         )
 
         Box(
@@ -108,6 +96,23 @@ fun TabScreenContent(
                     listContentPadding = listPadding,
                 )
             }
+
+            // --- Bottom controls ---
+            TabListBottomControls(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(),
+                pagerState = pagerState,
+                hazeState = hazeState,
+                isRefreshing = uiState.isRefreshing,
+                refreshProgress = uiState.refreshProgress,
+                onCreateTabClick = {
+                    tabsViewModel.setUrlErrorMessage(null)
+                    tabsViewModel.setUrlDialogVisible(true)
+                },
+                onRefreshClick = { tabsViewModel.refreshOpenThreads() },
+                onCancelRefreshClick = { tabsViewModel.cancelRefreshOpenThreads() },
+            )
 
             // --- URL dialog ---
             if (uiState.showUrlDialog) {
