@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
                     settingsViewModel = settingsViewModel,
                     tabsViewModel = tabsViewModel,
                     deepLinkUrlFlow = deepLinkUrlState.asStateFlow(),
-                    onDeepLinkConsumed = { deepLinkUrlState.value = null }
+                    onDeepLinkConsumed = { deepLinkUrlState.value = null },
                 )
             }
         }

@@ -43,7 +43,7 @@ fun AppScaffold(
     settingsViewModel: SettingsViewModel,
     tabsViewModel: TabsViewModel,
     deepLinkUrlFlow: StateFlow<String?>,
-    onDeepLinkConsumed: () -> Unit
+    onDeepLinkConsumed: () -> Unit,
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val deepLinkUrl by deepLinkUrlFlow.collectAsState()
@@ -93,7 +93,7 @@ fun AppScaffold(
                 settingsViewModel = settingsViewModel,
                 openDrawer = openDrawer,
                 tabsViewModel = tabsViewModel,
-                sharedTransitionScope = this
+                sharedTransitionScope = this,
             )
         }
     }
