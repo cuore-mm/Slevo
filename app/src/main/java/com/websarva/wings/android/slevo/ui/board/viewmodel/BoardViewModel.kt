@@ -319,10 +319,15 @@ class BoardViewModel @AssistedInject constructor(
      */
     fun closeThreadInfoSheet() = _uiState.update { it.copy(showThreadInfoSheet = false) }
 
-    // Info ダイアログ表示/非表示
-    fun openInfoDialog() = _uiState.update { it.copy(showInfoDialog = true) }
+    /**
+     * 板情報シートを開く。
+     */
+    fun openBoardInfoSheet() = _uiState.update { it.copy(showBoardInfoSheet = true) }
 
-    fun closeInfoDialog() = _uiState.update { it.copy(showInfoDialog = false) }
+    /**
+     * 板情報シートを閉じる。
+     */
+    fun closeBoardInfoSheet() = _uiState.update { it.copy(showBoardInfoSheet = false) }
 
     /**
      * 画像をアップロードし、成功時に本文へURLを挿入する。

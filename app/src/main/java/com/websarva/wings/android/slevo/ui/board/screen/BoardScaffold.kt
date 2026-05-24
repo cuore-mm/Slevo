@@ -165,7 +165,7 @@ fun BoardScaffold(
                         tabIconContentDescriptionRes = R.string.open_tablist,
                         postIconContentDescriptionRes = R.string.create_thread,
                         actionsProgress = if (uiState.isSearchActive) 0f else actionProgress,
-                        onTitleClick = {},
+                        onTitleClick = { viewModel.openBoardInfoSheet() },
                         onRefreshClick = { viewModel.refreshBoardData() },
                         isLoading = uiState.isLoading,
                         loadProgress = uiState.loadProgress,
@@ -252,14 +252,13 @@ fun BoardScaffold(
                 tabsViewModel = tabsViewModel,
                 showBoardAction = false,
             )
-            if (uiState.showInfoDialog) {
-                BoardInfoDialog(
-                    serviceName = uiState.serviceName,
-                    boardName = uiState.boardInfo.name,
-                    boardUrl = uiState.boardInfo.url,
-                    onDismissRequest = { viewModel.closeInfoDialog() }
-                )
-            }
+            BoardInfoBottomSheet(
+                showBoardInfoSheet = uiState.showBoardInfoSheet,
+                onDismissRequest = { viewModel.closeBoardInfoSheet() },
+                boardName = uiState.boardInfo.name,
+                serviceName = uiState.serviceName,
+                boardUrl = uiState.boardInfo.url,
+            )
         },
         optionalSheetContent = { viewModel, uiState ->
             val sortSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)

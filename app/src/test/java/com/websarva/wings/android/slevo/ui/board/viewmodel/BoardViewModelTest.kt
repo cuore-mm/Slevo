@@ -131,4 +131,25 @@ class BoardViewModelTest {
 
         assertNull(viewModel.uiState.value.pendingToastResId)
     }
+
+    @Test
+    fun openBoardInfoSheet_setsShowBoardInfoSheetTrue() = runTest {
+        val viewModel = createViewModel()
+        viewModel.initializeFlow(BoardInitArgs(BoardInfo(0, "test", "https://example.com/test/")))
+        advanceUntilIdle()
+
+        viewModel.openBoardInfoSheet()
+        assertEquals(true, viewModel.uiState.value.showBoardInfoSheet)
+    }
+
+    @Test
+    fun closeBoardInfoSheet_setsShowBoardInfoSheetFalse() = runTest {
+        val viewModel = createViewModel()
+        viewModel.initializeFlow(BoardInitArgs(BoardInfo(0, "test", "https://example.com/test/")))
+        advanceUntilIdle()
+
+        viewModel.openBoardInfoSheet()
+        viewModel.closeBoardInfoSheet()
+        assertEquals(false, viewModel.uiState.value.showBoardInfoSheet)
+    }
 }
