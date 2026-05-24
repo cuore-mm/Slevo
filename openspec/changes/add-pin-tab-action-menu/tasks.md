@@ -4,14 +4,14 @@
 - [ ] 1.2 Room database version を更新し、`open_board_tabs` / `open_thread_tabs` に `isPinned INTEGER NOT NULL DEFAULT 0` を追加する migration を実装する
 - [ ] 1.3 migration 登録箇所に新 migration を追加する
 - [ ] 1.4 `OpenBoardTabDao` と `OpenThreadTabDao` の取得結果に `isPinned` を含める
-- [ ] 1.5 DAO のタブ一覧取得順を `isPinned DESC, sortOrder ASC` に変更する
+- [ ] 1.5 DAO のタブ一覧取得順を既存通り `sortOrder ASC` のまま維持する
 
 ## 2. タブモデルと Repository
 
 - [ ] 2.1 `BoardTabInfo` と `ThreadTabInfo` に `isPinned: Boolean = false` を追加する
 - [ ] 2.2 `TabsRepository.observeOpenBoardTabs()` / `observeOpenThreadTabs()` で固定状態を UI モデルへ反映する
 - [ ] 2.3 `TabsRepository.saveOpenBoardTabs()` / `saveOpenThreadTabs()` で固定状態を永続化する
-- [ ] 2.4 固定タブ同士・通常タブ同士の相対順が既存 `sortOrder` に従うことを確認する
+- [ ] 2.4 固定状態を切り替えてもタブ一覧の表示順が既存 `sortOrder` に従うことを確認する
 
 ## 3. Coordinator / ViewModel 状態管理
 
@@ -33,15 +33,16 @@
 
 - [ ] 5.1 `TabListCard` に長押し、選択強調、非選択減光、固定済み表示用パラメータを追加する
 - [ ] 5.2 `TabListCard` で未固定タブは閉じるアイコン、固定済みタブは固定アイコンを右上に表示する
-- [ ] 5.3 `TabListCard` で長押し時のアンカー位置を取得し、ViewModel へ通知できるようにする
-- [ ] 5.4 `OpenBoardsList` と `OpenThreadsList` で長押し選択状態、固定状態、メニュー操作をカードへ渡す
-- [ ] 5.5 削除アニメーション中のカードでは長押し選択とメニュー操作を開始しないようにする
+- [ ] 5.3 固定済みタブ右上の固定アイコンを表示専用にし、タップ時の動作を持たせない
+- [ ] 5.4 `TabListCard` で長押し時のアンカー位置を取得し、ViewModel へ通知できるようにする
+- [ ] 5.5 `OpenBoardsList` と `OpenThreadsList` で長押し選択状態、固定状態、メニュー操作をカードへ渡す
+- [ ] 5.6 削除アニメーション中のカードでは長押し選択とメニュー操作を開始しないようにする
 
 ## 6. 下部操作群と詳細 BottomSheet
 
-- [ ] 6.1 `TabListBottomControls` に長押し選択中モードを追加し、主要操作ボタンのみ非表示にする
-- [ ] 6.2 長押し選択中もページ切替インジケータを表示し続ける
-- [ ] 6.3 長押し選択中もスレッド更新進捗インジケータを表示し続ける
+- [ ] 6.1 長押し選択中も `TabListBottomControls` の既存ボタン表示を変更しないことを確認する
+- [ ] 6.2 長押し選択中もページ切替表示を通常時と同じ条件で維持する
+- [ ] 6.3 長押し選択中もスレッド更新進捗インジケータを通常時と同じ条件で維持する
 - [ ] 6.4 `TabScreenContent` から板タブ詳細として `BoardInfoBottomSheet` を表示する
 - [ ] 6.5 `TabScreenContent` からスレッドタブ詳細として `ThreadInfoBottomSheet` を表示する
 
@@ -51,5 +52,6 @@
 - [ ] 7.2 `ThreadTabsCoordinator` の固定切替 unit test を追加する
 - [ ] 7.3 `TabsRepository` の固定状態保存/復元 test を追加する
 - [ ] 7.4 Room migration test で既存タブが未固定として移行されることを確認する
-- [ ] 7.5 可能なら Compose UI test で長押しメニュー表示、固定/解除ラベル、閉じる項目の表示を確認する
-- [ ] 7.6 Android CI workflow または指定された検証手順で build と unit test を確認する
+- [ ] 7.5 固定状態を切り替えてもタブ表示順が変わらないことを確認する test を追加する
+- [ ] 7.6 可能なら Compose UI test で長押しメニュー表示、固定/解除ラベル、閉じる項目、固定アイコン表示専用動作を確認する
+- [ ] 7.7 Android CI workflow または指定された検証手順で build と unit test を確認する
