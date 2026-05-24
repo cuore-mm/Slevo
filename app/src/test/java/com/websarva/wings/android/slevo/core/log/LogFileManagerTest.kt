@@ -27,7 +27,7 @@ class LogFileManagerTest {
     @Before
     fun setUp() {
         context = mockk(relaxed = true)
-        every { context.filesDir } returns tempFolder.root
+        every { context.noBackupFilesDir } returns tempFolder.root
         every { context.cacheDir } returns tempFolder.newFolder("cache")
         logFileManager = LogFileManager(context)
     }
