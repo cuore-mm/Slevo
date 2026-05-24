@@ -3,12 +3,10 @@ package com.websarva.wings.android.slevo.ui.common
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInBrowser
@@ -55,35 +53,35 @@ fun InfoBottomSheetContent(
         // --- 呼び出し元固有のサブ情報 ---
         subtitleContent?.invoke()
         // --- アクション ---
-        val totalSlots = INFO_GRID_COLUMNS * INFO_GRID_ROWS
-        val placeholders = (totalSlots - actionButtons.size).coerceAtLeast(0)
-
-        androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(8.dp))
-        Card {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(INFO_GRID_COLUMNS),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+        Spacer(modifier = Modifier.padding(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                userScrollEnabled = false,
-                contentPadding = PaddingValues(horizontal = 16.dp)
             ) {
-                items(actionButtons) { action ->
-                    Box(
+                actionButtons.chunked(INFO_GRID_COLUMNS).forEach { rowActions ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
                     ) {
-                        LabeledIconButton(
-                            icon = action.icon,
-                            label = action.label,
-                            onClick = action.onClick,
-                        )
+                        rowActions.forEach { action ->
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                LabeledIconButton(
+                                    icon = action.icon,
+                                    label = action.label,
+                                    onClick = action.onClick,
+                                )
+                            }
+                        }
+                        repeat(INFO_GRID_COLUMNS - rowActions.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
-                }
-                items(placeholders) {
-                    Box(modifier = Modifier.fillMaxWidth())
                 }
             }
         }
@@ -91,7 +89,6 @@ fun InfoBottomSheetContent(
 }
 
 private const val INFO_GRID_COLUMNS = 4
-private const val INFO_GRID_ROWS = 2
 
 /**
  * 情報シートのアクションボタン表示情報。
@@ -115,17 +112,17 @@ private fun InfoBottomSheetContentPreview() {
         },
         actionButtons = listOf(
             InfoActionButton(
-                icon = androidx.compose.material.icons.Icons.Filled.ContentCopy,
+                icon = Icons.Filled.ContentCopy,
                 label = "コピー",
                 onClick = {}
             ),
             InfoActionButton(
-                icon = androidx.compose.material.icons.Icons.Filled.OpenInBrowser,
+                icon = Icons.Filled.OpenInBrowser,
                 label = "ブラウザ",
                 onClick = {}
             ),
             InfoActionButton(
-                icon = androidx.compose.material.icons.Icons.Filled.Share,
+                icon = Icons.Filled.Share,
                 label = "共有",
                 onClick = {}
             ),
