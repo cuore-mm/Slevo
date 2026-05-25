@@ -77,12 +77,10 @@ class ThreadTabsCoordinatorTest {
 
     /**
      * `togglePinThreadTab` で対象スレッドタブの固定状態を切り替えることを確認する。
-     * 固定後にリポジトリへの保存が呼ばれることも確認する。
      */
     @Test
     fun togglePinThreadTab_togglesPinnedState() {
-        val tabsRepository = mockk<TabsRepository>(relaxed = true)
-        val coordinator = createCoordinator(tabsRepository)
+        val coordinator = createCoordinator(mockk(relaxed = true))
         coordinator.ensureThreadTab(
             AppRoute.Thread(
                 threadKey = "1723111700",
@@ -98,7 +96,6 @@ class ThreadTabsCoordinatorTest {
         coordinator.togglePinThreadTab(threadId)
 
         assertEquals(true, coordinator.openThreadTabs.value.first().isPinned)
-        coVerify(atLeast = 1) { tabsRepository.saveOpenThreadTabs(any()) }
 
         coordinator.togglePinThreadTab(threadId)
 

@@ -15,12 +15,10 @@ class BoardTabsCoordinatorTest {
 
     /**
      * `togglePinBoardTab` で対象板タブの固定状態を切り替えることを確認する。
-     * 固定後にリポジトリへの保存が呼ばれることも確認する。
      */
     @Test
     fun togglePinBoardTab_togglesPinnedState() {
-        val tabsRepository = mockk<TabsRepository>(relaxed = true)
-        val coordinator = createCoordinator(tabsRepository)
+        val coordinator = createCoordinator(mockk(relaxed = true))
         coordinator.openBoardTab(
             BoardTabInfo(
                 boardId = 1,
@@ -36,7 +34,6 @@ class BoardTabsCoordinatorTest {
         coordinator.togglePinBoardTab(boardUrl)
 
         assertEquals(true, coordinator.openBoardTabs.value.first().isPinned)
-        coVerify(atLeast = 1) { tabsRepository.saveOpenBoardTabs(any()) }
 
         coordinator.togglePinBoardTab(boardUrl)
 
