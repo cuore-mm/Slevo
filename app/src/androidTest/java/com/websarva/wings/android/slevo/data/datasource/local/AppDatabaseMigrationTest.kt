@@ -616,6 +616,84 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    @Test
+    fun migrate8To9_addsIsPinnedColumn_andPreservesData() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.deleteDatabase(TEST_DB)
+
+        // v8 スキーマで open_board_tabs / open_thread_tabs を作成
+        helper.createDatabase(TEST_DB, 8).apply {
+            execSQL("""
+                CREATE TABLE IF NOT EXISTS open_board_tabs (
+                    boardUrl TEXT NOT NULL PRIMARY KEY,
+                    boardId INTEGER NOT NULL,
+                    boardName TEXT NOT NULL,
+                    serviceName TEXT NOT NULL,
+                    sortOrder INTEGER NOT NULL,
+                    firstVisibleItemIndex INTEGER NOT NULL,
+                    firstVisibleItemScrollOffset INTEGER NOT NULL
+                )
+            """.trimIndent())
+            execSQL("""
+                INSERT INTO open_board_tabs
+                (boardUrl, boardId, boardName, serviceName, sortOrder, firstVisibleItemIndex, firstVisibleItemScrollOffset)
+                VALUES ('https://example.com/test/', 1, 'Test Board', 'example.com', 0, 0, 0)
+            """.trimIndent())
+            execSQL("""
+                CREATE TABLE IF NOT EXISTS open_thread_tabs (
+                    threadId TEXT NOT NULL PRIMARY KEY,
+                    sortOrder INTEGER NOT NULL,
+                    firstVisibleItemIndex INTEGER NOT NULL,
+                    firstVisibleItemScrollOffset INTEGER NOT NULL
+                )
+            """.trimIndent())
+            execSQL("""
+                INSERT INTO open_thread_tabs
+                (threadId, sortOrder, firstVisibleItemIndex, firstVisibleItemScrollOffset)
+                VALUES ('example.com/test/thread', 0, 0, 0)
+            """.trimIndent())
+            close()
+        }
+
+        // v9 までマイグレーション＋スキーマ検証
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            9,
+            /* validateDroppedTables = */ true,
+            AppDatabase.MIGRATION_8_9
+        )
+
+        // 実DBを Room で開いて isPinned の存在と初期値を確認
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
+            .addMigrations(AppDatabase.MIGRATION_8_9)
+            .build()
+
+        db.openHelper.writableDatabase.query("PRAGMA table_info('open_board_tabs')").use { c ->
+            val cols = mutableListOf<String>()
+            while (c.moveToNext()) cols += c.getString(c.getColumnIndexOrThrow("name"))
+            assertTrue(cols.contains("isPinned"))
+        }
+        db.openHelper.writableDatabase.query("PRAGMA table_info('open_thread_tabs')").use { c ->
+            val cols = mutableListOf<String>()
+            while (c.moveToNext()) cols += c.getString(c.getColumnIndexOrThrow("name"))
+            assertTrue(cols.contains("isPinned"))
+        }
+        db.openHelper.writableDatabase.query(
+            "SELECT isPinned FROM open_board_tabs WHERE boardUrl='https://example.com/test/'"
+        ).use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(0, c.getInt(0))
+        }
+        db.openHelper.writableDatabase.query(
+            "SELECT isPinned FROM open_thread_tabs WHERE threadId='example.com/test/thread'"
+        ).use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(0, c.getInt(0))
+        }
+
+        db.close()
+    }
+
     companion object {
         private const val TEST_DB = "migration-test"
     }
