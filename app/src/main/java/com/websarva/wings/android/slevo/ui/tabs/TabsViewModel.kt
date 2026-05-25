@@ -73,28 +73,46 @@ class TabsViewModel @Inject constructor(
     private val showBoardInfoBottomSheetState = MutableStateFlow(false)
     private val showThreadInfoBottomSheetState = MutableStateFlow(false)
 
-    val uiState: StateFlow<TabsUiState> = combine(
-        boardTabsState,
-        threadTabsState,
+    /**
+     * URL入力ダイアログの検証・表示・エラー状態をまとめる内部状態。
+     */
+    private val urlDialogUiState = combine(
         urlValidationState,
         urlDialogState,
         urlErrorState,
+    ) { isUrlValidating, showUrlDialog, urlErrorMessage ->
+        UrlDialogState(
+            isUrlValidating = isUrlValidating,
+            showUrlDialog = showUrlDialog,
+            urlErrorMessage = urlErrorMessage,
+        )
+    }
+
+    /**
+     * 長押し選択中のタブ情報、bounds、BottomSheet 表示状態をまとめる内部状態。
+     */
+    private val tabSelectionUiState = combine(
         selectedBoardTabState,
         selectedThreadTabState,
         selectedTabBoundsState,
         showBoardInfoBottomSheetState,
         showThreadInfoBottomSheetState,
-    ) { combined ->
-        val boardState = combined[0] as BoardTabsState
-        val threadState = combined[1] as ThreadTabsState
-        val isUrlValidating = combined[2] as Boolean
-        val showUrlDialog = combined[3] as Boolean
-        val urlErrorMessage = combined[4] as String?
-        val selectedBoardTab = combined[5] as BoardTabInfo?
-        val selectedThreadTab = combined[6] as ThreadTabInfo?
-        val selectedTabBounds = combined[7] as IntRect?
-        val showBoardInfoBottomSheet = combined[8] as Boolean
-        val showThreadInfoBottomSheet = combined[9] as Boolean
+    ) { selectedBoardTab, selectedThreadTab, selectedTabBounds, showBoardInfoBottomSheet, showThreadInfoBottomSheet ->
+        TabSelectionState(
+            selectedBoardTab = selectedBoardTab,
+            selectedThreadTab = selectedThreadTab,
+            selectedTabBounds = selectedTabBounds,
+            showBoardInfoBottomSheet = showBoardInfoBottomSheet,
+            showThreadInfoBottomSheet = showThreadInfoBottomSheet,
+        )
+    }
+
+    val uiState: StateFlow<TabsUiState> = combine(
+        boardTabsState,
+        threadTabsState,
+        urlDialogUiState,
+        tabSelectionUiState,
+    ) { boardState, threadState, urlState, selectionState ->
         TabsUiState(
             openThreadTabs = threadState.openThreadTabs,
             openBoardTabs = boardState.openBoardTabs,
@@ -103,14 +121,14 @@ class TabsViewModel @Inject constructor(
             isRefreshing = threadState.isRefreshing,
             refreshProgress = threadState.refreshProgress,
             newResCounts = threadState.newResCounts,
-            isUrlValidating = isUrlValidating,
-            showUrlDialog = showUrlDialog,
-            urlErrorMessage = urlErrorMessage,
-            selectedBoardTab = selectedBoardTab,
-            selectedThreadTab = selectedThreadTab,
-            selectedTabBounds = selectedTabBounds,
-            showBoardInfoBottomSheet = showBoardInfoBottomSheet,
-            showThreadInfoBottomSheet = showThreadInfoBottomSheet,
+            isUrlValidating = urlState.isUrlValidating,
+            showUrlDialog = urlState.showUrlDialog,
+            urlErrorMessage = urlState.urlErrorMessage,
+            selectedBoardTab = selectionState.selectedBoardTab,
+            selectedThreadTab = selectionState.selectedThreadTab,
+            selectedTabBounds = selectionState.selectedTabBounds,
+            showBoardInfoBottomSheet = selectionState.showBoardInfoBottomSheet,
+            showThreadInfoBottomSheet = selectionState.showThreadInfoBottomSheet,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, TabsUiState())
 
@@ -427,4 +445,24 @@ private data class ThreadTabsState(
     val isRefreshing: Boolean,
     val refreshProgress: ThreadTabRefreshProgress?,
     val newResCounts: Map<String, Int>,
+)
+
+/**
+ * URL入力ダイアログの検証・表示・エラー状態をまとめる内部状態。
+ */
+private data class UrlDialogState(
+    val isUrlValidating: Boolean = false,
+    val showUrlDialog: Boolean = false,
+    val urlErrorMessage: String? = null,
+)
+
+/**
+ * 長押し選択中のタブ情報、bounds、BottomSheet 表示状態をまとめる内部状態。
+ */
+private data class TabSelectionState(
+    val selectedBoardTab: BoardTabInfo? = null,
+    val selectedThreadTab: ThreadTabInfo? = null,
+    val selectedTabBounds: IntRect? = null,
+    val showBoardInfoBottomSheet: Boolean = false,
+    val showThreadInfoBottomSheet: Boolean = false,
 )
