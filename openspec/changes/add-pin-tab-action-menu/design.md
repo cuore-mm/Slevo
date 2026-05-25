@@ -71,7 +71,11 @@ Issue の受け入れ条件では「閉じるアイコンが固定アイコン�
 
 リスト内の元カードは長押し選択中に `alpha(0f)` で透明化し、レイアウト位置だけ保持する。これにより元カードと floating card が二重に見える問題を防ぐ。元カード側の拡大アニメーションは廃止し、選択中の視覚状態は floating card 側だけで表現する。
 
-floating card 側は `Modifier.padding(horizontal = 12.dp)` を持たず、元カードの `boundsInWindow()` と一致させる。`IntRect` のまま `IntOffset` で配置し、dp 変換による端数ズレを防ぐ。floating card には scale（1.00 → 1.04）と elevation のアニメーションを付け、元カードから連続して拡大するように見せる。
+floating card 側は `Modifier.padding(horizontal = 12.dp)` を持たず、元カードと同じ幅にする。`boundsInWindow()` は window 基準の座標を返すため、floating card の親 `Box` の window 座標を `onGloballyPositioned` で取得し、差分を引いて親基準のローカル座標に変換する。これにより座標系のズレを防ぐ。
+
+floating card の幅は `bounds.right - bounds.left` を `Dp` に変換して明示的に指定する。これにより `fillMaxWidth()` で画面幅いっぱいになって右側がはみ出す問題を防ぐ。
+
+floating card の拡大は `Modifier.scale()` ではなく `graphicsLayer { scaleX/scaleY + TransformOrigin(0f, 0f) }` で行う。`scale()` のデフォルト原点は中央なので拡大時に四方向に広がり位置がずれるが、原点を左上 `(0f, 0f)` に固定することで、元カードの左上隅を基点に右下へだけ拡大し、位置ズレを防ぐ。
 
 overlay は `hazeSource` の子に入れず、`hazeSource` と `hazeEffect` の兄弟関係を維持する。これにより、下部操作群の haze 効果を壊さずに、長押し時だけ全画面の減光レイヤーを追加できる。
 

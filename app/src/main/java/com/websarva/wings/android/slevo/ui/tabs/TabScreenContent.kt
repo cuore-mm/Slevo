@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CardDefaults
@@ -24,12 +25,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
@@ -92,7 +99,16 @@ fun TabScreenContent(
             bottom = bottomControlsHeight,
         )
 
-        Box(modifier = Modifier.fillMaxSize()) {
+        val boxWindowOffset = remember { mutableStateOf(IntOffset.Zero) }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .onGloballyPositioned { coordinates ->
+                    val pos = coordinates.positionInWindow()
+                    boxWindowOffset.value = IntOffset(pos.x.toInt(), pos.y.toInt())
+                }
+        ) {
             // --- Content with haze source ---
             Box(
                 modifier = Modifier
@@ -156,13 +172,21 @@ fun TabScreenContent(
                 animationSpec = tween(durationMillis = 220),
                 label = "floatingCardScale",
             )
+            val density = LocalDensity.current
             uiState.selectedBoardTab?.let { tab ->
                 uiState.selectedTabBounds?.let { bounds ->
+                    val localLeft = bounds.left - boxWindowOffset.value.x
+                    val localTop = bounds.top - boxWindowOffset.value.y
+                    val cardWidthPx = bounds.right - bounds.left
                     Box(
                         modifier = Modifier
-                            .wrapContentSize()
-                            .offset { IntOffset(bounds.left, bounds.top) }
-                            .scale(floatingScale)
+                            .width(with(density) { cardWidthPx.toDp() })
+                            .offset { IntOffset(localLeft, localTop) }
+                            .graphicsLayer {
+                                scaleX = floatingScale
+                                scaleY = floatingScale
+                                transformOrigin = TransformOrigin(0f, 0f)
+                            }
                             .clickable { /* 選択タブのタップは選択解除しない */ }
                     ) {
                         BoardTabFloatingCard(tab = tab)
@@ -171,11 +195,18 @@ fun TabScreenContent(
             }
             uiState.selectedThreadTab?.let { tab ->
                 uiState.selectedTabBounds?.let { bounds ->
+                    val localLeft = bounds.left - boxWindowOffset.value.x
+                    val localTop = bounds.top - boxWindowOffset.value.y
+                    val cardWidthPx = bounds.right - bounds.left
                     Box(
                         modifier = Modifier
-                            .wrapContentSize()
-                            .offset { IntOffset(bounds.left, bounds.top) }
-                            .scale(floatingScale)
+                            .width(with(density) { cardWidthPx.toDp() })
+                            .offset { IntOffset(localLeft, localTop) }
+                            .graphicsLayer {
+                                scaleX = floatingScale
+                                scaleY = floatingScale
+                                transformOrigin = TransformOrigin(0f, 0f)
+                            }
                             .clickable { /* 選択タブのタップは選択解除しない */ }
                     ) {
                         ThreadTabFloatingCard(tab = tab)
