@@ -171,7 +171,7 @@ fun AnchoredOverlayMenu(
 /**
  * アンカー上に重ねるオーバーレイメニューの位置を計算する。
  */
-private class AnchoredOverlayMenuPositionProvider(
+class AnchoredOverlayMenuPositionProvider(
     private val anchorBoundsInWindow: IntRect,
     private val horizontalAlignment: HorizontalAnchorAlignment,
     private val offsetPx: IntOffset,

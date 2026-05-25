@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.platform.LocalDensity
@@ -78,7 +79,6 @@ internal fun TabListCard(
     )
 
     Card(
-        onClick = null,
         modifier = modifier
             .fillMaxWidth()
             .scale(scale),

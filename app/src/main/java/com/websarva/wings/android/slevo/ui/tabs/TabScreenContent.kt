@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -11,11 +12,11 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material3.BackHandler
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -192,11 +193,11 @@ fun TabScreenContent(
                 val boardTab = uiState.selectedBoardTab
                 if (boardTab != null) {
                     BoardInfoBottomSheet(
-                        boardId = boardTab.boardId,
-                        boardName = boardTab.boardName,
-                        boardUrl = boardTab.boardUrl,
-                        serviceName = boardTab.serviceName,
+                        showBoardInfoSheet = true,
                         onDismissRequest = { tabsViewModel.dismissBoardInfoBottomSheet() },
+                        boardName = boardTab.boardName,
+                        serviceName = boardTab.serviceName,
+                        boardUrl = boardTab.boardUrl,
                     )
                 }
             }
@@ -204,10 +205,23 @@ fun TabScreenContent(
                 val threadTab = uiState.selectedThreadTab
                 if (threadTab != null) {
                     ThreadInfoBottomSheet(
-                        threadId = threadTab.id,
-                        boardName = threadTab.boardName,
-                        boardUrl = threadTab.boardUrl,
+                        showThreadInfoSheet = true,
                         onDismissRequest = { tabsViewModel.dismissThreadInfoBottomSheet() },
+                        threadInfo = com.websarva.wings.android.slevo.data.model.ThreadInfo(
+                            title = threadTab.title,
+                            key = threadTab.threadKey,
+                            url = "${threadTab.boardUrl}test/read.cgi/${threadTab.boardUrl.substringAfterLast("/").removeSuffix("/")}/${threadTab.threadKey}/",
+                            datUrl = "",
+                            resCount = threadTab.resCount,
+                        ),
+                        boardInfo = com.websarva.wings.android.slevo.data.model.BoardInfo(
+                            boardId = threadTab.boardId,
+                            name = threadTab.boardName,
+                            url = threadTab.boardUrl,
+                        ),
+                        navController = navController,
+                        tabsViewModel = tabsViewModel,
+                        showBoardAction = true,
                     )
                 }
             }
