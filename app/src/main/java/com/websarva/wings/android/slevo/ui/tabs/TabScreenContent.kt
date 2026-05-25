@@ -73,28 +73,30 @@ fun TabScreenContent(
             bottom = bottomControlsHeight,
         )
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .hazeSource(state = hazeState),
-        ) {
-            // --- Content ---
-            if (uiState.isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularWavyProgressIndicator()
+        Box(modifier = Modifier.fillMaxSize()) {
+            // --- Content with haze source ---
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeSource(state = hazeState),
+            ) {
+                if (uiState.isLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularWavyProgressIndicator()
+                    }
+                } else {
+                    TabsPagerContent(
+                        modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
+                        pagerState = pagerState,
+                        tabsViewModel = tabsViewModel,
+                        navController = navController,
+                        closeDrawer = closeDrawer,
+                        listContentPadding = listPadding,
+                    )
                 }
-            } else {
-                TabsPagerContent(
-                    modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
-                    pagerState = pagerState,
-                    tabsViewModel = tabsViewModel,
-                    navController = navController,
-                    closeDrawer = closeDrawer,
-                    listContentPadding = listPadding,
-                )
             }
 
             // --- Bottom controls ---
