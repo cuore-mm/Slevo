@@ -185,7 +185,7 @@ fun TabScreenContent(
                             .graphicsLayer {
                                 scaleX = floatingScale
                                 scaleY = floatingScale
-                                transformOrigin = TransformOrigin(0f, 0f)
+                                transformOrigin = TransformOrigin.Center
                             }
                             .clickable { /* 選択タブのタップは選択解除しない */ }
                     ) {
@@ -205,7 +205,7 @@ fun TabScreenContent(
                             .graphicsLayer {
                                 scaleX = floatingScale
                                 scaleY = floatingScale
-                                transformOrigin = TransformOrigin(0f, 0f)
+                                transformOrigin = TransformOrigin.Center
                             }
                             .clickable { /* 選択タブのタップは選択解除しない */ }
                     ) {
