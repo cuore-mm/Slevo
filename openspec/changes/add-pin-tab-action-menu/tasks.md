@@ -18,8 +18,9 @@
 - [ ] 3.1 `BoardTabsCoordinator` に板タブ固定切替処理を追加する
 - [ ] 3.2 `ThreadTabsCoordinator` にスレッドタブ固定切替処理を追加する
 - [ ] 3.3 `TabsViewModel` に板/スレッドタブの固定切替 API を追加する
-- [ ] 3.4 `TabsUiState` に長押し選択中タブ、アンカー位置、詳細 BottomSheet 表示対象を表す状態を追加する
+- [ ] 3.4 `TabsUiState` に長押し選択中タブ、アンカー位置、選択タブ再描画用 bounds、詳細 BottomSheet 表示対象を表す状態を追加する
 - [ ] 3.5 `TabsViewModel` に長押し選択開始、選択解除、詳細表示、メニュー操作完了の状態更新処理を追加する
+- [ ] 3.6 `TabsViewModel` の選択解除処理を overlay タップ、メニュー dismissal、戻るキー、ページ切替、選択中タブ消失から共通利用できるようにする
 
 ## 4. タブ専用アクションメニュー
 
@@ -31,20 +32,25 @@
 
 ## 5. タブ一覧 UI 接続
 
-- [ ] 5.1 `TabListCard` に長押し、選択強調、非選択減光、固定済み表示用パラメータを追加する
+- [ ] 5.1 `TabListCard` に長押し、選択強調、固定済み表示用パラメータを追加する
 - [ ] 5.2 `TabListCard` で未固定タブは閉じるアイコン、固定済みタブは固定アイコンを右上に表示する
 - [ ] 5.3 固定済みタブ右上の固定アイコンを表示専用にし、タップ時の動作を持たせない
 - [ ] 5.4 `TabListCard` で長押し時のアンカー位置を取得し、ViewModel へ通知できるようにする
 - [ ] 5.5 `OpenBoardsList` と `OpenThreadsList` で長押し選択状態、固定状態、メニュー操作をカードへ渡す
 - [ ] 5.6 削除アニメーション中のカードでは長押し選択とメニュー操作を開始しないようにする
+- [ ] 5.7 `TabScreenContent` に長押し選択中だけ表示する全画面 `LongPressDimOverlay` を追加し、下部操作群を含む選択タブ以外の領域を暗くする
+- [ ] 5.8 `LongPressDimOverlay` のタップで長押し選択状態を解除し、下部操作群上のタップも下部操作ではなく選択解除として扱う
+- [ ] 5.9 長押し対象タブを overlay より上に `SelectedTabFloatingCard` として再描画し、選択タブのタップでは解除処理を実行しない
+- [ ] 5.10 dim overlay は `hazeSource` の子に入れず、`hazeSource` と `hazeEffect` の兄弟関係を維持する
 
 ## 6. 下部操作群と詳細 BottomSheet
 
 - [ ] 6.1 長押し選択中も `TabListBottomControls` の既存ボタン表示を変更しないことを確認する
-- [ ] 6.2 長押し選択中もページ切替表示を通常時と同じ条件で維持する
-- [ ] 6.3 長押し選択中もスレッド更新進捗インジケータを通常時と同じ条件で維持する
-- [ ] 6.4 `TabScreenContent` から板タブ詳細として `BoardInfoBottomSheet` を表示する
-- [ ] 6.5 `TabScreenContent` からスレッドタブ詳細として `ThreadInfoBottomSheet` を表示する
+- [ ] 6.2 長押し選択中の `TabListBottomControls` は dim overlay の下に通常時と同じ構造で表示し、タップ時は選択解除になることを確認する
+- [ ] 6.3 長押し選択中もページ切替表示を通常時と同じ条件で維持する
+- [ ] 6.4 長押し選択中もスレッド更新進捗インジケータを通常時と同じ条件で維持する
+- [ ] 6.5 `TabScreenContent` から板タブ詳細として `BoardInfoBottomSheet` を表示する
+- [ ] 6.6 `TabScreenContent` からスレッドタブ詳細として `ThreadInfoBottomSheet` を表示する
 
 ## 7. テストと検証
 
@@ -54,4 +60,5 @@
 - [ ] 7.4 Room migration test で既存タブが未固定として移行されることを確認する
 - [ ] 7.5 固定状態を切り替えてもタブ表示順が変わらないことを確認する test を追加する
 - [ ] 7.6 可能なら Compose UI test で長押しメニュー表示、固定/解除ラベル、閉じる項目、固定アイコン表示専用動作を確認する
-- [ ] 7.7 Android CI workflow または指定された検証手順で build と unit test を確認する
+- [ ] 7.7 可能なら Compose UI test で長押し中の全画面減光、下部操作群上タップでの選択解除、選択タブタップでの選択維持を確認する
+- [ ] 7.8 Android CI workflow または指定された検証手順で build と unit test を確認する
