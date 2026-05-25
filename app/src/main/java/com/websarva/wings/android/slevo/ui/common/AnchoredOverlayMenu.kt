@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
@@ -211,10 +212,14 @@ class AnchoredOverlayMenuPositionProvider(
 
 /**
  * アンカーメニュー向けの単一行メニュー項目。
+ *
+ * [textColor] を指定しない場合は親 Surface の contentColor（既定では onSurface）を使う。
+ * 破壊的操作などで色を変えたい場合は [textColor] に明示的に渡す。
  */
 @Composable
 fun AnchoredOverlayMenuItem(
     text: String,
+    textColor: Color = Color.Unspecified,
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -224,6 +229,12 @@ fun AnchoredOverlayMenuItem(
         animationSpec = tween(durationMillis = 90),
         label = "menuItemTextScale",
     )
+
+    val color = if (textColor != Color.Unspecified) {
+        textColor
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
 
     Text(
         text = text,
@@ -240,8 +251,8 @@ fun AnchoredOverlayMenuItem(
             }
             .padding(horizontal = 24.dp, vertical = 12.dp),
         style = MaterialTheme.typography.bodyLarge,
+        color = color,
     )
-
 }
 
 @Composable
