@@ -1,7 +1,5 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -34,11 +32,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -64,7 +61,7 @@ internal fun TabListCard(
     bookmarkColor: Color?,
     onClick: () -> Unit,
     onLongPress: (androidx.compose.ui.unit.IntRect) -> Unit = {},
-    isSelected: Boolean = false,
+    isHiddenForSelection: Boolean = false,
     isPinned: Boolean = false,
     headerTitle: String,
     headerTrailingContent: @Composable RowScope.() -> Unit = {},
@@ -72,22 +69,16 @@ internal fun TabListCard(
     bodyMaxLines: Int = 2,
     onCloseClick: () -> Unit,
 ) {
-    val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.04f else 1f,
-        animationSpec = tween(durationMillis = 180),
-        label = "tabListCardScale",
-    )
-
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .scale(scale),
+            .alpha(if (isHiddenForSelection) 0f else 1f),
         shape = MaterialTheme.shapes.largeIncreased,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 3.dp else 1.dp,
+            defaultElevation = 1.dp,
         ),
     ) {
         val layoutCoordinates = remember { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }

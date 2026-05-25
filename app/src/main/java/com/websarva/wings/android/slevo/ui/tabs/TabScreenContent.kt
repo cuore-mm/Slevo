@@ -1,6 +1,8 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -25,10 +28,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
@@ -132,26 +136,33 @@ fun TabScreenContent(
             )
 
             // --- Long-press dim overlay ---
-            if (uiState.isInLongPressSelectionMode) {
+            val dimAlpha by animateFloatAsState(
+                targetValue = if (uiState.isInLongPressSelectionMode) 0.30f else 0f,
+                animationSpec = tween(durationMillis = 200),
+                label = "dimOverlayAlpha",
+            )
+            if (dimAlpha > 0f) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.30f))
+                        .background(Color.Black.copy(alpha = dimAlpha))
                         .clickable { tabsViewModel.cancelTabSelection() }
                 )
             }
 
             // --- Selected tab floating card (overlay layer) ---
-            val density = LocalDensity.current
+            val floatingScale by animateFloatAsState(
+                targetValue = if (uiState.isInLongPressSelectionMode) 1.04f else 1f,
+                animationSpec = tween(durationMillis = 220),
+                label = "floatingCardScale",
+            )
             uiState.selectedBoardTab?.let { tab ->
                 uiState.selectedTabBounds?.let { bounds ->
                     Box(
                         modifier = Modifier
                             .wrapContentSize()
-                            .offset(
-                                x = with(density) { bounds.left.toDp() },
-                                y = with(density) { bounds.top.toDp() },
-                            )
+                            .offset { IntOffset(bounds.left, bounds.top) }
+                            .scale(floatingScale)
                             .clickable { /* 選択タブのタップは選択解除しない */ }
                     ) {
                         BoardTabFloatingCard(tab = tab)
@@ -163,10 +174,8 @@ fun TabScreenContent(
                     Box(
                         modifier = Modifier
                             .wrapContentSize()
-                            .offset(
-                                x = with(density) { bounds.left.toDp() },
-                                y = with(density) { bounds.top.toDp() },
-                            )
+                            .offset { IntOffset(bounds.left, bounds.top) }
+                            .scale(floatingScale)
                             .clickable { /* 選択タブのタップは選択解除しない */ }
                     ) {
                         ThreadTabFloatingCard(tab = tab)
@@ -340,6 +349,7 @@ fun TabScreenContent(
 
 /**
  * 選択中の板タブを overlay 上に再描画するための Composable。
+ * floating card 側で選択中の視覚状態（拡大・影）を表現する。
  */
 @Composable
 private fun BoardTabFloatingCard(tab: BoardTabInfo) {
@@ -347,10 +357,8 @@ private fun BoardTabFloatingCard(tab: BoardTabInfo) {
     val serviceName = tab.serviceName.ifBlank { extractServiceName(tab.boardUrl) }
 
     TabListCard(
-        modifier = Modifier.padding(horizontal = 12.dp),
         bookmarkColor = color,
         onClick = {},
-        isSelected = true,
         isPinned = tab.isPinned,
         headerTitle = serviceName,
         bodyTitle = tab.boardName,
@@ -361,16 +369,15 @@ private fun BoardTabFloatingCard(tab: BoardTabInfo) {
 
 /**
  * 選択中のスレッドタブを overlay 上に再描画するための Composable。
+ * floating card 側で選択中の視覚状態（拡大・影）を表現する。
  */
 @Composable
 private fun ThreadTabFloatingCard(tab: ThreadTabInfo) {
     val color = tab.bookmarkColorName?.let { com.websarva.wings.android.slevo.ui.theme.bookmarkColor(it) }
 
     TabListCard(
-        modifier = Modifier.padding(horizontal = 12.dp),
         bookmarkColor = color,
         onClick = {},
-        isSelected = true,
         isPinned = tab.isPinned,
         headerTitle = tab.boardName,
         headerTrailingContent = {

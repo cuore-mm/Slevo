@@ -98,7 +98,7 @@ private fun OpenBoardCard(
         bookmarkColor = color,
         onClick = onClick,
         onLongPress = onLongPress,
-        isSelected = isSelected,
+        isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,
         headerTitle = serviceName,
         bodyTitle = tab.boardName,

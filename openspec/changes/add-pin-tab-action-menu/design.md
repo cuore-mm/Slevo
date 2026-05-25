@@ -67,7 +67,11 @@ Issue の受け入れ条件では「閉じるアイコンが固定アイコン�
 
 長押し選択中は、`TabScreenContent` の外側 `Box` で `hazeSource` のコンテンツ層と `TabListBottomControls` を通常通り描画した後に、全画面の dim overlay を重ねる。この overlay はタブ一覧だけでなく下部操作群も覆うため、長押ししたタブ以外の画面要素をまとめて暗く表示できる。
 
-長押ししたタブは overlay より上のレイヤーに `SelectedTabFloatingCard` として同じ見た目で再描画する。`TabListCard` に `zIndex` を付けるだけでは、`hazeSource` Box の外にある overlay より前面へ出せないため、選択タブを overlay 上に再描画する方式を採用する。再描画位置は長押し時に取得した `IntRect` を使い、元カード位置と一致させる。
+長押ししたタブは overlay より上のレイヤーに `SelectedTabFloatingCard` として再描画する。`TabListCard` に `zIndex` を付けるだけでは、`hazeSource` Box の外にある overlay より前面へ出せないため、選択タブを overlay 上に再描画する方式を採用する。再描画位置は長押し時に取得した `IntRect` を使い、元カード位置と一致させる。
+
+リスト内の元カードは長押し選択中に `alpha(0f)` で透明化し、レイアウト位置だけ保持する。これにより元カードと floating card が二重に見える問題を防ぐ。元カード側の拡大アニメーションは廃止し、選択中の視覚状態は floating card 側だけで表現する。
+
+floating card 側は `Modifier.padding(horizontal = 12.dp)` を持たず、元カードの `boundsInWindow()` と一致させる。`IntRect` のまま `IntOffset` で配置し、dp 変換による端数ズレを防ぐ。floating card には scale（1.00 → 1.04）と elevation のアニメーションを付け、元カードから連続して拡大するように見せる。
 
 overlay は `hazeSource` の子に入れず、`hazeSource` と `hazeEffect` の兄弟関係を維持する。これにより、下部操作群の haze 効果を壊さずに、長押し時だけ全画面の減光レイヤーを追加できる。
 
@@ -97,8 +101,9 @@ Box(fillMaxSize)
 - 固定状態を変更してもタブが上位へ移動しないため、固定の意味が視覚表示中心になる → 固定済みタブは右上の固定アイコンと長押しメニューの解除ラベルで明確に示す。
 - 長押し選択中のアニメーションが既存の削除アニメーションと干渉する可能性がある → `isRemoving` 中のカードでは長押し・クリック・メニュー操作を無効化する。
 - dim overlay が下部操作群のタップを遮る → 長押し選択中は下部操作群自体を操作対象にせず、下部操作群上のタップも選択解除として扱う。
-- 選択タブ再描画と元カードが二重に見える可能性がある → 元カードは overlay の下で減光され、overlay 上の `SelectedTabFloatingCard` を選択中の見た目として扱う。
+- 選択タブ再描画と元カードが二重に見える可能性がある → 元カードは `alpha(0f)` で透明化しレイアウト位置だけ保持する。選択中の視覚状態は floating card 側だけで表現する。
 - overlay を `hazeSource` の子に入れると下部操作群の haze 効果に影響する可能性がある → overlay は外側 `Box` の sibling として追加し、`hazeSource` / `hazeEffect` の兄弟関係を維持する。
+- floating card と元カードの位置がズレる可能性がある → floating card 側に `padding(horizontal = 12.dp)` を入れず、`IntRect` を `IntOffset` でそのまま配置する。元カード側の scale アニメーションは廃止し、bounds 取得時と floating card 表示時のサイズを一致させる。
 
 ## Migration Plan
 

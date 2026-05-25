@@ -32,7 +32,7 @@
 
 ## 5. タブ一覧 UI 接続
 
-- [x] 5.1 `TabListCard` に長押し、選択強調、固定済み表示用パラメータを追加する
+- [x] 5.1 `TabListCard` に長押し、固定済み表示用パラメータを追加する
 - [x] 5.2 `TabListCard` で未固定タブは閉じるアイコン、固定済みタブは固定アイコンを右上に表示する
 - [x] 5.3 固定済みタブ右上の固定アイコンを表示専用にし、タップ時の動作を持たせない
 - [x] 5.4 `TabListCard` で長押し時のアンカー位置を取得し、ViewModel へ通知できるようにする
@@ -42,6 +42,10 @@
 - [x] 5.8 `LongPressDimOverlay` のタップで長押し選択状態を解除し、下部操作群上のタップも下部操作ではなく選択解除として扱う
 - [x] 5.9 長押し対象タブを overlay より上に `SelectedTabFloatingCard` として再描画し、選択タブのタップでは解除処理を実行しない
 - [x] 5.10 dim overlay は `hazeSource` の子に入れず、`hazeSource` と `hazeEffect` の兄弟関係を維持する
+- [ ] 5.11 長押し選択中の元カードを `alpha(0f)` で透明化し、レイアウト位置だけ保持する
+- [ ] 5.12 元カード側の `isSelected` scale アニメーションを廃止し、選択中の視覚状態は floating card 側だけで表現する
+- [ ] 5.13 `SelectedTabFloatingCard` の `padding(horizontal = 12.dp)` を削除し、`IntRect` を `IntOffset` でそのまま配置して位置ズレを防ぐ
+- [ ] 5.14 floating card に scale（1.00 → 1.04）と elevation アニメーションを追加し、元カードから連続して拡大するように見せる
 
 ## 6. 下部操作群と詳細 BottomSheet
 

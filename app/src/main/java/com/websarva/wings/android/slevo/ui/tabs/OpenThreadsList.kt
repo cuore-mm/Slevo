@@ -112,7 +112,7 @@ private fun OpenThreadCard(
         bookmarkColor = color,
         onClick = onClick,
         onLongPress = onLongPress,
-        isSelected = isSelected,
+        isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,
         headerTitle = tab.boardName,
         headerTrailingContent = {
