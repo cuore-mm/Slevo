@@ -144,6 +144,22 @@ class BoardTabsCoordinator @Inject constructor(
     }
 
     /**
+     * 指定した boardUrl の板タブの固定状態を切り替えて保存する。
+     */
+    fun togglePinBoardTab(boardUrl: String) {
+        _openBoardTabs.update { state ->
+            state.map { tab ->
+                if (tab.boardUrl == boardUrl) {
+                    tab.copy(isPinned = !tab.isPinned)
+                } else {
+                    tab
+                }
+            }
+        }
+        saveBoardTabs()
+    }
+
+    /**
      * 指定タブのスクロール位置（firstVisibleIndex とオフセット）を更新して保存する。
      * - UI のスクロールイベントから呼ばれる想定。
      */

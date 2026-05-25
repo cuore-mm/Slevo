@@ -1,14 +1,20 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.BackHandler
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -18,13 +24,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntRect
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.ui.board.screen.BoardInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import dev.chrisbanes.haze.hazeSource
@@ -57,7 +68,10 @@ fun TabScreenContent(
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 2 })
 
     LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }.collect { onPageChanged(it) }
+        snapshotFlow { pagerState.currentPage }.collect { page ->
+            tabsViewModel.onPageChanged()
+            onPageChanged(page)
+        }
     }
 
     // --- Scaffold ---
@@ -115,6 +129,93 @@ fun TabScreenContent(
                 onRefreshClick = { tabsViewModel.refreshOpenThreads() },
                 onCancelRefreshClick = { tabsViewModel.cancelRefreshOpenThreads() },
             )
+
+            // --- Long-press dim overlay ---
+            if (uiState.isInLongPressSelectionMode) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.30f))
+                        .clickable { tabsViewModel.cancelTabSelection() }
+                )
+            }
+
+            // --- Selected tab floating card (overlay layer) ---
+            val density = LocalDensity.current
+            uiState.selectedBoardTab?.let { tab ->
+                uiState.selectedTabBounds?.let { bounds ->
+                    Box(
+                        modifier = Modifier
+                            .wrapContentSize()
+                            .offset(
+                                x = with(density) { bounds.left.toDp() },
+                                y = with(density) { bounds.top.toDp() },
+                            )
+                            .clickable { /* 選択タブのタップは選択解除しない */ }
+                    ) {
+                        BoardTabFloatingCard(tab = tab)
+                    }
+                }
+            }
+            uiState.selectedThreadTab?.let { tab ->
+                uiState.selectedTabBounds?.let { bounds ->
+                    Box(
+                        modifier = Modifier
+                            .wrapContentSize()
+                            .offset(
+                                x = with(density) { bounds.left.toDp() },
+                                y = with(density) { bounds.top.toDp() },
+                            )
+                            .clickable { /* 選択タブのタップは選択解除しない */ }
+                    ) {
+                        ThreadTabFloatingCard(tab = tab)
+                    }
+                }
+            }
+
+            // --- Anchored tab action menu ---
+            AnchoredTabActionMenu(
+                expanded = uiState.isInLongPressSelectionMode,
+                anchorBoundsInWindow = uiState.selectedTabBounds,
+                hazeState = hazeState,
+                isPinned = uiState.selectedBoardTab?.isPinned
+                    ?: uiState.selectedThreadTab?.isPinned
+                    ?: false,
+                onDismissRequest = { tabsViewModel.cancelTabSelection() },
+                onDetailClick = { tabsViewModel.openSelectedTabDetail() },
+                onPinClick = { tabsViewModel.toggleSelectedTabPin() },
+                onCloseClick = { tabsViewModel.closeSelectedTab() },
+            )
+
+            // --- Bottom sheets ---
+            if (uiState.showBoardInfoBottomSheet) {
+                val boardTab = uiState.selectedBoardTab
+                if (boardTab != null) {
+                    BoardInfoBottomSheet(
+                        boardId = boardTab.boardId,
+                        boardName = boardTab.boardName,
+                        boardUrl = boardTab.boardUrl,
+                        serviceName = boardTab.serviceName,
+                        onDismissRequest = { tabsViewModel.dismissBoardInfoBottomSheet() },
+                    )
+                }
+            }
+            if (uiState.showThreadInfoBottomSheet) {
+                val threadTab = uiState.selectedThreadTab
+                if (threadTab != null) {
+                    ThreadInfoBottomSheet(
+                        threadId = threadTab.id,
+                        boardName = threadTab.boardName,
+                        boardUrl = threadTab.boardUrl,
+                        onDismissRequest = { tabsViewModel.dismissThreadInfoBottomSheet() },
+                    )
+                }
+            }
+
+            // --- Back handler for selection mode ---
+            if (uiState.isInLongPressSelectionMode) {
+                BackHandler { tabsViewModel.cancelTabSelection() }
+            }
 
             // --- URL dialog ---
             if (uiState.showUrlDialog) {
@@ -221,4 +322,52 @@ fun TabScreenContent(
             }
         }
     }
+}
+
+/**
+ * 選択中の板タブを overlay 上に再描画するための Composable。
+ */
+@Composable
+private fun BoardTabFloatingCard(tab: BoardTabInfo) {
+    val color = tab.bookmarkColorName?.let { com.websarva.wings.android.slevo.ui.theme.bookmarkColor(it) }
+    val serviceName = tab.serviceName.ifBlank { extractServiceName(tab.boardUrl) }
+
+    TabListCard(
+        modifier = Modifier.padding(horizontal = 12.dp),
+        bookmarkColor = color,
+        onClick = {},
+        isSelected = true,
+        isPinned = tab.isPinned,
+        headerTitle = serviceName,
+        bodyTitle = tab.boardName,
+        bodyMaxLines = 1,
+        onCloseClick = {},
+    )
+}
+
+/**
+ * 選択中のスレッドタブを overlay 上に再描画するための Composable。
+ */
+@Composable
+private fun ThreadTabFloatingCard(tab: ThreadTabInfo) {
+    val color = tab.bookmarkColorName?.let { com.websarva.wings.android.slevo.ui.theme.bookmarkColor(it) }
+
+    TabListCard(
+        modifier = Modifier.padding(horizontal = 12.dp),
+        bookmarkColor = color,
+        onClick = {},
+        isSelected = true,
+        isPinned = tab.isPinned,
+        headerTitle = tab.boardName,
+        headerTrailingContent = {
+            Text(
+                text = tab.resCount.toString(),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        bodyTitle = tab.title,
+        bodyMaxLines = 2,
+        onCloseClick = {},
+    )
 }

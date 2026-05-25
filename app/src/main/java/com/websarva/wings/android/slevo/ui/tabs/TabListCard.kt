@@ -1,7 +1,11 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Card
@@ -29,9 +34,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,24 +62,53 @@ internal fun TabListCard(
     modifier: Modifier = Modifier,
     bookmarkColor: Color?,
     onClick: () -> Unit,
+    onLongPress: (androidx.compose.ui.unit.IntRect) -> Unit = {},
+    isSelected: Boolean = false,
+    isPinned: Boolean = false,
     headerTitle: String,
     headerTrailingContent: @Composable RowScope.() -> Unit = {},
     bodyTitle: String,
     bodyMaxLines: Int = 2,
     onCloseClick: () -> Unit,
 ) {
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.04f else 1f,
+        animationSpec = tween(durationMillis = 180),
+        label = "tabListCardScale",
+    )
+
     Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
+        onClick = null,
+        modifier = modifier
+            .fillMaxWidth()
+            .scale(scale),
         shape = MaterialTheme.shapes.largeIncreased,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 1.dp,
+            defaultElevation = if (isSelected) 3.dp else 1.dp,
         ),
     ) {
-        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+        val layoutCoordinates = remember { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+        Row(
+            modifier = Modifier
+                .height(IntrinsicSize.Min)
+                .combinedClickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = androidx.compose.foundation.LocalIndication.current,
+                    onClick = onClick,
+                    onLongClick = {
+                        val bounds = layoutCoordinates.value?.boundsInWindow()
+                            ?.let { androidx.compose.ui.unit.IntRect(it.left.toInt(), it.top.toInt(), it.right.toInt(), it.bottom.toInt()) }
+                            ?: androidx.compose.ui.unit.IntRect.Zero
+                        onLongPress(bounds)
+                    },
+                )
+                .onGloballyPositioned { coordinates ->
+                    layoutCoordinates.value = coordinates
+                }
+        ) {
             // --- Card body ---
             Column(
                 modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
@@ -115,28 +154,38 @@ internal fun TabListCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         headerTrailingContent()
                         Spacer(modifier = Modifier.width(12.dp))
-                        IconButton(
-                            modifier = Modifier
-                                .border(
-                                    width = 1.dp,
-                                    color = MaterialTheme.colorScheme.outlineVariant,
-                                    shape = CircleShape,
-                                )
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
-                                    shape = CircleShape,
-                                )
-                                .size(24.dp),
-                            onClick = {
-                                // タブクローズ操作は一覧遷移より優先して処理する。
-                                onCloseClick()
-                            }
-                        ) {
+                        if (isPinned) {
+                            // 固定済みタブは固定アイコンを表示専用で表示する。
                             Icon(
-                                modifier = Modifier.size(16.dp),
-                                imageVector = Icons.Default.Close,
-                                contentDescription = stringResource(R.string.close),
+                                imageVector = Icons.Default.PushPin,
+                                contentDescription = stringResource(R.string.pinned),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp),
                             )
+                        } else {
+                            IconButton(
+                                modifier = Modifier
+                                    .border(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.outlineVariant,
+                                        shape = CircleShape,
+                                    )
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                        shape = CircleShape,
+                                    )
+                                    .size(24.dp),
+                                onClick = {
+                                    // タブクローズ操作は一覧遷移より優先して処理する。
+                                    onCloseClick()
+                                }
+                            ) {
+                                Icon(
+                                    modifier = Modifier.size(16.dp),
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.close),
+                                )
+                            }
                         }
                     }
                 }

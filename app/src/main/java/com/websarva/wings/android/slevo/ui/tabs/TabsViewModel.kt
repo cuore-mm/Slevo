@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
+import androidx.compose.ui.unit.IntRect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -66,13 +67,34 @@ class TabsViewModel @Inject constructor(
     private val urlDialogState = MutableStateFlow(false)
     private val urlErrorState = MutableStateFlow<String?>(null)
 
+    private val selectedBoardTabState = MutableStateFlow<BoardTabInfo?>(null)
+    private val selectedThreadTabState = MutableStateFlow<ThreadTabInfo?>(null)
+    private val selectedTabBoundsState = MutableStateFlow<IntRect?>(null)
+    private val showBoardInfoBottomSheetState = MutableStateFlow(false)
+    private val showThreadInfoBottomSheetState = MutableStateFlow(false)
+
     val uiState: StateFlow<TabsUiState> = combine(
         boardTabsState,
         threadTabsState,
         urlValidationState,
         urlDialogState,
         urlErrorState,
-    ) { boardState, threadState, isUrlValidating, showUrlDialog, urlErrorMessage ->
+        selectedBoardTabState,
+        selectedThreadTabState,
+        selectedTabBoundsState,
+        showBoardInfoBottomSheetState,
+        showThreadInfoBottomSheetState,
+    ) { combined ->
+        val boardState = combined[0] as BoardTabsState
+        val threadState = combined[1] as ThreadTabsState
+        val isUrlValidating = combined[2] as Boolean
+        val showUrlDialog = combined[3] as Boolean
+        val urlErrorMessage = combined[4] as String?
+        val selectedBoardTab = combined[5] as BoardTabInfo?
+        val selectedThreadTab = combined[6] as ThreadTabInfo?
+        val selectedTabBounds = combined[7] as IntRect?
+        val showBoardInfoBottomSheet = combined[8] as Boolean
+        val showThreadInfoBottomSheet = combined[9] as Boolean
         TabsUiState(
             openThreadTabs = threadState.openThreadTabs,
             openBoardTabs = boardState.openBoardTabs,
@@ -84,6 +106,11 @@ class TabsViewModel @Inject constructor(
             isUrlValidating = isUrlValidating,
             showUrlDialog = showUrlDialog,
             urlErrorMessage = urlErrorMessage,
+            selectedBoardTab = selectedBoardTab,
+            selectedThreadTab = selectedThreadTab,
+            selectedTabBounds = selectedTabBounds,
+            showBoardInfoBottomSheet = showBoardInfoBottomSheet,
+            showThreadInfoBottomSheet = showThreadInfoBottomSheet,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, TabsUiState())
 
@@ -180,6 +207,103 @@ class TabsViewModel @Inject constructor(
 
     fun closeThreadTab(threadKey: String, boardUrl: String) {
         threadTabsCoordinator.closeThreadTab(threadKey, boardUrl)
+    }
+
+    // --- Long-press selection ---
+
+    /**
+     * 板タブを長押ししたときに選択状態を開始する。
+     * 対象タブと画面上の bounds を保存し、アクションメニュー表示に備える。
+     */
+    fun onBoardTabLongPressed(tab: BoardTabInfo, bounds: IntRect) {
+        cancelTabSelection()
+        selectedBoardTabState.value = tab
+        selectedTabBoundsState.value = bounds
+    }
+
+    /**
+     * スレッドタブを長押ししたときに選択状態を開始する。
+     * 対象タブと画面上の bounds を保存し、アクションメニュー表示に備える。
+     */
+    fun onThreadTabLongPressed(tab: ThreadTabInfo, bounds: IntRect) {
+        cancelTabSelection()
+        selectedThreadTabState.value = tab
+        selectedTabBoundsState.value = bounds
+    }
+
+    /**
+     * 長押し選択状態とアクションメニューを解除する。
+     * overlay タップ、メニュー dismissal、戻るキー、ページ切替、選択中タブ消失などから共通利用する。
+     */
+    fun cancelTabSelection() {
+        selectedBoardTabState.value = null
+        selectedThreadTabState.value = null
+        selectedTabBoundsState.value = null
+        showBoardInfoBottomSheetState.value = false
+        showThreadInfoBottomSheetState.value = false
+    }
+
+    /**
+     * 選択中のタブの固定状態を切り替える。
+     * 選択解除後に固定状態を保存する。
+     */
+    fun toggleSelectedTabPin() {
+        selectedBoardTabState.value?.let { tab ->
+            boardTabsCoordinator.togglePinBoardTab(tab.boardUrl)
+        }
+        selectedThreadTabState.value?.let { tab ->
+            threadTabsCoordinator.togglePinThreadTab(tab.id)
+        }
+        cancelTabSelection()
+    }
+
+    /**
+     * 選択中タブの詳細 BottomSheet を表示する。
+     * メニュー選択後に選択解除し、対応する BottomSheet を表示する。
+     */
+    fun openSelectedTabDetail() {
+        selectedBoardTabState.value?.let {
+            showBoardInfoBottomSheetState.value = true
+        }
+        selectedThreadTabState.value?.let {
+            showThreadInfoBottomSheetState.value = true
+        }
+        cancelTabSelection()
+    }
+
+    /**
+     * 選択中のタブを閉じる。
+     * 選択解除後にタブを削除する。
+     */
+    fun closeSelectedTab() {
+        selectedBoardTabState.value?.let { tab ->
+            boardTabsCoordinator.closeBoardTab(tab)
+        }
+        selectedThreadTabState.value?.let { tab ->
+            threadTabsCoordinator.closeThreadTab(tab)
+        }
+        cancelTabSelection()
+    }
+
+    /**
+     * ページ切替時に長押し選択状態を解除する。
+     */
+    fun onPageChanged() {
+        cancelTabSelection()
+    }
+
+    /**
+     * 板タブ詳細 BottomSheet の表示を閉じる。
+     */
+    fun dismissBoardInfoBottomSheet() {
+        showBoardInfoBottomSheetState.value = false
+    }
+
+    /**
+     * スレッドタブ詳細 BottomSheet の表示を閉じる。
+     */
+    fun dismissThreadInfoBottomSheet() {
+        showThreadInfoBottomSheetState.value = false
     }
 
     fun setThreadCurrentPage(page: Int) {

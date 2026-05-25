@@ -20,7 +20,8 @@ data class ThreadTabInfo(
     val firstNewResNo: Int? = null,
     val firstVisibleItemIndex: Int = 0, // スクロール位置（インデックス）
     val firstVisibleItemScrollOffset: Int = 0, // スクロール位置（オフセット）
-    val bookmarkColorName: String? = null
+    val bookmarkColorName: String? = null,
+    val isPinned: Boolean = false
 ) {
     val threadKey: String get() = id.threadKey
 }

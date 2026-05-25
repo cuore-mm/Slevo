@@ -21,6 +21,7 @@ interface OpenThreadTabDao {
         val title: String,
         val latestResCount: Int,
         val sortOrder: Int,
+        val isPinned: Boolean,
         val firstVisibleItemIndex: Int,
         val firstVisibleItemScrollOffset: Int,
         val historyPrevResCount: Int?,
@@ -41,6 +42,7 @@ interface OpenThreadTabDao {
             "s.title AS title, " +
             "s.latestResCount AS latestResCount, " +
             "t.sortOrder AS sortOrder, " +
+            "t.isPinned AS isPinned, " +
             "t.firstVisibleItemIndex AS firstVisibleItemIndex, " +
             "t.firstVisibleItemScrollOffset AS firstVisibleItemScrollOffset, " +
             "h.prevResCount AS historyPrevResCount, " +

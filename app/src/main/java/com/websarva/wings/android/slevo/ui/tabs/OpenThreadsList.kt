@@ -9,10 +9,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.data.model.ThreadId
@@ -38,6 +41,9 @@ fun OpenThreadsList(
     tabsViewModel: TabsViewModel? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val uiState by tabsViewModel?.uiState?.collectAsStateWithLifecycle()
+        ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(TabsUiState()) }
+
     // --- List ---
     RemovableTabList(
         modifier = modifier,
@@ -49,6 +55,7 @@ fun OpenThreadsList(
         OpenThreadCard(
             tab = tab,
             newResCount = newResCounts[tab.id.value] ?: tab.newResCount,
+            isSelected = uiState.selectedThreadTab?.id == tab.id,
             onClick = {
                 if (isRemoving) return@OpenThreadCard
                 closeDrawer()
@@ -71,6 +78,10 @@ fun OpenThreadsList(
                     }
                 }
             },
+            onLongPress = { bounds ->
+                if (isRemoving) return@OpenThreadCard
+                tabsViewModel?.onThreadTabLongPressed(tab, bounds)
+            },
             onCloseClick = {
                 if (isRemoving) return@OpenThreadCard
                 requestRemove()
@@ -86,7 +97,9 @@ fun OpenThreadsList(
 private fun OpenThreadCard(
     tab: ThreadTabInfo,
     newResCount: Int,
+    isSelected: Boolean,
     onClick: () -> Unit,
+    onLongPress: (IntRect) -> Unit,
     onCloseClick: () -> Unit,
 ) {
     // --- Card highlight ---
@@ -96,6 +109,9 @@ private fun OpenThreadCard(
         modifier = Modifier.padding(horizontal = 12.dp),
         bookmarkColor = color,
         onClick = onClick,
+        onLongPress = onLongPress,
+        isSelected = isSelected,
+        isPinned = tab.isPinned,
         headerTitle = tab.boardName,
         headerTrailingContent = {
             Text(

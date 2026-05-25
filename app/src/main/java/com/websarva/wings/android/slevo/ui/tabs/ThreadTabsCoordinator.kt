@@ -292,6 +292,22 @@ class ThreadTabsCoordinator @Inject constructor(
     }
 
     /**
+     * 指定した ThreadId のスレッドタブの固定状態を切り替えて保存する。
+     */
+    fun togglePinThreadTab(threadId: ThreadId) {
+        _openThreadTabs.update { state ->
+            state.map { tab ->
+                if (tab.id == threadId) {
+                    tab.copy(isPinned = !tab.isPinned)
+                } else {
+                    tab
+                }
+            }
+        }
+        saveThreadTabs()
+    }
+
+    /**
      * 指定の ThreadId に対応する ThreadTabInfo を返す（存在しなければ null）。
      */
     fun getTabInfo(threadId: ThreadId): ThreadTabInfo? {
