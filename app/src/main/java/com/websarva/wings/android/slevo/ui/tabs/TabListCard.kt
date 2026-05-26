@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -31,17 +32,20 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import java.net.URI
@@ -77,7 +81,7 @@ internal fun TabListCard(
     modifier: Modifier = Modifier,
     bookmarkColor: Color?,
     onClick: () -> Unit,
-    onLongPress: (androidx.compose.ui.unit.IntRect) -> Unit = {},
+    onLongPress: (IntRect) -> Unit = {},
     isHiddenForSelection: Boolean = false,
     isPinned: Boolean = false,
     headerTitle: String,
@@ -98,18 +102,25 @@ internal fun TabListCard(
             defaultElevation = 1.dp,
         ),
     ) {
-        val layoutCoordinates = remember { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+        val layoutCoordinates = remember { mutableStateOf<LayoutCoordinates?>(null) }
         Row(
             modifier = Modifier
                 .height(IntrinsicSize.Min)
                 .combinedClickable(
                     interactionSource = remember { MutableInteractionSource() },
-                    indication = androidx.compose.foundation.LocalIndication.current,
+                    indication = LocalIndication.current,
                     onClick = onClick,
                     onLongClick = {
                         val bounds = layoutCoordinates.value?.boundsInWindow()
-                            ?.let { androidx.compose.ui.unit.IntRect(it.left.toInt(), it.top.toInt(), it.right.toInt(), it.bottom.toInt()) }
-                            ?: androidx.compose.ui.unit.IntRect.Zero
+                            ?.let {
+                                IntRect(
+                                    it.left.toInt(),
+                                    it.top.toInt(),
+                                    it.right.toInt(),
+                                    it.bottom.toInt()
+                                )
+                            }
+                            ?: IntRect.Zero
                         onLongPress(bounds)
                     },
                 )

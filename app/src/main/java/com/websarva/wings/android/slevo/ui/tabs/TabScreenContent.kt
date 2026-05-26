@@ -13,14 +13,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -38,15 +34,17 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.board.screen.BoardInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
@@ -250,14 +248,18 @@ fun TabScreenContent(
                     ThreadInfoBottomSheet(
                         showThreadInfoSheet = true,
                         onDismissRequest = { tabsViewModel.dismissThreadInfoBottomSheet() },
-                        threadInfo = com.websarva.wings.android.slevo.data.model.ThreadInfo(
+                        threadInfo = ThreadInfo(
                             title = threadTab.title,
                             key = threadTab.threadKey,
-                            url = "${threadTab.boardUrl}test/read.cgi/${threadTab.boardUrl.substringAfterLast("/").removeSuffix("/")}/${threadTab.threadKey}/",
+                            url = "${threadTab.boardUrl}test/read.cgi/${
+                                threadTab.boardUrl.substringAfterLast(
+                                    "/"
+                                ).removeSuffix("/")
+                            }/${threadTab.threadKey}/",
                             datUrl = "",
                             resCount = threadTab.resCount,
                         ),
-                        boardInfo = com.websarva.wings.android.slevo.data.model.BoardInfo(
+                        boardInfo = BoardInfo(
                             boardId = threadTab.boardId,
                             name = threadTab.boardName,
                             url = threadTab.boardUrl,
@@ -305,8 +307,8 @@ fun TabScreenContent(
                                         val boardUrl = "https://$host/${resolved.boardKey}/"
                                         val route = tabsViewModel.normalizeBoardRouteForNavigation(
                                             AppRoute.Board(
-                                            boardName = boardUrl,
-                                            boardUrl = boardUrl
+                                                boardName = boardUrl,
+                                                boardUrl = boardUrl
                                             )
                                         )
                                         navController.navigateToBoard(
@@ -387,7 +389,8 @@ fun TabScreenContent(
  */
 @Composable
 private fun BoardTabFloatingCard(tab: BoardTabInfo) {
-    val color = tab.bookmarkColorName?.let { com.websarva.wings.android.slevo.ui.theme.bookmarkColor(it) }
+    val color =
+        tab.bookmarkColorName?.let { bookmarkColor(it) }
     val serviceName = tab.serviceName.ifBlank { extractServiceName(tab.boardUrl) }
 
     TabListCard(
@@ -407,7 +410,8 @@ private fun BoardTabFloatingCard(tab: BoardTabInfo) {
  */
 @Composable
 private fun ThreadTabFloatingCard(tab: ThreadTabInfo, newResCount: Int) {
-    val color = tab.bookmarkColorName?.let { com.websarva.wings.android.slevo.ui.theme.bookmarkColor(it) }
+    val color =
+        tab.bookmarkColorName?.let { bookmarkColor(it) }
 
     TabListCard(
         bookmarkColor = color,

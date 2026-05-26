@@ -65,7 +65,8 @@ fun OpenThreadsList(
                     resCount = tab.resCount
                 )
                 coroutineScope.launch {
-                    val normalizedRoute = tabsViewModel?.normalizeThreadRouteForNavigation(route) ?: route
+                    val normalizedRoute =
+                        tabsViewModel?.normalizeThreadRouteForNavigation(route) ?: route
                     navController.navigateToThread(
                         route = normalizedRoute,
                         tabsViewModel = tabsViewModel,
