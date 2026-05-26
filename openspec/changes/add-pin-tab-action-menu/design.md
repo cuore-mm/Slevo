@@ -75,7 +75,7 @@ floating card 側は `Modifier.padding(horizontal = 12.dp)` を持たず、元�
 
 floating card の幅は `bounds.right - bounds.left` を `Dp` に変換して明示的に指定する。これにより `fillMaxWidth()` で画面幅いっぱいになって右側がはみ出す問題を防ぐ。
 
-floating card の拡大は `Modifier.scale()` ではなく `graphicsLayer { scaleX/scaleY + TransformOrigin(0f, 0f) }` で行う。`scale()` のデフォルト原点は中央なので拡大時に四方向に広がり位置がずれるが、原点を左上 `(0f, 0f)` に固定することで、元カードの左上隅を基点に右下へだけ拡大し、位置ズレを防ぐ。
+floating card の拡大は `Modifier.scale()` ではなく `graphicsLayer { scaleX/scaleY + TransformOrigin.Center }` で行う。`TransformOrigin.Center` はその Composable の layout 位置を保ったまま描画だけを中心基準に拡大するため、元カード位置に floating card を置くと自然に上下左右へ均等に広がる。
 
 overlay は `hazeSource` の子に入れず、`hazeSource` と `hazeEffect` の兄弟関係を維持する。これにより、下部操作群の haze 効果を壊さずに、長押し時だけ全画面の減光レイヤーを追加できる。
 
@@ -97,6 +97,14 @@ Box(fillMaxSize)
 
 `AnchoredTabActionMenu` の `onDismissRequest`、戻るキー、ページ切替、選択中タブの削除完了、選択中タブが一覧から消えた場合も同じ解除処理に集約する。これにより、メニュー外タップと画面上の非選択領域タップで一貫して選択状態を閉じる。
 
+### 9. ヘッダー右側表示は `TabListCard` 内で値から組み立てる
+
+スレッドタブの通常カードと長押し中の floating card で、レス数や新着レス数の表示がずれないように、ヘッダー右側の描画は呼び出し側の任意 Composable slot ではなく `TabListCard` 内に集約する。呼び出し側は表示内容を表す値だけを渡し、`TabListCard` がレス数テキスト、`+N` 新着バッジ、余白、色、shape を一箇所で描画する。
+
+値の渡し方は、板タブとスレッドタブの差を明示できる型付き表示モデルを使う。例えば `TabHeaderTrailingContent.None` と `TabHeaderTrailingContent.ThreadResCount(resCount, newResCount)` のような sealed interface / sealed class を定義し、板タブは `None`、スレッドタブは `ThreadResCount` を渡す。これにより、単純な `resCount` / `newResCount` 引数を共通カードへ直接追加してスレッド固有概念を増やすより、表示パターンの意味を保ったまま拡張できる。
+
+長押し中の `ThreadTabFloatingCard` も通常の `OpenThreadCard` と同じ `ThreadResCount` を渡す。新着レス数は通常カードと同じ優先順位で、ライブ更新中の `uiState.newResCounts[tab.id.value]` を優先し、存在しない場合は `ThreadTabInfo.newResCount` を使う。これにより、元カードを `alpha(0f)` で透明化して floating card を再描画しても、レス数と新着バッジの見た目が維持される。
+
 ## Risks / Trade-offs
 
 - 固定済みタブの右上から直接閉じられなくなる → 長押しメニューに「タブを閉じる」を常に表示し、閉じる導線を維持する。
@@ -108,6 +116,7 @@ Box(fillMaxSize)
 - 選択タブ再描画と元カードが二重に見える可能性がある → 元カードは `alpha(0f)` で透明化しレイアウト位置だけ保持する。選択中の視覚状態は floating card 側だけで表現する。
 - overlay を `hazeSource` の子に入れると下部操作群の haze 効果に影響する可能性がある → overlay は外側 `Box` の sibling として追加し、`hazeSource` / `hazeEffect` の兄弟関係を維持する。
 - floating card と元カードの位置がズレる可能性がある → floating card 側に `padding(horizontal = 12.dp)` を入れず、`IntRect` を `IntOffset` でそのまま配置する。元カード側の scale アニメーションは廃止し、bounds 取得時と floating card 表示時のサイズを一致させる。
+- `TabListCard` にスレッド固有の表示概念が入りすぎる可能性がある → `resCount` / `newResCount` を個別引数にせず、ヘッダー右側の表示パターンを表す型に閉じ込め、板タブでは `None` を渡す。
 
 ## Migration Plan
 

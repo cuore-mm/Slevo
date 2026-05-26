@@ -45,8 +45,10 @@
 - [x] 5.11 長押し選択中の元カードを `alpha(0f)` で透明化し、レイアウト位置だけ保持する
 - [x] 5.12 元カード側の `isSelected` scale アニメーションを廃止し、選択中の視覚状態は floating card 側だけで表現する
 - [x] 5.13 `SelectedTabFloatingCard` の `padding(horizontal = 12.dp)` を削除し、元カードと同じ幅にする
-- [x] 5.14 floating card に `graphicsLayer` + `TransformOrigin(0f, 0f)` で scale（1.00 → 1.04）アニメーションを追加し、左上基点で拡大する
+- [x] 5.14 floating card に `graphicsLayer` + `TransformOrigin.Center` で scale（1.00 → 1.04）アニメーションを追加し、layout 位置を保ったまま中心基準で拡大する
 - [x] 5.15 floating card の親 `Box` の window 座標を取得し、`boundsInWindow()` から差分を引いて親基準のローカル座標に変換する
+- [ ] 5.16 `TabListCard` の `headerTrailingContent` slot を型付き表示モデル（例: `None` / `ThreadResCount`）へ置き換え、ヘッダー右側の描画を `TabListCard` 内に集約する
+- [ ] 5.17 `OpenThreadCard` と `ThreadTabFloatingCard` が同じ `ThreadResCount(resCount, newResCount)` を渡すようにし、長押し中の floating card でも新着バッジを通常カードと同じ見た目で表示する
 
 ## 6. 下部操作群と詳細 BottomSheet
 
