@@ -35,6 +35,7 @@ fun OpenThreadsList(
     newResCounts: Map<String, Int> = emptyMap(),
     onItemClick: (ThreadTabInfo) -> Unit = {},
     tabsViewModel: TabsViewModel? = null,
+    exitingThreadTab: ThreadTabInfo? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
     val uiState by tabsViewModel?.uiState?.collectAsStateWithLifecycle()
@@ -51,7 +52,8 @@ fun OpenThreadsList(
         OpenThreadCard(
             tab = tab,
             newResCount = newResCounts[tab.id.value] ?: tab.newResCount,
-            isSelected = uiState.selectedThreadTab?.id == tab.id,
+            isSelected = uiState.selectedThreadTab?.id == tab.id
+                || exitingThreadTab?.id == tab.id,
             onClick = {
                 if (isRemoving) return@OpenThreadCard
                 closeDrawer()

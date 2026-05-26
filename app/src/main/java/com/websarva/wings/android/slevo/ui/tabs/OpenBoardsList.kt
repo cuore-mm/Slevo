@@ -32,6 +32,7 @@ fun OpenBoardsList(
     closeDrawer: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     tabsViewModel: TabsViewModel? = null,
+    exitingBoardTab: BoardTabInfo? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
     val uiState by tabsViewModel?.uiState?.collectAsStateWithLifecycle()
@@ -47,7 +48,8 @@ fun OpenBoardsList(
     ) { tab, isRemoving, requestRemove ->
         OpenBoardCard(
             tab = tab,
-            isSelected = uiState.selectedBoardTab?.boardUrl == tab.boardUrl,
+            isSelected = uiState.selectedBoardTab?.boardUrl == tab.boardUrl
+                || exitingBoardTab?.boardUrl == tab.boardUrl,
             onClick = {
                 if (isRemoving) return@OpenBoardCard
                 closeDrawer()

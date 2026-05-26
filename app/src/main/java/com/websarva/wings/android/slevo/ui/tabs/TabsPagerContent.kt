@@ -23,6 +23,8 @@ fun TabsPagerContent(
     navController: NavHostController,
     closeDrawer: () -> Unit,
     listContentPadding: PaddingValues = PaddingValues(0.dp),
+    exitingBoardTab: BoardTabInfo? = null,
+    exitingThreadTab: ThreadTabInfo? = null,
 ) {
     val uiState by tabsViewModel.uiState.collectAsState()
 
@@ -38,6 +40,7 @@ fun TabsPagerContent(
                 closeDrawer = closeDrawer,
                 contentPadding = listContentPadding,
                 tabsViewModel = tabsViewModel,
+                exitingBoardTab = exitingBoardTab,
             )
 
             else -> OpenThreadsList(
@@ -49,6 +52,7 @@ fun TabsPagerContent(
                 newResCounts = uiState.newResCounts,
                 onItemClick = { tabsViewModel.clearNewResCount(it.id) },
                 tabsViewModel = tabsViewModel,
+                exitingThreadTab = exitingThreadTab,
             )
         }
     }

@@ -50,6 +50,7 @@ import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -70,6 +71,28 @@ fun TabScreenContent(
     val uiState by tabsViewModel.uiState.collectAsState()
     val invalidUrlMessage = stringResource(R.string.invalid_url)
     val coroutineScope = rememberCoroutineScope()
+
+    // --- Exit animation state (Compose-local) ---
+    val lastSelectedBoardTab = remember { mutableStateOf<BoardTabInfo?>(null) }
+    val lastSelectedThreadTab = remember { mutableStateOf<ThreadTabInfo?>(null) }
+    val lastSelectedBounds = remember { mutableStateOf<IntRect?>(null) }
+    val isExitAnimating = remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.isInLongPressSelectionMode) {
+        if (uiState.isInLongPressSelectionMode) {
+            lastSelectedBoardTab.value = uiState.selectedBoardTab
+            lastSelectedThreadTab.value = uiState.selectedThreadTab
+            lastSelectedBounds.value = uiState.selectedTabBounds
+            isExitAnimating.value = false
+        } else {
+            isExitAnimating.value = true
+            delay(250)
+            isExitAnimating.value = false
+            lastSelectedBoardTab.value = null
+            lastSelectedThreadTab.value = null
+            lastSelectedBounds.value = null
+        }
+    }
 
     // --- Haze state ---
     val hazeState = rememberHazeState()
@@ -128,6 +151,8 @@ fun TabScreenContent(
                         navController = navController,
                         closeDrawer = closeDrawer,
                         listContentPadding = listPadding,
+                        exitingBoardTab = lastSelectedBoardTab.value,
+                        exitingThreadTab = lastSelectedThreadTab.value,
                     )
                 }
             }
@@ -150,8 +175,9 @@ fun TabScreenContent(
             )
 
             // --- Long-press dim overlay ---
+            val showDimOverlay = uiState.isInLongPressSelectionMode || isExitAnimating.value
             val dimAlpha by animateFloatAsState(
-                targetValue = if (uiState.isInLongPressSelectionMode) 0.30f else 0f,
+                targetValue = if (showDimOverlay) 0.30f else 0f,
                 animationSpec = tween(durationMillis = 200),
                 label = "dimOverlayAlpha",
             )
@@ -166,13 +192,17 @@ fun TabScreenContent(
 
             // --- Selected tab floating card (overlay layer) ---
             val floatingScale by animateFloatAsState(
-                targetValue = if (uiState.isInLongPressSelectionMode) 1.04f else 1f,
+                targetValue = if (showDimOverlay) 1.04f else 1f,
                 animationSpec = tween(durationMillis = 220),
                 label = "floatingCardScale",
             )
             val density = LocalDensity.current
-            uiState.selectedBoardTab?.let { tab ->
-                uiState.selectedTabBounds?.let { bounds ->
+            val boardTabForFloating = uiState.selectedBoardTab ?: lastSelectedBoardTab.value
+            val threadTabForFloating = uiState.selectedThreadTab ?: lastSelectedThreadTab.value
+            val boundsForFloating = uiState.selectedTabBounds ?: lastSelectedBounds.value
+
+            boardTabForFloating?.let { tab ->
+                boundsForFloating?.let { bounds ->
                     val localLeft = bounds.left - boxWindowOffset.value.x
                     val localTop = bounds.top - boxWindowOffset.value.y
                     val cardWidthPx = bounds.right - bounds.left
@@ -191,8 +221,8 @@ fun TabScreenContent(
                     }
                 }
             }
-            uiState.selectedThreadTab?.let { tab ->
-                uiState.selectedTabBounds?.let { bounds ->
+            threadTabForFloating?.let { tab ->
+                boundsForFloating?.let { bounds ->
                     val localLeft = bounds.left - boxWindowOffset.value.x
                     val localTop = bounds.top - boxWindowOffset.value.y
                     val cardWidthPx = bounds.right - bounds.left
@@ -231,7 +261,7 @@ fun TabScreenContent(
 
             // --- Bottom sheets ---
             if (uiState.showBoardInfoBottomSheet) {
-                val boardTab = uiState.selectedBoardTab
+                val boardTab = uiState.detailBoardTab
                 if (boardTab != null) {
                     BoardInfoBottomSheet(
                         showBoardInfoSheet = true,
@@ -243,7 +273,7 @@ fun TabScreenContent(
                 }
             }
             if (uiState.showThreadInfoBottomSheet) {
-                val threadTab = uiState.selectedThreadTab
+                val threadTab = uiState.detailThreadTab
                 if (threadTab != null) {
                     ThreadInfoBottomSheet(
                         showThreadInfoSheet = true,

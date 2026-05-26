@@ -70,6 +70,8 @@ class TabsViewModel @Inject constructor(
     private val selectedBoardTabState = MutableStateFlow<BoardTabInfo?>(null)
     private val selectedThreadTabState = MutableStateFlow<ThreadTabInfo?>(null)
     private val selectedTabBoundsState = MutableStateFlow<IntRect?>(null)
+    private val detailBoardTabState = MutableStateFlow<BoardTabInfo?>(null)
+    private val detailThreadTabState = MutableStateFlow<ThreadTabInfo?>(null)
     private val showBoardInfoBottomSheetState = MutableStateFlow(false)
     private val showThreadInfoBottomSheetState = MutableStateFlow(false)
 
@@ -89,21 +91,34 @@ class TabsViewModel @Inject constructor(
     }
 
     /**
-     * 長押し選択中のタブ情報、bounds、BottomSheet 表示状態をまとめる内部状態。
+     * 長押し選択中のタブ情報と bounds をまとめる内部状態。
      */
     private val tabSelectionUiState = combine(
         selectedBoardTabState,
         selectedThreadTabState,
         selectedTabBoundsState,
-        showBoardInfoBottomSheetState,
-        showThreadInfoBottomSheetState,
-    ) { selectedBoardTab, selectedThreadTab, selectedTabBounds, showBoardInfoBottomSheet, showThreadInfoBottomSheet ->
+    ) { selectedBoardTab, selectedThreadTab, selectedTabBounds ->
         TabSelectionState(
             selectedBoardTab = selectedBoardTab,
             selectedThreadTab = selectedThreadTab,
             selectedTabBounds = selectedTabBounds,
-            showBoardInfoBottomSheet = showBoardInfoBottomSheet,
-            showThreadInfoBottomSheet = showThreadInfoBottomSheet,
+        )
+    }
+
+    /**
+     * 詳細 BottomSheet の表示対象タブと表示フラグをまとめる内部状態。
+     */
+    private val tabDetailState = combine(
+        detailBoardTabState,
+        detailThreadTabState,
+        showBoardInfoBottomSheetState,
+        showThreadInfoBottomSheetState,
+    ) { detailBoardTab, detailThreadTab, showBoardInfo, showThreadInfo ->
+        TabDetailState(
+            detailBoardTab = detailBoardTab,
+            detailThreadTab = detailThreadTab,
+            showBoardInfoBottomSheet = showBoardInfo,
+            showThreadInfoBottomSheet = showThreadInfo,
         )
     }
 
@@ -112,7 +127,8 @@ class TabsViewModel @Inject constructor(
         threadTabsState,
         urlDialogUiState,
         tabSelectionUiState,
-    ) { boardState, threadState, urlState, selectionState ->
+        tabDetailState,
+    ) { boardState, threadState, urlState, selectionState, detailState ->
         TabsUiState(
             openThreadTabs = threadState.openThreadTabs,
             openBoardTabs = boardState.openBoardTabs,
@@ -127,8 +143,10 @@ class TabsViewModel @Inject constructor(
             selectedBoardTab = selectionState.selectedBoardTab,
             selectedThreadTab = selectionState.selectedThreadTab,
             selectedTabBounds = selectionState.selectedTabBounds,
-            showBoardInfoBottomSheet = selectionState.showBoardInfoBottomSheet,
-            showThreadInfoBottomSheet = selectionState.showThreadInfoBottomSheet,
+            detailBoardTab = detailState.detailBoardTab,
+            detailThreadTab = detailState.detailThreadTab,
+            showBoardInfoBottomSheet = detailState.showBoardInfoBottomSheet,
+            showThreadInfoBottomSheet = detailState.showThreadInfoBottomSheet,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, TabsUiState())
 
@@ -281,12 +299,17 @@ class TabsViewModel @Inject constructor(
      */
     fun openSelectedTabDetail() {
         selectedBoardTabState.value?.let {
+            detailBoardTabState.value = it
             showBoardInfoBottomSheetState.value = true
         }
         selectedThreadTabState.value?.let {
+            detailThreadTabState.value = it
             showThreadInfoBottomSheetState.value = true
         }
-        cancelTabSelection()
+        // BottomSheet state と detail state は残し、長押し選択 state だけ解除する。
+        selectedBoardTabState.value = null
+        selectedThreadTabState.value = null
+        selectedTabBoundsState.value = null
     }
 
     /**
@@ -315,6 +338,7 @@ class TabsViewModel @Inject constructor(
      */
     fun dismissBoardInfoBottomSheet() {
         showBoardInfoBottomSheetState.value = false
+        detailBoardTabState.value = null
     }
 
     /**
@@ -322,6 +346,7 @@ class TabsViewModel @Inject constructor(
      */
     fun dismissThreadInfoBottomSheet() {
         showThreadInfoBottomSheetState.value = false
+        detailThreadTabState.value = null
     }
 
     fun setThreadCurrentPage(page: Int) {
@@ -457,12 +482,20 @@ private data class UrlDialogState(
 )
 
 /**
- * 長押し選択中のタブ情報、bounds、BottomSheet 表示状態をまとめる内部状態。
+ * 長押し選択中のタブ情報と bounds をまとめる内部状態。
  */
 private data class TabSelectionState(
     val selectedBoardTab: BoardTabInfo? = null,
     val selectedThreadTab: ThreadTabInfo? = null,
     val selectedTabBounds: IntRect? = null,
+)
+
+/**
+ * 詳細 BottomSheet の表示対象タブと表示フラグをまとめる内部状態。
+ */
+private data class TabDetailState(
+    val detailBoardTab: BoardTabInfo? = null,
+    val detailThreadTab: ThreadTabInfo? = null,
     val showBoardInfoBottomSheet: Boolean = false,
     val showThreadInfoBottomSheet: Boolean = false,
 )
