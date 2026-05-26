@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
