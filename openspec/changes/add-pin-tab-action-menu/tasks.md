@@ -21,8 +21,8 @@
 - [x] 3.4 `TabsUiState` に長押し選択中タブ、アンカー位置、選択タブ再描画用 bounds、詳細 BottomSheet 表示対象を表す状態を追加する
 - [x] 3.5 `TabsViewModel` に長押し選択開始、選択解除、詳細表示、メニュー操作完了の状態更新処理を追加する
 - [x] 3.6 `TabsViewModel` の選択解除処理を overlay タップ、メニュー dismissal、戻るキー、ページ切替、選択中タブ消失から共通利用できるようにする
-- [ ] 3.7 詳細 BottomSheet 表示用の板/スレッドタブ state を長押し選択 state から分離し、詳細選択時に選択中タブをコピーしてから長押し選択を解除する
-- [ ] 3.8 BottomSheet dismiss 時に詳細表示用 state と表示フラグを消し、通常の長押し選択解除処理では詳細表示用 state を誤って消さないようにする
+- [x] 3.7 詳細 BottomSheet 表示用の板/スレッドタブ state を長押し選択 state から分離し、詳細選択時に選択中タブをコピーしてから長押し選択を解除する
+- [x] 3.8 BottomSheet dismiss 時に詳細表示用 state と表示フラグを消し、通常の長押し選択解除処理では詳細表示用 state を誤って消さないようにする
 
 ## 4. タブ専用アクションメニュー
 
@@ -31,9 +31,9 @@
 - [x] 4.3 「タブを閉じる」を破壊的操作として赤字で表示する
 - [x] 4.4 メニュー外タップ時に選択状態を解除する dismissal を接続する
 - [x] 4.5 `AnchoredTabActionMenu` の Preview を追加する
-- [ ] 4.6 `AnchoredOverlayMenu` / position provider に縦方向の自動配置（上側/下側の空きが大きい方）と非重なり gap を指定できる API を追加する
-- [ ] 4.7 `AnchoredTabActionMenu` をタブ左端揃え（`HorizontalAnchorAlignment.Start` 相当）かつ上下自動配置にし、長押しタブとメニューが重ならないようにする
-- [ ] 4.8 `AnchoredTabActionMenu` の各項目先頭に意味を表すアイコンを表示し、破壊的操作ではアイコン色もテキスト色に揃える
+- [x] 4.6 `AnchoredOverlayMenu` / position provider に縦方向の自動配置（上側/下側の空きが大きい方）と非重なり gap を指定できる API を追加する
+- [x] 4.7 `AnchoredTabActionMenu` をタブ左端揃え（`HorizontalAnchorAlignment.Start` 相当）かつ上下自動配置にし、長押しタブとメニューが重ならないようにする
+- [x] 4.8 `AnchoredTabActionMenu` の各項目先頭に意味を表すアイコンを表示し、破壊的操作ではアイコン色もテキスト色に揃える
 
 ## 5. タブ一覧 UI 接続
 
@@ -52,12 +52,12 @@
 - [x] 5.13 `SelectedTabFloatingCard` の `padding(horizontal = 12.dp)` を削除し、元カードと同じ幅にする
 - [x] 5.14 floating card に `graphicsLayer` + `TransformOrigin.Center` で scale（1.00 → 1.04）アニメーションを追加し、layout 位置を保ったまま中心基準で拡大する
 - [x] 5.15 floating card の親 `Box` の window 座標を取得し、`boundsInWindow()` から差分を引いて親基準のローカル座標に変換する
-- [ ] 5.16 `TabListCard` の `headerTrailingContent` slot を型付き表示モデル（例: `None` / `ThreadResCount`）へ置き換え、ヘッダー右側の描画を `TabListCard` 内に集約する
-- [ ] 5.17 `OpenThreadCard` と `ThreadTabFloatingCard` が同じ `ThreadResCount(resCount, newResCount)` を渡すようにし、長押し中の floating card でも新着バッジを通常カードと同じ見た目で表示する
-- [ ] 5.18 `TabListCard` 右上の固定アイコンと閉じるアイコンで、`IconButton` の表示領域、`Icon` 本体サイズ、padding を統一する
-- [ ] 5.19 `TabScreenContent` 側で直前の選択タブと bounds をローカル保持し、長押し選択解除後も退場アニメーション完了まで floating card を描画する
-- [ ] 5.20 退場アニメーション中のタブ ID を一覧へ渡し、元カードを透明化したまま維持して floating card との二重表示を避ける
-- [ ] 5.21 退場アニメーション完了後にローカル保持した選択タブ、bounds、退場中フラグを破棄し、元カードを通常表示へ戻す
+- [x] 5.16 `TabListCard` の `headerTrailingContent` slot を型付き表示モデル（例: `None` / `ThreadResCount`）へ置き換え、ヘッダー右側の描画を `TabListCard` 内に集約する
+- [x] 5.17 `OpenThreadCard` と `ThreadTabFloatingCard` が同じ `ThreadResCount(resCount, newResCount)` を渡すようにし、長押し中の floating card でも新着バッジを通常カードと同じ見た目で表示する
+- [x] 5.18 `TabListCard` 右上の固定アイコンと閉じるアイコンで、`IconButton` の表示領域、`Icon` 本体サイズ、padding を統一する
+- [x] 5.19 `TabScreenContent` 側で直前の選択タブと bounds をローカル保持し、長押し選択解除後も退場アニメーション完了まで floating card を描画する
+- [x] 5.20 退場アニメーション中のタブ ID を一覧へ渡し、元カードを透明化したまま維持して floating card との二重表示を避ける
+- [x] 5.21 退場アニメーション完了後にローカル保持した選択タブ、bounds、退場中フラグを破棄し、元カードを通常表示へ戻す
 
 ## 6. 下部操作群と詳細 BottomSheet
 
@@ -67,8 +67,8 @@
 - [x] 6.4 長押し選択中もスレッド更新進捗インジケータを通常時と同じ条件で維持する
 - [x] 6.5 `TabScreenContent` から板タブ詳細として `BoardInfoBottomSheet` を表示する
 - [x] 6.6 `TabScreenContent` からスレッドタブ詳細として `ThreadInfoBottomSheet` を表示する
-- [ ] 6.7 `BoardInfoBottomSheet` / `ThreadInfoBottomSheet` が長押し選択 state ではなく詳細表示用 state を参照して表示されるようにする
-- [ ] 6.8 詳細ボタン押下時にアクションメニューと長押し選択状態が閉じても、対象タブの BottomSheet が表示され続けることを確認する
+- [x] 6.7 `BoardInfoBottomSheet` / `ThreadInfoBottomSheet` が長押し選択 state ではなく詳細表示用 state を参照して表示されるようにする
+- [x] 6.8 詳細ボタン押下時にアクションメニューと長押し選択状態が閉じても、対象タブの BottomSheet が表示され続けることを確認する
 
 ## 7. テストと検証
 
