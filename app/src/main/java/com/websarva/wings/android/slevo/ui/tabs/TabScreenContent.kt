@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -51,7 +52,6 @@ import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -73,25 +73,47 @@ fun TabScreenContent(
     val invalidUrlMessage = stringResource(R.string.invalid_url)
     val coroutineScope = rememberCoroutineScope()
 
-    // --- Exit animation state (Compose-local) ---
-    val lastSelectedBoardTab = remember { mutableStateOf<BoardTabInfo?>(null) }
-    val lastSelectedThreadTab = remember { mutableStateOf<ThreadTabInfo?>(null) }
-    val lastSelectedBounds = remember { mutableStateOf<IntRect?>(null) }
-    val isExitAnimating = remember { mutableStateOf(false) }
+    // --- Floating card animation state (Compose-local) ---
+    val floatingBoardTab = remember { mutableStateOf<BoardTabInfo?>(null) }
+    val floatingThreadTab = remember { mutableStateOf<ThreadTabInfo?>(null) }
+    val floatingBounds = remember { mutableStateOf<IntRect?>(null) }
+    val isFloatingExiting = remember { mutableStateOf(false) }
+    val floatingScale = remember { Animatable(1f) }
+
+    LaunchedEffect(
+        uiState.selectedBoardTab,
+        uiState.selectedThreadTab,
+        uiState.selectedTabBounds,
+        uiState.isInLongPressSelectionMode,
+    ) {
+        if (uiState.isInLongPressSelectionMode) {
+            floatingBoardTab.value = uiState.selectedBoardTab
+            floatingThreadTab.value = uiState.selectedThreadTab
+            floatingBounds.value = uiState.selectedTabBounds
+        }
+    }
 
     LaunchedEffect(uiState.isInLongPressSelectionMode) {
         if (uiState.isInLongPressSelectionMode) {
-            lastSelectedBoardTab.value = uiState.selectedBoardTab
-            lastSelectedThreadTab.value = uiState.selectedThreadTab
-            lastSelectedBounds.value = uiState.selectedTabBounds
-            isExitAnimating.value = false
-        } else {
-            isExitAnimating.value = true
-            delay(250)
-            isExitAnimating.value = false
-            lastSelectedBoardTab.value = null
-            lastSelectedThreadTab.value = null
-            lastSelectedBounds.value = null
+            isFloatingExiting.value = false
+            floatingScale.animateTo(
+                targetValue = 1.04f,
+                animationSpec = tween(durationMillis = 220),
+            )
+        } else if (
+            floatingBoardTab.value != null ||
+            floatingThreadTab.value != null
+        ) {
+            isFloatingExiting.value = true
+            floatingScale.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 180),
+            )
+            isFloatingExiting.value = false
+            floatingBoardTab.value = null
+            floatingThreadTab.value = null
+            floatingBounds.value = null
+            floatingScale.snapTo(1f)
         }
     }
 
@@ -122,6 +144,16 @@ fun TabScreenContent(
         )
 
         val boxWindowOffset = remember { mutableStateOf(IntOffset.Zero) }
+        val currentSelectedBounds = uiState.selectedTabBounds
+        val fallbackFloatingBounds = floatingBounds.value
+
+        val boundsForFloating = if (uiState.isInLongPressSelectionMode) {
+            currentSelectedBounds
+        } else {
+            fallbackFloatingBounds
+        }
+
+        val hasFloatingBounds = boundsForFloating != null
 
         Box(
             modifier = Modifier
@@ -152,8 +184,16 @@ fun TabScreenContent(
                         navController = navController,
                         closeDrawer = closeDrawer,
                         listContentPadding = listPadding,
-                        exitingBoardTab = lastSelectedBoardTab.value,
-                        exitingThreadTab = lastSelectedThreadTab.value,
+                        exitingBoardTab = if (hasFloatingBounds) {
+                            uiState.selectedBoardTab ?: floatingBoardTab.value
+                        } else {
+                            null
+                        },
+                        exitingThreadTab = if (hasFloatingBounds) {
+                            uiState.selectedThreadTab ?: floatingThreadTab.value
+                        } else {
+                            null
+                        },
                     )
                 }
             }
@@ -176,31 +216,37 @@ fun TabScreenContent(
             )
 
             // --- Long-press dim overlay ---
-            val showDimOverlay = uiState.isInLongPressSelectionMode || isExitAnimating.value
+            val showDimOverlay = uiState.isInLongPressSelectionMode || isFloatingExiting.value
             val dimAlpha by animateFloatAsState(
-                targetValue = if (showDimOverlay) 0.30f else 0f,
+                targetValue = if (uiState.isInLongPressSelectionMode) 0.30f else 0f,
                 animationSpec = tween(durationMillis = 200),
                 label = "dimOverlayAlpha",
             )
-            if (dimAlpha > 0f) {
+
+            if (showDimOverlay || dimAlpha > 0f) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(Color.Black.copy(alpha = dimAlpha))
-                        .clickable { tabsViewModel.cancelTabSelection() }
+                        .clickable(enabled = uiState.isInLongPressSelectionMode) {
+                            tabsViewModel.cancelTabSelection()
+                        }
                 )
             }
 
             // --- Selected tab floating card (overlay layer) ---
-            val floatingScale by animateFloatAsState(
-                targetValue = if (showDimOverlay) 1.04f else 1f,
-                animationSpec = tween(durationMillis = 220),
-                label = "floatingCardScale",
-            )
             val density = LocalDensity.current
-            val boardTabForFloating = uiState.selectedBoardTab ?: lastSelectedBoardTab.value
-            val threadTabForFloating = uiState.selectedThreadTab ?: lastSelectedThreadTab.value
-            val boundsForFloating = uiState.selectedTabBounds ?: lastSelectedBounds.value
+            val boardTabForFloating = if (hasFloatingBounds) {
+                uiState.selectedBoardTab ?: floatingBoardTab.value
+            } else {
+                null
+            }
+
+            val threadTabForFloating = if (hasFloatingBounds) {
+                uiState.selectedThreadTab ?: floatingThreadTab.value
+            } else {
+                null
+            }
 
             boardTabForFloating?.let { tab ->
                 boundsForFloating?.let { bounds ->
@@ -212,8 +258,8 @@ fun TabScreenContent(
                             .width(with(density) { cardWidthPx.toDp() })
                             .offset { IntOffset(localLeft, localTop) }
                             .graphicsLayer {
-                                scaleX = floatingScale
-                                scaleY = floatingScale
+                                scaleX = floatingScale.value
+                                scaleY = floatingScale.value
                                 transformOrigin = TransformOrigin.Center
                             }
                             .clickable { /* 選択タブのタップは選択解除しない */ }
@@ -232,8 +278,8 @@ fun TabScreenContent(
                             .width(with(density) { cardWidthPx.toDp() })
                             .offset { IntOffset(localLeft, localTop) }
                             .graphicsLayer {
-                                scaleX = floatingScale
-                                scaleY = floatingScale
+                                scaleX = floatingScale.value
+                                scaleY = floatingScale.value
                                 transformOrigin = TransformOrigin.Center
                             }
                             .clickable { /* 選択タブのタップは選択解除しない */ }
