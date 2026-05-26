@@ -37,9 +37,11 @@ Issue #483 は、タブ一覧でタブを長押ししたときに詳細確認・
 
 ### 2. 長押し選択状態は `TabsUiState` / `TabsViewModel` で管理する
 
-このリポジトリでは画面 UI 状態を `UiState` と `ViewModel` に持たせる方針がある。選択中タブ、アンカー位置、詳細 BottomSheet 表示対象、選択解除はタブ一覧画面全体で参照するため、Composable ローカル状態ではなく `TabsUiState` に集約する。
+このリポジトリでは画面 UI 状態を `UiState` と `ViewModel` に持たせる方針がある。選択中タブ、アンカー位置、詳細 BottomSheet 表示対象、選択解除はタブ一覧画面全体で参照するため、基本的には `TabsUiState` に集約する。
 
 板タブとスレッドタブは識別子が異なるため、選択対象は型安全な画面状態として分けて保持する。アンカー位置は `TabListCard` 側で `onGloballyPositioned` から `IntRect` を取得し、長押しイベントと一緒に `TabsViewModel` へ渡す。
+
+詳細 BottomSheet の表示対象は、長押し選択対象とは別の state として保持する。`openSelectedTabDetail()` は現在の選択タブを詳細表示用 state（例: `detailBoardTab` / `detailThreadTab`）へコピーしてから長押し選択状態を解除し、BottomSheet は `selectedBoardTab` / `selectedThreadTab` ではなく詳細表示用 state を参照する。これにより、詳細ボタン押下時に `cancelTabSelection()` で選択対象が `null` になっても、BottomSheet の表示フラグと表示内容が消えない。
 
 ### 3. 固定状態は Room に永続化する
 
@@ -80,6 +82,10 @@ floating card 側は `Modifier.padding(horizontal = 12.dp)` を持たず、元�
 floating card の幅は `bounds.right - bounds.left` を `Dp` に変換して明示的に指定する。これにより `fillMaxWidth()` で画面幅いっぱいになって右側がはみ出す問題を防ぐ。
 
 floating card の拡大は `Modifier.scale()` ではなく `graphicsLayer { scaleX/scaleY + TransformOrigin.Center }` で行う。`TransformOrigin.Center` はその Composable の layout 位置を保ったまま描画だけを中心基準に拡大するため、元カード位置に floating card を置くと自然に上下左右へ均等に広がる。
+
+長押し選択解除時の戻りアニメーションは、ViewModel の長押し選択 state を解除しつつ、`TabScreenContent` 側で直前の選択タブと bounds を一時的に保持する方式を採用する。具体的には、`lastSelectedBoardTab` / `lastSelectedThreadTab`、`lastSelectedBounds`、`isExitAnimating` のような Composable ローカル状態を使い、`uiState.selectedBoardTab` / `selectedThreadTab` が `null` になった後も退場アニメーションが終わるまで floating card を描画し続ける。これはアニメーション表示寿命だけの状態であり、タブ操作の真実は引き続き ViewModel に置く。
+
+退場中は floating card を `1.04f` から `1.00f` へ縮小し、dim overlay も通常の解除アニメーションで薄くする。元カードが同時に見えて二重表示にならないよう、`TabScreenContent` は現在選択中または退場中のタブ ID を一覧へ渡し、退場アニメーション完了まで該当元カードを `alpha(0f)` のまま維持する。アニメーション完了後にローカル保持したタブと bounds を破棄し、元カードを通常表示へ戻す。
 
 overlay は `hazeSource` の子に入れず、`hazeSource` と `hazeEffect` の兄弟関係を維持する。これにより、下部操作群の haze 効果を壊さずに、長押し時だけ全画面の減光レイヤーを追加できる。
 
@@ -131,6 +137,8 @@ Box(fillMaxSize)
 - `TabListCard` にスレッド固有の表示概念が入りすぎる可能性がある → `resCount` / `newResCount` を個別引数にせず、ヘッダー右側の表示パターンを表す型に閉じ込め、板タブでは `None` を渡す。
 - メニューを左端揃えにすると画面左端付近で anchor 左端と完全一致できない可能性がある → 画面内に収める clamp を優先し、完全一致は必須条件にしない。
 - メニューを上下自動配置しても上下どちらにも十分な余白がない可能性がある → 空きが大きい側を選んだうえで画面内に clamp し、可能な範囲でタブとの gap を維持する。
+- 詳細ボタン押下時に長押し選択状態を解除すると、選択タブを参照している BottomSheet が表示できなくなる可能性がある → 詳細表示用 state を選択 state から分離し、詳細表示対象をコピーしてから選択状態を解除する。
+- 戻りアニメーション中に元カードと floating card が二重に見える可能性がある → `TabScreenContent` のローカル退場状態で保持しているタブ ID も一覧へ渡し、退場完了まで元カードを透明化する。
 
 ## Migration Plan
 
@@ -142,4 +150,4 @@ Box(fillMaxSize)
 
 ## Open Questions
 
-- 詳細 BottomSheet の表示に必要な情報がタブ情報のみで足りるか。実装時に既存 BottomSheet の引数を確認して最小追加にする。
+- 退場アニメーション中にページ切替やタブ一覧更新が発生した場合、保持中の floating card を即破棄するか、現在の短い退場アニメーションを完了させるか。
