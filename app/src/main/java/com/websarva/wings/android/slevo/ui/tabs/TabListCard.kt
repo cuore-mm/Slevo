@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,7 +38,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,6 +45,25 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import java.net.URI
+
+/**
+ * タブ一覧カードのヘッダー右側に表示する内容を表す型。
+ *
+ * 板タブでは [None]、スレッドタブでは [ThreadResCount] を渡す。
+ * 描画は [TabListCard] 内で一括して行い、呼び出し側の差異を吸収する。
+ */
+sealed class TabHeaderTrailingContent {
+    data object None : TabHeaderTrailingContent()
+
+    /**
+     * @param resCount レス総数
+     * @param newResCount 新着レス数。0 以下の場合は新着バッジを表示しない。
+     */
+    data class ThreadResCount(
+        val resCount: Int,
+        val newResCount: Int,
+    ) : TabHeaderTrailingContent()
+}
 
 /**
  * タブ一覧カードの共通外枠と情報配置を提供する。
@@ -64,7 +81,7 @@ internal fun TabListCard(
     isHiddenForSelection: Boolean = false,
     isPinned: Boolean = false,
     headerTitle: String,
-    headerTrailingContent: @Composable RowScope.() -> Unit = {},
+    headerTrailingContent: TabHeaderTrailingContent = TabHeaderTrailingContent.None,
     bodyTitle: String,
     bodyMaxLines: Int = 2,
     onCloseClick: () -> Unit,
@@ -143,16 +160,46 @@ internal fun TabListCard(
                         )
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        headerTrailingContent()
+                        when (headerTrailingContent) {
+                            is TabHeaderTrailingContent.ThreadResCount -> {
+                                Text(
+                                    text = headerTrailingContent.resCount.toString(),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                if (headerTrailingContent.newResCount > 0) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "+${headerTrailingContent.newResCount}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier
+                                            .background(
+                                                color = MaterialTheme.colorScheme.primary,
+                                                shape = RoundedCornerShape(999.dp),
+                                            )
+                                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                                    )
+                                }
+                            }
+
+                            TabHeaderTrailingContent.None -> Unit
+                        }
                         Spacer(modifier = Modifier.width(12.dp))
                         if (isPinned) {
                             // 固定済みタブは固定アイコンを表示専用で表示する。
-                            Icon(
-                                imageVector = Icons.Default.PushPin,
-                                contentDescription = stringResource(R.string.pinned),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp),
-                            )
+                            // 占有幅とアイコン本体サイズを閉じるボタンと統一する。
+                            Box(
+                                modifier = Modifier.size(24.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PushPin,
+                                    contentDescription = stringResource(R.string.pinned),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
                         } else {
                             IconButton(
                                 modifier = Modifier
@@ -227,25 +274,7 @@ fun TabListCardPreview() {
         bookmarkColor = null,
         onClick = {},
         headerTitle = "example.com",
-        headerTrailingContent = {
-            Text(
-                text = "120",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "+3",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier
-                    .background(
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(999.dp),
-                    )
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-            )
-        },
+        headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(120, 3),
         bodyTitle = "カードのタイトル",
         onCloseClick = {},
     )
@@ -259,25 +288,7 @@ fun ColoredTabListCardPreview() {
         bookmarkColor = MaterialTheme.colorScheme.primary,
         onClick = {},
         headerTitle = "example.com",
-        headerTrailingContent = {
-            Text(
-                text = "120",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "+3",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier
-                    .background(
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(999.dp),
-                    )
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-            )
-        },
+        headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(120, 0),
         bodyTitle = "カードのタイトル",
         onCloseClick = {},
     )

@@ -1,13 +1,7 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -115,28 +109,10 @@ private fun OpenThreadCard(
         isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,
         headerTitle = tab.boardName,
-        headerTrailingContent = {
-            Text(
-                text = tab.resCount.toString(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (newResCount > 0) {
-                // 新着バッジは板画面の強調スタイルに合わせる。
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "+$newResCount",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier
-                        .background(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = RoundedCornerShape(999.dp),
-                        )
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                )
-            }
-        },
+        headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(
+            resCount = tab.resCount,
+            newResCount = newResCount,
+        ),
         bodyTitle = tab.title,
         bodyMaxLines = 2,
         onCloseClick = {

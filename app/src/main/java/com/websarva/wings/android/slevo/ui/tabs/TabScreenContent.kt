@@ -209,7 +209,10 @@ fun TabScreenContent(
                             }
                             .clickable { /* 選択タブのタップは選択解除しない */ }
                     ) {
-                        ThreadTabFloatingCard(tab = tab)
+                        ThreadTabFloatingCard(
+                            tab = tab,
+                            newResCount = uiState.newResCounts[tab.id.value] ?: tab.newResCount,
+                        )
                     }
                 }
             }
@@ -403,7 +406,7 @@ private fun BoardTabFloatingCard(tab: BoardTabInfo) {
  * floating card 側で選択中の視覚状態（拡大・影）を表現する。
  */
 @Composable
-private fun ThreadTabFloatingCard(tab: ThreadTabInfo) {
+private fun ThreadTabFloatingCard(tab: ThreadTabInfo, newResCount: Int) {
     val color = tab.bookmarkColorName?.let { com.websarva.wings.android.slevo.ui.theme.bookmarkColor(it) }
 
     TabListCard(
@@ -411,13 +414,10 @@ private fun ThreadTabFloatingCard(tab: ThreadTabInfo) {
         onClick = {},
         isPinned = tab.isPinned,
         headerTitle = tab.boardName,
-        headerTrailingContent = {
-            Text(
-                text = tab.resCount.toString(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
+        headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(
+            resCount = tab.resCount,
+            newResCount = newResCount,
+        ),
         bodyTitle = tab.title,
         bodyMaxLines = 2,
         onCloseClick = {},

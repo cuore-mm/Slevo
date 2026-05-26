@@ -17,9 +17,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +66,12 @@ enum class HorizontalAnchorAlignment {
     End,
 }
 
+enum class VerticalAnchorAlignment {
+    Above,
+    Below,
+    Auto,
+}
+
 /**
  * アンカー座標を基準に表示するオーバーレイメニュー。
  *
@@ -75,6 +84,8 @@ fun AnchoredOverlayMenu(
     anchorBoundsInWindow: IntRect?,
     hazeState: HazeState?,
     horizontalAlignment: HorizontalAnchorAlignment = HorizontalAnchorAlignment.Center,
+    verticalAlignment: VerticalAnchorAlignment = VerticalAnchorAlignment.Above,
+    verticalSpacingPx: Int = -12,
     offset: DpOffset = DpOffset.Zero,
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
@@ -98,10 +109,12 @@ fun AnchoredOverlayMenu(
             y = offset.y.roundToPx(),
         )
     }
-    val positionProvider = remember(anchorBoundsInWindow, horizontalAlignment, offsetPx) {
+    val positionProvider = remember(anchorBoundsInWindow, horizontalAlignment, verticalAlignment, verticalSpacingPx, offsetPx) {
         AnchoredOverlayMenuPositionProvider(
             anchorBoundsInWindow = anchorBoundsInWindow,
             horizontalAlignment = horizontalAlignment,
+            verticalAlignment = verticalAlignment,
+            verticalSpacingPx = verticalSpacingPx,
             offsetPx = offsetPx,
         )
     }
@@ -175,12 +188,15 @@ fun AnchoredOverlayMenu(
 class AnchoredOverlayMenuPositionProvider(
     private val anchorBoundsInWindow: IntRect,
     private val horizontalAlignment: HorizontalAnchorAlignment,
+    private val verticalAlignment: VerticalAnchorAlignment,
+    private val verticalSpacingPx: Int,
     private val offsetPx: IntOffset,
 ) : PopupPositionProvider {
-    private val overlapPx = 12
 
     /**
      * アンカーとウィンドウサイズからポップアップ表示座標を返す。
+     * 縦方向は [verticalAlignment] と [verticalSpacingPx] に従う。
+     * spacing が負の場合はアンカーと重なり、正の場合は gap を空ける。
      */
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -202,8 +218,25 @@ class AnchoredOverlayMenuPositionProvider(
         }
         val x = (alignedX + offsetPx.x).coerceIn(0, maxX)
 
-        // ボタンの上端付近にメニューを重ねる。画面外はクランプする。
-        val desiredY = anchorBoundsInWindow.top - overlapPx + offsetPx.y
+        val desiredY = when (verticalAlignment) {
+            VerticalAnchorAlignment.Above -> {
+                anchorBoundsInWindow.top - popupContentSize.height - verticalSpacingPx
+            }
+
+            VerticalAnchorAlignment.Below -> {
+                anchorBoundsInWindow.bottom + verticalSpacingPx
+            }
+
+            VerticalAnchorAlignment.Auto -> {
+                val spaceAbove = anchorBoundsInWindow.top
+                val spaceBelow = windowSize.height - anchorBoundsInWindow.bottom
+                if (spaceAbove >= spaceBelow) {
+                    anchorBoundsInWindow.top - popupContentSize.height - verticalSpacingPx
+                } else {
+                    anchorBoundsInWindow.bottom + verticalSpacingPx
+                }
+            }
+        }
         val y = desiredY.coerceIn(0, maxY)
 
         return IntOffset(x, y)
@@ -215,11 +248,13 @@ class AnchoredOverlayMenuPositionProvider(
  *
  * [textColor] を指定しない場合は親 Surface の contentColor（既定では onSurface）を使う。
  * 破壊的操作などで色を変えたい場合は [textColor] に明示的に渡す。
+ * [leadingIcon] を指定すると、テキストの先頭にアイコンを表示する。
  */
 @Composable
 fun AnchoredOverlayMenuItem(
     text: String,
     textColor: Color = Color.Unspecified,
+    leadingIcon: @Composable (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -236,8 +271,7 @@ fun AnchoredOverlayMenuItem(
         MaterialTheme.colorScheme.onSurface
     }
 
-    Text(
-        text = text,
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(
@@ -250,9 +284,18 @@ fun AnchoredOverlayMenuItem(
                 scaleY = textScale
             }
             .padding(horizontal = 24.dp, vertical = 12.dp),
-        style = MaterialTheme.typography.bodyLarge,
-        color = color,
-    )
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        if (leadingIcon != null) {
+            leadingIcon()
+            Spacer(modifier = Modifier.width(12.dp))
+        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = color,
+        )
+    }
 }
 
 @Composable
