@@ -29,6 +29,9 @@
 - [x] 4.3 「タブを閉じる」を破壊的操作として赤字で表示する
 - [x] 4.4 メニュー外タップ時に選択状態を解除する dismissal を接続する
 - [x] 4.5 `AnchoredTabActionMenu` の Preview を追加する
+- [ ] 4.6 `AnchoredOverlayMenu` / position provider に縦方向の自動配置（上側/下側の空きが大きい方）と非重なり gap を指定できる API を追加する
+- [ ] 4.7 `AnchoredTabActionMenu` をタブ左端揃え（`HorizontalAnchorAlignment.Start` 相当）かつ上下自動配置にし、長押しタブとメニューが重ならないようにする
+- [ ] 4.8 `AnchoredTabActionMenu` の各項目先頭に意味を表すアイコンを表示し、破壊的操作ではアイコン色もテキスト色に揃える
 
 ## 5. タブ一覧 UI 接続
 
@@ -49,6 +52,7 @@
 - [x] 5.15 floating card の親 `Box` の window 座標を取得し、`boundsInWindow()` から差分を引いて親基準のローカル座標に変換する
 - [ ] 5.16 `TabListCard` の `headerTrailingContent` slot を型付き表示モデル（例: `None` / `ThreadResCount`）へ置き換え、ヘッダー右側の描画を `TabListCard` 内に集約する
 - [ ] 5.17 `OpenThreadCard` と `ThreadTabFloatingCard` が同じ `ThreadResCount(resCount, newResCount)` を渡すようにし、長押し中の floating card でも新着バッジを通常カードと同じ見た目で表示する
+- [ ] 5.18 `TabListCard` 右上の固定アイコンと閉じるアイコンで、`IconButton` の表示領域、`Icon` 本体サイズ、padding を統一する
 
 ## 6. 下部操作群と詳細 BottomSheet
 

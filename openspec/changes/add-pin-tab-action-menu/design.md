@@ -33,6 +33,8 @@ Issue #483 は、タブ一覧でタブを長押ししたときに詳細確認・
 
 代替案として `AnchoredSelectionMenu` に `isDestructive` や任意 text color を追加する方法もあるが、既存の設定系メニューの責務が広がり、選択メニューとアクションメニューの意味が混ざるため採用しない。
 
+タブ専用メニューの各項目には、項目の意味を示す先頭アイコンを表示する。「詳細」は情報アイコン、「タブを固定」は固定アイコン、「タブの固定を解除」は固定解除または固定状態を示すアイコン、「タブを閉じる」は閉じる/削除系アイコンを使う。アイコンとテキストは同じ行に配置し、「タブを閉じる」ではテキストだけでなくアイコンも破壊的操作の色に揃える。
+
 ### 2. 長押し選択状態は `TabsUiState` / `TabsViewModel` で管理する
 
 このリポジトリでは画面 UI 状態を `UiState` と `ViewModel` に持たせる方針がある。選択中タブ、アンカー位置、詳細 BottomSheet 表示対象、選択解除はタブ一覧画面全体で参照するため、Composable ローカル状態ではなく `TabsUiState` に集約する。
@@ -50,6 +52,8 @@ DAO の一覧取得は既存通り `sortOrder ASC` で並べる。保存時も�
 Issue の受け入れ条件では「閉じるアイコンが固定アイコンに変わる」とされている。固定済みタブではカード右上を固定アイコンとして表示し、固定アイコンは表示専用でタップしても操作を実行しない。固定済みタブを閉じる場合は長押しメニューの「タブを閉じる」から実行する。
 
 この方針により、固定タブの誤クローズや誤解除を避け、固定状態であることを常時認識できる。通常タブは既存通り右上の閉じるアイコンからクローズできる。
+
+カード右上の固定アイコンと閉じるアイコンは、表示領域とアイコン本体サイズを統一する。未固定/固定の切替でカード右上の占有幅や見た目の重心が変わらないようにし、同じ `IconButton` サイズ、同じ `Icon` サイズ、同じ padding 方針を使う。
 
 ### 5. 詳細表示は既存 BottomSheet を再利用する
 
@@ -105,6 +109,14 @@ Box(fillMaxSize)
 
 長押し中の `ThreadTabFloatingCard` も通常の `OpenThreadCard` と同じ `ThreadResCount` を渡す。新着レス数は通常カードと同じ優先順位で、ライブ更新中の `uiState.newResCounts[tab.id.value]` を優先し、存在しない場合は `ThreadTabInfo.newResCount` を使う。これにより、元カードを `alpha(0f)` で透明化して floating card を再描画しても、レス数と新着バッジの見た目が維持される。
 
+### 10. タブアクションメニューは左端揃えと上下自動配置でタブとの重なりを避ける
+
+`AnchoredTabActionMenu` は、長押ししたタブの左端とメニューの左端が概ね揃う位置に表示する。これはメニューをタブの物理的な左外側へ完全に出す意味ではなく、既存の `HorizontalAnchorAlignment.Start` 相当の「anchor 左端基準」の配置を使う。画面端で完全一致できない場合は、画面内に収まるように clamp し、完全一致よりも可視性を優先する。
+
+縦方向は固定で上側に出すのではなく、`VerticalAnchorAlignment.Auto` 相当の位置決定を追加する。長押しタブより上の空きと下の空きを比較し、上側の空きが大きい場合はメニューをタブの上側へ、下側の空きが大きい場合はタブの下側へ表示する。タブとメニューが重ならないように、現在の overlap ではなく gap を使い、上側表示では `menu.bottom <= tab.top - gap`、下側表示では `menu.top >= tab.bottom + gap` になるように配置する。
+
+この挙動はタブ専用メニューで必要なため、`AnchoredOverlayMenu` には既存利用を壊さないデフォルト値を残したまま、縦方向 alignment と非重なり gap を指定できる API を追加する。既存の画像ビューアや設定系メニューは既定値のまま維持し、`AnchoredTabActionMenu` だけが `HorizontalAnchorAlignment.Start` と `VerticalAnchorAlignment.Auto` を指定する。
+
 ## Risks / Trade-offs
 
 - 固定済みタブの右上から直接閉じられなくなる → 長押しメニューに「タブを閉じる」を常に表示し、閉じる導線を維持する。
@@ -117,6 +129,8 @@ Box(fillMaxSize)
 - overlay を `hazeSource` の子に入れると下部操作群の haze 効果に影響する可能性がある → overlay は外側 `Box` の sibling として追加し、`hazeSource` / `hazeEffect` の兄弟関係を維持する。
 - floating card と元カードの位置がズレる可能性がある → floating card 側に `padding(horizontal = 12.dp)` を入れず、`IntRect` を `IntOffset` でそのまま配置する。元カード側の scale アニメーションは廃止し、bounds 取得時と floating card 表示時のサイズを一致させる。
 - `TabListCard` にスレッド固有の表示概念が入りすぎる可能性がある → `resCount` / `newResCount` を個別引数にせず、ヘッダー右側の表示パターンを表す型に閉じ込め、板タブでは `None` を渡す。
+- メニューを左端揃えにすると画面左端付近で anchor 左端と完全一致できない可能性がある → 画面内に収める clamp を優先し、完全一致は必須条件にしない。
+- メニューを上下自動配置しても上下どちらにも十分な余白がない可能性がある → 空きが大きい側を選んだうえで画面内に clamp し、可能な範囲でタブとの gap を維持する。
 
 ## Migration Plan
 
