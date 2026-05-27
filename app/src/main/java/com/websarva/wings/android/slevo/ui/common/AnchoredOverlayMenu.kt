@@ -43,7 +43,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -86,8 +85,6 @@ enum class VerticalAnchorAlignment {
  *
  * [horizontalAlignment] と [verticalAlignment] で表示位置の意図を指定し、
  * 水平方向は [horizontalOffset]、縦方向は [verticalSpacingPx] で微調整する。
- * [offset] は後方互換のため残しているが、縦方向の微調整には使わない。
- * `horizontalOffset` が指定されている場合は [offset] の水平方向指定を無視する。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -99,7 +96,6 @@ fun AnchoredOverlayMenu(
     verticalAlignment: VerticalAnchorAlignment = VerticalAnchorAlignment.Above,
     verticalSpacingPx: Int = -12,
     horizontalOffset: Dp = 0.dp,
-    offset: DpOffset = DpOffset.Zero,
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -117,12 +113,7 @@ fun AnchoredOverlayMenu(
     // --- Position setup ---
     val density = LocalDensity.current
     val horizontalOffsetPx = with(density) {
-        if (horizontalOffset != 0.dp) {
-            horizontalOffset.roundToPx()
-        } else {
-            // Deprecated offset fallback: horizontal only, vertical offset is ignored.
-            offset.x.roundToPx()
-        }
+        horizontalOffset.roundToPx()
     }
     val positionProvider = remember(
         anchorBoundsInWindow,
