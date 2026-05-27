@@ -410,9 +410,9 @@ class TabsViewModel @Inject constructor(
         )
         if (cachedHost != null) return cachedHost
         return bbsServiceRepository.resolveHostByBoardKeyFromMenu(
-                boardKey = boardKey,
-                menuDomain = menuDomain,
-            )
+            boardKey = boardKey,
+            menuDomain = menuDomain,
+        )
     }
 
     /**
@@ -427,6 +427,7 @@ class TabsViewModel @Inject constructor(
                 // 初期読込中のキャッシュ値に依存せず、永続化済み設定値を直接参照する。
                 if (settingsRepository.getIsRedirect5chNetToIoEnabled()) "5ch.io" else "5ch.net"
             }
+
             "itest.5ch.io" -> "5ch.io"
             else -> null
         }
