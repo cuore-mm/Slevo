@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -84,7 +85,8 @@ enum class VerticalAnchorAlignment {
  * アンカー座標を基準に表示するオーバーレイメニュー。
  *
  * [horizontalAlignment] と [verticalAlignment] で表示位置の意図を指定し、
- * [offset] と [verticalSpacingPx] でアンカー基準位置からの微調整ができる。
+ * 水平方向は [horizontalOffset]、縦方向は [verticalSpacingPx] で微調整する。
+ * [offset] は後方互換のため残しているが、縦方向の微調整には使わない。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -95,6 +97,10 @@ fun AnchoredOverlayMenu(
     horizontalAlignment: HorizontalAnchorAlignment = HorizontalAnchorAlignment.Center,
     verticalAlignment: VerticalAnchorAlignment = VerticalAnchorAlignment.Above,
     verticalSpacingPx: Int = -12,
+    horizontalOffset: Dp = 0.dp,
+    @Deprecated(
+        message = "Use horizontalOffset instead. Vertical offset is not supported.",
+    )
     offset: DpOffset = DpOffset.Zero,
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
@@ -112,25 +118,27 @@ fun AnchoredOverlayMenu(
 
     // --- Position setup ---
     val density = LocalDensity.current
-    val offsetPx = with(density) {
-        IntOffset(
-            x = offset.x.roundToPx(),
-            y = offset.y.roundToPx(),
-        )
+    val horizontalOffsetPx = with(density) {
+        if (horizontalOffset != 0.dp) {
+            horizontalOffset.roundToPx()
+        } else {
+            // Deprecated offset fallback: horizontal only, vertical offset is ignored.
+            offset.x.roundToPx()
+        }
     }
     val positionProvider = remember(
         anchorBoundsInWindow,
         horizontalAlignment,
         verticalAlignment,
         verticalSpacingPx,
-        offsetPx
+        horizontalOffsetPx,
     ) {
         AnchoredOverlayMenuPositionProvider(
             anchorBoundsInWindow = anchorBoundsInWindow,
             horizontalAlignment = horizontalAlignment,
             verticalAlignment = verticalAlignment,
             verticalSpacingPx = verticalSpacingPx,
-            offsetPx = offsetPx,
+            horizontalOffsetPx = horizontalOffsetPx,
         )
     }
     Popup(
@@ -205,7 +213,7 @@ class AnchoredOverlayMenuPositionProvider(
     private val horizontalAlignment: HorizontalAnchorAlignment,
     private val verticalAlignment: VerticalAnchorAlignment,
     private val verticalSpacingPx: Int,
-    private val offsetPx: IntOffset,
+    private val horizontalOffsetPx: Int,
 ) : PopupPositionProvider {
 
     /**
@@ -234,7 +242,7 @@ class AnchoredOverlayMenuPositionProvider(
 
             HorizontalAnchorAlignment.End -> anchorBoundsInWindow.right - popupContentSize.width
         }
-        val x = (alignedX + offsetPx.x).coerceIn(0, maxX)
+        val x = (alignedX + horizontalOffsetPx).coerceIn(0, maxX)
 
         // --- Vertical ---
         val baseY = when (verticalAlignment) {
@@ -264,8 +272,7 @@ class AnchoredOverlayMenuPositionProvider(
                 anchorBoundsInWindow.bottom - popupContentSize.height + verticalSpacingPx
             }
         }
-        val desiredY = baseY + offsetPx.y
-        val y = desiredY.coerceIn(0, maxY)
+        val y = baseY.coerceIn(0, maxY)
 
         return IntOffset(x, y)
     }
