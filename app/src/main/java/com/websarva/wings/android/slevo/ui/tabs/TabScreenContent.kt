@@ -441,7 +441,7 @@ private fun TabLongPressOverlayLayer(
         AnchoredTabActionMenu(
             expanded = uiState.isInLongPressSelectionMode,
             anchorBoundsInWindow = uiState.selectedTabBounds,
-            hazeState = hazeState,
+            hazeState = null,
             isPinned = uiState.selectedBoardTab?.isPinned
                 ?: uiState.selectedThreadTab?.isPinned
                 ?: false,
