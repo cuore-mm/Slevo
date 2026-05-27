@@ -236,43 +236,40 @@ private fun TabDetailBottomSheets(
     navController: NavHostController,
     tabsViewModel: TabsViewModel,
 ) {
-    if (uiState.showBoardInfoBottomSheet) {
-        val boardTab = uiState.detailBoardTab
-        if (boardTab != null) {
-            BoardInfoBottomSheet(
-                showBoardInfoSheet = true,
-                onDismissRequest = onDismissBoardSheet,
-                boardName = boardTab.boardName,
-                serviceName = boardTab.serviceName,
-                boardUrl = boardTab.boardUrl,
-            )
-        }
+    val boardTab = uiState.detailBoardTab
+    if (boardTab != null) {
+        BoardInfoBottomSheet(
+            showBoardInfoSheet = uiState.showBoardInfoBottomSheet,
+            onDismissRequest = onDismissBoardSheet,
+            boardName = boardTab.boardName,
+            serviceName = boardTab.serviceName,
+            boardUrl = boardTab.boardUrl,
+        )
     }
-    if (uiState.showThreadInfoBottomSheet) {
-        val threadTab = uiState.detailThreadTab
-        if (threadTab != null) {
-            ThreadInfoBottomSheet(
-                showThreadInfoSheet = true,
-                onDismissRequest = onDismissThreadSheet,
-                threadInfo = ThreadInfo(
-                    title = threadTab.title,
-                    key = threadTab.threadKey,
-                    url = "${threadTab.boardUrl}test/read.cgi/${
-                        threadTab.boardUrl.substringAfterLast("/").removeSuffix("/")
-                    }/${threadTab.threadKey}/",
-                    datUrl = "",
-                    resCount = threadTab.resCount,
-                ),
-                boardInfo = BoardInfo(
-                    boardId = threadTab.boardId,
-                    name = threadTab.boardName,
-                    url = threadTab.boardUrl,
-                ),
-                navController = navController,
-                tabsViewModel = tabsViewModel,
-                showBoardAction = true,
-            )
-        }
+
+    val threadTab = uiState.detailThreadTab
+    if (threadTab != null) {
+        ThreadInfoBottomSheet(
+            showThreadInfoSheet = uiState.showThreadInfoBottomSheet,
+            onDismissRequest = onDismissThreadSheet,
+            threadInfo = ThreadInfo(
+                title = threadTab.title,
+                key = threadTab.threadKey,
+                url = "${threadTab.boardUrl}test/read.cgi/${
+                    threadTab.boardUrl.substringAfterLast("/").removeSuffix("/")
+                }/${threadTab.threadKey}/",
+                datUrl = "",
+                resCount = threadTab.resCount,
+            ),
+            boardInfo = BoardInfo(
+                boardId = threadTab.boardId,
+                name = threadTab.boardName,
+                url = threadTab.boardUrl,
+            ),
+            navController = navController,
+            tabsViewModel = tabsViewModel,
+            showBoardAction = true,
+        )
     }
 }
 

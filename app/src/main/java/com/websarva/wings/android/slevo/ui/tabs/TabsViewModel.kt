@@ -339,7 +339,6 @@ class TabsViewModel @Inject constructor(
      */
     fun dismissBoardInfoBottomSheet() {
         showBoardInfoBottomSheetState.value = false
-        detailBoardTabState.value = null
     }
 
     /**
@@ -347,7 +346,6 @@ class TabsViewModel @Inject constructor(
      */
     fun dismissThreadInfoBottomSheet() {
         showThreadInfoBottomSheetState.value = false
-        detailThreadTabState.value = null
     }
 
     fun setThreadCurrentPage(page: Int) {
