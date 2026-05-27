@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.data.util
 
 import androidx.core.text.HtmlCompat
+import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 
 object ThreadListParser {
