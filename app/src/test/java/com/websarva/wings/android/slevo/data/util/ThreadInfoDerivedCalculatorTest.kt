@@ -9,13 +9,13 @@ class ThreadInfoDerivedCalculatorTest {
 
     @Test
     fun `calculateDate - valid epoch thread key returns correct date`() {
-        // 2024-05-01 12:34:00 JST = 1714532040
+        // 1714532040 → JST 2024-05-01 11:54:00
         val result = ThreadInfoDerivedCalculator.calculateDate("1714532040")
         assertEquals(2024, result.year)
         assertEquals(5, result.month)
         assertEquals(1, result.day)
-        assertEquals(12, result.hour)
-        assertEquals(34, result.minute)
+        assertEquals(11, result.hour)
+        assertEquals(54, result.minute)
         assertEquals("水", result.dayOfWeek)
     }
 
