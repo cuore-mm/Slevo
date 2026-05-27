@@ -3,15 +3,11 @@ package com.websarva.wings.android.slevo.ui.tabs
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -31,12 +27,11 @@ fun OpenBoardsList(
     navController: NavHostController,
     closeDrawer: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    selectedBoardTab: BoardTabInfo? = null,
+    onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit = { _, _ -> },
     tabsViewModel: TabsViewModel? = null,
-    exitingBoardTab: BoardTabInfo? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val uiState by tabsViewModel?.uiState?.collectAsStateWithLifecycle()
-        ?: remember { mutableStateOf(TabsUiState()) }
 
     // --- List ---
     RemovableTabList(
@@ -48,8 +43,7 @@ fun OpenBoardsList(
     ) { tab, isRemoving, requestRemove ->
         OpenBoardCard(
             tab = tab,
-            isSelected = uiState.selectedBoardTab?.boardUrl == tab.boardUrl
-                || exitingBoardTab?.boardUrl == tab.boardUrl,
+            isSelected = selectedBoardTab?.boardUrl == tab.boardUrl,
             onClick = {
                 if (isRemoving) return@OpenBoardCard
                 closeDrawer()
@@ -70,7 +64,7 @@ fun OpenBoardsList(
             },
             onLongPress = { bounds ->
                 if (isRemoving) return@OpenBoardCard
-                tabsViewModel?.onBoardTabLongPressed(tab, bounds)
+                onBoardTabLongPressed(tab, bounds)
             },
             onCloseClick = {
                 if (isRemoving) return@OpenBoardCard

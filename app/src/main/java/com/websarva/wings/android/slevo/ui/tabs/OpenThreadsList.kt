@@ -3,15 +3,11 @@ package com.websarva.wings.android.slevo.ui.tabs
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.data.model.ThreadId
@@ -33,13 +29,12 @@ fun OpenThreadsList(
     closeDrawer: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     newResCounts: Map<String, Int> = emptyMap(),
-    onItemClick: (ThreadTabInfo) -> Unit = {},
+    selectedThreadTab: ThreadTabInfo? = null,
+    onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit = { _, _ -> },
+    onClearNewResCount: (ThreadId) -> Unit = {},
     tabsViewModel: TabsViewModel? = null,
-    exitingThreadTab: ThreadTabInfo? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val uiState by tabsViewModel?.uiState?.collectAsStateWithLifecycle()
-        ?: remember { mutableStateOf(TabsUiState()) }
 
     // --- List ---
     RemovableTabList(
@@ -52,12 +47,11 @@ fun OpenThreadsList(
         OpenThreadCard(
             tab = tab,
             newResCount = newResCounts[tab.id.value] ?: tab.newResCount,
-            isSelected = uiState.selectedThreadTab?.id == tab.id
-                || exitingThreadTab?.id == tab.id,
+            isSelected = selectedThreadTab?.id == tab.id,
             onClick = {
                 if (isRemoving) return@OpenThreadCard
                 closeDrawer()
-                onItemClick(tab)
+                onClearNewResCount(tab.id)
                 val route = AppRoute.Thread(
                     threadKey = tab.threadKey,
                     boardUrl = tab.boardUrl,
@@ -67,8 +61,7 @@ fun OpenThreadsList(
                     resCount = tab.resCount
                 )
                 coroutineScope.launch {
-                    val normalizedRoute =
-                        tabsViewModel?.normalizeThreadRouteForNavigation(route) ?: route
+                    val normalizedRoute = tabsViewModel?.normalizeThreadRouteForNavigation(route) ?: route
                     navController.navigateToThread(
                         route = normalizedRoute,
                         tabsViewModel = tabsViewModel,
@@ -79,7 +72,7 @@ fun OpenThreadsList(
             },
             onLongPress = { bounds ->
                 if (isRemoving) return@OpenThreadCard
-                tabsViewModel?.onThreadTabLongPressed(tab, bounds)
+                onThreadTabLongPressed(tab, bounds)
             },
             onCloseClick = {
                 if (isRemoving) return@OpenThreadCard

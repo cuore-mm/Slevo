@@ -14,6 +14,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.BoardUrlNormalizationInput
 import com.websarva.wings.android.slevo.ui.util.normalizeBoardUrlTo5chIo
+import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -450,6 +451,76 @@ class TabsViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         tabViewModelRegistry.releaseAll()
+    }
+
+    /**
+     * URL入力処理の結果を表す sealed class。
+     * 画面側はこの結果に基づいて navigation API を呼び出す。
+     */
+    sealed class UrlOpenResult {
+        data class NavigateBoard(val route: AppRoute.Board) : UrlOpenResult()
+        data class NavigateThread(val route: AppRoute.Thread) : UrlOpenResult()
+        data class Error(val message: String?) : UrlOpenResult()
+    }
+
+    /**
+     * URL 入力文字列を解析し、遷移先 route またはエラーを返す。
+     * 検証状態の開始と終了をこのメソッド内で完結させる。
+     */
+    suspend fun openUrlInput(url: String, invalidUrlMessage: String): UrlOpenResult {
+        startUrlValidation()
+        return try {
+            when (val resolved = resolveUrl(url)) {
+                is com.websarva.wings.android.slevo.ui.util.ResolvedUrl.ItestBoard -> {
+                    val host = resolveBoardHost(
+                        boardKey = resolved.boardKey,
+                        sourceUrl = resolved.rawUrl,
+                    )
+                    if (host != null) {
+                        val boardUrl = "https://$host/${resolved.boardKey}/"
+                        val route = normalizeBoardRouteForNavigation(
+                            AppRoute.Board(boardName = boardUrl, boardUrl = boardUrl)
+                        )
+                        setUrlErrorMessage(null)
+                        setUrlDialogVisible(false)
+                        UrlOpenResult.NavigateBoard(route)
+                    } else {
+                        UrlOpenResult.Error(invalidUrlMessage)
+                    }
+                }
+
+                is com.websarva.wings.android.slevo.ui.util.ResolvedUrl.Thread -> {
+                    val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
+                    val route = normalizeThreadRouteForNavigation(
+                        AppRoute.Thread(
+                            threadKey = resolved.threadKey,
+                            boardUrl = boardUrl,
+                            boardName = resolved.boardKey,
+                            threadTitle = null
+                        )
+                    )
+                    setUrlErrorMessage(null)
+                    setUrlDialogVisible(false)
+                    UrlOpenResult.NavigateThread(route)
+                }
+
+                is com.websarva.wings.android.slevo.ui.util.ResolvedUrl.Board -> {
+                    val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
+                    val route = normalizeBoardRouteForNavigation(
+                        AppRoute.Board(boardName = boardUrl, boardUrl = boardUrl)
+                    )
+                    setUrlErrorMessage(null)
+                    setUrlDialogVisible(false)
+                    UrlOpenResult.NavigateBoard(route)
+                }
+
+                else -> {
+                    UrlOpenResult.Error(invalidUrlMessage)
+                }
+            }
+        } finally {
+            finishUrlValidation()
+        }
     }
 }
 
