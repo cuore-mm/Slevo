@@ -11,12 +11,23 @@
 - **WHEN** 呼び出し元が非重なり表示の縦位置指定を選択する
 - **THEN** システムはアンカー上または下にメニューを配置し、アンカーと重ならない位置へ表示する
 
-### Requirement: 縦方向オフセットの反映
-システムは `AnchoredOverlayMenu` の位置計算において `offset.y` を反映しなければならないMUST。
+### Requirement: 縦方向調整の集約
+システムは `AnchoredOverlayMenu` の縦方向位置を、縦位置指定 enum と spacing によって決定しなければならないMUST。呼び出し元は任意の `offset.y` によって縦位置を調整してはならないMUST NOT。
 
-#### Scenario: 呼び出し元が縦方向オフセットを指定する
-- **WHEN** 呼び出し元が `offset.y` を指定する
-- **THEN** システムは縦方向位置に `offset.y` を加算して表示位置を決定する
+#### Scenario: 縦方向の gap を指定する
+- **WHEN** 呼び出し元がアンカーとメニューの縦方向距離を調整する
+- **THEN** システムは `verticalSpacingPx` によって gap または重なり量を決定する
+
+#### Scenario: 任意の縦方向 offset を使わない
+- **WHEN** 呼び出し元が縦方向位置を調整する
+- **THEN** システムは `offset.y` ではなく、縦位置指定 enum と `verticalSpacingPx` を使って表示位置を決定する
+
+### Requirement: offset API の廃止または非推奨化
+システムは `AnchoredOverlayMenu` の `offset` を主要な位置調整 API として使わないようにしなければならないMUST。既存の横方向微調整が必要な場合は、縦方向と混同しない水平専用の明示的 API に移行しなければならないMUST。
+
+#### Scenario: 横方向の微調整を維持する
+- **WHEN** 呼び出し元がメニューを横方向に微調整する必要がある
+- **THEN** システムは `offset` ではなく水平専用のパラメータで横方向位置を調整する
 
 ### Requirement: 呼び出し元の表示意図を維持する
 システムは `AnchoredSelectionMenu`、`AnchoredTabActionMenu`、画像ビューア、設定メニューなどの呼び出し元が、重ね表示または非重なり表示の意図を明示的に指定できるようにしなければならないMUST。表示意図が変更される場合は、呼び出し元で明示的に更新しなければならないMUST。
