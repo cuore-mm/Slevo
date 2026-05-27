@@ -98,25 +98,8 @@ fun TabScreenContent(
             bottom = bottomControlsHeight,
         )
 
-        val boxWindowOffset = remember { mutableStateOf(IntOffset.Zero) }
-        val currentSelectedBounds = uiState.selectedTabBounds
-        val fallbackFloatingBounds = floatingBounds.value
-
-        val boundsForFloating = if (uiState.isInLongPressSelectionMode) {
-            currentSelectedBounds
-        } else {
-            fallbackFloatingBounds
-        }
-
-        val hasFloatingBounds = boundsForFloating != null
-
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .onGloballyPositioned { coordinates ->
-                    val pos = coordinates.positionInWindow()
-                    boxWindowOffset.value = IntOffset(pos.x.toInt(), pos.y.toInt())
-                }
+            modifier = Modifier.fillMaxSize()
         ) {
             // --- Content with haze source ---
             Box(
@@ -152,8 +135,7 @@ fun TabScreenContent(
                             tabsViewModel.onThreadTabLongPressed(tab, bounds)
                         },
                         onClearNewResCount = { tabsViewModel.clearNewResCount(it) },
-                        onNormalizeBoardRoute = { tabsViewModel.normalizeBoardRouteForNavigation(it) },
-                        onNormalizeThreadRoute = { tabsViewModel.normalizeThreadRouteForNavigation(it) },
+                        tabsViewModel = tabsViewModel,
                     )
                 }
             }

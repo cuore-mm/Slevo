@@ -156,6 +156,5 @@ fun OpenThreadsListPreview() {
         closeDrawer = {},
         contentPadding = PaddingValues(0.dp),
         newResCounts = emptyMap(),
-        onItemClick = {}
     )
 }
