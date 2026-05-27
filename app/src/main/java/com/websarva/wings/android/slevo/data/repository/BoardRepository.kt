@@ -17,7 +17,7 @@ import com.websarva.wings.android.slevo.data.datasource.remote.BoardRemoteDataSo
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import com.websarva.wings.android.slevo.data.util.ThreadListParser.calculateThreadDate
+import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
 import com.websarva.wings.android.slevo.data.util.ThreadListParser.parseSubjectTxt
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
@@ -62,29 +62,17 @@ class BoardRepository @Inject constructor(
             val base = baseline ?: 0L
             val currentUnixTime = (meta?.lastFetchedAt ?: 0L) / 1000
             summaries.map { summary ->
-                val date = if (summary.threadId.toLongOrNull()
-                        ?.let { it < com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD } == true
-                ) {
-                    calculateThreadDate(summary.threadId)
-                } else {
-                    com.websarva.wings.android.slevo.data.model.ThreadDate(0, 0, 0, 0, 0, "")
-                }
-                val momentum = if (
-                    summary.threadId.toLongOrNull()
-                        ?.let { it < com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD } == true &&
-                    summary.resCount > 0 &&
-                    currentUnixTime > 0
-                ) {
-                    val elapsed = (currentUnixTime - (summary.threadId.toLong()))
-                    val days = elapsed / 86400.0
-                    if (days > 0) summary.resCount / days else 0.0
-                } else 0.0
+                val derived = ThreadInfoDerivedCalculator.calculate(
+                    threadKey = summary.threadId,
+                    resCount = summary.resCount,
+                    nowSeconds = currentUnixTime,
+                )
                 ThreadInfo(
                     title = summary.title,
                     key = summary.threadId,
                     resCount = summary.resCount,
-                    date = date,
-                    momentum = momentum,
+                    date = derived.date,
+                    momentum = derived.momentum,
                     isNew = summary.firstSeenAt > base
                 )
             }

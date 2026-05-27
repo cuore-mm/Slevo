@@ -42,6 +42,7 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
 import com.websarva.wings.android.slevo.ui.board.screen.BoardInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
@@ -249,6 +250,10 @@ private fun TabDetailBottomSheets(
 
     val threadTab = uiState.detailThreadTab
     if (threadTab != null) {
+        val derived = ThreadInfoDerivedCalculator.calculate(
+            threadKey = threadTab.threadKey,
+            resCount = threadTab.resCount,
+        )
         ThreadInfoBottomSheet(
             showThreadInfoSheet = uiState.showThreadInfoBottomSheet,
             onDismissRequest = onDismissThreadSheet,
@@ -260,6 +265,8 @@ private fun TabDetailBottomSheets(
                 }/${threadTab.threadKey}/",
                 datUrl = "",
                 resCount = threadTab.resCount,
+                date = derived.date,
+                momentum = derived.momentum,
             ),
             boardInfo = BoardInfo(
                 boardId = threadTab.boardId,
