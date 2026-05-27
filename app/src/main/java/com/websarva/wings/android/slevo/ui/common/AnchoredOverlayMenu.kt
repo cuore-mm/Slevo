@@ -87,6 +87,7 @@ enum class VerticalAnchorAlignment {
  * [horizontalAlignment] と [verticalAlignment] で表示位置の意図を指定し、
  * 水平方向は [horizontalOffset]、縦方向は [verticalSpacingPx] で微調整する。
  * [offset] は後方互換のため残しているが、縦方向の微調整には使わない。
+ * `horizontalOffset` が指定されている場合は [offset] の水平方向指定を無視する。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -98,9 +99,6 @@ fun AnchoredOverlayMenu(
     verticalAlignment: VerticalAnchorAlignment = VerticalAnchorAlignment.Above,
     verticalSpacingPx: Int = -12,
     horizontalOffset: Dp = 0.dp,
-    @Deprecated(
-        message = "Use horizontalOffset instead. Vertical offset is not supported.",
-    )
     offset: DpOffset = DpOffset.Zero,
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,

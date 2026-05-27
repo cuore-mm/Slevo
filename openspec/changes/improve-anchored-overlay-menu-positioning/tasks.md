@@ -16,4 +16,4 @@
 
 - [ ] 3.1 主要なメニュー（タブ、選択メニュー、設定、画像ビューア）で位置が意図通りになっていることを確認する
 - [ ] 3.2 画面端に近いアンカーでも不自然な重なりが発生しないことを確認する
-- [x] 3.3 Android CI workflow で build と unit test を確認する
+- [ ] 3.3 Android CI workflow で build と unit test を確認する
