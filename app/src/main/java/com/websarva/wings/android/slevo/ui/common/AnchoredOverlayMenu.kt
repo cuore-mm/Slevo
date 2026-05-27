@@ -58,7 +58,7 @@ import dev.chrisbanes.haze.hazeEffect
 /**
  * アンカー座標を基準に表示するオーバーレイメニュー。
  *
- * メニューはアンカー上に重ねて表示し、画面外へはみ出す場合は画面内へ補正する。
+ * メニューはアンカー上/下への配置や重ね表示を選べ、画面外へはみ出す場合は画面内へ補正する。
  */
 enum class HorizontalAnchorAlignment {
     Start,
@@ -66,16 +66,25 @@ enum class HorizontalAnchorAlignment {
     End,
 }
 
+/**
+ * アンカー基準の縦位置指定。
+ *
+ * `Above` / `Below` はアンカーと重ならない配置、`OverlapTop` / `OverlapBottom` は
+ * アンカーに重ねる配置を表す。`Auto` は上下の空きが大きい側を選ぶ。
+ */
 enum class VerticalAnchorAlignment {
     Above,
     Below,
     Auto,
+    OverlapTop,
+    OverlapBottom,
 }
 
 /**
  * アンカー座標を基準に表示するオーバーレイメニュー。
  *
- * [horizontalAlignment] と [offset] で、アンカー基準位置からの表示位置を調整できる。
+ * [horizontalAlignment] と [verticalAlignment] で表示位置の意図を指定し、
+ * [offset] と [verticalSpacingPx] でアンカー基準位置からの微調整ができる。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -201,8 +210,9 @@ class AnchoredOverlayMenuPositionProvider(
 
     /**
      * アンカーとウィンドウサイズからポップアップ表示座標を返す。
-     * 縦方向は [verticalAlignment] と [verticalSpacingPx] に従う。
-     * spacing が負の場合はアンカーと重なり、正の場合は gap を空ける。
+     *
+     * - `Above` / `Below`: 正の spacing で gap、負の spacing で重なり。
+     * - `OverlapTop` / `OverlapBottom`: アンカー端からのオフセット量として spacing を使う。
      */
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -210,9 +220,11 @@ class AnchoredOverlayMenuPositionProvider(
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize,
     ): IntOffset {
+        // --- Bounds ---
         val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
         val maxY = (windowSize.height - popupContentSize.height).coerceAtLeast(0)
 
+        // --- Horizontal ---
         val alignedX = when (horizontalAlignment) {
             HorizontalAnchorAlignment.Start -> anchorBoundsInWindow.left
             HorizontalAnchorAlignment.Center -> {
@@ -224,7 +236,8 @@ class AnchoredOverlayMenuPositionProvider(
         }
         val x = (alignedX + offsetPx.x).coerceIn(0, maxX)
 
-        val desiredY = when (verticalAlignment) {
+        // --- Vertical ---
+        val baseY = when (verticalAlignment) {
             VerticalAnchorAlignment.Above -> {
                 anchorBoundsInWindow.top - popupContentSize.height - verticalSpacingPx
             }
@@ -242,7 +255,16 @@ class AnchoredOverlayMenuPositionProvider(
                     anchorBoundsInWindow.bottom + verticalSpacingPx
                 }
             }
+
+            VerticalAnchorAlignment.OverlapTop -> {
+                anchorBoundsInWindow.top + verticalSpacingPx
+            }
+
+            VerticalAnchorAlignment.OverlapBottom -> {
+                anchorBoundsInWindow.bottom - popupContentSize.height + verticalSpacingPx
+            }
         }
+        val desiredY = baseY + offsetPx.y
         val y = desiredY.coerceIn(0, maxY)
 
         return IntOffset(x, y)

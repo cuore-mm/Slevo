@@ -1,14 +1,14 @@
 ## 1. AnchoredOverlayMenu API 拡張
 
-- [ ] 1.1 縦位置指定 enum に重ね表示用の選択肢（例: OverlapTop/OverlapBottom）を追加する
-- [ ] 1.2 縦位置計算に `offset.y` を反映する
-- [ ] 1.3 既存の `Above` / `Below` / `Auto` の計算式を整理し、gap と重ねの意図が明確になるよう調整する
+- [x] 1.1 縦位置指定 enum に重ね表示用の選択肢（例: OverlapTop/OverlapBottom）を追加する
+- [x] 1.2 縦位置計算に `offset.y` を反映する
+- [x] 1.3 既存の `Above` / `Below` / `Auto` の計算式を整理し、gap と重ねの意図が明確になるよう調整する
 
 ## 2. 呼び出し元の更新
 
-- [ ] 2.1 `AnchoredSelectionMenu` の重ね表示意図を新しい縦位置指定で明示する
-- [ ] 2.2 `AnchoredTabActionMenu` の非重なり表示意図を新しい縦位置指定で明示する
-- [ ] 2.3 画像ビューアや設定画面など既存メニューの表示意図を確認し、必要に応じて縦位置指定を明示する
+- [x] 2.1 `AnchoredSelectionMenu` の重ね表示意図を新しい縦位置指定で明示する
+- [x] 2.2 `AnchoredTabActionMenu` の非重なり表示意図を新しい縦位置指定で明示する
+- [x] 2.3 画像ビューアや設定画面など既存メニューの表示意図を確認し、必要に応じて縦位置指定を明示する
 
 ## 3. 検証
 

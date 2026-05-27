@@ -50,7 +50,9 @@ fun <T> AnchoredSelectionMenu(
         anchorBoundsInWindow = anchorBoundsInWindow,
         hazeState = null,
         horizontalAlignment = HorizontalAnchorAlignment.Start,
-        offset = DpOffset(8.dp, 40.dp),
+        verticalAlignment = VerticalAnchorAlignment.OverlapTop,
+        verticalSpacingPx = 28,
+        offset = DpOffset(8.dp, 0.dp),
         onDismissRequest = onDismissRequest,
     ) {
         options.forEach { option ->
