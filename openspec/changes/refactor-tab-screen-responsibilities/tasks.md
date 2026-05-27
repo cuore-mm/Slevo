@@ -15,14 +15,14 @@
 ## 3. UiState収集と子Composableの責務整理
 
 - [x] 3.1 `TabScreenContent` の `uiState` 収集を `collectAsStateWithLifecycle()` に変更する
-- [ ] 3.2 `TabsPagerContent` が `tabsViewModel.uiState` を再収集しないようにし、上位から必要な state と callback を受け取る
-- [ ] 3.3 `OpenBoardsList` が production 経路で `tabsViewModel.uiState` を再収集しないようにし、選択中/退場中 state と callback を引数で受け取る
-- [ ] 3.4 `OpenThreadsList` が production 経路で `tabsViewModel.uiState` を再収集しないようにし、選択中/退場中 state、新着レス数、callback を引数で受け取る
-- [ ] 3.5 Preview は ViewModel nullable fallback ではなく、state と callback を渡せる下位 Composable で維持する
+- [x] 3.2 `TabsPagerContent` が `tabsViewModel.uiState` を再収集しないようにし、上位から必要な state と callback を受け取る
+- [x] 3.3 `OpenBoardsList` が production 経路で `tabsViewModel.uiState` を再収集しないようにし、選択中/退場中 state と callback を引数で受け取る
+- [x] 3.4 `OpenThreadsList` が production 経路で `tabsViewModel.uiState` を再収集しないようにし、選択中/退場中 state、新着レス数、callback を引数で受け取る
+- [x] 3.5 Preview は ViewModel nullable fallback ではなく、state と callback を渡せる下位 Composable で維持する
 
 ## 4. 回帰確認
 
-- [ ] 4.1 長押しメニュー、dim overlay、floating card enter / exit、戻るキー解除、overlay タップ解除の挙動が分割前と同じであることを確認する
-- [ ] 4.2 詳細ボタン押下後にアクションメニューが閉じ、対象タブの BottomSheet が表示され続けることを確認する
-- [ ] 4.3 URL 入力で板 URL / スレ URL / itest 板 URL / 無効 URL の挙動が維持され、検証中状態が残らないことを確認する
-- [ ] 4.4 Android CI workflow で build と unit test を確認する
+- [x] 4.1 長押しメニュー、dim overlay、floating card enter / exit、戻るキー解除、overlay タップ解除の挙動が分割前と同じであることを確認する
+- [x] 4.2 詳細ボタン押下後にアクションメニューが閉じ、対象タブの BottomSheet が表示され続けることを確認する
+- [x] 4.3 URL 入力で板 URL / スレ URL / itest 板 URL / 無効 URL の挙動が維持され、検証中状態が残らないことを確認する
+- [x] 4.4 Android CI workflow で build と unit test を確認する
