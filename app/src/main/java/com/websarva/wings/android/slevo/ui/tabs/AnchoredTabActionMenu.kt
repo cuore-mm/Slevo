@@ -49,7 +49,7 @@ fun AnchoredTabActionMenu(
         hazeState = hazeState,
         horizontalAlignment = HorizontalAnchorAlignment.Start,
         verticalAlignment = VerticalAnchorAlignment.Auto,
-        verticalSpacingPx = 8,
+        verticalSpacing = 8.dp,
         onDismissRequest = onDismissRequest,
     ) {
         AnchoredOverlayMenuItem(

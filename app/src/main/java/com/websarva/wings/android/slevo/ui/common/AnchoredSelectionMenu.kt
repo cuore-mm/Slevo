@@ -50,7 +50,7 @@ fun <T> AnchoredSelectionMenu(
         hazeState = null,
         horizontalAlignment = HorizontalAnchorAlignment.Start,
         verticalAlignment = VerticalAnchorAlignment.OverlapTop,
-        verticalSpacingPx = 28,
+        verticalSpacing = 28.dp,
         horizontalOffset = 8.dp,
         onDismissRequest = onDismissRequest,
     ) {

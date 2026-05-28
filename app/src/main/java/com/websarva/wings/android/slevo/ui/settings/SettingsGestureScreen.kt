@@ -128,7 +128,7 @@ fun SettingsGestureScreenContent(
                             anchorBoundsInWindow = menuAnchorBounds,
                             hazeState = null,
                             verticalAlignment = VerticalAnchorAlignment.Below,
-                            verticalSpacingPx = 8,
+                            verticalSpacing = 8.dp,
                             onDismissRequest = closeMenu,
                         ) {
                             AnchoredOverlayMenuItem(

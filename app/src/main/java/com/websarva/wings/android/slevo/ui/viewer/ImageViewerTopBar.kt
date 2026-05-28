@@ -145,7 +145,7 @@ internal fun ImageViewerTopBar(
                         anchorBoundsInWindow = menuAnchorBounds,
                         hazeState = hazeState,
                         verticalAlignment = VerticalAnchorAlignment.Below,
-                        verticalSpacingPx = 8,
+                        verticalSpacing = 8.dp,
                         onDismissRequest = onDismissMenu,
                     ) {
                         AnimatedContent(

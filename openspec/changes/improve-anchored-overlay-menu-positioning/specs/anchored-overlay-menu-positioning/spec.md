@@ -16,11 +16,11 @@
 
 #### Scenario: 縦方向の gap を指定する
 - **WHEN** 呼び出し元がアンカーとメニューの縦方向距離を調整する
-- **THEN** システムは `verticalSpacingPx` によって gap または重なり量を決定する
+- **THEN** システムは `verticalSpacing` によって gap または重なり量を決定する
 
 #### Scenario: 任意の縦方向 offset を使わない
 - **WHEN** 呼び出し元が縦方向位置を調整する
-- **THEN** システムは `offset.y` ではなく、縦位置指定 enum と `verticalSpacingPx` を使って表示位置を決定する
+- **THEN** システムは `offset.y` ではなく、縦位置指定 enum と `verticalSpacing` を使って表示位置を決定する
 
 ### Requirement: offset API の廃止または非推奨化
 システムは `AnchoredOverlayMenu` の `offset` を主要な位置調整 API として使わないようにしなければならないMUST。既存の横方向微調整が必要な場合は、縦方向と混同しない水平専用の明示的 API に移行しなければならないMUST。

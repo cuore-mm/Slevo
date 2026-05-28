@@ -84,7 +84,7 @@ enum class VerticalAnchorAlignment {
  * アンカー座標を基準に表示するオーバーレイメニュー。
  *
  * [horizontalAlignment] と [verticalAlignment] で表示位置の意図を指定し、
- * 水平方向は [horizontalOffset]、縦方向は [verticalSpacingPx] で微調整する。
+ * 水平方向は [horizontalOffset]、縦方向は [verticalSpacing] で微調整する。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -94,7 +94,7 @@ fun AnchoredOverlayMenu(
     hazeState: HazeState?,
     horizontalAlignment: HorizontalAnchorAlignment = HorizontalAnchorAlignment.Center,
     verticalAlignment: VerticalAnchorAlignment = VerticalAnchorAlignment.Above,
-    verticalSpacingPx: Int = -12,
+    verticalSpacing: Dp = (-12).dp,
     horizontalOffset: Dp = 0.dp,
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
@@ -114,6 +114,9 @@ fun AnchoredOverlayMenu(
     val density = LocalDensity.current
     val horizontalOffsetPx = with(density) {
         horizontalOffset.roundToPx()
+    }
+    val verticalSpacingPx = with(density) {
+        verticalSpacing.roundToPx()
     }
     val positionProvider = remember(
         anchorBoundsInWindow,

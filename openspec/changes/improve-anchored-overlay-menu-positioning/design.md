@@ -9,7 +9,7 @@
 **Goals:**
 
 - `AnchoredOverlayMenu` の縦位置指定を「重ね表示」「非重なり表示」「自動配置」で明示できるようにする。
-- 縦方向の調整を `offset.y` ではなく、配置 enum と `verticalSpacingPx` に集約する。
+- 縦方向の調整を `offset.y` ではなく、配置 enum と `verticalSpacing` に集約する。
 - 既存の横方向微調整は、必要に応じて水平専用の明示的 API へ移行する。
 - 既存呼び出し元の表示意図（重ねる/離す）を明示的に維持する。
 
