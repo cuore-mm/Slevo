@@ -477,6 +477,7 @@ private fun BoardTabFloatingCard(tab: BoardTabInfo) {
         onClick = {},
         isPinned = tab.isPinned,
         headerTitle = serviceName,
+        debugSource = "board-floating",
         bodyTitle = tab.boardName,
         bodyMaxLines = 1,
         onCloseClick = {},
@@ -497,6 +498,7 @@ private fun ThreadTabFloatingCard(tab: ThreadTabInfo, newResCount: Int) {
         onClick = {},
         isPinned = tab.isPinned,
         headerTitle = tab.boardName,
+        debugSource = "thread-floating",
         headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(
             resCount = tab.resCount,
             newResCount = newResCount,

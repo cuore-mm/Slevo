@@ -95,6 +95,7 @@ internal fun TabListCard(
     bodyTitle: String,
     bodyMaxLines: Int = 2,
     onCloseClick: () -> Unit,
+    debugSource: String = "card",
 ) {
     // --- Selection animation ---
     // 長押し中は透明化したまま拡大状態を保持し、解除時は元カードで縮小復帰を行う。
@@ -103,11 +104,12 @@ internal fun TabListCard(
         animationSpec = tween(durationMillis = if (isHiddenForSelection) 220 else 180),
         label = "tabSelectionScale",
     )
-    
+
     LaunchedEffect(isHiddenForSelection) {
         Log.d(
             "TabLongPress",
-            "ORIGINAL_VISIBILITY " +
+            "CARD_VISIBILITY " +
+                    "source=$debugSource, " +
                     "hide=$isHiddenForSelection, " +
                     "headerTitle=$headerTitle, " +
                     "bodyTitle=$bodyTitle"

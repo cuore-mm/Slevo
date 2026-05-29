@@ -68,9 +68,7 @@ class TabsViewModel @Inject constructor(
     private val urlDialogState = MutableStateFlow(false)
     private val urlErrorState = MutableStateFlow<String?>(null)
 
-    private val selectedBoardTabState = MutableStateFlow<BoardTabInfo?>(null)
-    private val selectedThreadTabState = MutableStateFlow<ThreadTabInfo?>(null)
-    private val selectedTabBoundsState = MutableStateFlow<IntRect?>(null)
+    private val tabSelectionState = MutableStateFlow(TabSelectionState())
     private val detailBoardTabState = MutableStateFlow<BoardTabInfo?>(null)
     private val detailThreadTabState = MutableStateFlow<ThreadTabInfo?>(null)
     private val showBoardInfoBottomSheetState = MutableStateFlow(false)
@@ -94,17 +92,7 @@ class TabsViewModel @Inject constructor(
     /**
      * 長押し選択中のタブ情報と bounds をまとめる内部状態。
      */
-    private val tabSelectionUiState = combine(
-        selectedBoardTabState,
-        selectedThreadTabState,
-        selectedTabBoundsState,
-    ) { selectedBoardTab, selectedThreadTab, selectedTabBounds ->
-        TabSelectionState(
-            selectedBoardTab = selectedBoardTab,
-            selectedThreadTab = selectedThreadTab,
-            selectedTabBounds = selectedTabBounds,
-        )
-    }
+    private val tabSelectionUiState = tabSelectionState
 
     /**
      * 詳細 BottomSheet の表示対象タブと表示フラグをまとめる内部状態。
@@ -254,8 +242,10 @@ class TabsViewModel @Inject constructor(
      */
     fun onBoardTabLongPressed(tab: BoardTabInfo, bounds: IntRect) {
         cancelTabSelection()
-        selectedBoardTabState.value = tab
-        selectedTabBoundsState.value = bounds
+        tabSelectionState.value = TabSelectionState(
+            selectedBoardTab = tab,
+            selectedTabBounds = bounds,
+        )
     }
 
     /**
@@ -264,8 +254,10 @@ class TabsViewModel @Inject constructor(
      */
     fun onThreadTabLongPressed(tab: ThreadTabInfo, bounds: IntRect) {
         cancelTabSelection()
-        selectedThreadTabState.value = tab
-        selectedTabBoundsState.value = bounds
+        tabSelectionState.value = TabSelectionState(
+            selectedThreadTab = tab,
+            selectedTabBounds = bounds,
+        )
     }
 
     /**
@@ -273,9 +265,7 @@ class TabsViewModel @Inject constructor(
      * overlay タップ、メニュー dismissal、戻るキー、ページ切替、選択中タブ消失などから共通利用する。
      */
     fun cancelTabSelection() {
-        selectedBoardTabState.value = null
-        selectedThreadTabState.value = null
-        selectedTabBoundsState.value = null
+        tabSelectionState.value = TabSelectionState()
         showBoardInfoBottomSheetState.value = false
         showThreadInfoBottomSheetState.value = false
     }
@@ -285,10 +275,10 @@ class TabsViewModel @Inject constructor(
      * 選択解除後に固定状態を保存する。
      */
     fun toggleSelectedTabPin() {
-        selectedBoardTabState.value?.let { tab ->
+        tabSelectionState.value.selectedBoardTab?.let { tab ->
             boardTabsCoordinator.togglePinBoardTab(tab.boardUrl)
         }
-        selectedThreadTabState.value?.let { tab ->
+        tabSelectionState.value.selectedThreadTab?.let { tab ->
             threadTabsCoordinator.togglePinThreadTab(tab.id)
         }
         cancelTabSelection()
@@ -299,18 +289,16 @@ class TabsViewModel @Inject constructor(
      * メニュー選択後に選択解除し、対応する BottomSheet を表示する。
      */
     fun openSelectedTabDetail() {
-        selectedBoardTabState.value?.let {
+        tabSelectionState.value.selectedBoardTab?.let {
             detailBoardTabState.value = it
             showBoardInfoBottomSheetState.value = true
         }
-        selectedThreadTabState.value?.let {
+        tabSelectionState.value.selectedThreadTab?.let {
             detailThreadTabState.value = it
             showThreadInfoBottomSheetState.value = true
         }
         // BottomSheet state と detail state は残し、長押し選択 state だけ解除する。
-        selectedBoardTabState.value = null
-        selectedThreadTabState.value = null
-        selectedTabBoundsState.value = null
+        tabSelectionState.value = TabSelectionState()
     }
 
     /**
@@ -318,10 +306,10 @@ class TabsViewModel @Inject constructor(
      * 選択解除後にタブを削除する。
      */
     fun closeSelectedTab() {
-        selectedBoardTabState.value?.let { tab ->
+        tabSelectionState.value.selectedBoardTab?.let { tab ->
             boardTabsCoordinator.closeBoardTab(tab)
         }
-        selectedThreadTabState.value?.let { tab ->
+        tabSelectionState.value.selectedThreadTab?.let { tab ->
             threadTabsCoordinator.closeThreadTab(tab)
         }
         cancelTabSelection()
