@@ -1,6 +1,5 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
-import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -129,21 +128,9 @@ fun TabScreenContent(
                         onCloseBoardTab = { tabsViewModel.closeBoardTab(it) },
                         onCloseThreadTab = { tabsViewModel.closeThreadTab(it) },
                         onBoardTabLongPressed = { tab, bounds ->
-                            Log.d(
-                                "TabLongPress",
-                                "BOARD_START tabId=${tab.boardId}, bounds=$bounds, " +
-                                        "selectionMode=${uiState.isInLongPressSelectionMode}, " +
-                                        "selectedBounds=${uiState.selectedTabBounds}"
-                            )
                             tabsViewModel.onBoardTabLongPressed(tab, bounds)
                         },
                         onThreadTabLongPressed = { tab, bounds ->
-                            Log.d(
-                                "TabLongPress",
-                                "THREAD_START tabId=${tab.id}, bounds=$bounds, " +
-                                        "selectionMode=${uiState.isInLongPressSelectionMode}, " +
-                                        "selectedBounds=${uiState.selectedTabBounds}"
-                            )
                             tabsViewModel.onThreadTabLongPressed(tab, bounds)
                         },
                         onClearNewResCount = { tabsViewModel.clearNewResCount(it) },
@@ -312,45 +299,20 @@ private fun TabLongPressOverlayLayer(
     val floatingScale = remember { Animatable(1f) }
 
     LaunchedEffect(uiState.isInLongPressSelectionMode) {
-        Log.d(
-            "TabLongPress",
-            "FLOATING_SCALE_EFFECT selectionMode=${uiState.isInLongPressSelectionMode}"
-        )
-
         if (uiState.isInLongPressSelectionMode) {
-            Log.d("TabLongPress", "FLOATING_SCALE_START")
             floatingScale.snapTo(1f)
             floatingScale.animateTo(
                 targetValue = 1.04f,
                 animationSpec = tween(durationMillis = 220),
             )
-            Log.d("TabLongPress", "FLOATING_SCALE_END")
         } else {
             floatingScale.snapTo(1f)
-            Log.d("TabLongPress", "FLOATING_SCALE_RESET")
         }
     }
 
     val boxWindowOffset = remember { mutableStateOf(IntOffset.Zero) }
     val boundsForFloating = uiState.selectedTabBounds
     val hasFloatingBounds = boundsForFloating != null
-
-    LaunchedEffect(
-        uiState.isInLongPressSelectionMode,
-        uiState.selectedBoardTab,
-        uiState.selectedThreadTab,
-        uiState.selectedTabBounds,
-    ) {
-        Log.d(
-            "TabLongPress",
-            "OVERLAY_STATE " +
-                    "selectionMode=${uiState.isInLongPressSelectionMode}, " +
-                    "boardTab=${uiState.selectedBoardTab?.boardId}, " +
-                    "threadTab=${uiState.selectedThreadTab?.id}, " +
-                    "bounds=${uiState.selectedTabBounds}, " +
-                    "hasFloatingBounds=$hasFloatingBounds"
-        )
-    }
 
     Box(
         modifier = Modifier
@@ -386,12 +348,6 @@ private fun TabLongPressOverlayLayer(
 
         boardTabForFloating?.let { tab ->
             boundsForFloating?.let { bounds ->
-                androidx.compose.runtime.SideEffect {
-                    Log.d(
-                        "TabLongPress",
-                        "BOARD_FLOATING_COMPOSED tabId=${tab.boardId}, bounds=$bounds"
-                    )
-                }
                 val localLeft = bounds.left - boxWindowOffset.value.x
                 val localTop = bounds.top - boxWindowOffset.value.y
                 val cardWidthPx = bounds.right - bounds.left
@@ -412,13 +368,6 @@ private fun TabLongPressOverlayLayer(
         }
         threadTabForFloating?.let { tab ->
             boundsForFloating?.let { bounds ->
-                androidx.compose.runtime.SideEffect {
-                    Log.d(
-                        "TabLongPress",
-                        "THREAD_FLOATING_COMPOSED tabId=${tab.id}, bounds=$bounds"
-                    )
-                }
-
                 val localLeft = bounds.left - boxWindowOffset.value.x
                 val localTop = bounds.top - boxWindowOffset.value.y
                 val cardWidthPx = bounds.right - bounds.left
@@ -477,7 +426,6 @@ private fun BoardTabFloatingCard(tab: BoardTabInfo) {
         onClick = {},
         isPinned = tab.isPinned,
         headerTitle = serviceName,
-        debugSource = "board-floating",
         bodyTitle = tab.boardName,
         bodyMaxLines = 1,
         onCloseClick = {},
@@ -498,7 +446,6 @@ private fun ThreadTabFloatingCard(tab: ThreadTabInfo, newResCount: Int) {
         onClick = {},
         isPinned = tab.isPinned,
         headerTitle = tab.boardName,
-        debugSource = "thread-floating",
         headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(
             resCount = tab.resCount,
             newResCount = newResCount,

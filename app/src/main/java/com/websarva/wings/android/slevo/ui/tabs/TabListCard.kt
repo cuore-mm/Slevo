@@ -1,6 +1,5 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
-import android.util.Log
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
@@ -35,7 +34,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -95,7 +93,6 @@ internal fun TabListCard(
     bodyTitle: String,
     bodyMaxLines: Int = 2,
     onCloseClick: () -> Unit,
-    debugSource: String = "card",
 ) {
     // --- Selection animation ---
     // 長押し中は透明化したまま拡大状態を保持し、解除時は元カードで縮小復帰を行う。
@@ -104,17 +101,6 @@ internal fun TabListCard(
         animationSpec = tween(durationMillis = if (isHiddenForSelection) 220 else 180),
         label = "tabSelectionScale",
     )
-
-    LaunchedEffect(isHiddenForSelection) {
-        Log.d(
-            "TabLongPress",
-            "CARD_VISIBILITY " +
-                    "source=$debugSource, " +
-                    "hide=$isHiddenForSelection, " +
-                    "headerTitle=$headerTitle, " +
-                    "bodyTitle=$bodyTitle"
-        )
-    }
 
     Card(
         modifier = modifier
@@ -152,15 +138,6 @@ internal fun TabListCard(
                                 )
                             }
                             ?: IntRect.Zero
-
-                        Log.d(
-                            "TabLongPress",
-                            "CARD_LONG_CLICK " +
-                                    "bounds=$bounds, " +
-                                    "isZeroBounds=${bounds == IntRect.Zero}, " +
-                                    "headerTitle=$headerTitle, " +
-                                    "bodyTitle=$bodyTitle"
-                        )
 
                         onLongPress(bounds)
                     },

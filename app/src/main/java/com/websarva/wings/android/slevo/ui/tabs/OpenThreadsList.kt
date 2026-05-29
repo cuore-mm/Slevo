@@ -105,7 +105,6 @@ private fun OpenThreadCard(
         isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,
         headerTitle = tab.boardName,
-        debugSource = "thread-original",
         headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(
             resCount = tab.resCount,
             newResCount = newResCount,

@@ -97,7 +97,6 @@ private fun OpenBoardCard(
         isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,
         headerTitle = serviceName,
-        debugSource = "board-original",
         bodyTitle = tab.boardName,
         bodyMaxLines = 1,
         onCloseClick = {
