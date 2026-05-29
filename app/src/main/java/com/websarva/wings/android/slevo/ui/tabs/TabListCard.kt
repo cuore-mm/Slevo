@@ -1,5 +1,7 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,8 +38,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -90,10 +93,23 @@ internal fun TabListCard(
     bodyMaxLines: Int = 2,
     onCloseClick: () -> Unit,
 ) {
+    // --- Selection animation ---
+    // 長押し中は透明化したまま拡大状態を保持し、解除時は元カードで縮小復帰を行う。
+    val selectionScale by animateFloatAsState(
+        targetValue = if (isHiddenForSelection) 1.04f else 1f,
+        animationSpec = tween(durationMillis = if (isHiddenForSelection) 220 else 180),
+        label = "tabSelectionScale",
+    )
+
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .alpha(if (isHiddenForSelection) 0f else 1f),
+            .graphicsLayer {
+                scaleX = selectionScale
+                scaleY = selectionScale
+                alpha = if (isHiddenForSelection) 0f else 1f
+                transformOrigin = TransformOrigin.Center
+            },
         shape = MaterialTheme.shapes.largeIncreased,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,

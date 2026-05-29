@@ -35,7 +35,6 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -283,7 +282,7 @@ private fun TabDetailBottomSheets(
 /**
  * 長押し選択中の overlay レイヤーをまとめる Composable。
  *
- * dim overlay、floating card（enter/exit アニメーション付き）、
+ * dim overlay、floating card（enter アニメーション付き）、
  * アクションメニュー、BackHandler を一箇所に集約する。
  */
 @Composable
@@ -297,59 +296,22 @@ private fun TabLongPressOverlayLayer(
     onCloseClick: () -> Unit,
 ) {
     // --- Floating card animation state (Compose-local) ---
-    val floatingBoardTab = remember { mutableStateOf<BoardTabInfo?>(null) }
-    val floatingThreadTab = remember { mutableStateOf<ThreadTabInfo?>(null) }
-    val floatingBounds = remember { mutableStateOf<IntRect?>(null) }
-    val isFloatingExiting = remember { mutableStateOf(false) }
     val floatingScale = remember { Animatable(1f) }
-
-    LaunchedEffect(
-        uiState.selectedBoardTab,
-        uiState.selectedThreadTab,
-        uiState.selectedTabBounds,
-        uiState.isInLongPressSelectionMode,
-    ) {
-        if (uiState.isInLongPressSelectionMode) {
-            floatingBoardTab.value = uiState.selectedBoardTab
-            floatingThreadTab.value = uiState.selectedThreadTab
-            floatingBounds.value = uiState.selectedTabBounds
-        }
-    }
 
     LaunchedEffect(uiState.isInLongPressSelectionMode) {
         if (uiState.isInLongPressSelectionMode) {
-            isFloatingExiting.value = false
+            floatingScale.snapTo(1f)
             floatingScale.animateTo(
                 targetValue = 1.04f,
                 animationSpec = tween(durationMillis = 220),
             )
-        } else if (
-            floatingBoardTab.value != null ||
-            floatingThreadTab.value != null
-        ) {
-            isFloatingExiting.value = true
-            floatingScale.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(durationMillis = 180),
-            )
-            isFloatingExiting.value = false
-            floatingBoardTab.value = null
-            floatingThreadTab.value = null
-            floatingBounds.value = null
+        } else {
             floatingScale.snapTo(1f)
         }
     }
 
     val boxWindowOffset = remember { mutableStateOf(IntOffset.Zero) }
-    val currentSelectedBounds = uiState.selectedTabBounds
-    val fallbackFloatingBounds = floatingBounds.value
-
-    val boundsForFloating = if (uiState.isInLongPressSelectionMode) {
-        currentSelectedBounds
-    } else {
-        fallbackFloatingBounds
-    }
-
+    val boundsForFloating = uiState.selectedTabBounds
     val hasFloatingBounds = boundsForFloating != null
 
     Box(
@@ -361,7 +323,7 @@ private fun TabLongPressOverlayLayer(
             }
     ) {
         // --- Long-press dim overlay ---
-        val showDimOverlay = uiState.isInLongPressSelectionMode || isFloatingExiting.value
+        val showDimOverlay = uiState.isInLongPressSelectionMode
         val dimAlpha by animateFloatAsState(
             targetValue = if (uiState.isInLongPressSelectionMode) 0.30f else 0f,
             animationSpec = tween(durationMillis = 200),
@@ -381,17 +343,8 @@ private fun TabLongPressOverlayLayer(
 
         // --- Selected tab floating card (overlay layer) ---
         val density = LocalDensity.current
-        val boardTabForFloating = if (hasFloatingBounds) {
-            uiState.selectedBoardTab ?: floatingBoardTab.value
-        } else {
-            null
-        }
-
-        val threadTabForFloating = if (hasFloatingBounds) {
-            uiState.selectedThreadTab ?: floatingThreadTab.value
-        } else {
-            null
-        }
+        val boardTabForFloating = if (hasFloatingBounds) uiState.selectedBoardTab else null
+        val threadTabForFloating = if (hasFloatingBounds) uiState.selectedThreadTab else null
 
         boardTabForFloating?.let { tab ->
             boundsForFloating?.let { bounds ->
