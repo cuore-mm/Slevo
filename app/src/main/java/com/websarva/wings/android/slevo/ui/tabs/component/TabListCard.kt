@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -119,11 +120,15 @@ internal fun TabListCard(
     val coroutineScope = rememberCoroutineScope()
     var cardWidthPx by remember { mutableStateOf(0f) }
     var isFlyingOut by remember { mutableStateOf(false) }
+    val velocityTracker = remember { VelocityTracker() }
     val density = LocalDensity.current
-    // 削除しきい値はカード幅の40%とする。カード幅未測定時はフォールバックとして100dpを使用。
+    // 距離による削除しきい値はカード幅の35%。
     val swipeThreshold = remember(cardWidthPx) {
-        if (cardWidthPx > 0f) cardWidthPx * 0.4f else with(density) { 100.dp.toPx() }
+        if (cardWidthPx > 0f) cardWidthPx * 0.35f else with(density) { 100.dp.toPx() }
     }
+    // 速度判定のしきい値は 700dp/s、最小移動距離は 20dp。
+    val velocityThreshold = with(density) { 700.dp.toPx() }
+    val minVelocityDistance = with(density) { 20.dp.toPx() }
 
     Box(
         modifier = modifier
@@ -140,8 +145,16 @@ internal fun TabListCard(
                     if (canSwipe && !isFlyingOut) {
                         Modifier.pointerInput(Unit) {
                             detectHorizontalDragGestures(
+                                onDragStart = { _ ->
+                                    velocityTracker.resetTracking()
+                                },
                                 onDragEnd = {
-                                    if (offsetX.value < -swipeThreshold) {
+                                    val velocity = velocityTracker.calculateVelocity()
+                                    val distanceMet = offsetX.value < -swipeThreshold
+                                    val velocityMet =
+                                        velocity.x < -velocityThreshold && -offsetX.value > minVelocityDistance
+
+                                    if (distanceMet || velocityMet) {
                                         isFlyingOut = true
                                         coroutineScope.launch {
                                             offsetX.animateTo(
@@ -158,6 +171,10 @@ internal fun TabListCard(
                                 },
                                 onHorizontalDrag = { change, dragAmount ->
                                     change.consume()
+                                    velocityTracker.addPosition(
+                                        change.uptimeMillis,
+                                        change.position
+                                    )
                                     coroutineScope.launch {
                                         val newOffset = (offsetX.value + dragAmount)
                                             .coerceIn(-cardWidthPx, 0f)
