@@ -1,14 +1,20 @@
 package com.websarva.wings.android.slevo.ui.tabs.component
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntRect
@@ -40,6 +46,8 @@ fun AnchoredTabActionMenu(
     onPinClick: () -> Unit,
     onCloseClick: () -> Unit,
 ) {
+    val iconSize = 20.dp
+
     val errorColor = MaterialTheme.colorScheme.error
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
 
@@ -56,10 +64,10 @@ fun AnchoredTabActionMenu(
             text = stringResource(R.string.tab_action_detail),
             leadingIcon = {
                 Icon(
-                    imageVector = Icons.Default.Info,
+                    imageVector = Icons.Outlined.Info,
                     contentDescription = null,
                     tint = onSurfaceColor,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(iconSize),
                 )
             },
             onClick = onDetailClick,
@@ -69,12 +77,20 @@ fun AnchoredTabActionMenu(
                 if (isPinned) R.string.tab_action_unpin else R.string.tab_action_pin
             ),
             leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.PushPin,
-                    contentDescription = null,
-                    tint = onSurfaceColor,
-                    modifier = Modifier.size(20.dp),
-                )
+                if (isPinned) {
+                    PushPinOffIcon(
+                        tint = onSurfaceColor,
+                        modifier = Modifier.size(iconSize),
+                        backgroundColor = MaterialTheme.colorScheme.surfaceBright,
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.PushPin,
+                        contentDescription = null,
+                        tint = onSurfaceColor,
+                        modifier = Modifier.size(iconSize),
+                    )
+                }
             },
             onClick = onPinClick,
         )
@@ -83,14 +99,56 @@ fun AnchoredTabActionMenu(
             textColor = errorColor,
             leadingIcon = {
                 Icon(
-                    imageVector = Icons.Default.Close,
+                    imageVector = Icons.Outlined.Close,
                     contentDescription = null,
                     tint = errorColor,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(iconSize),
                 )
             },
             onClick = onCloseClick,
         )
+    }
+}
+
+@Composable
+private fun PushPinOffIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+    backgroundColor: Color = MaterialTheme.colorScheme.surface,
+) {
+    Box(modifier = modifier) {
+        Icon(
+            imageVector = Icons.Outlined.PushPin,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val slashStrokeWidth = 1.dp.toPx()
+            val cutoutStrokeWidth = 3.dp.toPx()
+
+            val start = Offset(size.width * 0.18f, size.height * 0.18f)
+            val end = Offset(size.width * 0.82f, size.height * 0.82f)
+
+            // --- Cutout ---
+            drawLine(
+                color = backgroundColor,
+                start = start,
+                end = end,
+                strokeWidth = cutoutStrokeWidth,
+                cap = StrokeCap.Round,
+            )
+
+            // --- Slash ---
+            drawLine(
+                color = tint,
+                start = start,
+                end = end,
+                strokeWidth = slashStrokeWidth,
+                cap = StrokeCap.Round,
+            )
+        }
     }
 }
 
@@ -124,6 +182,17 @@ private fun AnchoredTabActionMenuPinnedPreview() {
             onDetailClick = {},
             onPinClick = {},
             onCloseClick = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PushPinOffIconPreview() {
+    SlevoTheme {
+        PushPinOffIcon(
+            tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(40.dp),
         )
     }
 }
