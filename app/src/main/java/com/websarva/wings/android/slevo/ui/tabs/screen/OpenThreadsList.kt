@@ -94,6 +94,7 @@ fun OpenThreadsList(
                 if (isRemoving) return@OpenThreadCard
                 requestRemove()
             },
+            isRemoving = isRemoving,
         )
     }
 }
@@ -111,6 +112,7 @@ private fun OpenThreadCard(
     onCloseClick: () -> Unit,
     onSwipeDelete: (() -> Unit)? = null,
     isSwipeDeleteEnabled: Boolean = true,
+    isRemoving: Boolean = false,
 ) {
     // --- Card highlight ---
     val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
@@ -122,6 +124,7 @@ private fun OpenThreadCard(
         onLongPress = onLongPress,
         isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,
+        isRemoving = isRemoving,
         headerTitle = tab.boardName,
         headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(
             resCount = tab.resCount,

@@ -58,7 +58,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 import com.websarva.wings.android.slevo.R
 import java.net.URI
 
@@ -96,6 +95,7 @@ internal fun TabListCard(
     onLongPress: (IntRect) -> Unit = {},
     isHiddenForSelection: Boolean = false,
     isPinned: Boolean = false,
+    isRemoving: Boolean = false,
     headerTitle: String,
     headerTrailingContent: TabHeaderTrailingContent = TabHeaderTrailingContent.None,
     bodyTitle: String,
@@ -113,12 +113,16 @@ internal fun TabListCard(
     )
 
     // --- Swipe-to-delete state ---
-    val canSwipe = isSwipeDeleteEnabled && !isPinned && onSwipeDelete != null
+    val canSwipe = isSwipeDeleteEnabled && !isPinned && onSwipeDelete != null && !isRemoving
     val offsetX = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
+    var cardWidthPx by remember { mutableStateOf(0f) }
+    var isFlyingOut by remember { mutableStateOf(false) }
     val density = LocalDensity.current
-    val swipeThreshold = with(density) { 100.dp.toPx() }
-    val maxOffset = with(density) { 120.dp.toPx() }
+    // 削除しきい値はカード幅の40%とする。カード幅未測定時はフォールバックとして100dpを使用。
+    val swipeThreshold = remember(cardWidthPx) {
+        if (cardWidthPx > 0f) cardWidthPx * 0.4f else with(density) { 100.dp.toPx() }
+    }
 
     Box(
         modifier = modifier
@@ -128,13 +132,23 @@ internal fun TabListCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .offset { IntOffset(offsetX.value.toInt(), 0) }
+                .onGloballyPositioned { coordinates ->
+                    cardWidthPx = coordinates.size.width.toFloat()
+                }
                 .then(
-                    if (canSwipe) {
+                    if (canSwipe && !isFlyingOut) {
                         Modifier.pointerInput(Unit) {
                             detectHorizontalDragGestures(
                                 onDragEnd = {
-                                    if (abs(offsetX.value) > swipeThreshold) {
-                                        onSwipeDelete!!()
+                                    if (offsetX.value < -swipeThreshold) {
+                                        isFlyingOut = true
+                                        coroutineScope.launch {
+                                            offsetX.animateTo(
+                                                targetValue = -cardWidthPx,
+                                                animationSpec = tween(durationMillis = 200)
+                                            )
+                                            onSwipeDelete!!()
+                                        }
                                     } else {
                                         coroutineScope.launch {
                                             offsetX.animateTo(0f)
@@ -145,7 +159,7 @@ internal fun TabListCard(
                                     change.consume()
                                     coroutineScope.launch {
                                         val newOffset = (offsetX.value + dragAmount)
-                                            .coerceIn(-maxOffset, maxOffset)
+                                            .coerceIn(-cardWidthPx, 0f)
                                         offsetX.snapTo(newOffset)
                                     }
                                 }
@@ -172,6 +186,7 @@ internal fun TabListCard(
             modifier = Modifier
                 .height(IntrinsicSize.Min)
                 .combinedClickable(
+                    enabled = !isRemoving && !isFlyingOut,
                     interactionSource = remember { MutableInteractionSource() },
                     indication = LocalIndication.current,
                     onClick = onClick,
@@ -279,6 +294,7 @@ internal fun TabListCard(
                             }
                         } else {
                             IconButton(
+                                enabled = !isRemoving && !isFlyingOut,
                                 modifier = Modifier
                                     .border(
                                         width = 1.dp,

@@ -86,6 +86,7 @@ fun OpenBoardsList(
                 if (isRemoving) return@OpenBoardCard
                 requestRemove()
             },
+            isRemoving = isRemoving,
         )
     }
 }
@@ -102,6 +103,7 @@ private fun OpenBoardCard(
     onCloseClick: () -> Unit,
     onSwipeDelete: (() -> Unit)? = null,
     isSwipeDeleteEnabled: Boolean = true,
+    isRemoving: Boolean = false,
 ) {
     // --- Card highlight ---
     val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
@@ -114,6 +116,7 @@ private fun OpenBoardCard(
         onLongPress = onLongPress,
         isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,
+        isRemoving = isRemoving,
         headerTitle = serviceName,
         bodyTitle = tab.boardName,
         bodyMaxLines = 1,
