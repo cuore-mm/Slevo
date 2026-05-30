@@ -234,11 +234,12 @@ class BoardTabsCoordinator @Inject constructor(
                 targetIndex = index
                 currentBoards.toMutableList().apply {
                     val existing = this[index]
-                    // 既存タブはスクロール位置を保持しつつ、他の情報（名前やブックマーク色）を更新する
+                    // 既存タブは固定状態とスクロール位置を保持しつつ、他の情報（名前やブックマーク色）を更新する
                     this[index] = boardTabInfo.copy(
                         bookmarkColorName = boardTabInfo.bookmarkColorName ?: existing.bookmarkColorName,
                         firstVisibleItemIndex = existing.firstVisibleItemIndex,
                         firstVisibleItemScrollOffset = existing.firstVisibleItemScrollOffset,
+                        isPinned = existing.isPinned,
                     )
                 }
             } else {

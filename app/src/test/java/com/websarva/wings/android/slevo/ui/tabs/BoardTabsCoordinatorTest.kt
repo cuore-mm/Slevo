@@ -41,6 +41,32 @@ class BoardTabsCoordinatorTest {
         assertEquals(false, coordinator.openBoardTabs.value.first().isPinned)
     }
 
+    /**
+     * 既存の板タブを上書きした場合でも固定状態が維持されることを確認する。
+     */
+    @Test
+    fun openBoardTab_preservesPinnedStateOnUpsert() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        val originalTab = BoardTabInfo(
+            boardId = 1,
+            boardName = "Test Board",
+            boardUrl = "https://example.com/test/",
+            serviceName = "example.com",
+            isPinned = true,
+        )
+        coordinator.openBoardTab(originalTab)
+
+        val updatedTab = originalTab.copy(
+            boardName = "Updated Board",
+            isPinned = false,
+        )
+        coordinator.openBoardTab(updatedTab)
+
+        val actual = coordinator.openBoardTabs.value.first()
+        assertEquals(true, actual.isPinned)
+        assertEquals("Updated Board", actual.boardName)
+    }
+
     private fun createCoordinator(tabsRepository: TabsRepository): BoardTabsCoordinator {
         return BoardTabsCoordinator(
             tabsRepository = tabsRepository,
