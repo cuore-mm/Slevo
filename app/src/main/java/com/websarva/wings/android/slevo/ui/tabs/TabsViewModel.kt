@@ -119,15 +119,26 @@ class TabsViewModel @Inject constructor(
         )
     }
 
-    val uiState: StateFlow<TabsUiState> = combine(
+    /**
+     * 長押しメニューからの削除要求をまとめる内部状態。
+     */
+    private val pendingCloseState = combine(
+        pendingCloseBoardTabState,
+        pendingCloseThreadTabState,
+    ) { pendingBoardTab, pendingThreadTab ->
+        PendingCloseState(
+            pendingBoardTab = pendingBoardTab,
+            pendingThreadTab = pendingThreadTab,
+        )
+    }
+
+    private val baseUiState = combine(
         boardTabsState,
         threadTabsState,
         urlDialogUiState,
         tabSelectionUiState,
         tabDetailState,
-        pendingCloseBoardTabState,
-        pendingCloseThreadTabState,
-    ) { boardState, threadState, urlState, selectionState, detailState, pendingBoardClose, pendingThreadClose ->
+    ) { boardState, threadState, urlState, selectionState, detailState ->
         TabsUiState(
             openThreadTabs = threadState.openThreadTabs,
             openBoardTabs = boardState.openBoardTabs,
@@ -142,12 +153,20 @@ class TabsViewModel @Inject constructor(
             selectedBoardTab = selectionState.selectedBoardTab,
             selectedThreadTab = selectionState.selectedThreadTab,
             selectedTabBounds = selectionState.selectedTabBounds,
-            pendingCloseBoardTab = pendingBoardClose,
-            pendingCloseThreadTab = pendingThreadClose,
             detailBoardTab = detailState.detailBoardTab,
             detailThreadTab = detailState.detailThreadTab,
             showBoardInfoBottomSheet = detailState.showBoardInfoBottomSheet,
             showThreadInfoBottomSheet = detailState.showThreadInfoBottomSheet,
+        )
+    }
+
+    val uiState: StateFlow<TabsUiState> = combine(
+        baseUiState,
+        pendingCloseState,
+    ) { baseState, pendingClose ->
+        baseState.copy(
+            pendingCloseBoardTab = pendingClose.pendingBoardTab,
+            pendingCloseThreadTab = pendingClose.pendingThreadTab,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, TabsUiState())
 
@@ -576,4 +595,12 @@ private data class TabDetailState(
     val detailThreadTab: ThreadTabInfo? = null,
     val showBoardInfoBottomSheet: Boolean = false,
     val showThreadInfoBottomSheet: Boolean = false,
+)
+
+/**
+ * 長押しメニューからの削除要求をまとめる内部状態。
+ */
+private data class PendingCloseState(
+    val pendingBoardTab: BoardTabInfo? = null,
+    val pendingThreadTab: ThreadTabInfo? = null,
 )
