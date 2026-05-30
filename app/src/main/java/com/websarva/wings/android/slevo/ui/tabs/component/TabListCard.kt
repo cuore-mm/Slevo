@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -344,6 +345,7 @@ internal fun TabListCard(
 }
 
 @Preview(showBackground = true)
+@Composable
 fun TabListCardPreview() {
     TabListCard(
         modifier = Modifier.padding(12.dp),
