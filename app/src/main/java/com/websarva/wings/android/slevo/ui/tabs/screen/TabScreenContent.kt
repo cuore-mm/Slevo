@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.tabs
+package com.websarva.wings.android.slevo.ui.tabs.screen
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
@@ -45,6 +45,16 @@ import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
 import com.websarva.wings.android.slevo.ui.board.screen.BoardInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.tabs.component.AnchoredTabActionMenu
+import com.websarva.wings.android.slevo.ui.tabs.component.TabHeaderTrailingContent
+import com.websarva.wings.android.slevo.ui.tabs.component.TabListBottomControls
+import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
+import com.websarva.wings.android.slevo.ui.tabs.TabsUiState
+import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
+import com.websarva.wings.android.slevo.ui.tabs.component.extractServiceName
+import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import dev.chrisbanes.haze.HazeState

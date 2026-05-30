@@ -1,6 +1,9 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import androidx.compose.ui.unit.IntRect
+import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
 
 /**
  * タブ画面全体の UI 状態を表すデータクラス。

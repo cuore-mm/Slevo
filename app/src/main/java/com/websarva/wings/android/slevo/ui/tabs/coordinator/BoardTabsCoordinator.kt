@@ -1,8 +1,10 @@
-package com.websarva.wings.android.slevo.ui.tabs
+package com.websarva.wings.android.slevo.ui.tabs.coordinator
 
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
+import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.hilt.android.scopes.ViewModelScoped
 import kotlinx.coroutines.CoroutineScope

@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.tabs
+package com.websarva.wings.android.slevo.ui.tabs.coordinator
 
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.DatRepository
@@ -6,6 +6,9 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import dagger.hilt.android.scopes.ViewModelScoped
 import kotlinx.coroutines.CancellationException

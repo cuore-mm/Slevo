@@ -7,6 +7,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.slevo.ui.tabs.screen.TabScreenContent
 
 @Composable
 fun TabsScaffold(

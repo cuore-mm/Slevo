@@ -1,14 +1,18 @@
-package com.websarva.wings.android.slevo.ui.tabs
+package com.websarva.wings.android.slevo.ui.tabs.screen
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 
 /**
  * タブ一覧のページャーを提供し、板/スレ一覧を切り替えて表示する。
@@ -28,9 +32,9 @@ fun TabsPagerContent(
     selectedThreadTab: ThreadTabInfo?,
     onCloseBoardTab: (BoardTabInfo) -> Unit,
     onCloseThreadTab: (ThreadTabInfo) -> Unit,
-    onBoardTabLongPressed: (BoardTabInfo, androidx.compose.ui.unit.IntRect) -> Unit,
-    onThreadTabLongPressed: (ThreadTabInfo, androidx.compose.ui.unit.IntRect) -> Unit,
-    onClearNewResCount: (com.websarva.wings.android.slevo.data.model.ThreadId) -> Unit,
+    onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit,
+    onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit,
+    onClearNewResCount: (ThreadId) -> Unit,
 ) {
     HorizontalPager(
         state = pagerState,

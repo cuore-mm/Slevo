@@ -4,7 +4,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadS
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
-import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch

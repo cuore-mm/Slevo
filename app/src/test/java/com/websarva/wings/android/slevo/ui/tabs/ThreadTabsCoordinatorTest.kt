@@ -5,6 +5,8 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
+import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import io.mockk.coVerify
 import io.mockk.mockk
 import org.junit.Assert.assertEquals

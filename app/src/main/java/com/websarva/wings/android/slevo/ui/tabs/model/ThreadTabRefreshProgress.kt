@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.tabs
+package com.websarva.wings.android.slevo.ui.tabs.model
 
 /**
  * スレッドタブ更新処理の進捗状態を表す。

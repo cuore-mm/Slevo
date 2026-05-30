@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
+import com.websarva.wings.android.slevo.ui.tabs.screen.TabScreenContent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

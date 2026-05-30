@@ -36,7 +36,7 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUplo
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
-import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
@@ -64,7 +64,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.math.max
 
 /**
  * 投稿送信前に保持する入力内容。

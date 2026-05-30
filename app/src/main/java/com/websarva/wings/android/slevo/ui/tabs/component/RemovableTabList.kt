@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.tabs
+package com.websarva.wings.android.slevo.ui.tabs.component
 
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement

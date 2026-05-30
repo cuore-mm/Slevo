@@ -37,7 +37,7 @@ import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import com.websarva.wings.android.slevo.ui.tabs.UrlOpenDialog
+import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarActionVisibility

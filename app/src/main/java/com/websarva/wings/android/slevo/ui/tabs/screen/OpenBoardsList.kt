@@ -1,4 +1,4 @@
-package com.websarva.wings.android.slevo.ui.tabs
+package com.websarva.wings.android.slevo.ui.tabs.screen
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
@@ -10,28 +10,30 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
+import com.websarva.wings.android.slevo.ui.tabs.component.RemovableTabList
+import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
+import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.component.extractServiceName
+import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import kotlinx.coroutines.launch
 
 /**
- * 開いているスレッドタブの一覧をカード表示し、選択されたタブへ遷移する。
+ * 開いている板タブの一覧をカード表示し、選択されたタブへ遷移する。
  */
 @Composable
-fun OpenThreadsList(
+fun OpenBoardsList(
     modifier: Modifier = Modifier,
-    openTabs: List<ThreadTabInfo>,
-    onCloseClick: (ThreadTabInfo) -> Unit = {},
+    openTabs: List<BoardTabInfo>,
+    onCloseClick: (BoardTabInfo) -> Unit = {},
     navController: NavHostController,
     closeDrawer: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
-    newResCounts: Map<String, Int> = emptyMap(),
-    selectedThreadTab: ThreadTabInfo? = null,
-    onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit = { _, _ -> },
-    onClearNewResCount: (ThreadId) -> Unit = {},
+    selectedBoardTab: BoardTabInfo? = null,
+    onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit = { _, _ -> },
     tabsViewModel: TabsViewModel? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -40,29 +42,25 @@ fun OpenThreadsList(
     RemovableTabList(
         modifier = modifier,
         tabItems = openTabs,
-        keyOf = { it.id.value },
+        keyOf = { it.boardUrl },
         contentPadding = contentPadding,
         onRemoveConfirmed = { onCloseClick(it) },
     ) { tab, isRemoving, requestRemove ->
-        OpenThreadCard(
+        OpenBoardCard(
             tab = tab,
-            newResCount = newResCounts[tab.id.value] ?: tab.newResCount,
-            isSelected = selectedThreadTab?.id == tab.id,
+            isSelected = selectedBoardTab?.boardUrl == tab.boardUrl,
             onClick = {
-                if (isRemoving) return@OpenThreadCard
+                if (isRemoving) return@OpenBoardCard
                 closeDrawer()
-                onClearNewResCount(tab.id)
-                val route = AppRoute.Thread(
-                    threadKey = tab.threadKey,
-                    boardUrl = tab.boardUrl,
-                    boardName = tab.boardName,
+                val route = AppRoute.Board(
                     boardId = tab.boardId,
-                    threadTitle = tab.title,
-                    resCount = tab.resCount
+                    boardName = tab.boardName,
+                    boardUrl = tab.boardUrl
                 )
                 coroutineScope.launch {
-                    val normalizedRoute = tabsViewModel?.normalizeThreadRouteForNavigation(route) ?: route
-                    navController.navigateToThread(
+                    val normalizedRoute =
+                        tabsViewModel?.normalizeBoardRouteForNavigation(route) ?: route
+                    navController.navigateToBoard(
                         route = normalizedRoute,
                         tabsViewModel = tabsViewModel,
                     ) {
@@ -71,11 +69,11 @@ fun OpenThreadsList(
                 }
             },
             onLongPress = { bounds ->
-                if (isRemoving) return@OpenThreadCard
-                onThreadTabLongPressed(tab, bounds)
+                if (isRemoving) return@OpenBoardCard
+                onBoardTabLongPressed(tab, bounds)
             },
             onCloseClick = {
-                if (isRemoving) return@OpenThreadCard
+                if (isRemoving) return@OpenBoardCard
                 requestRemove()
             },
         )
@@ -83,12 +81,11 @@ fun OpenThreadsList(
 }
 
 /**
- * スレッドタブをカード表示する。
+ * 板タブをカード表示する。
  */
 @Composable
-private fun OpenThreadCard(
-    tab: ThreadTabInfo,
-    newResCount: Int,
+private fun OpenBoardCard(
+    tab: BoardTabInfo,
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongPress: (IntRect) -> Unit,
@@ -96,6 +93,7 @@ private fun OpenThreadCard(
 ) {
     // --- Card highlight ---
     val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
+    val serviceName = tab.serviceName.ifBlank { extractServiceName(tab.boardUrl) }
 
     TabListCard(
         modifier = Modifier.padding(horizontal = 12.dp),
@@ -104,13 +102,9 @@ private fun OpenThreadCard(
         onLongPress = onLongPress,
         isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,
-        headerTitle = tab.boardName,
-        headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(
-            resCount = tab.resCount,
-            newResCount = newResCount,
-        ),
-        bodyTitle = tab.title,
-        bodyMaxLines = 2,
+        headerTitle = serviceName,
+        bodyTitle = tab.boardName,
+        bodyMaxLines = 1,
         onCloseClick = {
             // タブクローズ操作は一覧遷移より優先して処理する。
             onCloseClick()
@@ -120,41 +114,28 @@ private fun OpenThreadCard(
 
 @Preview(showBackground = true)
 @Composable
-fun OpenThreadsListPreview() {
-    val sampleTabs = listOf(
-        ThreadTabInfo(
-            ThreadId.of("example.com", "board1", "1"),
-            "スレッド1",
+fun OpenBoardsListPreview() {
+    val sampleBoards = listOf(
+        BoardTabInfo(
+            1,
             "板1",
             "https://example.com/board1",
-            1,
-            100,
+            "example.com",
             bookmarkColorName = BookmarkColor.RED.value
         ),
-        ThreadTabInfo(
-            ThreadId.of("example.com", "board2", "2"),
-            "スレッド2",
+        BoardTabInfo(
+            2,
             "板2",
             "https://example.com/board2",
-            2,
-            200,
+            "example.com",
             bookmarkColorName = BookmarkColor.GREEN.value
         ),
-        ThreadTabInfo(
-            ThreadId.of("example.com", "board3", "3"),
-            "スレッド3",
-            "板3",
-            "https://example.com/board3",
-            3,
-            300
-        )
+        BoardTabInfo(3, "板3", "https://example.com/board3", "example.com")
     )
-    OpenThreadsList(
-        openTabs = sampleTabs,
+    OpenBoardsList(
+        openTabs = sampleBoards,
         onCloseClick = {},
         navController = rememberNavController(),
-        closeDrawer = {},
-        contentPadding = PaddingValues(0.dp),
-        newResCounts = emptyMap(),
+        closeDrawer = {}
     )
 }

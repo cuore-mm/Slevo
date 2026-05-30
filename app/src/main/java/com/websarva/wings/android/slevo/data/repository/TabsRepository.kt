@@ -8,8 +8,8 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadT
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.util.ThreadNewResCalculator
-import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
-import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map

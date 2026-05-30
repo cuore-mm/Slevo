@@ -11,6 +11,12 @@ import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
+import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
+import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.BoardUrlNormalizationInput
 import com.websarva.wings.android.slevo.ui.util.normalizeBoardUrlTo5chIo
