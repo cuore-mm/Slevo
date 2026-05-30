@@ -110,6 +110,76 @@ class TabsRepositoryThreadStateTest {
     }
 
     /**
+     * 固定状態を保存・復元できることを確認する。
+     * `isPinned = true` のタブを保存し、observe で復元されたモデルに反映されることを検証する。
+     */
+    @Test
+    fun saveAndObserve_persistsPinnedState() = runBlocking {
+        val threadId = ThreadId.of("example.com", "test", "789")
+        db.openThreadTabDao().upsertAll(
+            listOf(
+                OpenThreadTabEntity(
+                    threadId = threadId,
+                    sortOrder = 0,
+                    isPinned = true,
+                    firstVisibleItemIndex = 0,
+                    firstVisibleItemScrollOffset = 0,
+                )
+            )
+        )
+        ThreadStateRepository(db.threadStateDao()).saveThreadState(
+            ThreadStateRepository.ThreadStateUpdate(
+                threadId = threadId,
+                boardId = 1,
+                boardUrl = "https://example.com/test/",
+                boardName = "Test Board",
+                title = "Pinned Thread",
+                latestResCount = 50,
+            )
+        )
+
+        val tab = repository.observeOpenThreadTabs().first().single()
+
+        assertEquals(true, tab.isPinned)
+    }
+
+    /**
+     * 固定状態を切り替えてもタブの表示順（sortOrder）が変わらないことを確認する。
+     */
+    @Test
+    fun saveOpenThreadTabs_maintainsSortOrderRegardlessOfPinState() = runBlocking {
+        val threadId1 = ThreadId.of("example.com", "test", "a")
+        val threadId2 = ThreadId.of("example.com", "test", "b")
+        val tabs = listOf(
+            ThreadTabInfo(
+                id = threadId1,
+                title = "First",
+                boardName = "Board",
+                boardUrl = "https://example.com/test/",
+                boardId = 1,
+                isPinned = true,
+            ),
+            ThreadTabInfo(
+                id = threadId2,
+                title = "Second",
+                boardName = "Board",
+                boardUrl = "https://example.com/test/",
+                boardId = 1,
+                isPinned = false,
+            ),
+        )
+
+        repository.saveOpenThreadTabs(tabs)
+
+        val observed = repository.observeOpenThreadTabs().first()
+        assertEquals(2, observed.size)
+        assertEquals("First", observed[0].title)
+        assertEquals("Second", observed[1].title)
+        assertEquals(true, observed[0].isPinned)
+        assertEquals(false, observed[1].isPinned)
+    }
+
+    /**
      * テスト用の開いているスレッドタブを保存する。
      * Phase 3 ではタブ固有状態だけを保存し、タイトルやレス数は `thread_states` 側で用意する。
      */

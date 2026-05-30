@@ -5,6 +5,8 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
+import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import io.mockk.coVerify
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
@@ -73,6 +75,33 @@ class ThreadTabsCoordinatorTest {
         val threadIds = coordinator.openThreadTabs.value.map { it.id.value }.toSet()
         assertTrue(threadIds.any { it.contains("medaka.5ch.net") })
         assertTrue(threadIds.any { it.contains("medaka.5ch.io") })
+    }
+
+    /**
+     * `togglePinThreadTab` で対象スレッドタブの固定状態を切り替えることを確認する。
+     */
+    @Test
+    fun togglePinThreadTab_togglesPinnedState() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "1723111700",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "test",
+            )
+        )
+        val threadId = coordinator.openThreadTabs.value.first().id
+
+        assertEquals(false, coordinator.openThreadTabs.value.first().isPinned)
+
+        coordinator.togglePinThreadTab(threadId)
+
+        assertEquals(true, coordinator.openThreadTabs.value.first().isPinned)
+
+        coordinator.togglePinThreadTab(threadId)
+
+        assertEquals(false, coordinator.openThreadTabs.value.first().isPinned)
     }
 
     /**

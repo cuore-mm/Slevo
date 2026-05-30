@@ -36,6 +36,7 @@ import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
 import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenu
 import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuItem
+import com.websarva.wings.android.slevo.ui.common.VerticalAnchorAlignment
 import com.websarva.wings.android.slevo.ui.common.ConfirmBottomDialog
 import com.websarva.wings.android.slevo.ui.common.FeedbackTooltipIconButton
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
@@ -126,6 +127,8 @@ fun SettingsGestureScreenContent(
                             expanded = isMenuExpanded,
                             anchorBoundsInWindow = menuAnchorBounds,
                             hazeState = null,
+                            verticalAlignment = VerticalAnchorAlignment.Below,
+                            verticalSpacing = 8.dp,
                             onDismissRequest = closeMenu,
                         ) {
                             AnchoredOverlayMenuItem(

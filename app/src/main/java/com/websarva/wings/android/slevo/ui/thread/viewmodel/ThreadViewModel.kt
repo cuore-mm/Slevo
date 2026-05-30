@@ -11,7 +11,6 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
-import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
@@ -24,7 +23,7 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
-import com.websarva.wings.android.slevo.data.util.ThreadListParser.calculateThreadDate
+import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
@@ -37,7 +36,7 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUplo
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
-import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
@@ -65,7 +64,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.math.max
 
 /**
  * 投稿送信前に保持する入力内容。
@@ -489,27 +487,17 @@ class ThreadViewModel @AssistedInject constructor(
 
         // --- スレ情報 ---
         val resCount = uiPosts.size
-        val keyLong = key.toLongOrNull()
-        val threadDate = if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD) {
-            calculateThreadDate(key)
-        } else {
-            ThreadDate(0, 0, 0, 0, 0, "")
-        }
-        val momentum =
-            if (keyLong != null && keyLong in 1 until THREAD_KEY_THRESHOLD && resCount > 0) {
-                val elapsedSeconds = max(1L, System.currentTimeMillis() / 1000 - keyLong)
-                val elapsedDays = elapsedSeconds / 86400.0
-                if (elapsedDays > 0) resCount / elapsedDays else 0.0
-            } else {
-                0.0
-            }
+        val derived = ThreadInfoDerivedCalculator.calculate(
+            threadKey = key,
+            resCount = resCount,
+        )
 
         return ThreadLoadDerived(
             uiPosts = uiPosts,
             threadTitle = title,
             resCount = resCount,
-            threadDate = threadDate,
-            momentum = momentum,
+            threadDate = derived.date,
+            momentum = derived.momentum,
             idCountMap = idCountMap,
             idIndexList = idIndexList,
             replySourceMap = replySourceMap,

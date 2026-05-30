@@ -40,6 +40,7 @@ import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuItem
 import com.websarva.wings.android.slevo.ui.common.FeedbackTooltipIconButton
 import com.websarva.wings.android.slevo.ui.common.ImageActionMenuGroup
 import com.websarva.wings.android.slevo.ui.common.ImageActionMenuState
+import com.websarva.wings.android.slevo.ui.common.VerticalAnchorAlignment
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
 import dev.chrisbanes.haze.HazeState
@@ -143,6 +144,7 @@ internal fun ImageViewerTopBar(
                         expanded = isMenuExpanded,
                         anchorBoundsInWindow = menuAnchorBounds,
                         hazeState = hazeState,
+                        verticalAlignment = VerticalAnchorAlignment.OverlapTop,
                         onDismissRequest = onDismissMenu,
                     ) {
                         AnimatedContent(

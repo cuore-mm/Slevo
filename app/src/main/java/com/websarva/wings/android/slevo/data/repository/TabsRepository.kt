@@ -8,8 +8,8 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadT
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.util.ThreadNewResCalculator
-import com.websarva.wings.android.slevo.ui.tabs.BoardTabInfo
-import com.websarva.wings.android.slevo.ui.tabs.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -39,7 +39,8 @@ class TabsRepository @Inject constructor(
                     boardUrl = entity.boardUrl,
                     serviceName = entity.serviceName,
                     firstVisibleItemIndex = entity.firstVisibleItemIndex,
-                    firstVisibleItemScrollOffset = entity.firstVisibleItemScrollOffset
+                    firstVisibleItemScrollOffset = entity.firstVisibleItemScrollOffset,
+                    isPinned = entity.isPinned
                 )
             }
         }
@@ -56,6 +57,7 @@ class TabsRepository @Inject constructor(
                     boardName = info.boardName,
                     serviceName = info.serviceName,
                     sortOrder = index,
+                    isPinned = info.isPinned,
                     firstVisibleItemIndex = info.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = info.firstVisibleItemScrollOffset
                 )
@@ -107,7 +109,8 @@ class TabsRepository @Inject constructor(
                         entity.firstVisibleItemScrollOffset
                     } else {
                         0
-                    }
+                    },
+                    isPinned = entity.isPinned
                 )
             }
         }
@@ -137,6 +140,7 @@ class TabsRepository @Inject constructor(
                 val entity = OpenThreadTabEntity(
                     threadId = info.id,
                     sortOrder = index,
+                    isPinned = info.isPinned,
                     firstVisibleItemIndex = info.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = info.firstVisibleItemScrollOffset
                 )

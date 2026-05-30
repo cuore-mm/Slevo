@@ -69,7 +69,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.state.Threa
         PostLastIdentityEntity::class,
         ThreadStateEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -314,6 +314,17 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS index_thread_summaries_boardId_subjectRank ON thread_summaries(boardId, subjectRank)"
+                )
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE open_board_tabs ADD COLUMN isPinned INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL(
+                    "ALTER TABLE open_thread_tabs ADD COLUMN isPinned INTEGER NOT NULL DEFAULT 0"
                 )
             }
         }

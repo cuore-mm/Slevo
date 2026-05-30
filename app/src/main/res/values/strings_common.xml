@@ -12,6 +12,7 @@
     <string name="delete">削除</string>
     <string name="open">開く</string>
     <string name="close">閉じる</string>
+    <string name="pinned">固定済み</string>
     <string name="back">戻る</string>
     <string name="ok">OK</string>
     <string name="share">共有</string>
@@ -22,4 +23,10 @@
     <string name="selected_count_label">件選択</string>
     <string name="no_history">履歴がありません</string>
     <string name="retry">再試行</string>
+
+    <!-- Tab action menu -->
+    <string name="tab_action_detail">詳細</string>
+    <string name="tab_action_pin">タブを固定</string>
+    <string name="tab_action_unpin">タブの固定を解除</string>
+    <string name="tab_action_close">タブを閉じる</string>
 </resources>

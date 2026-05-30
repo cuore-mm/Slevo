@@ -15,6 +15,7 @@ data class OpenBoardTabEntity(
     val boardName: String,
     val serviceName: String,
     val sortOrder: Int,
+    val isPinned: Boolean = false,
     val firstVisibleItemIndex: Int = 0,
     val firstVisibleItemScrollOffset: Int = 0
 )
@@ -27,6 +28,7 @@ data class OpenBoardTabEntity(
 data class OpenThreadTabEntity(
     @PrimaryKey val threadId: ThreadId,
     val sortOrder: Int,
+    val isPinned: Boolean = false,
     val firstVisibleItemIndex: Int = 0,
     val firstVisibleItemScrollOffset: Int = 0
 )
