@@ -35,6 +35,8 @@ fun OpenThreadsList(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     newResCounts: Map<String, Int> = emptyMap(),
     selectedThreadTab: ThreadTabInfo? = null,
+    pendingCloseThreadTab: ThreadTabInfo? = null,
+    onCloseRequestConsumed: () -> Unit = {},
     onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit = { _, _ -> },
     onClearNewResCount: (ThreadId) -> Unit = {},
     tabsViewModel: TabsViewModel? = null,
@@ -47,6 +49,8 @@ fun OpenThreadsList(
         tabItems = openTabs,
         keyOf = { it.id.value },
         contentPadding = contentPadding,
+        externalRemoveKey = pendingCloseThreadTab?.id?.value,
+        onExternalRemoveConsumed = onCloseRequestConsumed,
         onRemoveConfirmed = { onCloseClick(it) },
     ) { tab, isRemoving, requestRemove ->
         OpenThreadCard(

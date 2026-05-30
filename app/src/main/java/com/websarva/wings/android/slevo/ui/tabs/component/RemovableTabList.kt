@@ -32,6 +32,8 @@ internal fun <T> RemovableTabList(
     contentPadding: PaddingValues,
     verticalSpacing: Dp = 12.dp,
     removalDurationMillis: Int = 200,
+    externalRemoveKey: String? = null,
+    onExternalRemoveConsumed: () -> Unit = {},
     onRemoveConfirmed: (T) -> Unit,
     itemContent: @Composable (item: T, isRemoving: Boolean, requestRemove: () -> Unit) -> Unit,
 ) {
@@ -44,6 +46,25 @@ internal fun <T> RemovableTabList(
         val activeKeys = tabItems.map(keyOf).toSet()
         val staleKeys = removingItems.keys - activeKeys
         staleKeys.forEach { removingItems.remove(it) }
+    }
+
+    // --- External removal ---
+    LaunchedEffect(externalRemoveKey, tabItems) {
+        val targetKey = externalRemoveKey ?: return@LaunchedEffect
+        val targetItem = tabItems.firstOrNull { keyOf(it) == targetKey }
+        if (targetItem == null) {
+            // 対象が既に無い場合は要求だけ消費して二重実行を防ぐ。
+            onExternalRemoveConsumed()
+            return@LaunchedEffect
+        }
+        if (removingItems[targetKey] == true) {
+            // 既に削除アニメーション中なら再実行しない。
+            onExternalRemoveConsumed()
+            return@LaunchedEffect
+        }
+        removingItems[targetKey] = true
+        onRemoveConfirmed(targetItem)
+        onExternalRemoveConsumed()
     }
 
     // --- List ---

@@ -144,6 +144,9 @@ fun TabScreenContent(
                             tabsViewModel.onThreadTabLongPressed(tab, bounds)
                         },
                         onClearNewResCount = { tabsViewModel.clearNewResCount(it) },
+                        pendingCloseBoardTab = uiState.pendingCloseBoardTab,
+                        pendingCloseThreadTab = uiState.pendingCloseThreadTab,
+                        onCloseRequestConsumed = { tabsViewModel.consumePendingCloseRequest() },
                         tabsViewModel = tabsViewModel,
                     )
                 }
@@ -174,7 +177,7 @@ fun TabScreenContent(
                 onCancelSelection = { tabsViewModel.cancelTabSelection() },
                 onDetailClick = { tabsViewModel.openSelectedTabDetail() },
                 onPinClick = { tabsViewModel.toggleSelectedTabPin() },
-                onCloseClick = { tabsViewModel.closeSelectedTab() },
+                onCloseClick = { tabsViewModel.requestCloseSelectedTab() },
             )
 
             // --- Bottom sheets ---

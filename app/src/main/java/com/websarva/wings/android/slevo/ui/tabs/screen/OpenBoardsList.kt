@@ -33,6 +33,8 @@ fun OpenBoardsList(
     closeDrawer: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     selectedBoardTab: BoardTabInfo? = null,
+    pendingCloseBoardTab: BoardTabInfo? = null,
+    onCloseRequestConsumed: () -> Unit = {},
     onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit = { _, _ -> },
     tabsViewModel: TabsViewModel? = null,
 ) {
@@ -44,6 +46,8 @@ fun OpenBoardsList(
         tabItems = openTabs,
         keyOf = { it.boardUrl },
         contentPadding = contentPadding,
+        externalRemoveKey = pendingCloseBoardTab?.boardUrl,
+        onExternalRemoveConsumed = onCloseRequestConsumed,
         onRemoveConfirmed = { onCloseClick(it) },
     ) { tab, isRemoving, requestRemove ->
         OpenBoardCard(

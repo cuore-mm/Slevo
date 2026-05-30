@@ -79,6 +79,8 @@ class TabsViewModel @Inject constructor(
     private val detailThreadTabState = MutableStateFlow<ThreadTabInfo?>(null)
     private val showBoardInfoBottomSheetState = MutableStateFlow(false)
     private val showThreadInfoBottomSheetState = MutableStateFlow(false)
+    private val pendingCloseBoardTabState = MutableStateFlow<BoardTabInfo?>(null)
+    private val pendingCloseThreadTabState = MutableStateFlow<ThreadTabInfo?>(null)
 
     /**
      * URL入力ダイアログの検証・表示・エラー状態をまとめる内部状態。
@@ -123,7 +125,9 @@ class TabsViewModel @Inject constructor(
         urlDialogUiState,
         tabSelectionUiState,
         tabDetailState,
-    ) { boardState, threadState, urlState, selectionState, detailState ->
+        pendingCloseBoardTabState,
+        pendingCloseThreadTabState,
+    ) { boardState, threadState, urlState, selectionState, detailState, pendingBoardClose, pendingThreadClose ->
         TabsUiState(
             openThreadTabs = threadState.openThreadTabs,
             openBoardTabs = boardState.openBoardTabs,
@@ -138,6 +142,8 @@ class TabsViewModel @Inject constructor(
             selectedBoardTab = selectionState.selectedBoardTab,
             selectedThreadTab = selectionState.selectedThreadTab,
             selectedTabBounds = selectionState.selectedTabBounds,
+            pendingCloseBoardTab = pendingBoardClose,
+            pendingCloseThreadTab = pendingThreadClose,
             detailBoardTab = detailState.detailBoardTab,
             detailThreadTab = detailState.detailThreadTab,
             showBoardInfoBottomSheet = detailState.showBoardInfoBottomSheet,
@@ -311,14 +317,22 @@ class TabsViewModel @Inject constructor(
      * 選択中のタブを閉じる。
      * 選択解除後にタブを削除する。
      */
-    fun closeSelectedTab() {
+    fun requestCloseSelectedTab() {
         tabSelectionState.value.selectedBoardTab?.let { tab ->
-            boardTabsCoordinator.closeBoardTab(tab)
+            pendingCloseBoardTabState.value = tab
         }
         tabSelectionState.value.selectedThreadTab?.let { tab ->
-            threadTabsCoordinator.closeThreadTab(tab)
+            pendingCloseThreadTabState.value = tab
         }
         cancelTabSelection()
+    }
+
+    /**
+     * 長押しメニューからの削除要求を消費済みにする。
+     */
+    fun consumePendingCloseRequest() {
+        pendingCloseBoardTabState.value = null
+        pendingCloseThreadTabState.value = null
     }
 
     /**

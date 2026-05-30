@@ -25,6 +25,8 @@ data class TabsUiState(
     val selectedBoardTab: BoardTabInfo? = null,
     val selectedThreadTab: ThreadTabInfo? = null,
     val selectedTabBounds: IntRect? = null,
+    val pendingCloseBoardTab: BoardTabInfo? = null,
+    val pendingCloseThreadTab: ThreadTabInfo? = null,
     val detailBoardTab: BoardTabInfo? = null,
     val detailThreadTab: ThreadTabInfo? = null,
     val showBoardInfoBottomSheet: Boolean = false,
