@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.data.repository
 
+import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -55,5 +56,25 @@ class BoardRepositoryArchiveChunkTest {
 
         // --- Assert ---
         assertEquals(listOf("100", "300"), removed)
+    }
+
+    /**
+     * fetch metadata 未設定時は勢いが 0.0 になることを確認する。
+     */
+    @Test
+    fun resolveThreadDerivedInfo_returnsZeroMomentumWhenNoFetchTime() {
+        // --- Arrange ---
+        val threadKey = "1700000000"
+
+        // --- Act ---
+        val derived = resolveThreadDerivedInfo(
+            threadKey = threadKey,
+            resCount = 150,
+            nowSeconds = 0L,
+        )
+
+        // --- Assert ---
+        assertEquals(0.0, derived.momentum, 0.0001)
+        assertEquals(ThreadInfoDerivedCalculator.calculateDate(threadKey), derived.date)
     }
 }
