@@ -1,7 +1,9 @@
 package com.websarva.wings.android.slevo.ui.tabs.component
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,11 +39,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -49,8 +53,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 import com.websarva.wings.android.slevo.R
 import java.net.URI
 
@@ -93,6 +100,8 @@ internal fun TabListCard(
     bodyTitle: String,
     bodyMaxLines: Int = 2,
     onCloseClick: () -> Unit,
+    onSwipeDelete: (() -> Unit)? = null,
+    isSwipeDeleteEnabled: Boolean = true,
 ) {
     // --- Selection animation ---
     // 長押し中は透明化したまま拡大状態を保持し、解除時は元カードで縮小復帰を行う。
@@ -102,23 +111,61 @@ internal fun TabListCard(
         label = "tabSelectionScale",
     )
 
-    Card(
+    // --- Swipe-to-delete state ---
+    val canSwipe = isSwipeDeleteEnabled && !isPinned && onSwipeDelete != null
+    val offsetX = remember { Animatable(0f) }
+    val coroutineScope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val swipeThreshold = with(density) { 100.dp.toPx() }
+    val maxOffset = with(density) { 120.dp.toPx() }
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = selectionScale
-                scaleY = selectionScale
-                alpha = if (isHiddenForSelection) 0f else 1f
-                transformOrigin = TransformOrigin.Center
-            },
-        shape = MaterialTheme.shapes.largeIncreased,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 1.dp,
-        ),
     ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(offsetX.value.toInt(), 0) }
+                .then(
+                    if (canSwipe) {
+                        Modifier.pointerInput(Unit) {
+                            detectHorizontalDragGestures(
+                                onDragEnd = {
+                                    if (abs(offsetX.value) > swipeThreshold) {
+                                        onSwipeDelete!!()
+                                    } else {
+                                        coroutineScope.launch {
+                                            offsetX.animateTo(0f)
+                                        }
+                                    }
+                                },
+                                onHorizontalDrag = { change, dragAmount ->
+                                    change.consume()
+                                    coroutineScope.launch {
+                                        val newOffset = (offsetX.value + dragAmount)
+                                            .coerceIn(-maxOffset, maxOffset)
+                                        offsetX.snapTo(newOffset)
+                                    }
+                                }
+                            )
+                        }
+                    } else Modifier
+                )
+                .graphicsLayer {
+                    scaleX = selectionScale
+                    scaleY = selectionScale
+                    alpha = if (isHiddenForSelection) 0f else 1f
+                    transformOrigin = TransformOrigin.Center
+                },
+            shape = MaterialTheme.shapes.largeIncreased,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 1.dp,
+            ),
+        ) {
         val layoutCoordinates = remember { mutableStateOf<LayoutCoordinates?>(null) }
         Row(
             modifier = Modifier
@@ -294,9 +341,9 @@ internal fun TabListCard(
         }
     }
 }
+}
 
 @Preview(showBackground = true)
-@Composable
 fun TabListCardPreview() {
     TabListCard(
         modifier = Modifier.padding(12.dp),
