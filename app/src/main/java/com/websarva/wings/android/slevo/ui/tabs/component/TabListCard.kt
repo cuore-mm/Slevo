@@ -38,12 +38,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -118,17 +120,17 @@ internal fun TabListCard(
     val canSwipe = isSwipeDeleteEnabled && !isPinned && onSwipeDelete != null && !isRemoving
     val offsetX = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
-    var cardWidthPx by remember { mutableStateOf(0f) }
+    var cardWidthPx by remember { mutableFloatStateOf(0f) }
     var isFlyingOut by remember { mutableStateOf(false) }
     val velocityTracker = remember { VelocityTracker() }
     val density = LocalDensity.current
-    // 距離による削除しきい値はカード幅の35%。
+    // 距離による削除しきい値はカード幅の55%。
     val swipeThreshold = remember(cardWidthPx) {
-        if (cardWidthPx > 0f) cardWidthPx * 0.35f else with(density) { 100.dp.toPx() }
+        if (cardWidthPx > 0f) cardWidthPx * 0.55f else with(density) { 100.dp.toPx() }
     }
-    // 速度判定のしきい値は 700dp/s、最小移動距離は 20dp。
-    val velocityThreshold = with(density) { 700.dp.toPx() }
-    val minVelocityDistance = with(density) { 20.dp.toPx() }
+    // 速度判定のしきい値は 800dp/s、最小移動距離は 24dp。
+    val velocityThreshold = with(density) { 800.dp.toPx() }
+    val minVelocityDistance = with(density) { 24.dp.toPx() }
 
     Box(
         modifier = modifier
@@ -171,13 +173,15 @@ internal fun TabListCard(
                                 },
                                 onHorizontalDrag = { change, dragAmount ->
                                     change.consume()
+
+                                    val newOffset = (offsetX.value + dragAmount)
+                                        .coerceIn(-cardWidthPx, 0f)
                                     velocityTracker.addPosition(
-                                        change.uptimeMillis,
-                                        change.position
+                                        timeMillis = change.uptimeMillis,
+                                        position = Offset(newOffset, 0f),
                                     )
+
                                     coroutineScope.launch {
-                                        val newOffset = (offsetX.value + dragAmount)
-                                            .coerceIn(-cardWidthPx, 0f)
                                         offsetX.snapTo(newOffset)
                                     }
                                 }
