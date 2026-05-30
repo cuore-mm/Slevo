@@ -1059,12 +1059,13 @@ class ThreadViewModel @AssistedInject constructor(
      * NG投稿や範囲外番号は除外する。
      */
     fun addPopupForReplyFrom(baseOffset: IntOffset, replyNumbers: List<Int>) {
-        if (uiState.value.posts == null) {
+        val posts = uiState.value.posts ?: run {
             // 投稿が未取得の場合は追加しない。
             return
         }
         val ngNumbers = uiState.value.ngPostNumbers
         val targetNumbers = replyNumbers.filterNot { it in ngNumbers }
+            .filter { it in 1..posts.size }
         val rootNumbers = targetNumbers.map { num ->
             uiState.value.treeRootMap[num] ?: num
         }
