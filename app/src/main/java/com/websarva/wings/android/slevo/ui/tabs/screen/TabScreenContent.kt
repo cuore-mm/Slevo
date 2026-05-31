@@ -236,8 +236,8 @@ fun TabScreenContent(
             } else {
                 TabListSearchButton(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = innerPadding.calculateTopPadding(), end = 8.dp),
+                        .align(Alignment.TopCenter)
+                        .padding(top = innerPadding.calculateTopPadding()),
                     hazeState = hazeState,
                     onClick = { enterSearchMode() },
                 )

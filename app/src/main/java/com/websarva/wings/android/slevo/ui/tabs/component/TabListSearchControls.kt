@@ -68,6 +68,7 @@ fun TabListSearchButton(
 ) {
     Box(
         modifier = modifier
+            .fillMaxWidth()
             .hazeEffect(state = hazeState, style = HazeMaterials.ultraThin()) {
                 progressive = HazeProgressive.verticalGradient(
                     startIntensity = 0.45f,
@@ -76,7 +77,7 @@ fun TabListSearchButton(
                 )
             }
             .padding(horizontal = 8.dp, vertical = 8.dp),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.CenterEnd,
     ) {
         FeedbackTooltipIconButton(
             tooltipText = stringResource(R.string.search),
