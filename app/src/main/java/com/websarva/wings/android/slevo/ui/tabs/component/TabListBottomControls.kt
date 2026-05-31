@@ -43,6 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -88,7 +89,6 @@ internal fun TabListBottomControls(
     val isBoardPage = pagerState.currentPage == 0
     val coroutineScope = rememberCoroutineScope()
     val indicatorProgress = refreshProgress?.progress ?: 0f
-    val showProgress = isRefreshing
 
     val tapGuardInteractionSource = remember { MutableInteractionSource() }
 
@@ -133,7 +133,7 @@ internal fun TabListBottomControls(
                 onCancelRefreshClick = onCancelRefreshClick,
             )
             TabListRefreshProgressSlot(
-                isVisible = showProgress,
+                isVisible = isRefreshing,
                 progress = indicatorProgress,
             )
         }
@@ -157,6 +157,8 @@ private fun TabListInlineSection(
     // --- Refresh button state ---
     val isRefreshingAnyPage = isRefreshing
     val refreshIcon = if (isRefreshingAnyPage) Icons.Default.Close else Icons.Default.Refresh
+    val refreshColor =
+        if (isRefreshingAnyPage) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
     val refreshDescription = if (isRefreshingAnyPage) {
         stringResource(R.string.cancel)
     } else {
@@ -186,6 +188,7 @@ private fun TabListInlineSection(
                 imageVector = refreshIcon,
                 contentDescription = refreshDescription,
                 onClick = refreshAction,
+                tint = refreshColor,
             )
         }
     }
@@ -317,6 +320,7 @@ private fun TabActionButton(
     imageVector: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
+    tint: Color = MaterialTheme.colorScheme.primary,
 ) {
     Surface(
         onClick = onClick,
@@ -330,7 +334,7 @@ private fun TabActionButton(
                 modifier = Modifier.size(ControlsDefaults.actionIconSize),
                 imageVector = imageVector,
                 contentDescription = contentDescription,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = tint,
             )
         }
     }
