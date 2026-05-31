@@ -136,7 +136,7 @@ internal fun TabListCard(
     bodyMaxLines: Int = 2,
     onCloseClick: () -> Unit,
     onSwipeDelete: (() -> Unit)? = null,
-    isSwipeDeleteEnabled: Boolean = true,
+    isSwipeDeleteEnabled: Boolean = false,
 ) {
     // --- Selection animation ---
     // 長押し中は透明化したまま拡大状態を保持し、解除時は元カードで縮小復帰を行う。
@@ -147,7 +147,7 @@ internal fun TabListCard(
     )
 
     // --- Swipe-to-delete state ---
-    val canHandleSwipeGesture = isSwipeDeleteEnabled && !isRemoving
+    val canHandleSwipeGesture = isSwipeDeleteEnabled && !isRemoving && onSwipeDelete != null
     val canDeleteBySwipe = canHandleSwipeGesture && !isPinned && onSwipeDelete != null
     val offsetX = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
