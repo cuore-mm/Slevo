@@ -47,3 +47,12 @@
 - [x] 7.4 距離判定または速度判定のいずれかを満たした場合のみ、既存の左方向専用退出アニメーションを開始する。
 - [x] 7.5 左から右方向、固定タブ、長押し選択中、退出アニメーション中では速度判定でも削除されないことを維持する。
 - [x] 7.6 CI でビルド・テストをパスする。
+
+## 8. スワイプと縦スクロールの競合を DragMode で解決する
+
+- [ ] 8.1 `TabListCard` の gesture 処理を `detectHorizontalDragGestures` から自前の方向判定へ置き換え、`DragMode` enum（Undecided / HorizontalSwipe / VerticalScroll）を導入する。
+- [ ] 8.2 未確定状態（Undecided）では touch slop を超えた移動量で方向を判定し、横移動が優勢な場合に `HorizontalSwipe` を確定する。
+- [ ] 8.3 `HorizontalSwipe` に確定したら以降の pointer イベントを consume し、`LazyColumn` への縦スクロール伝播を阻止する。
+- [ ] 8.4 `VerticalScroll` に確定した場合は `offsetX` を 0 にアニメーションで戻し、縦スクロールは `LazyColumn` へ任せる。
+- [ ] 8.5 速度判定・距離判定・専用退出アニメーション・固定タブ/長押し選択中/退出アニメーション中の無効化は既存仕様を維持する。
+- [ ] 8.6 CI でビルド・テストをパスする。

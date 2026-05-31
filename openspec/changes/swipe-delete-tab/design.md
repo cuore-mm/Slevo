@@ -68,3 +68,11 @@ ViewModel に「スワイプ削除専用」の新状態を増やす案もある�
 - 固定タブで反応がないことが分かりにくい可能性がある → 固定済みタブは既存の固定アイコン表示を維持し、スワイプ削除の対象外であることを視覚的に示す。
 - 速度判定により意図しない高速な短距離操作が削除になる可能性がある → 速度しきい値に加えて 20dp 相当の最小移動距離を要求し、固定タブ・長押し選択中・退出アニメーション中の無効化を維持する。
 - `HorizontalPager` を残すことでページ構造は維持される → 今回は挙動変更を最小化するため許容し、将来の責務整理で `when` 表示へ置き換える余地を残す。
+
+### Decision 9: 横スワイプと縦スクロールの競合は `DragMode` で方向ロックする
+
+`detectHorizontalDragGestures` は親の `LazyColumn` 縦スクロールとの競合をうまく裁けない。指を置いて少し横に動かした後、上下に動かすと、カードが横に offset されたままリストが縦にスクロールしてしまう。
+
+これを解決するため、`DragMode` enum（`Undecided`、`HorizontalSwipe`、`VerticalScroll`）を導入し、pointer input を低レベルで自前判定する。`Undecided` 状態では touch slop を超えた移動量で方向を判定し、横移動が優勢なら `HorizontalSwipe` を確定してイベントを consume し、縦移動が優勢なら `VerticalScroll` を確定して `offsetX` を 0 に戻し、イベントは consume せず `LazyColumn` に任せる。
+
+この方式により、横スワイプ中は縦スクロールが起きず、縦スクロール中はカードの横 offset が残らない自然な操作感を実現する。速度判定・距離判定・専用退出アニメーションは `HorizontalSwipe` 確定後に既存の `VelocityTracker` ロジックをそのまま適用する。
