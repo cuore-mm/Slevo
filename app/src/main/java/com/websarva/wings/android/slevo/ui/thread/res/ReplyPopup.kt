@@ -96,7 +96,6 @@ private data class PopupRow(
     val postNumber: Int,
     val post: ThreadPostUiModel,
     val indentWidth: Dp,
-    val nextIndentWidth: Dp,
 )
 
 /**
@@ -568,7 +567,6 @@ private fun PopupPostLazyColumn(
             postNumber = postNum,
             post = post,
             indentWidth = indentWidths.getOrElse(i) { 0.dp },
-            nextIndentWidth = indentWidths.getOrElse(i + 1) { 0.dp },
         )
     }
 
@@ -580,7 +578,6 @@ private fun PopupPostLazyColumn(
             val postNum = row.postNumber
             val postIndex = postNum - 1
             val indentWidth = row.indentWidth
-            val nextIndentWidth = row.nextIndentWidth
             var postOffset by remember { mutableStateOf(IntOffset.Zero) }
             var isPostOffsetMeasured by remember { mutableStateOf(false) }
             val baseOffset = if (isPostOffsetMeasured) {
@@ -637,8 +634,9 @@ private fun PopupPostLazyColumn(
                 onContentClick = { onContentClick?.invoke(postNum, baseOffset) },
             )
             if (i < rows.size - 1) {
+                val nextVisibleIndentWidth = rows[i + 1].indentWidth
                 HorizontalDivider(
-                    modifier = Modifier.padding(start = minOf(indentWidth, nextIndentWidth))
+                    modifier = Modifier.padding(start = minOf(indentWidth, nextVisibleIndentWidth))
                 )
             }
         }
