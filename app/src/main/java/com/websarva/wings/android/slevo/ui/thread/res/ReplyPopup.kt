@@ -86,6 +86,19 @@ private data class PopupPlacement(
 )
 
 /**
+ * ポップアップ内で描画する1行の表示データ。
+ *
+ * [originalIndex] はポップアップ作成時の投稿番号リスト内の位置で、
+ * ツリーインデント情報と整合させるために保持する。
+ */
+private data class PopupRow(
+    val originalIndex: Int,
+    val postNumber: Int,
+    val post: ThreadPostUiModel,
+    val indentWidth: Dp,
+)
+
+/**
  * 返信ポップアップの表示と操作イベントを管理する。
  *
  * 投稿の長押しメニューやダイアログ、画像読み込みイベントは呼び出し側へ委譲する。
@@ -541,18 +554,30 @@ private fun PopupPostLazyColumn(
             )
         }
     } else {
-        List(info.posts.size) { 0.dp }
+        List(info.postNumbers.size) { 0.dp }
+    }
+
+    // 最新の posts から表示可能な行を解決する。
+    // 元のポップアップ内インデックスを保持して indentWidths と整合させる。
+    val rows = info.postNumbers.mapIndexedNotNull { i, postNum ->
+        if (postNum in ngPostNumbers) return@mapIndexedNotNull null
+        val post = posts.getOrNull(postNum - 1) ?: return@mapIndexedNotNull null
+        PopupRow(
+            originalIndex = i,
+            postNumber = postNum,
+            post = post,
+            indentWidth = indentWidths.getOrElse(i) { 0.dp },
+        )
     }
 
     LazyColumn(
         modifier = Modifier.heightIn(max = maxHeight),
         state = listState,
     ) {
-        itemsIndexed(info.posts) { i, p ->
-            val postIndex = posts.indexOf(p)
-            val postNum = postIndex + 1
-            val indentWidth = indentWidths.getOrElse(i) { 0.dp }
-            val nextIndentWidth = indentWidths.getOrElse(i + 1) { 0.dp }
+        itemsIndexed(rows) { i, row ->
+            val postNum = row.postNumber
+            val postIndex = postNum - 1
+            val indentWidth = row.indentWidth
             var postOffset by remember { mutableStateOf(IntOffset.Zero) }
             var isPostOffsetMeasured by remember { mutableStateOf(false) }
             val baseOffset = if (isPostOffsetMeasured) {
@@ -577,10 +602,10 @@ private fun PopupPostLazyColumn(
                     postOffset = IntOffset(position.x.toInt(), position.y.toInt())
                     isPostOffsetMeasured = true
                 },
-                post = p,
+                post = row.post,
                 postNum = postNum,
-                idIndex = idIndexList[postIndex],
-                idTotal = if (p.header.id.isBlank()) 1 else idCountMap[p.header.id] ?: 1,
+                idIndex = idIndexList.getOrElse(postIndex) { 1 },
+                idTotal = if (row.post.header.id.isBlank()) 1 else idCountMap[row.post.header.id] ?: 1,
                 headerTextScale = headerTextScale,
                 bodyTextScale = bodyTextScale,
                 lineHeight = lineHeight,
@@ -608,9 +633,10 @@ private fun PopupPostLazyColumn(
                 onIdClick = { id -> onIdClick(id, baseOffset) },
                 onContentClick = { onContentClick?.invoke(postNum, baseOffset) },
             )
-            if (i < info.posts.size - 1) {
+            if (i < rows.size - 1) {
+                val nextVisibleIndentWidth = rows[i + 1].indentWidth
                 HorizontalDivider(
-                    modifier = Modifier.padding(start = minOf(indentWidth, nextIndentWidth))
+                    modifier = Modifier.padding(start = minOf(indentWidth, nextVisibleIndentWidth))
                 )
             }
         }
@@ -829,7 +855,7 @@ fun ReplyPopupPreview() {
     val popupStack = mutableStateListOf(
         PopupInfo(
             popupId = 1L,
-            posts = dummyPosts,
+            postNumbers = listOf(1, 2),
             offset = IntOffset(100, 400)
         )
     )

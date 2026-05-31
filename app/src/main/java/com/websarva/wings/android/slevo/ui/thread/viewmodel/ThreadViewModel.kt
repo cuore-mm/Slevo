@@ -512,14 +512,19 @@ class ThreadViewModel @AssistedInject constructor(
      */
     private fun applyLoadSuccess(derived: ThreadLoadDerived) {
         val activeImageUrls = deriveActiveImageUrls(derived.uiPosts)
-        _uiState.update {
-            it.copy(
+        _uiState.update { state ->
+            val prunedPopupStack = prunePopupStackWithoutRenderablePosts(
+                popupStack = state.popupStack,
+                posts = derived.uiPosts,
+                ngPostNumbers = state.ngPostNumbers,
+            )
+            val nextState = state.copy(
                 posts = derived.uiPosts,
                 isLoading = false,
                 loadProgress = 1f,
                 loadingSource = ThreadLoadingSource.NONE,
-                threadInfo = it.threadInfo.copy(
-                    title = derived.threadTitle ?: it.threadInfo.title,
+                threadInfo = state.threadInfo.copy(
+                    title = derived.threadTitle ?: state.threadInfo.title,
                     resCount = derived.resCount,
                     date = derived.threadDate,
                     momentum = derived.momentum
@@ -530,13 +535,15 @@ class ThreadViewModel @AssistedInject constructor(
                 treeOrder = derived.treeOrder,
                 treeDepthMap = derived.treeDepthMap,
                 treeRootMap = derived.treeRootMap,
-                imageLoadFailureByUrl = it.imageLoadFailureByUrl.filterKeys { url ->
+                popupStack = prunedPopupStack,
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl.filterKeys { url ->
                     url in activeImageUrls
                 },
-                imageLoadingUrls = it.imageLoadingUrls.filter { url ->
+                imageLoadingUrls = state.imageLoadingUrls.filter { url ->
                     url in activeImageUrls
                 }.toSet(),
             )
+            withUpdatedTabSwipeState(nextState)
         }
     }
 
@@ -782,8 +789,40 @@ class ThreadViewModel @AssistedInject constructor(
             }
             if (isNg) idx + 1 else null
         }.toSet()
-        _uiState.update { it.copy(ngPostNumbers = ngNumbers) }
+        _uiState.update { state ->
+            val prunedPopupStack = prunePopupStackWithoutRenderablePosts(
+                popupStack = state.popupStack,
+                posts = posts,
+                ngPostNumbers = ngNumbers,
+            )
+            val nextState = state.copy(
+                ngPostNumbers = ngNumbers,
+                popupStack = prunedPopupStack,
+            )
+            withUpdatedTabSwipeState(nextState)
+        }
         updateDisplayPosts()
+    }
+
+    /**
+     * 表示不能になったポップアップをスタックから除外する。
+     *
+     * 投稿番号が最新投稿範囲外、または NG 指定で描画不可な場合は除外し、
+     * 1 件も描画可能な投稿番号を持たないポップアップは残さない。
+     */
+    private fun prunePopupStackWithoutRenderablePosts(
+        popupStack: List<PopupInfo>,
+        posts: List<ThreadPostUiModel>,
+        ngPostNumbers: Set<Int>,
+    ): List<PopupInfo> {
+        if (popupStack.isEmpty()) {
+            return popupStack
+        }
+        return popupStack.filter { info ->
+            info.postNumbers.any { number ->
+                number in 1..posts.size && number !in ngPostNumbers
+            }
+        }
     }
 
     /**
@@ -1059,24 +1098,25 @@ class ThreadViewModel @AssistedInject constructor(
      * NG投稿や範囲外番号は除外する。
      */
     fun addPopupForReplyFrom(baseOffset: IntOffset, replyNumbers: List<Int>) {
-        val posts = uiState.value.posts ?: run {
+        val state = uiState.value
+        val posts = state.posts ?: run {
             // 投稿が未取得の場合は追加しない。
             return
         }
-        val ngNumbers = uiState.value.ngPostNumbers
+        val ngNumbers = state.ngPostNumbers
         val targetNumbers = replyNumbers.filterNot { it in ngNumbers }
-        val targets = targetNumbers.mapNotNull { num -> posts.getOrNull(num - 1) }
+            .filter { it in 1..posts.size }
         val rootNumbers = targetNumbers.map { num ->
-            uiState.value.treeRootMap[num] ?: num
+            state.treeRootMap[num] ?: num
         }
-        if (targets.isEmpty()) {
+        if (targetNumbers.isEmpty()) {
             // 有効な対象がない場合は追加しない。
             return
         }
         appendPopup(
             PopupInfo(
                 popupId = nextPopupId(),
-                posts = targets,
+                postNumbers = targetNumbers,
                 offset = baseOffset,
                 rootNumbers = rootNumbers,
             )
@@ -1101,7 +1141,7 @@ class ThreadViewModel @AssistedInject constructor(
         appendPopup(
             PopupInfo(
                 popupId = nextPopupId(),
-                posts = listOf(posts[postNumber - 1]),
+                postNumbers = listOf(postNumber),
                 offset = baseOffset,
                 rootNumbers = listOf(postNumber),
             )
@@ -1123,18 +1163,17 @@ class ThreadViewModel @AssistedInject constructor(
             val num = idx + 1
             if (post.header.id == id && num !in ngNumbers) num else null
         }
-        val targets = targetNumbers.mapNotNull { num -> posts.getOrNull(num - 1) }
         val rootNumbers = targetNumbers.map { num ->
             uiState.value.treeRootMap[num] ?: num
         }
-        if (targets.isEmpty()) {
+        if (targetNumbers.isEmpty()) {
             // 有効な対象がない場合は追加しない。
             return
         }
         appendPopup(
             PopupInfo(
                 popupId = nextPopupId(),
-                posts = targets,
+                postNumbers = targetNumbers,
                 offset = baseOffset,
                 rootNumbers = rootNumbers,
             )
@@ -1164,20 +1203,20 @@ class ThreadViewModel @AssistedInject constructor(
         }
 
         // --- Build targets ---
-        val targets = mutableListOf<ThreadPostUiModel>()
+        val postNumbers = mutableListOf<Int>()
         val indentLevels = mutableListOf<Int>()
         val rootNumbers = mutableListOf<Int>()
         selection.numbers.zip(selection.indentLevels).forEach { (num, depth) ->
             if (num in state.ngPostNumbers) {
                 return@forEach
             }
-            val post = posts.getOrNull(num - 1) ?: return@forEach
+            posts.getOrNull(num - 1) ?: return@forEach
             val rootNumber = state.treeRootMap[num] ?: num
-            targets.add(post)
+            postNumbers.add(num)
             indentLevels.add(depth)
             rootNumbers.add(rootNumber)
         }
-        if (targets.size <= 1) {
+        if (postNumbers.size <= 1) {
             // NG除外後に単独になった場合は追加しない。
             return
         }
@@ -1186,7 +1225,7 @@ class ThreadViewModel @AssistedInject constructor(
         appendPopup(
             PopupInfo(
                 popupId = nextPopupId(),
-                posts = targets,
+                postNumbers = postNumbers,
                 offset = baseOffset,
                 indentLevels = indentLevels,
                 rootNumbers = rootNumbers,
@@ -1449,7 +1488,7 @@ internal fun isSamePopupContent(
     left: PopupInfo,
     right: PopupInfo,
 ): Boolean {
-    return left.posts == right.posts &&
+    return left.postNumbers == right.postNumbers &&
             left.indentLevels == right.indentLevels &&
             left.rootNumbers == right.rootNumbers
 }
