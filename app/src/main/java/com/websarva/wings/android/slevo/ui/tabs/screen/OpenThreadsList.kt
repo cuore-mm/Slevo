@@ -40,6 +40,7 @@ fun OpenThreadsList(
     onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit = { _, _ -> },
     onClearNewResCount: (ThreadId) -> Unit = {},
     tabsViewModel: TabsViewModel? = null,
+    isInLongPressSelectionMode: Boolean = false,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -84,10 +85,16 @@ fun OpenThreadsList(
                 if (isRemoving) return@OpenThreadCard
                 onThreadTabLongPressed(tab, bounds)
             },
+            isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isRemoving,
+            onSwipeDelete = {
+                if (isRemoving) return@OpenThreadCard
+                requestRemove()
+            },
             onCloseClick = {
                 if (isRemoving) return@OpenThreadCard
                 requestRemove()
             },
+            isRemoving = isRemoving,
         )
     }
 }
@@ -103,6 +110,9 @@ private fun OpenThreadCard(
     onClick: () -> Unit,
     onLongPress: (IntRect) -> Unit,
     onCloseClick: () -> Unit,
+    onSwipeDelete: (() -> Unit)? = null,
+    isSwipeDeleteEnabled: Boolean = true,
+    isRemoving: Boolean = false,
 ) {
     // --- Card highlight ---
     val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
@@ -114,6 +124,7 @@ private fun OpenThreadCard(
         onLongPress = onLongPress,
         isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,
+        isRemoving = isRemoving,
         headerTitle = tab.boardName,
         headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(
             resCount = tab.resCount,
@@ -125,6 +136,8 @@ private fun OpenThreadCard(
             // タブクローズ操作は一覧遷移より優先して処理する。
             onCloseClick()
         },
+        onSwipeDelete = onSwipeDelete,
+        isSwipeDeleteEnabled = isSwipeDeleteEnabled,
     )
 }
 

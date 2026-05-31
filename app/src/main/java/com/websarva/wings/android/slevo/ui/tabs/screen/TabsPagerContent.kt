@@ -38,10 +38,12 @@ fun TabsPagerContent(
     onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit,
     onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit,
     onClearNewResCount: (ThreadId) -> Unit,
+    isInLongPressSelectionMode: Boolean = false,
 ) {
     HorizontalPager(
         state = pagerState,
         modifier = modifier.fillMaxSize(),
+        userScrollEnabled = false,
     ) { page ->
         when (page) {
             0 -> OpenBoardsList(
@@ -55,6 +57,7 @@ fun TabsPagerContent(
                 onCloseRequestConsumed = onCloseRequestConsumed,
                 onBoardTabLongPressed = onBoardTabLongPressed,
                 tabsViewModel = tabsViewModel,
+                isInLongPressSelectionMode = isInLongPressSelectionMode,
             )
 
             else -> OpenThreadsList(
@@ -70,6 +73,7 @@ fun TabsPagerContent(
                 onThreadTabLongPressed = onThreadTabLongPressed,
                 onClearNewResCount = onClearNewResCount,
                 tabsViewModel = tabsViewModel,
+                isInLongPressSelectionMode = isInLongPressSelectionMode,
             )
         }
     }

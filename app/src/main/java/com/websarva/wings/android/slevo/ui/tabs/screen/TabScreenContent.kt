@@ -148,6 +148,7 @@ fun TabScreenContent(
                         pendingCloseThreadTab = uiState.pendingCloseThreadTab,
                         onCloseRequestConsumed = { tabsViewModel.consumePendingCloseRequest() },
                         tabsViewModel = tabsViewModel,
+                        isInLongPressSelectionMode = uiState.isInLongPressSelectionMode,
                     )
                 }
             }

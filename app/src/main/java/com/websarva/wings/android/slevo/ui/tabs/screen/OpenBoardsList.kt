@@ -37,6 +37,7 @@ fun OpenBoardsList(
     onCloseRequestConsumed: () -> Unit = {},
     onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit = { _, _ -> },
     tabsViewModel: TabsViewModel? = null,
+    isInLongPressSelectionMode: Boolean = false,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -76,10 +77,16 @@ fun OpenBoardsList(
                 if (isRemoving) return@OpenBoardCard
                 onBoardTabLongPressed(tab, bounds)
             },
+            isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isRemoving,
+            onSwipeDelete = {
+                if (isRemoving) return@OpenBoardCard
+                requestRemove()
+            },
             onCloseClick = {
                 if (isRemoving) return@OpenBoardCard
                 requestRemove()
             },
+            isRemoving = isRemoving,
         )
     }
 }
@@ -94,6 +101,9 @@ private fun OpenBoardCard(
     onClick: () -> Unit,
     onLongPress: (IntRect) -> Unit,
     onCloseClick: () -> Unit,
+    onSwipeDelete: (() -> Unit)? = null,
+    isSwipeDeleteEnabled: Boolean = true,
+    isRemoving: Boolean = false,
 ) {
     // --- Card highlight ---
     val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
@@ -106,6 +116,7 @@ private fun OpenBoardCard(
         onLongPress = onLongPress,
         isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,
+        isRemoving = isRemoving,
         headerTitle = serviceName,
         bodyTitle = tab.boardName,
         bodyMaxLines = 1,
@@ -113,6 +124,8 @@ private fun OpenBoardCard(
             // タブクローズ操作は一覧遷移より優先して処理する。
             onCloseClick()
         },
+        onSwipeDelete = onSwipeDelete,
+        isSwipeDeleteEnabled = isSwipeDeleteEnabled,
     )
 }
 
