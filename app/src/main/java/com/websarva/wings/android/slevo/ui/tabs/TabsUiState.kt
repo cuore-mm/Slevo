@@ -22,6 +22,8 @@ data class TabsUiState(
     val isUrlValidating: Boolean = false,
     val showUrlDialog: Boolean = false,
     val urlErrorMessage: String? = null,
+    val isSearchMode: Boolean = false,
+    val searchQuery: String = "",
     val selectedBoardTab: BoardTabInfo? = null,
     val selectedThreadTab: ThreadTabInfo? = null,
     val selectedTabBounds: IntRect? = null,

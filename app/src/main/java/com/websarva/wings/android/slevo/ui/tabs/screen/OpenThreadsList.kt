@@ -2,6 +2,8 @@ package com.websarva.wings.android.slevo.ui.tabs.screen
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -33,6 +35,7 @@ fun OpenThreadsList(
     navController: NavHostController,
     closeDrawer: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    listState: LazyListState = rememberLazyListState(),
     newResCounts: Map<String, Int> = emptyMap(),
     selectedThreadTab: ThreadTabInfo? = null,
     pendingCloseThreadTab: ThreadTabInfo? = null,
@@ -50,6 +53,7 @@ fun OpenThreadsList(
         tabItems = openTabs,
         keyOf = { it.id.value },
         contentPadding = contentPadding,
+        listState = listState,
         externalRemoveKey = pendingCloseThreadTab?.id?.value,
         onExternalRemoveConsumed = onCloseRequestConsumed,
         onRemoveConfirmed = { onCloseClick(it) },

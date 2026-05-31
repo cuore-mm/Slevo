@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -49,12 +50,16 @@ import com.websarva.wings.android.slevo.ui.tabs.component.AnchoredTabActionMenu
 import com.websarva.wings.android.slevo.ui.tabs.component.TabHeaderTrailingContent
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListBottomControls
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
+import com.websarva.wings.android.slevo.ui.tabs.component.TabListSearchButton
+import com.websarva.wings.android.slevo.ui.tabs.component.TabListSearchTopBar
 import com.websarva.wings.android.slevo.ui.tabs.TabsUiState
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.tabs.component.extractServiceName
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.filterBoardTabsByQuery
+import com.websarva.wings.android.slevo.ui.tabs.model.filterThreadTabsByQuery
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import dev.chrisbanes.haze.HazeState
@@ -86,11 +91,56 @@ fun TabScreenContent(
 
     // --- Pager state ---
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 2 })
+    val boardListState = rememberLazyListState()
+    val threadListState = rememberLazyListState()
+    val scrollRestoreState = remember { mutableStateOf<TabSearchScrollState?>(null) }
+
+    val filteredBoardTabs = filterBoardTabsByQuery(uiState.openBoardTabs, uiState.searchQuery)
+    val filteredThreadTabs = filterThreadTabsByQuery(uiState.openThreadTabs, uiState.searchQuery)
+
+    /**
+     * 検索開始前のスクロール位置を保存して検索モードへ切り替える。
+     */
+    fun enterSearchMode() {
+        scrollRestoreState.value = TabSearchScrollState(
+            boardIndex = boardListState.firstVisibleItemIndex,
+            boardOffset = boardListState.firstVisibleItemScrollOffset,
+            threadIndex = threadListState.firstVisibleItemIndex,
+            threadOffset = threadListState.firstVisibleItemScrollOffset,
+        )
+        tabsViewModel.enterSearchMode()
+    }
+
+    /**
+     * 検索モード終了時に保存済みスクロール位置を復元する。
+     */
+    fun closeSearchModeWithRestore() {
+        tabsViewModel.closeSearchMode()
+        val restoreState = scrollRestoreState.value ?: return
+        coroutineScope.launch {
+            // --- Scroll restore ---
+            if (uiState.openBoardTabs.isNotEmpty()) {
+                val targetIndex = restoreState.boardIndex.coerceIn(0, uiState.openBoardTabs.lastIndex)
+                boardListState.scrollToItem(targetIndex, restoreState.boardOffset.coerceAtLeast(0))
+            }
+            if (uiState.openThreadTabs.isNotEmpty()) {
+                val targetIndex = restoreState.threadIndex.coerceIn(0, uiState.openThreadTabs.lastIndex)
+                threadListState.scrollToItem(targetIndex, restoreState.threadOffset.coerceAtLeast(0))
+            }
+        }
+    }
 
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { page ->
             tabsViewModel.onPageChanged()
             onPageChanged(page)
+        }
+    }
+
+    // --- Back handler for search mode ---
+    if (uiState.isSearchMode) {
+        BackHandler {
+            closeSearchModeWithRestore()
         }
     }
 
@@ -127,11 +177,13 @@ fun TabScreenContent(
                     TabsPagerContent(
                         modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
                         pagerState = pagerState,
+                        boardListState = boardListState,
+                        threadListState = threadListState,
                         navController = navController,
                         closeDrawer = closeDrawer,
                         listContentPadding = listPadding,
-                        openBoardTabs = uiState.openBoardTabs,
-                        openThreadTabs = uiState.openThreadTabs,
+                        openBoardTabs = filteredBoardTabs,
+                        openThreadTabs = filteredThreadTabs,
                         newResCounts = uiState.newResCounts,
                         selectedBoardTab = uiState.selectedBoardTab,
                         selectedThreadTab = uiState.selectedThreadTab,
@@ -161,6 +213,7 @@ fun TabScreenContent(
                 pagerState = pagerState,
                 hazeState = hazeState,
                 isRefreshing = uiState.isRefreshing,
+                isSearchMode = uiState.isSearchMode,
                 refreshProgress = uiState.refreshProgress,
                 onCreateTabClick = {
                     tabsViewModel.setUrlErrorMessage(null)
@@ -169,6 +222,26 @@ fun TabScreenContent(
                 onRefreshClick = { tabsViewModel.refreshOpenThreads() },
                 onCancelRefreshClick = { tabsViewModel.cancelRefreshOpenThreads() },
             )
+
+            if (uiState.isSearchMode) {
+                TabListSearchTopBar(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = innerPadding.calculateTopPadding()),
+                    hazeState = hazeState,
+                    searchQuery = uiState.searchQuery,
+                    onQueryChange = { tabsViewModel.updateSearchQuery(it) },
+                    onCloseSearch = { closeSearchModeWithRestore() },
+                )
+            } else {
+                TabListSearchButton(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = innerPadding.calculateTopPadding(), end = 8.dp),
+                    hazeState = hazeState,
+                    onClick = { enterSearchMode() },
+                )
+            }
 
             // --- Long-press overlay layer ---
             TabLongPressOverlayLayer(
@@ -179,6 +252,7 @@ fun TabScreenContent(
                 onDetailClick = { tabsViewModel.openSelectedTabDetail() },
                 onPinClick = { tabsViewModel.toggleSelectedTabPin() },
                 onCloseClick = { tabsViewModel.requestCloseSelectedTab() },
+                isBackHandlerEnabled = !uiState.isSearchMode,
             )
 
             // --- Bottom sheets ---
@@ -308,6 +382,7 @@ private fun TabLongPressOverlayLayer(
     onDetailClick: () -> Unit,
     onPinClick: () -> Unit,
     onCloseClick: () -> Unit,
+    isBackHandlerEnabled: Boolean,
 ) {
     // --- Floating card animation state (Compose-local) ---
     val floatingScale = remember { Animatable(1f) }
@@ -420,10 +495,20 @@ private fun TabLongPressOverlayLayer(
     }
 
     // --- Back handler for selection mode ---
-    if (uiState.isInLongPressSelectionMode) {
+    if (uiState.isInLongPressSelectionMode && isBackHandlerEnabled) {
         BackHandler { onCancelSelection() }
     }
 }
+
+/**
+ * タブ一覧検索の開始前に記録するスクロール位置を保持する。
+ */
+private data class TabSearchScrollState(
+    val boardIndex: Int,
+    val boardOffset: Int,
+    val threadIndex: Int,
+    val threadOffset: Int,
+)
 
 /**
  * 選択中の板タブを overlay 上に再描画するための Composable。

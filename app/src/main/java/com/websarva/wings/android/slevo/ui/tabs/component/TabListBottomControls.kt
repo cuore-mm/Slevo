@@ -80,6 +80,7 @@ internal fun TabListBottomControls(
     pagerState: PagerState,
     hazeState: HazeState,
     isRefreshing: Boolean,
+    isSearchMode: Boolean,
     refreshProgress: ThreadTabRefreshProgress?,
     onCreateTabClick: () -> Unit,
     onRefreshClick: () -> Unit,
@@ -118,20 +119,22 @@ internal fun TabListBottomControls(
                 .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            TabListInlineSection(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                selectedIndex = pagerState.currentPage,
-                isBoardPage = isBoardPage,
-                isRefreshing = isRefreshing,
-                onSelect = { index ->
-                    if (pagerState.currentPage != index) {
-                        coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                    }
-                },
-                onCreateTabClick = onCreateTabClick,
-                onRefreshClick = onRefreshClick,
-                onCancelRefreshClick = onCancelRefreshClick,
-            )
+            if (!isSearchMode) {
+                TabListInlineSection(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    selectedIndex = pagerState.currentPage,
+                    isBoardPage = isBoardPage,
+                    isRefreshing = isRefreshing,
+                    onSelect = { index ->
+                        if (pagerState.currentPage != index) {
+                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                        }
+                    },
+                    onCreateTabClick = onCreateTabClick,
+                    onRefreshClick = onRefreshClick,
+                    onCancelRefreshClick = onCancelRefreshClick,
+                )
+            }
             TabListRefreshProgressSlot(
                 isVisible = isRefreshing,
                 progress = indicatorProgress,
@@ -352,6 +355,7 @@ private fun TabListBottomControlsBoardPreview() {
         pagerState = pagerState,
         hazeState = hazeState,
         isRefreshing = false,
+        isSearchMode = false,
         refreshProgress = null,
         onCreateTabClick = {},
         onRefreshClick = {},
@@ -371,6 +375,7 @@ private fun TabListBottomControlsThreadPreview() {
         pagerState = pagerState,
         hazeState = hazeState,
         isRefreshing = false,
+        isSearchMode = false,
         refreshProgress = null,
         onCreateTabClick = {},
         onRefreshClick = {},
@@ -390,6 +395,7 @@ private fun TabListBottomControlsRefreshingPreview() {
         pagerState = pagerState,
         hazeState = hazeState,
         isRefreshing = true,
+        isSearchMode = false,
         refreshProgress = ThreadTabRefreshProgress(
             completedCount = 3,
             totalCount = 8,

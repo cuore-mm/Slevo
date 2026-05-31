@@ -81,6 +81,8 @@ class TabsViewModel @Inject constructor(
     private val showThreadInfoBottomSheetState = MutableStateFlow(false)
     private val pendingCloseBoardTabState = MutableStateFlow<BoardTabInfo?>(null)
     private val pendingCloseThreadTabState = MutableStateFlow<ThreadTabInfo?>(null)
+    private val isSearchModeState = MutableStateFlow(false)
+    private val searchQueryState = MutableStateFlow("")
 
     /**
      * URL入力ダイアログの検証・表示・エラー状態をまとめる内部状態。
@@ -138,7 +140,9 @@ class TabsViewModel @Inject constructor(
         urlDialogUiState,
         tabSelectionUiState,
         tabDetailState,
-    ) { boardState, threadState, urlState, selectionState, detailState ->
+        isSearchModeState,
+        searchQueryState,
+    ) { boardState, threadState, urlState, selectionState, detailState, isSearchMode, searchQuery ->
         TabsUiState(
             openThreadTabs = threadState.openThreadTabs,
             openBoardTabs = boardState.openBoardTabs,
@@ -150,6 +154,8 @@ class TabsViewModel @Inject constructor(
             isUrlValidating = urlState.isUrlValidating,
             showUrlDialog = urlState.showUrlDialog,
             urlErrorMessage = urlState.urlErrorMessage,
+            isSearchMode = isSearchMode,
+            searchQuery = searchQuery,
             selectedBoardTab = selectionState.selectedBoardTab,
             selectedThreadTab = selectionState.selectedThreadTab,
             selectedTabBounds = selectionState.selectedTabBounds,
@@ -359,6 +365,31 @@ class TabsViewModel @Inject constructor(
      */
     fun onPageChanged() {
         cancelTabSelection()
+    }
+
+    /**
+     * タブ一覧検索モードを開始する。
+     *
+     * 検索 UI と重ならないよう、長押し選択状態を先に解除する。
+     */
+    fun enterSearchMode() {
+        cancelTabSelection()
+        isSearchModeState.value = true
+    }
+
+    /**
+     * タブ一覧検索モードを終了し、クエリを初期化する。
+     */
+    fun closeSearchMode() {
+        isSearchModeState.value = false
+        searchQueryState.value = ""
+    }
+
+    /**
+     * タブ一覧検索クエリを更新する。
+     */
+    fun updateSearchQuery(query: String) {
+        searchQueryState.value = query
     }
 
     /**

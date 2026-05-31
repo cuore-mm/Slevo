@@ -2,6 +2,8 @@ package com.websarva.wings.android.slevo.ui.tabs.screen
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -32,6 +34,7 @@ fun OpenBoardsList(
     navController: NavHostController,
     closeDrawer: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    listState: LazyListState = rememberLazyListState(),
     selectedBoardTab: BoardTabInfo? = null,
     pendingCloseBoardTab: BoardTabInfo? = null,
     onCloseRequestConsumed: () -> Unit = {},
@@ -47,6 +50,7 @@ fun OpenBoardsList(
         tabItems = openTabs,
         keyOf = { it.boardUrl },
         contentPadding = contentPadding,
+        listState = listState,
         externalRemoveKey = pendingCloseBoardTab?.boardUrl,
         onExternalRemoveConsumed = onCloseRequestConsumed,
         onRemoveConfirmed = { onCloseClick(it) },

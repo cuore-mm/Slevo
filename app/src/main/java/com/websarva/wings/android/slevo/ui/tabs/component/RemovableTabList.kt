@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -30,6 +31,7 @@ internal fun <T> RemovableTabList(
     tabItems: List<T>,
     keyOf: (T) -> String,
     contentPadding: PaddingValues,
+    listState: LazyListState = rememberLazyListState(),
     verticalSpacing: Dp = 12.dp,
     removalDurationMillis: Int = 200,
     externalRemoveKey: String? = null,
@@ -39,8 +41,6 @@ internal fun <T> RemovableTabList(
 ) {
     // --- State ---
     val removingItems = remember { mutableStateMapOf<String, Boolean>() }
-    val listState = rememberLazyListState()
-
     // --- Cleanup ---
     LaunchedEffect(tabItems) {
         val activeKeys = tabItems.map(keyOf).toSet()

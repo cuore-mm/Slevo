@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.tabs.screen
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
@@ -25,6 +26,8 @@ fun TabsPagerContent(
     navController: NavHostController,
     closeDrawer: () -> Unit,
     listContentPadding: PaddingValues = PaddingValues(0.dp),
+    boardListState: LazyListState,
+    threadListState: LazyListState,
     openBoardTabs: List<BoardTabInfo>,
     openThreadTabs: List<ThreadTabInfo>,
     newResCounts: Map<String, Int>,
@@ -52,6 +55,7 @@ fun TabsPagerContent(
                 navController = navController,
                 closeDrawer = closeDrawer,
                 contentPadding = listContentPadding,
+                listState = boardListState,
                 selectedBoardTab = selectedBoardTab,
                 pendingCloseBoardTab = pendingCloseBoardTab,
                 onCloseRequestConsumed = onCloseRequestConsumed,
@@ -66,6 +70,7 @@ fun TabsPagerContent(
                 navController = navController,
                 closeDrawer = closeDrawer,
                 contentPadding = listContentPadding,
+                listState = threadListState,
                 newResCounts = newResCounts,
                 selectedThreadTab = selectedThreadTab,
                 pendingCloseThreadTab = pendingCloseThreadTab,
