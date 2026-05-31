@@ -66,6 +66,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import java.net.URI
@@ -179,6 +181,7 @@ internal fun TabListCard(
                 var totalDy = 0f
                 var trackedPosition = Offset.Zero
                 var latestOffset = offsetX.value
+                var offsetUpdateJob: Job? = null
 
                 velocityTracker.resetTracking()
 
@@ -201,6 +204,7 @@ internal fun TabListCard(
                                 dragMode = DragMode.VerticalScroll
                                 if (offsetX.value != 0f) {
                                     latestOffset = 0f
+                                    offsetUpdateJob?.cancel()
                                     coroutineScope.launch {
                                         offsetX.animateTo(0f, animationSpec = springBackSpec)
                                     }
@@ -221,7 +225,8 @@ internal fun TabListCard(
                         latestOffset = newOffset
                         trackedPosition += Offset(delta.x, 0f)
                         velocityTracker.addPosition(change.uptimeMillis, trackedPosition)
-                        coroutineScope.launch {
+                        offsetUpdateJob?.cancel()
+                        offsetUpdateJob = coroutineScope.launch {
                             offsetX.snapTo(newOffset)
                         }
                     }
@@ -237,6 +242,7 @@ internal fun TabListCard(
                     if (canDeleteBySwipe && (distanceMet || velocityMet)) {
                         isFlyingOut = true
                         coroutineScope.launch {
+                            offsetUpdateJob?.cancelAndJoin()
                             offsetX.animateTo(
                                 targetValue = -cardWidthPx * 1.2f,
                                 animationSpec = tween(durationMillis = 140)
@@ -246,12 +252,14 @@ internal fun TabListCard(
                     } else {
                         latestOffset = 0f
                         coroutineScope.launch {
+                            offsetUpdateJob?.cancelAndJoin()
                             offsetX.animateTo(0f, animationSpec = springBackSpec)
                         }
                     }
                 } else if (latestOffset != 0f) {
                     latestOffset = 0f
                     coroutineScope.launch {
+                        offsetUpdateJob?.cancelAndJoin()
                         offsetX.animateTo(0f, animationSpec = springBackSpec)
                     }
                 }
