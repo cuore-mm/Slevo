@@ -7,7 +7,7 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,6 +49,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.awaitFirstDown
+import androidx.compose.ui.input.pointer.awaitPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -82,6 +84,17 @@ sealed class TabHeaderTrailingContent {
         val resCount: Int,
         val newResCount: Int,
     ) : TabHeaderTrailingContent()
+}
+
+/**
+ * スワイプと縦スクロールの競合を解決するための方向判定モード。
+ *
+ * [Undecided] は未確定、[HorizontalSwipe] は横スワイプ確定、[VerticalScroll] は縦スクロール確定。
+ */
+private enum class DragMode {
+    Undecided,
+    HorizontalSwipe,
+    VerticalScroll,
 }
 
 /**
@@ -146,11 +159,64 @@ internal fun TabListCard(
                 .then(
                     if (canSwipe && !isFlyingOut) {
                         Modifier.pointerInput(Unit) {
-                            detectHorizontalDragGestures(
-                                onDragStart = { _ ->
-                                    velocityTracker.resetTracking()
-                                },
-                                onDragEnd = {
+                            // 横スワイプと縦スクロールを競合させないため、自前で方向判定を行う。
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                var dragMode = DragMode.Undecided
+                                val startPosition = down.position
+                                var currentPosition = startPosition
+                                val touchSlop = viewConfiguration.touchSlop
+
+                                velocityTracker.resetTracking()
+
+                                // --- Direction disambiguation loop ---
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.find { it.id == down.id } ?: break
+                                    if (!change.pressed) break
+
+                                    val newPosition = change.position
+                                    val totalDx = newPosition.x - startPosition.x
+                                    val totalDy = newPosition.y - startPosition.y
+                                    val dx = newPosition.x - currentPosition.x
+                                    currentPosition = newPosition
+
+                                    if (dragMode == DragMode.Undecided) {
+                                        if (abs(totalDx) > touchSlop || abs(totalDy) > touchSlop) {
+                                            if (abs(totalDx) > abs(totalDy)) {
+                                                dragMode = DragMode.HorizontalSwipe
+                                                velocityTracker.addPosition(
+                                                    change.uptimeMillis,
+                                                    Offset(offsetX.value, 0f),
+                                                )
+                                            } else {
+                                                dragMode = DragMode.VerticalScroll
+                                                if (offsetX.value != 0f) {
+                                                    coroutineScope.launch {
+                                                        offsetX.animateTo(0f)
+                                                    }
+                                                }
+                                                return@awaitEachGesture
+                                            }
+                                        }
+                                    }
+
+                                    if (dragMode == DragMode.HorizontalSwipe) {
+                                        change.consume()
+                                        val newOffset = (offsetX.value + dx)
+                                            .coerceIn(-cardWidthPx, 0f)
+                                        velocityTracker.addPosition(
+                                            change.uptimeMillis,
+                                            Offset(newOffset, 0f),
+                                        )
+                                        coroutineScope.launch {
+                                            offsetX.snapTo(newOffset)
+                                        }
+                                    }
+                                }
+
+                                // --- On finger release ---
+                                if (dragMode == DragMode.HorizontalSwipe) {
                                     val velocity = velocityTracker.calculateVelocity()
                                     val distanceMet = offsetX.value < -swipeThreshold
                                     val velocityMet =
@@ -170,22 +236,12 @@ internal fun TabListCard(
                                             offsetX.animateTo(0f)
                                         }
                                     }
-                                },
-                                onHorizontalDrag = { change, dragAmount ->
-                                    change.consume()
-
-                                    val newOffset = (offsetX.value + dragAmount)
-                                        .coerceIn(-cardWidthPx, 0f)
-                                    velocityTracker.addPosition(
-                                        timeMillis = change.uptimeMillis,
-                                        position = Offset(newOffset, 0f),
-                                    )
-
+                                } else if (offsetX.value != 0f) {
                                     coroutineScope.launch {
-                                        offsetX.snapTo(newOffset)
+                                        offsetX.animateTo(0f)
                                     }
                                 }
-                            )
+                            }
                         }
                     } else Modifier
                 )
