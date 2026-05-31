@@ -76,3 +76,9 @@ ViewModel に「スワイプ削除専用」の新状態を増やす案もある�
 これを解決するため、`DragMode` enum（`Undecided`、`HorizontalSwipe`、`VerticalScroll`）を導入し、pointer input を低レベルで自前判定する。`Undecided` 状態では touch slop を超えた移動量で方向を判定し、横移動が優勢なら `HorizontalSwipe` を確定してイベントを consume し、縦移動が優勢なら `VerticalScroll` を確定して `offsetX` を 0 に戻し、イベントは consume せず `LazyColumn` に任せる。
 
 この方式により、横スワイプ中は縦スクロールが起きず、縦スクロール中はカードの横 offset が残らない自然な操作感を実現する。速度判定・距離判定・専用退出アニメーションは `HorizontalSwipe` 確定後に既存の `VelocityTracker` ロジックをそのまま適用する。
+
+### Decision 10: gesture 入力面と描画移動面を分離し、差分計算は `positionChange()` 累積を使う
+
+`pointerInput` を `offsetX` で移動する `Card` から、移動しない外側 `Box` へ移動する。これにより、ドラッグ中に入力座標系そのものが移動して `dx` の符号が不安定になる問題を避ける。
+
+方向判定と移動量計算は `change.position` の絶対座標差分ではなく `positionChange()` の累積値を使う。`totalDx` / `totalDy` はイベントごとの差分を積み上げて判定し、`offsetX` は `totalDx.coerceIn(-cardWidthPx, 0f)` で直接算出する。`VelocityTracker` にはアニメーション済み offset ではなく、差分累積で構成した追跡座標を渡し、指の入力速度に近い値を使って削除判定する。

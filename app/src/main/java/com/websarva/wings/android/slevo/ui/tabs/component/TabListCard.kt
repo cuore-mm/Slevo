@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
@@ -145,9 +146,93 @@ internal fun TabListCard(
     val velocityThreshold = with(density) { 800.dp.toPx() }
     val minVelocityDistance = with(density) { 24.dp.toPx() }
 
+    val swipeGestureModifier = if (canSwipe && !isFlyingOut) {
+        Modifier.pointerInput(canSwipe, isFlyingOut) {
+            // 横スワイプと縦スクロールを競合させないため、固定された外側Boxで方向判定を行う。
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                var dragMode = DragMode.Undecided
+                val touchSlop = viewConfiguration.touchSlop
+                var totalDx = 0f
+                var totalDy = 0f
+                var trackedPosition = Offset.Zero
+
+                velocityTracker.resetTracking()
+
+                // --- Direction disambiguation loop ---
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.find { it.id == down.id } ?: break
+                    if (!change.pressed) break
+
+                    val delta = change.positionChange()
+                    totalDx += delta.x
+                    totalDy += delta.y
+
+                    if (dragMode == DragMode.Undecided) {
+                        if (abs(totalDx) > touchSlop || abs(totalDy) > touchSlop) {
+                            if (abs(totalDx) > abs(totalDy)) {
+                                dragMode = DragMode.HorizontalSwipe
+                                velocityTracker.addPosition(change.uptimeMillis, trackedPosition)
+                            } else {
+                                dragMode = DragMode.VerticalScroll
+                                if (offsetX.value != 0f) {
+                                    coroutineScope.launch {
+                                        offsetX.animateTo(0f)
+                                    }
+                                }
+                                return@awaitEachGesture
+                            }
+                        }
+                    }
+
+                    if (dragMode == DragMode.HorizontalSwipe) {
+                        change.consume()
+                        val newOffset = totalDx.coerceIn(-cardWidthPx, 0f)
+                        trackedPosition += Offset(delta.x, 0f)
+                        velocityTracker.addPosition(change.uptimeMillis, trackedPosition)
+                        coroutineScope.launch {
+                            offsetX.snapTo(newOffset)
+                        }
+                    }
+                }
+
+                // --- On finger release ---
+                if (dragMode == DragMode.HorizontalSwipe) {
+                    val velocity = velocityTracker.calculateVelocity()
+                    val distanceMet = offsetX.value < -swipeThreshold
+                    val velocityMet =
+                        velocity.x < -velocityThreshold && -offsetX.value > minVelocityDistance
+
+                    if (distanceMet || velocityMet) {
+                        isFlyingOut = true
+                        coroutineScope.launch {
+                            offsetX.animateTo(
+                                targetValue = -cardWidthPx * 1.2f,
+                                animationSpec = tween(durationMillis = 140)
+                            )
+                            onSwipeDelete()
+                        }
+                    } else {
+                        coroutineScope.launch {
+                            offsetX.animateTo(0f)
+                        }
+                    }
+                } else if (offsetX.value != 0f) {
+                    coroutineScope.launch {
+                        offsetX.animateTo(0f)
+                    }
+                }
+            }
+        }
+    } else {
+        Modifier
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .then(swipeGestureModifier)
     ) {
         Card(
             modifier = Modifier
@@ -156,95 +241,6 @@ internal fun TabListCard(
                 .onGloballyPositioned { coordinates ->
                     cardWidthPx = coordinates.size.width.toFloat()
                 }
-                .then(
-                    if (canSwipe && !isFlyingOut) {
-                        Modifier.pointerInput(Unit) {
-                            // 横スワイプと縦スクロールを競合させないため、自前で方向判定を行う。
-                            awaitEachGesture {
-                                val down = awaitFirstDown(requireUnconsumed = false)
-                                var dragMode = DragMode.Undecided
-                                val startPosition = down.position
-                                var currentPosition = startPosition
-                                val touchSlop = viewConfiguration.touchSlop
-
-                                velocityTracker.resetTracking()
-
-                                // --- Direction disambiguation loop ---
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    val change = event.changes.find { it.id == down.id } ?: break
-                                    if (!change.pressed) break
-
-                                    val newPosition = change.position
-                                    val totalDx = newPosition.x - startPosition.x
-                                    val totalDy = newPosition.y - startPosition.y
-                                    val dx = newPosition.x - currentPosition.x
-                                    currentPosition = newPosition
-
-                                    if (dragMode == DragMode.Undecided) {
-                                        if (abs(totalDx) > touchSlop || abs(totalDy) > touchSlop) {
-                                            if (abs(totalDx) > abs(totalDy)) {
-                                                dragMode = DragMode.HorizontalSwipe
-                                                velocityTracker.addPosition(
-                                                    change.uptimeMillis,
-                                                    Offset(offsetX.value, 0f),
-                                                )
-                                            } else {
-                                                dragMode = DragMode.VerticalScroll
-                                                if (offsetX.value != 0f) {
-                                                    coroutineScope.launch {
-                                                        offsetX.animateTo(0f)
-                                                    }
-                                                }
-                                                return@awaitEachGesture
-                                            }
-                                        }
-                                    }
-
-                                    if (dragMode == DragMode.HorizontalSwipe) {
-                                        change.consume()
-                                        val newOffset = (offsetX.value + dx)
-                                            .coerceIn(-cardWidthPx, 0f)
-                                        velocityTracker.addPosition(
-                                            change.uptimeMillis,
-                                            Offset(newOffset, 0f),
-                                        )
-                                        coroutineScope.launch {
-                                            offsetX.snapTo(newOffset)
-                                        }
-                                    }
-                                }
-
-                                // --- On finger release ---
-                                if (dragMode == DragMode.HorizontalSwipe) {
-                                    val velocity = velocityTracker.calculateVelocity()
-                                    val distanceMet = offsetX.value < -swipeThreshold
-                                    val velocityMet =
-                                        velocity.x < -velocityThreshold && -offsetX.value > minVelocityDistance
-
-                                    if (distanceMet || velocityMet) {
-                                        isFlyingOut = true
-                                        coroutineScope.launch {
-                                            offsetX.animateTo(
-                                                targetValue = -cardWidthPx * 1.2f,
-                                                animationSpec = tween(durationMillis = 140)
-                                            )
-                                            onSwipeDelete()
-                                        }
-                                    } else {
-                                        coroutineScope.launch {
-                                            offsetX.animateTo(0f)
-                                        }
-                                    }
-                                } else if (offsetX.value != 0f) {
-                                    coroutineScope.launch {
-                                        offsetX.animateTo(0f)
-                                    }
-                                }
-                            }
-                        }
-                    } else Modifier
-                )
                 .graphicsLayer {
                     scaleX = selectionScale
                     scaleY = selectionScale
@@ -264,7 +260,7 @@ internal fun TabListCard(
                 modifier = Modifier
                     .height(IntrinsicSize.Min)
                     .combinedClickable(
-                        enabled = !isRemoving && !isFlyingOut,
+                        enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
                         interactionSource = remember { MutableInteractionSource() },
                         indication = LocalIndication.current,
                         onClick = onClick,

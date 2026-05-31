@@ -56,3 +56,12 @@
 - [x] 8.4 `VerticalScroll` に確定した場合は `offsetX` を 0 にアニメーションで戻し、縦スクロールは `LazyColumn` へ任せる。
 - [x] 8.5 速度判定・距離判定・専用退出アニメーション・固定タブ/長押し選択中/退出アニメーション中の無効化は既存仕様を維持する。
 - [x] 8.6 CI でビルド・テストをパスする。
+
+## 9. スワイプジェスチャーの安定化（入力面と描画面の分離）
+
+- [x] 9.1 `TabListCard` の `pointerInput` を `offset` を適用する `Card` から、移動しない外側 `Box` へ移動する。
+- [x] 9.2 方向判定の `totalDx` / `totalDy` と横移動 `dx` の計算を `change.position` の絶対座標差分から、`positionChange()` の累積差分へ置き換える。
+- [x] 9.3 `offsetX` の更新を加算型ではなく `totalDx.coerceIn(-cardWidthPx, 0f)` の直接算出に統一し、右方向移動の混入を防ぐ。
+- [x] 9.4 `VelocityTracker` への入力をアニメーション済み offset ではなく、差分累積で構成した追跡座標へ変更する。
+- [x] 9.5 タップ/長押しの誤発火を防ぐため、`combinedClickable` の有効条件に「カードが通常位置（offsetX == 0）」を追加する。
+- [ ] 9.6 CI でビルド・テストをパスする。
