@@ -15,6 +15,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,7 +46,8 @@ import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import com.websarva.wings.android.slevo.R
@@ -213,15 +215,57 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 }
             }
 
-            // リストのスクロール位置が変わったら一定時間デバウンスしてViewModelに保存する
-            LaunchedEffect(listState, isActive) {
+            // タブごとの直近保存位置。重複保存を抑制する。
+            var lastSavedScrollPosition by remember(getKey(tab)) {
+                mutableStateOf<Pair<Int, Int>?>(null)
+            }
+
+            /**
+             * 現在位置を保存する。
+             *
+             * 同一位置の連続保存を抑制しつつ、タブ固有状態へ反映する。
+             */
+            fun persistScrollPosition(index: Int, offset: Int) {
+                val current = index to offset
+                if (lastSavedScrollPosition == current) {
+                    return
+                }
+                updateScrollPosition(viewModel, tab, index, offset)
+                lastSavedScrollPosition = current
+            }
+
+            // リストのスクロール位置は連続更新中でも一定間隔で保存する。
+            LaunchedEffect(listState, isActive, tab) {
                 if (isActive) {
                     snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-                        .debounce(200L)
+                        .distinctUntilChanged()
+                        .sample(200L)
                         .collectLatest { (index, offset) ->
-                            // スクロール位置をViewModel側に伝える
-                            updateScrollPosition(viewModel, tab, index, offset)
+                            persistScrollPosition(index, offset)
                         }
+                }
+            }
+
+            // 非アクティブ化時の最終位置を保存する。
+            var wasActive by remember(getKey(tab)) { mutableStateOf(false) }
+            LaunchedEffect(isActive) {
+                // Guard: 現在アクティブだったタブが非アクティブへ遷移した時だけ保存する。
+                if (wasActive && !isActive) {
+                    persistScrollPosition(
+                        index = listState.firstVisibleItemIndex,
+                        offset = listState.firstVisibleItemScrollOffset,
+                    )
+                }
+                wasActive = isActive
+            }
+
+            // ページ破棄時に、その時点の最終位置を保存する。
+            DisposableEffect(listState, tab) {
+                onDispose {
+                    persistScrollPosition(
+                        index = listState.firstVisibleItemIndex,
+                        offset = listState.firstVisibleItemScrollOffset,
+                    )
                 }
             }
 

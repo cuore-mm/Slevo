@@ -343,10 +343,10 @@ internal fun buildGroupDisplayPosts(
 /**
  * スレッド一覧の表示行キーを生成する。
  *
- * 同一レス番号の再登場があっても、行インデックスを含めてキー重複を防ぐ。
+ * 同一レス番号の再登場があっても、表示上の役割を含めてキー重複を防ぐ。
  */
-internal fun buildThreadListItemKey(index: Int, displayPost: DisplayPost): String {
-    return "${index}_${displayPost.num}_${displayPost.dimmed}"
+internal fun buildThreadListItemKey(displayPost: DisplayPost): String {
+    return "${displayPost.num}_${displayPost.dimmed}_${displayPost.isAfter}_${displayPost.depth}"
 }
 
 /**
