@@ -512,14 +512,19 @@ class ThreadViewModel @AssistedInject constructor(
      */
     private fun applyLoadSuccess(derived: ThreadLoadDerived) {
         val activeImageUrls = deriveActiveImageUrls(derived.uiPosts)
-        _uiState.update {
-            it.copy(
+        _uiState.update { state ->
+            val prunedPopupStack = prunePopupStackWithoutRenderablePosts(
+                popupStack = state.popupStack,
+                posts = derived.uiPosts,
+                ngPostNumbers = state.ngPostNumbers,
+            )
+            val nextState = state.copy(
                 posts = derived.uiPosts,
                 isLoading = false,
                 loadProgress = 1f,
                 loadingSource = ThreadLoadingSource.NONE,
-                threadInfo = it.threadInfo.copy(
-                    title = derived.threadTitle ?: it.threadInfo.title,
+                threadInfo = state.threadInfo.copy(
+                    title = derived.threadTitle ?: state.threadInfo.title,
                     resCount = derived.resCount,
                     date = derived.threadDate,
                     momentum = derived.momentum
@@ -530,13 +535,15 @@ class ThreadViewModel @AssistedInject constructor(
                 treeOrder = derived.treeOrder,
                 treeDepthMap = derived.treeDepthMap,
                 treeRootMap = derived.treeRootMap,
-                imageLoadFailureByUrl = it.imageLoadFailureByUrl.filterKeys { url ->
+                popupStack = prunedPopupStack,
+                imageLoadFailureByUrl = state.imageLoadFailureByUrl.filterKeys { url ->
                     url in activeImageUrls
                 },
-                imageLoadingUrls = it.imageLoadingUrls.filter { url ->
+                imageLoadingUrls = state.imageLoadingUrls.filter { url ->
                     url in activeImageUrls
                 }.toSet(),
             )
+            withUpdatedTabSwipeState(nextState)
         }
     }
 
@@ -782,8 +789,40 @@ class ThreadViewModel @AssistedInject constructor(
             }
             if (isNg) idx + 1 else null
         }.toSet()
-        _uiState.update { it.copy(ngPostNumbers = ngNumbers) }
+        _uiState.update { state ->
+            val prunedPopupStack = prunePopupStackWithoutRenderablePosts(
+                popupStack = state.popupStack,
+                posts = posts,
+                ngPostNumbers = ngNumbers,
+            )
+            val nextState = state.copy(
+                ngPostNumbers = ngNumbers,
+                popupStack = prunedPopupStack,
+            )
+            withUpdatedTabSwipeState(nextState)
+        }
         updateDisplayPosts()
+    }
+
+    /**
+     * 表示不能になったポップアップをスタックから除外する。
+     *
+     * 投稿番号が最新投稿範囲外、または NG 指定で描画不可な場合は除外し、
+     * 1 件も描画可能な投稿番号を持たないポップアップは残さない。
+     */
+    private fun prunePopupStackWithoutRenderablePosts(
+        popupStack: List<PopupInfo>,
+        posts: List<ThreadPostUiModel>,
+        ngPostNumbers: Set<Int>,
+    ): List<PopupInfo> {
+        if (popupStack.isEmpty()) {
+            return popupStack
+        }
+        return popupStack.filter { info ->
+            info.postNumbers.any { number ->
+                number in 1..posts.size && number !in ngPostNumbers
+            }
+        }
     }
 
     /**
