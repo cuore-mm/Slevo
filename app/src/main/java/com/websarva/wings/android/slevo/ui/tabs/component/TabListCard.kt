@@ -44,6 +44,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +66,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import java.net.URI
 
@@ -148,6 +150,7 @@ internal fun TabListCard(
     val canHandleSwipeGesture = isSwipeDeleteEnabled && !isRemoving
     val canDeleteBySwipe = canHandleSwipeGesture && !isPinned && onSwipeDelete != null
     val offsetX = remember { Animatable(0f) }
+    val coroutineScope = rememberCoroutineScope()
     var cardWidthPx by remember { mutableFloatStateOf(0f) }
     var isFlyingOut by remember { mutableStateOf(false) }
     val velocityTracker = remember { VelocityTracker() }
@@ -175,6 +178,7 @@ internal fun TabListCard(
                 var totalDx = 0f
                 var totalDy = 0f
                 var trackedPosition = Offset.Zero
+                var latestOffset = offsetX.value
 
                 velocityTracker.resetTracking()
 
@@ -196,7 +200,10 @@ internal fun TabListCard(
                             } else {
                                 dragMode = DragMode.VerticalScroll
                                 if (offsetX.value != 0f) {
-                                    offsetX.animateTo(0f, animationSpec = springBackSpec)
+                                    latestOffset = 0f
+                                    coroutineScope.launch {
+                                        offsetX.animateTo(0f, animationSpec = springBackSpec)
+                                    }
                                 }
                                 return@awaitEachGesture
                             }
@@ -211,31 +218,42 @@ internal fun TabListCard(
                             // 右方向または削除不可タブでは抵抗感をつけて追従させる。
                             else -> applyRubberBandOffset(totalDx, swipeResistanceLimitPx)
                         }
+                        latestOffset = newOffset
                         trackedPosition += Offset(delta.x, 0f)
                         velocityTracker.addPosition(change.uptimeMillis, trackedPosition)
-                        offsetX.snapTo(newOffset)
+                        coroutineScope.launch {
+                            offsetX.snapTo(newOffset)
+                        }
                     }
                 }
 
                 // --- On finger release ---
                 if (dragMode == DragMode.HorizontalSwipe) {
                     val velocity = velocityTracker.calculateVelocity()
-                    val distanceMet = offsetX.value < -swipeThreshold
+                    val distanceMet = latestOffset < -swipeThreshold
                     val velocityMet =
-                        velocity.x < -velocityThreshold && -offsetX.value > minVelocityDistance
+                        velocity.x < -velocityThreshold && -latestOffset > minVelocityDistance
 
                     if (canDeleteBySwipe && (distanceMet || velocityMet)) {
                         isFlyingOut = true
-                        offsetX.animateTo(
-                            targetValue = -cardWidthPx * 1.2f,
-                            animationSpec = tween(durationMillis = 140)
-                        )
-                        onSwipeDelete()
+                        coroutineScope.launch {
+                            offsetX.animateTo(
+                                targetValue = -cardWidthPx * 1.2f,
+                                animationSpec = tween(durationMillis = 140)
+                            )
+                            onSwipeDelete()
+                        }
                     } else {
+                        latestOffset = 0f
+                        coroutineScope.launch {
+                            offsetX.animateTo(0f, animationSpec = springBackSpec)
+                        }
+                    }
+                } else if (latestOffset != 0f) {
+                    latestOffset = 0f
+                    coroutineScope.launch {
                         offsetX.animateTo(0f, animationSpec = springBackSpec)
                     }
-                } else if (offsetX.value != 0f) {
-                    offsetX.animateTo(0f, animationSpec = springBackSpec)
                 }
             }
         }
