@@ -144,14 +144,23 @@ class TabsViewModel @Inject constructor(
         )
     }
 
+    private val visualUiState = combine(
+        tabDetailState,
+        searchUiState,
+    ) { detailState, searchState ->
+        VisualUiState(
+            detailState = detailState,
+            searchState = searchState,
+        )
+    }
+
     private val baseUiState = combine(
         boardTabsState,
         threadTabsState,
         urlDialogUiState,
         tabSelectionUiState,
-        tabDetailState,
-        searchUiState,
-    ) { boardState, threadState, urlState, selectionState, detailState, searchState ->
+        visualUiState,
+    ) { boardState, threadState, urlState, selectionState, visualState ->
         TabsUiState(
             openThreadTabs = threadState.openThreadTabs,
             openBoardTabs = boardState.openBoardTabs,
@@ -163,15 +172,15 @@ class TabsViewModel @Inject constructor(
             isUrlValidating = urlState.isUrlValidating,
             showUrlDialog = urlState.showUrlDialog,
             urlErrorMessage = urlState.urlErrorMessage,
-            isSearchMode = searchState.isSearchMode,
-            searchQuery = searchState.searchQuery,
+            isSearchMode = visualState.searchState.isSearchMode,
+            searchQuery = visualState.searchState.searchQuery,
             selectedBoardTab = selectionState.selectedBoardTab,
             selectedThreadTab = selectionState.selectedThreadTab,
             selectedTabBounds = selectionState.selectedTabBounds,
-            detailBoardTab = detailState.detailBoardTab,
-            detailThreadTab = detailState.detailThreadTab,
-            showBoardInfoBottomSheet = detailState.showBoardInfoBottomSheet,
-            showThreadInfoBottomSheet = detailState.showThreadInfoBottomSheet,
+            detailBoardTab = visualState.detailState.detailBoardTab,
+            detailThreadTab = visualState.detailState.detailThreadTab,
+            showBoardInfoBottomSheet = visualState.detailState.showBoardInfoBottomSheet,
+            showThreadInfoBottomSheet = visualState.detailState.showThreadInfoBottomSheet,
         )
     }
 
@@ -651,4 +660,12 @@ private data class PendingCloseState(
 private data class SearchUiState(
     val isSearchMode: Boolean = false,
     val searchQuery: String = "",
+)
+
+/**
+ * 画面表示向けの詳細表示状態と検索状態をまとめる内部状態。
+ */
+private data class VisualUiState(
+    val detailState: TabDetailState,
+    val searchState: SearchUiState,
 )
