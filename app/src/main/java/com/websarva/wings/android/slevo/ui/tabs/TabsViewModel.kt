@@ -134,15 +134,24 @@ class TabsViewModel @Inject constructor(
         )
     }
 
+    private val searchUiState = combine(
+        isSearchModeState,
+        searchQueryState,
+    ) { isSearchMode, searchQuery ->
+        SearchUiState(
+            isSearchMode = isSearchMode,
+            searchQuery = searchQuery,
+        )
+    }
+
     private val baseUiState = combine(
         boardTabsState,
         threadTabsState,
         urlDialogUiState,
         tabSelectionUiState,
         tabDetailState,
-        isSearchModeState,
-        searchQueryState,
-    ) { boardState, threadState, urlState, selectionState, detailState, isSearchMode, searchQuery ->
+        searchUiState,
+    ) { boardState, threadState, urlState, selectionState, detailState, searchState ->
         TabsUiState(
             openThreadTabs = threadState.openThreadTabs,
             openBoardTabs = boardState.openBoardTabs,
@@ -154,8 +163,8 @@ class TabsViewModel @Inject constructor(
             isUrlValidating = urlState.isUrlValidating,
             showUrlDialog = urlState.showUrlDialog,
             urlErrorMessage = urlState.urlErrorMessage,
-            isSearchMode = isSearchMode,
-            searchQuery = searchQuery,
+            isSearchMode = searchState.isSearchMode,
+            searchQuery = searchState.searchQuery,
             selectedBoardTab = selectionState.selectedBoardTab,
             selectedThreadTab = selectionState.selectedThreadTab,
             selectedTabBounds = selectionState.selectedTabBounds,
@@ -634,4 +643,12 @@ private data class TabDetailState(
 private data class PendingCloseState(
     val pendingBoardTab: BoardTabInfo? = null,
     val pendingThreadTab: ThreadTabInfo? = null,
+)
+
+/**
+ * タブ一覧検索の UI 状態をまとめる内部状態。
+ */
+private data class SearchUiState(
+    val isSearchMode: Boolean = false,
+    val searchQuery: String = "",
 )
