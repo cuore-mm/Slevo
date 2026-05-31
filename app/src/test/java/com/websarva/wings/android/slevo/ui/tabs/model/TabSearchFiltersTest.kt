@@ -45,7 +45,7 @@ class TabSearchFiltersTest {
             BoardTabInfo(2L, "ゲーム", "https://hoge.net/game/", "hoge.net"),
         )
 
-        val byBoardName = filterBoardTabsByQuery(tabs, "そくほう")
+        val byBoardName = filterBoardTabsByQuery(tabs, "ニュース")
         val byServiceName = filterBoardTabsByQuery(tabs, "HOGE")
 
         assertEquals(listOf(1L), byBoardName.map { it.boardId })
