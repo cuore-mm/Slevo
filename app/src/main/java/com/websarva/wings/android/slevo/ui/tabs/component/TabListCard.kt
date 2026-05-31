@@ -44,7 +44,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,7 +65,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
-import kotlinx.coroutines.launch
 import kotlin.math.abs
 import java.net.URI
 
@@ -150,7 +148,6 @@ internal fun TabListCard(
     val canHandleSwipeGesture = isSwipeDeleteEnabled && !isRemoving
     val canDeleteBySwipe = canHandleSwipeGesture && !isPinned && onSwipeDelete != null
     val offsetX = remember { Animatable(0f) }
-    val coroutineScope = rememberCoroutineScope()
     var cardWidthPx by remember { mutableFloatStateOf(0f) }
     var isFlyingOut by remember { mutableStateOf(false) }
     val velocityTracker = remember { VelocityTracker() }
@@ -199,9 +196,7 @@ internal fun TabListCard(
                             } else {
                                 dragMode = DragMode.VerticalScroll
                                 if (offsetX.value != 0f) {
-                                    coroutineScope.launch {
-                                        offsetX.animateTo(0f, animationSpec = springBackSpec)
-                                    }
+                                    offsetX.animateTo(0f, animationSpec = springBackSpec)
                                 }
                                 return@awaitEachGesture
                             }
@@ -218,9 +213,7 @@ internal fun TabListCard(
                         }
                         trackedPosition += Offset(delta.x, 0f)
                         velocityTracker.addPosition(change.uptimeMillis, trackedPosition)
-                        coroutineScope.launch {
-                            offsetX.snapTo(newOffset)
-                        }
+                        offsetX.snapTo(newOffset)
                     }
                 }
 
@@ -233,22 +226,16 @@ internal fun TabListCard(
 
                     if (canDeleteBySwipe && (distanceMet || velocityMet)) {
                         isFlyingOut = true
-                        coroutineScope.launch {
-                            offsetX.animateTo(
-                                targetValue = -cardWidthPx * 1.2f,
-                                animationSpec = tween(durationMillis = 140)
-                            )
-                            onSwipeDelete()
-                        }
+                        offsetX.animateTo(
+                            targetValue = -cardWidthPx * 1.2f,
+                            animationSpec = tween(durationMillis = 140)
+                        )
+                        onSwipeDelete()
                     } else {
-                        coroutineScope.launch {
-                            offsetX.animateTo(0f, animationSpec = springBackSpec)
-                        }
-                    }
-                } else if (offsetX.value != 0f) {
-                    coroutineScope.launch {
                         offsetX.animateTo(0f, animationSpec = springBackSpec)
                     }
+                } else if (offsetX.value != 0f) {
+                    offsetX.animateTo(0f, animationSpec = springBackSpec)
                 }
             }
         }
