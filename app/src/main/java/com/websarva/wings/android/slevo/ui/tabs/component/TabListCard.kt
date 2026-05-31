@@ -1,7 +1,9 @@
 package com.websarva.wings.android.slevo.ui.tabs.component
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -99,6 +101,20 @@ private enum class DragMode {
 }
 
 /**
+ * 指の移動量に対して、端に近づくほど移動量を圧縮するラバーバンド補正を返す。
+ *
+ * 右方向スワイプや削除不可タブのスワイプで急停止を避け、抵抗感のある追従を作る。
+ */
+private fun applyRubberBandOffset(rawOffset: Float, limit: Float): Float {
+    if (limit <= 0f) return 0f
+    val clampedRaw = rawOffset.coerceIn(-limit * 8f, limit * 8f)
+    val sign = if (clampedRaw >= 0f) 1f else -1f
+    val distance = abs(clampedRaw)
+    val resisted = limit * (1f - (1f / (distance / limit + 1f)))
+    return sign * resisted
+}
+
+/**
  * タブ一覧カードの共通外枠と情報配置を提供する。
  *
  * 上部はタイトル・追加情報スロット・閉じるボタン、下部は主要タイトルを表示する。
@@ -131,7 +147,8 @@ internal fun TabListCard(
     )
 
     // --- Swipe-to-delete state ---
-    val canSwipe = isSwipeDeleteEnabled && !isPinned && onSwipeDelete != null && !isRemoving
+    val canHandleSwipeGesture = isSwipeDeleteEnabled && !isRemoving
+    val canDeleteBySwipe = canHandleSwipeGesture && !isPinned && onSwipeDelete != null
     val offsetX = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
     var cardWidthPx by remember { mutableFloatStateOf(0f) }
@@ -145,9 +162,14 @@ internal fun TabListCard(
     // 速度判定のしきい値は 800dp/s、最小移動距離は 24dp。
     val velocityThreshold = with(density) { 800.dp.toPx() }
     val minVelocityDistance = with(density) { 24.dp.toPx() }
+    val springBackSpec = spring<Float>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMediumLow,
+    )
+    val swipeResistanceLimitPx = with(density) { 56.dp.toPx() }
 
-    val swipeGestureModifier = if (canSwipe && !isFlyingOut) {
-        Modifier.pointerInput(canSwipe, isFlyingOut) {
+    val swipeGestureModifier = if (canHandleSwipeGesture && !isFlyingOut) {
+        Modifier.pointerInput(canHandleSwipeGesture, canDeleteBySwipe, isFlyingOut) {
             // 横スワイプと縦スクロールを競合させないため、固定された外側Boxで方向判定を行う。
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
@@ -178,7 +200,7 @@ internal fun TabListCard(
                                 dragMode = DragMode.VerticalScroll
                                 if (offsetX.value != 0f) {
                                     coroutineScope.launch {
-                                        offsetX.animateTo(0f)
+                                        offsetX.animateTo(0f, animationSpec = springBackSpec)
                                     }
                                 }
                                 return@awaitEachGesture
@@ -188,7 +210,12 @@ internal fun TabListCard(
 
                     if (dragMode == DragMode.HorizontalSwipe) {
                         change.consume()
-                        val newOffset = totalDx.coerceIn(-cardWidthPx, 0f)
+                        val newOffset = when {
+                            // 削除可能時の左方向は従来どおり削除判定に使える移動量を保持する。
+                            canDeleteBySwipe && totalDx <= 0f -> totalDx.coerceIn(-cardWidthPx, 0f)
+                            // 右方向または削除不可タブでは抵抗感をつけて追従させる。
+                            else -> applyRubberBandOffset(totalDx, swipeResistanceLimitPx)
+                        }
                         trackedPosition += Offset(delta.x, 0f)
                         velocityTracker.addPosition(change.uptimeMillis, trackedPosition)
                         coroutineScope.launch {
@@ -204,7 +231,7 @@ internal fun TabListCard(
                     val velocityMet =
                         velocity.x < -velocityThreshold && -offsetX.value > minVelocityDistance
 
-                    if (distanceMet || velocityMet) {
+                    if (canDeleteBySwipe && (distanceMet || velocityMet)) {
                         isFlyingOut = true
                         coroutineScope.launch {
                             offsetX.animateTo(
@@ -215,12 +242,12 @@ internal fun TabListCard(
                         }
                     } else {
                         coroutineScope.launch {
-                            offsetX.animateTo(0f)
+                            offsetX.animateTo(0f, animationSpec = springBackSpec)
                         }
                     }
                 } else if (offsetX.value != 0f) {
                     coroutineScope.launch {
-                        offsetX.animateTo(0f)
+                        offsetX.animateTo(0f, animationSpec = springBackSpec)
                     }
                 }
             }
