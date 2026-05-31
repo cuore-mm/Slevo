@@ -195,9 +195,11 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
 
+            val tabKey = getKey(tab)
+
             // 各タブごとにLazyListStateを復元する。キーに基づいてrememberするため
             // タブが切り替わっても正しいスクロール位置が再現される。
-            val listState = remember(getKey(tab)) {
+            val listState = remember(tabKey) {
                 LazyListState(
                     firstVisibleItemIndex = getScrollIndex(tab),
                     firstVisibleItemScrollOffset = getScrollOffset(tab)
@@ -205,7 +207,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
             // タブ初回表示時にViewModelの初期処理を行うためのフラグ
-            var hasInitialized by remember(getKey(tab)) { mutableStateOf(false) }
+            var hasInitialized by remember(tabKey) { mutableStateOf(false) }
             val isActive = pagerState.currentPage == page
             LaunchedEffect(isActive, tab) {
                 if (isActive && !hasInitialized) {
@@ -216,7 +218,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
             // タブごとの直近保存位置。重複保存を抑制する。
-            var lastSavedScrollPosition by remember(getKey(tab)) {
+            var lastSavedScrollPosition by remember(tabKey) {
                 mutableStateOf<Pair<Int, Int>?>(null)
             }
 
@@ -247,7 +249,9 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
             // 非アクティブ化時の最終位置を保存する。
-            var wasActive by remember(getKey(tab)) { mutableStateOf(false) }
+            // periodic save(sample) は連続更新中の最新化を担い、この保存は
+            // 「次のsample前に離脱した瞬間」の最終位置を補完する役割を持つ。
+            var wasActive by remember(tabKey) { mutableStateOf(false) }
             LaunchedEffect(isActive) {
                 // Guard: 現在アクティブだったタブが非アクティブへ遷移した時だけ保存する。
                 if (wasActive && !isActive) {
@@ -260,7 +264,9 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
             // ページ破棄時に、その時点の最終位置を保存する。
-            DisposableEffect(listState, tab) {
+            // listState と同じ tabKey 基準でEffectを管理し、
+            // タブ同一性の判定軸を統一する。
+            DisposableEffect(tabKey, listState) {
                 onDispose {
                     persistScrollPosition(
                         index = listState.firstVisibleItemIndex,
