@@ -1,8 +1,9 @@
 package com.websarva.wings.android.slevo.ui.tabs.model
 
-import com.google.common.truth.Truth.assertThat
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.util.matchesSearchQuery
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -15,7 +16,7 @@ class TabSearchFiltersTest {
      */
     @Test
     fun matchesSearchQuery_returnsTrue_whenQueryIsBlank() {
-        assertThat(matchesSearchQuery(content = "てすと", query = "")).isTrue()
+        assertTrue(matchesSearchQuery(content = "てすと", query = ""))
     }
 
     /**
@@ -23,7 +24,7 @@ class TabSearchFiltersTest {
      */
     @Test
     fun matchesSearchQuery_ignoresKanaDifference() {
-        assertThat(matchesSearchQuery(content = "テスト", query = "てす")).isTrue()
+        assertTrue(matchesSearchQuery(content = "テスト", query = "てす"))
     }
 
     /**
@@ -31,7 +32,7 @@ class TabSearchFiltersTest {
      */
     @Test
     fun matchesSearchQuery_ignoresCaseDifference() {
-        assertThat(matchesSearchQuery(content = "SLEVO", query = "sle")).isTrue()
+        assertTrue(matchesSearchQuery(content = "SLEVO", query = "sle"))
     }
 
     /**
@@ -47,8 +48,8 @@ class TabSearchFiltersTest {
         val byBoardName = filterBoardTabsByQuery(tabs, "そくほう")
         val byServiceName = filterBoardTabsByQuery(tabs, "HOGE")
 
-        assertThat(byBoardName.map { it.boardId }).containsExactly(1L)
-        assertThat(byServiceName.map { it.boardId }).containsExactly(2L)
+        assertEquals(listOf(1L), byBoardName.map { it.boardId })
+        assertEquals(listOf(2L), byServiceName.map { it.boardId })
     }
 
     /**
@@ -76,7 +77,7 @@ class TabSearchFiltersTest {
         val byThreadName = filterThreadTabsByQuery(tabs, "てすと")
         val byBoardName = filterThreadTabsByQuery(tabs, "ゲーム")
 
-        assertThat(byThreadName.map { it.title }).containsExactly("テストスレ")
-        assertThat(byBoardName.map { it.title }).containsExactly("雑談")
+        assertEquals(listOf("テストスレ"), byThreadName.map { it.title })
+        assertEquals(listOf("雑談"), byBoardName.map { it.title })
     }
 }
