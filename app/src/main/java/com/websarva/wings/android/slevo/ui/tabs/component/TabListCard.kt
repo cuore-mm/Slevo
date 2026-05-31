@@ -171,7 +171,7 @@ internal fun TabListCard(
     val swipeResistanceLimitPx = with(density) { 56.dp.toPx() }
 
     val swipeGestureModifier = if (canHandleSwipeGesture && !isFlyingOut) {
-        Modifier.pointerInput(canHandleSwipeGesture, canDeleteBySwipe, isFlyingOut) {
+        Modifier.pointerInput(canHandleSwipeGesture, canDeleteBySwipe, isFlyingOut, cardWidthPx) {
             // 横スワイプと縦スクロールを競合させないため、固定された外側Boxで方向判定を行う。
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
