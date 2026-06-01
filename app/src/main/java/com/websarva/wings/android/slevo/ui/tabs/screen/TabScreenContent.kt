@@ -50,8 +50,8 @@ import com.websarva.wings.android.slevo.ui.tabs.component.AnchoredTabActionMenu
 import com.websarva.wings.android.slevo.ui.tabs.component.TabHeaderTrailingContent
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListBottomControls
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
-import com.websarva.wings.android.slevo.ui.tabs.component.TabListSearchButton
-import com.websarva.wings.android.slevo.ui.tabs.component.TabListSearchTopBar
+import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchArea
+import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchDefaults
 import com.websarva.wings.android.slevo.ui.tabs.TabsUiState
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
@@ -151,9 +151,10 @@ fun TabScreenContent(
     ) { innerPadding ->
         // TabListBottomControls の高さ分の bottom padding。
         // hazeTopOverlap(32) + controlHeight(48) + spacing(8) + progressHeight(8) + bottomPadding(16) = 112.dp
+        val topSearchHeight = TabListTopSearchDefaults.height
         val bottomControlsHeight = 112.dp
         val listPadding = PaddingValues(
-            top = 24.dp,
+            top = topSearchHeight + 8.dp,
             bottom = bottomControlsHeight,
         )
 
@@ -223,25 +224,17 @@ fun TabScreenContent(
                 onCancelRefreshClick = { tabsViewModel.cancelRefreshOpenThreads() },
             )
 
-            if (uiState.isSearchMode) {
-                TabListSearchTopBar(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = innerPadding.calculateTopPadding()),
-                    hazeState = hazeState,
-                    searchQuery = uiState.searchQuery,
-                    onQueryChange = { tabsViewModel.updateSearchQuery(it) },
-                    onCloseSearch = { closeSearchModeWithRestore() },
-                )
-            } else {
-                TabListSearchButton(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = innerPadding.calculateTopPadding()),
-                    hazeState = hazeState,
-                    onClick = { enterSearchMode() },
-                )
-            }
+            TabListTopSearchArea(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = innerPadding.calculateTopPadding()),
+                hazeState = hazeState,
+                isSearchMode = uiState.isSearchMode,
+                searchQuery = uiState.searchQuery,
+                onSearchClick = { enterSearchMode() },
+                onQueryChange = { tabsViewModel.updateSearchQuery(it) },
+                onCloseSearch = { closeSearchModeWithRestore() },
+            )
 
             // --- Long-press overlay layer ---
             TabLongPressOverlayLayer(
