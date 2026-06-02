@@ -1,16 +1,16 @@
 ## 1. スクロール保存ロジックの分離
 
-- [ ] 1.1 スクロール位置を表す internal 値オブジェクトを追加し、index / offset を一組として扱えるようにする
-- [ ] 1.2 直近保存位置と比較して重複保存を抑制する internal helper を追加する
-- [ ] 1.3 `distinctUntilChanged` と周期保存を行う Flow 変換関数を追加する
-- [ ] 1.4 `LazyListState`、`tabKey`、`isActive`、保存コールバックを受け取るスクロール位置保存専用 Composable を追加する
-- [ ] 1.5 `BbsRouteScaffold` から既存のスクロール保存処理を削除し、専用 Composable の呼び出しへ置き換える
+- [x] 1.1 スクロール位置を表す internal 値オブジェクトを追加し、index / offset を一組として扱えるようにする
+- [x] 1.2 直近保存位置と比較して重複保存を抑制する internal helper を追加する
+- [x] 1.3 `distinctUntilChanged` と周期保存を行う Flow 変換関数を追加する
+- [x] 1.4 `LazyListState`、`tabKey`、`isActive`、保存コールバックを受け取るスクロール位置保存専用 Composable を追加する
+- [x] 1.5 `BbsRouteScaffold` から既存のスクロール保存処理を削除し、専用 Composable の呼び出しへ置き換える
 
 ## 2. JVM unit test の追加
 
-- [ ] 2.1 重複保存抑制 helper の初回保存、同一位置抑制、index 変更、offset 変更をテストする
-- [ ] 2.2 Flow 変換関数が連続更新中に周期ごとの最新位置を emit することを仮想時間でテストする
-- [ ] 2.3 Flow 変換関数が同一位置の連続更新を重複 emit しないことをテストする
+- [x] 2.1 重複保存抑制 helper の初回保存、同一位置抑制、index 変更、offset 変更をテストする
+- [x] 2.2 Flow 変換関数が連続更新中に周期ごとの最新位置を emit することを仮想時間でテストする
+- [x] 2.3 Flow 変換関数が同一位置の連続更新を重複 emit しないことをテストする
 
 ## 3. Compose test の追加
 
@@ -24,9 +24,9 @@
 - [ ] 4.1 `BbsRouteScaffold` 経由の既存保存コールバックに、従来どおり index / offset が渡ることを確認する
 - [ ] 4.2 スレッド画面の自動スクロール中保存、タブ切り替え保存、画面離脱保存の既存挙動が維持されることを確認する
 - [ ] 4.3 板画面など `BbsRouteScaffold` を共有する画面でスクロール保存・復元が破壊されていないことを確認する
-- [ ] 4.4 Android CI でビルドとテストが成功することを確認する
+- [x] 4.4 Android CI でビルドとテストが成功することを確認する
 
 ## 5. 仕上げ
 
-- [ ] 5.1 追加した class / function / Composable の KDoc とコメントがリポジトリ規約を満たすことを確認する
+- [x] 5.1 追加した class / function / Composable の KDoc とコメントがリポジトリ規約を満たすことを確認する
 - [ ] 5.2 スクロール保存ロジックの分離方針とテスト範囲を PR 説明に記載できる形で整理する
