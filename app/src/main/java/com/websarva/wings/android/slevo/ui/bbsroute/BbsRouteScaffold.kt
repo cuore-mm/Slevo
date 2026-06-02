@@ -204,7 +204,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             // タブ初回表示時にViewModelの初期処理を行うためのフラグ
             var hasInitialized by remember(tabKey) { mutableStateOf(false) }
             val isActive = pagerState.currentPage == page
-            LaunchedEffect(isActive, tab) {
+            LaunchedEffect(isActive, tabKey) {
                 if (isActive && !hasInitialized) {
                     // 表示されたときに初期化処理を実行
                     initializeViewModel(viewModel, tab)
