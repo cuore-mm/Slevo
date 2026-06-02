@@ -57,15 +57,16 @@ class ScrollPositionPersistenceTest {
     }
 
     @Test
-    fun saveState_afterDifferentThenSameReturnsFalseAgain() {
+    fun saveState_afterDifferentThenSameReturnsTrue() {
         val state = ScrollPositionSaveState()
         val first = ScrollPosition(index = 1, offset = 10)
         state.shouldSave(first)
         state.shouldSave(ScrollPosition(index = 2, offset = 10))
 
+        // 前回保存位置と異なるため、連続重複判定では保存対象となる。
         val result = state.shouldSave(first)
 
-        assertFalse(result)
+        assertTrue(result)
     }
 
     @Test
@@ -131,12 +132,18 @@ class ScrollPositionPersistenceTest {
         source.emit(ScrollPosition(index = 2, offset = 0))
         advanceTimeBy(50)
         source.emit(ScrollPosition(index = 2, offset = 0))
-        advanceTimeBy(150)
+        advanceTimeBy(150) // t=300 で 1 回目の sample(200L) が発火
+
+        // 2 回目の sample 区間を進める
+        source.emit(ScrollPosition(index = 3, offset = 0))
+        advanceTimeBy(50)
+        source.emit(ScrollPosition(index = 3, offset = 0))
+        advanceTimeBy(200) // t=550 で 2 回目の sample が発火
 
         // distinctUntilChanged により同一位置は圧縮され、sample 区間内の最後の値が emit される
         assertEquals(2, emitted.size)
-        assertEquals(ScrollPosition(index = 1, offset = 0), emitted[0])
-        assertEquals(ScrollPosition(index = 2, offset = 0), emitted[1])
+        assertEquals(ScrollPosition(index = 2, offset = 0), emitted[0])
+        assertEquals(ScrollPosition(index = 3, offset = 0), emitted[1])
 
         job.cancel()
     }
