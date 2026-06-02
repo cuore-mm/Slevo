@@ -98,14 +98,8 @@ fun TabListTopSearchArea(
 
         AnimatedVisibility(
             visible = !isSearchMode,
-            enter = slideInVertically(
-                initialOffsetY = { -it },
-                animationSpec = slideAnimationSpec,
-            ) + fadeIn(animationSpec = visibilityAnimationSpec),
-            exit = slideOutVertically(
-                targetOffsetY = { -it },
-                animationSpec = slideAnimationSpec,
-            ) + fadeOut(animationSpec = visibilityAnimationSpec),
+            enter = fadeIn(animationSpec = visibilityAnimationSpec),
+            exit = fadeOut(animationSpec = visibilityAnimationSpec),
         ) {
             TabActionButton(
                 imageVector = Icons.Default.Search,

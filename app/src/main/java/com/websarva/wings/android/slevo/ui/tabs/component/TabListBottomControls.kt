@@ -123,21 +123,11 @@ internal fun TabListBottomControls(
         ) {
             AnimatedVisibility(
                 visible = !isSearchMode,
-                enter = slideInVertically(
-                    initialOffsetY = { it },
-                    animationSpec = tween(220),
-                ) + expandVertically(
-                    animationSpec = tween(220),
-                ) + fadeIn(
-                    animationSpec = tween(220),
+                enter = fadeIn(
+                    animationSpec = tween(200),
                 ),
-                exit = slideOutVertically(
-                    targetOffsetY = { it },
-                    animationSpec = tween(220),
-                ) + shrinkVertically(
-                    animationSpec = tween(220),
-                ) + fadeOut(
-                    animationSpec = tween(220),
+                exit = fadeOut(
+                    animationSpec = tween(200),
                 ),
             ) {
                 TabListInlineSection(
