@@ -57,6 +57,7 @@ fun OpenThreadsList(
         externalRemoveKey = pendingCloseThreadTab?.id?.value,
         onExternalRemoveConsumed = onCloseRequestConsumed,
         onRemoveConfirmed = { onCloseClick(it) },
+        userScrollEnabled = !isInLongPressSelectionMode,
     ) { tab, isRemoving, requestRemove ->
         OpenThreadCard(
             tab = tab,

@@ -24,6 +24,9 @@ import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
  *
  * 削除要求時は呼び出し元の削除処理を実行し、リスト更新に合わせて
  * `animateItem` の退場アニメーションを適用する。
+ *
+ * @param userScrollEnabled ユーザーによるスクロールを許可するか。
+ *                          長押し選択モード中など、スクロールを一時的に抑制したい場合に `false` を渡す。
  */
 @Composable
 internal fun <T> RemovableTabList(
@@ -37,6 +40,7 @@ internal fun <T> RemovableTabList(
     externalRemoveKey: String? = null,
     onExternalRemoveConsumed: () -> Unit = {},
     onRemoveConfirmed: (T) -> Unit,
+    userScrollEnabled: Boolean = true,
     itemContent: @Composable (item: T, isRemoving: Boolean, requestRemove: () -> Unit) -> Unit,
 ) {
     // --- State ---
@@ -74,6 +78,7 @@ internal fun <T> RemovableTabList(
             modifier = Modifier.fillMaxSize(),
             contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(verticalSpacing),
+            userScrollEnabled = userScrollEnabled,
         ) {
             items(tabItems, key = { keyOf(it) }) { item ->
                 val itemKey = keyOf(item)

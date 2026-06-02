@@ -54,6 +54,7 @@ fun OpenBoardsList(
         externalRemoveKey = pendingCloseBoardTab?.boardUrl,
         onExternalRemoveConsumed = onCloseRequestConsumed,
         onRemoveConfirmed = { onCloseClick(it) },
+        userScrollEnabled = !isInLongPressSelectionMode,
     ) { tab, isRemoving, requestRemove ->
         OpenBoardCard(
             tab = tab,
