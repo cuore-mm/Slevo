@@ -15,7 +15,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,7 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -43,11 +41,8 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarActionVisibility
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import com.websarva.wings.android.slevo.R
@@ -59,7 +54,7 @@ import kotlin.math.abs
  *
  * URL入力ダイアログは検証失敗時にエラー表示し、閉じずに再入力させる。
  */
-@OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState, *>> BbsRouteScaffold(
     route: AppRoute,
@@ -217,63 +212,14 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 }
             }
 
-            // タブごとの直近保存位置。重複保存を抑制する。
-            var lastSavedScrollPosition by remember(tabKey) {
-                mutableStateOf<Pair<Int, Int>?>(null)
-            }
-
-            /**
-             * 現在位置を保存する。
-             *
-             * 同一位置の連続保存を抑制しつつ、タブ固有状態へ反映する。
-             */
-            fun persistScrollPosition(index: Int, offset: Int) {
-                val current = index to offset
-                if (lastSavedScrollPosition == current) {
-                    return
-                }
-                updateScrollPosition(viewModel, tab, index, offset)
-                lastSavedScrollPosition = current
-            }
-
-            // リストのスクロール位置は連続更新中でも一定間隔で保存する。
-            LaunchedEffect(listState, isActive, tab) {
-                if (isActive) {
-                    snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-                        .distinctUntilChanged()
-                        .sample(200L)
-                        .collectLatest { (index, offset) ->
-                            persistScrollPosition(index, offset)
-                        }
-                }
-            }
-
-            // 非アクティブ化時の最終位置を保存する。
-            // periodic save(sample) は連続更新中の最新化を担い、この保存は
-            // 「次のsample前に離脱した瞬間」の最終位置を補完する役割を持つ。
-            var wasActive by remember(tabKey) { mutableStateOf(false) }
-            LaunchedEffect(isActive) {
-                // Guard: 現在アクティブだったタブが非アクティブへ遷移した時だけ保存する。
-                if (wasActive && !isActive) {
-                    persistScrollPosition(
-                        index = listState.firstVisibleItemIndex,
-                        offset = listState.firstVisibleItemScrollOffset,
-                    )
-                }
-                wasActive = isActive
-            }
-
-            // ページ破棄時に、その時点の最終位置を保存する。
-            // listState と同じ tabKey 基準でEffectを管理し、
-            // タブ同一性の判定軸を統一する。
-            DisposableEffect(tabKey, listState) {
-                onDispose {
-                    persistScrollPosition(
-                        index = listState.firstVisibleItemIndex,
-                        offset = listState.firstVisibleItemScrollOffset,
-                    )
-                }
-            }
+            ObserveScrollPositionPersistence(
+                tabKey = tabKey,
+                listState = listState,
+                isActive = isActive,
+                onSave = { index, offset ->
+                    updateScrollPosition(viewModel, tab, index, offset)
+                },
+            )
 
             val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
             val actionVisibility = rememberBottomBarActionVisibility(
