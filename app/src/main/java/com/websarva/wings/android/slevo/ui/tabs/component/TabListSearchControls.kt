@@ -1,5 +1,11 @@
 package com.websarva.wings.android.slevo.ui.tabs.component
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.SearchInputField
@@ -59,9 +66,24 @@ fun TabListTopSearchArea(
             ),
         contentAlignment = Alignment.CenterEnd,
     ) {
-        if (isSearchMode) {
+        val visibilityAnimationSpec = tween<Float>(durationMillis = 200)
+        val slideAnimationSpec = tween<IntOffset>(durationMillis = 200)
+
+        AnimatedVisibility(
+            visible = isSearchMode,
+            enter = slideInVertically(
+                initialOffsetY = { -it },
+                animationSpec = slideAnimationSpec,
+            ) + fadeIn(animationSpec = visibilityAnimationSpec),
+            exit = slideOutVertically(
+                targetOffsetY = { -it },
+                animationSpec = slideAnimationSpec,
+            ) + fadeOut(animationSpec = visibilityAnimationSpec),
+        ) {
             Card(
-                modifier = Modifier.height(48.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
                 shape = MaterialTheme.shapes.extraLargeIncreased,
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
             ) {
@@ -72,7 +94,19 @@ fun TabListTopSearchArea(
                     placeholderResId = R.string.search,
                 )
             }
-        } else {
+        }
+
+        AnimatedVisibility(
+            visible = !isSearchMode,
+            enter = slideInVertically(
+                initialOffsetY = { -it },
+                animationSpec = slideAnimationSpec,
+            ) + fadeIn(animationSpec = visibilityAnimationSpec),
+            exit = slideOutVertically(
+                targetOffsetY = { -it },
+                animationSpec = slideAnimationSpec,
+            ) + fadeOut(animationSpec = visibilityAnimationSpec),
+        ) {
             TabActionButton(
                 imageVector = Icons.Default.Search,
                 contentDescription = stringResource(R.string.search),
