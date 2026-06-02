@@ -103,7 +103,7 @@ internal fun <T> RemovableTabList(
         SlevoLazyColumnScrollbar(
             modifier = modifier
                 .fillMaxSize()
-                .padding(bottom = contentPadding.calculateBottomPadding() - 24.dp),
+                .padding(top = contentPadding.calculateTopPadding(), bottom = contentPadding.calculateBottomPadding() - 24.dp),
             state = listState,
             enabled = tabItems.size > 1,
         ) {}
