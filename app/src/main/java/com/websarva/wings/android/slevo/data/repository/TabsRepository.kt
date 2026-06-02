@@ -7,6 +7,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenBoardTa
 import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadTabEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.util.ThreadNewResCalculator
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
