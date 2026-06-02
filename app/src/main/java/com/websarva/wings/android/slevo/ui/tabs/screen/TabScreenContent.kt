@@ -116,28 +116,40 @@ fun TabScreenContent(
     }
 
     /**
-     * 検索クエリの遷移に応じてスクロール位置を復元する。
+     * 検索クエリの遷移に応じて検索結果の先頭表示とスクロール位置復元を行う。
      *
-     * 保存は onQueryChange で空→非空の直前に行う。
-     * 復元は非空→空への遷移を検知して、完全リストが再描画された後に行う。
+     * 保存は onQueryChange で空→非空の直前に行う。非空クエリが変わった場合は
+     * 絞り込み後の一覧を先頭から表示し、非空→空では完全リスト復帰後に保存位置へ戻す。
      */
     LaunchedEffect(uiState.searchQuery) {
         val old = previousQuery.value
         val new = uiState.searchQuery
 
-        // 検索結果リスト → 完全リスト: 復元
-        if (old.isNotBlank() && new.isBlank()) {
-            val restoreState = scrollRestoreState.value
-            if (restoreState != null) {
-                if (uiState.openBoardTabs.isNotEmpty()) {
-                    val targetIndex = restoreState.boardIndex.coerceIn(0, uiState.openBoardTabs.lastIndex)
-                    boardListState.scrollToItem(targetIndex, restoreState.boardOffset.coerceAtLeast(0))
+        when {
+            // 検索結果リスト → 完全リスト: 復元
+            old.isNotBlank() && new.isBlank() -> {
+                val restoreState = scrollRestoreState.value
+                if (restoreState != null) {
+                    if (uiState.openBoardTabs.isNotEmpty()) {
+                        val targetIndex = restoreState.boardIndex.coerceIn(0, uiState.openBoardTabs.lastIndex)
+                        boardListState.scrollToItem(targetIndex, restoreState.boardOffset.coerceAtLeast(0))
+                    }
+                    if (uiState.openThreadTabs.isNotEmpty()) {
+                        val targetIndex = restoreState.threadIndex.coerceIn(0, uiState.openThreadTabs.lastIndex)
+                        threadListState.scrollToItem(targetIndex, restoreState.threadOffset.coerceAtLeast(0))
+                    }
+                    scrollRestoreState.value = null
                 }
-                if (uiState.openThreadTabs.isNotEmpty()) {
-                    val targetIndex = restoreState.threadIndex.coerceIn(0, uiState.openThreadTabs.lastIndex)
-                    threadListState.scrollToItem(targetIndex, restoreState.threadOffset.coerceAtLeast(0))
+            }
+
+            // 検索結果リスト: クエリ更新後の一覧を先頭から表示
+            old != new && new.isNotBlank() -> {
+                if (filteredBoardTabs.isNotEmpty()) {
+                    boardListState.scrollToItem(0)
                 }
-                scrollRestoreState.value = null
+                if (filteredThreadTabs.isNotEmpty()) {
+                    threadListState.scrollToItem(0)
+                }
             }
         }
 
