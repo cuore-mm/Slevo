@@ -55,24 +55,21 @@ class ThreadTabCoordinator(
         }
     }
 
+    /**
+     * 指定スレッドタブのスクロール位置だけを更新する。
+     * タブ一覧全体の read-map-save 経路を使わず、対象タブの scroll columns のみを更新する。
+     */
     fun updateThreadScrollPosition(
         threadId: ThreadId,
         firstVisibleIndex: Int,
         scrollOffset: Int
     ) {
         scope.launch {
-            val current = tabsRepository.observeOpenThreadTabs().first()
-            val updated = current.map { tab ->
-                if (tab.id == threadId) {
-                    tab.copy(
-                        firstVisibleItemIndex = firstVisibleIndex,
-                        firstVisibleItemScrollOffset = scrollOffset
-                    )
-                } else {
-                    tab
-                }
-            }
-            tabsRepository.saveOpenThreadTabs(updated)
+            tabsRepository.updateThreadTabScrollPosition(
+                threadId = threadId,
+                firstVisibleItemIndex = firstVisibleIndex,
+                firstVisibleItemScrollOffset = scrollOffset,
+            )
         }
     }
 

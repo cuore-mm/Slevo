@@ -68,4 +68,20 @@ interface OpenThreadTabDao {
     @Query("DELETE FROM open_thread_tabs")
     suspend fun deleteAll()
 
+    /**
+     * 指定 threadId のタブ固有スクロール位置だけを更新する。
+     * 対象タブが存在しない場合は 0 を返し、no-op として扱う。
+     */
+    @Query(
+        "UPDATE open_thread_tabs SET " +
+            "firstVisibleItemIndex = :firstVisibleItemIndex, " +
+            "firstVisibleItemScrollOffset = :firstVisibleItemScrollOffset " +
+            "WHERE threadId = :threadId"
+    )
+    suspend fun updateThreadScrollPosition(
+        threadId: ThreadId,
+        firstVisibleItemIndex: Int,
+        firstVisibleItemScrollOffset: Int,
+    ): Int
+
 }

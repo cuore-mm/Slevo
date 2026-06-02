@@ -162,6 +162,23 @@ class TabsRepository @Inject constructor(
         }
     }
 
+    /**
+     * 指定 threadId のタブ固有スクロール位置だけを更新する。
+     * タブ一覧構造（sortOrder, isPinned など）は変更しない。
+     * 対象タブが存在しない場合は no-op として扱う。
+     */
+    suspend fun updateThreadTabScrollPosition(
+        threadId: ThreadId,
+        firstVisibleItemIndex: Int,
+        firstVisibleItemScrollOffset: Int,
+    ) = withContext(Dispatchers.IO) {
+        threadDao.updateThreadScrollPosition(
+            threadId = threadId,
+            firstVisibleItemIndex = firstVisibleItemIndex,
+            firstVisibleItemScrollOffset = firstVisibleItemScrollOffset,
+        )
+    }
+
     fun observeLastSelectedPage(): Flow<Int> =
         tabsLocalDataSource.observeLastSelectedPage()
 
