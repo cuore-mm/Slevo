@@ -226,7 +226,7 @@ fun SearchInputField(
 
 @Preview(showBackground = true)
 @Composable
-fun SearchInputFieldPreview() {
+private fun SearchInputFieldPreview() {
     SearchInputField(
         searchQuery = "Example query",
         onQueryChange = {},

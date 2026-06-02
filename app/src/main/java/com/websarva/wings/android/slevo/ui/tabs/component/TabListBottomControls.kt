@@ -3,7 +3,6 @@ package com.websarva.wings.android.slevo.ui.tabs.component
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,13 +23,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -43,8 +40,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -63,7 +58,7 @@ import kotlinx.coroutines.launch
 /**
  * タブ一覧の下部操作群で利用するデフォルト寸法を保持する。
  */
-private object ControlsDefaults {
+internal object ControlsDefaults {
     val hazeTopOverlap: Dp = 32.dp
     val controlHeight: Dp = 48.dp
     val actionIconSize: Dp = 28.dp
@@ -311,34 +306,6 @@ private fun TabListSwitchSection(
                     }
                 }
             }
-        }
-    }
-}
-
-/**
- * 下部操作群の丸形アイコンボタンを表示する。
- */
-@Composable
-private fun TabActionButton(
-    imageVector: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    tint: Color = MaterialTheme.colorScheme.primary,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.size(ControlsDefaults.controlHeight),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                modifier = Modifier.size(ControlsDefaults.actionIconSize),
-                imageVector = imageVector,
-                contentDescription = contentDescription,
-                tint = tint,
-            )
         }
     }
 }

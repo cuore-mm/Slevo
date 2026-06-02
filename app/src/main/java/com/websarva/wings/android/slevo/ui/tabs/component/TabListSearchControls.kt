@@ -9,7 +9,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -19,7 +18,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.ui.common.FeedbackTooltipIconButton
 import com.websarva.wings.android.slevo.ui.common.SearchInputField
 import dev.chrisbanes.haze.HazeProgressive
 import dev.chrisbanes.haze.HazeState
@@ -50,20 +48,23 @@ fun TabListTopSearchArea(
             .height(TabListTopSearchDefaults.height)
             .hazeEffect(state = hazeState, style = HazeMaterials.ultraThin()) {
                 progressive = HazeProgressive.verticalGradient(
-                    startIntensity = 0.45f,
+                    startIntensity = 0.3f,
                     endIntensity = 0f,
                     preferPerformance = true,
                 )
             }
-            .padding(horizontal = TabListTopSearchDefaults.horizontalPadding, vertical = TabListTopSearchDefaults.verticalPadding),
+            .padding(
+                horizontal = TabListTopSearchDefaults.horizontalPadding,
+                vertical = TabListTopSearchDefaults.verticalPadding
+            ),
         contentAlignment = Alignment.CenterEnd,
     ) {
         if (isSearchMode) {
-            Card (
-                modifier= Modifier.height(48.dp),
+            Card(
+                modifier = Modifier.height(48.dp),
                 shape = MaterialTheme.shapes.extraLargeIncreased,
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
-            ){
+            ) {
                 SearchInputField(
                     searchQuery = searchQuery,
                     onQueryChange = onQueryChange,
@@ -72,22 +73,31 @@ fun TabListTopSearchArea(
                 )
             }
         } else {
-            FeedbackTooltipIconButton(
-                tooltipText = stringResource(R.string.search),
+            TabActionButton(
+                imageVector = Icons.Default.Search,
+                contentDescription = stringResource(R.string.search),
                 onClick = onSearchClick,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = stringResource(R.string.search),
-                )
-            }
+            )
         }
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-fun TabListTopSearchAreaPreview() {
+private fun SearchModeTrueFalse() {
+    TabListTopSearchArea(
+        hazeState = HazeState(),
+        isSearchMode = false,
+        searchQuery = "",
+        onSearchClick = {},
+        onQueryChange = {},
+        onCloseSearch = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SearchModeTruePreview() {
     TabListTopSearchArea(
         hazeState = HazeState(),
         isSearchMode = true,
@@ -103,6 +113,6 @@ fun TabListTopSearchAreaPreview() {
  */
 internal object TabListTopSearchDefaults {
     val height: Dp = 72.dp
-    val horizontalPadding: Dp = 12.dp
+    val horizontalPadding: Dp = 16.dp
     val verticalPadding: Dp = 8.dp
 }
