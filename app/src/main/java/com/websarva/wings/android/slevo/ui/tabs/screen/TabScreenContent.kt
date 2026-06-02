@@ -94,40 +94,54 @@ fun TabScreenContent(
     val boardListState = rememberLazyListState()
     val threadListState = rememberLazyListState()
     val scrollRestoreState = remember { mutableStateOf<TabSearchScrollState?>(null) }
+    val previousQuery = remember { mutableStateOf("") }
 
     val filteredBoardTabs = filterBoardTabsByQuery(uiState.openBoardTabs, uiState.searchQuery)
     val filteredThreadTabs = filterThreadTabsByQuery(uiState.openThreadTabs, uiState.searchQuery)
 
     /**
-     * 検索開始前のスクロール位置を保存して検索モードへ切り替える。
+     * 検索モードを開始する。スクロール位置の保存は検索クエリが空から非空へ
+     * 切り替わる直前に行うため、ここでは行わない。
      */
     fun enterSearchMode() {
-        scrollRestoreState.value = TabSearchScrollState(
-            boardIndex = boardListState.firstVisibleItemIndex,
-            boardOffset = boardListState.firstVisibleItemScrollOffset,
-            threadIndex = threadListState.firstVisibleItemIndex,
-            threadOffset = threadListState.firstVisibleItemScrollOffset,
-        )
         tabsViewModel.enterSearchMode()
     }
 
     /**
-     * 検索モード終了時に保存済みスクロール位置を復元する。
+     * 検索モードを終了する。スクロール位置の復元は
+     * 検索クエリが非空から空へ切り替わる LaunchedEffect で行う。
      */
-    fun closeSearchModeWithRestore() {
+    fun exitSearchMode() {
         tabsViewModel.closeSearchMode()
-        val restoreState = scrollRestoreState.value ?: return
-        coroutineScope.launch {
-            // --- Scroll restore ---
-            if (uiState.openBoardTabs.isNotEmpty()) {
-                val targetIndex = restoreState.boardIndex.coerceIn(0, uiState.openBoardTabs.lastIndex)
-                boardListState.scrollToItem(targetIndex, restoreState.boardOffset.coerceAtLeast(0))
-            }
-            if (uiState.openThreadTabs.isNotEmpty()) {
-                val targetIndex = restoreState.threadIndex.coerceIn(0, uiState.openThreadTabs.lastIndex)
-                threadListState.scrollToItem(targetIndex, restoreState.threadOffset.coerceAtLeast(0))
+    }
+
+    /**
+     * 検索クエリの遷移に応じてスクロール位置を復元する。
+     *
+     * 保存は onQueryChange で空→非空の直前に行う。
+     * 復元は非空→空への遷移を検知して、完全リストが再描画された後に行う。
+     */
+    LaunchedEffect(uiState.searchQuery) {
+        val old = previousQuery.value
+        val new = uiState.searchQuery
+
+        // 検索結果リスト → 完全リスト: 復元
+        if (old.isNotBlank() && new.isBlank()) {
+            val restoreState = scrollRestoreState.value
+            if (restoreState != null) {
+                if (uiState.openBoardTabs.isNotEmpty()) {
+                    val targetIndex = restoreState.boardIndex.coerceIn(0, uiState.openBoardTabs.lastIndex)
+                    boardListState.scrollToItem(targetIndex, restoreState.boardOffset.coerceAtLeast(0))
+                }
+                if (uiState.openThreadTabs.isNotEmpty()) {
+                    val targetIndex = restoreState.threadIndex.coerceIn(0, uiState.openThreadTabs.lastIndex)
+                    threadListState.scrollToItem(targetIndex, restoreState.threadOffset.coerceAtLeast(0))
+                }
+                scrollRestoreState.value = null
             }
         }
+
+        previousQuery.value = new
     }
 
     LaunchedEffect(pagerState) {
@@ -140,7 +154,7 @@ fun TabScreenContent(
     // --- Back handler for search mode ---
     if (uiState.isSearchMode) {
         BackHandler {
-            closeSearchModeWithRestore()
+            exitSearchMode()
         }
     }
 
@@ -232,8 +246,18 @@ fun TabScreenContent(
                 isSearchMode = uiState.isSearchMode,
                 searchQuery = uiState.searchQuery,
                 onSearchClick = { enterSearchMode() },
-                onQueryChange = { tabsViewModel.updateSearchQuery(it) },
-                onCloseSearch = { closeSearchModeWithRestore() },
+                onQueryChange = { newQuery ->
+                    if (uiState.searchQuery.isBlank() && newQuery.isNotBlank()) {
+                        scrollRestoreState.value = TabSearchScrollState(
+                            boardIndex = boardListState.firstVisibleItemIndex,
+                            boardOffset = boardListState.firstVisibleItemScrollOffset,
+                            threadIndex = threadListState.firstVisibleItemIndex,
+                            threadOffset = threadListState.firstVisibleItemScrollOffset,
+                        )
+                    }
+                    tabsViewModel.updateSearchQuery(newQuery)
+                },
+                onCloseSearch = { exitSearchMode() },
             )
 
             // --- Long-press overlay layer ---
