@@ -142,13 +142,20 @@ fun TabScreenContent(
                 }
             }
 
-            // 検索結果リスト: クエリ更新後の一覧を先頭から表示
+            // 検索結果リスト: 現在表示中ページの一覧を先頭から表示
             old != new && new.isNotBlank() -> {
-                if (filteredBoardTabs.isNotEmpty()) {
-                    boardListState.scrollToItem(0)
-                }
-                if (filteredThreadTabs.isNotEmpty()) {
-                    threadListState.scrollToItem(0)
+                when (pagerState.currentPage) {
+                    0 -> {
+                        if (filteredBoardTabs.isNotEmpty()) {
+                            boardListState.scrollToItem(0)
+                        }
+                    }
+
+                    else -> {
+                        if (filteredThreadTabs.isNotEmpty()) {
+                            threadListState.scrollToItem(0)
+                        }
+                    }
                 }
             }
         }
