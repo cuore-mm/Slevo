@@ -5,7 +5,7 @@
 ## What Changes
 
 - タブ一覧画面専用の ViewModel を導入し、検索状態、長押し選択状態、削除中状態、詳細 BottomSheet 表示状態などの画面固有 UI 状態を画面スコープで管理する。
-- 開いている板/スレッドタブ、タブ永続化、ページ状態、スレッドタブ更新、子 ViewModel キャッシュなどのアプリ内タブセッション管理を、ViewModel ではない `TabSessionController` / `TabSessionStore` 相当のコンポーネントへ分離する。
+- 開いている板/スレッドタブ、タブ永続化、ページ状態、スレッドタブ更新、子 ViewModel キャッシュなどのアプリ内タブセッション管理を、ViewModel ではない `TabSessionStore` へ分離する。
 - タブ一覧画面は、タブセッション管理コンポーネントの状態を参照しつつ、画面専用 ViewModel がフィルタリングや一時 UI 操作を組み立てる構成へ移行する。
 - ユーザー向けのタブ一覧挙動、表示内容、操作結果は維持する。
 - **BREAKING**: なし。内部構造の責務分離であり、ユーザー向け API や画面仕様は変更しない。
@@ -29,5 +29,5 @@
 - 追加が想定される要素:
   - タブ一覧画面専用 ViewModel（例: `TabListViewModel`）
   - タブ一覧画面専用 UiState（例: `TabListUiState`）
-  - タブセッション管理コンポーネント（例: `TabSessionController`, `TabSessionStore`）
+  - タブセッション管理コンポーネント（`TabSessionStore`）
 - 依存ライブラリや永続化スキーマの変更は想定しない。

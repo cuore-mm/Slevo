@@ -2,16 +2,17 @@
 
 - [ ] 1.1 `TabsViewModel` と `TabsUiState` の各フィールド・イベントを、タブセッション状態、タブ一覧画面固有状態、純粋な画面 ViewModel 責務に分類する
 - [ ] 1.2 タブ一覧画面以外から参照される `TabsViewModel` の公開 API を洗い出し、非 ViewModel のタブセッション管理コンポーネントへ移す操作を確定する
-- [ ] 1.3 タブセッション管理コンポーネントの名称、公開 API、Hilt スコープを決める
+- [ ] 1.3 `TabSessionStore` の公開 API、Hilt 提供方法、Activity retained CoroutineScope のキャンセル境界を決める
 - [ ] 1.4 タブ一覧画面専用 ViewModel の取得位置を決め、タブセッション管理コンポーネントとの接続方法を分離する
 
 ## 2. タブセッション管理コンポーネントの追加
 
-- [ ] 2.1 `TabSessionController` / `TabSessionStore` 相当の非 ViewModel コンポーネントを追加し、タブセッション状態を `StateFlow` として公開する
+- [ ] 2.1 `@ActivityRetainedScoped` の `TabSessionStore` を追加し、タブセッション状態を `StateFlow` として公開する
 - [ ] 2.2 開いている板タブ/スレッドタブ、読み込み状態、ページ状態、ページアニメーション、スレッド更新状態、更新進捗をセッションコンポーネントへ移す
 - [ ] 2.3 タブ追加、タブ削除、固定切替、スレッドタブ更新、更新キャンセル、ページ切替、最終選択ページ保存の操作をセッションコンポーネントへ移す
 - [ ] 2.4 `BoardTabsCoordinator`、`ThreadTabsCoordinator`、`TabViewModelRegistry` の利用境界をセッションコンポーネントへ接続する
-- [ ] 2.5 セッションコンポーネントの Hilt スコープを Activity Retained 相当を第一候補として設定し、構成変更時にタブセッション状態が維持されるようにする
+- [ ] 2.5 `TabSessionStore` の Hilt スコープを `@ActivityRetainedScoped` として設定し、構成変更時にタブセッション状態が維持されるようにする
+- [ ] 2.6 `TabSessionStore` がスレッドタブ更新などのジョブを実行するための Activity retained CoroutineScope を用意し、スコープ終了時に未完了ジョブをキャンセルする
 
 ## 3. タブ一覧画面専用状態の追加
 
