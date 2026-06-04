@@ -26,7 +26,7 @@
 - [ ] 4.1 長押し選択の開始・解除・bounds 更新を `TabListViewModel` 側へ移す
 - [ ] 4.2 削除待ちタブの設定・解除を `TabListViewModel` 側へ移し、削除確定時だけセッションコンポーネントのタブ削除操作へ委譲する
 - [ ] 4.3 詳細 BottomSheet の表示対象コピー、表示、非表示を `TabListViewModel` 側へ移す
-- [ ] 4.4 URL入力ダイアログの表示、検証中、エラー状態を `TabListViewModel` 側へ移し、URL解決後のタブ追加や遷移はセッションコンポーネント操作へ委譲する
+- [ ] 4.4 URL入力ダイアログをタブ一覧専用 UI として扱い、表示、検証中、エラー状態を `TabListViewModel` 側へ移し、URL解決後のタブ追加や遷移は `TabSessionStore` 操作へ委譲する
 
 ## 5. Composable 連携の更新
 
