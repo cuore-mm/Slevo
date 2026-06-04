@@ -153,7 +153,7 @@ class TabSessionStore @Inject constructor(
         boardTabsCoordinator.togglePinBoardTab(boardUrl)
     }
 
-    fun togglePinThreadTab(threadId: String) {
+    fun togglePinThreadTab(threadId: com.websarva.wings.android.slevo.data.model.ThreadId) {
         threadTabsCoordinator.togglePinThreadTab(threadId)
     }
 

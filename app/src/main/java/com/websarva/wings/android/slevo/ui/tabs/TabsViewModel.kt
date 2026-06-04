@@ -85,23 +85,31 @@ class TabsViewModel @Inject constructor(
         VisualUiState(detail, search)
     }
 
-    val uiState: StateFlow<TabsUiState> = combine(
+    private val sessionState = combine(
         openBoardTabs, openThreadTabs, boardLoaded, threadLoaded,
         isRefreshing, refreshProgress, newResCounts,
+    ) { boardTabs, threadTabs, bLoaded, tLoaded, refreshing, rProgress, nResCounts ->
+        SessionState(boardTabs, threadTabs, bLoaded, tLoaded, refreshing, rProgress, nResCounts)
+    }
+
+    private val uiPartsState = combine(
         urlDialogUiState, tabSelectionState, visualUiState,
         pendingCloseBoardTabState, pendingCloseThreadTabState,
-    ) { boardTabs, threadTabs, bLoaded, tLoaded, refreshing, rProgress, nResCounts,
-        urlState, selectionState, visualState, pendingBoard, pendingThread ->
+    ) { urlState, selectionState, visualState, pendingBoard, pendingThread ->
+        UiPartsState(urlState, selectionState, visualState, pendingBoard, pendingThread)
+    }
+
+    val uiState: StateFlow<TabsUiState> = combine(sessionState, uiPartsState) { session, uiParts ->
         TabsUiState(
-            openBoardTabs = boardTabs, openThreadTabs = threadTabs,
-            boardLoaded = bLoaded, threadLoaded = tLoaded,
-            isRefreshing = refreshing, refreshProgress = rProgress, newResCounts = nResCounts,
-            isUrlValidating = urlState.isUrlValidating, showUrlDialog = urlState.showUrlDialog, urlErrorMessage = urlState.urlErrorMessage,
-            isSearchMode = visualState.searchState.isSearchMode, searchQuery = visualState.searchState.searchQuery,
-            selectedBoardTab = selectionState.selectedBoardTab, selectedThreadTab = selectionState.selectedThreadTab, selectedTabBounds = selectionState.selectedTabBounds,
-            detailBoardTab = visualState.detailState.detailBoardTab, detailThreadTab = visualState.detailState.detailThreadTab,
-            showBoardInfoBottomSheet = visualState.detailState.showBoardInfoBottomSheet, showThreadInfoBottomSheet = visualState.detailState.showThreadInfoBottomSheet,
-            pendingCloseBoardTab = pendingBoard, pendingCloseThreadTab = pendingThread,
+            openBoardTabs = session.openBoardTabs, openThreadTabs = session.openThreadTabs,
+            boardLoaded = session.boardLoaded, threadLoaded = session.threadLoaded,
+            isRefreshing = session.isRefreshing, refreshProgress = session.refreshProgress, newResCounts = session.newResCounts,
+            isUrlValidating = uiParts.urlDialogState.isUrlValidating, showUrlDialog = uiParts.urlDialogState.showUrlDialog, urlErrorMessage = uiParts.urlDialogState.urlErrorMessage,
+            isSearchMode = uiParts.visualState.searchState.isSearchMode, searchQuery = uiParts.visualState.searchState.searchQuery,
+            selectedBoardTab = uiParts.selectionState.selectedBoardTab, selectedThreadTab = uiParts.selectionState.selectedThreadTab, selectedTabBounds = uiParts.selectionState.selectedTabBounds,
+            detailBoardTab = uiParts.visualState.detailState.detailBoardTab, detailThreadTab = uiParts.visualState.detailState.detailThreadTab,
+            showBoardInfoBottomSheet = uiParts.visualState.detailState.showBoardInfoBottomSheet, showThreadInfoBottomSheet = uiParts.visualState.detailState.showThreadInfoBottomSheet,
+            pendingCloseBoardTab = uiParts.pendingBoardTab, pendingCloseThreadTab = uiParts.pendingThreadTab,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, TabsUiState())
 
@@ -267,4 +275,20 @@ class TabsViewModel @Inject constructor(
     private data class TabDetailState(val detailBoardTab: BoardTabInfo? = null, val detailThreadTab: ThreadTabInfo? = null, val showBoardInfoBottomSheet: Boolean = false, val showThreadInfoBottomSheet: Boolean = false)
     private data class SearchUiState(val isSearchMode: Boolean = false, val searchQuery: String = "")
     private data class VisualUiState(val detailState: TabDetailState, val searchState: SearchUiState)
+    private data class SessionState(
+        val openBoardTabs: List<BoardTabInfo>,
+        val openThreadTabs: List<ThreadTabInfo>,
+        val boardLoaded: Boolean,
+        val threadLoaded: Boolean,
+        val isRefreshing: Boolean,
+        val refreshProgress: ThreadTabRefreshProgress?,
+        val newResCounts: Map<String, Int>,
+    )
+    private data class UiPartsState(
+        val urlDialogState: UrlDialogState,
+        val selectionState: TabSelectionState,
+        val visualState: VisualUiState,
+        val pendingBoardTab: BoardTabInfo?,
+        val pendingThreadTab: ThreadTabInfo?,
+    )
 }

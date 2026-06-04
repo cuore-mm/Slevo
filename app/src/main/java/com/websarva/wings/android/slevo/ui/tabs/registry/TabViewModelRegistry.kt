@@ -5,6 +5,7 @@ import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModelFactory
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModelFactory
 import dagger.hilt.android.scopes.ActivityRetainedScoped
+import javax.inject.Inject
 
 @ActivityRetainedScoped
 /**
