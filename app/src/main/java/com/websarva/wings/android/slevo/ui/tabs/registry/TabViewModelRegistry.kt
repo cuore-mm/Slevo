@@ -4,10 +4,9 @@ import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModelFactory
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModelFactory
-import dagger.hilt.android.scopes.ViewModelScoped
-import javax.inject.Inject
+import dagger.hilt.android.scopes.ActivityRetainedScoped
 
-@ViewModelScoped
+@ActivityRetainedScoped
 /**
  * タブに関連する ViewModel を登録・再利用するシンプルなレジストリ。
  *

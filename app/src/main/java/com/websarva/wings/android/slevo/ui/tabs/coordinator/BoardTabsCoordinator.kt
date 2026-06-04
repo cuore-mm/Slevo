@@ -6,20 +6,9 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
-import dagger.hilt.android.scopes.ViewModelScoped
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import javax.inject.Inject
+import dagger.hilt.android.scopes.ActivityRetainedScoped
 
-@ViewModelScoped
+@ActivityRetainedScoped
 /**
  * ボードタブの状態を管理するコーディネーター。
  *

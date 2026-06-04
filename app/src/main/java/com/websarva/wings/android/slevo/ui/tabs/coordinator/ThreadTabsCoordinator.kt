@@ -10,35 +10,9 @@ import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
-import dagger.hilt.android.scopes.ViewModelScoped
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.ensureActive
-import javax.inject.Inject
+import dagger.hilt.android.scopes.ActivityRetainedScoped
 
-/**
- * スレッドタブの集合を管理するコーディネータ。
- *
- * 主な責務:
- * - 開いているスレッドタブの状態を保持・更新する
- * - タブの追加/更新/削除、選択ページ管理、リフレッシュ処理を提供する
- * - タブの永続化（リポジトリ経由）を行う
- *
- * スコープは外部から bind(...) で渡される ViewModel スコープを使用する。
- */
-@ViewModelScoped
+@ActivityRetainedScoped
 class ThreadTabsCoordinator @Inject constructor(
     private val tabsRepository: TabsRepository,
     private val threadBookmarkRepository: ThreadBookmarkRepository,
