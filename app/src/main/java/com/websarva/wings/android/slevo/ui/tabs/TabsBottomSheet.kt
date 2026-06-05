@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.screen.TabScreenContent
@@ -20,6 +21,7 @@ fun TabsBottomSheet(
     onDismissRequest: () -> Unit,
     initialPage: Int = 0,
 ) {
+    val tabListViewModel: TabListViewModel = hiltViewModel()
     SlevoBottomSheet(
         modifier = modifier,
         onDismissRequest = onDismissRequest,
@@ -30,6 +32,7 @@ fun TabsBottomSheet(
         TabScreenContent(
             modifier = Modifier.fillMaxHeight(0.95f),
             tabsViewModel = tabsViewModel,
+            tabListViewModel = tabListViewModel,
             navController = navController,
             closeDrawer = onDismissRequest,
             initialPage = initialPage

@@ -53,7 +53,6 @@ import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchArea
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchDefaults
 import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
-import com.websarva.wings.android.slevo.ui.tabs.TabsUiState
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.tabs.component.extractServiceName
@@ -78,14 +77,14 @@ import kotlinx.coroutines.launch
 fun TabScreenContent(
     modifier: Modifier = Modifier,
     tabsViewModel: TabsViewModel,
-    tabListViewModel: TabListViewModel? = null,
+    tabListViewModel: TabListViewModel,
     navController: NavHostController,
     closeDrawer: () -> Unit,
     initialPage: Int = 0,
     onPageChanged: (Int) -> Unit = {}
 ) {
     val sessionUiState by tabsViewModel.sessionUiState.collectAsStateWithLifecycle()
-    val listUiState = tabListViewModel?.uiState?.collectAsStateWithLifecycle()?.value
+    val listUiState by tabListViewModel.uiState.collectAsStateWithLifecycle()
     val invalidUrlMessage = stringResource(R.string.invalid_url)
     val coroutineScope = rememberCoroutineScope()
 
@@ -100,8 +99,8 @@ fun TabScreenContent(
     val previousQuery = remember { mutableStateOf("") }
 
     // --- Search state delegation ---
-    val isSearchMode = listUiState?.isSearchMode ?: sessionUiState.isSearchMode
-    val searchQuery = listUiState?.searchQuery ?: sessionUiState.searchQuery
+    val isSearchMode = listUiState.isSearchMode
+    val searchQuery = listUiState.searchQuery
     val filteredBoardTabs = filterBoardTabsByQuery(sessionUiState.openBoardTabs, searchQuery)
     val filteredThreadTabs = filterThreadTabsByQuery(sessionUiState.openThreadTabs, searchQuery)
 
@@ -110,8 +109,7 @@ fun TabScreenContent(
      * 切り替わる直前に行うため、ここでは行わない。
      */
     fun enterSearchMode() {
-        tabListViewModel?.enterSearchMode()
-            ?: tabsViewModel.enterSearchMode()
+        tabListViewModel.enterSearchMode()
     }
 
     /**
@@ -119,8 +117,7 @@ fun TabScreenContent(
      * 検索クエリが非空から空へ切り替わる LaunchedEffect で行う。
      */
     fun exitSearchMode() {
-        tabListViewModel?.closeSearchMode()
-            ?: tabsViewModel.closeSearchMode()
+        tabListViewModel.closeSearchMode()
     }
 
     /**
@@ -173,7 +170,7 @@ fun TabScreenContent(
 
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { page ->
-            tabsViewModel.onPageChanged()
+            tabListViewModel.onPageChanged()
             onPageChanged(page)
         }
     }
@@ -227,22 +224,22 @@ fun TabScreenContent(
                         openBoardTabs = filteredBoardTabs,
                         openThreadTabs = filteredThreadTabs,
                         newResCounts = sessionUiState.newResCounts,
-                        selectedBoardTab = sessionUiState.selectedBoardTab,
-                        selectedThreadTab = sessionUiState.selectedThreadTab,
+                        selectedBoardTab = listUiState.selectedBoardTab,
+                        selectedThreadTab = listUiState.selectedThreadTab,
                         onCloseBoardTab = { tabsViewModel.closeBoardTab(it) },
                         onCloseThreadTab = { tabsViewModel.closeThreadTab(it) },
                         onBoardTabLongPressed = { tab, bounds ->
-                            tabsViewModel.onBoardTabLongPressed(tab, bounds)
+                            tabListViewModel.onBoardTabLongPressed(tab, bounds)
                         },
                         onThreadTabLongPressed = { tab, bounds ->
-                            tabsViewModel.onThreadTabLongPressed(tab, bounds)
+                            tabListViewModel.onThreadTabLongPressed(tab, bounds)
                         },
                         onClearNewResCount = { tabsViewModel.clearNewResCount(it) },
-                        pendingCloseBoardTab = sessionUiState.pendingCloseBoardTab,
-                        pendingCloseThreadTab = sessionUiState.pendingCloseThreadTab,
-                        onCloseRequestConsumed = { tabsViewModel.consumePendingCloseRequest() },
+                        pendingCloseBoardTab = listUiState.pendingCloseBoardTab,
+                        pendingCloseThreadTab = listUiState.pendingCloseThreadTab,
+                        onCloseRequestConsumed = { tabListViewModel.consumePendingCloseRequest() },
                         tabsViewModel = tabsViewModel,
-                        isInLongPressSelectionMode = sessionUiState.isInLongPressSelectionMode,
+                        isInLongPressSelectionMode = listUiState.isInLongPressSelectionMode,
                     )
                 }
             }
@@ -258,8 +255,8 @@ fun TabScreenContent(
                 isSearchMode = isSearchMode,
                 refreshProgress = sessionUiState.refreshProgress,
                 onCreateTabClick = {
-                    tabsViewModel.setUrlErrorMessage(null)
-                    tabsViewModel.setUrlDialogVisible(true)
+                    tabListViewModel.setUrlErrorMessage(null)
+                    tabListViewModel.setUrlDialogVisible(true)
                 },
                 onRefreshClick = { tabsViewModel.refreshOpenThreads() },
                 onCancelRefreshClick = { tabsViewModel.cancelRefreshOpenThreads() },
@@ -282,52 +279,51 @@ fun TabScreenContent(
                             threadOffset = threadListState.firstVisibleItemScrollOffset,
                         )
                     }
-                    tabListViewModel?.updateSearchQuery(newQuery)
-                        ?: tabsViewModel.updateSearchQuery(newQuery)
+                    tabListViewModel.updateSearchQuery(newQuery)
                 },
                 onCloseSearch = { exitSearchMode() },
             )
 
             // --- Long-press overlay layer ---
             TabLongPressOverlayLayer(
-                uiState = sessionUiState,
+                uiState = listUiState,
                 newResCounts = sessionUiState.newResCounts,
                 hazeState = hazeState,
-                onCancelSelection = { tabsViewModel.cancelTabSelection() },
-                onDetailClick = { tabsViewModel.openSelectedTabDetail() },
-                onPinClick = { tabsViewModel.toggleSelectedTabPin() },
-                onCloseClick = { tabsViewModel.requestCloseSelectedTab() },
+                onCancelSelection = { tabListViewModel.cancelTabSelection() },
+                onDetailClick = { tabListViewModel.openSelectedTabDetail() },
+                onPinClick = { tabListViewModel.toggleSelectedTabPin() },
+                onCloseClick = { tabListViewModel.requestCloseSelectedTab() },
                 isBackHandlerEnabled = !isSearchMode,
             )
 
             // --- Bottom sheets ---
             TabDetailBottomSheets(
-                uiState = sessionUiState,
-                onDismissBoardSheet = { tabsViewModel.dismissBoardInfoBottomSheet() },
-                onDismissThreadSheet = { tabsViewModel.dismissThreadInfoBottomSheet() },
+                uiState = listUiState,
+                onDismissBoardSheet = { tabListViewModel.dismissBoardInfoBottomSheet() },
+                onDismissThreadSheet = { tabListViewModel.dismissThreadInfoBottomSheet() },
                 navController = navController,
                 tabsViewModel = tabsViewModel,
             )
 
             // --- URL dialog ---
-            if (sessionUiState.showUrlDialog) {
+            if (listUiState.showUrlDialog) {
                 UrlOpenDialog(
                     onDismissRequest = {
-                        tabsViewModel.setUrlDialogVisible(false)
+                        tabListViewModel.setUrlDialogVisible(false)
                     },
-                    isError = sessionUiState.urlErrorMessage != null,
-                    errorMessage = sessionUiState.urlErrorMessage,
-                    isValidating = sessionUiState.isUrlValidating,
+                    isError = listUiState.urlErrorMessage != null,
+                    errorMessage = listUiState.urlErrorMessage,
+                    isValidating = listUiState.isUrlValidating,
                     onValueChange = {
-                        if (sessionUiState.urlErrorMessage != null) {
-                            tabsViewModel.setUrlErrorMessage(null)
+                        if (listUiState.urlErrorMessage != null) {
+                            tabListViewModel.setUrlErrorMessage(null)
                         }
                     },
                     onOpen = { url ->
                         coroutineScope.launch {
-                            val result = tabsViewModel.openUrlInput(url, invalidUrlMessage)
+                            val result = tabListViewModel.openUrlInput(url, invalidUrlMessage)
                             when (result) {
-                                is TabsViewModel.UrlOpenResult.NavigateBoard -> {
+                                is UrlOpenResult.NavigateBoard -> {
                                     navController.navigateToBoard(
                                         route = result.route,
                                         tabsViewModel = tabsViewModel,
@@ -335,7 +331,7 @@ fun TabScreenContent(
                                     closeDrawer()
                                 }
 
-                                is TabsViewModel.UrlOpenResult.NavigateThread -> {
+                                is UrlOpenResult.NavigateThread -> {
                                     navController.navigateToThread(
                                         route = result.route,
                                         tabsViewModel = tabsViewModel,
@@ -343,8 +339,8 @@ fun TabScreenContent(
                                     closeDrawer()
                                 }
 
-                                is TabsViewModel.UrlOpenResult.Error -> {
-                                    tabsViewModel.setUrlErrorMessage(result.message)
+                                is UrlOpenResult.Error -> {
+                                    tabListViewModel.setUrlErrorMessage(result.message)
                                 }
                             }
                         }
@@ -363,7 +359,7 @@ fun TabScreenContent(
  */
 @Composable
 private fun TabDetailBottomSheets(
-    uiState: TabsUiState,
+    uiState: TabListUiState,
     onDismissBoardSheet: () -> Unit,
     onDismissThreadSheet: () -> Unit,
     navController: NavHostController,
@@ -420,7 +416,7 @@ private fun TabDetailBottomSheets(
  */
 @Composable
 private fun TabLongPressOverlayLayer(
-    uiState: TabsUiState,
+    uiState: TabListUiState,
     newResCounts: Map<String, Int>,
     hazeState: HazeState,
     onCancelSelection: () -> Unit,

@@ -3,9 +3,11 @@ package com.websarva.wings.android.slevo.ui.tabs
 import androidx.compose.ui.unit.IntRect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
+import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -182,6 +184,59 @@ class TabListViewModel @Inject constructor(
 
     fun setUrlErrorMessage(message: String?) {
         urlErrorState.value = message
+    }
+
+    /**
+     * URL入力文字列を解決し、板またはスレッドの遷移先を決定する。
+     *
+     * 解決に失敗した場合はエラーメッセージを設定し、[UrlOpenResult.Error] を返す。
+     */
+    suspend fun openUrlInput(url: String, invalidUrlMessage: String): UrlOpenResult {
+        startUrlValidation()
+        return try {
+            when (val resolved = resolveUrl(url)) {
+                is com.websarva.wings.android.slevo.ui.util.ResolvedUrl.ItestBoard -> {
+                    val host = tabSessionStore.resolveBoardHost(resolved.boardKey, resolved.rawUrl)
+                    if (host != null) {
+                        val boardUrl = "https://$host/${resolved.boardKey}/"
+                        val route = tabSessionStore.normalizeBoardRouteForNavigation(
+                            AppRoute.Board(boardName = boardUrl, boardUrl = boardUrl)
+                        )
+                        setUrlErrorMessage(null)
+                        setUrlDialogVisible(false)
+                        UrlOpenResult.NavigateBoard(route)
+                    } else {
+                        UrlOpenResult.Error(invalidUrlMessage)
+                    }
+                }
+                is com.websarva.wings.android.slevo.ui.util.ResolvedUrl.Thread -> {
+                    val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
+                    val route = tabSessionStore.normalizeThreadRouteForNavigation(
+                        AppRoute.Thread(
+                            threadKey = resolved.threadKey,
+                            boardUrl = boardUrl,
+                            boardName = resolved.boardKey,
+                            threadTitle = null,
+                        )
+                    )
+                    setUrlErrorMessage(null)
+                    setUrlDialogVisible(false)
+                    UrlOpenResult.NavigateThread(route)
+                }
+                is com.websarva.wings.android.slevo.ui.util.ResolvedUrl.Board -> {
+                    val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
+                    val route = tabSessionStore.normalizeBoardRouteForNavigation(
+                        AppRoute.Board(boardName = boardUrl, boardUrl = boardUrl)
+                    )
+                    setUrlErrorMessage(null)
+                    setUrlDialogVisible(false)
+                    UrlOpenResult.NavigateBoard(route)
+                }
+                else -> UrlOpenResult.Error(invalidUrlMessage)
+            }
+        } finally {
+            finishUrlValidation()
+        }
     }
 
     // --- Internal ---
