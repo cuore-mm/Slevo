@@ -36,14 +36,14 @@
 
 ## 6. テスト更新
 
-- [ ] 6.1 `TabSessionStoreTest` を、削除後の公開 API と lifecycle に合わせて更新する
-- [ ] 6.2 `TabListViewModelTest` が `TabsViewModel` / `TabsUiState` に依存していないことを確認する
-- [ ] 6.3 `BoardScaffold` / `ThreadScaffold` 相当のタブ読み込み状態利用について、可能な範囲で unit test または UI test を更新する
-- [ ] 6.4 navigation helper の引数変更に合わせ、Deep Link / URL入力 / route normalization 関連テストを更新する
+- [x] 6.1 `TabSessionStoreTest` を、削除後の公開 API と lifecycle に合わせて更新する
+- [x] 6.2 `TabListViewModelTest` が `TabsViewModel` / `TabsUiState` に依存していないことを確認する
+- [x] 6.3 `BoardScaffold` / `ThreadScaffold` 相当のタブ読み込み状態利用について、可能な範囲で unit test または UI test を更新する
+- [x] 6.4 navigation helper の引数変更に合わせ、Deep Link / URL入力 / route normalization 関連テストを更新する
 
 ## 7. 検証
 
-- [ ] 7.1 CI の build と unit test を実行し、成功を確認する
+- [x] 7.1 CI の build と unit test を実行し、成功を確認する
 - [ ] 7.2 タブ一覧画面で検索、長押し選択、詳細 BottomSheet、固定、削除、スレッドタブ更新が従来通り動作することを確認する
 - [ ] 7.3 板画面とスレッド画面で開いているタブ一覧、読み込み状態、ページ状態が維持されることを確認する
 - [ ] 7.4 BBSルート画面の URL入力ダイアログで検証中表示、エラー表示、板/スレッド遷移が従来通り動作することを確認する
