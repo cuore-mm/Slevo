@@ -212,7 +212,6 @@ class TabListViewModelTest {
             title = "Test Thread",
             boardName = "Test Board",
             boardUrl = "https://medaka.5ch.io/test/",
-            threadKey = "1234567890",
             resCount = 10,
             boardId = 1,
         )

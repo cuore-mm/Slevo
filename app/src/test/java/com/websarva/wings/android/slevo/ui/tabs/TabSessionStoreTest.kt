@@ -66,7 +66,7 @@ class TabSessionStoreTest {
     @Test
     fun refreshOpenThreads_delegatesToThreadCoordinator() {
         store.refreshOpenThreads()
-        verify { threadCoordinator.refreshOpenThreadTabs() }
+        verify { threadCoordinator.refreshOpenThreads() }
     }
 
     /**
@@ -75,7 +75,7 @@ class TabSessionStoreTest {
     @Test
     fun cancelRefreshOpenThreads_delegatesToThreadCoordinator() {
         store.cancelRefreshOpenThreads()
-        verify { threadCoordinator.cancelRefreshOpenThreadTabs() }
+        verify { threadCoordinator.cancelRefreshOpenThreads() }
     }
 
     /**
