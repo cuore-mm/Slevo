@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import androidx.compose.ui.unit.IntRect
+import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -12,12 +13,16 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 
 /**
  * [TabListViewModel] の画面固有 UI 状態の管理を検証するテスト。
  */
 class TabListViewModelTest {
+
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
 
     private val tabSessionStore = mockk<TabSessionStore>(relaxed = true)
     private val viewModel = TabListViewModel(tabSessionStore)

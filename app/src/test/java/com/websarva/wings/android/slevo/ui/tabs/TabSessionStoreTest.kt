@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
+import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
@@ -10,12 +11,16 @@ import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 
 /**
  * [TabSessionStore] のライフサイクルと操作委譲を検証するテスト。
  */
 class TabSessionStoreTest {
+
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
 
     private val boardCoordinator = mockk<BoardTabsCoordinator>(relaxed = true)
     private val threadCoordinator = mockk<ThreadTabsCoordinator>(relaxed = true)
