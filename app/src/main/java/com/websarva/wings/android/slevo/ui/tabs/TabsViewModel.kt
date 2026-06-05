@@ -136,6 +136,9 @@ class TabsViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, TabsUiState())
 
+    /** セッション状態を含む [TabsUiState]（[uiState] と同等）。 */
+    val sessionUiState: StateFlow<TabsUiState> = uiState
+
     // --- Child ViewModel access ---
 
     fun getOrCreateThreadViewModel(viewModelKey: String): ThreadViewModel {
