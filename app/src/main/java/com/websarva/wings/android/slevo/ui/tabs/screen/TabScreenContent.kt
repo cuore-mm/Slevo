@@ -302,7 +302,7 @@ fun TabScreenContent(
 
             // --- Bottom sheets ---
             TabDetailBottomSheets(
-                uiState = uiState,
+                uiState = sessionUiState,
                 onDismissBoardSheet = { tabsViewModel.dismissBoardInfoBottomSheet() },
                 onDismissThreadSheet = { tabsViewModel.dismissThreadInfoBottomSheet() },
                 navController = navController,
@@ -369,10 +369,10 @@ private fun TabDetailBottomSheets(
     navController: NavHostController,
     tabsViewModel: TabsViewModel,
 ) {
-    val boardTab = sessionUiState.detailBoardTab
+    val boardTab = uiState.detailBoardTab
     if (boardTab != null) {
         BoardInfoBottomSheet(
-            showBoardInfoSheet = sessionUiState.showBoardInfoBottomSheet,
+            showBoardInfoSheet = uiState.showBoardInfoBottomSheet,
             onDismissRequest = onDismissBoardSheet,
             boardName = boardTab.boardName,
             serviceName = boardTab.serviceName,
@@ -380,14 +380,14 @@ private fun TabDetailBottomSheets(
         )
     }
 
-    val threadTab = sessionUiState.detailThreadTab
+    val threadTab = uiState.detailThreadTab
     if (threadTab != null) {
         val derived = ThreadInfoDerivedCalculator.calculate(
             threadKey = threadTab.threadKey,
             resCount = threadTab.resCount,
         )
         ThreadInfoBottomSheet(
-            showThreadInfoSheet = sessionUiState.showThreadInfoBottomSheet,
+            showThreadInfoSheet = uiState.showThreadInfoBottomSheet,
             onDismissRequest = onDismissThreadSheet,
             threadInfo = ThreadInfo(
                 title = threadTab.title,
@@ -432,8 +432,8 @@ private fun TabLongPressOverlayLayer(
     // --- Floating card animation state (Compose-local) ---
     val floatingScale = remember { Animatable(1f) }
 
-    LaunchedEffect(sessionUiState.isInLongPressSelectionMode) {
-        if (sessionUiState.isInLongPressSelectionMode) {
+    LaunchedEffect(uiState.isInLongPressSelectionMode) {
+        if (uiState.isInLongPressSelectionMode) {
             floatingScale.snapTo(1f)
             floatingScale.animateTo(
                 targetValue = 1.04f,
@@ -445,7 +445,7 @@ private fun TabLongPressOverlayLayer(
     }
 
     val boxWindowOffset = remember { mutableStateOf(IntOffset.Zero) }
-    val boundsForFloating = sessionUiState.selectedTabBounds
+    val boundsForFloating = uiState.selectedTabBounds
     val hasFloatingBounds = boundsForFloating != null
 
     Box(
@@ -457,9 +457,9 @@ private fun TabLongPressOverlayLayer(
             }
     ) {
         // --- Long-press dim overlay ---
-        val showDimOverlay = sessionUiState.isInLongPressSelectionMode
+        val showDimOverlay = uiState.isInLongPressSelectionMode
         val dimAlpha by animateFloatAsState(
-            targetValue = if (sessionUiState.isInLongPressSelectionMode) 0.30f else 0f,
+            targetValue = if (uiState.isInLongPressSelectionMode) 0.30f else 0f,
             animationSpec = tween(durationMillis = 200),
             label = "dimOverlayAlpha",
         )
@@ -469,7 +469,7 @@ private fun TabLongPressOverlayLayer(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = dimAlpha))
-                    .clickable(enabled = sessionUiState.isInLongPressSelectionMode) {
+                    .clickable(enabled = uiState.isInLongPressSelectionMode) {
                         onCancelSelection()
                     }
             )
@@ -477,8 +477,8 @@ private fun TabLongPressOverlayLayer(
 
         // --- Selected tab floating card (overlay layer) ---
         val density = LocalDensity.current
-        val boardTabForFloating = if (hasFloatingBounds) sessionUiState.selectedBoardTab else null
-        val threadTabForFloating = if (hasFloatingBounds) sessionUiState.selectedThreadTab else null
+        val boardTabForFloating = if (hasFloatingBounds) uiState.selectedBoardTab else null
+        val threadTabForFloating = if (hasFloatingBounds) uiState.selectedThreadTab else null
 
         boardTabForFloating?.let { tab ->
             boundsForFloating?.let { bounds ->
@@ -526,11 +526,11 @@ private fun TabLongPressOverlayLayer(
 
         // --- Anchored tab action menu ---
         AnchoredTabActionMenu(
-            expanded = sessionUiState.isInLongPressSelectionMode,
-            anchorBoundsInWindow = sessionUiState.selectedTabBounds,
+            expanded = uiState.isInLongPressSelectionMode,
+            anchorBoundsInWindow = uiState.selectedTabBounds,
             hazeState = null,
-            isPinned = sessionUiState.selectedBoardTab?.isPinned
-                ?: sessionUiState.selectedThreadTab?.isPinned
+            isPinned = uiState.selectedBoardTab?.isPinned
+                ?: uiState.selectedThreadTab?.isPinned
                 ?: false,
             onDismissRequest = onCancelSelection,
             onDetailClick = onDetailClick,
@@ -540,7 +540,7 @@ private fun TabLongPressOverlayLayer(
     }
 
     // --- Back handler for selection mode ---
-    if (sessionUiState.isInLongPressSelectionMode && isBackHandlerEnabled) {
+    if (uiState.isInLongPressSelectionMode && isBackHandlerEnabled) {
         BackHandler { onCancelSelection() }
     }
 }
