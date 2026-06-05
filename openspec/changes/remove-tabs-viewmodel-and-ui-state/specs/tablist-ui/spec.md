@@ -12,7 +12,7 @@
 - **THEN** システムは開いているタブ、ページ状態、更新状態をタブセッション管理コンポーネントで維持する
 
 ### Requirement: `TabsViewModel` と `TabsUiState` への依存除去
-システムはタブ一覧、板画面、スレッド画面、BBSルート画面、navigation helper で `TabsViewModel` または `TabsUiState` を状態取得・操作実行の契約として使用してはならないMUST NOT。各画面は必要なタブセッション状態と操作を `TabSessionStore` または画面に渡された必要最小限の関数から取得しなければならないMUST。
+システムはタブ一覧、板画面、スレッド画面、BBSルート画面、navigation helper で `TabsViewModel` または `TabsUiState` を状態取得・操作実行の契約として使用してはならないMUST NOT。各画面は必要なタブセッション状態と操作を `TabSessionStore` から取得しなければならないMUST。
 
 #### Scenario: 板画面がタブセッション状態を参照する
 - **WHEN** 板画面が開いている板タブ一覧または板タブ読み込み状態を必要とする
@@ -27,11 +27,11 @@
 - **THEN** システムは `TabsViewModel` 型ではなくタブセッション操作または必要な操作関数を使用する
 
 ### Requirement: URL検証状態の画面所有
-システムは URL入力ダイアログの検証中状態を `TabsUiState` ではなく、そのダイアログを表示する画面または画面専用 ViewModel の状態として管理しなければならないMUST。URL検証中状態はタブセッション状態として扱ってはならないMUST NOT。
+システムは URL入力ダイアログの検証中状態を `TabsUiState` ではなく、そのダイアログを表示する画面または画面専用 ViewModel の状態として管理しなければならないMUST。BBSルート画面の URL入力ダイアログ検証中状態は、同画面の `rememberSaveable` ローカル状態として管理しなければならないMUST。URL検証中状態はタブセッション状態として扱ってはならないMUST NOT。
 
 #### Scenario: BBSルート画面のURL入力で検証中表示を維持する
 - **WHEN** ユーザーがBBSルート画面のURL入力ダイアログでURLを開く
-- **THEN** システムはタブセッション状態に依存せず、当該画面の状態に基づいて検証中表示を行う
+- **THEN** システムはタブセッション状態に依存せず、`BbsRouteScaffold` の `rememberSaveable` 状態に基づいて検証中表示を行う
 
 #### Scenario: タブ一覧画面のURL入力で検証中表示を維持する
 - **WHEN** ユーザーがタブ一覧画面のURL入力ダイアログでURLを開く
@@ -40,11 +40,11 @@
 ## MODIFIED Requirements
 
 ### Requirement: タブ一覧画面状態の単一収集
-システムはタブ一覧画面で、タブセッション状態とタブ一覧画面固有状態を画面上位の Composable で収集し、子 Composable へ必要な値と操作だけを渡さなければならないMUST。同じ画面ツリー内で同じタブセッション状態または同じ `TabListUiState` を不要に複数回収集してはならないMUST NOT。タブ一覧画面は `TabsViewModel` または `TabsUiState` を状態収集の契約として使用してはならないMUST NOT。
+システムはタブ一覧画面で、タブセッション状態とタブ一覧画面固有状態を画面上位の Composable で収集しなければならないMUST。同じ画面ツリー内で同じタブセッション状態または同じ `TabListUiState` を不要に複数回収集してはならないMUST NOT。タブ一覧画面は `TabsViewModel` または `TabsUiState` を状態収集の契約として使用してはならないMUST NOT。子 Composable へは既存の受け渡し構造を保ったまま `TabSessionStore` を渡してよく、必要な値と操作だけへの分解は必須としない。
 
-#### Scenario: 子 Composable が必要な状態値を受け取る
+#### Scenario: 子 Composable がタブセッション操作を利用する
 - **WHEN** タブ一覧画面を描画する
-- **THEN** システムは `TabsPagerContent`、`OpenBoardsList`、`OpenThreadsList` に必要な状態を引数で渡し、各 Composable が独立してタブセッション状態または `TabListUiState` を再収集しない
+- **THEN** システムは `TabsPagerContent`、`OpenBoardsList`、`OpenThreadsList` が `TabsViewModel` に依存せず、必要に応じて上位から渡された `TabSessionStore` または状態値・操作を利用する
 
 #### Scenario: lifecycle aware に状態を収集する
 - **WHEN** タブ一覧画面が composition に入る

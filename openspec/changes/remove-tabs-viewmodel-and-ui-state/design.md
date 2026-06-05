@@ -11,7 +11,7 @@
 - `TabsViewModel` を削除し、Activity スコープの ViewModel をタブセッション API として使う構造を廃止する。
 - `TabsUiState` を削除し、タブセッション状態は `TabSessionStore` の `StateFlow` を直接収集する。
 - タブ一覧画面固有状態は `TabListViewModel` / `TabListUiState` に限定する。
-- `BoardScaffold`、`ThreadScaffold`、`BbsRouteScaffold`、navigation などの既存利用箇所を `TabSessionStore` ベースへ移行する。
+- `BoardScaffold`、`ThreadScaffold`、`BbsRouteScaffold`、navigation などの既存利用箇所を、まずは既存の `TabsViewModel` 受け渡し経路を保ったまま `TabSessionStore` ベースへ移行する。
 - ユーザー向け挙動を変更しない。
 
 **Non-Goals:**
@@ -40,33 +40,35 @@
 
 必要に応じて画面内だけの private な集約データクラスを作ることは許容するが、公開 API として `TabsUiState` の後継を作らない。
 
-### 3. `TabSessionStore` の取得は Hilt 注入可能な境界で行う
+### 3. `TabSessionStore` は既存の `TabsViewModel` 受け渡し経路へ素直に置換する
 
-Composable から直接 `@ActivityRetainedScoped` オブジェクトを取得する経路は限定的にし、原則として画面 ViewModel または Activity/上位 Composable から注入して渡す。既存の `MainActivity` が `TabsViewModel` を持つ構造は、`TabSessionStore` を直接注入できる構造へ置き換える。
+この変更では、子 Composable への受け渡し制限や callback 分解を同時に進めない。既存の `TabsViewModel` 引数を `TabSessionStore` 引数へ置き換え、`tabsViewModel.*` 呼び出しを `tabSessionStore.*` 呼び出しへ移すことを優先する。
 
-Compose のみの関数では `TabSessionStore` を引数で受け取り、子 Composable へは状態値と操作ラムダだけを渡す。
+`MainActivity` では `TabsViewModel by viewModels()` を削除し、`@Inject lateinit var tabSessionStore: TabSessionStore` を追加する。`AppScaffold`、`AppNavGraph`、`BoardScaffold`、`ThreadScaffold`、`TabsScaffold`、`TabsBottomSheet`、navigation 関連 Composable へは、現在 `TabsViewModel` を渡している経路と同じ経路で `TabSessionStore` を渡す。
 
-### 4. `BbsRouteScaffold` の URL検証状態はタブセッションから分離する
+子 Composable に `TabSessionStore` が深く渡ることは、この変更では許容する。後続の整理で必要に応じて状態値と操作ラムダへ分解する。
 
-`TabsUiState.isUrlValidating` はタブセッションではなく URL入力ダイアログの画面状態である。`BbsRouteScaffold` 側の `remember` 状態、または既存画面 ViewModel の `UiState` へ移す。
+### 4. `BbsRouteScaffold` の URL検証状態はローカル `rememberSaveable` へ移す
+
+`TabsUiState.isUrlValidating` はタブセッションではなく URL入力ダイアログの画面状態である。`BbsRouteScaffold` ではすでに `showUrlDialog` と `urlError` をローカル状態で保持しているため、`isUrlValidating` も同じ箇所の `rememberSaveable` 状態へ移す。
 
 この分離により `TabsUiState` を削除しても、URL入力のローディング表示は維持できる。
 
 ### 5. navigation helper は `TabsViewModel` ではなくセッション操作インターフェースを受け取る
 
-`navigateToBoard` / `navigateToThread` などが `TabsViewModel?` を受け取っている場合、`TabSessionStore?` または必要な正規化関数ラムダを受け取る形へ変更する。
+`navigateToBoard` / `navigateToThread` などが `TabsViewModel?` を受け取っている場合、まずは `TabSessionStore?` を受け取る形へ変更する。正規化関数ラムダへの分解は後続整理として扱う。
 
 操作の責務を明確にするため、navigation helper が直接 ViewModel 型に依存する構造は解消する。
 
 ## Risks / Trade-offs
 
 - [Risk] `TabSessionStore` を多くの画面へ渡すことで引数が増える。  
-  → 画面上位で状態と操作をラムダ化し、子 Composable には必要最小限だけ渡す。
+  → この変更では `TabsViewModel` 削除を優先し、既存の受け渡し経路を保って機械的に置換する。子 Composable の callback 分解は後続整理で行う。
 
 - [Risk] `TabsUiState` 削除により複数 Flow の収集箇所が増え、recomposition が増える可能性がある。  
   → 画面ごとに必要な Flow のみ収集し、重い派生値は `remember` / `derivedStateOf` または ViewModel 側で集約する。
 
-- [Risk] `BbsRouteScaffold` の URL検証状態を移す際にローディング表示が崩れる。  
+- [Risk] `BbsRouteScaffold` の URL検証状態を `rememberSaveable` へ移す際にローディング表示が崩れる。  
   → URL入力ダイアログの開閉、検証中、エラー表示のシナリオを手動確認項目に含める。
 
 - [Risk] navigation helper の引数変更で Deep Link や履歴/ブックマーク経由の遷移に影響する。  
@@ -79,16 +81,15 @@ Compose のみの関数では `TabSessionStore` を引数で受け取り、子 C
    - セッション操作
    - navigation 正規化
    - URL検証状態
-2. `MainActivity` / `AppScaffold` / `AppNavGraph` の引数を `TabsViewModel` から `TabSessionStore` または必要な操作ラムダへ置き換える。
-3. `BoardScaffold` / `ThreadScaffold` を `TabSessionStore` の Flow 収集へ移行する。
-4. `BbsRouteScaffold` の URL検証状態をローカルまたは専用 ViewModel 状態へ移す。
-5. `TabScreenContent` / `TabsBottomSheet` / タブ一覧子 Composable の session 操作を `TabSessionStore` へ接続する。
-6. navigation helper の `TabsViewModel` 依存を `TabSessionStore` または関数引数へ置換する。
+2. `MainActivity` で `TabsViewModel by viewModels()` を削除し、`TabSessionStore` を Hilt injection する。
+3. `AppScaffold` / `AppNavGraph` / 各 Scaffold / 子 Composable の引数を、既存の `TabsViewModel` 経路を保ったまま `TabSessionStore` へ置き換える。
+4. `BoardScaffold` / `ThreadScaffold` / `TabScreenContent` を `TabSessionStore` の Flow 収集へ移行する。
+5. `BbsRouteScaffold` の URL検証状態をローカル `rememberSaveable` 状態へ移す。
+6. navigation helper の `TabsViewModel` 依存を `TabSessionStore` 引数へ置換する。
 7. `TabsViewModel.kt` と `TabsUiState.kt` を削除する。
 8. テストと手動確認を実施する。
 
 ## Open Questions
 
-- `TabSessionStore` を `MainActivity` で直接 injection するか、`AppScaffold` 以下の各画面 ViewModel に injection するか。
-- `BbsRouteScaffold` の URL検証状態をローカル `remember` にするか、専用 ViewModel / 既存 ViewModel の `UiState` に含めるか。
-- navigation helper は `TabSessionStore` 型を受け取るか、正規化・タブ確保操作の関数型引数を受け取るか。
+- `TabSessionStore` を深い子 Composable へ渡し続ける箇所を、後続整理でどこまで状態値・操作ラムダへ分解するか。
+- navigation helper の `TabSessionStore` 引数を、後続整理で正規化・タブ確保操作の関数型引数へ分解するか。
