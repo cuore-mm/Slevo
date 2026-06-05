@@ -183,15 +183,15 @@
 - **THEN** システムは長押し選択状態を閉じた後も対象タブの詳細 BottomSheet を表示する
 
 ### Requirement: タブ一覧画面状態の単一収集
-システムはタブ一覧画面で `TabsUiState` を画面上位の Composable で収集し、子 Composable へ必要な値と操作だけを渡さなければならないMUST。同じ画面ツリー内で同じ `StateFlow<TabsUiState>` を不要に複数回収集してはならないMUST NOT。
+システムはタブ一覧画面でタブセッション状態とタブ一覧画面固有状態を画面上位の Composable で収集しなければならないMUST。同じ画面ツリー内で同じタブセッション状態または同じ `TabListUiState` を不要に複数回収集してはならないMUST NOT。
 
 #### Scenario: 子 Composable が UiState 値を受け取る
 - **WHEN** タブ一覧画面を描画する
-- **THEN** システムは `TabsPagerContent`、`OpenBoardsList`、`OpenThreadsList` に必要な状態を引数で渡し、各 Composable が独立して `tabsViewModel.uiState` を再収集しない
+- **THEN** システムは `TabsPagerContent`、`OpenBoardsList`、`OpenThreadsList` に必要な状態を引数で渡し、各 Composable が独立してタブセッション状態または `TabListUiState` を再収集しない
 
 #### Scenario: lifecycle aware に状態を収集する
 - **WHEN** タブ一覧画面が composition に入る
-- **THEN** システムは画面上位で lifecycle aware な方法により `TabsUiState` を収集する
+- **THEN** システムは画面上位で lifecycle aware な方法によりタブセッション状態と `TabListUiState` を収集する
 
 ### Requirement: スレッドタブ詳細の派生情報補完
 システムはタブ一覧のスレッドタブ詳細 BottomSheet を表示するとき、対象スレッドタブの thread key とレス数からスレッド作成日時と勢いを補完しなければならないMUST。補完にはスレッド派生情報の共通計算規則を使用し、DB に保存されていないことを理由に日付や勢いを初期値のまま表示してはならないMUST NOT。

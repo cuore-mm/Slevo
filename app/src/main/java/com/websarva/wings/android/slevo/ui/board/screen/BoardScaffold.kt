@@ -64,7 +64,10 @@ fun BoardScaffold(
     val currentPage by tabSessionStore.boardCurrentPage.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(boardRoute) {
+    LaunchedEffect(boardRoute, boardLoaded) {
+        if (!boardLoaded) {
+            return@LaunchedEffect
+        }
         // --- Board resolution ---
         val info = tabSessionStore.resolveBoardInfo(
             boardId = boardRoute.boardId,

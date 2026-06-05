@@ -4,7 +4,7 @@
 TBD - created by archiving change refactor-route-normalization-settings. Update Purpose after archive.
 ## Requirements
 ### Requirement: 永続化済み設定値によるroute正規化
-システムは `5ch.net` の板/スレ route を開く直前に、永続化済みの `5ch.net` を `5ch.io` として開く設定値を取得し、その値に基づいて `boardUrl` を正規化することを SHALL 要求する。正規化判定は `TabsViewModel` の一時キャッシュや未読込状態に依存してはならない。
+システムは `5ch.net` の板/スレ route を開く直前に、永続化済みの `5ch.net` を `5ch.io` として開く設定値を取得し、その値に基づいて `boardUrl` を正規化することを SHALL 要求する。正規化判定は `TabSessionStore` の一時キャッシュや未読込状態に依存してはならない。
 
 #### Scenario: 未設定デフォルトオンで起動直後に5ch.net routeを開く
 - **WHEN** 設定が未設定で、アプリ起動直後に `https://agree.5ch.net/operate/` の板routeまたはスレrouteを開く
