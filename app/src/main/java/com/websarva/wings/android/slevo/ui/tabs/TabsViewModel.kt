@@ -58,16 +58,17 @@ class TabsViewModel @Inject constructor(
     val uiState: StateFlow<TabsUiState> = combine(
         openBoardTabs, boardLoaded, openThreadTabs, threadLoaded,
         isRefreshing, refreshProgress, newResCounts, urlValidationState,
-    ) { boardTabs, bLoaded, threadTabs, tLoaded, refreshing, progress, counts, validating ->
+    ) { array: Array<Any?> ->
+        @Suppress("UNCHECKED_CAST")
         TabsUiState(
-            openBoardTabs = boardTabs,
-            boardLoaded = bLoaded,
-            openThreadTabs = threadTabs,
-            threadLoaded = tLoaded,
-            isRefreshing = refreshing,
-            refreshProgress = progress,
-            newResCounts = counts,
-            isUrlValidating = validating,
+            openBoardTabs = array[0] as List<BoardTabInfo>,
+            boardLoaded = array[1] as Boolean,
+            openThreadTabs = array[2] as List<ThreadTabInfo>,
+            threadLoaded = array[3] as Boolean,
+            isRefreshing = array[4] as Boolean,
+            refreshProgress = array[5] as ThreadTabRefreshProgress?,
+            newResCounts = array[6] as Map<String, Int>,
+            isUrlValidating = array[7] as Boolean,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, TabsUiState())
 
