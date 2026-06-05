@@ -29,7 +29,7 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,7 +39,7 @@ fun BookmarkListScaffold(
     navController: NavHostController,
     topBarState: TopAppBarState,
     openDrawer: () -> Unit,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
 ) {
     val bookmarkViewModel: BookmarkViewModel = hiltViewModel()
     val uiState by bookmarkViewModel.uiState.collectAsState()
@@ -90,7 +90,7 @@ fun BookmarkListScaffold(
             boardGroups = uiState.boardList,
             onBoardClick = { board ->
                 coroutineScope.launch {
-                    val route = tabsViewModel.normalizeBoardRouteForNavigation(
+                    val route = tabSessionStore.normalizeBoardRouteForNavigation(
                         AppRoute.Board(
                             boardId = board.boardId,
                             boardName = board.name,
@@ -99,14 +99,14 @@ fun BookmarkListScaffold(
                     )
                     navController.navigateToBoard(
                         route = route,
-                        tabsViewModel = tabsViewModel,
+                        tabSessionStore = tabSessionStore,
                     )
                 }
             },
             threadGroups = uiState.groupedThreadBookmarks,
             onThreadClick = { thread ->
                 coroutineScope.launch {
-                    val route = tabsViewModel.normalizeThreadRouteForNavigation(
+                    val route = tabSessionStore.normalizeThreadRouteForNavigation(
                         AppRoute.Thread(
                             threadKey = thread.threadKey,
                             boardName = thread.boardName,
@@ -118,7 +118,7 @@ fun BookmarkListScaffold(
                     )
                     navController.navigateToThread(
                         route = route,
-                        tabsViewModel = tabsViewModel,
+                        tabSessionStore = tabSessionStore,
                     )
                 }
             },

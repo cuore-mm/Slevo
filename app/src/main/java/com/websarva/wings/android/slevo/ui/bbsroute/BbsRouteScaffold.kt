@@ -36,7 +36,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
@@ -61,7 +61,7 @@ import kotlin.math.abs
 @Composable
 fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState, *>> BbsRouteScaffold(
     route: AppRoute,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
     navController: NavHostController,
     isTabsLoaded: Boolean,
     onEmptyTabs: () -> Unit,
@@ -167,9 +167,9 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         var showTabListSheet by rememberSaveable { mutableStateOf(false) }
         var showUrlDialog by rememberSaveable { mutableStateOf(false) }
         var urlError by rememberSaveable { mutableStateOf<String?>(null) }
+        var isUrlValidating by rememberSaveable { mutableStateOf(false) }
         val invalidUrlMessage = stringResource(R.string.invalid_url)
         val coroutineScope = rememberCoroutineScope()
-        val tabsUiState by tabsViewModel.uiState.collectAsState()
 
         val currentUiState = currentTabInfo?.let { tabInfo ->
             val currentViewModel = getViewModel(tabInfo)
@@ -285,7 +285,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
             TabsBottomSheet(
                 sheetState = tabListSheetState,
-                tabsViewModel = tabsViewModel,
+                tabSessionStore = tabSessionStore,
                 navController = navController,
                 onDismissRequest = { showTabListSheet = false },
                 initialPage = initialPage,
@@ -300,14 +300,14 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 },
                 isError = urlError != null,
                 errorMessage = urlError,
-                isValidating = tabsUiState.isUrlValidating,
+                isValidating = isUrlValidating,
                 onValueChange = {
                     if (urlError != null) {
                         urlError = null
                     }
                 },
                 onOpen = { url ->
-                    tabsViewModel.startUrlValidation()
+                    isUrlValidating = true
                     val resolved = resolveUrl(url)
                     // --- itest board handling ---
                     if (resolved is ResolvedUrl.ItestBoard) {
@@ -315,13 +315,13 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         urlError = null
                         coroutineScope.launch {
                             try {
-                                val host = tabsViewModel.resolveBoardHost(
+                                val host = tabSessionStore.resolveBoardHost(
                                     boardKey = resolved.boardKey,
                                     sourceUrl = resolved.rawUrl,
                                 )
                                 if (host != null) {
                                     val boardUrl = "https://$host/${resolved.boardKey}/"
-                                    val route = tabsViewModel.normalizeBoardRouteForNavigation(
+                                    val route = tabSessionStore.normalizeBoardRouteForNavigation(
                                         AppRoute.Board(
                                             boardName = boardUrl,
                                             boardUrl = boardUrl,
@@ -329,7 +329,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                     )
                                     navController.navigateToBoard(
                                         route = route,
-                                        tabsViewModel = tabsViewModel,
+                                        tabSessionStore = tabSessionStore,
                                     )
                                     urlError = null
                                     showUrlDialog = false
@@ -338,7 +338,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                     urlError = invalidUrlMessage
                                 }
                             } finally {
-                                tabsViewModel.finishUrlValidation()
+                                isUrlValidating = false
                             }
                         }
                         return@UrlOpenDialog
@@ -347,7 +347,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     if (resolved is ResolvedUrl.Thread) {
                         coroutineScope.launch {
                             val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
-                            val route = tabsViewModel.normalizeThreadRouteForNavigation(
+                            val route = tabSessionStore.normalizeThreadRouteForNavigation(
                                 AppRoute.Thread(
                                     threadKey = resolved.threadKey,
                                     boardUrl = boardUrl,
@@ -357,11 +357,11 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                             )
                             navController.navigateToThread(
                                 route = route,
-                                tabsViewModel = tabsViewModel,
+                                tabSessionStore = tabSessionStore,
                             )
                             urlError = null
                             showUrlDialog = false
-                            tabsViewModel.finishUrlValidation()
+                            isUrlValidating = false
                         }
                         return@UrlOpenDialog
                     }
@@ -369,7 +369,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     if (resolved is ResolvedUrl.Board) {
                         coroutineScope.launch {
                             val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
-                            val route = tabsViewModel.normalizeBoardRouteForNavigation(
+                            val route = tabSessionStore.normalizeBoardRouteForNavigation(
                                 AppRoute.Board(
                                     boardName = boardUrl,
                                     boardUrl = boardUrl,
@@ -377,18 +377,18 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                             )
                             navController.navigateToBoard(
                                 route = route,
-                                tabsViewModel = tabsViewModel,
+                                tabSessionStore = tabSessionStore,
                             )
                             urlError = null
                             showUrlDialog = false
-                            tabsViewModel.finishUrlValidation()
+                            isUrlValidating = false
                         }
                         return@UrlOpenDialog
                     }
                     // --- Invalid URL ---
                     // URL解析に失敗したため、エラーを表示して閉じない。
                     urlError = invalidUrlMessage
-                    tabsViewModel.finishUrlValidation()
+                    isUrlValidating = false
                 }
             )
         }

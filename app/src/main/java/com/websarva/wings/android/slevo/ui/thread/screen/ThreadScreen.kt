@@ -50,7 +50,7 @@ import com.websarva.wings.android.slevo.ui.common.interaction.executeGestureScro
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
 import com.websarva.wings.android.slevo.ui.thread.screen.components.threadPostListContent
@@ -79,7 +79,7 @@ fun ThreadScreen(
     uiState: ThreadUiState,
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
-    tabsViewModel: TabsViewModel? = null,
+    tabSessionStore: TabSessionStore? = null,
     onAutoScrollBottom: () -> Unit = {},
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
@@ -126,10 +126,10 @@ fun ThreadScreen(
     val onUrlClick: (String) -> Unit = { url -> uriHandler.openUri(url) }
     val onThreadUrlClick: (AppRoute.Thread) -> Unit = { route ->
         coroutineScope.launch {
-            val normalizedRoute = tabsViewModel?.normalizeThreadRouteForNavigation(route) ?: route
+            val normalizedRoute = tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
             navController.navigateToThread(
                 route = normalizedRoute,
-                tabsViewModel = tabsViewModel,
+                tabSessionStore = tabSessionStore,
             )
         }
     }

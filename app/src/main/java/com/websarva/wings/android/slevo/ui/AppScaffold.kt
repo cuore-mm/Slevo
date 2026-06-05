@@ -28,7 +28,7 @@ import com.websarva.wings.android.slevo.ui.navigation.DeepLinkHandler
 import com.websarva.wings.android.slevo.ui.navigation.AppNavGraph
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 
@@ -41,7 +41,7 @@ fun AppScaffold(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
     settingsViewModel: SettingsViewModel,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
     deepLinkUrlFlow: StateFlow<String?>,
     onDeepLinkConsumed: () -> Unit,
 ) {
@@ -68,7 +68,7 @@ fun AppScaffold(
     DeepLinkHandler(
         deepLinkUrl = deepLinkUrl,
         navController = navController,
-        tabsViewModel = tabsViewModel,
+        tabSessionStore = tabSessionStore,
         onConsumed = onDeepLinkConsumed
     )
 
@@ -92,7 +92,7 @@ fun AppScaffold(
                 topBarState = topBarState,
                 settingsViewModel = settingsViewModel,
                 openDrawer = openDrawer,
-                tabsViewModel = tabsViewModel,
+                tabSessionStore = tabSessionStore,
                 sharedTransitionScope = this,
             )
         }

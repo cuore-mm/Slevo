@@ -54,8 +54,8 @@ import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchArea
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchDefaults
 import com.websarva.wings.android.slevo.ui.tabs.TabListUiState
 import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenResult
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.tabs.component.extractServiceName
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
@@ -78,14 +78,21 @@ import kotlinx.coroutines.launch
 @Composable
 fun TabScreenContent(
     modifier: Modifier = Modifier,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
     tabListViewModel: TabListViewModel,
     navController: NavHostController,
     closeDrawer: () -> Unit,
     initialPage: Int = 0,
     onPageChanged: (Int) -> Unit = {}
 ) {
-    val sessionUiState by tabsViewModel.sessionUiState.collectAsStateWithLifecycle()
+    val openBoardTabs by tabSessionStore.openBoardTabs.collectAsStateWithLifecycle()
+    val openThreadTabs by tabSessionStore.openThreadTabs.collectAsStateWithLifecycle()
+    val boardLoaded by tabSessionStore.boardLoaded.collectAsStateWithLifecycle()
+    val threadLoaded by tabSessionStore.threadLoaded.collectAsStateWithLifecycle()
+    val isRefreshing by tabSessionStore.isRefreshing.collectAsStateWithLifecycle()
+    val refreshProgress by tabSessionStore.refreshProgress.collectAsStateWithLifecycle()
+    val newResCounts by tabSessionStore.newResCounts.collectAsStateWithLifecycle()
+    val isLoading = !(boardLoaded && threadLoaded)
     val listUiState by tabListViewModel.uiState.collectAsStateWithLifecycle()
     val invalidUrlMessage = stringResource(R.string.invalid_url)
     val coroutineScope = rememberCoroutineScope()
@@ -103,8 +110,8 @@ fun TabScreenContent(
     // --- Search state delegation ---
     val isSearchMode = listUiState.isSearchMode
     val searchQuery = listUiState.searchQuery
-    val filteredBoardTabs = filterBoardTabsByQuery(sessionUiState.openBoardTabs, searchQuery)
-    val filteredThreadTabs = filterThreadTabsByQuery(sessionUiState.openThreadTabs, searchQuery)
+    val filteredBoardTabs = filterBoardTabsByQuery(openBoardTabs, searchQuery)
+    val filteredThreadTabs = filterThreadTabsByQuery(openThreadTabs, searchQuery)
 
     /**
      * 検索モードを開始する。スクロール位置の保存は検索クエリが空から非空へ
@@ -137,12 +144,12 @@ fun TabScreenContent(
             old.isNotBlank() && new.isBlank() -> {
                 val restoreState = scrollRestoreState.value
                 if (restoreState != null) {
-                    if (sessionUiState.openBoardTabs.isNotEmpty()) {
-                        val targetIndex = restoreState.boardIndex.coerceIn(0, sessionUiState.openBoardTabs.lastIndex)
+                    if (openBoardTabs.isNotEmpty()) {
+                        val targetIndex = restoreState.boardIndex.coerceIn(0, openBoardTabs.lastIndex)
                         boardListState.scrollToItem(targetIndex, restoreState.boardOffset.coerceAtLeast(0))
                     }
-                    if (sessionUiState.openThreadTabs.isNotEmpty()) {
-                        val targetIndex = restoreState.threadIndex.coerceIn(0, sessionUiState.openThreadTabs.lastIndex)
+                    if (openThreadTabs.isNotEmpty()) {
+                        val targetIndex = restoreState.threadIndex.coerceIn(0, openThreadTabs.lastIndex)
                         threadListState.scrollToItem(targetIndex, restoreState.threadOffset.coerceAtLeast(0))
                     }
                     scrollRestoreState.value = null
@@ -207,7 +214,7 @@ fun TabScreenContent(
                     .fillMaxSize()
                     .hazeSource(state = hazeState),
             ) {
-                if (sessionUiState.isLoading) {
+                if (isLoading) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
@@ -225,22 +232,22 @@ fun TabScreenContent(
                         listContentPadding = listPadding,
                         openBoardTabs = filteredBoardTabs,
                         openThreadTabs = filteredThreadTabs,
-                        newResCounts = sessionUiState.newResCounts,
+                        newResCounts = newResCounts,
                         selectedBoardTab = listUiState.selectedBoardTab,
                         selectedThreadTab = listUiState.selectedThreadTab,
-                        onCloseBoardTab = { tabsViewModel.closeBoardTab(it) },
-                        onCloseThreadTab = { tabsViewModel.closeThreadTab(it) },
+                        onCloseBoardTab = { tabSessionStore.closeBoardTab(it) },
+                        onCloseThreadTab = { tabSessionStore.closeThreadTab(it) },
                         onBoardTabLongPressed = { tab, bounds ->
                             tabListViewModel.onBoardTabLongPressed(tab, bounds)
                         },
                         onThreadTabLongPressed = { tab, bounds ->
                             tabListViewModel.onThreadTabLongPressed(tab, bounds)
                         },
-                        onClearNewResCount = { tabsViewModel.clearNewResCount(it) },
+                        onClearNewResCount = { tabSessionStore.clearNewResCount(it) },
                         pendingCloseBoardTab = listUiState.pendingCloseBoardTab,
                         pendingCloseThreadTab = listUiState.pendingCloseThreadTab,
                         onCloseRequestConsumed = { tabListViewModel.consumePendingCloseRequest() },
-                        tabsViewModel = tabsViewModel,
+                        tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = listUiState.isInLongPressSelectionMode,
                     )
                 }
@@ -253,15 +260,15 @@ fun TabScreenContent(
                     .fillMaxWidth(),
                 pagerState = pagerState,
                 hazeState = hazeState,
-                isRefreshing = sessionUiState.isRefreshing,
+                isRefreshing = isRefreshing,
                 isSearchMode = isSearchMode,
-                refreshProgress = sessionUiState.refreshProgress,
+                refreshProgress = refreshProgress,
                 onCreateTabClick = {
                     tabListViewModel.setUrlErrorMessage(null)
                     tabListViewModel.setUrlDialogVisible(true)
                 },
-                onRefreshClick = { tabsViewModel.refreshOpenThreads() },
-                onCancelRefreshClick = { tabsViewModel.cancelRefreshOpenThreads() },
+                onRefreshClick = { tabSessionStore.refreshOpenThreads() },
+                onCancelRefreshClick = { tabSessionStore.cancelRefreshOpenThreads() },
             )
 
             TabListTopSearchArea(
@@ -289,7 +296,7 @@ fun TabScreenContent(
             // --- Long-press overlay layer ---
             TabLongPressOverlayLayer(
                 uiState = listUiState,
-                newResCounts = sessionUiState.newResCounts,
+                newResCounts = newResCounts,
                 hazeState = hazeState,
                 onCancelSelection = { tabListViewModel.cancelTabSelection() },
                 onDetailClick = { tabListViewModel.openSelectedTabDetail() },
@@ -304,7 +311,7 @@ fun TabScreenContent(
                 onDismissBoardSheet = { tabListViewModel.dismissBoardInfoBottomSheet() },
                 onDismissThreadSheet = { tabListViewModel.dismissThreadInfoBottomSheet() },
                 navController = navController,
-                tabsViewModel = tabsViewModel,
+                tabSessionStore = tabSessionStore,
             )
 
             // --- URL dialog ---
@@ -328,7 +335,7 @@ fun TabScreenContent(
                                 is UrlOpenResult.NavigateBoard -> {
                                     navController.navigateToBoard(
                                         route = result.route,
-                                        tabsViewModel = tabsViewModel,
+                                        tabSessionStore = tabSessionStore,
                                     )
                                     closeDrawer()
                                 }
@@ -336,7 +343,7 @@ fun TabScreenContent(
                                 is UrlOpenResult.NavigateThread -> {
                                     navController.navigateToThread(
                                         route = result.route,
-                                        tabsViewModel = tabsViewModel,
+                                        tabSessionStore = tabSessionStore,
                                     )
                                     closeDrawer()
                                 }
@@ -365,7 +372,7 @@ private fun TabDetailBottomSheets(
     onDismissBoardSheet: () -> Unit,
     onDismissThreadSheet: () -> Unit,
     navController: NavHostController,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
 ) {
     val boardTab = uiState.detailBoardTab
     if (boardTab != null) {
@@ -404,7 +411,7 @@ private fun TabDetailBottomSheets(
                 url = threadTab.boardUrl,
             ),
             navController = navController,
-            tabsViewModel = tabsViewModel,
+            tabSessionStore = tabSessionStore,
             showBoardAction = true,
         )
     }

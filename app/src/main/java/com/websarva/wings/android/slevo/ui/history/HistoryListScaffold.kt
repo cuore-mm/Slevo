@@ -22,7 +22,7 @@ import com.websarva.wings.android.slevo.ui.bottombar.BbsSelectBottomBar
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,7 +31,7 @@ fun HistoryListScaffold(
     navController: NavHostController,
     topBarState: TopAppBarState,
     parentPadding: PaddingValues,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
 ) {
     val viewModel: HistoryViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
@@ -76,7 +76,7 @@ fun HistoryListScaffold(
             isSelectionMode = isSelectionMode,
             onOpenThread = { history ->
                 coroutineScope.launch {
-                    val route = tabsViewModel.normalizeThreadRouteForNavigation(
+                    val route = tabSessionStore.normalizeThreadRouteForNavigation(
                         AppRoute.Thread(
                             threadKey = history.history.threadId.threadKey,
                             boardUrl = history.history.boardUrl,
@@ -88,7 +88,7 @@ fun HistoryListScaffold(
                     )
                     navController.navigateToThread(
                         route = route,
-                        tabsViewModel = tabsViewModel,
+                        tabSessionStore = tabSessionStore,
                     )
                 }
             },

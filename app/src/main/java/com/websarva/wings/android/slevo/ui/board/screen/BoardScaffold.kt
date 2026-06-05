@@ -36,7 +36,7 @@ import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGest
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
@@ -53,19 +53,20 @@ import kotlinx.coroutines.launch
 fun BoardScaffold(
     boardRoute: AppRoute.Board,
     navController: NavHostController,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     // --- Tab/state ---
-    val tabsUiState by tabsViewModel.uiState.collectAsState()
+    val boardLoaded by tabSessionStore.boardLoaded.collectAsState()
+    val openBoardTabs by tabSessionStore.openBoardTabs.collectAsState()
     val context = LocalContext.current
-    val currentPage by tabsViewModel.boardCurrentPage.collectAsState()
+    val currentPage by tabSessionStore.boardCurrentPage.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(boardRoute) {
         // --- Board resolution ---
-        val info = tabsViewModel.resolveBoardInfo(
+        val info = tabSessionStore.resolveBoardInfo(
             boardId = boardRoute.boardId,
             boardUrl = boardRoute.boardUrl,
             boardName = boardRoute.boardName
@@ -76,7 +77,7 @@ fun BoardScaffold(
             navController.navigateUp()
             return@LaunchedEffect
         }
-        val index = tabsViewModel.ensureBoardTab(
+        val index = tabSessionStore.ensureBoardTab(
             AppRoute.Board(
                 boardId = info.boardId,
                 boardName = info.name,
@@ -84,20 +85,20 @@ fun BoardScaffold(
             )
         )
         if (index >= 0) {
-            tabsViewModel.setBoardCurrentPage(index)
+            tabSessionStore.setBoardCurrentPage(index)
         }
     }
 
     // --- Scaffold ---
     BbsRouteScaffold(
         route = boardRoute,
-        tabsViewModel = tabsViewModel,
+        tabSessionStore = tabSessionStore,
         navController = navController,
-        isTabsLoaded = tabsUiState.boardLoaded,
+        isTabsLoaded = boardLoaded,
         onEmptyTabs = { navController.navigateUp() },
-        openTabs = tabsUiState.openBoardTabs,
+        openTabs = openBoardTabs,
         currentRoutePredicate = { it.boardUrl == boardRoute.boardUrl },
-        getViewModel = { tab -> tabsViewModel.getOrCreateBoardViewModel(tab.boardUrl) },
+        getViewModel = { tab -> tabSessionStore.getOrCreateBoardViewModel(tab.boardUrl) },
         getKey = { it.boardUrl },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
@@ -111,11 +112,11 @@ fun BoardScaffold(
             )
         },
         updateScrollPosition = { _, tab, index, offset ->
-            tabsViewModel.updateBoardScrollPosition(tab.boardUrl, index, offset)
+            tabSessionStore.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
         currentPage = currentPage,
-        onPageChange = { tabsViewModel.setBoardCurrentPage(it) },
-        animateToPageFlow = tabsViewModel.boardPageAnimation,
+        onPageChange = { tabSessionStore.setBoardCurrentPage(it) },
+        animateToPageFlow = tabSessionStore.boardPageAnimation,
         bottomBar = { viewModel, uiState, actionProgress, openTabListSheet ->
             val actions = listOf(
                 TabToolBarAction(
@@ -187,7 +188,7 @@ fun BoardScaffold(
             LaunchedEffect(uiState.resetScroll) {
                 if (uiState.resetScroll) {
                     listState.scrollToItem(0)
-                    tabsViewModel.updateBoardScrollPosition(uiState.boardInfo.url, 0, 0)
+                    tabSessionStore.updateBoardScrollPosition(uiState.boardInfo.url, 0, 0)
                     viewModel.consumeResetScroll()
                 }
             }
@@ -196,7 +197,7 @@ fun BoardScaffold(
                 threads = uiState.threads ?: emptyList(),
                 onClick = { threadInfo ->
                     coroutineScope.launch {
-                        val route = tabsViewModel.normalizeThreadRouteForNavigation(
+                        val route = tabSessionStore.normalizeThreadRouteForNavigation(
                             AppRoute.Thread(
                                 threadKey = threadInfo.key,
                                 boardUrl = uiState.boardInfo.url,
@@ -208,7 +209,7 @@ fun BoardScaffold(
                         )
                         navController.navigateToThread(
                             route = route,
-                            tabsViewModel = tabsViewModel,
+                            tabSessionStore = tabSessionStore,
                         )
                     }
                 },
@@ -231,11 +232,11 @@ fun BoardScaffold(
                             onOpenBoardList = { navController.navigate(AppRoute.ServiceList) },
                             onOpenHistory = { navController.navigate(AppRoute.HistoryList) },
                             onOpenNewTab = openUrlDialog,
-                            onSwitchToNextTab = { tabsViewModel.animateBoardPage(1) },
-                            onSwitchToPreviousTab = { tabsViewModel.animateBoardPage(-1) },
+                            onSwitchToNextTab = { tabSessionStore.animateBoardPage(1) },
+                            onSwitchToPreviousTab = { tabSessionStore.animateBoardPage(-1) },
                             onCloseTab = {
                                 if (uiState.boardInfo.url.isNotBlank()) {
-                                    tabsViewModel.closeBoardTabByUrl(uiState.boardInfo.url)
+                                    tabSessionStore.closeBoardTabByUrl(uiState.boardInfo.url)
                                 }
                             },
                         ),
@@ -249,7 +250,7 @@ fun BoardScaffold(
                 threadInfo = uiState.threadInfoSheetTarget,
                 boardInfo = uiState.boardInfo,
                 navController = navController,
-                tabsViewModel = tabsViewModel,
+                tabSessionStore = tabSessionStore,
                 showBoardAction = false,
             )
             BoardInfoBottomSheet(

@@ -36,7 +36,7 @@ import com.websarva.wings.android.slevo.ui.bbslist.service.ServiceListScreen
 import com.websarva.wings.android.slevo.ui.bbslist.service.ServiceListTopBarScreen
 import com.websarva.wings.android.slevo.ui.bbslist.service.ServiceListViewModel
 import com.websarva.wings.android.slevo.ui.common.SelectedTopBarScreen
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.util.isInRoute
 import kotlinx.coroutines.launch
 
@@ -45,7 +45,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
     parentPadding: PaddingValues,
     navController: NavHostController,
     openDrawer: () -> Unit,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
 ) {
     navigation<AppRoute.BbsServiceGroup>(
         startDestination = AppRoute.ServiceList,
@@ -301,7 +301,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                     boards = uiState.boards,
                     onBoardClick = { board ->
                         coroutineScope.launch {
-                            val route = tabsViewModel.normalizeBoardRouteForNavigation(
+                            val route = tabSessionStore.normalizeBoardRouteForNavigation(
                                 AppRoute.Board(
                                     boardId = board.boardId,
                                     boardName = board.name,
@@ -310,7 +310,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                             )
                             navController.navigateToBoard(
                                 route = route,
-                                tabsViewModel = tabsViewModel,
+                                tabSessionStore = tabSessionStore,
                             ) {
                                 popUpTo(route) {
                                     inclusive = false

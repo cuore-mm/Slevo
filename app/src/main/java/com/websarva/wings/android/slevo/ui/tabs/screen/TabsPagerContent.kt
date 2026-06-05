@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.data.model.ThreadId
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 
@@ -22,7 +22,7 @@ import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 fun TabsPagerContent(
     modifier: Modifier = Modifier,
     pagerState: PagerState,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
     navController: NavHostController,
     closeDrawer: () -> Unit,
     listContentPadding: PaddingValues = PaddingValues(0.dp),
@@ -60,7 +60,7 @@ fun TabsPagerContent(
                 pendingCloseBoardTab = pendingCloseBoardTab,
                 onCloseRequestConsumed = onCloseRequestConsumed,
                 onBoardTabLongPressed = onBoardTabLongPressed,
-                tabsViewModel = tabsViewModel,
+                tabSessionStore = tabSessionStore,
                 isInLongPressSelectionMode = isInLongPressSelectionMode,
             )
 
@@ -77,7 +77,7 @@ fun TabsPagerContent(
                 onCloseRequestConsumed = onCloseRequestConsumed,
                 onThreadTabLongPressed = onThreadTabLongPressed,
                 onClearNewResCount = onClearNewResCount,
-                tabsViewModel = tabsViewModel,
+                tabSessionStore = tabSessionStore,
                 isInLongPressSelectionMode = isInLongPressSelectionMode,
             )
         }

@@ -16,11 +16,12 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowInsetsControllerCompat
 import com.websarva.wings.android.slevo.ui.AppScaffold
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
 
 /**
  * アプリのメイン画面を構成し、Deep Linkの受信も受け持つActivity。
@@ -28,7 +29,7 @@ import kotlinx.coroutines.flow.asStateFlow
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val settingsViewModel: SettingsViewModel by viewModels()
-    private val tabsViewModel: TabsViewModel by viewModels()
+    @Inject lateinit var tabSessionStore: TabSessionStore
     private val deepLinkUrlState = MutableStateFlow<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,7 +62,7 @@ class MainActivity : ComponentActivity() {
             SlevoTheme(darkTheme = isDarkTheme) {
                 AppScaffold(
                     settingsViewModel = settingsViewModel,
-                    tabsViewModel = tabsViewModel,
+                    tabSessionStore = tabSessionStore,
                     deepLinkUrlFlow = deepLinkUrlState.asStateFlow(),
                     onDeepLinkConsumed = { deepLinkUrlState.value = null },
                 )

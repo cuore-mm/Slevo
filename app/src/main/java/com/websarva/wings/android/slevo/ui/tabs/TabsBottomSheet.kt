@@ -10,13 +10,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.screen.TabScreenContent
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TabsBottomSheet(
     modifier: Modifier = Modifier,
     sheetState: SheetState,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
     navController: NavHostController,
     onDismissRequest: () -> Unit,
     initialPage: Int = 0,
@@ -31,7 +32,7 @@ fun TabsBottomSheet(
     ) {
         TabScreenContent(
             modifier = Modifier.fillMaxHeight(0.95f),
-            tabsViewModel = tabsViewModel,
+            tabSessionStore = tabSessionStore,
             tabListViewModel = tabListViewModel,
             navController = navController,
             closeDrawer = onDismissRequest,

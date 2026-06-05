@@ -18,7 +18,7 @@ import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.component.RemovableTabList
 import com.websarva.wings.android.slevo.ui.tabs.component.TabHeaderTrailingContent
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
@@ -42,7 +42,7 @@ fun OpenThreadsList(
     onCloseRequestConsumed: () -> Unit = {},
     onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit = { _, _ -> },
     onClearNewResCount: (ThreadId) -> Unit = {},
-    tabsViewModel: TabsViewModel? = null,
+    tabSessionStore: TabSessionStore? = null,
     isInLongPressSelectionMode: Boolean = false,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -77,10 +77,10 @@ fun OpenThreadsList(
                 )
                 coroutineScope.launch {
                     val normalizedRoute =
-                        tabsViewModel?.normalizeThreadRouteForNavigation(route) ?: route
+                        tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
                     navController.navigateToThread(
                         route = normalizedRoute,
-                        tabsViewModel = tabsViewModel,
+                        tabSessionStore = tabSessionStore,
                     ) {
                         restoreState = true
                     }

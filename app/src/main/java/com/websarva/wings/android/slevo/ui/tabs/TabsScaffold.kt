@@ -9,22 +9,23 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.tabs.screen.TabScreenContent
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 
 @Composable
 fun TabsScaffold(
     parentPadding: PaddingValues,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
     navController: NavHostController
 ) {
-    val lastPage by tabsViewModel.lastSelectedPage.collectAsState()
+    val lastPage by tabSessionStore.lastSelectedPage.collectAsState(initial = 0)
     val tabListViewModel: TabListViewModel = hiltViewModel()
     TabScreenContent(
         modifier = Modifier.padding(parentPadding),
-        tabsViewModel = tabsViewModel,
+        tabSessionStore = tabSessionStore,
         tabListViewModel = tabListViewModel,
         navController = navController,
         closeDrawer = {}, // Scaffoldの場合は何もしない
         initialPage = lastPage,
-        onPageChanged = { tabsViewModel.setLastSelectedPage(it) }
+        onPageChanged = { tabSessionStore.setLastSelectedPage(it) }
     )
 }
