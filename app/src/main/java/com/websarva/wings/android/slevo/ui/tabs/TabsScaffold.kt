@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.tabs.screen.TabScreenContent
 
@@ -16,9 +17,11 @@ fun TabsScaffold(
     navController: NavHostController
 ) {
     val lastPage by tabsViewModel.lastSelectedPage.collectAsState()
+    val tabListViewModel: TabListViewModel = hiltViewModel()
     TabScreenContent(
         modifier = Modifier.padding(parentPadding),
         tabsViewModel = tabsViewModel,
+        tabListViewModel = tabListViewModel,
         navController = navController,
         closeDrawer = {}, // Scaffoldの場合は何もしない
         initialPage = lastPage,

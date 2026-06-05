@@ -52,6 +52,7 @@ import com.websarva.wings.android.slevo.ui.tabs.component.TabListBottomControls
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchArea
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchDefaults
+import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabsUiState
 import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
@@ -77,12 +78,14 @@ import kotlinx.coroutines.launch
 fun TabScreenContent(
     modifier: Modifier = Modifier,
     tabsViewModel: TabsViewModel,
+    tabListViewModel: TabListViewModel? = null,
     navController: NavHostController,
     closeDrawer: () -> Unit,
     initialPage: Int = 0,
     onPageChanged: (Int) -> Unit = {}
 ) {
-    val uiState by tabsViewModel.uiState.collectAsStateWithLifecycle()
+    val sessionUiState by tabsViewModel.sessionUiState.collectAsStateWithLifecycle()
+    val listUiState = tabListViewModel?.uiState?.collectAsStateWithLifecycle()?.value
     val invalidUrlMessage = stringResource(R.string.invalid_url)
     val coroutineScope = rememberCoroutineScope()
 
@@ -96,15 +99,19 @@ fun TabScreenContent(
     val scrollRestoreState = remember { mutableStateOf<TabSearchScrollState?>(null) }
     val previousQuery = remember { mutableStateOf("") }
 
-    val filteredBoardTabs = filterBoardTabsByQuery(uiState.openBoardTabs, uiState.searchQuery)
-    val filteredThreadTabs = filterThreadTabsByQuery(uiState.openThreadTabs, uiState.searchQuery)
+    // --- Search state delegation ---
+    val isSearchMode = listUiState?.isSearchMode ?: sessionUiState.isSearchMode
+    val searchQuery = listUiState?.searchQuery ?: sessionUiState.searchQuery
+    val filteredBoardTabs = filterBoardTabsByQuery(sessionUiState.openBoardTabs, searchQuery)
+    val filteredThreadTabs = filterThreadTabsByQuery(sessionUiState.openThreadTabs, searchQuery)
 
     /**
      * 検索モードを開始する。スクロール位置の保存は検索クエリが空から非空へ
      * 切り替わる直前に行うため、ここでは行わない。
      */
     fun enterSearchMode() {
-        tabsViewModel.enterSearchMode()
+        tabListViewModel?.enterSearchMode()
+            ?: tabsViewModel.enterSearchMode()
     }
 
     /**
@@ -112,7 +119,8 @@ fun TabScreenContent(
      * 検索クエリが非空から空へ切り替わる LaunchedEffect で行う。
      */
     fun exitSearchMode() {
-        tabsViewModel.closeSearchMode()
+        tabListViewModel?.closeSearchMode()
+            ?: tabsViewModel.closeSearchMode()
     }
 
     /**
@@ -121,21 +129,21 @@ fun TabScreenContent(
      * 保存は onQueryChange で空→非空の直前に行う。非空クエリが変わった場合は
      * 絞り込み後の一覧を先頭から表示し、非空→空では完全リスト復帰後に保存位置へ戻す。
      */
-    LaunchedEffect(uiState.searchQuery) {
+    LaunchedEffect(searchQuery) {
         val old = previousQuery.value
-        val new = uiState.searchQuery
+        val new = searchQuery
 
         when {
             // 検索結果リスト → 完全リスト: 復元
             old.isNotBlank() && new.isBlank() -> {
                 val restoreState = scrollRestoreState.value
                 if (restoreState != null) {
-                    if (uiState.openBoardTabs.isNotEmpty()) {
-                        val targetIndex = restoreState.boardIndex.coerceIn(0, uiState.openBoardTabs.lastIndex)
+                    if (sessionUiState.openBoardTabs.isNotEmpty()) {
+                        val targetIndex = restoreState.boardIndex.coerceIn(0, sessionUiState.openBoardTabs.lastIndex)
                         boardListState.scrollToItem(targetIndex, restoreState.boardOffset.coerceAtLeast(0))
                     }
-                    if (uiState.openThreadTabs.isNotEmpty()) {
-                        val targetIndex = restoreState.threadIndex.coerceIn(0, uiState.openThreadTabs.lastIndex)
+                    if (sessionUiState.openThreadTabs.isNotEmpty()) {
+                        val targetIndex = restoreState.threadIndex.coerceIn(0, sessionUiState.openThreadTabs.lastIndex)
                         threadListState.scrollToItem(targetIndex, restoreState.threadOffset.coerceAtLeast(0))
                     }
                     scrollRestoreState.value = null
@@ -171,7 +179,7 @@ fun TabScreenContent(
     }
 
     // --- Back handler for search mode ---
-    if (uiState.isSearchMode) {
+    if (isSearchMode) {
         BackHandler {
             exitSearchMode()
         }
@@ -200,7 +208,7 @@ fun TabScreenContent(
                     .fillMaxSize()
                     .hazeSource(state = hazeState),
             ) {
-                if (uiState.isLoading) {
+                if (sessionUiState.isLoading) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
@@ -218,9 +226,9 @@ fun TabScreenContent(
                         listContentPadding = listPadding,
                         openBoardTabs = filteredBoardTabs,
                         openThreadTabs = filteredThreadTabs,
-                        newResCounts = uiState.newResCounts,
-                        selectedBoardTab = uiState.selectedBoardTab,
-                        selectedThreadTab = uiState.selectedThreadTab,
+                        newResCounts = sessionUiState.newResCounts,
+                        selectedBoardTab = sessionUiState.selectedBoardTab,
+                        selectedThreadTab = sessionUiState.selectedThreadTab,
                         onCloseBoardTab = { tabsViewModel.closeBoardTab(it) },
                         onCloseThreadTab = { tabsViewModel.closeThreadTab(it) },
                         onBoardTabLongPressed = { tab, bounds ->
@@ -230,11 +238,11 @@ fun TabScreenContent(
                             tabsViewModel.onThreadTabLongPressed(tab, bounds)
                         },
                         onClearNewResCount = { tabsViewModel.clearNewResCount(it) },
-                        pendingCloseBoardTab = uiState.pendingCloseBoardTab,
-                        pendingCloseThreadTab = uiState.pendingCloseThreadTab,
+                        pendingCloseBoardTab = sessionUiState.pendingCloseBoardTab,
+                        pendingCloseThreadTab = sessionUiState.pendingCloseThreadTab,
                         onCloseRequestConsumed = { tabsViewModel.consumePendingCloseRequest() },
                         tabsViewModel = tabsViewModel,
-                        isInLongPressSelectionMode = uiState.isInLongPressSelectionMode,
+                        isInLongPressSelectionMode = sessionUiState.isInLongPressSelectionMode,
                     )
                 }
             }
@@ -246,9 +254,9 @@ fun TabScreenContent(
                     .fillMaxWidth(),
                 pagerState = pagerState,
                 hazeState = hazeState,
-                isRefreshing = uiState.isRefreshing,
-                isSearchMode = uiState.isSearchMode,
-                refreshProgress = uiState.refreshProgress,
+                isRefreshing = sessionUiState.isRefreshing,
+                isSearchMode = isSearchMode,
+                refreshProgress = sessionUiState.refreshProgress,
                 onCreateTabClick = {
                     tabsViewModel.setUrlErrorMessage(null)
                     tabsViewModel.setUrlDialogVisible(true)
@@ -262,11 +270,11 @@ fun TabScreenContent(
                     .align(Alignment.TopCenter)
                     .padding(top = innerPadding.calculateTopPadding()),
                 hazeState = hazeState,
-                isSearchMode = uiState.isSearchMode,
-                searchQuery = uiState.searchQuery,
+                isSearchMode = isSearchMode,
+                searchQuery = searchQuery,
                 onSearchClick = { enterSearchMode() },
                 onQueryChange = { newQuery ->
-                    if (uiState.searchQuery.isBlank() && newQuery.isNotBlank()) {
+                    if (searchQuery.isBlank() && newQuery.isNotBlank()) {
                         scrollRestoreState.value = TabSearchScrollState(
                             boardIndex = boardListState.firstVisibleItemIndex,
                             boardOffset = boardListState.firstVisibleItemScrollOffset,
@@ -274,21 +282,22 @@ fun TabScreenContent(
                             threadOffset = threadListState.firstVisibleItemScrollOffset,
                         )
                     }
-                    tabsViewModel.updateSearchQuery(newQuery)
+                    tabListViewModel?.updateSearchQuery(newQuery)
+                        ?: tabsViewModel.updateSearchQuery(newQuery)
                 },
                 onCloseSearch = { exitSearchMode() },
             )
 
             // --- Long-press overlay layer ---
             TabLongPressOverlayLayer(
-                uiState = uiState,
-                newResCounts = uiState.newResCounts,
+                uiState = sessionUiState,
+                newResCounts = sessionUiState.newResCounts,
                 hazeState = hazeState,
                 onCancelSelection = { tabsViewModel.cancelTabSelection() },
                 onDetailClick = { tabsViewModel.openSelectedTabDetail() },
                 onPinClick = { tabsViewModel.toggleSelectedTabPin() },
                 onCloseClick = { tabsViewModel.requestCloseSelectedTab() },
-                isBackHandlerEnabled = !uiState.isSearchMode,
+                isBackHandlerEnabled = !isSearchMode,
             )
 
             // --- Bottom sheets ---
@@ -301,16 +310,16 @@ fun TabScreenContent(
             )
 
             // --- URL dialog ---
-            if (uiState.showUrlDialog) {
+            if (sessionUiState.showUrlDialog) {
                 UrlOpenDialog(
                     onDismissRequest = {
                         tabsViewModel.setUrlDialogVisible(false)
                     },
-                    isError = uiState.urlErrorMessage != null,
-                    errorMessage = uiState.urlErrorMessage,
-                    isValidating = uiState.isUrlValidating,
+                    isError = sessionUiState.urlErrorMessage != null,
+                    errorMessage = sessionUiState.urlErrorMessage,
+                    isValidating = sessionUiState.isUrlValidating,
                     onValueChange = {
-                        if (uiState.urlErrorMessage != null) {
+                        if (sessionUiState.urlErrorMessage != null) {
                             tabsViewModel.setUrlErrorMessage(null)
                         }
                     },
@@ -360,10 +369,10 @@ private fun TabDetailBottomSheets(
     navController: NavHostController,
     tabsViewModel: TabsViewModel,
 ) {
-    val boardTab = uiState.detailBoardTab
+    val boardTab = sessionUiState.detailBoardTab
     if (boardTab != null) {
         BoardInfoBottomSheet(
-            showBoardInfoSheet = uiState.showBoardInfoBottomSheet,
+            showBoardInfoSheet = sessionUiState.showBoardInfoBottomSheet,
             onDismissRequest = onDismissBoardSheet,
             boardName = boardTab.boardName,
             serviceName = boardTab.serviceName,
@@ -371,14 +380,14 @@ private fun TabDetailBottomSheets(
         )
     }
 
-    val threadTab = uiState.detailThreadTab
+    val threadTab = sessionUiState.detailThreadTab
     if (threadTab != null) {
         val derived = ThreadInfoDerivedCalculator.calculate(
             threadKey = threadTab.threadKey,
             resCount = threadTab.resCount,
         )
         ThreadInfoBottomSheet(
-            showThreadInfoSheet = uiState.showThreadInfoBottomSheet,
+            showThreadInfoSheet = sessionUiState.showThreadInfoBottomSheet,
             onDismissRequest = onDismissThreadSheet,
             threadInfo = ThreadInfo(
                 title = threadTab.title,
@@ -423,8 +432,8 @@ private fun TabLongPressOverlayLayer(
     // --- Floating card animation state (Compose-local) ---
     val floatingScale = remember { Animatable(1f) }
 
-    LaunchedEffect(uiState.isInLongPressSelectionMode) {
-        if (uiState.isInLongPressSelectionMode) {
+    LaunchedEffect(sessionUiState.isInLongPressSelectionMode) {
+        if (sessionUiState.isInLongPressSelectionMode) {
             floatingScale.snapTo(1f)
             floatingScale.animateTo(
                 targetValue = 1.04f,
@@ -436,7 +445,7 @@ private fun TabLongPressOverlayLayer(
     }
 
     val boxWindowOffset = remember { mutableStateOf(IntOffset.Zero) }
-    val boundsForFloating = uiState.selectedTabBounds
+    val boundsForFloating = sessionUiState.selectedTabBounds
     val hasFloatingBounds = boundsForFloating != null
 
     Box(
@@ -448,9 +457,9 @@ private fun TabLongPressOverlayLayer(
             }
     ) {
         // --- Long-press dim overlay ---
-        val showDimOverlay = uiState.isInLongPressSelectionMode
+        val showDimOverlay = sessionUiState.isInLongPressSelectionMode
         val dimAlpha by animateFloatAsState(
-            targetValue = if (uiState.isInLongPressSelectionMode) 0.30f else 0f,
+            targetValue = if (sessionUiState.isInLongPressSelectionMode) 0.30f else 0f,
             animationSpec = tween(durationMillis = 200),
             label = "dimOverlayAlpha",
         )
@@ -460,7 +469,7 @@ private fun TabLongPressOverlayLayer(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = dimAlpha))
-                    .clickable(enabled = uiState.isInLongPressSelectionMode) {
+                    .clickable(enabled = sessionUiState.isInLongPressSelectionMode) {
                         onCancelSelection()
                     }
             )
@@ -468,8 +477,8 @@ private fun TabLongPressOverlayLayer(
 
         // --- Selected tab floating card (overlay layer) ---
         val density = LocalDensity.current
-        val boardTabForFloating = if (hasFloatingBounds) uiState.selectedBoardTab else null
-        val threadTabForFloating = if (hasFloatingBounds) uiState.selectedThreadTab else null
+        val boardTabForFloating = if (hasFloatingBounds) sessionUiState.selectedBoardTab else null
+        val threadTabForFloating = if (hasFloatingBounds) sessionUiState.selectedThreadTab else null
 
         boardTabForFloating?.let { tab ->
             boundsForFloating?.let { bounds ->
@@ -517,11 +526,11 @@ private fun TabLongPressOverlayLayer(
 
         // --- Anchored tab action menu ---
         AnchoredTabActionMenu(
-            expanded = uiState.isInLongPressSelectionMode,
-            anchorBoundsInWindow = uiState.selectedTabBounds,
+            expanded = sessionUiState.isInLongPressSelectionMode,
+            anchorBoundsInWindow = sessionUiState.selectedTabBounds,
             hazeState = null,
-            isPinned = uiState.selectedBoardTab?.isPinned
-                ?: uiState.selectedThreadTab?.isPinned
+            isPinned = sessionUiState.selectedBoardTab?.isPinned
+                ?: sessionUiState.selectedThreadTab?.isPinned
                 ?: false,
             onDismissRequest = onCancelSelection,
             onDetailClick = onDetailClick,
@@ -531,7 +540,7 @@ private fun TabLongPressOverlayLayer(
     }
 
     // --- Back handler for selection mode ---
-    if (uiState.isInLongPressSelectionMode && isBackHandlerEnabled) {
+    if (sessionUiState.isInLongPressSelectionMode && isBackHandlerEnabled) {
         BackHandler { onCancelSelection() }
     }
 }
