@@ -25,6 +25,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.Closeable
 import javax.inject.Inject
 
 /**
@@ -43,7 +44,7 @@ class TabSessionStore @Inject constructor(
     private val boardRepository: BoardRepository,
     private val bbsServiceRepository: BbsServiceRepository,
     private val settingsRepository: SettingsRepository,
-) {
+) : Closeable {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -219,8 +220,11 @@ class TabSessionStore @Inject constructor(
 
     /**
      * Activity retained scope終了時に未完了ジョブをキャンセルする。
+     *
+     * Hilt は [Closeable] を実装した [ActivityRetainedScoped] インスタンスの
+     * [close] をコンポーネント破棄時に自動で呼び出す。
      */
-    fun cancelScope() {
+    override fun close() {
         scope.cancel()
     }
 }

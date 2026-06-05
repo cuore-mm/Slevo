@@ -19,13 +19,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-@ActivityRetainedScoped
 /**
  * ボードタブの状態を管理するコーディネーター。
  *
  * - 役割: 開いているボードタブ一覧の状態管理（追加/削除/スクロール位置）および
  *   ローカルリポジトリへの保存・読み込みを仲介する。
- * - スコープ: ViewModel スコープに準拠し、UI のライフサイクルに合わせてインスタンスが生存する。
+ * - スコープ: Activity retained スコープに準拠し、構成変更を超えてインスタンスが生存する。
  * - 主な公開プロパティ:
  *   - `openBoardTabs`: 現在開かれているボードタブの一覧（StateFlow）。
  *   - `boardLoaded`: リポジトリからの初期読み込みが完了したかどうかのフラグ。
@@ -36,6 +35,7 @@ import javax.inject.Inject
  * - `upsertBoardTab` は同一 boardUrl が存在すれば上書き、なければ末尾に追加する。
  * - タブ削除時は `updateCurrentPageAfterRemoval` で現在ページの補正を行う。
  */
+@ActivityRetainedScoped
 class BoardTabsCoordinator @Inject constructor(
     private val tabsRepository: TabsRepository,
     private val bookmarkBoardRepository: BookmarkBoardRepository,
