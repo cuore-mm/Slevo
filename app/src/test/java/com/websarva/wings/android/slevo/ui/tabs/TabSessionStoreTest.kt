@@ -25,15 +25,17 @@ class TabSessionStoreTest {
     private val boardCoordinator = mockk<BoardTabsCoordinator>(relaxed = true)
     private val threadCoordinator = mockk<ThreadTabsCoordinator>(relaxed = true)
     private val registry = mockk<TabViewModelRegistry>(relaxed = true)
-    private val store = TabSessionStore(
-        boardTabsCoordinator = boardCoordinator,
-        threadTabsCoordinator = threadCoordinator,
-        tabViewModelRegistry = registry,
-        tabsRepository = mockk(relaxed = true),
-        boardRepository = mockk(relaxed = true),
-        bbsServiceRepository = mockk(relaxed = true),
-        settingsRepository = mockk(relaxed = true),
-    )
+    private val store by lazy {
+        TabSessionStore(
+            boardTabsCoordinator = boardCoordinator,
+            threadTabsCoordinator = threadCoordinator,
+            tabViewModelRegistry = registry,
+            tabsRepository = mockk(relaxed = true),
+            boardRepository = mockk(relaxed = true),
+            bbsServiceRepository = mockk(relaxed = true),
+            settingsRepository = mockk(relaxed = true),
+        )
+    }
 
     /**
      * [close] 呼び出し時に内部 CoroutineScope がキャンセルされることを確認する。

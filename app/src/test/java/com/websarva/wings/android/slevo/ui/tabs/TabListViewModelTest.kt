@@ -25,7 +25,7 @@ class TabListViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val tabSessionStore = mockk<TabSessionStore>(relaxed = true)
-    private val viewModel = TabListViewModel(tabSessionStore)
+    private val viewModel by lazy { TabListViewModel(tabSessionStore) }
 
     // --- Search ---
 
