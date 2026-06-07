@@ -46,24 +46,24 @@ import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
 import com.websarva.wings.android.slevo.ui.board.screen.BoardInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.tabs.TabListScrollCommand
+import com.websarva.wings.android.slevo.ui.tabs.TabListUiState
+import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
+import com.websarva.wings.android.slevo.ui.tabs.TabSearchScrollSnapshot
+import com.websarva.wings.android.slevo.ui.tabs.UrlOpenResult
 import com.websarva.wings.android.slevo.ui.tabs.component.AnchoredTabActionMenu
 import com.websarva.wings.android.slevo.ui.tabs.component.TabHeaderTrailingContent
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListBottomControls
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchArea
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchDefaults
-import com.websarva.wings.android.slevo.ui.tabs.TabListScrollCommand
-import com.websarva.wings.android.slevo.ui.tabs.TabListUiState
-import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
-import com.websarva.wings.android.slevo.ui.tabs.TabSearchScrollSnapshot
-import com.websarva.wings.android.slevo.ui.tabs.UrlOpenResult
-import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
-import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.tabs.component.extractServiceName
+import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.filterBoardTabsByQuery
 import com.websarva.wings.android.slevo.ui.tabs.model.filterThreadTabsByQuery
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import dev.chrisbanes.haze.HazeState
@@ -144,11 +144,11 @@ fun TabScreenContent(
         }
         if (openBoardTabs.isNotEmpty()) {
             val targetIndex = snapshot.boardIndex.coerceIn(0, openBoardTabs.lastIndex)
-            boardListState.scrollToItem(targetIndex, snapshot.boardOffset.coerceAtLeast(0))
+            boardListState.requestScrollToItem(targetIndex, snapshot.boardOffset.coerceAtLeast(0))
         }
         if (openThreadTabs.isNotEmpty()) {
             val targetIndex = snapshot.threadIndex.coerceIn(0, openThreadTabs.lastIndex)
-            threadListState.scrollToItem(targetIndex, snapshot.threadOffset.coerceAtLeast(0))
+            threadListState.requestScrollToItem(targetIndex, snapshot.threadOffset.coerceAtLeast(0))
         }
         tabListViewModel.consumePendingRestoreSnapshot()
     }
