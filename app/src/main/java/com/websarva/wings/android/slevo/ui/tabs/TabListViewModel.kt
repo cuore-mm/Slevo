@@ -102,6 +102,7 @@ class TabListViewModel @Inject constructor(
         }
         isSearchModeState.value = false
         searchQueryState.value = ""
+        pendingScrollToTopRequestState.value = null
         previousSearchQueryState.value = ""
     }
 
