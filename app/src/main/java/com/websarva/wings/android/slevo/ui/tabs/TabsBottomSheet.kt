@@ -25,7 +25,10 @@ fun TabsBottomSheet(
     val tabListViewModel: TabListViewModel = hiltViewModel()
     SlevoBottomSheet(
         modifier = modifier,
-        onDismissRequest = onDismissRequest,
+        onDismissRequest = {
+            tabListViewModel.resetSearchState()
+            onDismissRequest()
+        },
         sheetState = sheetState,
         sheetGesturesEnabled = false,
         containerColor = MaterialTheme.colorScheme.background,
@@ -35,7 +38,10 @@ fun TabsBottomSheet(
             tabSessionStore = tabSessionStore,
             tabListViewModel = tabListViewModel,
             navController = navController,
-            closeDrawer = onDismissRequest,
+            closeDrawer = {
+                tabListViewModel.resetSearchState()
+                onDismissRequest()
+            },
             initialPage = initialPage
         )
     }

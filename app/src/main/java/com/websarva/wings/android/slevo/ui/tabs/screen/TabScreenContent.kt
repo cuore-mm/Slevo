@@ -104,8 +104,6 @@ fun TabScreenContent(
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 2 })
     val boardListState = rememberLazyListState()
     val threadListState = rememberLazyListState()
-    val scrollRestoreState = remember { mutableStateOf<TabSearchScrollState?>(null) }
-    val previousQuery = remember { mutableStateOf("") }
 
     // --- Search state delegation ---
     val isSearchMode = listUiState.isSearchMode
@@ -130,35 +128,30 @@ fun TabScreenContent(
     }
 
     /**
-     * 検索クエリの遷移に応じて検索結果の先頭表示とスクロール位置復元を行う。
+     * ViewModel から発行されたスクロール命令を監視し、実行して消費する。
      *
-     * 保存は onQueryChange で空→非空の直前に行う。非空クエリが変わった場合は
-     * 絞り込み後の一覧を先頭から表示し、非空→空では完全リスト復帰後に保存位置へ戻す。
+     * 復元命令では完全リスト上の有効範囲へ丸めてスクロールし、
+     * 先頭表示命令では現在表示中ページのリストだけを先頭へ移動する。
      */
-    LaunchedEffect(searchQuery) {
-        val old = previousQuery.value
-        val new = searchQuery
+    LaunchedEffect(listUiState.scrollCommand) {
+        val command = listUiState.scrollCommand ?: return@LaunchedEffect
 
-        when {
-            // 検索結果リスト → 完全リスト: 復元
-            old.isNotBlank() && new.isBlank() -> {
-                val restoreState = scrollRestoreState.value
-                if (restoreState != null) {
-                    if (openBoardTabs.isNotEmpty()) {
-                        val targetIndex = restoreState.boardIndex.coerceIn(0, openBoardTabs.lastIndex)
-                        boardListState.scrollToItem(targetIndex, restoreState.boardOffset.coerceAtLeast(0))
-                    }
-                    if (openThreadTabs.isNotEmpty()) {
-                        val targetIndex = restoreState.threadIndex.coerceIn(0, openThreadTabs.lastIndex)
-                        threadListState.scrollToItem(targetIndex, restoreState.threadOffset.coerceAtLeast(0))
-                    }
-                    scrollRestoreState.value = null
+        when (command) {
+            is TabListScrollCommand.Restore -> {
+                val snapshot = command.snapshot
+                if (openBoardTabs.isNotEmpty()) {
+                    val targetIndex = snapshot.boardIndex.coerceIn(0, openBoardTabs.lastIndex)
+                    boardListState.scrollToItem(targetIndex, snapshot.boardOffset.coerceAtLeast(0))
                 }
+                if (openThreadTabs.isNotEmpty()) {
+                    val targetIndex = snapshot.threadIndex.coerceIn(0, openThreadTabs.lastIndex)
+                    threadListState.scrollToItem(targetIndex, snapshot.threadOffset.coerceAtLeast(0))
+                }
+                tabListViewModel.consumeScrollCommand()
             }
 
-            // 検索結果リスト: 現在表示中ページの一覧を先頭から表示
-            old != new && new.isNotBlank() -> {
-                when (pagerState.currentPage) {
+            is TabListScrollCommand.ScrollToTop -> {
+                when (command.page) {
                     0 -> {
                         if (filteredBoardTabs.isNotEmpty()) {
                             boardListState.scrollToItem(0)
@@ -171,10 +164,9 @@ fun TabScreenContent(
                         }
                     }
                 }
+                tabListViewModel.consumeScrollCommand()
             }
         }
-
-        previousQuery.value = new
     }
 
     LaunchedEffect(pagerState) {
@@ -281,11 +273,13 @@ fun TabScreenContent(
                 onSearchClick = { enterSearchMode() },
                 onQueryChange = { newQuery ->
                     if (searchQuery.isBlank() && newQuery.isNotBlank()) {
-                        scrollRestoreState.value = TabSearchScrollState(
-                            boardIndex = boardListState.firstVisibleItemIndex,
-                            boardOffset = boardListState.firstVisibleItemScrollOffset,
-                            threadIndex = threadListState.firstVisibleItemIndex,
-                            threadOffset = threadListState.firstVisibleItemScrollOffset,
+                        tabListViewModel.saveScrollSnapshotBeforeSearch(
+                            TabSearchScrollSnapshot(
+                                boardIndex = boardListState.firstVisibleItemIndex,
+                                boardOffset = boardListState.firstVisibleItemScrollOffset,
+                                threadIndex = threadListState.firstVisibleItemIndex,
+                                threadOffset = threadListState.firstVisibleItemScrollOffset,
+                            )
                         )
                     }
                     tabListViewModel.updateSearchQuery(newQuery)
@@ -549,16 +543,6 @@ private fun TabLongPressOverlayLayer(
         BackHandler { onCancelSelection() }
     }
 }
-
-/**
- * タブ一覧検索の開始前に記録するスクロール位置を保持する。
- */
-private data class TabSearchScrollState(
-    val boardIndex: Int,
-    val boardOffset: Int,
-    val threadIndex: Int,
-    val threadOffset: Int,
-)
 
 /**
  * 選択中の板タブを overlay 上に再描画するための Composable。

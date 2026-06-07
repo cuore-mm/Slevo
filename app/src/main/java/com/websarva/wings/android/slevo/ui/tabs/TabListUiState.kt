@@ -13,6 +13,7 @@ import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 data class TabListUiState(
     val isSearchMode: Boolean = false,
     val searchQuery: String = "",
+    val scrollCommand: TabListScrollCommand? = null,
     val selectedBoardTab: BoardTabInfo? = null,
     val selectedThreadTab: ThreadTabInfo? = null,
     val selectedTabBounds: IntRect? = null,

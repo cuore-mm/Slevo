@@ -226,4 +226,134 @@ class TabListViewModelTest {
 
         verify { tabSessionStore.togglePinThreadTab(tab.id) }
     }
+
+    // --- Search scroll restore ---
+
+    /**
+     * 検索クエリが空から非空へ変わると、事前に保存したスクロールスナップショットが保持されることを確認する。
+     */
+    @Test
+    fun updateSearchQuery_blankToNonBlank_preservesScrollSnapshot() = runTest {
+        val snapshot = TabSearchScrollSnapshot(
+            boardIndex = 5,
+            boardOffset = 10,
+            threadIndex = 3,
+            threadOffset = 20,
+        )
+        viewModel.saveScrollSnapshotBeforeSearch(snapshot)
+
+        viewModel.updateSearchQuery("query")
+
+        val state = viewModel.uiState.first()
+        assertEquals("query", state.searchQuery)
+        assertNull(state.scrollCommand)
+    }
+
+    /**
+     * 検索クエリが非空から空へ変わると、保存済みスナップショットに基づく復元命令が発行されることを確認する。
+     */
+    @Test
+    fun updateSearchQuery_nonBlankToBlank_issuesRestoreCommand() = runTest {
+        val snapshot = TabSearchScrollSnapshot(
+            boardIndex = 5,
+            boardOffset = 10,
+            threadIndex = 3,
+            threadOffset = 20,
+        )
+        viewModel.saveScrollSnapshotBeforeSearch(snapshot)
+        viewModel.updateSearchQuery("query")
+        assertEquals("query", viewModel.uiState.first().searchQuery)
+
+        viewModel.updateSearchQuery("")
+
+        val state = viewModel.uiState.first()
+        assertEquals("", state.searchQuery)
+        val command = state.scrollCommand
+        assertTrue(command is TabListScrollCommand.Restore)
+        assertEquals(snapshot, (command as TabListScrollCommand.Restore).snapshot)
+    }
+
+    /**
+     * 復元命令を consume すると、同じ命令が再発行されないことを確認する。
+     */
+    @Test
+    fun consumeScrollCommand_clearsCommand() = runTest {
+        val snapshot = TabSearchScrollSnapshot(1, 2, 3, 4)
+        viewModel.saveScrollSnapshotBeforeSearch(snapshot)
+        viewModel.updateSearchQuery("query")
+        viewModel.updateSearchQuery("")
+        assertTrue(viewModel.uiState.first().scrollCommand is TabListScrollCommand.Restore)
+
+        viewModel.consumeScrollCommand()
+
+        assertNull(viewModel.uiState.first().scrollCommand)
+    }
+
+    /**
+     * 検索クエリが非空から別の非空へ変わると、スクロール先頭表示命令が発行されることを確認する。
+     */
+    @Test
+    fun updateSearchQuery_nonBlankToDifferentNonBlank_issuesScrollToTop() = runTest {
+        viewModel.updateSearchQuery("old")
+        assertEquals("old", viewModel.uiState.first().searchQuery)
+
+        viewModel.updateSearchQuery("new")
+
+        val state = viewModel.uiState.first()
+        assertEquals("new", state.searchQuery)
+    }
+
+    /**
+     * closeSearchMode で検索状態がクリアされ、復元命令が発行されることを確認する。
+     */
+    @Test
+    fun closeSearchMode_clearsSearchAndIssuesRestoreCommand() = runTest {
+        val snapshot = TabSearchScrollSnapshot(1, 2, 3, 4)
+        viewModel.saveScrollSnapshotBeforeSearch(snapshot)
+        viewModel.enterSearchMode()
+        viewModel.updateSearchQuery("query")
+
+        viewModel.closeSearchMode()
+
+        val state = viewModel.uiState.first()
+        assertFalse(state.isSearchMode)
+        assertEquals("", state.searchQuery)
+        assertTrue(state.scrollCommand is TabListScrollCommand.Restore)
+    }
+
+    /**
+     * resetSearchState で検索モード・検索クエリ・復元スナップショット・未消費命令がすべてクリアされることを確認する。
+     */
+    @Test
+    fun resetSearchState_clearsAllSearchState() = runTest {
+        val snapshot = TabSearchScrollSnapshot(1, 2, 3, 4)
+        viewModel.saveScrollSnapshotBeforeSearch(snapshot)
+        viewModel.enterSearchMode()
+        viewModel.updateSearchQuery("query")
+        viewModel.updateSearchQuery("")
+        assertTrue(viewModel.uiState.first().scrollCommand is TabListScrollCommand.Restore)
+
+        viewModel.resetSearchState()
+
+        val state = viewModel.uiState.first()
+        assertFalse(state.isSearchMode)
+        assertEquals("", state.searchQuery)
+        assertNull(state.scrollCommand)
+    }
+
+    /**
+     * スクロール先頭表示命令を発行して consume すると、命令がクリアされることを確認する。
+     */
+    @Test
+    fun issueScrollToTopCommand_and_consume_clearsCommand() = runTest {
+        viewModel.issueScrollToTopCommand(0)
+
+        val state = viewModel.uiState.first()
+        val command = state.scrollCommand
+        assertTrue(command is TabListScrollCommand.ScrollToTop)
+        assertEquals(0, (command as TabListScrollCommand.ScrollToTop).page)
+
+        viewModel.consumeScrollCommand()
+        assertNull(viewModel.uiState.first().scrollCommand)
+    }
 }
