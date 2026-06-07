@@ -53,7 +53,7 @@ class TabListViewModelTest {
     @Test
     fun closeSearchMode_clearsSearchModeAndQuery() = runTest {
         viewModel.enterSearchMode()
-        viewModel.updateSearchQuery("query")
+        viewModel.updateSearchQuery("query", currentPage = 0)
         assertEquals("query", viewModel.uiState.first().searchQuery)
 
         viewModel.closeSearchMode()
@@ -242,11 +242,11 @@ class TabListViewModelTest {
         )
         viewModel.saveScrollSnapshotBeforeSearch(snapshot)
 
-        viewModel.updateSearchQuery("query")
+        viewModel.updateSearchQuery("query", currentPage = 0)
 
         val state = viewModel.uiState.first()
         assertEquals("query", state.searchQuery)
-        assertNull(state.scrollCommand)
+        assertEquals(TabListScrollToTopRequest(page = 0, query = "query"), state.pendingScrollToTopRequest)
     }
 
     /**
@@ -261,15 +261,15 @@ class TabListViewModelTest {
             threadOffset = 20,
         )
         viewModel.saveScrollSnapshotBeforeSearch(snapshot)
-        viewModel.updateSearchQuery("query")
+        viewModel.updateSearchQuery("query", currentPage = 0)
         assertEquals("query", viewModel.uiState.first().searchQuery)
 
-        viewModel.updateSearchQuery("")
+        viewModel.updateSearchQuery("", currentPage = 0)
 
         val state = viewModel.uiState.first()
         assertEquals("", state.searchQuery)
         assertEquals(snapshot, state.pendingRestoreSnapshot)
-        assertNull(state.scrollCommand)
+        assertNull(state.pendingScrollToTopRequest)
     }
 
     /**
@@ -279,8 +279,8 @@ class TabListViewModelTest {
     fun consumePendingRestoreSnapshot_clearsPendingSnapshot() = runTest {
         val snapshot = TabSearchScrollSnapshot(1, 2, 3, 4)
         viewModel.saveScrollSnapshotBeforeSearch(snapshot)
-        viewModel.updateSearchQuery("query")
-        viewModel.updateSearchQuery("")
+        viewModel.updateSearchQuery("query", currentPage = 0)
+        viewModel.updateSearchQuery("", currentPage = 0)
         assertEquals(snapshot, viewModel.uiState.first().pendingRestoreSnapshot)
 
         viewModel.consumePendingRestoreSnapshot()
@@ -289,17 +289,30 @@ class TabListViewModelTest {
     }
 
     /**
-     * 検索クエリが非空から別の非空へ変わると、スクロール先頭表示命令が発行されることを確認する。
+     * 検索開始時に現在表示中ページの先頭表示要求が発行されることを確認する。
      */
     @Test
-    fun updateSearchQuery_nonBlankToDifferentNonBlank_issuesScrollToTop() = runTest {
-        viewModel.updateSearchQuery("old")
+    fun updateSearchQuery_blankToNonBlank_setsPendingScrollToTopRequest() = runTest {
+        viewModel.updateSearchQuery("query", currentPage = 1)
+
+        val state = viewModel.uiState.first()
+        assertEquals("query", state.searchQuery)
+        assertEquals(TabListScrollToTopRequest(page = 1, query = "query"), state.pendingScrollToTopRequest)
+    }
+
+    /**
+     * 検索クエリが非空から別の非空へ変わると、新しいクエリ向けの先頭表示要求が発行されることを確認する。
+     */
+    @Test
+    fun updateSearchQuery_nonBlankToDifferentNonBlank_setsPendingScrollToTopRequest() = runTest {
+        viewModel.updateSearchQuery("old", currentPage = 0)
         assertEquals("old", viewModel.uiState.first().searchQuery)
 
-        viewModel.updateSearchQuery("new")
+        viewModel.updateSearchQuery("new", currentPage = 1)
 
         val state = viewModel.uiState.first()
         assertEquals("new", state.searchQuery)
+        assertEquals(TabListScrollToTopRequest(page = 1, query = "new"), state.pendingScrollToTopRequest)
     }
 
     /**
@@ -310,7 +323,7 @@ class TabListViewModelTest {
         val snapshot = TabSearchScrollSnapshot(1, 2, 3, 4)
         viewModel.saveScrollSnapshotBeforeSearch(snapshot)
         viewModel.enterSearchMode()
-        viewModel.updateSearchQuery("query")
+        viewModel.updateSearchQuery("query", currentPage = 0)
 
         viewModel.closeSearchMode()
 
@@ -318,7 +331,7 @@ class TabListViewModelTest {
         assertFalse(state.isSearchMode)
         assertEquals("", state.searchQuery)
         assertEquals(snapshot, state.pendingRestoreSnapshot)
-        assertNull(state.scrollCommand)
+        assertNull(state.pendingScrollToTopRequest)
     }
 
     /**
@@ -329,8 +342,8 @@ class TabListViewModelTest {
         val snapshot = TabSearchScrollSnapshot(1, 2, 3, 4)
         viewModel.saveScrollSnapshotBeforeSearch(snapshot)
         viewModel.enterSearchMode()
-        viewModel.updateSearchQuery("query")
-        viewModel.updateSearchQuery("")
+        viewModel.updateSearchQuery("query", currentPage = 0)
+        viewModel.updateSearchQuery("", currentPage = 0)
         assertEquals(snapshot, viewModel.uiState.first().pendingRestoreSnapshot)
 
         viewModel.resetSearchState()
@@ -339,22 +352,21 @@ class TabListViewModelTest {
         assertFalse(state.isSearchMode)
         assertEquals("", state.searchQuery)
         assertNull(state.pendingRestoreSnapshot)
+        assertNull(state.pendingScrollToTopRequest)
         assertNull(state.scrollCommand)
     }
 
     /**
-     * スクロール先頭表示命令を発行して consume すると、命令がクリアされることを確認する。
+     * 先頭表示要求を consume すると、同じ要求が再発行されないことを確認する。
      */
     @Test
-    fun issueScrollToTopCommand_and_consume_clearsCommand() = runTest {
-        viewModel.issueScrollToTopCommand(0)
+    fun consumePendingScrollToTopRequest_clearsPendingRequest() = runTest {
+        viewModel.updateSearchQuery("query", currentPage = 0)
 
         val state = viewModel.uiState.first()
-        val command = state.scrollCommand
-        assertTrue(command is TabListScrollCommand.ScrollToTop)
-        assertEquals(0, (command as TabListScrollCommand.ScrollToTop).page)
+        assertEquals(TabListScrollToTopRequest(page = 0, query = "query"), state.pendingScrollToTopRequest)
 
-        viewModel.consumeScrollCommand()
-        assertNull(viewModel.uiState.first().scrollCommand)
+        viewModel.consumePendingScrollToTopRequest()
+        assertNull(viewModel.uiState.first().pendingScrollToTopRequest)
     }
 }

@@ -15,6 +15,7 @@ data class TabListUiState(
     val searchQuery: String = "",
     val scrollCommand: TabListScrollCommand? = null,
     val pendingRestoreSnapshot: TabSearchScrollSnapshot? = null,
+    val pendingScrollToTopRequest: TabListScrollToTopRequest? = null,
     val selectedBoardTab: BoardTabInfo? = null,
     val selectedThreadTab: ThreadTabInfo? = null,
     val selectedTabBounds: IntRect? = null,

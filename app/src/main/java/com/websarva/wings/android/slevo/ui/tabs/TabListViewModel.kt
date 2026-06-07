@@ -34,6 +34,7 @@ class TabListViewModel @Inject constructor(
     private val scrollSnapshotState = MutableStateFlow<TabSearchScrollSnapshot?>(null)
     private val scrollCommandState = MutableStateFlow<TabListScrollCommand?>(null)
     private val pendingRestoreSnapshotState = MutableStateFlow<TabSearchScrollSnapshot?>(null)
+    private val pendingScrollToTopRequestState = MutableStateFlow<TabListScrollToTopRequest?>(null)
     private val previousSearchQueryState = MutableStateFlow("")
     private val tabSelectionState = MutableStateFlow(TabSelectionState())
     private val detailBoardTabState = MutableStateFlow<BoardTabInfo?>(null)
@@ -51,6 +52,7 @@ class TabListViewModel @Inject constructor(
         searchQueryState,
         scrollCommandState,
         pendingRestoreSnapshotState,
+        pendingScrollToTopRequestState,
         tabSelectionState,
         pendingCloseBoardTabState,
         pendingCloseThreadTabState,
@@ -67,18 +69,19 @@ class TabListViewModel @Inject constructor(
             searchQuery = array[1] as String,
             scrollCommand = array[2] as TabListScrollCommand?,
             pendingRestoreSnapshot = array[3] as TabSearchScrollSnapshot?,
-            selectedBoardTab = (array[4] as TabSelectionState).selectedBoardTab,
-            selectedThreadTab = (array[4] as TabSelectionState).selectedThreadTab,
-            selectedTabBounds = (array[4] as TabSelectionState).selectedTabBounds,
-            pendingCloseBoardTab = array[5] as BoardTabInfo?,
-            pendingCloseThreadTab = array[6] as ThreadTabInfo?,
-            detailBoardTab = array[7] as BoardTabInfo?,
-            detailThreadTab = array[8] as ThreadTabInfo?,
-            showBoardInfoBottomSheet = array[9] as Boolean,
-            showThreadInfoBottomSheet = array[10] as Boolean,
-            isUrlValidating = array[11] as Boolean,
-            showUrlDialog = array[12] as Boolean,
-            urlErrorMessage = array[13] as String?,
+            pendingScrollToTopRequest = array[4] as TabListScrollToTopRequest?,
+            selectedBoardTab = (array[5] as TabSelectionState).selectedBoardTab,
+            selectedThreadTab = (array[5] as TabSelectionState).selectedThreadTab,
+            selectedTabBounds = (array[5] as TabSelectionState).selectedTabBounds,
+            pendingCloseBoardTab = array[6] as BoardTabInfo?,
+            pendingCloseThreadTab = array[7] as ThreadTabInfo?,
+            detailBoardTab = array[8] as BoardTabInfo?,
+            detailThreadTab = array[9] as ThreadTabInfo?,
+            showBoardInfoBottomSheet = array[10] as Boolean,
+            showThreadInfoBottomSheet = array[11] as Boolean,
+            isUrlValidating = array[12] as Boolean,
+            showUrlDialog = array[13] as Boolean,
+            urlErrorMessage = array[14] as String?,
         )
     }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, TabListUiState())
 
@@ -102,7 +105,13 @@ class TabListViewModel @Inject constructor(
         previousSearchQueryState.value = ""
     }
 
-    fun updateSearchQuery(query: String) {
+    /**
+     * 検索クエリを更新し、必要なら検索結果の先頭表示要求を発行する。
+     *
+     * 検索開始前のスナップショット保存は UI 側が担当し、
+     * このメソッドはクエリ遷移に応じて復元待ち状態または先頭表示要求を更新する。
+     */
+    fun updateSearchQuery(query: String, currentPage: Int) {
         val oldQuery = searchQueryState.value
         val newQuery = query
 
@@ -112,13 +121,20 @@ class TabListViewModel @Inject constructor(
                 // スクロール位置は UI 側から saveScrollSnapshotBeforeSearch で保存される
                 searchQueryState.value = newQuery
                 previousSearchQueryState.value = newQuery
+                pendingScrollToTopRequestState.value = TabListScrollToTopRequest(
+                    page = currentPage,
+                    query = newQuery,
+                )
             }
 
             // 非空 → 別の非空: クエリ変更。現在表示中ページの検索結果を先頭表示
             oldQuery.isNotBlank() && newQuery.isNotBlank() && oldQuery != newQuery -> {
                 searchQueryState.value = newQuery
                 previousSearchQueryState.value = newQuery
-                // スクロール命令は UI 側で現在ページを判定して発行する
+                pendingScrollToTopRequestState.value = TabListScrollToTopRequest(
+                    page = currentPage,
+                    query = newQuery,
+                )
             }
 
             // 非空 → 空: 検索解除。復元スナップショットを待ち状態に移す
@@ -128,6 +144,7 @@ class TabListViewModel @Inject constructor(
                 }
                 searchQueryState.value = ""
                 previousSearchQueryState.value = ""
+                pendingScrollToTopRequestState.value = null
             }
 
             // その他（空→空、同じ非空）: 単純に更新
@@ -148,21 +165,13 @@ class TabListViewModel @Inject constructor(
     }
 
     /**
-     * 検索クエリ変更時に、指定ページの検索結果を先頭表示する命令を発行する。
+     * 復元待ちの先頭表示要求を消費する。
      *
-     * @param page 0: 板一覧, 1: スレッド一覧
+     * UI 側が検索結果の先頭表示を実行した後に呼び出し、
+     * 同じクエリに対する再実行を防ぐ。
      */
-    fun issueScrollToTopCommand(page: Int) {
-        scrollCommandState.value = TabListScrollCommand.ScrollToTop(page)
-    }
-
-    /**
-     * スクロール命令を消費する。
-     *
-     * UI 側が命令を実行した後に呼び出し、同じ命令の再実行を防ぐ。
-     */
-    fun consumeScrollCommand() {
-        scrollCommandState.value = null
+    fun consumePendingScrollToTopRequest() {
+        pendingScrollToTopRequestState.value = null
     }
 
     /**
@@ -185,6 +194,7 @@ class TabListViewModel @Inject constructor(
         searchQueryState.value = ""
         scrollSnapshotState.value = null
         pendingRestoreSnapshotState.value = null
+        pendingScrollToTopRequestState.value = null
         scrollCommandState.value = null
         previousSearchQueryState.value = ""
     }

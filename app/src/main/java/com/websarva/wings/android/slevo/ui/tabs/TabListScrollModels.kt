@@ -14,6 +14,17 @@ data class TabSearchScrollSnapshot(
 )
 
 /**
+ * 検索結果リストを先頭表示する対象ページとクエリを保持する。
+ *
+ * UI は現在の検索クエリと一致する要求だけを処理し、
+ * 古いクエリに対する先頭表示要求の誤実行を防ぐ。
+ */
+data class TabListScrollToTopRequest(
+    val page: Int,
+    val query: String,
+)
+
+/**
  * タブ一覧画面に対する一回限りのスクロール命令。
  *
  * ViewModel が発行し、UI が実行して消費する。

@@ -46,7 +46,6 @@ import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
 import com.websarva.wings.android.slevo.ui.board.screen.BoardInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
-import com.websarva.wings.android.slevo.ui.tabs.TabListScrollCommand
 import com.websarva.wings.android.slevo.ui.tabs.TabListUiState
 import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabSearchScrollSnapshot
@@ -130,11 +129,7 @@ fun TabScreenContent(
     }
 
     /**
-     * ViewModel の復元待ちスナップショットとスクロール命令を監視し、
-     * 表示リストが更新された後に実行して消費する。
-     *
-     * 復元は searchQuery が空で完全リストが描画対象になった後に行い、
-     * 先頭表示は searchQuery が非空で現在表示中ページのリストだけを先頭へ移動する。
+     * ViewModel の復元待ちスナップショットを監視し、完全リストへの復帰後に実行して消費する。
      */
     LaunchedEffect(listUiState.pendingRestoreSnapshot, listUiState.searchQuery) {
         val snapshot = listUiState.pendingRestoreSnapshot ?: return@LaunchedEffect
@@ -153,35 +148,42 @@ fun TabScreenContent(
         tabListViewModel.consumePendingRestoreSnapshot()
     }
 
-    LaunchedEffect(listUiState.scrollCommand, listUiState.searchQuery) {
-        val command = listUiState.scrollCommand ?: return@LaunchedEffect
-        // 検索クエリ変更後の検索結果リストが反映されるのを待つ
+    /**
+     * ViewModel の先頭表示要求を監視し、対象クエリの検索結果リストが描画対象になった後に実行して消費する。
+     */
+    LaunchedEffect(
+        listUiState.pendingScrollToTopRequest,
+        listUiState.searchQuery,
+        filteredBoardTabs.size,
+        filteredThreadTabs.size,
+    ) {
+        val request = listUiState.pendingScrollToTopRequest ?: return@LaunchedEffect
+
+        // 古いクエリに対する要求は実行しない。
+        if (request.query != listUiState.searchQuery) {
+            return@LaunchedEffect
+        }
+
+        // 検索結果リストが表示対象になるまでは待機する。
         if (listUiState.searchQuery.isBlank()) {
             return@LaunchedEffect
         }
 
-        when (command) {
-            is TabListScrollCommand.ScrollToTop -> {
-                when (command.page) {
-                    0 -> {
-                        if (filteredBoardTabs.isNotEmpty()) {
-                            boardListState.scrollToItem(0)
-                        }
-                    }
-
-                    else -> {
-                        if (filteredThreadTabs.isNotEmpty()) {
-                            threadListState.scrollToItem(0)
-                        }
-                    }
+        when (request.page) {
+            0 -> {
+                if (filteredBoardTabs.isNotEmpty()) {
+                    boardListState.requestScrollToItem(0)
                 }
-                tabListViewModel.consumeScrollCommand()
             }
 
             else -> {
-                // Restore は pendingRestoreSnapshot 側で処理する
+                if (filteredThreadTabs.isNotEmpty()) {
+                    threadListState.requestScrollToItem(0)
+                }
             }
         }
+
+        tabListViewModel.consumePendingScrollToTopRequest()
     }
 
     LaunchedEffect(pagerState) {
@@ -297,10 +299,7 @@ fun TabScreenContent(
                             )
                         )
                     }
-                    if (searchQuery.isNotBlank() && newQuery.isNotBlank() && searchQuery != newQuery) {
-                        tabListViewModel.issueScrollToTopCommand(pagerState.currentPage)
-                    }
-                    tabListViewModel.updateSearchQuery(newQuery)
+                    tabListViewModel.updateSearchQuery(newQuery, pagerState.currentPage)
                 },
                 onCloseSearch = { exitSearchMode() },
             )
