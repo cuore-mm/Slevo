@@ -250,10 +250,10 @@ class TabListViewModelTest {
     }
 
     /**
-     * 検索クエリが非空から空へ変わると、保存済みスナップショットに基づく復元命令が発行されることを確認する。
+     * 検索クエリが非空から空へ変わると、保存済みスナップショットが復元待ち状態に移されることを確認する。
      */
     @Test
-    fun updateSearchQuery_nonBlankToBlank_issuesRestoreCommand() = runTest {
+    fun updateSearchQuery_nonBlankToBlank_issuesPendingRestoreSnapshot() = runTest {
         val snapshot = TabSearchScrollSnapshot(
             boardIndex = 5,
             boardOffset = 10,
@@ -268,25 +268,24 @@ class TabListViewModelTest {
 
         val state = viewModel.uiState.first()
         assertEquals("", state.searchQuery)
-        val command = state.scrollCommand
-        assertTrue(command is TabListScrollCommand.Restore)
-        assertEquals(snapshot, (command as TabListScrollCommand.Restore).snapshot)
+        assertEquals(snapshot, state.pendingRestoreSnapshot)
+        assertNull(state.scrollCommand)
     }
 
     /**
-     * 復元命令を consume すると、同じ命令が再発行されないことを確認する。
+     * 復元待ちスナップショットを consume すると、同じ復元が再発行されないことを確認する。
      */
     @Test
-    fun consumeScrollCommand_clearsCommand() = runTest {
+    fun consumePendingRestoreSnapshot_clearsPendingSnapshot() = runTest {
         val snapshot = TabSearchScrollSnapshot(1, 2, 3, 4)
         viewModel.saveScrollSnapshotBeforeSearch(snapshot)
         viewModel.updateSearchQuery("query")
         viewModel.updateSearchQuery("")
-        assertTrue(viewModel.uiState.first().scrollCommand is TabListScrollCommand.Restore)
+        assertEquals(snapshot, viewModel.uiState.first().pendingRestoreSnapshot)
 
-        viewModel.consumeScrollCommand()
+        viewModel.consumePendingRestoreSnapshot()
 
-        assertNull(viewModel.uiState.first().scrollCommand)
+        assertNull(viewModel.uiState.first().pendingRestoreSnapshot)
     }
 
     /**
@@ -304,10 +303,10 @@ class TabListViewModelTest {
     }
 
     /**
-     * closeSearchMode で検索状態がクリアされ、復元命令が発行されることを確認する。
+     * closeSearchMode で検索状態がクリアされ、復元待ちスナップショットが設定されることを確認する。
      */
     @Test
-    fun closeSearchMode_clearsSearchAndIssuesRestoreCommand() = runTest {
+    fun closeSearchMode_clearsSearchAndSetsPendingRestoreSnapshot() = runTest {
         val snapshot = TabSearchScrollSnapshot(1, 2, 3, 4)
         viewModel.saveScrollSnapshotBeforeSearch(snapshot)
         viewModel.enterSearchMode()
@@ -318,11 +317,12 @@ class TabListViewModelTest {
         val state = viewModel.uiState.first()
         assertFalse(state.isSearchMode)
         assertEquals("", state.searchQuery)
-        assertTrue(state.scrollCommand is TabListScrollCommand.Restore)
+        assertEquals(snapshot, state.pendingRestoreSnapshot)
+        assertNull(state.scrollCommand)
     }
 
     /**
-     * resetSearchState で検索モード・検索クエリ・復元スナップショット・未消費命令がすべてクリアされることを確認する。
+     * resetSearchState で検索モード・検索クエリ・復元スナップショット・復元待ちスナップショット・未消費命令がすべてクリアされることを確認する。
      */
     @Test
     fun resetSearchState_clearsAllSearchState() = runTest {
@@ -331,13 +331,14 @@ class TabListViewModelTest {
         viewModel.enterSearchMode()
         viewModel.updateSearchQuery("query")
         viewModel.updateSearchQuery("")
-        assertTrue(viewModel.uiState.first().scrollCommand is TabListScrollCommand.Restore)
+        assertEquals(snapshot, viewModel.uiState.first().pendingRestoreSnapshot)
 
         viewModel.resetSearchState()
 
         val state = viewModel.uiState.first()
         assertFalse(state.isSearchMode)
         assertEquals("", state.searchQuery)
+        assertNull(state.pendingRestoreSnapshot)
         assertNull(state.scrollCommand)
     }
 
