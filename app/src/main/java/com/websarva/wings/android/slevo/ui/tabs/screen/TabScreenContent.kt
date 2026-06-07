@@ -130,28 +130,37 @@ fun TabScreenContent(
     }
 
     /**
-     * ViewModel から発行されたスクロール命令を監視し、実行して消費する。
+     * ViewModel の復元待ちスナップショットとスクロール命令を監視し、
+     * 表示リストが更新された後に実行して消費する。
      *
-     * 復元命令では完全リスト上の有効範囲へ丸めてスクロールし、
-     * 先頭表示命令では現在表示中ページのリストだけを先頭へ移動する。
+     * 復元は searchQuery が空で完全リストが描画対象になった後に行い、
+     * 先頭表示は searchQuery が非空で現在表示中ページのリストだけを先頭へ移動する。
      */
-    LaunchedEffect(listUiState.scrollCommand) {
+    LaunchedEffect(listUiState.pendingRestoreSnapshot, listUiState.searchQuery) {
+        val snapshot = listUiState.pendingRestoreSnapshot ?: return@LaunchedEffect
+        // 検索結果リストから完全リストへ戻るのを待つ
+        if (listUiState.searchQuery.isNotBlank()) {
+            return@LaunchedEffect
+        }
+        if (openBoardTabs.isNotEmpty()) {
+            val targetIndex = snapshot.boardIndex.coerceIn(0, openBoardTabs.lastIndex)
+            boardListState.scrollToItem(targetIndex, snapshot.boardOffset.coerceAtLeast(0))
+        }
+        if (openThreadTabs.isNotEmpty()) {
+            val targetIndex = snapshot.threadIndex.coerceIn(0, openThreadTabs.lastIndex)
+            threadListState.scrollToItem(targetIndex, snapshot.threadOffset.coerceAtLeast(0))
+        }
+        tabListViewModel.consumePendingRestoreSnapshot()
+    }
+
+    LaunchedEffect(listUiState.scrollCommand, listUiState.searchQuery) {
         val command = listUiState.scrollCommand ?: return@LaunchedEffect
+        // 検索クエリ変更後の検索結果リストが反映されるのを待つ
+        if (listUiState.searchQuery.isBlank()) {
+            return@LaunchedEffect
+        }
 
         when (command) {
-            is TabListScrollCommand.Restore -> {
-                val snapshot = command.snapshot
-                if (openBoardTabs.isNotEmpty()) {
-                    val targetIndex = snapshot.boardIndex.coerceIn(0, openBoardTabs.lastIndex)
-                    boardListState.scrollToItem(targetIndex, snapshot.boardOffset.coerceAtLeast(0))
-                }
-                if (openThreadTabs.isNotEmpty()) {
-                    val targetIndex = snapshot.threadIndex.coerceIn(0, openThreadTabs.lastIndex)
-                    threadListState.scrollToItem(targetIndex, snapshot.threadOffset.coerceAtLeast(0))
-                }
-                tabListViewModel.consumeScrollCommand()
-            }
-
             is TabListScrollCommand.ScrollToTop -> {
                 when (command.page) {
                     0 -> {
@@ -167,6 +176,10 @@ fun TabScreenContent(
                     }
                 }
                 tabListViewModel.consumeScrollCommand()
+            }
+
+            else -> {
+                // Restore は pendingRestoreSnapshot 側で処理する
             }
         }
     }
@@ -283,6 +296,9 @@ fun TabScreenContent(
                                 threadOffset = threadListState.firstVisibleItemScrollOffset,
                             )
                         )
+                    }
+                    if (searchQuery.isNotBlank() && newQuery.isNotBlank() && searchQuery != newQuery) {
+                        tabListViewModel.issueScrollToTopCommand(pagerState.currentPage)
                     }
                     tabListViewModel.updateSearchQuery(newQuery)
                 },
