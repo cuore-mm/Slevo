@@ -43,6 +43,14 @@ ViewModel は `LazyListState` を直接保持せず、板一覧・スレッド�
 - 完全リスト復帰後に板一覧・スレッド一覧の保存位置へ復元する命令
 - 検索クエリ変更後に現在表示中ページの検索結果を先頭表示する命令
 
+### Decision 3a: 復元命令は表示リスト更新後に実行する
+
+検索解除時に `scrollCommand` を即時発行すると、UI がまだ検索結果リストを描画対象にしている途中状態で `scrollToItem` を実行し、その後の完全リスト再レイアウトでスクロール位置が上書きされる可能性がある。このため、安定性優先の追加修正では「検索状態を空へ更新する処理」と「保存位置へスクロールする副作用」を段階分離する。
+
+ViewModel は検索解除時に保存済みスナップショットを復元待ち状態として保持し、UI は `searchQuery` が空で、板一覧・スレッド一覧が完全リストを描画対象に戻ったことを確認してから復元スクロールを実行する。実行後は復元待ち状態または命令を consume し、再Compositionで同じ復元を繰り返さない。
+
+検索クエリ変更時の先頭表示も同じ考え方で扱う。クエリ更新と同じ瞬間に `scrollToItem(0)` を実行せず、UI が新しい検索結果リストを描画対象にした後、現在表示中ページだけを先頭表示する。
+
 ### Decision 4: BottomSheet dismiss 時に検索状態を閉じる
 
 タブ一覧 BottomSheet は `showTabListSheet` によって Composition から外れる。閉じた後も `TabListViewModel` が呼び出し元 NavBackStackEntry に残る可能性があるため、dismiss 時に検索モードと検索クエリ、検索復元スナップショット、未消費スクロール命令を明示的にクリアする。
@@ -56,7 +64,8 @@ ViewModel は `LazyListState` を直接保持せず、板一覧・スレッド�
 ## Risks / Trade-offs
 
 - [Risk] スクロール命令が再Compositionで重複実行される → 実行後に必ず ViewModel へ consume を通知し、命令IDまたは nullable state で一回性を担保する。
-- [Risk] 完全リスト復帰前に復元命令を実行するとフィルタ済みリスト上の index に対してスクロールしてしまう → 検索クエリが空へ更新された後の UI 側 `LaunchedEffect` で命令を処理する。
+- [Risk] 完全リスト復帰前に復元命令を実行するとフィルタ済みリスト上の index に対してスクロールしてしまう → 検索解除では復元待ち状態を保持し、検索クエリが空かつ完全リストが描画対象になった後の UI 側 `LaunchedEffect` で復元を処理する。
+- [Risk] 検索クエリ変更直後に先頭表示を実行すると古い検索結果リスト上でスクロールしてしまう → 新しい検索クエリに対応した表示リストが反映された後、現在ページの `LazyListState` だけを先頭表示する。
 - [Risk] 保存済み index がタブ削除などで範囲外になる → 復元時に現在の完全リストサイズへ `coerceIn` する。
 - [Risk] BottomSheet dismiss 時に検索を保持したい利用者期待と異なる → BottomSheet は一時的な選択 UI として扱い、閉じたら検索状態を破棄する仕様を明文化する。
 - [Risk] ViewModel の状態項目が増える → スクロール復元用の data class / sealed interface を分け、`TabListUiState` では UI が必要な命令だけを公開する。
