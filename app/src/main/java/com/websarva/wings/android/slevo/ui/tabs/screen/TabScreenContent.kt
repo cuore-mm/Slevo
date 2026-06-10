@@ -48,7 +48,6 @@ import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.TabListUiState
 import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
-import com.websarva.wings.android.slevo.ui.tabs.TabSearchScrollSnapshot
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenResult
 import com.websarva.wings.android.slevo.ui.tabs.component.AnchoredTabActionMenu
 import com.websarva.wings.android.slevo.ui.tabs.component.TabHeaderTrailingContent
@@ -103,49 +102,39 @@ fun TabScreenContent(
 
     // --- Pager state ---
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 2 })
-    val boardListState = rememberLazyListState()
-    val threadListState = rememberLazyListState()
+    val boardNormalListState = rememberLazyListState()
+    val boardSearchListState = rememberLazyListState()
+    val threadNormalListState = rememberLazyListState()
+    val threadSearchListState = rememberLazyListState()
 
     // --- Search state delegation ---
     val isSearchMode = listUiState.isSearchMode
     val searchQuery = listUiState.searchQuery
+    val isShowingSearchResults = searchQuery.isNotBlank()
     val filteredBoardTabs = filterBoardTabsByQuery(openBoardTabs, searchQuery)
     val filteredThreadTabs = filterThreadTabsByQuery(openThreadTabs, searchQuery)
+    val boardListState = if (isShowingSearchResults) boardSearchListState else boardNormalListState
+    val threadListState = if (isShowingSearchResults) threadSearchListState else threadNormalListState
+    val displayedBoardTabs = if (isShowingSearchResults) filteredBoardTabs else openBoardTabs
+    val displayedThreadTabs = if (isShowingSearchResults) filteredThreadTabs else openThreadTabs
 
     /**
-     * 検索モードを開始する。スクロール位置の保存は検索クエリが空から非空へ
-     * 切り替わる直前に行うため、ここでは行わない。
+     * 検索モードを開始する。
+     *
+     * 検索クエリが空の間は通常リストを表示し続けるため、ここでは表示リストや
+     * スクロール状態の切り替えを行わない。
      */
     fun enterSearchMode() {
         tabListViewModel.enterSearchMode()
     }
 
     /**
-     * 検索モードを終了する。スクロール位置の復元は
-     * 検索クエリが非空から空へ切り替わる LaunchedEffect で行う。
+     * 検索モードを終了する。
+     *
+     * 通常リストと検索結果リストは別 state のため、検索解除時の復元スクロールは不要である。
      */
     fun exitSearchMode() {
         tabListViewModel.closeSearchMode()
-    }
-
-    /**
-     * ViewModel の復元待ちスナップショットを監視し、完全リストへの復帰後に実行して消費する。
-     */
-    LaunchedEffect(listUiState.pendingRestoreSnapshot, listUiState.searchQuery) {
-        val snapshot = listUiState.pendingRestoreSnapshot ?: return@LaunchedEffect
-        // 検索結果リストから完全リストへ戻るのを待つ
-        if (listUiState.searchQuery.isNotBlank()) {
-            return@LaunchedEffect
-        }
-        if (openBoardTabs.isNotEmpty()) {
-            val targetIndex = snapshot.boardIndex.coerceIn(0, openBoardTabs.lastIndex)
-            boardListState.requestScrollToItem(targetIndex, snapshot.boardOffset.coerceAtLeast(0))
-        }
-        if (openThreadTabs.isNotEmpty()) {
-            val targetIndex = snapshot.threadIndex.coerceIn(0, openThreadTabs.lastIndex)
-            threadListState.requestScrollToItem(targetIndex, snapshot.threadOffset.coerceAtLeast(0))
-        }
-        tabListViewModel.consumePendingRestoreSnapshot()
     }
 
     /**
@@ -165,20 +154,20 @@ fun TabScreenContent(
         }
 
         // 検索結果リストが表示対象になるまでは待機する。
-        if (listUiState.searchQuery.isBlank()) {
+        if (!isShowingSearchResults) {
             return@LaunchedEffect
         }
 
         when (request.page) {
             0 -> {
                 if (filteredBoardTabs.isNotEmpty()) {
-                    boardListState.requestScrollToItem(0)
+                    boardSearchListState.requestScrollToItem(0)
                 }
             }
 
             else -> {
                 if (filteredThreadTabs.isNotEmpty()) {
-                    threadListState.requestScrollToItem(0)
+                    threadSearchListState.requestScrollToItem(0)
                 }
             }
         }
@@ -239,8 +228,8 @@ fun TabScreenContent(
                         navController = navController,
                         closeDrawer = closeDrawer,
                         listContentPadding = listPadding,
-                        openBoardTabs = filteredBoardTabs,
-                        openThreadTabs = filteredThreadTabs,
+                        openBoardTabs = displayedBoardTabs,
+                        openThreadTabs = displayedThreadTabs,
                         newResCounts = newResCounts,
                         selectedBoardTab = listUiState.selectedBoardTab,
                         selectedThreadTab = listUiState.selectedThreadTab,
@@ -289,16 +278,6 @@ fun TabScreenContent(
                 searchQuery = searchQuery,
                 onSearchClick = { enterSearchMode() },
                 onQueryChange = { newQuery ->
-                    if (searchQuery.isBlank() && newQuery.isNotBlank()) {
-                        tabListViewModel.saveScrollSnapshotBeforeSearch(
-                            TabSearchScrollSnapshot(
-                                boardIndex = boardListState.firstVisibleItemIndex,
-                                boardOffset = boardListState.firstVisibleItemScrollOffset,
-                                threadIndex = threadListState.firstVisibleItemIndex,
-                                threadOffset = threadListState.firstVisibleItemScrollOffset,
-                            )
-                        )
-                    }
                     tabListViewModel.updateSearchQuery(newQuery, pagerState.currentPage)
                 },
                 onCloseSearch = { exitSearchMode() },

@@ -31,11 +31,7 @@ class TabListViewModel @Inject constructor(
 
     private val isSearchModeState = MutableStateFlow(false)
     private val searchQueryState = MutableStateFlow("")
-    private val scrollSnapshotState = MutableStateFlow<TabSearchScrollSnapshot?>(null)
-    private val scrollCommandState = MutableStateFlow<TabListScrollCommand?>(null)
-    private val pendingRestoreSnapshotState = MutableStateFlow<TabSearchScrollSnapshot?>(null)
     private val pendingScrollToTopRequestState = MutableStateFlow<TabListScrollToTopRequest?>(null)
-    private val previousSearchQueryState = MutableStateFlow("")
     private val tabSelectionState = MutableStateFlow(TabSelectionState())
     private val detailBoardTabState = MutableStateFlow<BoardTabInfo?>(null)
     private val detailThreadTabState = MutableStateFlow<ThreadTabInfo?>(null)
@@ -50,8 +46,6 @@ class TabListViewModel @Inject constructor(
     val uiState: StateFlow<TabListUiState> = combine(
         isSearchModeState,
         searchQueryState,
-        scrollCommandState,
-        pendingRestoreSnapshotState,
         pendingScrollToTopRequestState,
         tabSelectionState,
         pendingCloseBoardTabState,
@@ -67,21 +61,19 @@ class TabListViewModel @Inject constructor(
         TabListUiState(
             isSearchMode = array[0] as Boolean,
             searchQuery = array[1] as String,
-            scrollCommand = array[2] as TabListScrollCommand?,
-            pendingRestoreSnapshot = array[3] as TabSearchScrollSnapshot?,
-            pendingScrollToTopRequest = array[4] as TabListScrollToTopRequest?,
-            selectedBoardTab = (array[5] as TabSelectionState).selectedBoardTab,
-            selectedThreadTab = (array[5] as TabSelectionState).selectedThreadTab,
-            selectedTabBounds = (array[5] as TabSelectionState).selectedTabBounds,
-            pendingCloseBoardTab = array[6] as BoardTabInfo?,
-            pendingCloseThreadTab = array[7] as ThreadTabInfo?,
-            detailBoardTab = array[8] as BoardTabInfo?,
-            detailThreadTab = array[9] as ThreadTabInfo?,
-            showBoardInfoBottomSheet = array[10] as Boolean,
-            showThreadInfoBottomSheet = array[11] as Boolean,
-            isUrlValidating = array[12] as Boolean,
-            showUrlDialog = array[13] as Boolean,
-            urlErrorMessage = array[14] as String?,
+            pendingScrollToTopRequest = array[2] as TabListScrollToTopRequest?,
+            selectedBoardTab = (array[3] as TabSelectionState).selectedBoardTab,
+            selectedThreadTab = (array[3] as TabSelectionState).selectedThreadTab,
+            selectedTabBounds = (array[3] as TabSelectionState).selectedTabBounds,
+            pendingCloseBoardTab = array[4] as BoardTabInfo?,
+            pendingCloseThreadTab = array[5] as ThreadTabInfo?,
+            detailBoardTab = array[6] as BoardTabInfo?,
+            detailThreadTab = array[7] as ThreadTabInfo?,
+            showBoardInfoBottomSheet = array[8] as Boolean,
+            showThreadInfoBottomSheet = array[9] as Boolean,
+            isUrlValidating = array[10] as Boolean,
+            showUrlDialog = array[11] as Boolean,
+            urlErrorMessage = array[12] as String?,
         )
     }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, TabListUiState())
 
@@ -93,76 +85,52 @@ class TabListViewModel @Inject constructor(
     }
 
     fun closeSearchMode() {
-        val oldQuery = searchQueryState.value
-        // 検索結果表示中（非空クエリ）→ 検索解除の場合、復元スナップショットを待ち状態に移す
-        if (oldQuery.isNotBlank()) {
-            scrollSnapshotState.value?.let { snapshot ->
-                pendingRestoreSnapshotState.value = snapshot
-            }
-        }
         isSearchModeState.value = false
         searchQueryState.value = ""
         pendingScrollToTopRequestState.value = null
-        previousSearchQueryState.value = ""
     }
 
     /**
      * 検索クエリを更新し、必要なら検索結果の先頭表示要求を発行する。
      *
-     * 検索開始前のスナップショット保存は UI 側が担当し、
-     * このメソッドはクエリ遷移に応じて復元待ち状態または先頭表示要求を更新する。
+     * 空から非空、または別の非空クエリへ変わると、現在表示中ページの検索結果リストを
+     * 先頭表示する要求を保持する。非空から空へ戻る場合は、通常リスト復元要求を発行せず
+     * 検索結果向けの要求だけをクリアする。
      */
     fun updateSearchQuery(query: String, currentPage: Int) {
         val oldQuery = searchQueryState.value
         val newQuery = query
 
         when {
-            // 空 → 非空: 検索開始。スクロール位置を保存してからクエリを更新
+            // 空 → 非空: 検索開始。現在表示中ページの検索結果を先頭表示する。
             oldQuery.isBlank() && newQuery.isNotBlank() -> {
-                // スクロール位置は UI 側から saveScrollSnapshotBeforeSearch で保存される
                 searchQueryState.value = newQuery
-                previousSearchQueryState.value = newQuery
                 pendingScrollToTopRequestState.value = TabListScrollToTopRequest(
                     page = currentPage,
                     query = newQuery,
                 )
             }
 
-            // 非空 → 別の非空: クエリ変更。現在表示中ページの検索結果を先頭表示
+            // 非空 → 別の非空: 新しい検索結果を先頭表示する。
             oldQuery.isNotBlank() && newQuery.isNotBlank() && oldQuery != newQuery -> {
                 searchQueryState.value = newQuery
-                previousSearchQueryState.value = newQuery
                 pendingScrollToTopRequestState.value = TabListScrollToTopRequest(
                     page = currentPage,
                     query = newQuery,
                 )
             }
 
-            // 非空 → 空: 検索解除。復元スナップショットを待ち状態に移す
+            // 非空 → 空: 通常リストへ戻る。復元要求は発行しない。
             oldQuery.isNotBlank() && newQuery.isBlank() -> {
-                scrollSnapshotState.value?.let { snapshot ->
-                    pendingRestoreSnapshotState.value = snapshot
-                }
                 searchQueryState.value = ""
-                previousSearchQueryState.value = ""
                 pendingScrollToTopRequestState.value = null
             }
 
             // その他（空→空、同じ非空）: 単純に更新
             else -> {
                 searchQueryState.value = newQuery
-                previousSearchQueryState.value = newQuery
             }
         }
-    }
-
-    /**
-     * 検索開始前のスクロール位置を保存する。
-     *
-     * 検索クエリが空から非空へ変わる直前に、UI 側から呼び出す。
-     */
-    fun saveScrollSnapshotBeforeSearch(snapshot: TabSearchScrollSnapshot) {
-        scrollSnapshotState.value = snapshot
     }
 
     /**
@@ -176,28 +144,15 @@ class TabListViewModel @Inject constructor(
     }
 
     /**
-     * 復元待ちスナップショットを消費する。
-     *
-     * UI 側が復元スクロールを実行した後に呼び出し、再Compositionで同じ復元を繰り返さない。
-     */
-    fun consumePendingRestoreSnapshot() {
-        pendingRestoreSnapshotState.value = null
-    }
-
-    /**
      * 検索状態を完全に破棄する。
      *
-     * 検索モード、検索クエリ、復元スナップショット、復元待ちスナップショット、未消費スクロール命令をすべてクリアする。
+     * 検索モード、検索クエリ、未消費の検索結果先頭表示要求をすべてクリアする。
      * BottomSheet dismiss 時など、表示コンテキストを終了するときに使用する。
      */
     fun resetSearchState() {
         isSearchModeState.value = false
         searchQueryState.value = ""
-        scrollSnapshotState.value = null
-        pendingRestoreSnapshotState.value = null
         pendingScrollToTopRequestState.value = null
-        scrollCommandState.value = null
-        previousSearchQueryState.value = ""
     }
 
     // --- Long-press selection ---
