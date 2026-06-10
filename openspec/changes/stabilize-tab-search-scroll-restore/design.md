@@ -1,71 +1,82 @@
 ## Context
 
-現在のタブ一覧検索では、検索モードと検索クエリは `TabListViewModel` の `StateFlow` で管理されている。一方、検索前スクロール位置と前回検索クエリは `TabScreenContent` 内の `remember` に保持されている。
+現在のタブ一覧検索では、検索クエリに応じて通常リストと検索結果リストの item を切り替えながら、同じ `LazyListState` を使って表示している。この方式では、検索結果を表示した時点で通常リストのスクロール状態も検索結果リストの位置に更新される。
 
-このため、検索中に他画面へ遷移して戻る、またはスレ画面/板画面から開いたタブ一覧 BottomSheet を閉じて再表示するなど、`TabScreenContent` の Composition が破棄・再作成される場面で復元用スクロール状態だけが失われる。検索状態だけが `TabListViewModel` に残ると、検索解除時に復元対象がなくなり、スクロール位置復元が動作しない。
+そのため、検索解除時に元の通常リスト位置へ戻すには、検索開始前の index/offset を保存し、検索解除後に `requestScrollToItem` で復元する必要がある。復元自体は可能だが、リスト内容の差し替え、再Composition、BottomSheet の破棄/再表示、検索クエリ変更による先頭表示が同時に起きると、スクロール副作用の実行タイミングを細かく制御する必要がある。
 
-新しい設計では `TabsViewModel` / `TabsUiState` を使わず、タブ一覧画面固有の一時 UI 状態は `TabListViewModel` に集約されている。この前提に合わせ、検索スクロール復元の状態と命令も `TabListViewModel` に移す。
+計画を見直し、通常リストと検索結果リストを別々の表示状態として扱う。通常リスト用の `LazyListState` は検索中に使わず、検索結果リスト用の `LazyListState` だけを検索中に使う。検索解除時は通常リストへ表示を戻すだけで、通常リストのスクロール位置が自然に維持される。
 
 ## Goals / Non-Goals
 
 **Goals:**
-- 通常のタブ一覧、他画面から復帰したタブ一覧、板/スレ画面から開いたタブ一覧 BottomSheet のすべてで検索解除時のスクロール位置復元を安定させる。
-- 検索状態、検索前スクロール位置、前回検索クエリ、スクロール命令の寿命を `TabListViewModel` に揃える。
-- `LazyListState` の実体と `scrollToItem` の副作用実行は Composable 側に残し、ViewModel には index/offset と命令だけを保持する。
-- 通常タブ一覧と BottomSheet の検索状態は、それぞれの `TabListViewModel` スコープで独立させる。
+- 通常のタブ一覧、他画面から復帰したタブ一覧、板/スレ画面から開いたタブ一覧 BottomSheet のすべてで、検索解除時に通常リストのスクロール位置を安定して維持する。
+- 通常リストと検索結果リストの `LazyListState` を分離し、検索中のスクロールが通常リストの位置を上書きしないようにする。
+- 検索クエリが空のときは通常リスト、非空のときは検索結果リストを表示する。
+- 検索開始時または検索クエリ変更時は、現在表示中ページの検索結果リストだけを先頭表示する。
 - BottomSheet dismiss 時に検索状態を閉じ、再表示時に検索クエリだけが残る不整合を防ぐ。
+- 通常タブ一覧と BottomSheet の検索状態は、それぞれの `TabListViewModel` スコープで独立させる。
 
 **Non-Goals:**
 - タブセッション状態の正本である `TabSessionStore` に検索 UI 状態を移すこと。
 - 通常タブ一覧と BottomSheet の検索状態を共有すること。
 - `LazyListState` 自体を ViewModel に保持すること。
 - タブ一覧のフィルタリング条件やカード表示仕様を変更すること。
+- 検索クエリごとに過去の検索結果スクロール位置を永続保存すること。
 
 ## Decisions
 
-### Decision 1: 検索復元状態は `TabListViewModel` に集約する
+### Decision 1: 通常リストと検索結果リストの `LazyListState` を分離する
 
-`TabScreenContent` の `remember` で保持していた検索前スクロールスナップショットと前回検索クエリ相当の状態を `TabListViewModel` に移す。検索モードと検索クエリも同じ ViewModel にあるため、復元状態だけが Composition 再生成で失われる不整合を防げる。
+板一覧・スレッド一覧それぞれに、通常表示用と検索結果表示用の `LazyListState` を持たせる。
 
-代替案として `rememberSaveable` で保持する方法もあるが、検索状態が ViewModel に残る設計との寿命差は解消できない。また BottomSheet dismiss/再表示時の状態整合性が呼び出し元の Composition に依存するため採用しない。
+```text
+boardNormalListState  -> 通常の板タブ一覧
+boardSearchListState  -> 検索結果の板タブ一覧
+threadNormalListState -> 通常のスレッドタブ一覧
+threadSearchListState -> 検索結果のスレッドタブ一覧
+```
 
-### Decision 2: ViewModel はスクロール位置の値と命令だけを保持する
+検索中は検索結果用 state だけを使うため、通常リスト用 state は検索結果スクロールの影響を受けない。検索解除時は通常リストと通常用 state を再表示するだけで、検索開始前の位置へ自然に戻る。
 
-ViewModel は `LazyListState` を直接保持せず、板一覧・スレッド一覧の `firstVisibleItemIndex` と `firstVisibleItemScrollOffset` を含むスナップショットを保持する。スクロール副作用は `TabScreenContent` が命令を受けて `scrollToItem` を実行する。
+### Decision 2: 表示切り替え条件は検索クエリの非空判定にする
 
-これにより、Compose UI オブジェクトを ViewModel に持ち込まず、UI 状態と副作用の責務を分離する。
+検索 UI が開いていても、検索クエリが空の間は通常リストを表示する。検索クエリが非空になったときだけ検索結果リストへ切り替える。
 
-### Decision 3: スクロール操作は consume 可能な命令として表現する
+これにより、検索欄を開いただけで通常リストの表示 state が検索用 state へ切り替わり、見た目のスクロール位置が変わることを避ける。
 
-検索解除時の復元と検索クエリ変更時の先頭表示は、ViewModel から一回限りのスクロール命令として UI に渡す。UI は命令を実行した後、ViewModel の consume メソッドを呼び、同じ命令が再実行されないようにする。
+### Decision 3: 通常リスト復元用 snapshot と復元待ち状態は不要にする
 
-命令は少なくとも以下を表現できるようにする。
-- 完全リスト復帰後に板一覧・スレッド一覧の保存位置へ復元する命令
-- 検索クエリ変更後に現在表示中ページの検索結果を先頭表示する命令
+通常リストの `LazyListState` が検索中に変更されないため、検索解除時に index/offset snapshot を使って復元する必要はない。`TabSearchScrollSnapshot`、通常リスト復元用の pending state、復元用 `LaunchedEffect` は削除対象とする。
 
-### Decision 3a: 復元命令は表示リスト更新後に実行する
+ViewModel は `LazyListState` を保持しない。検索状態と、検索結果リストを先頭表示する一回限りの要求だけを管理する。
 
-検索解除時に `scrollCommand` を即時発行すると、UI がまだ検索結果リストを描画対象にしている途中状態で `scrollToItem` を実行し、その後の完全リスト再レイアウトでスクロール位置が上書きされる可能性がある。このため、安定性優先の追加修正では「検索状態を空へ更新する処理」と「保存位置へスクロールする副作用」を段階分離する。
+### Decision 4: 検索結果リストの先頭表示だけ一回限りの要求として扱う
 
-ViewModel は検索解除時に保存済みスナップショットを復元待ち状態として保持し、UI は `searchQuery` が空で、板一覧・スレッド一覧が完全リストを描画対象に戻ったことを確認してから復元スクロールを実行する。実行後は復元待ち状態または命令を consume し、再Compositionで同じ復元を繰り返さない。
+検索クエリが空から非空へ変わったとき、または非空から別の非空へ変わったときは、現在表示中ページの検索結果リストを先頭表示する。
 
-検索クエリ変更時の先頭表示も同じ考え方で扱う。クエリ更新と同じ瞬間に `scrollToItem(0)` を実行せず、UI が新しい検索結果リストを描画対象にした後、現在表示中ページだけを先頭表示する。
+この要求は `TabListViewModel` から UI へ nullable state として公開し、UI が実行後に consume する。要求には対象ページと検索クエリを含め、古い検索クエリ向けの要求を誤実行しないようにする。
 
-### Decision 4: BottomSheet dismiss 時に検索状態を閉じる
+### Decision 5: 検索結果の先頭表示は検索結果リストが表示対象になってから実行する
 
-タブ一覧 BottomSheet は `showTabListSheet` によって Composition から外れる。閉じた後も `TabListViewModel` が呼び出し元 NavBackStackEntry に残る可能性があるため、dismiss 時に検索モードと検索クエリ、検索復元スナップショット、未消費スクロール命令を明示的にクリアする。
+検索クエリ更新と同じ瞬間にスクロールすると、まだ通常リストまたは古い検索結果リストが描画対象になっている可能性がある。UI は要求に含まれる検索クエリと現在の検索クエリが一致し、検索結果リストが表示対象になった後に、対象ページの検索用 `LazyListState` へ先頭表示を適用する。
 
-これにより、BottomSheet 再表示時は検索なしの初期状態から始まり、検索クエリだけが残って復元スナップショットがない状態を避ける。
+先頭表示は UX と安定性の両方を見て選択する。検索結果リストの初期表示では `requestScrollToItem(0)` を基本とし、視覚的な滑らかさを優先する場合は `animateScrollToItem(0)` を検討する。
 
-### Decision 5: 通常タブ一覧と BottomSheet の検索状態は独立させる
+### Decision 6: BottomSheet dismiss 時に検索状態を閉じる
 
-通常タブ一覧と BottomSheet は異なる表示コンテキストで使われるため、検索状態は共有しない。`TabsScaffold` と `TabsBottomSheet` がそれぞれの `hiltViewModel<TabListViewModel>()` スコープで状態を持つ現状を維持し、そのスコープ内で復元状態まで一貫管理する。
+タブ一覧 BottomSheet は `showTabListSheet` によって Composition から外れる。閉じた後も `TabListViewModel` が呼び出し元 NavBackStackEntry に残る可能性があるため、dismiss 時に検索モード、検索クエリ、検索結果先頭表示要求を明示的にクリアする。
+
+これにより、BottomSheet 再表示時は検索なしの初期状態から始まり、検索クエリだけが残る状態を避ける。
+
+### Decision 7: 通常タブ一覧と BottomSheet の検索状態は独立させる
+
+通常タブ一覧と BottomSheet は異なる表示コンテキストで使われるため、検索状態は共有しない。`TabsScaffold` と `TabsBottomSheet` がそれぞれの `hiltViewModel<TabListViewModel>()` スコープで状態を持つ現状を維持し、そのスコープ内で検索結果先頭表示要求まで一貫管理する。
 
 ## Risks / Trade-offs
 
-- [Risk] スクロール命令が再Compositionで重複実行される → 実行後に必ず ViewModel へ consume を通知し、命令IDまたは nullable state で一回性を担保する。
-- [Risk] 完全リスト復帰前に復元命令を実行するとフィルタ済みリスト上の index に対してスクロールしてしまう → 検索解除では復元待ち状態を保持し、検索クエリが空かつ完全リストが描画対象になった後の UI 側 `LaunchedEffect` で復元を処理する。
-- [Risk] 検索クエリ変更直後に先頭表示を実行すると古い検索結果リスト上でスクロールしてしまう → 新しい検索クエリに対応した表示リストが反映された後、現在ページの `LazyListState` だけを先頭表示する。
-- [Risk] 保存済み index がタブ削除などで範囲外になる → 復元時に現在の完全リストサイズへ `coerceIn` する。
-- [Risk] BottomSheet dismiss 時に検索を保持したい利用者期待と異なる → BottomSheet は一時的な選択 UI として扱い、閉じたら検索状態を破棄する仕様を明文化する。
-- [Risk] ViewModel の状態項目が増える → スクロール復元用の data class / sealed interface を分け、`TabListUiState` では UI が必要な命令だけを公開する。
+- [Risk] `LazyListState` が板/スレッド × 通常/検索で 4 つになる → タブ一覧の状態量としては小さく、復元用 snapshot / pending state を減らせるため許容する。
+- [Risk] 検索欄を開いただけで検索用 state へ切り替わると見た目の位置が変わる → 表示切り替え条件を `searchQuery.isNotBlank()` にする。
+- [Risk] 検索クエリ変更直後に古い検索結果リストへ先頭表示してしまう → 先頭表示要求に query を含め、UI 側で現在の query と一致する場合だけ実行する。
+- [Risk] 検索結果リストのスクロール位置を次回検索時に保持するかが曖昧になる → この変更では検索クエリ変更時に検索結果リストを先頭表示する仕様を維持し、クエリ別の検索結果位置保持は扱わない。
+- [Risk] 通常リストと検索結果リストを別 Composable として切り替えると UI ツリーが増える → 既存のリスト Composable を再利用し、渡す items と `LazyListState` だけを切り替える。
+- [Risk] BottomSheet dismiss 時に検索を保持したい利用者期待と異なる → BottomSheet は一時的な選択 UI として扱い、閉じたら検索状態を破棄する仕様を維持する。
