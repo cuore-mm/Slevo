@@ -1,5 +1,10 @@
 package com.websarva.wings.android.slevo.ui.tabs.screen
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyListState
@@ -26,10 +31,15 @@ fun TabsPagerContent(
     navController: NavHostController,
     closeDrawer: () -> Unit,
     listContentPadding: PaddingValues = PaddingValues(0.dp),
-    boardListState: LazyListState,
-    threadListState: LazyListState,
+    isShowingSearchResults: Boolean,
+    boardNormalListState: LazyListState,
+    boardSearchListState: LazyListState,
+    threadNormalListState: LazyListState,
+    threadSearchListState: LazyListState,
     openBoardTabs: List<BoardTabInfo>,
+    filteredBoardTabs: List<BoardTabInfo>,
     openThreadTabs: List<ThreadTabInfo>,
+    filteredThreadTabs: List<ThreadTabInfo>,
     newResCounts: Map<String, Int>,
     selectedBoardTab: BoardTabInfo?,
     selectedThreadTab: ThreadTabInfo?,
@@ -49,37 +59,109 @@ fun TabsPagerContent(
         userScrollEnabled = false,
     ) { page ->
         when (page) {
-            0 -> OpenBoardsList(
-                openTabs = openBoardTabs,
-                onCloseClick = onCloseBoardTab,
-                navController = navController,
-                closeDrawer = closeDrawer,
-                contentPadding = listContentPadding,
-                listState = boardListState,
-                selectedBoardTab = selectedBoardTab,
-                pendingCloseBoardTab = pendingCloseBoardTab,
-                onCloseRequestConsumed = onCloseRequestConsumed,
-                onBoardTabLongPressed = onBoardTabLongPressed,
-                tabSessionStore = tabSessionStore,
-                isInLongPressSelectionMode = isInLongPressSelectionMode,
+            0 -> AnimatedListContent(
+                isShowingSearchResults = isShowingSearchResults,
+                normalContent = {
+                    OpenBoardsList(
+                        openTabs = openBoardTabs,
+                        onCloseClick = onCloseBoardTab,
+                        navController = navController,
+                        closeDrawer = closeDrawer,
+                        contentPadding = listContentPadding,
+                        listState = boardNormalListState,
+                        selectedBoardTab = selectedBoardTab,
+                        pendingCloseBoardTab = pendingCloseBoardTab,
+                        onCloseRequestConsumed = onCloseRequestConsumed,
+                        onBoardTabLongPressed = onBoardTabLongPressed,
+                        tabSessionStore = tabSessionStore,
+                        isInLongPressSelectionMode = isInLongPressSelectionMode,
+                    )
+                },
+                searchContent = {
+                    OpenBoardsList(
+                        openTabs = filteredBoardTabs,
+                        onCloseClick = onCloseBoardTab,
+                        navController = navController,
+                        closeDrawer = closeDrawer,
+                        contentPadding = listContentPadding,
+                        listState = boardSearchListState,
+                        selectedBoardTab = selectedBoardTab,
+                        pendingCloseBoardTab = pendingCloseBoardTab,
+                        onCloseRequestConsumed = onCloseRequestConsumed,
+                        onBoardTabLongPressed = onBoardTabLongPressed,
+                        tabSessionStore = tabSessionStore,
+                        isInLongPressSelectionMode = isInLongPressSelectionMode,
+                    )
+                },
             )
 
-            else -> OpenThreadsList(
-                openTabs = openThreadTabs,
-                onCloseClick = onCloseThreadTab,
-                navController = navController,
-                closeDrawer = closeDrawer,
-                contentPadding = listContentPadding,
-                listState = threadListState,
-                newResCounts = newResCounts,
-                selectedThreadTab = selectedThreadTab,
-                pendingCloseThreadTab = pendingCloseThreadTab,
-                onCloseRequestConsumed = onCloseRequestConsumed,
-                onThreadTabLongPressed = onThreadTabLongPressed,
-                onClearNewResCount = onClearNewResCount,
-                tabSessionStore = tabSessionStore,
-                isInLongPressSelectionMode = isInLongPressSelectionMode,
+            else -> AnimatedListContent(
+                isShowingSearchResults = isShowingSearchResults,
+                normalContent = {
+                    OpenThreadsList(
+                        openTabs = openThreadTabs,
+                        onCloseClick = onCloseThreadTab,
+                        navController = navController,
+                        closeDrawer = closeDrawer,
+                        contentPadding = listContentPadding,
+                        listState = threadNormalListState,
+                        newResCounts = newResCounts,
+                        selectedThreadTab = selectedThreadTab,
+                        pendingCloseThreadTab = pendingCloseThreadTab,
+                        onCloseRequestConsumed = onCloseRequestConsumed,
+                        onThreadTabLongPressed = onThreadTabLongPressed,
+                        onClearNewResCount = onClearNewResCount,
+                        tabSessionStore = tabSessionStore,
+                        isInLongPressSelectionMode = isInLongPressSelectionMode,
+                    )
+                },
+                searchContent = {
+                    OpenThreadsList(
+                        openTabs = filteredThreadTabs,
+                        onCloseClick = onCloseThreadTab,
+                        navController = navController,
+                        closeDrawer = closeDrawer,
+                        contentPadding = listContentPadding,
+                        listState = threadSearchListState,
+                        newResCounts = newResCounts,
+                        selectedThreadTab = selectedThreadTab,
+                        pendingCloseThreadTab = pendingCloseThreadTab,
+                        onCloseRequestConsumed = onCloseRequestConsumed,
+                        onThreadTabLongPressed = onThreadTabLongPressed,
+                        onClearNewResCount = onClearNewResCount,
+                        tabSessionStore = tabSessionStore,
+                        isInLongPressSelectionMode = isInLongPressSelectionMode,
+                    )
+                },
             )
+        }
+    }
+}
+
+/**
+ * 通常リストと検索結果リストの表示をフェードで切り替える。
+ *
+ * 検索結果の有無に応じて表示コンテンツだけを切り替え、各 `LazyListState` 自体は
+ * 呼び出し元で分離して保持されたものをそのまま利用する。
+ */
+@Composable
+private fun AnimatedListContent(
+    isShowingSearchResults: Boolean,
+    normalContent: @Composable () -> Unit,
+    searchContent: @Composable () -> Unit,
+) {
+    AnimatedContent(
+        targetState = isShowingSearchResults,
+        transitionSpec = {
+            fadeIn(animationSpec = tween(durationMillis = 180)) togetherWith
+                fadeOut(animationSpec = tween(durationMillis = 120))
+        },
+        label = "TabListSearchTransition",
+    ) { showingSearchResults ->
+        if (showingSearchResults) {
+            searchContent()
+        } else {
+            normalContent()
         }
     }
 }

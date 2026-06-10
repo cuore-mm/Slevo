@@ -113,10 +113,6 @@ fun TabScreenContent(
     val isShowingSearchResults = searchQuery.isNotBlank()
     val filteredBoardTabs = filterBoardTabsByQuery(openBoardTabs, searchQuery)
     val filteredThreadTabs = filterThreadTabsByQuery(openThreadTabs, searchQuery)
-    val boardListState = if (isShowingSearchResults) boardSearchListState else boardNormalListState
-    val threadListState = if (isShowingSearchResults) threadSearchListState else threadNormalListState
-    val displayedBoardTabs = if (isShowingSearchResults) filteredBoardTabs else openBoardTabs
-    val displayedThreadTabs = if (isShowingSearchResults) filteredThreadTabs else openThreadTabs
 
     /**
      * 検索モードを開始する。
@@ -223,13 +219,18 @@ fun TabScreenContent(
                     TabsPagerContent(
                         modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
                         pagerState = pagerState,
-                        boardListState = boardListState,
-                        threadListState = threadListState,
                         navController = navController,
                         closeDrawer = closeDrawer,
                         listContentPadding = listPadding,
-                        openBoardTabs = displayedBoardTabs,
-                        openThreadTabs = displayedThreadTabs,
+                        isShowingSearchResults = isShowingSearchResults,
+                        boardNormalListState = boardNormalListState,
+                        boardSearchListState = boardSearchListState,
+                        threadNormalListState = threadNormalListState,
+                        threadSearchListState = threadSearchListState,
+                        openBoardTabs = openBoardTabs,
+                        filteredBoardTabs = filteredBoardTabs,
+                        openThreadTabs = openThreadTabs,
+                        filteredThreadTabs = filteredThreadTabs,
                         newResCounts = newResCounts,
                         selectedBoardTab = listUiState.selectedBoardTab,
                         selectedThreadTab = listUiState.selectedThreadTab,
