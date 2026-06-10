@@ -30,13 +30,15 @@ import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 
 /**
- * 検索表示エリア内で切り替えるコンテンツ種別を表す。
+ * タブ一覧ページで切り替える表示状態を表す。
  *
- * 検索結果が存在する場合はリスト、0 件の場合は空状態メッセージを表示する。
+ * 通常リスト、検索結果リスト、検索結果なし表示を単一状態として扱い、
+ * 同じ `AnimatedContent` で切り替えるために利用する。
  */
-private enum class SearchResultContentState {
-    HasResults,
-    Empty,
+private enum class TabListDisplayState {
+    Normal,
+    SearchResults,
+    SearchEmpty,
 }
 
 /**
@@ -79,7 +81,11 @@ fun TabsPagerContent(
     ) { page ->
         when (page) {
             0 -> AnimatedListContent(
-                isShowingSearchResults = isShowingSearchResults,
+                displayState = when {
+                    !isShowingSearchResults -> TabListDisplayState.Normal
+                    filteredBoardTabs.isEmpty() -> TabListDisplayState.SearchEmpty
+                    else -> TabListDisplayState.SearchResults
+                },
                 normalContent = {
                     OpenBoardsList(
                         openTabs = openBoardTabs,
@@ -96,38 +102,33 @@ fun TabsPagerContent(
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
                     )
                 },
-                searchContent = {
-                    AnimatedSearchResultContent(
-                        contentState = if (filteredBoardTabs.isEmpty()) {
-                            SearchResultContentState.Empty
-                        } else {
-                            SearchResultContentState.HasResults
-                        },
-                        emptyContent = {
-                            SearchResultEmptyState(contentPadding = listContentPadding)
-                        },
-                        resultContent = {
-                            OpenBoardsList(
-                                openTabs = filteredBoardTabs,
-                                onCloseClick = onCloseBoardTab,
-                                navController = navController,
-                                closeDrawer = closeDrawer,
-                                contentPadding = listContentPadding,
-                                listState = boardSearchListState,
-                                selectedBoardTab = selectedBoardTab,
-                                pendingCloseBoardTab = pendingCloseBoardTab,
-                                onCloseRequestConsumed = onCloseRequestConsumed,
-                                onBoardTabLongPressed = onBoardTabLongPressed,
-                                tabSessionStore = tabSessionStore,
-                                isInLongPressSelectionMode = isInLongPressSelectionMode,
-                            )
-                        },
+                searchResultContent = {
+                    OpenBoardsList(
+                        openTabs = filteredBoardTabs,
+                        onCloseClick = onCloseBoardTab,
+                        navController = navController,
+                        closeDrawer = closeDrawer,
+                        contentPadding = listContentPadding,
+                        listState = boardSearchListState,
+                        selectedBoardTab = selectedBoardTab,
+                        pendingCloseBoardTab = pendingCloseBoardTab,
+                        onCloseRequestConsumed = onCloseRequestConsumed,
+                        onBoardTabLongPressed = onBoardTabLongPressed,
+                        tabSessionStore = tabSessionStore,
+                        isInLongPressSelectionMode = isInLongPressSelectionMode,
                     )
+                },
+                searchEmptyContent = {
+                    SearchResultEmptyState(contentPadding = listContentPadding)
                 },
             )
 
             else -> AnimatedListContent(
-                isShowingSearchResults = isShowingSearchResults,
+                displayState = when {
+                    !isShowingSearchResults -> TabListDisplayState.Normal
+                    filteredThreadTabs.isEmpty() -> TabListDisplayState.SearchEmpty
+                    else -> TabListDisplayState.SearchResults
+                },
                 normalContent = {
                     OpenThreadsList(
                         openTabs = openThreadTabs,
@@ -146,64 +147,28 @@ fun TabsPagerContent(
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
                     )
                 },
-                searchContent = {
-                    AnimatedSearchResultContent(
-                        contentState = if (filteredThreadTabs.isEmpty()) {
-                            SearchResultContentState.Empty
-                        } else {
-                            SearchResultContentState.HasResults
-                        },
-                        emptyContent = {
-                            SearchResultEmptyState(contentPadding = listContentPadding)
-                        },
-                        resultContent = {
-                            OpenThreadsList(
-                                openTabs = filteredThreadTabs,
-                                onCloseClick = onCloseThreadTab,
-                                navController = navController,
-                                closeDrawer = closeDrawer,
-                                contentPadding = listContentPadding,
-                                listState = threadSearchListState,
-                                newResCounts = newResCounts,
-                                selectedThreadTab = selectedThreadTab,
-                                pendingCloseThreadTab = pendingCloseThreadTab,
-                                onCloseRequestConsumed = onCloseRequestConsumed,
-                                onThreadTabLongPressed = onThreadTabLongPressed,
-                                onClearNewResCount = onClearNewResCount,
-                                tabSessionStore = tabSessionStore,
-                                isInLongPressSelectionMode = isInLongPressSelectionMode,
-                            )
-                        },
+                searchResultContent = {
+                    OpenThreadsList(
+                        openTabs = filteredThreadTabs,
+                        onCloseClick = onCloseThreadTab,
+                        navController = navController,
+                        closeDrawer = closeDrawer,
+                        contentPadding = listContentPadding,
+                        listState = threadSearchListState,
+                        newResCounts = newResCounts,
+                        selectedThreadTab = selectedThreadTab,
+                        pendingCloseThreadTab = pendingCloseThreadTab,
+                        onCloseRequestConsumed = onCloseRequestConsumed,
+                        onThreadTabLongPressed = onThreadTabLongPressed,
+                        onClearNewResCount = onClearNewResCount,
+                        tabSessionStore = tabSessionStore,
+                        isInLongPressSelectionMode = isInLongPressSelectionMode,
                     )
                 },
+                searchEmptyContent = {
+                    SearchResultEmptyState(contentPadding = listContentPadding)
+                },
             )
-        }
-    }
-}
-
-/**
- * 検索表示エリア内で、検索結果リストと空状態メッセージをフェードで切り替える。
- *
- * 通常リストと検索結果リストの切り替えとは別に、検索中の「結果あり / なし」だけを
- * 局所的にアニメーションさせる。
- */
-@Composable
-private fun AnimatedSearchResultContent(
-    contentState: SearchResultContentState,
-    emptyContent: @Composable () -> Unit,
-    resultContent: @Composable () -> Unit,
-) {
-    AnimatedContent(
-        targetState = contentState,
-        transitionSpec = {
-            fadeIn(animationSpec = tween(durationMillis = 150)) togetherWith
-                fadeOut(animationSpec = tween(durationMillis = 100))
-        },
-        label = "SearchResultEmptyTransition",
-    ) { state ->
-        when (state) {
-            SearchResultContentState.HasResults -> resultContent()
-            SearchResultContentState.Empty -> emptyContent()
         }
     }
 }
@@ -233,29 +198,31 @@ private fun SearchResultEmptyState(
 }
 
 /**
- * 通常リストと検索結果リストの表示をフェードで切り替える。
+ * 通常リスト、検索結果リスト、検索結果なし表示をフェードで切り替える。
  *
- * 検索結果の有無に応じて表示コンテンツだけを切り替え、各 `LazyListState` 自体は
- * 呼び出し元で分離して保持されたものをそのまま利用する。
+ * 単一の表示状態として切り替えることで、検索解除時に検索側のコンテンツが途中で
+ * 別状態へ再評価されることを防ぎつつ、各 `LazyListState` 自体は呼び出し元で分離して
+ * 保持されたものをそのまま利用する。
  */
 @Composable
 private fun AnimatedListContent(
-    isShowingSearchResults: Boolean,
+    displayState: TabListDisplayState,
     normalContent: @Composable () -> Unit,
-    searchContent: @Composable () -> Unit,
+    searchResultContent: @Composable () -> Unit,
+    searchEmptyContent: @Composable () -> Unit,
 ) {
     AnimatedContent(
-        targetState = isShowingSearchResults,
+        targetState = displayState,
         transitionSpec = {
             fadeIn(animationSpec = tween(durationMillis = 180)) togetherWith
                 fadeOut(animationSpec = tween(durationMillis = 120))
         },
         label = "TabListSearchTransition",
-    ) { showingSearchResults ->
-        if (showingSearchResults) {
-            searchContent()
-        } else {
-            normalContent()
+    ) { state ->
+        when (state) {
+            TabListDisplayState.Normal -> normalContent()
+            TabListDisplayState.SearchResults -> searchResultContent()
+            TabListDisplayState.SearchEmpty -> searchEmptyContent()
         }
     }
 }
