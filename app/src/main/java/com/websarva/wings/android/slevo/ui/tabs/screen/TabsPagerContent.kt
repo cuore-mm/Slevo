@@ -5,16 +5,25 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
@@ -78,20 +87,24 @@ fun TabsPagerContent(
                     )
                 },
                 searchContent = {
-                    OpenBoardsList(
-                        openTabs = filteredBoardTabs,
-                        onCloseClick = onCloseBoardTab,
-                        navController = navController,
-                        closeDrawer = closeDrawer,
-                        contentPadding = listContentPadding,
-                        listState = boardSearchListState,
-                        selectedBoardTab = selectedBoardTab,
-                        pendingCloseBoardTab = pendingCloseBoardTab,
-                        onCloseRequestConsumed = onCloseRequestConsumed,
-                        onBoardTabLongPressed = onBoardTabLongPressed,
-                        tabSessionStore = tabSessionStore,
-                        isInLongPressSelectionMode = isInLongPressSelectionMode,
-                    )
+                    if (filteredBoardTabs.isEmpty()) {
+                        SearchResultEmptyState(contentPadding = listContentPadding)
+                    } else {
+                        OpenBoardsList(
+                            openTabs = filteredBoardTabs,
+                            onCloseClick = onCloseBoardTab,
+                            navController = navController,
+                            closeDrawer = closeDrawer,
+                            contentPadding = listContentPadding,
+                            listState = boardSearchListState,
+                            selectedBoardTab = selectedBoardTab,
+                            pendingCloseBoardTab = pendingCloseBoardTab,
+                            onCloseRequestConsumed = onCloseRequestConsumed,
+                            onBoardTabLongPressed = onBoardTabLongPressed,
+                            tabSessionStore = tabSessionStore,
+                            isInLongPressSelectionMode = isInLongPressSelectionMode,
+                        )
+                    }
                 },
             )
 
@@ -116,25 +129,53 @@ fun TabsPagerContent(
                     )
                 },
                 searchContent = {
-                    OpenThreadsList(
-                        openTabs = filteredThreadTabs,
-                        onCloseClick = onCloseThreadTab,
-                        navController = navController,
-                        closeDrawer = closeDrawer,
-                        contentPadding = listContentPadding,
-                        listState = threadSearchListState,
-                        newResCounts = newResCounts,
-                        selectedThreadTab = selectedThreadTab,
-                        pendingCloseThreadTab = pendingCloseThreadTab,
-                        onCloseRequestConsumed = onCloseRequestConsumed,
-                        onThreadTabLongPressed = onThreadTabLongPressed,
-                        onClearNewResCount = onClearNewResCount,
-                        tabSessionStore = tabSessionStore,
-                        isInLongPressSelectionMode = isInLongPressSelectionMode,
-                    )
+                    if (filteredThreadTabs.isEmpty()) {
+                        SearchResultEmptyState(contentPadding = listContentPadding)
+                    } else {
+                        OpenThreadsList(
+                            openTabs = filteredThreadTabs,
+                            onCloseClick = onCloseThreadTab,
+                            navController = navController,
+                            closeDrawer = closeDrawer,
+                            contentPadding = listContentPadding,
+                            listState = threadSearchListState,
+                            newResCounts = newResCounts,
+                            selectedThreadTab = selectedThreadTab,
+                            pendingCloseThreadTab = pendingCloseThreadTab,
+                            onCloseRequestConsumed = onCloseRequestConsumed,
+                            onThreadTabLongPressed = onThreadTabLongPressed,
+                            onClearNewResCount = onClearNewResCount,
+                            tabSessionStore = tabSessionStore,
+                            isInLongPressSelectionMode = isInLongPressSelectionMode,
+                        )
+                    }
                 },
             )
         }
+    }
+}
+
+/**
+ * 検索クエリに一致するタブが存在しないときの空状態メッセージを表示する。
+ *
+ * リスト領域と同じ余白を適用し、トップ検索バーと下部操作領域を避けた中央へ文言を配置する。
+ */
+@Composable
+private fun SearchResultEmptyState(
+    contentPadding: PaddingValues,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(R.string.search_results_empty),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -164,4 +205,12 @@ private fun AnimatedListContent(
             normalContent()
         }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SearchResultEmptyStatePreview() {
+    SearchResultEmptyState(
+        contentPadding = PaddingValues(vertical = 40.dp, horizontal = 16.dp),
+    )
 }
