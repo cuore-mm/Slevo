@@ -42,7 +42,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -61,6 +63,36 @@ fun SearchInputField(
     onCloseSearch: () -> Unit,
     @StringRes placeholderResId: Int = R.string.search,
 ) {
+    SearchInputField(
+        modifier = modifier,
+        searchInputValue = TextFieldValue(
+            text = searchQuery,
+            selection = TextRange(searchQuery.length),
+        ),
+        onSearchInputChange = { onQueryChange(it.text) },
+        onCloseSearch = onCloseSearch,
+        focusRequestId = 0L,
+        onFocusRequestConsumed = null,
+        placeholderResId = placeholderResId,
+    )
+}
+
+/**
+ * 検索バーの入力領域を、文字列とカーソル位置を含む入力状態で制御する。
+ *
+ * 一回限りのフォーカス要求を受け取り、検索モードへ入った直後だけ入力欄へ
+ * フォーカスとキーボード表示を適用する。
+ */
+@Composable
+fun SearchInputField(
+    modifier: Modifier = Modifier,
+    searchInputValue: TextFieldValue,
+    onSearchInputChange: (TextFieldValue) -> Unit,
+    onCloseSearch: () -> Unit,
+    focusRequestId: Long?,
+    onFocusRequestConsumed: (() -> Unit)?,
+    @StringRes placeholderResId: Int = R.string.search,
+) {
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -68,7 +100,7 @@ fun SearchInputField(
     val voicePrompt = stringResource(R.string.voice_search_prompt)
     val voicePermissionDeniedMessage = stringResource(R.string.voice_permission_denied)
     val voiceUnavailableMessage = stringResource(R.string.speech_recognition_not_available)
-    val updatedOnQueryChange by rememberUpdatedState(newValue = onQueryChange)
+    val updatedOnSearchInputChange by rememberUpdatedState(newValue = onSearchInputChange)
 
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -77,7 +109,12 @@ fun SearchInputField(
             val text = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             val recognized = text?.firstOrNull().orEmpty()
             if (recognized.isNotBlank()) {
-                updatedOnQueryChange(recognized)
+                updatedOnSearchInputChange(
+                    TextFieldValue(
+                        text = recognized,
+                        selection = TextRange(recognized.length),
+                    )
+                )
             }
         }
     }
@@ -110,9 +147,13 @@ fun SearchInputField(
     }
 
     // --- Focus ---
-    LaunchedEffect(Unit) {
+    LaunchedEffect(focusRequestId) {
+        if (focusRequestId == null) {
+            return@LaunchedEffect
+        }
         focusRequester.requestFocus()
         keyboardController?.show()
+        onFocusRequestConsumed?.invoke()
     }
 
     val textFieldInteractionSource = remember { MutableInteractionSource() }
@@ -137,8 +178,8 @@ fun SearchInputField(
             )
         }
         BasicTextField(
-            value = searchQuery,
-            onValueChange = onQueryChange,
+            value = searchInputValue,
+            onValueChange = onSearchInputChange,
             modifier = Modifier
                 .weight(1f)
                 .height(48.dp)
@@ -159,7 +200,7 @@ fun SearchInputField(
             interactionSource = textFieldInteractionSource,
             decorationBox = { innerTextField ->
                 TextFieldDefaults.DecorationBox(
-                    value = searchQuery,
+                    value = searchInputValue.text,
                     innerTextField = innerTextField,
                     enabled = true,
                     singleLine = true,
@@ -183,13 +224,13 @@ fun SearchInputField(
             }
         )
         AnimatedContent(
-            targetState = searchQuery.isNotEmpty(),
+            targetState = searchInputValue.text.isNotEmpty(),
             label = "SearchBarIcon"
         ) { hasQuery ->
             if (hasQuery) {
                 FeedbackTooltipIconButton(
                     tooltipText = stringResource(R.string.clear_search),
-                    onClick = { onQueryChange("") },
+                    onClick = { onSearchInputChange(TextFieldValue("")) },
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Clear,
@@ -228,8 +269,10 @@ fun SearchInputField(
 @Composable
 private fun SearchInputFieldPreview() {
     SearchInputField(
-        searchQuery = "Example query",
-        onQueryChange = {},
+        searchInputValue = TextFieldValue("Example query", selection = TextRange(7)),
+        onSearchInputChange = {},
         onCloseSearch = {},
+        focusRequestId = null,
+        onFocusRequestConsumed = null,
     )
 }

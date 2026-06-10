@@ -1,6 +1,8 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
@@ -45,6 +47,7 @@ class TabListViewModelTest {
         val state = viewModel.uiState.first()
         assertTrue(state.isSearchMode)
         assertFalse(state.isInLongPressSelectionMode)
+        assertTrue(state.pendingSearchFocusRequestId != null)
     }
 
     /**
@@ -61,6 +64,7 @@ class TabListViewModelTest {
         val state = viewModel.uiState.first()
         assertFalse(state.isSearchMode)
         assertEquals("", state.searchQuery)
+        assertNull(state.pendingSearchFocusRequestId)
     }
 
     // --- Long-press selection ---
@@ -230,6 +234,21 @@ class TabListViewModelTest {
     // --- Search ---
 
     /**
+     * 検索入力更新時に文字列と selection が保持されることを確認する。
+     */
+    @Test
+    fun updateSearchInput_preservesSelection() = runTest {
+        viewModel.updateSearchInput(
+            TextFieldValue(text = "query", selection = TextRange(2, 4)),
+            currentPage = 0,
+        )
+
+        val state = viewModel.uiState.first()
+        assertEquals("query", state.searchQuery)
+        assertEquals(TextRange(2, 4), state.searchInputValue.selection)
+    }
+
+    /**
      * 検索開始時に現在表示中ページの先頭表示要求が発行されることを確認する。
      */
     @Test
@@ -285,6 +304,7 @@ class TabListViewModelTest {
         assertFalse(state.isSearchMode)
         assertEquals("", state.searchQuery)
         assertNull(state.pendingScrollToTopRequest)
+        assertNull(state.pendingSearchFocusRequestId)
     }
 
     /**
@@ -301,6 +321,7 @@ class TabListViewModelTest {
         assertFalse(state.isSearchMode)
         assertEquals("", state.searchQuery)
         assertNull(state.pendingScrollToTopRequest)
+        assertNull(state.pendingSearchFocusRequestId)
     }
 
     /**
@@ -315,5 +336,18 @@ class TabListViewModelTest {
 
         viewModel.consumePendingScrollToTopRequest()
         assertNull(viewModel.uiState.first().pendingScrollToTopRequest)
+    }
+
+    /**
+     * 検索バー自動フォーカス要求を consume すると、戻る操作相当の再Compositionでは再発行されないことを確認する。
+     */
+    @Test
+    fun consumePendingSearchFocusRequest_clearsPendingRequest() = runTest {
+        viewModel.enterSearchMode()
+        assertTrue(viewModel.uiState.first().pendingSearchFocusRequestId != null)
+
+        viewModel.consumePendingSearchFocusRequest()
+
+        assertNull(viewModel.uiState.first().pendingSearchFocusRequestId)
     }
 }

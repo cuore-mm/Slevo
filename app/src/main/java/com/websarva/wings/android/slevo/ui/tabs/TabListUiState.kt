@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.text.input.TextFieldValue
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 
@@ -12,7 +13,8 @@ import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
  */
 data class TabListUiState(
     val isSearchMode: Boolean = false,
-    val searchQuery: String = "",
+    val searchInputValue: TextFieldValue = TextFieldValue(""),
+    val pendingSearchFocusRequestId: Long? = null,
     val pendingScrollToTopRequest: TabListScrollToTopRequest? = null,
     val selectedBoardTab: BoardTabInfo? = null,
     val selectedThreadTab: ThreadTabInfo? = null,
@@ -27,6 +29,9 @@ data class TabListUiState(
     val showUrlDialog: Boolean = false,
     val urlErrorMessage: String? = null,
 ) {
+    val searchQuery: String
+        get() = searchInputValue.text
+
     val isInLongPressSelectionMode: Boolean
         get() = selectedBoardTab != null || selectedThreadTab != null
 }

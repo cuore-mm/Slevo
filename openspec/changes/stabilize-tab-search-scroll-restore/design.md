@@ -62,6 +62,18 @@ ViewModel は `LazyListState` を保持しない。検索状態と、検索結�
 
 先頭表示は UX と安定性の両方を見て選択する。検索結果リストの初期表示では `requestScrollToItem(0)` を基本とし、視覚的な滑らかさを優先する場合は `animateScrollToItem(0)` を検討する。
 
+### Decision 5a: 検索入力の text と selection を同じ UI 状態スコープで保持する
+
+検索結果から板/スレ画面へ遷移し、戻る操作でタブ一覧へ復帰した場合、検索クエリ文字列自体は `TabListViewModel` に残る一方、`BasicTextField(value: String)` の内部 selection state は Composition 再生成で初期化される。このため、検索バーの text だけでなく selection も `TabListViewModel` 側の UI 状態として保持する。
+
+UI は `TextFieldValue` 相当の state を受け取り、入力文字列とカーソル位置をまとめて更新する。これにより、検索中に別画面へ移動して戻った後も、検索バーのカーソル位置を復元できる。
+
+### Decision 5b: 検索バーのフォーカス要求は一回限りの要求として扱う
+
+`LaunchedEffect(Unit)` によるフォーカス要求は、検索バー Composable が Composition に再登場するたびに再実行される。検索結果から別画面へ遷移して戻ると、検索モード継続中でも再フォーカスが走り、selection が意図せず変化する要因になる。
+
+このため、検索バーのフォーカス要求は `enterSearchMode()` でだけ発行される一回限りの UI 要求として扱う。UI は要求を受けて `FocusRequester.requestFocus()` とキーボード表示を実行した後、要求を consume する。これにより、検索モードへ入った直後だけフォーカスし、戻る操作による再Compositionでは再フォーカスしない。
+
 ### Decision 6: BottomSheet dismiss 時に検索状態を閉じる
 
 タブ一覧 BottomSheet は `showTabListSheet` によって Composition から外れる。閉じた後も `TabListViewModel` が呼び出し元 NavBackStackEntry に残る可能性があるため、dismiss 時に検索モード、検索クエリ、検索結果先頭表示要求を明示的にクリアする。
@@ -77,6 +89,8 @@ ViewModel は `LazyListState` を保持しない。検索状態と、検索結�
 - [Risk] `LazyListState` が板/スレッド × 通常/検索で 4 つになる → タブ一覧の状態量としては小さく、復元用 snapshot / pending state を減らせるため許容する。
 - [Risk] 検索欄を開いただけで検索用 state へ切り替わると見た目の位置が変わる → 表示切り替え条件を `searchQuery.isNotBlank()` にする。
 - [Risk] 検索クエリ変更直後に古い検索結果リストへ先頭表示してしまう → 先頭表示要求に query を含め、UI 側で現在の query と一致する場合だけ実行する。
+- [Risk] 検索文字列は残るがカーソル位置だけ失われる → text と selection を同じ UI 状態で保持し、`TextFieldValue` 相当の値として UI へ渡す。
+- [Risk] 戻る操作のたびに検索バーへ再フォーカスして selection が変わる → フォーカスは `LaunchedEffect(Unit)` ではなく一回限り要求として発行し、実行後に consume する。
 - [Risk] 検索結果リストのスクロール位置を次回検索時に保持するかが曖昧になる → この変更では検索クエリ変更時に検索結果リストを先頭表示する仕様を維持し、クエリ別の検索結果位置保持は扱わない。
 - [Risk] 通常リストと検索結果リストを別 Composable として切り替えると UI ツリーが増える → 既存のリスト Composable を再利用し、渡す items と `LazyListState` だけを切り替える。
 - [Risk] BottomSheet dismiss 時に検索を保持したい利用者期待と異なる → BottomSheet は一時的な選択 UI として扱い、閉じたら検索状態を破棄する仕様を維持する。

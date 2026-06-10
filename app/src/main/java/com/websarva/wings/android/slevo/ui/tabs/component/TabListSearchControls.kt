@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -47,9 +48,11 @@ fun TabListTopSearchArea(
     modifier: Modifier = Modifier,
     hazeState: HazeState,
     isSearchMode: Boolean,
-    searchQuery: String,
+    searchInputValue: TextFieldValue,
+    searchFocusRequestId: Long?,
     onSearchClick: () -> Unit,
-    onQueryChange: (String) -> Unit,
+    onSearchInputChange: (TextFieldValue) -> Unit,
+    onSearchFocusRequestConsumed: () -> Unit,
     onCloseSearch: () -> Unit,
 ) {
     val tapGuardInteractionSource = remember { MutableInteractionSource() }
@@ -98,9 +101,11 @@ fun TabListTopSearchArea(
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
             ) {
                 SearchInputField(
-                    searchQuery = searchQuery,
-                    onQueryChange = onQueryChange,
+                    searchInputValue = searchInputValue,
+                    onSearchInputChange = onSearchInputChange,
                     onCloseSearch = onCloseSearch,
+                    focusRequestId = searchFocusRequestId,
+                    onFocusRequestConsumed = onSearchFocusRequestConsumed,
                     placeholderResId = R.string.search,
                 )
             }
@@ -126,9 +131,11 @@ private fun SearchModeTrueFalse() {
     TabListTopSearchArea(
         hazeState = HazeState(),
         isSearchMode = false,
-        searchQuery = "",
+        searchInputValue = TextFieldValue(""),
+        searchFocusRequestId = null,
         onSearchClick = {},
-        onQueryChange = {},
+        onSearchInputChange = {},
+        onSearchFocusRequestConsumed = {},
         onCloseSearch = {},
     )
 }
@@ -139,9 +146,11 @@ private fun SearchModeTruePreview() {
     TabListTopSearchArea(
         hazeState = HazeState(),
         isSearchMode = true,
-        searchQuery = "",
+        searchInputValue = TextFieldValue(""),
+        searchFocusRequestId = 1L,
         onSearchClick = {},
-        onQueryChange = {},
+        onSearchInputChange = {},
+        onSearchFocusRequestConsumed = {},
         onCloseSearch = {},
     )
 }

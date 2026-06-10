@@ -35,6 +35,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -276,11 +277,13 @@ fun TabScreenContent(
                     .padding(top = innerPadding.calculateTopPadding()),
                 hazeState = hazeState,
                 isSearchMode = isSearchMode,
-                searchQuery = searchQuery,
+                searchInputValue = listUiState.searchInputValue,
+                searchFocusRequestId = listUiState.pendingSearchFocusRequestId,
                 onSearchClick = { enterSearchMode() },
-                onQueryChange = { newQuery ->
-                    tabListViewModel.updateSearchQuery(newQuery, pagerState.currentPage)
+                onSearchInputChange = { inputValue: TextFieldValue ->
+                    tabListViewModel.updateSearchInput(inputValue, pagerState.currentPage)
                 },
+                onSearchFocusRequestConsumed = { tabListViewModel.consumePendingSearchFocusRequest() },
                 onCloseSearch = { exitSearchMode() },
             )
 

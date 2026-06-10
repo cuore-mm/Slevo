@@ -1,6 +1,8 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -30,7 +32,8 @@ class TabListViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val isSearchModeState = MutableStateFlow(false)
-    private val searchQueryState = MutableStateFlow("")
+    private val searchInputValueState = MutableStateFlow(TextFieldValue(""))
+    private val pendingSearchFocusRequestIdState = MutableStateFlow<Long?>(null)
     private val pendingScrollToTopRequestState = MutableStateFlow<TabListScrollToTopRequest?>(null)
     private val tabSelectionState = MutableStateFlow(TabSelectionState())
     private val detailBoardTabState = MutableStateFlow<BoardTabInfo?>(null)
@@ -42,10 +45,12 @@ class TabListViewModel @Inject constructor(
     private val urlValidationState = MutableStateFlow(false)
     private val urlDialogState = MutableStateFlow(false)
     private val urlErrorState = MutableStateFlow<String?>(null)
+    private var nextSearchFocusRequestId: Long = 0L
 
     val uiState: StateFlow<TabListUiState> = combine(
         isSearchModeState,
-        searchQueryState,
+        searchInputValueState,
+        pendingSearchFocusRequestIdState,
         pendingScrollToTopRequestState,
         tabSelectionState,
         pendingCloseBoardTabState,
@@ -60,20 +65,21 @@ class TabListViewModel @Inject constructor(
     ) { array ->
         TabListUiState(
             isSearchMode = array[0] as Boolean,
-            searchQuery = array[1] as String,
-            pendingScrollToTopRequest = array[2] as TabListScrollToTopRequest?,
-            selectedBoardTab = (array[3] as TabSelectionState).selectedBoardTab,
-            selectedThreadTab = (array[3] as TabSelectionState).selectedThreadTab,
-            selectedTabBounds = (array[3] as TabSelectionState).selectedTabBounds,
-            pendingCloseBoardTab = array[4] as BoardTabInfo?,
-            pendingCloseThreadTab = array[5] as ThreadTabInfo?,
-            detailBoardTab = array[6] as BoardTabInfo?,
-            detailThreadTab = array[7] as ThreadTabInfo?,
-            showBoardInfoBottomSheet = array[8] as Boolean,
-            showThreadInfoBottomSheet = array[9] as Boolean,
-            isUrlValidating = array[10] as Boolean,
-            showUrlDialog = array[11] as Boolean,
-            urlErrorMessage = array[12] as String?,
+            searchInputValue = array[1] as TextFieldValue,
+            pendingSearchFocusRequestId = array[2] as Long?,
+            pendingScrollToTopRequest = array[3] as TabListScrollToTopRequest?,
+            selectedBoardTab = (array[4] as TabSelectionState).selectedBoardTab,
+            selectedThreadTab = (array[4] as TabSelectionState).selectedThreadTab,
+            selectedTabBounds = (array[4] as TabSelectionState).selectedTabBounds,
+            pendingCloseBoardTab = array[5] as BoardTabInfo?,
+            pendingCloseThreadTab = array[6] as ThreadTabInfo?,
+            detailBoardTab = array[7] as BoardTabInfo?,
+            detailThreadTab = array[8] as ThreadTabInfo?,
+            showBoardInfoBottomSheet = array[9] as Boolean,
+            showThreadInfoBottomSheet = array[10] as Boolean,
+            isUrlValidating = array[11] as Boolean,
+            showUrlDialog = array[12] as Boolean,
+            urlErrorMessage = array[13] as String?,
         )
     }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, TabListUiState())
 
@@ -82,12 +88,57 @@ class TabListViewModel @Inject constructor(
     fun enterSearchMode() {
         cancelTabSelection()
         isSearchModeState.value = true
+        nextSearchFocusRequestId += 1
+        pendingSearchFocusRequestIdState.value = nextSearchFocusRequestId
     }
 
+    /**
+     * 検索モードを終了し、検索入力と未消費の UI 要求を初期状態へ戻す。
+     */
     fun closeSearchMode() {
         isSearchModeState.value = false
-        searchQueryState.value = ""
+        searchInputValueState.value = TextFieldValue("")
+        pendingSearchFocusRequestIdState.value = null
         pendingScrollToTopRequestState.value = null
+    }
+
+    /**
+     * 検索バー入力の text と selection を更新し、必要なら検索結果の先頭表示要求を発行する。
+     *
+     * クエリ文字列の遷移で先頭表示要求を判断しつつ、selection だけが変わる場合も
+     * 入力 state 全体は常に保持する。
+     */
+    fun updateSearchInput(inputValue: TextFieldValue, currentPage: Int) {
+        val oldQuery = searchInputValueState.value.text
+        val newQuery = inputValue.text
+
+        // --- Query transition handling ---
+        when {
+            oldQuery.isBlank() && newQuery.isNotBlank() -> {
+                searchInputValueState.value = inputValue
+                pendingScrollToTopRequestState.value = TabListScrollToTopRequest(
+                    page = currentPage,
+                    query = newQuery,
+                )
+            }
+
+            oldQuery.isNotBlank() && newQuery.isNotBlank() && oldQuery != newQuery -> {
+                searchInputValueState.value = inputValue
+                pendingScrollToTopRequestState.value = TabListScrollToTopRequest(
+                    page = currentPage,
+                    query = newQuery,
+                )
+            }
+
+            oldQuery.isNotBlank() && newQuery.isBlank() -> {
+                searchInputValueState.value = inputValue
+                pendingScrollToTopRequestState.value = null
+            }
+
+            else -> {
+                searchInputValueState.value = inputValue
+            }
+        }
     }
 
     /**
@@ -98,39 +149,20 @@ class TabListViewModel @Inject constructor(
      * 検索結果向けの要求だけをクリアする。
      */
     fun updateSearchQuery(query: String, currentPage: Int) {
-        val oldQuery = searchQueryState.value
-        val newQuery = query
+        updateSearchInput(
+            inputValue = TextFieldValue(
+                text = query,
+                selection = TextRange(query.length),
+            ),
+            currentPage = currentPage,
+        )
+    }
 
-        when {
-            // 空 → 非空: 検索開始。現在表示中ページの検索結果を先頭表示する。
-            oldQuery.isBlank() && newQuery.isNotBlank() -> {
-                searchQueryState.value = newQuery
-                pendingScrollToTopRequestState.value = TabListScrollToTopRequest(
-                    page = currentPage,
-                    query = newQuery,
-                )
-            }
-
-            // 非空 → 別の非空: 新しい検索結果を先頭表示する。
-            oldQuery.isNotBlank() && newQuery.isNotBlank() && oldQuery != newQuery -> {
-                searchQueryState.value = newQuery
-                pendingScrollToTopRequestState.value = TabListScrollToTopRequest(
-                    page = currentPage,
-                    query = newQuery,
-                )
-            }
-
-            // 非空 → 空: 通常リストへ戻る。復元要求は発行しない。
-            oldQuery.isNotBlank() && newQuery.isBlank() -> {
-                searchQueryState.value = ""
-                pendingScrollToTopRequestState.value = null
-            }
-
-            // その他（空→空、同じ非空）: 単純に更新
-            else -> {
-                searchQueryState.value = newQuery
-            }
-        }
+    /**
+     * 未消費の検索バー自動フォーカス要求を消費する。
+     */
+    fun consumePendingSearchFocusRequest() {
+        pendingSearchFocusRequestIdState.value = null
     }
 
     /**
@@ -151,7 +183,8 @@ class TabListViewModel @Inject constructor(
      */
     fun resetSearchState() {
         isSearchModeState.value = false
-        searchQueryState.value = ""
+        searchInputValueState.value = TextFieldValue("")
+        pendingSearchFocusRequestIdState.value = null
         pendingScrollToTopRequestState.value = null
     }
 
