@@ -68,6 +68,14 @@ ViewModel は `LazyListState` を保持しない。検索状態と、検索結�
 
 UI は `TextFieldValue` 相当の state を受け取り、入力文字列とカーソル位置をまとめて更新する。これにより、検索中に別画面へ移動して戻った後も、検索バーのカーソル位置を復元できる。
 
+### Decision 5a-2: 板画面・スレッド画面の検索入力も `TextFieldValue` で保持する
+
+板画面・スレッド画面の `SearchBottomBar` は `String` ベースの `SearchInputField` 互換 API を経由している。この互換 API は `TextFieldValue(text = searchQuery, selection = TextRange(searchQuery.length))` を毎回生成し、`onValueChange` では `.text` だけを ViewModel へ渡すため、IME が未確定変換範囲として使う `composition` が破棄される。
+
+日本語入力などでは `composition` が消えると変換前文字列が即確定され、変換候補を選べなくなる。このため、板画面・スレッド画面も検索入力状態を `TextFieldValue` として ViewModel/UiState に保持し、`BasicTextField` から渡される `TextFieldValue` をそのまま保存する。既存の絞り込み処理やハイライト処理は、派生プロパティ `searchQuery = searchInputValue.text` を通して文字列を参照する。
+
+`SearchBottomBar` は `TextFieldValue` ベースの API を主経路に変更する。`String` ベースの `SearchInputField` 互換 API は、移行完了後に削除するか、限定的な簡易用途として残す場合でも IME composition を扱えないことを明確にする。
+
 ### Decision 5b: 検索バーのフォーカス要求は一回限りの要求として扱う
 
 `LaunchedEffect(Unit)` によるフォーカス要求は、検索バー Composable が Composition に再登場するたびに再実行される。検索結果から別画面へ遷移して戻ると、検索モード継続中でも再フォーカスが走り、selection が意図せず変化する要因になる。
@@ -108,6 +116,7 @@ UI は `TextFieldValue` 相当の state を受け取り、入力文字列とカ�
 - [Risk] 検索欄を開いただけで検索用 state へ切り替わると見た目の位置が変わる → 表示切り替え条件を `searchQuery.isNotBlank()` にする。
 - [Risk] 検索クエリ変更直後に古い検索結果リストへ先頭表示してしまう → 先頭表示要求に query を含め、UI 側で現在の query と一致する場合だけ実行する。
 - [Risk] 検索文字列は残るがカーソル位置だけ失われる → text と selection を同じ UI 状態で保持し、`TextFieldValue` 相当の値として UI へ渡す。
+- [Risk] `String` ベースの検索入力アダプターが IME composition を捨て、日本語変換前の文字が即確定される → 板・スレ画面も `TextFieldValue` を正本として保持し、`composition` をそのまま伝播する。
 - [Risk] 戻る操作のたびに検索バーへ再フォーカスして selection が変わる → フォーカスは `LaunchedEffect(Unit)` ではなく一回限り要求として発行し、実行後に consume する。
 - [Risk] 検索結果 0 件時に無表示だと検索失敗か描画不具合か判別しづらい → 検索結果専用の空状態メッセージを中央表示する。
 - [Risk] 外側/内側の二段アニメーションが検索解除時に競合し、消え際の検索側 UI が別状態へ再評価される → 通常/検索結果あり/検索結果なしを単一の表示状態へ統合する。

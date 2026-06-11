@@ -13,6 +13,7 @@
 - 検索開始時または検索クエリ変更時は、検索結果リストだけを先頭表示する。
 - 検索結果リストの先頭表示は、検索クエリに対応した検索結果が表示対象になった後に実行する。
 - 検索バーの入力 text だけでなく selection も検索 UI 状態として保持し、検索結果からタブを開いて戻った後もカーソル位置を維持する。
+- 板画面・スレッド画面の検索入力も `TextFieldValue` で保持し、IME の未確定変換状態である composition を破棄しない。
 - 検索バーのフォーカス要求は一回限りの UI 要求として扱い、検索モードへ入った直後だけ実行する。
 - 検索クエリが非空で検索結果が 0 件のときは、空のリストではなく中央寄せの空状態メッセージを表示する。
 - 通常リスト / 検索結果あり / 検索結果なし の3状態を単一の表示状態として扱い、同じ `AnimatedContent` でフェード切り替えする。
@@ -23,7 +24,7 @@
 ## Capabilities
 
 ### New Capabilities
-- なし
+- `search-input`: 共通検索入力で `TextFieldValue.composition` を保持し、IME 未確定変換を壊さない要件を追加する。
 
 ### Modified Capabilities
 - `tablist-ui`: タブ一覧検索の通常リストと検索結果リストを分離し、検索解除時に通常リストのスクロール位置が自然に維持される要件を追加する。
@@ -37,5 +38,6 @@
 - `TabsPagerContent`: 検索結果表示中に対象ページのフィルタ結果が 0 件であれば、空リストの代わりに空状態メッセージを中央表示する。
 - `TabsPagerContent`: 通常リスト / 検索結果あり / 検索結果なしを単一の `AnimatedContent` で切り替え、検索解除時に検索側の表示内容が途中で通常リスト相当に再評価されないようにする。
 - `SearchInputField`: `String` ベースの入力だけでなく `TextFieldValue` ベースの入力と一回限りのフォーカス要求を扱えるようにする。
+- `SearchBottomBar` / `BoardUiState` / `ThreadUiState`: 板・スレ画面の検索入力を `TextFieldValue` ベースへ移行し、日本語入力などの IME composition を保持する。
 - `TabsBottomSheet` / `BbsRouteScaffold`: BottomSheet dismiss 時に検索状態を閉じる導線を追加する。
 - テスト: ViewModel のクエリ遷移・検索結果先頭表示要求/消費、検索入力 selection とフォーカス要求の保持/消費、および通常リストと検索結果リストのスクロール状態が独立することを検証する。

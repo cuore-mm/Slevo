@@ -35,6 +35,16 @@
 - [x] 4.9 検索結果表示中に現在ページのフィルタ結果が 0 件であれば、中央寄せの空状態メッセージを表示する
 - [x] 4.10 通常リスト / 検索結果あり / 検索結果なしを単一の `AnimatedContent` で切り替える
 
+## 4a. 共通検索入力の IME composition 保持
+
+- [ ] 4a.1 `SearchBottomBar` を `TextFieldValue` ベースの入力 state と更新コールバックを受け取る API へ変更する
+- [ ] 4a.2 `BoardUiState` の検索入力状態を `String` から `TextFieldValue` へ移行し、既存の検索処理向けに `searchQuery` 派生プロパティを提供する
+- [ ] 4a.3 `ThreadUiState` の検索入力状態を `String` から `TextFieldValue` へ移行し、既存の検索処理向けに `searchQuery` 派生プロパティを提供する
+- [ ] 4a.4 `BoardViewModel` / `ThreadListCoordinator` の検索更新 API を `TextFieldValue` ベースへ変更し、受け取った `composition` を含む値をそのまま保持する
+- [ ] 4a.5 `ThreadViewModel` の検索更新 API を `TextFieldValue` ベースへ変更し、受け取った `composition` を含む値をそのまま保持する
+- [ ] 4a.6 `BoardScaffold` / `ThreadScaffold` から `SearchBottomBar` へ `TextFieldValue` を渡すように変更する
+- [ ] 4a.7 `SearchInputField` の `String` 互換 API を削除するか、残す場合は IME composition を保持できない簡易用途であることを明確にし、板・スレ画面からは使用しない
+
 ## 5. BottomSheet の検索状態リセット
 
 - [x] 5.1 `TabsBottomSheet` dismiss 時に検索状態を完全破棄する既存導線を維持する
@@ -48,6 +58,7 @@
 - [x] 6.4 検索状態完全破棄で検索モード・検索クエリ・検索結果先頭表示要求がすべてクリアされることをユニットテストする
 - [x] 6.5 `TabListViewModel` の検索入力更新で selection が保持され、フォーカス要求が consume 後に再発行されないことをユニットテストする
 - [x] 6.7 `TabListViewModel` の単一 `TabListUiState` 更新で、検索終了時と選択解除時の関連状態がまとめて反映されることをユニットテストする
+- [ ] 6.8 板画面・スレッド画面の検索入力更新で `TextFieldValue.composition` を含む入力 state が保持されることをユニットテストする
 - [ ] 6.6 可能であれば Compose UI テストで、検索中のスクロール後に検索解除して通常リスト位置が維持されることを検証する
 
 ## 7. 検証
@@ -59,6 +70,7 @@
 - [x] 7.5 Android CI のビルドとユニットテストを実行し、成功を確認する
 - [ ] 7.6 板タブ一覧・スレッドタブ一覧で検索結果が 0 件のとき、中央に空状態メッセージが表示されることを確認する
 - [ ] 7.7 検索結果 0 件の状態で戻る操作をしたとき、通常リストへ戻る途中にリスト先頭が一瞬表示されないことを確認する
+- [ ] 7.8 板画面・スレッド画面の検索バーで日本語入力の変換候補を選択でき、未確定文字が即確定されないことを確認する
 
 ## Superseded Notes
 
