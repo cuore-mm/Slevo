@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.thread.state
 
+import androidx.compose.ui.text.input.TextFieldValue
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.GestureSettings
@@ -52,7 +53,7 @@ data class ThreadUiState(
     val ngPostNumbers: Set<Int> = emptySet(),
     val imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
     val imageLoadingUrls: Set<String> = emptySet(),
-    val searchQuery: String = "",
+    val searchInputValue: TextFieldValue = TextFieldValue(""),
     val isSearchMode: Boolean = false,
     val sortType: ThreadSortType = ThreadSortType.NUMBER,
     val treeOrder: List<Int> = emptyList(),
@@ -98,6 +99,12 @@ data class ThreadUiState(
             isTabSwipeEnabled = isTabSwipeEnabled,
         )
     }
+
+    /**
+     * 投稿絞り込みとハイライトに使う検索クエリ文字列を返す。
+     */
+    val searchQuery: String
+        get() = searchInputValue.text
 }
 
 /**

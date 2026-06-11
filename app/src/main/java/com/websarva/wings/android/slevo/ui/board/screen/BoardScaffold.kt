@@ -151,8 +151,8 @@ fun BoardScaffold(
                 searchContent = { modifier, closeSearch ->
                     SearchBottomBar(
                         modifier = modifier,
-                        searchQuery = uiState.searchQuery,
-                        onQueryChange = { viewModel.setSearchQuery(it) },
+                        searchInputValue = uiState.searchInputValue,
+                        onSearchInputChange = { viewModel.updateSearchInput(it) },
                         onCloseSearch = closeSearch,
                         placeholderResId = R.string.search_in_board,
                     )

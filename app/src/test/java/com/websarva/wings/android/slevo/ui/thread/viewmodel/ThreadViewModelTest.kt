@@ -1,5 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.GestureSettings
@@ -177,5 +179,20 @@ class ThreadViewModelTest {
         viewModel.consumeToast()
 
         assertNull(viewModel.uiState.value.pendingToastResId)
+    }
+
+    @Test
+    fun updateSearchInput_preservesComposition() = runTest {
+        val viewModel = createViewModel()
+        val inputValue = TextFieldValue(
+            text = "かな",
+            selection = TextRange(2),
+            composition = TextRange(0, 2),
+        )
+
+        viewModel.updateSearchInput(inputValue)
+
+        assertEquals(inputValue, viewModel.uiState.value.searchInputValue)
+        assertEquals("かな", viewModel.uiState.value.searchQuery)
     }
 }

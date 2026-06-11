@@ -149,8 +149,8 @@ fun ThreadScaffold(
                 searchContent = { modifier, closeSearch ->
                     SearchBottomBar(
                         modifier = modifier,
-                        searchQuery = uiState.searchQuery,
-                        onQueryChange = { viewModel.updateSearchQuery(it) },
+                        searchInputValue = uiState.searchInputValue,
+                        onSearchInputChange = { viewModel.updateSearchInput(it) },
                         onCloseSearch = closeSearch,
                         placeholderResId = R.string.search_in_thread,
                     )

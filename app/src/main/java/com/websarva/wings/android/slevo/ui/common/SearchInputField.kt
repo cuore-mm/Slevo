@@ -53,31 +53,6 @@ import com.websarva.wings.android.slevo.R
 import java.util.Locale
 
 /**
- * 検索バーの入力領域（戻る・入力・消去・音声入力）を共通化する。
- */
-@Composable
-fun SearchInputField(
-    modifier: Modifier = Modifier,
-    searchQuery: String,
-    onQueryChange: (String) -> Unit,
-    onCloseSearch: () -> Unit,
-    @StringRes placeholderResId: Int = R.string.search,
-) {
-    SearchInputField(
-        modifier = modifier,
-        searchInputValue = TextFieldValue(
-            text = searchQuery,
-            selection = TextRange(searchQuery.length),
-        ),
-        onSearchInputChange = { onQueryChange(it.text) },
-        onCloseSearch = onCloseSearch,
-        focusRequestId = 0L,
-        onFocusRequestConsumed = null,
-        placeholderResId = placeholderResId,
-    )
-}
-
-/**
  * 検索バーの入力領域を、文字列とカーソル位置を含む入力状態で制御する。
  *
  * 一回限りのフォーカス要求を受け取り、検索モードへ入った直後だけ入力欄へ

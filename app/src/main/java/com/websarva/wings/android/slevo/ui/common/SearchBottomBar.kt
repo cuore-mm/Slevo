@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.common
 
 import androidx.annotation.StringRes
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -19,8 +20,8 @@ import com.websarva.wings.android.slevo.R
 @Composable
 fun SearchBottomBar(
     modifier: Modifier = Modifier,
-    searchQuery: String,
-    onQueryChange: (String) -> Unit,
+    searchInputValue: TextFieldValue,
+    onSearchInputChange: (TextFieldValue) -> Unit,
     onCloseSearch: () -> Unit,
     @StringRes placeholderResId: Int = R.string.search,
 ) {
@@ -29,9 +30,11 @@ fun SearchBottomBar(
     ) {
         Card {
             SearchInputField(
-                searchQuery = searchQuery,
-                onQueryChange = onQueryChange,
+                searchInputValue = searchInputValue,
+                onSearchInputChange = onSearchInputChange,
                 onCloseSearch = onCloseSearch,
+                focusRequestId = null,
+                onFocusRequestConsumed = null,
                 placeholderResId = placeholderResId,
             )
         }
@@ -43,8 +46,8 @@ fun SearchBottomBar(
 @Composable
 fun SearchBottomBarPreview() {
     SearchBottomBar(
-        searchQuery = "",
-        onQueryChange = {},
+        searchInputValue = TextFieldValue(""),
+        onSearchInputChange = {},
         onCloseSearch = {},
         placeholderResId = R.string.search_in_thread,
     )

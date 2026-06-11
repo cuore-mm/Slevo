@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import android.content.Context
 import android.net.Uri
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.viewModelScope
@@ -1409,15 +1410,22 @@ class ThreadViewModel @AssistedInject constructor(
 
     fun closeSearch() {
         _uiState.update { state ->
-            val nextState = state.copy(isSearchMode = false, searchQuery = "")
+            val nextState = state.copy(isSearchMode = false, searchInputValue = TextFieldValue(""))
             withUpdatedTabSwipeState(nextState)
         }
         updateDisplayPosts()
     }
 
-    fun updateSearchQuery(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+    /**
+     * 検索入力状態を更新し、表示中の投稿リストへ再反映する。
+     */
+    fun updateSearchInput(inputValue: TextFieldValue) {
+        _uiState.update { it.copy(searchInputValue = inputValue) }
         updateDisplayPosts()
+    }
+
+    fun updateSearchQuery(query: String) {
+        updateSearchInput(TextFieldValue(query))
     }
 
     /**
