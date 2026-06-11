@@ -35,7 +35,7 @@ internal fun <T> RemovableTabList(
     contentPadding: PaddingValues,
     listState: LazyListState = rememberLazyListState(),
     verticalSpacing: Dp = TabListLayoutDefaults.listItemSpacing,
-    removalDurationMillis: Int = TabListAnimationDefaults.itemRemovalMillis,
+    removalDurationMillis: Int = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS,
     externalRemoveKey: String? = null,
     onExternalRemoveConsumed: () -> Unit = {},
     onRemoveConfirmed: (T) -> Unit,

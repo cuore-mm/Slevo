@@ -4,12 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -113,14 +109,14 @@ internal fun TabListBottomControls(
             AnimatedVisibility(
                 visible = !isSearchMode,
                 enter = fadeIn(
-                    animationSpec = tween(TabListAnimationDefaults.visibilityMillis),
+                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
                 ),
                 exit = fadeOut(
-                    animationSpec = tween(TabListAnimationDefaults.visibilityMillis),
+                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
                 ),
             ) {
                 TabListInlineSection(
-                    modifier = Modifier.padding(horizontal = TabListLayoutDefaults.topSearchHorizontalPadding),
+                    modifier = Modifier.padding(horizontal = TabListLayoutDefaults.controlsHorizontalPadding),
                     selectedIndex = pagerState.currentPage,
                     isBoardPage = isBoardPage,
                     isRefreshing = isRefreshing,
@@ -262,7 +258,7 @@ private fun TabListSwitchSection(
             val segmentWidth = (maxWidth - segmentSpacing) / 2
             val indicatorOffsetX by animateDpAsState(
                 targetValue = if (selectedIndex == 0) 0.dp else (segmentWidth + segmentSpacing),
-                animationSpec = tween(TabListAnimationDefaults.visibilityMillis + 20),
+                animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS + 20),
                 label = "tabSwitchIndicatorOffset",
             )
 

@@ -72,13 +72,13 @@ fun TabListTopSearchArea(
                 onClick = {},
             )
             .padding(
-                horizontal = TabListLayoutDefaults.topSearchHorizontalPadding,
+                horizontal = TabListLayoutDefaults.controlsHorizontalPadding,
                 vertical = TabListLayoutDefaults.topSearchVerticalPadding,
             ),
         contentAlignment = Alignment.CenterEnd,
     ) {
-        val visibilityAnimationSpec = tween<Float>(durationMillis = TabListAnimationDefaults.visibilityMillis)
-        val slideAnimationSpec = tween<IntOffset>(durationMillis = TabListAnimationDefaults.visibilityMillis)
+        val visibilityAnimationSpec = tween<Float>(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS)
+        val slideAnimationSpec = tween<IntOffset>(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS)
 
         AnimatedVisibility(
             visible = isSearchMode,

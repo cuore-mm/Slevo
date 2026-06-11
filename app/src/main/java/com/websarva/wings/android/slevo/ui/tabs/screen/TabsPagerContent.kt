@@ -216,8 +216,8 @@ private fun AnimatedListContent(
     AnimatedContent(
         targetState = displayState,
         transitionSpec = {
-            fadeIn(animationSpec = tween(durationMillis = TabListAnimationDefaults.listFadeInMillis)) togetherWith
-                fadeOut(animationSpec = tween(durationMillis = TabListAnimationDefaults.listFadeOutMillis))
+            fadeIn(animationSpec = tween(durationMillis = TabListAnimationDefaults.LIST_FADE_IN_MILLIS)) togetherWith
+                fadeOut(animationSpec = tween(durationMillis = TabListAnimationDefaults.LIST_FADE_OUT_MILLIS))
         },
         label = "TabListSearchTransition",
     ) { state ->

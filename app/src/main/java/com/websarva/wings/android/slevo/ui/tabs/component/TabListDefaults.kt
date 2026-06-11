@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
  */
 internal object TabListLayoutDefaults {
     val topSearchHeight: Dp = 72.dp
-    val topSearchHorizontalPadding: Dp = 16.dp
+    val controlsHorizontalPadding: Dp = 16.dp
     val topSearchVerticalPadding: Dp = 8.dp
     val searchBarHeight: Dp = 48.dp
     val searchBarElevation: Dp = 3.dp
@@ -51,8 +51,8 @@ internal object TabListLayoutDefaults {
  * 画面全体のテンポを合わせたい箇所で利用する。
  */
 internal object TabListAnimationDefaults {
-    const val listFadeInMillis: Int = 180
-    const val listFadeOutMillis: Int = 120
-    const val visibilityMillis: Int = 200
-    const val itemRemovalMillis: Int = 200
+    const val LIST_FADE_IN_MILLIS: Int = 180
+    const val LIST_FADE_OUT_MILLIS: Int = 120
+    const val VISIBILITY_MILLIS: Int = 200
+    const val ITEM_REMOVAL_MILLIS: Int = 200
 }
