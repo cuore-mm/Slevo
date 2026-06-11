@@ -308,6 +308,26 @@ class TabListViewModelTest {
     }
 
     /**
+     * 検索終了時に関連する検索 UI 状態が単一の state としてまとめてクリアされることを確認する。
+     */
+    @Test
+    fun closeSearchMode_clearsRelatedSearchFieldsTogether() = runTest {
+        viewModel.enterSearchMode()
+        viewModel.updateSearchInput(
+            TextFieldValue(text = "query", selection = TextRange(1, 3)),
+            currentPage = 1,
+        )
+
+        viewModel.closeSearchMode()
+
+        val state = viewModel.uiState.first()
+        assertFalse(state.isSearchMode)
+        assertEquals(TextFieldValue(""), state.searchInputValue)
+        assertNull(state.pendingSearchFocusRequestId)
+        assertNull(state.pendingScrollToTopRequest)
+    }
+
+    /**
      * resetSearchState で検索モード・検索クエリ・未消費の先頭表示要求がすべてクリアされることを確認する。
      */
     @Test

@@ -4,7 +4,6 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
@@ -13,9 +12,8 @@ import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 
 /**
@@ -31,75 +29,36 @@ class TabListViewModel @Inject constructor(
     val tabSessionStore: TabSessionStore,
 ) : ViewModel() {
 
-    private val isSearchModeState = MutableStateFlow(false)
-    private val searchInputValueState = MutableStateFlow(TextFieldValue(""))
-    private val pendingSearchFocusRequestIdState = MutableStateFlow<Long?>(null)
-    private val pendingScrollToTopRequestState = MutableStateFlow<TabListScrollToTopRequest?>(null)
-    private val tabSelectionState = MutableStateFlow(TabSelectionState())
-    private val detailBoardTabState = MutableStateFlow<BoardTabInfo?>(null)
-    private val detailThreadTabState = MutableStateFlow<ThreadTabInfo?>(null)
-    private val showBoardInfoBottomSheetState = MutableStateFlow(false)
-    private val showThreadInfoBottomSheetState = MutableStateFlow(false)
-    private val pendingCloseBoardTabState = MutableStateFlow<BoardTabInfo?>(null)
-    private val pendingCloseThreadTabState = MutableStateFlow<ThreadTabInfo?>(null)
-    private val urlValidationState = MutableStateFlow(false)
-    private val urlDialogState = MutableStateFlow(false)
-    private val urlErrorState = MutableStateFlow<String?>(null)
+    private val uiStateMutable = MutableStateFlow(TabListUiState())
     private var nextSearchFocusRequestId: Long = 0L
 
-    val uiState: StateFlow<TabListUiState> = combine(
-        isSearchModeState,
-        searchInputValueState,
-        pendingSearchFocusRequestIdState,
-        pendingScrollToTopRequestState,
-        tabSelectionState,
-        pendingCloseBoardTabState,
-        pendingCloseThreadTabState,
-        detailBoardTabState,
-        detailThreadTabState,
-        showBoardInfoBottomSheetState,
-        showThreadInfoBottomSheetState,
-        urlValidationState,
-        urlDialogState,
-        urlErrorState,
-    ) { array ->
-        TabListUiState(
-            isSearchMode = array[0] as Boolean,
-            searchInputValue = array[1] as TextFieldValue,
-            pendingSearchFocusRequestId = array[2] as Long?,
-            pendingScrollToTopRequest = array[3] as TabListScrollToTopRequest?,
-            selectedBoardTab = (array[4] as TabSelectionState).selectedBoardTab,
-            selectedThreadTab = (array[4] as TabSelectionState).selectedThreadTab,
-            selectedTabBounds = (array[4] as TabSelectionState).selectedTabBounds,
-            pendingCloseBoardTab = array[5] as BoardTabInfo?,
-            pendingCloseThreadTab = array[6] as ThreadTabInfo?,
-            detailBoardTab = array[7] as BoardTabInfo?,
-            detailThreadTab = array[8] as ThreadTabInfo?,
-            showBoardInfoBottomSheet = array[9] as Boolean,
-            showThreadInfoBottomSheet = array[10] as Boolean,
-            isUrlValidating = array[11] as Boolean,
-            showUrlDialog = array[12] as Boolean,
-            urlErrorMessage = array[13] as String?,
-        )
-    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, TabListUiState())
+    val uiState: StateFlow<TabListUiState> = uiStateMutable.asStateFlow()
 
     // --- Search ---
 
     fun enterSearchMode() {
         cancelTabSelection()
-        isSearchModeState.value = true
         nextSearchFocusRequestId += 1
-        pendingSearchFocusRequestIdState.value = nextSearchFocusRequestId
+        uiStateMutable.update { state ->
+            state.copy(
+                isSearchMode = true,
+                pendingSearchFocusRequestId = nextSearchFocusRequestId,
+            )
+        }
     }
 
     /**
      * 検索モードを終了し、検索入力と未消費の UI 要求を初期状態へ戻す。
      */
     fun closeSearchMode() {
-        isSearchModeState.value = false
-        searchInputValueState.value = TextFieldValue("")
-        pendingSearchFocusRequestIdState.value = null
-        pendingScrollToTopRequestState.value = null
+        uiStateMutable.update { state ->
+            state.copy(
+                isSearchMode = false,
+                searchInputValue = TextFieldValue(""),
+                pendingSearchFocusRequestId = null,
+                pendingScrollToTopRequest = null,
+            )
+        }
     }
 
     /**
@@ -109,34 +68,48 @@ class TabListViewModel @Inject constructor(
      * 入力 state 全体は常に保持する。
      */
     fun updateSearchInput(inputValue: TextFieldValue, currentPage: Int) {
-        val oldQuery = searchInputValueState.value.text
+        val oldQuery = uiState.value.searchQuery
         val newQuery = inputValue.text
 
         // --- Query transition handling ---
         when {
             oldQuery.isBlank() && newQuery.isNotBlank() -> {
-                searchInputValueState.value = inputValue
-                pendingScrollToTopRequestState.value = TabListScrollToTopRequest(
-                    page = currentPage,
-                    query = newQuery,
-                )
+                uiStateMutable.update { state ->
+                    state.copy(
+                        searchInputValue = inputValue,
+                        pendingScrollToTopRequest = TabListScrollToTopRequest(
+                            page = currentPage,
+                            query = newQuery,
+                        ),
+                    )
+                }
             }
 
             oldQuery.isNotBlank() && newQuery.isNotBlank() && oldQuery != newQuery -> {
-                searchInputValueState.value = inputValue
-                pendingScrollToTopRequestState.value = TabListScrollToTopRequest(
-                    page = currentPage,
-                    query = newQuery,
-                )
+                uiStateMutable.update { state ->
+                    state.copy(
+                        searchInputValue = inputValue,
+                        pendingScrollToTopRequest = TabListScrollToTopRequest(
+                            page = currentPage,
+                            query = newQuery,
+                        ),
+                    )
+                }
             }
 
             oldQuery.isNotBlank() && newQuery.isBlank() -> {
-                searchInputValueState.value = inputValue
-                pendingScrollToTopRequestState.value = null
+                uiStateMutable.update { state ->
+                    state.copy(
+                        searchInputValue = inputValue,
+                        pendingScrollToTopRequest = null,
+                    )
+                }
             }
 
             else -> {
-                searchInputValueState.value = inputValue
+                uiStateMutable.update { state ->
+                    state.copy(searchInputValue = inputValue)
+                }
             }
         }
     }
@@ -162,7 +135,9 @@ class TabListViewModel @Inject constructor(
      * 未消費の検索バー自動フォーカス要求を消費する。
      */
     fun consumePendingSearchFocusRequest() {
-        pendingSearchFocusRequestIdState.value = null
+        uiStateMutable.update { state ->
+            state.copy(pendingSearchFocusRequestId = null)
+        }
     }
 
     /**
@@ -172,7 +147,9 @@ class TabListViewModel @Inject constructor(
      * 同じクエリに対する再実行を防ぐ。
      */
     fun consumePendingScrollToTopRequest() {
-        pendingScrollToTopRequestState.value = null
+        uiStateMutable.update { state ->
+            state.copy(pendingScrollToTopRequest = null)
+        }
     }
 
     /**
@@ -182,71 +159,108 @@ class TabListViewModel @Inject constructor(
      * BottomSheet dismiss 時など、表示コンテキストを終了するときに使用する。
      */
     fun resetSearchState() {
-        isSearchModeState.value = false
-        searchInputValueState.value = TextFieldValue("")
-        pendingSearchFocusRequestIdState.value = null
-        pendingScrollToTopRequestState.value = null
+        uiStateMutable.update { state ->
+            state.copy(
+                isSearchMode = false,
+                searchInputValue = TextFieldValue(""),
+                pendingSearchFocusRequestId = null,
+                pendingScrollToTopRequest = null,
+            )
+        }
     }
 
     // --- Long-press selection ---
 
     fun onBoardTabLongPressed(tab: BoardTabInfo, bounds: IntRect) {
         cancelTabSelection()
-        tabSelectionState.value = TabSelectionState(
-            selectedBoardTab = tab,
-            selectedTabBounds = bounds,
-        )
+        uiStateMutable.update { state ->
+            state.copy(
+                selectedBoardTab = tab,
+                selectedThreadTab = null,
+                selectedTabBounds = bounds,
+            )
+        }
     }
 
     fun onThreadTabLongPressed(tab: ThreadTabInfo, bounds: IntRect) {
         cancelTabSelection()
-        tabSelectionState.value = TabSelectionState(
-            selectedThreadTab = tab,
-            selectedTabBounds = bounds,
-        )
+        uiStateMutable.update { state ->
+            state.copy(
+                selectedBoardTab = null,
+                selectedThreadTab = tab,
+                selectedTabBounds = bounds,
+            )
+        }
     }
 
     fun cancelTabSelection() {
-        tabSelectionState.value = TabSelectionState()
-        showBoardInfoBottomSheetState.value = false
-        showThreadInfoBottomSheetState.value = false
+        uiStateMutable.update { state ->
+            state.copy(
+                selectedBoardTab = null,
+                selectedThreadTab = null,
+                selectedTabBounds = null,
+                showBoardInfoBottomSheet = false,
+                showThreadInfoBottomSheet = false,
+            )
+        }
     }
 
     fun toggleSelectedTabPin() {
-        tabSelectionState.value.selectedBoardTab?.let { tab ->
+        uiState.value.selectedBoardTab?.let { tab ->
             tabSessionStore.togglePinBoardTab(tab.boardUrl)
         }
-        tabSelectionState.value.selectedThreadTab?.let { tab ->
+        uiState.value.selectedThreadTab?.let { tab ->
             tabSessionStore.togglePinThreadTab(tab.id)
         }
         cancelTabSelection()
     }
 
     fun openSelectedTabDetail() {
-        tabSelectionState.value.selectedBoardTab?.let {
-            detailBoardTabState.value = it
-            showBoardInfoBottomSheetState.value = true
+        uiState.value.selectedBoardTab?.let {
+            uiStateMutable.update { state ->
+                state.copy(
+                    detailBoardTab = it,
+                    showBoardInfoBottomSheet = true,
+                    selectedBoardTab = null,
+                    selectedThreadTab = null,
+                    selectedTabBounds = null,
+                )
+            }
         }
-        tabSelectionState.value.selectedThreadTab?.let {
-            detailThreadTabState.value = it
-            showThreadInfoBottomSheetState.value = true
+        uiState.value.selectedThreadTab?.let {
+            uiStateMutable.update { state ->
+                state.copy(
+                    detailThreadTab = it,
+                    showThreadInfoBottomSheet = true,
+                    selectedBoardTab = null,
+                    selectedThreadTab = null,
+                    selectedTabBounds = null,
+                )
+            }
         }
-        tabSelectionState.value = TabSelectionState()
     }
 
     fun requestCloseSelectedTab() {
-        tabSelectionState.value.selectedBoardTab?.let { tab ->
-            pendingCloseBoardTabState.value = tab
+        uiState.value.selectedBoardTab?.let { tab ->
+            uiStateMutable.update { state ->
+                state.copy(pendingCloseBoardTab = tab)
+            }
         }
-        tabSelectionState.value.selectedThreadTab?.let { tab ->
-            pendingCloseThreadTabState.value = tab
+        uiState.value.selectedThreadTab?.let { tab ->
+            uiStateMutable.update { state ->
+                state.copy(pendingCloseThreadTab = tab)
+            }
         }
         cancelTabSelection()
     }
 
     fun consumePendingCloseRequest() {
-        pendingCloseBoardTabState.value = null
-        pendingCloseThreadTabState.value = null
+        uiStateMutable.update { state ->
+            state.copy(
+                pendingCloseBoardTab = null,
+                pendingCloseThreadTab = null,
+            )
+        }
     }
 
     fun onPageChanged() {
@@ -256,32 +270,44 @@ class TabListViewModel @Inject constructor(
     // --- BottomSheet ---
 
     fun dismissBoardInfoBottomSheet() {
-        showBoardInfoBottomSheetState.value = false
+        uiStateMutable.update { state ->
+            state.copy(showBoardInfoBottomSheet = false)
+        }
     }
 
     fun dismissThreadInfoBottomSheet() {
-        showThreadInfoBottomSheetState.value = false
+        uiStateMutable.update { state ->
+            state.copy(showThreadInfoBottomSheet = false)
+        }
     }
 
     // --- URL Dialog ---
 
     fun startUrlValidation() {
-        urlValidationState.value = true
+        uiStateMutable.update { state ->
+            state.copy(isUrlValidating = true)
+        }
     }
 
     fun finishUrlValidation() {
-        urlValidationState.value = false
+        uiStateMutable.update { state ->
+            state.copy(isUrlValidating = false)
+        }
     }
 
     fun setUrlDialogVisible(visible: Boolean) {
-        urlDialogState.value = visible
-        if (!visible) {
-            urlErrorState.value = null
+        uiStateMutable.update { state ->
+            state.copy(
+                showUrlDialog = visible,
+                urlErrorMessage = if (visible) state.urlErrorMessage else null,
+            )
         }
     }
 
     fun setUrlErrorMessage(message: String?) {
-        urlErrorState.value = message
+        uiStateMutable.update { state ->
+            state.copy(urlErrorMessage = message)
+        }
     }
 
     /**
@@ -336,12 +362,4 @@ class TabListViewModel @Inject constructor(
             finishUrlValidation()
         }
     }
-
-    // --- Internal ---
-
-    private data class TabSelectionState(
-        val selectedBoardTab: BoardTabInfo? = null,
-        val selectedThreadTab: ThreadTabInfo? = null,
-        val selectedTabBounds: IntRect? = null,
-    )
 }

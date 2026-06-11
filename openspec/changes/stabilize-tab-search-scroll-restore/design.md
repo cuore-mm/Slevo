@@ -96,6 +96,12 @@ UI は `TextFieldValue` 相当の state を受け取り、入力文字列とカ�
 
 通常タブ一覧と BottomSheet は異なる表示コンテキストで使われるため、検索状態は共有しない。`TabsScaffold` と `TabsBottomSheet` がそれぞれの `hiltViewModel<TabListViewModel>()` スコープで状態を持つ現状を維持し、そのスコープ内で検索結果先頭表示要求まで一貫管理する。
 
+### Decision 8: `TabListViewModel` の画面 UI 状態は `TabListUiState` を正本として保持する
+
+`combine(vararg)` で多数の `MutableStateFlow` を束ねると、変換ラムダは `Array<Any?>` ベースになり、添字アクセスとキャストへ依存する。状態項目の追加や並び替えで実行時型エラーを起こしやすく、`TabListUiState` 全体としてどの値が同時更新されるかも追いにくい。
+
+このため、`TabListViewModel` の画面固有 UI 状態は `MutableStateFlow(TabListUiState())` を正本として保持し、各操作は `copy` ベースで更新する。これにより、検索状態・選択状態・BottomSheet 状態・URL ダイアログ状態を型安全にまとめて扱い、関連項目の同時更新も1回の state 更新として明示できる。
+
 ## Risks / Trade-offs
 
 - [Risk] `LazyListState` が板/スレッド × 通常/検索で 4 つになる → タブ一覧の状態量としては小さく、復元用 snapshot / pending state を減らせるため許容する。
@@ -105,6 +111,7 @@ UI は `TextFieldValue` 相当の state を受け取り、入力文字列とカ�
 - [Risk] 戻る操作のたびに検索バーへ再フォーカスして selection が変わる → フォーカスは `LaunchedEffect(Unit)` ではなく一回限り要求として発行し、実行後に consume する。
 - [Risk] 検索結果 0 件時に無表示だと検索失敗か描画不具合か判別しづらい → 検索結果専用の空状態メッセージを中央表示する。
 - [Risk] 外側/内側の二段アニメーションが検索解除時に競合し、消え際の検索側 UI が別状態へ再評価される → 通常/検索結果あり/検索結果なしを単一の表示状態へ統合する。
+- [Risk] `combine(vararg)` の配列キャストが状態追加や順序変更に弱い → `TabListUiState` を単一 `MutableStateFlow` の正本として保持し、`copy` 更新へ寄せる。
 - [Risk] 検索結果リストのスクロール位置を次回検索時に保持するかが曖昧になる → この変更では検索クエリ変更時に検索結果リストを先頭表示する仕様を維持し、クエリ別の検索結果位置保持は扱わない。
 - [Risk] 通常リストと検索結果リストを別 Composable として切り替えると UI ツリーが増える → 既存のリスト Composable を再利用し、渡す items と `LazyListState` だけを切り替える。
 - [Risk] BottomSheet dismiss 時に検索を保持したい利用者期待と異なる → BottomSheet は一時的な選択 UI として扱い、閉じたら検索状態を破棄する仕様を維持する。

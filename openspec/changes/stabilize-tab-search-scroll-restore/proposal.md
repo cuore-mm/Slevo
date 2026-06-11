@@ -16,6 +16,7 @@
 - 検索バーのフォーカス要求は一回限りの UI 要求として扱い、検索モードへ入った直後だけ実行する。
 - 検索クエリが非空で検索結果が 0 件のときは、空のリストではなく中央寄せの空状態メッセージを表示する。
 - 通常リスト / 検索結果あり / 検索結果なし の3状態を単一の表示状態として扱い、同じ `AnimatedContent` でフェード切り替えする。
+- `TabListViewModel` の画面 UI 状態は `TabListUiState` を正本とする単一 `MutableStateFlow` で保持し、`combine` の配列キャストに依存しない。
 - タブ一覧 BottomSheet を閉じるときは検索モードを明示的に終了し、再表示時に検索クエリだけが残る不整合を防ぐ。
 - 通常タブ一覧と BottomSheet の検索状態は、それぞれの `TabListViewModel` スコープ内で独立して管理する。
 
@@ -30,6 +31,7 @@
 ## Impact
 
 - `TabListViewModel`: 検索クエリ遷移を管理し、検索結果リストの先頭表示が必要な場合だけ UI へ一回限りの要求を公開する。通常リスト復元用の index/offset snapshot は不要にする。
+- `TabListViewModel`: 画面固有 UI 状態を `TabListUiState` の単一 `MutableStateFlow` として保持し、`copy` 更新で検索・選択・ダイアログ状態を管理する。
 - `TabListUiState`: 検索結果リストの先頭表示要求に加え、検索入力の text/selection と一回限りのフォーカス要求に関する UI 状態を公開する。
 - `TabScreenContent`: 通常用・検索用の `LazyListState` を別々に持ち、検索クエリの有無で表示するリストと state を切り替える。検索解除時の復元スクロール副作用は削除し、検索入力 state を `SearchInputField` へ渡す。
 - `TabsPagerContent`: 検索結果表示中に対象ページのフィルタ結果が 0 件であれば、空リストの代わりに空状態メッセージを中央表示する。
