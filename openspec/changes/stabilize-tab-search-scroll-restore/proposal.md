@@ -18,6 +18,7 @@
 - 検索クエリが非空で検索結果が 0 件のときは、空のリストではなく中央寄せの空状態メッセージを表示する。
 - 通常リスト / 検索結果あり / 検索結果なし の3状態を単一の表示状態として扱い、同じ `AnimatedContent` でフェード切り替えする。
 - `TabListViewModel` の画面 UI 状態は `TabListUiState` を正本とする単一 `MutableStateFlow` で保持し、`combine` の配列キャストに依存しない。
+- タブ一覧の余白・高さ・アニメーション時間は、複数コンポーネントで共有する defaults へ集約し、ハードコード値の重複を減らす。
 - タブ一覧 BottomSheet を閉じるときは検索モードを明示的に終了し、再表示時に検索クエリだけが残る不整合を防ぐ。
 - 通常タブ一覧と BottomSheet の検索状態は、それぞれの `TabListViewModel` スコープ内で独立して管理する。
 
@@ -37,6 +38,7 @@
 - `TabScreenContent`: 通常用・検索用の `LazyListState` を別々に持ち、検索クエリの有無で表示するリストと state を切り替える。検索解除時の復元スクロール副作用は削除し、検索入力 state を `SearchInputField` へ渡す。
 - `TabsPagerContent`: 検索結果表示中に対象ページのフィルタ結果が 0 件であれば、空リストの代わりに空状態メッセージを中央表示する。
 - `TabsPagerContent`: 通常リスト / 検索結果あり / 検索結果なしを単一の `AnimatedContent` で切り替え、検索解除時に検索側の表示内容が途中で通常リスト相当に再評価されないようにする。
+- `TabListDefaults`: 上部検索領域、下部操作群、リスト余白、切り替えアニメーション時間の共有値を一箇所で定義する。
 - `SearchInputField`: `String` ベースの入力だけでなく `TextFieldValue` ベースの入力と一回限りのフォーカス要求を扱えるようにする。
 - `SearchBottomBar` / `BoardUiState` / `ThreadUiState`: 板・スレ画面の検索入力を `TextFieldValue` ベースへ移行し、日本語入力などの IME composition を保持する。
 - `TabsBottomSheet` / `BbsRouteScaffold`: BottomSheet dismiss 時に検索状態を閉じる導線を追加する。

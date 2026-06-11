@@ -53,9 +53,9 @@ import com.websarva.wings.android.slevo.ui.tabs.UrlOpenResult
 import com.websarva.wings.android.slevo.ui.tabs.component.AnchoredTabActionMenu
 import com.websarva.wings.android.slevo.ui.tabs.component.TabHeaderTrailingContent
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListBottomControls
+import com.websarva.wings.android.slevo.ui.tabs.component.TabListLayoutDefaults
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchArea
-import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchDefaults
 import com.websarva.wings.android.slevo.ui.tabs.component.extractServiceName
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
@@ -191,12 +191,11 @@ fun TabScreenContent(
         modifier = modifier,
         contentWindowInsets = WindowInsets(0),
     ) { innerPadding ->
-        // TabListBottomControls の高さ分の bottom padding。
-        // hazeTopOverlap(32) + controlHeight(48) + spacing(8) + progressHeight(8) + bottomPadding(16) = 112.dp
-        val topSearchHeight = TabListTopSearchDefaults.height
-        val bottomControlsHeight = 112.dp
+        // TabListBottomControls と上部検索領域に合わせたリスト余白。
+        val topSearchHeight = TabListLayoutDefaults.topSearchHeight
+        val bottomControlsHeight = TabListLayoutDefaults.listBottomPadding
         val listPadding = PaddingValues(
-            top = topSearchHeight + 8.dp,
+            top = topSearchHeight + TabListLayoutDefaults.listTopSpacing,
             bottom = bottomControlsHeight,
         )
 

@@ -25,9 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.SearchInputField
 import dev.chrisbanes.haze.HazeProgressive
@@ -60,7 +58,7 @@ fun TabListTopSearchArea(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(TabListTopSearchDefaults.height)
+            .height(TabListLayoutDefaults.topSearchHeight)
             .hazeEffect(state = hazeState, style = HazeMaterials.ultraThin()) {
                 progressive = HazeProgressive.verticalGradient(
                     startIntensity = 0.3f,
@@ -74,13 +72,13 @@ fun TabListTopSearchArea(
                 onClick = {},
             )
             .padding(
-                horizontal = TabListTopSearchDefaults.horizontalPadding,
-                vertical = TabListTopSearchDefaults.verticalPadding
+                horizontal = TabListLayoutDefaults.topSearchHorizontalPadding,
+                vertical = TabListLayoutDefaults.topSearchVerticalPadding,
             ),
         contentAlignment = Alignment.CenterEnd,
     ) {
-        val visibilityAnimationSpec = tween<Float>(durationMillis = 200)
-        val slideAnimationSpec = tween<IntOffset>(durationMillis = 200)
+        val visibilityAnimationSpec = tween<Float>(durationMillis = TabListAnimationDefaults.visibilityMillis)
+        val slideAnimationSpec = tween<IntOffset>(durationMillis = TabListAnimationDefaults.visibilityMillis)
 
         AnimatedVisibility(
             visible = isSearchMode,
@@ -96,9 +94,9 @@ fun TabListTopSearchArea(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
+                    .height(TabListLayoutDefaults.searchBarHeight),
                 shape = MaterialTheme.shapes.extraLargeIncreased,
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = TabListLayoutDefaults.searchBarElevation),
             ) {
                 SearchInputField(
                     searchInputValue = searchInputValue,
@@ -153,13 +151,4 @@ private fun SearchModeTruePreview() {
         onSearchFocusRequestConsumed = {},
         onCloseSearch = {},
     )
-}
-
-/**
- * 上部検索領域のデフォルト寸法を保持する。
- */
-internal object TabListTopSearchDefaults {
-    val height: Dp = 72.dp
-    val horizontalPadding: Dp = 16.dp
-    val verticalPadding: Dp = 8.dp
 }

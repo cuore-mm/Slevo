@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.ui.tabs.component.TabListAnimationDefaults
+import com.websarva.wings.android.slevo.ui.tabs.component.TabListLayoutDefaults
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
@@ -214,8 +216,8 @@ private fun AnimatedListContent(
     AnimatedContent(
         targetState = displayState,
         transitionSpec = {
-            fadeIn(animationSpec = tween(durationMillis = 180)) togetherWith
-                fadeOut(animationSpec = tween(durationMillis = 120))
+            fadeIn(animationSpec = tween(durationMillis = TabListAnimationDefaults.listFadeInMillis)) togetherWith
+                fadeOut(animationSpec = tween(durationMillis = TabListAnimationDefaults.listFadeOutMillis))
         },
         label = "TabListSearchTransition",
     ) { state ->
@@ -231,6 +233,6 @@ private fun AnimatedListContent(
 @Composable
 private fun SearchResultEmptyStatePreview() {
     SearchResultEmptyState(
-        contentPadding = PaddingValues(vertical = 40.dp, horizontal = 16.dp),
+        contentPadding = TabListLayoutDefaults.emptyStatePreviewPadding,
     )
 }

@@ -50,7 +50,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
@@ -61,16 +60,6 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.launch
-
-/**
- * タブ一覧の下部操作群で利用するデフォルト寸法を保持する。
- */
-internal object ControlsDefaults {
-    val hazeTopOverlap: Dp = 32.dp
-    val controlHeight: Dp = 48.dp
-    val actionIconSize: Dp = 28.dp
-    val progressHeight: Dp = 8.dp
-}
 
 /**
  * 下部の1段操作群を表示し、板/スレ切替とタブ操作を提供する。
@@ -112,26 +101,26 @@ internal fun TabListBottomControls(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(top = ControlsDefaults.hazeTopOverlap)
+                .padding(top = TabListLayoutDefaults.bottomHazeOverlap)
                 .clickable(
                     interactionSource = tapGuardInteractionSource,
                     indication = null,
                     onClick = {},
                 )
-                .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(bottom = TabListLayoutDefaults.bottomPadding),
+            verticalArrangement = Arrangement.spacedBy(TabListLayoutDefaults.bottomSectionSpacing),
         ) {
             AnimatedVisibility(
                 visible = !isSearchMode,
                 enter = fadeIn(
-                    animationSpec = tween(200),
+                    animationSpec = tween(TabListAnimationDefaults.visibilityMillis),
                 ),
                 exit = fadeOut(
-                    animationSpec = tween(200),
+                    animationSpec = tween(TabListAnimationDefaults.visibilityMillis),
                 ),
             ) {
                 TabListInlineSection(
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier.padding(horizontal = TabListLayoutDefaults.topSearchHorizontalPadding),
                     selectedIndex = pagerState.currentPage,
                     isBoardPage = isBoardPage,
                     isRefreshing = isRefreshing,
@@ -181,7 +170,7 @@ private fun TabListInlineSection(
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(TabListLayoutDefaults.bottomSectionSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TabActionButton(
@@ -195,7 +184,7 @@ private fun TabListInlineSection(
             onSelect = onSelect,
         )
         if (isBoardPage && !isRefreshingAnyPage) {
-            Spacer(modifier = Modifier.size(ControlsDefaults.controlHeight))
+            Spacer(modifier = Modifier.size(TabListLayoutDefaults.bottomControlHeight))
         } else {
             TabActionButton(
                 imageVector = refreshIcon,
@@ -225,7 +214,7 @@ private fun TabListRefreshProgressSlot(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(ControlsDefaults.progressHeight),
+            .height(TabListLayoutDefaults.bottomProgressHeight),
         contentAlignment = Alignment.Center,
     ) {
         if (isVisible) {
@@ -265,15 +254,15 @@ private fun TabListSwitchSection(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(ControlsDefaults.controlHeight)
+                .height(TabListLayoutDefaults.bottomControlHeight)
                 .padding(horizontal = 2.dp, vertical = 2.dp)
         ) {
             // --- Sliding indicator ---
-            val segmentSpacing = 8.dp
+            val segmentSpacing = TabListLayoutDefaults.bottomSectionSpacing
             val segmentWidth = (maxWidth - segmentSpacing) / 2
             val indicatorOffsetX by animateDpAsState(
                 targetValue = if (selectedIndex == 0) 0.dp else (segmentWidth + segmentSpacing),
-                animationSpec = tween(220),
+                animationSpec = tween(TabListAnimationDefaults.visibilityMillis + 20),
                 label = "tabSwitchIndicatorOffset",
             )
 

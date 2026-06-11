@@ -16,7 +16,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 
 /**
@@ -35,8 +34,8 @@ internal fun <T> RemovableTabList(
     keyOf: (T) -> String,
     contentPadding: PaddingValues,
     listState: LazyListState = rememberLazyListState(),
-    verticalSpacing: Dp = 12.dp,
-    removalDurationMillis: Int = 200,
+    verticalSpacing: Dp = TabListLayoutDefaults.listItemSpacing,
+    removalDurationMillis: Int = TabListAnimationDefaults.itemRemovalMillis,
     externalRemoveKey: String? = null,
     onExternalRemoveConsumed: () -> Unit = {},
     onRemoveConfirmed: (T) -> Unit,
@@ -108,7 +107,10 @@ internal fun <T> RemovableTabList(
         SlevoLazyColumnScrollbar(
             modifier = modifier
                 .fillMaxSize()
-                .padding(top = contentPadding.calculateTopPadding(), bottom = contentPadding.calculateBottomPadding() - 24.dp),
+                .padding(
+                    top = contentPadding.calculateTopPadding(),
+                    bottom = contentPadding.calculateBottomPadding() - TabListLayoutDefaults.scrollbarBottomInset,
+                ),
             state = listState,
             enabled = tabItems.size > 1,
         ) {}

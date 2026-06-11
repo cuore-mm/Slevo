@@ -29,14 +29,14 @@ fun TabActionButton(
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.size(ControlsDefaults.controlHeight),
+        modifier = Modifier.size(TabListLayoutDefaults.bottomControlHeight),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                modifier = Modifier.size(ControlsDefaults.actionIconSize),
+                modifier = Modifier.size(TabListLayoutDefaults.bottomActionIconSize),
                 imageVector = imageVector,
                 contentDescription = contentDescription,
                 tint = tint,

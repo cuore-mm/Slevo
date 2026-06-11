@@ -34,6 +34,7 @@
 - [x] 4.8 `SearchInputField` を `TextFieldValue` 相当の入力 state と一回限りのフォーカス要求に対応させる
 - [x] 4.9 検索結果表示中に現在ページのフィルタ結果が 0 件であれば、中央寄せの空状態メッセージを表示する
 - [x] 4.10 通常リスト / 検索結果あり / 検索結果なしを単一の `AnimatedContent` で切り替える
+- [x] 4.11 タブ一覧画面で共有する余白・高さ・アニメーション時間を `TabListDefaults` へ集約する
 
 ## 4a. 共通検索入力の IME composition 保持
 
