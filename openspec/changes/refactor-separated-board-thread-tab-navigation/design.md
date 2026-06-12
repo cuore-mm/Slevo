@@ -12,7 +12,7 @@ TabsStandalone は削除済みで、板/スレッド画面からのタブ一覧�
 **Goals:**
 
 - 板 route とスレッド route を分離したまま、NavController は「画面種別と戻る履歴」を管理する。
-- TabSessionStore は「開いているタブ」と「選択中タブ」を stable key で管理する唯一の正本になる。
+- TabSessionStore は「開いているタブ」と「選択中タブ」を stable key で管理する唯一の正本になり、`currentPage` の永続化を廃止する。
 - PagerState は UI のスクロール状態に限定し、永続的な現在地の正本にしない。
 - タブ一覧シート・フルスクリーンタブ一覧・横スワイプによるタブ切り替えでは、不要な NavController back stack を積まない。
 - 板からスレッドを開く操作では Thread route を履歴に積み、戻ると直前の Board route に戻る。
@@ -45,12 +45,15 @@ TabsStandalone は削除済みで、板/スレッド画面からのタブ一覧�
 
 TabSessionStore に `selectedBoardTabKey` と `selectedThreadTabKey` 相当を導入し、板は正規化済み boardUrl、スレッドは ThreadId を key とする。
 Pager の index は、現在の tabs list と selected key から導出する。
+`boardId` は登録済み板の補助情報として保持するが、未登録板・URL入力・deep link でも一貫して扱えるよう、選択中板タブの key には使用しない。
+`currentPage` は永続化対象から外し、復元時の fallback としても使用しない。
 
 理由:
 
 - `currentPage: Int` はタブ追加・削除・並び替え・復元で意味が変わる。
 - key はタブの同一性を表すため、Nav route や ViewModel registry の key と整合しやすい。
 - 戻る操作で Board route が復元されたときも、route から selected key を補正できる。
+- 正規化済み boardUrl を key にすると、未登録板・URL入力・deep link 由来の板も登録済み板と同じ規則で扱える。
 
 代替案:
 
@@ -74,12 +77,13 @@ Pager の index は、現在の tabs list と selected key から導出する。
 ### 4. タブ切り替え操作では back stack を積まない
 
 横スワイプ、タブ一覧シート、フルスクリーンのタブ一覧で既存タブを選択する操作は、TabSessionStore の selected key と active surface を更新するだけにする。
-必要に応じて現在の画面種別と選択タブ種別が異なる場合のみ、`launchSingleTop` または現在 surface の置換で Board / Thread 画面へ移動する。
+現在の画面種別と選択タブ種別が異なる場合は、現在 surface を target surface へ置換し、タブ選択操作を理由に back stack を増やさない。
 
 理由:
 
 - タブ切り替えは履歴遷移ではなく、同じ画面種別内の表示状態変更である。
 - タブ選択のたびに back stack が増えると、戻る操作がユーザーの期待とずれる。
+- 別種別タブ選択も「タブ切り替え」として扱うため、板からスレッド本文リンクを開く操作とは異なり、戻る履歴には積まない。
 
 ### 5. `BbsRouteScaffold` は route と currentPage の競合を持たない
 
@@ -95,23 +99,23 @@ route 変更時は、route に対応する key を selected key に同期して�
 
 ## Risks / Trade-offs
 
-- [Risk] selected key 導入により既存 coordinator API の呼び出し箇所が広範囲に変わる → Phase を分け、既存 `currentPage` API は一時的に互換ラッパーとして残す。
+- [Risk] selected key 導入により既存 coordinator API の呼び出し箇所が広範囲に変わる → Phase を分け、既存 `currentPage` API は移行期間だけ互換ラッパーとして残し、最終的に永続化・正本としての利用を廃止する。
 - [Risk] Board / Thread route 引数と selected key が一時的に不一致になる → route entry 時に key を正規化・選択し、選択に失敗した場合は無効 URL として戻る既存挙動を維持する。
-- [Risk] タブ一覧から別種別タブを選んだときの履歴操作が曖昧になる → 既存タブ選択は back stack を積まず、種別が違う場合のみ target surface へ `launchSingleTop` で移動する仕様に固定する。
+- [Risk] タブ一覧から別種別タブを選んだときの履歴操作が曖昧になる → 既存タブ選択は back stack を積まず、種別が違う場合は現在 surface を target surface に置換する仕様に固定する。
 - [Risk] タブ削除時に selected key が削除済みになる → coordinator が削除後に隣接タブまたは先頭タブの key へ補正し、タブが空なら既存の `onEmptyTabs` 相当の遷移を行う。
 - [Risk] deep link / URL / ブックマークなど入口が多く置換漏れしやすい → tasks で呼び出し元を列挙し、各入口ごとに手動検証を必須にする。
 
 ## Migration Plan
 
-1. TabSessionStore / coordinator に selected key API を追加し、既存 currentPage API と併存させる。
+1. TabSessionStore / coordinator に selected key API を追加し、既存 currentPage API は移行用互換レイヤーとしてのみ併存させる。
 2. BoardScaffold / ThreadScaffold の route entry 時に、route からタブ登録・selected key 同期を行う。
 3. BbsRouteScaffold の initialPage 計算を selected key 導出へ置き換え、Pager スワイプ時は selected key を更新する。
 4. タブ一覧シート・フルスクリーンタブ一覧のカード選択を selected key 更新中心に置き換える。
 5. `navigateToBoard` / `navigateToThread` の呼び出し元を用途別 API に移行し、必要な箇所だけ NavController の履歴を積む。
-6. currentPage API を内部互換レイヤーへ縮小し、不要な route/currentPage 同期処理を削除する。
+6. currentPage API と永続化を廃止し、不要な route/currentPage 同期処理を削除する。
 
-## Open Questions
+## Resolved Decisions
 
-- selected board key は正規化済み `boardUrl` のみで十分か、`boardId` がある場合は `boardId` を優先すべきか。
-- タブ一覧で別種別タブを選択した場合、現在 surface を置換するか、同種別 surface へ `launchSingleTop` で移動するかの具体的な NavOptions。
-- currentPage の永続化が既存 UX として必要か。必要な場合も正本は key とし、index は復元時の fallback として扱う。
+- selected board key は正規化済み `boardUrl` とし、`boardId` は補助情報として扱う。
+- タブ一覧で別種別タブを選択した場合は、現在 surface を target surface に置換し、back stack を増やさない。
+- `currentPage` の永続化は廃止する。復元時も selected key を正本とし、key が無効な場合は coordinator の補正規則で隣接タブまたは先頭タブを選択する。

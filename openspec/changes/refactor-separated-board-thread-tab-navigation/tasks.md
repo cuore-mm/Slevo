@@ -4,7 +4,7 @@
 - [ ] 1.2 `ThreadTabsCoordinator` に選択中スレッドタブ key（ThreadId）を管理する StateFlow/API を追加する
 - [ ] 1.3 `TabSessionStore` に板/スレッドのタブ登録・選択を分離した公開 API を追加する
 - [ ] 1.4 タブ削除時に selected key が削除対象だった場合、隣接タブまたは先頭タブへ補正する
-- [ ] 1.5 既存 `boardCurrentPage` / `threadCurrentPage` API を互換レイヤーとして残し、内部的には selected key から index を導出する
+- [ ] 1.5 既存 `boardCurrentPage` / `threadCurrentPage` API を移行期間の互換レイヤーへ縮小し、永続化と正本利用を廃止する
 
 ## 2. route entry と selected key の同期
 
@@ -20,6 +20,7 @@
 - [ ] 3.3 Pager のユーザースワイプ完了時に、表示ページの tab key を selected key へ反映する
 - [ ] 3.4 タブ数変更・削除後に Pager index が範囲外にならないよう補正する
 - [ ] 3.5 板画面とスレッド画面で同じ補正規則を使えるよう、key 抽出と index 導出ロジックを共通化する
+- [ ] 3.6 復元時に過去の currentPage/index を fallback として使わず、selected key と補正規則だけで表示タブを決定する
 
 ## 4. ナビゲーション API の責務分離
 
@@ -28,6 +29,7 @@
 - [ ] 4.3 正規化済み route からスレッドタブを登録・選択する API を追加する
 - [ ] 4.4 Board route / Thread route へ遷移する API は NavController 操作だけを担当するよう整理する
 - [ ] 4.5 タブ選択だけの操作で同種別 route の back stack entry が追加されないよう NavOptions を整理する
+- [ ] 4.6 タブ一覧で別種別タブを選択した場合は、現在 surface を target surface へ置換し、back stack を増やさない NavOptions に固定する
 
 ## 5. 呼び出し元の移行
 
@@ -43,7 +45,7 @@
 
 - [ ] 6.1 板→スレッド→戻るで、直前の板画面と選択中板タブが復元されることを確認する
 - [ ] 6.2 タブ一覧シートから同種別タブを選択しても back stack が増えず、戻る操作でタブ一覧シートへ戻らないことを確認する
-- [ ] 6.3 タブ一覧シートから別種別タブを選択した場合の画面種別切替と戻る挙動を仕様通りに確認する
+- [ ] 6.3 タブ一覧シートから別種別タブを選択した場合、現在 surface が置換され、戻る操作で選択前 surface に戻らないことを確認する
 - [ ] 6.4 下ナビゲーションの Tabs / Bookmark / 掲示板 / 設定の表示条件と restoreState 挙動が維持されていることを確認する
 
 ## 7. テストと検証
@@ -56,7 +58,7 @@
 
 ## 8. クリーンアップ
 
-- [ ] 8.1 互換レイヤーとして残した currentPage API のうち不要になったものを削除または private 化する
+- [ ] 8.1 互換レイヤーとして残した currentPage API と永続化を削除または private 化する
 - [ ] 8.2 route と selected key の二重同期を引き起こす古い Effect や helper を削除する
 - [ ] 8.3 新規・変更した class / interface / non-trivial function に KDoc と必要なコメントを追加する
 - [ ] 8.4 未使用 import、不要な NavOptions、削除済み helper 参照を整理する
