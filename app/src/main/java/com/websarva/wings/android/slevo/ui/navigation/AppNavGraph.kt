@@ -21,7 +21,7 @@ import com.websarva.wings.android.slevo.ui.bookmarklist.BookmarkListScaffold
 import com.websarva.wings.android.slevo.ui.history.HistoryListScaffold
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.TabsScaffold
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.screen.ThreadScaffold
 import com.websarva.wings.android.slevo.ui.util.isInRoute
 import com.websarva.wings.android.slevo.ui.viewer.ImageViewerScreen
@@ -37,7 +37,7 @@ fun AppNavGraph(
     topBarState: TopAppBarState,
     settingsViewModel: SettingsViewModel,
     openDrawer: () -> Unit,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
     sharedTransitionScope: SharedTransitionScope,
 ) {
     NavHost(
@@ -96,7 +96,7 @@ fun AppNavGraph(
                 topBarState = topBarState,
                 navController = navController,
                 openDrawer = openDrawer,
-                tabsViewModel = tabsViewModel
+                tabSessionStore = tabSessionStore
             )
         }
         //履歴一覧
@@ -110,7 +110,7 @@ fun AppNavGraph(
                 navController = navController,
                 topBarState = topBarState,
                 parentPadding = parentPadding,
-                tabsViewModel = tabsViewModel
+                tabSessionStore = tabSessionStore
             )
         }
         //掲示板一覧
@@ -118,7 +118,7 @@ fun AppNavGraph(
             parentPadding = parentPadding,
             navController = navController,
             openDrawer = openDrawer,
-            tabsViewModel = tabsViewModel
+            tabSessionStore = tabSessionStore
         )
         //スレッド一覧
         composable<AppRoute.Board>(
@@ -131,7 +131,7 @@ fun AppNavGraph(
             BoardScaffold(
                 boardRoute = boardRoute,
                 navController = navController,
-                tabsViewModel = tabsViewModel,
+                tabSessionStore = tabSessionStore,
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = this@composable,
             )
@@ -172,7 +172,7 @@ fun AppNavGraph(
             ThreadScaffold(
                 threadRoute = threadRoute,
                 navController = navController,
-                tabsViewModel = tabsViewModel,
+                tabSessionStore = tabSessionStore,
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = this@composable,
             )
@@ -226,7 +226,7 @@ fun AppNavGraph(
         ) {
             TabsScaffold(
                 parentPadding = parentPadding,
-                tabsViewModel = tabsViewModel,
+                tabSessionStore = tabSessionStore,
                 navController = navController
             )
         }

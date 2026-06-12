@@ -10,7 +10,7 @@ import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
-import dagger.hilt.android.scopes.ViewModelScoped
+import dagger.hilt.android.scopes.ActivityRetainedScoped
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -36,9 +36,9 @@ import javax.inject.Inject
  * - タブの追加/更新/削除、選択ページ管理、リフレッシュ処理を提供する
  * - タブの永続化（リポジトリ経由）を行う
  *
- * スコープは外部から bind(...) で渡される ViewModel スコープを使用する。
+ * スコープは外部から bind(...) で渡されるスコープを使用する。
  */
-@ViewModelScoped
+@ActivityRetainedScoped
 class ThreadTabsCoordinator @Inject constructor(
     private val tabsRepository: TabsRepository,
     private val threadBookmarkRepository: ThreadBookmarkRepository,

@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.board.viewmodel
 
 import android.content.Context
 import android.net.Uri
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
@@ -286,6 +287,8 @@ class BoardViewModel @AssistedInject constructor(
     fun setSortKey(sortKey: ThreadSortKey) = threadListCoordinator.setSortKey(sortKey)
 
     fun toggleSortOrder() = threadListCoordinator.toggleSortOrder()
+
+    fun updateSearchInput(inputValue: TextFieldValue) = threadListCoordinator.updateSearchInput(inputValue)
 
     fun setSearchQuery(query: String) = threadListCoordinator.setSearchQuery(query)
 

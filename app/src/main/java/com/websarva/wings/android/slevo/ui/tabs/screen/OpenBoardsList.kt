@@ -2,6 +2,8 @@ package com.websarva.wings.android.slevo.ui.tabs.screen
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -14,7 +16,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.tabs.component.RemovableTabList
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.tabs.component.extractServiceName
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
@@ -32,11 +34,12 @@ fun OpenBoardsList(
     navController: NavHostController,
     closeDrawer: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    listState: LazyListState = rememberLazyListState(),
     selectedBoardTab: BoardTabInfo? = null,
     pendingCloseBoardTab: BoardTabInfo? = null,
     onCloseRequestConsumed: () -> Unit = {},
     onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit = { _, _ -> },
-    tabsViewModel: TabsViewModel? = null,
+    tabSessionStore: TabSessionStore? = null,
     isInLongPressSelectionMode: Boolean = false,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -47,9 +50,11 @@ fun OpenBoardsList(
         tabItems = openTabs,
         keyOf = { it.boardUrl },
         contentPadding = contentPadding,
+        listState = listState,
         externalRemoveKey = pendingCloseBoardTab?.boardUrl,
         onExternalRemoveConsumed = onCloseRequestConsumed,
         onRemoveConfirmed = { onCloseClick(it) },
+        userScrollEnabled = !isInLongPressSelectionMode,
     ) { tab, isRemoving, requestRemove ->
         OpenBoardCard(
             tab = tab,
@@ -64,10 +69,10 @@ fun OpenBoardsList(
                 )
                 coroutineScope.launch {
                     val normalizedRoute =
-                        tabsViewModel?.normalizeBoardRouteForNavigation(route) ?: route
+                        tabSessionStore?.normalizeBoardRouteForNavigation(route) ?: route
                     navController.navigateToBoard(
                         route = normalizedRoute,
-                        tabsViewModel = tabsViewModel,
+                        tabSessionStore = tabSessionStore,
                     ) {
                         restoreState = true
                     }

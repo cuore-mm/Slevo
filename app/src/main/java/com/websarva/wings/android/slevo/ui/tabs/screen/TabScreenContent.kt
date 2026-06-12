@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -34,6 +35,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -45,16 +47,22 @@ import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
 import com.websarva.wings.android.slevo.ui.board.screen.BoardInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.tabs.TabListUiState
+import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
+import com.websarva.wings.android.slevo.ui.tabs.UrlOpenResult
 import com.websarva.wings.android.slevo.ui.tabs.component.AnchoredTabActionMenu
 import com.websarva.wings.android.slevo.ui.tabs.component.TabHeaderTrailingContent
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListBottomControls
+import com.websarva.wings.android.slevo.ui.tabs.component.TabListLayoutDefaults
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
-import com.websarva.wings.android.slevo.ui.tabs.TabsUiState
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
-import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
+import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchArea
 import com.websarva.wings.android.slevo.ui.tabs.component.extractServiceName
+import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.filterBoardTabsByQuery
+import com.websarva.wings.android.slevo.ui.tabs.model.filterThreadTabsByQuery
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import dev.chrisbanes.haze.HazeState
@@ -71,13 +79,22 @@ import kotlinx.coroutines.launch
 @Composable
 fun TabScreenContent(
     modifier: Modifier = Modifier,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
+    tabListViewModel: TabListViewModel,
     navController: NavHostController,
     closeDrawer: () -> Unit,
     initialPage: Int = 0,
     onPageChanged: (Int) -> Unit = {}
 ) {
-    val uiState by tabsViewModel.uiState.collectAsStateWithLifecycle()
+    val openBoardTabs by tabSessionStore.openBoardTabs.collectAsStateWithLifecycle()
+    val openThreadTabs by tabSessionStore.openThreadTabs.collectAsStateWithLifecycle()
+    val boardLoaded by tabSessionStore.boardLoaded.collectAsStateWithLifecycle()
+    val threadLoaded by tabSessionStore.threadLoaded.collectAsStateWithLifecycle()
+    val isRefreshing by tabSessionStore.isRefreshing.collectAsStateWithLifecycle()
+    val refreshProgress by tabSessionStore.refreshProgress.collectAsStateWithLifecycle()
+    val newResCounts by tabSessionStore.newResCounts.collectAsStateWithLifecycle()
+    val isLoading = !(boardLoaded && threadLoaded)
+    val listUiState by tabListViewModel.uiState.collectAsStateWithLifecycle()
     val invalidUrlMessage = stringResource(R.string.invalid_url)
     val coroutineScope = rememberCoroutineScope()
 
@@ -86,11 +103,86 @@ fun TabScreenContent(
 
     // --- Pager state ---
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 2 })
+    val boardNormalListState = rememberLazyListState()
+    val boardSearchListState = rememberLazyListState()
+    val threadNormalListState = rememberLazyListState()
+    val threadSearchListState = rememberLazyListState()
+
+    // --- Search state delegation ---
+    val isSearchMode = listUiState.isSearchMode
+    val searchQuery = listUiState.searchQuery
+    val isShowingSearchResults = searchQuery.isNotBlank()
+    val filteredBoardTabs = filterBoardTabsByQuery(openBoardTabs, searchQuery)
+    val filteredThreadTabs = filterThreadTabsByQuery(openThreadTabs, searchQuery)
+
+    /**
+     * 検索モードを開始する。
+     *
+     * 検索クエリが空の間は通常リストを表示し続けるため、ここでは表示リストや
+     * スクロール状態の切り替えを行わない。
+     */
+    fun enterSearchMode() {
+        tabListViewModel.enterSearchMode()
+    }
+
+    /**
+     * 検索モードを終了する。
+     *
+     * 通常リストと検索結果リストは別 state のため、検索解除時の復元スクロールは不要である。
+     */
+    fun exitSearchMode() {
+        tabListViewModel.closeSearchMode()
+    }
+
+    /**
+     * ViewModel の先頭表示要求を監視し、対象クエリの検索結果リストが描画対象になった後に実行して消費する。
+     */
+    LaunchedEffect(
+        listUiState.pendingScrollToTopRequest,
+        listUiState.searchQuery,
+        filteredBoardTabs.size,
+        filteredThreadTabs.size,
+    ) {
+        val request = listUiState.pendingScrollToTopRequest ?: return@LaunchedEffect
+
+        // 古いクエリに対する要求は実行しない。
+        if (request.query != listUiState.searchQuery) {
+            return@LaunchedEffect
+        }
+
+        // 検索結果リストが表示対象になるまでは待機する。
+        if (!isShowingSearchResults) {
+            return@LaunchedEffect
+        }
+
+        when (request.page) {
+            0 -> {
+                if (filteredBoardTabs.isNotEmpty()) {
+                    boardSearchListState.requestScrollToItem(0)
+                }
+            }
+
+            else -> {
+                if (filteredThreadTabs.isNotEmpty()) {
+                    threadSearchListState.requestScrollToItem(0)
+                }
+            }
+        }
+
+        tabListViewModel.consumePendingScrollToTopRequest()
+    }
 
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { page ->
-            tabsViewModel.onPageChanged()
+            tabListViewModel.onPageChanged()
             onPageChanged(page)
+        }
+    }
+
+    // --- Back handler for search mode ---
+    if (isSearchMode) {
+        BackHandler {
+            exitSearchMode()
         }
     }
 
@@ -99,11 +191,11 @@ fun TabScreenContent(
         modifier = modifier,
         contentWindowInsets = WindowInsets(0),
     ) { innerPadding ->
-        // TabListBottomControls の高さ分の bottom padding。
-        // hazeTopOverlap(32) + controlHeight(48) + spacing(8) + progressHeight(8) + bottomPadding(16) = 112.dp
-        val bottomControlsHeight = 112.dp
+        // TabListBottomControls と上部検索領域に合わせたリスト余白。
+        val topSearchHeight = TabListLayoutDefaults.topSearchHeight
+        val bottomControlsHeight = TabListLayoutDefaults.listBottomPadding
         val listPadding = PaddingValues(
-            top = 24.dp,
+            top = topSearchHeight + TabListLayoutDefaults.listTopSpacing,
             bottom = bottomControlsHeight,
         )
 
@@ -116,7 +208,7 @@ fun TabScreenContent(
                     .fillMaxSize()
                     .hazeSource(state = hazeState),
             ) {
-                if (uiState.isLoading) {
+                if (isLoading) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
@@ -130,25 +222,32 @@ fun TabScreenContent(
                         navController = navController,
                         closeDrawer = closeDrawer,
                         listContentPadding = listPadding,
-                        openBoardTabs = uiState.openBoardTabs,
-                        openThreadTabs = uiState.openThreadTabs,
-                        newResCounts = uiState.newResCounts,
-                        selectedBoardTab = uiState.selectedBoardTab,
-                        selectedThreadTab = uiState.selectedThreadTab,
-                        onCloseBoardTab = { tabsViewModel.closeBoardTab(it) },
-                        onCloseThreadTab = { tabsViewModel.closeThreadTab(it) },
+                        isShowingSearchResults = isShowingSearchResults,
+                        boardNormalListState = boardNormalListState,
+                        boardSearchListState = boardSearchListState,
+                        threadNormalListState = threadNormalListState,
+                        threadSearchListState = threadSearchListState,
+                        openBoardTabs = openBoardTabs,
+                        filteredBoardTabs = filteredBoardTabs,
+                        openThreadTabs = openThreadTabs,
+                        filteredThreadTabs = filteredThreadTabs,
+                        newResCounts = newResCounts,
+                        selectedBoardTab = listUiState.selectedBoardTab,
+                        selectedThreadTab = listUiState.selectedThreadTab,
+                        onCloseBoardTab = { tabSessionStore.closeBoardTab(it) },
+                        onCloseThreadTab = { tabSessionStore.closeThreadTab(it) },
                         onBoardTabLongPressed = { tab, bounds ->
-                            tabsViewModel.onBoardTabLongPressed(tab, bounds)
+                            tabListViewModel.onBoardTabLongPressed(tab, bounds)
                         },
                         onThreadTabLongPressed = { tab, bounds ->
-                            tabsViewModel.onThreadTabLongPressed(tab, bounds)
+                            tabListViewModel.onThreadTabLongPressed(tab, bounds)
                         },
-                        onClearNewResCount = { tabsViewModel.clearNewResCount(it) },
-                        pendingCloseBoardTab = uiState.pendingCloseBoardTab,
-                        pendingCloseThreadTab = uiState.pendingCloseThreadTab,
-                        onCloseRequestConsumed = { tabsViewModel.consumePendingCloseRequest() },
-                        tabsViewModel = tabsViewModel,
-                        isInLongPressSelectionMode = uiState.isInLongPressSelectionMode,
+                        onClearNewResCount = { tabSessionStore.clearNewResCount(it) },
+                        pendingCloseBoardTab = listUiState.pendingCloseBoardTab,
+                        pendingCloseThreadTab = listUiState.pendingCloseThreadTab,
+                        onCloseRequestConsumed = { tabListViewModel.consumePendingCloseRequest() },
+                        tabSessionStore = tabSessionStore,
+                        isInLongPressSelectionMode = listUiState.isInLongPressSelectionMode,
                     )
                 }
             }
@@ -160,72 +259,90 @@ fun TabScreenContent(
                     .fillMaxWidth(),
                 pagerState = pagerState,
                 hazeState = hazeState,
-                isRefreshing = uiState.isRefreshing,
-                refreshProgress = uiState.refreshProgress,
+                isRefreshing = isRefreshing,
+                isSearchMode = isSearchMode,
+                refreshProgress = refreshProgress,
                 onCreateTabClick = {
-                    tabsViewModel.setUrlErrorMessage(null)
-                    tabsViewModel.setUrlDialogVisible(true)
+                    tabListViewModel.setUrlErrorMessage(null)
+                    tabListViewModel.setUrlDialogVisible(true)
                 },
-                onRefreshClick = { tabsViewModel.refreshOpenThreads() },
-                onCancelRefreshClick = { tabsViewModel.cancelRefreshOpenThreads() },
+                onRefreshClick = { tabSessionStore.refreshOpenThreads() },
+                onCancelRefreshClick = { tabSessionStore.cancelRefreshOpenThreads() },
+            )
+
+            TabListTopSearchArea(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = innerPadding.calculateTopPadding()),
+                hazeState = hazeState,
+                isSearchMode = isSearchMode,
+                searchInputValue = listUiState.searchInputValue,
+                searchFocusRequestId = listUiState.pendingSearchFocusRequestId,
+                onSearchClick = { enterSearchMode() },
+                onSearchInputChange = { inputValue: TextFieldValue ->
+                    tabListViewModel.updateSearchInput(inputValue, pagerState.currentPage)
+                },
+                onSearchFocusRequestConsumed = { tabListViewModel.consumePendingSearchFocusRequest() },
+                onCloseSearch = { exitSearchMode() },
             )
 
             // --- Long-press overlay layer ---
             TabLongPressOverlayLayer(
-                uiState = uiState,
-                newResCounts = uiState.newResCounts,
+                uiState = listUiState,
+                newResCounts = newResCounts,
                 hazeState = hazeState,
-                onCancelSelection = { tabsViewModel.cancelTabSelection() },
-                onDetailClick = { tabsViewModel.openSelectedTabDetail() },
-                onPinClick = { tabsViewModel.toggleSelectedTabPin() },
-                onCloseClick = { tabsViewModel.requestCloseSelectedTab() },
+                onCancelSelection = { tabListViewModel.cancelTabSelection() },
+                onDetailClick = { tabListViewModel.openSelectedTabDetail() },
+                onPinClick = { tabListViewModel.toggleSelectedTabPin() },
+                onCloseClick = { tabListViewModel.requestCloseSelectedTab() },
+                isBackHandlerEnabled = !isSearchMode,
             )
 
             // --- Bottom sheets ---
             TabDetailBottomSheets(
-                uiState = uiState,
-                onDismissBoardSheet = { tabsViewModel.dismissBoardInfoBottomSheet() },
-                onDismissThreadSheet = { tabsViewModel.dismissThreadInfoBottomSheet() },
+                uiState = listUiState,
+                onDismissBoardSheet = { tabListViewModel.dismissBoardInfoBottomSheet() },
+                onDismissThreadSheet = { tabListViewModel.dismissThreadInfoBottomSheet() },
                 navController = navController,
-                tabsViewModel = tabsViewModel,
+                tabSessionStore = tabSessionStore,
             )
 
             // --- URL dialog ---
-            if (uiState.showUrlDialog) {
+            if (listUiState.showUrlDialog) {
                 UrlOpenDialog(
                     onDismissRequest = {
-                        tabsViewModel.setUrlDialogVisible(false)
+                        tabListViewModel.setUrlDialogVisible(false)
                     },
-                    isError = uiState.urlErrorMessage != null,
-                    errorMessage = uiState.urlErrorMessage,
-                    isValidating = uiState.isUrlValidating,
+                    isError = listUiState.urlErrorMessage != null,
+                    errorMessage = listUiState.urlErrorMessage,
+                    isValidating = listUiState.isUrlValidating,
                     onValueChange = {
-                        if (uiState.urlErrorMessage != null) {
-                            tabsViewModel.setUrlErrorMessage(null)
+                        if (listUiState.urlErrorMessage != null) {
+                            tabListViewModel.setUrlErrorMessage(null)
                         }
                     },
                     onOpen = { url ->
                         coroutineScope.launch {
-                            val result = tabsViewModel.openUrlInput(url, invalidUrlMessage)
+                            val result = tabListViewModel.openUrlInput(url, invalidUrlMessage)
                             when (result) {
-                                is TabsViewModel.UrlOpenResult.NavigateBoard -> {
+                                is UrlOpenResult.NavigateBoard -> {
                                     navController.navigateToBoard(
                                         route = result.route,
-                                        tabsViewModel = tabsViewModel,
+                                        tabSessionStore = tabSessionStore,
                                     )
                                     closeDrawer()
                                 }
 
-                                is TabsViewModel.UrlOpenResult.NavigateThread -> {
+                                is UrlOpenResult.NavigateThread -> {
                                     navController.navigateToThread(
                                         route = result.route,
-                                        tabsViewModel = tabsViewModel,
+                                        tabSessionStore = tabSessionStore,
                                     )
                                     closeDrawer()
                                 }
 
-                                is TabsViewModel.UrlOpenResult.Error -> {
-                                    tabsViewModel.setUrlErrorMessage(result.message)
+                                is UrlOpenResult.Error -> {
+                                    tabListViewModel.setUrlErrorMessage(result.message)
                                 }
                             }
                         }
@@ -244,11 +361,11 @@ fun TabScreenContent(
  */
 @Composable
 private fun TabDetailBottomSheets(
-    uiState: TabsUiState,
+    uiState: TabListUiState,
     onDismissBoardSheet: () -> Unit,
     onDismissThreadSheet: () -> Unit,
     navController: NavHostController,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
 ) {
     val boardTab = uiState.detailBoardTab
     if (boardTab != null) {
@@ -287,7 +404,7 @@ private fun TabDetailBottomSheets(
                 url = threadTab.boardUrl,
             ),
             navController = navController,
-            tabsViewModel = tabsViewModel,
+            tabSessionStore = tabSessionStore,
             showBoardAction = true,
         )
     }
@@ -301,13 +418,14 @@ private fun TabDetailBottomSheets(
  */
 @Composable
 private fun TabLongPressOverlayLayer(
-    uiState: TabsUiState,
+    uiState: TabListUiState,
     newResCounts: Map<String, Int>,
     hazeState: HazeState,
     onCancelSelection: () -> Unit,
     onDetailClick: () -> Unit,
     onPinClick: () -> Unit,
     onCloseClick: () -> Unit,
+    isBackHandlerEnabled: Boolean,
 ) {
     // --- Floating card animation state (Compose-local) ---
     val floatingScale = remember { Animatable(1f) }
@@ -420,7 +538,7 @@ private fun TabLongPressOverlayLayer(
     }
 
     // --- Back handler for selection mode ---
-    if (uiState.isInLongPressSelectionMode) {
+    if (uiState.isInLongPressSelectionMode && isBackHandlerEnabled) {
         BackHandler { onCancelSelection() }
     }
 }

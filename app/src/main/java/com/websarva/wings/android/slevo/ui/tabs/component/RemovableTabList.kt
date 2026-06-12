@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -15,7 +16,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 
 /**
@@ -23,6 +23,9 @@ import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
  *
  * 削除要求時は呼び出し元の削除処理を実行し、リスト更新に合わせて
  * `animateItem` の退場アニメーションを適用する。
+ *
+ * @param userScrollEnabled ユーザーによるスクロールを許可するか。
+ *                          長押し選択モード中など、スクロールを一時的に抑制したい場合に `false` を渡す。
  */
 @Composable
 internal fun <T> RemovableTabList(
@@ -30,17 +33,17 @@ internal fun <T> RemovableTabList(
     tabItems: List<T>,
     keyOf: (T) -> String,
     contentPadding: PaddingValues,
-    verticalSpacing: Dp = 12.dp,
-    removalDurationMillis: Int = 200,
+    listState: LazyListState = rememberLazyListState(),
+    verticalSpacing: Dp = TabListLayoutDefaults.listItemSpacing,
+    removalDurationMillis: Int = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS,
     externalRemoveKey: String? = null,
     onExternalRemoveConsumed: () -> Unit = {},
     onRemoveConfirmed: (T) -> Unit,
+    userScrollEnabled: Boolean = true,
     itemContent: @Composable (item: T, isRemoving: Boolean, requestRemove: () -> Unit) -> Unit,
 ) {
     // --- State ---
     val removingItems = remember { mutableStateMapOf<String, Boolean>() }
-    val listState = rememberLazyListState()
-
     // --- Cleanup ---
     LaunchedEffect(tabItems) {
         val activeKeys = tabItems.map(keyOf).toSet()
@@ -74,6 +77,7 @@ internal fun <T> RemovableTabList(
             modifier = Modifier.fillMaxSize(),
             contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(verticalSpacing),
+            userScrollEnabled = userScrollEnabled,
         ) {
             items(tabItems, key = { keyOf(it) }) { item ->
                 val itemKey = keyOf(item)
@@ -103,7 +107,10 @@ internal fun <T> RemovableTabList(
         SlevoLazyColumnScrollbar(
             modifier = modifier
                 .fillMaxSize()
-                .padding(bottom = contentPadding.calculateBottomPadding() - 24.dp),
+                .padding(
+                    top = contentPadding.calculateTopPadding(),
+                    bottom = contentPadding.calculateBottomPadding() - TabListLayoutDefaults.scrollbarBottomInset,
+                ),
             state = listState,
             enabled = tabItems.size > 1,
         ) {}

@@ -2,6 +2,8 @@ package com.websarva.wings.android.slevo.ui.tabs.screen
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -16,7 +18,7 @@ import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
 import com.websarva.wings.android.slevo.ui.tabs.component.RemovableTabList
 import com.websarva.wings.android.slevo.ui.tabs.component.TabHeaderTrailingContent
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
@@ -33,13 +35,14 @@ fun OpenThreadsList(
     navController: NavHostController,
     closeDrawer: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    listState: LazyListState = rememberLazyListState(),
     newResCounts: Map<String, Int> = emptyMap(),
     selectedThreadTab: ThreadTabInfo? = null,
     pendingCloseThreadTab: ThreadTabInfo? = null,
     onCloseRequestConsumed: () -> Unit = {},
     onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit = { _, _ -> },
     onClearNewResCount: (ThreadId) -> Unit = {},
-    tabsViewModel: TabsViewModel? = null,
+    tabSessionStore: TabSessionStore? = null,
     isInLongPressSelectionMode: Boolean = false,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -50,9 +53,11 @@ fun OpenThreadsList(
         tabItems = openTabs,
         keyOf = { it.id.value },
         contentPadding = contentPadding,
+        listState = listState,
         externalRemoveKey = pendingCloseThreadTab?.id?.value,
         onExternalRemoveConsumed = onCloseRequestConsumed,
         onRemoveConfirmed = { onCloseClick(it) },
+        userScrollEnabled = !isInLongPressSelectionMode,
     ) { tab, isRemoving, requestRemove ->
         OpenThreadCard(
             tab = tab,
@@ -72,10 +77,10 @@ fun OpenThreadsList(
                 )
                 coroutineScope.launch {
                     val normalizedRoute =
-                        tabsViewModel?.normalizeThreadRouteForNavigation(route) ?: route
+                        tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
                     navController.navigateToThread(
                         route = normalizedRoute,
-                        tabsViewModel = tabsViewModel,
+                        tabSessionStore = tabSessionStore,
                     ) {
                         restoreState = true
                     }

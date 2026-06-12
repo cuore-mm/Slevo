@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.board.state
 
+import androidx.compose.ui.text.input.TextFieldValue
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
@@ -27,7 +28,7 @@ data class BoardUiState(
     val isSortAscending: Boolean = false,
     val sortKeys: List<ThreadSortKey> = ThreadSortKey.entries,
     val isSearchActive: Boolean = false,
-    val searchQuery: String = "",
+    val searchInputValue: TextFieldValue = TextFieldValue(""),
     val postDialogState: PostDialogState = PostDialogState(),
     val resetScroll: Boolean = false,
     /** 未表示のToastメッセージリソースID。表示後は consumeToast() で null に戻す。 */
@@ -56,6 +57,12 @@ data class BoardUiState(
             isTabSwipeEnabled = isTabSwipeEnabled,
         )
     }
+
+    /**
+     * スレッド絞り込みやハイライトに使う検索クエリ文字列を返す。
+     */
+    val searchQuery: String
+        get() = searchInputValue.text
 }
 
 /**

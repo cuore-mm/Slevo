@@ -43,7 +43,7 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
-import com.websarva.wings.android.slevo.ui.tabs.TabsViewModel
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
@@ -69,13 +69,14 @@ import kotlinx.coroutines.launch
 fun ThreadScaffold(
     threadRoute: AppRoute.Thread,
     navController: NavHostController,
-    tabsViewModel: TabsViewModel,
+    tabSessionStore: TabSessionStore,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
-    val tabsUiState by tabsViewModel.uiState.collectAsState()
+    val threadLoaded by tabSessionStore.threadLoaded.collectAsState()
+    val openThreadTabs by tabSessionStore.openThreadTabs.collectAsState()
     val context = LocalContext.current
-    val currentPage by tabsViewModel.threadCurrentPage.collectAsState()
+    val currentPage by tabSessionStore.threadCurrentPage.collectAsState()
     var isPopupVisible by remember { mutableStateOf(false) }
     val popupDialogState = rememberPostItemDialogState()
     var popupMenuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
@@ -85,11 +86,11 @@ fun ThreadScaffold(
         ThreadId.of(host, board, threadRoute.threadKey)
     }
 
-    LaunchedEffect(threadRoute, tabsUiState.threadLoaded) {
-        if (!tabsUiState.threadLoaded) {
+    LaunchedEffect(threadRoute, threadLoaded) {
+        if (!threadLoaded) {
             return@LaunchedEffect
         }
-        val info = tabsViewModel.resolveBoardInfo(
+        val info = tabSessionStore.resolveBoardInfo(
             boardId = threadRoute.boardId,
             boardUrl = threadRoute.boardUrl,
             boardName = threadRoute.boardName
@@ -99,26 +100,26 @@ fun ThreadScaffold(
             navController.navigateUp()
             return@LaunchedEffect
         }
-        val index = tabsViewModel.ensureThreadTab(
+        val index = tabSessionStore.ensureThreadTab(
             threadRoute.copy(
                 boardId = info.boardId,
                 boardName = info.name
             )
         )
         if (index >= 0) {
-            tabsViewModel.setThreadCurrentPage(index)
+            tabSessionStore.setThreadCurrentPage(index)
         }
     }
 
     BbsRouteScaffold(
         route = threadRoute,
-        tabsViewModel = tabsViewModel,
+        tabSessionStore = tabSessionStore,
         navController = navController,
-        isTabsLoaded = tabsUiState.threadLoaded,
+        isTabsLoaded = threadLoaded,
         onEmptyTabs = { navController.navigateUp() },
-        openTabs = tabsUiState.openThreadTabs,
+        openTabs = openThreadTabs,
         currentRoutePredicate = { routeThreadId != null && it.id == routeThreadId },
-        getViewModel = { tab -> tabsViewModel.getOrCreateThreadViewModel(tab.id.value) },
+        getViewModel = { tab -> tabSessionStore.getOrCreateThreadViewModel(tab.id.value) },
         getKey = { it.id.value },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
@@ -137,8 +138,8 @@ fun ThreadScaffold(
             viewModel.updateThreadScrollPosition(tab.id, index, offset)
         },
         currentPage = currentPage,
-        onPageChange = { tabsViewModel.setThreadCurrentPage(it) },
-        animateToPageFlow = tabsViewModel.threadPageAnimation,
+        onPageChange = { tabSessionStore.setThreadCurrentPage(it) },
+        animateToPageFlow = tabSessionStore.threadPageAnimation,
         bottomBarActionVisibilityEnabled = !isPopupVisible,
         bottomBar = { viewModel, uiState, actionProgress, openTabListSheet ->
             BbsRouteBottomBar(
@@ -148,8 +149,8 @@ fun ThreadScaffold(
                 searchContent = { modifier, closeSearch ->
                     SearchBottomBar(
                         modifier = modifier,
-                        searchQuery = uiState.searchQuery,
-                        onQueryChange = { viewModel.updateSearchQuery(it) },
+                        searchInputValue = uiState.searchInputValue,
+                        onSearchInputChange = { viewModel.updateSearchInput(it) },
                         onCloseSearch = closeSearch,
                         placeholderResId = R.string.search_in_thread,
                     )
@@ -192,7 +193,7 @@ fun ThreadScaffold(
                 }
             }
 
-            val tabInfo = tabsUiState.openThreadTabs.find {
+            val tabInfo = openThreadTabs.find {
                 it.threadKey == uiState.threadInfo.key && it.boardUrl == uiState.boardInfo.url
             }
             LaunchedEffect(tabInfo?.firstNewResNo, tabInfo?.prevResCount) {
@@ -205,7 +206,7 @@ fun ThreadScaffold(
                 uiState = uiState,
                 listState = listState,
                 navController = navController,
-                tabsViewModel = tabsViewModel,
+                tabSessionStore = tabSessionStore,
                 onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
                 onBottomRefresh = { viewModel.reloadThreadFromBottomPull() },
                 onLastRead = { resNum ->
@@ -248,11 +249,11 @@ fun ThreadScaffold(
                             onOpenBoardList = { navController.navigate(AppRoute.ServiceList) },
                             onOpenHistory = { navController.navigate(AppRoute.HistoryList) },
                             onOpenNewTab = openUrlDialog,
-                            onSwitchToNextTab = { tabsViewModel.animateThreadPage(1) },
-                            onSwitchToPreviousTab = { tabsViewModel.animateThreadPage(-1) },
+                            onSwitchToNextTab = { tabSessionStore.animateThreadPage(1) },
+                            onSwitchToPreviousTab = { tabSessionStore.animateThreadPage(-1) },
                             onCloseTab = {
                                 if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
-                                    tabsViewModel.closeThreadTab(
+                                    tabSessionStore.closeThreadTab(
                                         uiState.threadInfo.key,
                                         uiState.boardInfo.url,
                                     )
@@ -314,10 +315,10 @@ fun ThreadScaffold(
                 onUrlClick = { url -> uriHandler.openUri(url) },
                 onThreadUrlClick = { route ->
                     coroutineScope.launch {
-                        val normalizedRoute = tabsViewModel.normalizeThreadRouteForNavigation(route)
+                        val normalizedRoute = tabSessionStore.normalizeThreadRouteForNavigation(route)
                         navController.navigateToThread(
                             route = normalizedRoute,
-                            tabsViewModel = tabsViewModel,
+                            tabSessionStore = tabSessionStore,
                         )
                     }
                 },
@@ -384,7 +385,7 @@ fun ThreadScaffold(
                 threadInfo = uiState.threadInfo,
                 boardInfo = uiState.boardInfo,
                 navController = navController,
-                tabsViewModel = tabsViewModel,
+                tabSessionStore = tabSessionStore,
             )
 
             // --- Image menu state ---

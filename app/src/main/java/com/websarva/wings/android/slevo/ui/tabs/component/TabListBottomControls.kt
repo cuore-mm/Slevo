@@ -1,9 +1,11 @@
 package com.websarva.wings.android.slevo.ui.tabs.component
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,13 +26,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -43,12 +43,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
@@ -61,16 +58,6 @@ import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.launch
 
 /**
- * タブ一覧の下部操作群で利用するデフォルト寸法を保持する。
- */
-private object ControlsDefaults {
-    val hazeTopOverlap: Dp = 32.dp
-    val controlHeight: Dp = 48.dp
-    val actionIconSize: Dp = 28.dp
-    val progressHeight: Dp = 8.dp
-}
-
-/**
  * 下部の1段操作群を表示し、板/スレ切替とタブ操作を提供する。
  */
 @OptIn(ExperimentalHazeMaterialsApi::class)
@@ -80,6 +67,7 @@ internal fun TabListBottomControls(
     pagerState: PagerState,
     hazeState: HazeState,
     isRefreshing: Boolean,
+    isSearchMode: Boolean,
     refreshProgress: ThreadTabRefreshProgress?,
     onCreateTabClick: () -> Unit,
     onRefreshClick: () -> Unit,
@@ -109,29 +97,39 @@ internal fun TabListBottomControls(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(top = ControlsDefaults.hazeTopOverlap)
+                .padding(top = TabListLayoutDefaults.bottomHazeOverlap)
                 .clickable(
                     interactionSource = tapGuardInteractionSource,
                     indication = null,
                     onClick = {},
                 )
-                .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(bottom = TabListLayoutDefaults.bottomPadding),
+            verticalArrangement = Arrangement.spacedBy(TabListLayoutDefaults.bottomSectionSpacing),
         ) {
-            TabListInlineSection(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                selectedIndex = pagerState.currentPage,
-                isBoardPage = isBoardPage,
-                isRefreshing = isRefreshing,
-                onSelect = { index ->
-                    if (pagerState.currentPage != index) {
-                        coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                    }
-                },
-                onCreateTabClick = onCreateTabClick,
-                onRefreshClick = onRefreshClick,
-                onCancelRefreshClick = onCancelRefreshClick,
-            )
+            AnimatedVisibility(
+                visible = !isSearchMode,
+                enter = fadeIn(
+                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                ),
+                exit = fadeOut(
+                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                ),
+            ) {
+                TabListInlineSection(
+                    modifier = Modifier.padding(horizontal = TabListLayoutDefaults.controlsHorizontalPadding),
+                    selectedIndex = pagerState.currentPage,
+                    isBoardPage = isBoardPage,
+                    isRefreshing = isRefreshing,
+                    onSelect = { index ->
+                        if (pagerState.currentPage != index) {
+                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                        }
+                    },
+                    onCreateTabClick = onCreateTabClick,
+                    onRefreshClick = onRefreshClick,
+                    onCancelRefreshClick = onCancelRefreshClick,
+                )
+            }
             TabListRefreshProgressSlot(
                 isVisible = isRefreshing,
                 progress = indicatorProgress,
@@ -168,7 +166,7 @@ private fun TabListInlineSection(
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(TabListLayoutDefaults.bottomSectionSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TabActionButton(
@@ -182,7 +180,7 @@ private fun TabListInlineSection(
             onSelect = onSelect,
         )
         if (isBoardPage && !isRefreshingAnyPage) {
-            Spacer(modifier = Modifier.size(ControlsDefaults.controlHeight))
+            Spacer(modifier = Modifier.size(TabListLayoutDefaults.bottomControlHeight))
         } else {
             TabActionButton(
                 imageVector = refreshIcon,
@@ -212,7 +210,7 @@ private fun TabListRefreshProgressSlot(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(ControlsDefaults.progressHeight),
+            .height(TabListLayoutDefaults.bottomProgressHeight),
         contentAlignment = Alignment.Center,
     ) {
         if (isVisible) {
@@ -252,15 +250,15 @@ private fun TabListSwitchSection(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(ControlsDefaults.controlHeight)
+                .height(TabListLayoutDefaults.bottomControlHeight)
                 .padding(horizontal = 2.dp, vertical = 2.dp)
         ) {
             // --- Sliding indicator ---
-            val segmentSpacing = 8.dp
+            val segmentSpacing = TabListLayoutDefaults.bottomSectionSpacing
             val segmentWidth = (maxWidth - segmentSpacing) / 2
             val indicatorOffsetX by animateDpAsState(
                 targetValue = if (selectedIndex == 0) 0.dp else (segmentWidth + segmentSpacing),
-                animationSpec = tween(220),
+                animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS + 20),
                 label = "tabSwitchIndicatorOffset",
             )
 
@@ -312,34 +310,6 @@ private fun TabListSwitchSection(
     }
 }
 
-/**
- * 下部操作群の丸形アイコンボタンを表示する。
- */
-@Composable
-private fun TabActionButton(
-    imageVector: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    tint: Color = MaterialTheme.colorScheme.primary,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.size(ControlsDefaults.controlHeight),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                modifier = Modifier.size(ControlsDefaults.actionIconSize),
-                imageVector = imageVector,
-                contentDescription = contentDescription,
-                tint = tint,
-            )
-        }
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
 private fun TabListBottomControlsBoardPreview() {
@@ -352,6 +322,7 @@ private fun TabListBottomControlsBoardPreview() {
         pagerState = pagerState,
         hazeState = hazeState,
         isRefreshing = false,
+        isSearchMode = false,
         refreshProgress = null,
         onCreateTabClick = {},
         onRefreshClick = {},
@@ -371,6 +342,7 @@ private fun TabListBottomControlsThreadPreview() {
         pagerState = pagerState,
         hazeState = hazeState,
         isRefreshing = false,
+        isSearchMode = false,
         refreshProgress = null,
         onCreateTabClick = {},
         onRefreshClick = {},
@@ -390,6 +362,7 @@ private fun TabListBottomControlsRefreshingPreview() {
         pagerState = pagerState,
         hazeState = hazeState,
         isRefreshing = true,
+        isSearchMode = false,
         refreshProgress = ThreadTabRefreshProgress(
             completedCount = 3,
             totalCount = 8,

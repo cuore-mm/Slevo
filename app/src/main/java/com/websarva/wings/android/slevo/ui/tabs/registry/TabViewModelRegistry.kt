@@ -4,18 +4,18 @@ import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModelFactory
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModelFactory
-import dagger.hilt.android.scopes.ViewModelScoped
+import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
 
-@ViewModelScoped
 /**
  * タブに関連する ViewModel を登録・再利用するシンプルなレジストリ。
  *
  * - 目的: 同じボードやスレッドを表示する複数の画面間で ViewModel を使い回すことで
  *   不要な生成を避け、状態（例: スクロール位置や読み込み状態）を保持する。
- * - スコープ: `@ViewModelScoped` により Hilt の ViewModel スコープと同等のライフサイクルで管理される。
+ * - スコープ: `@ActivityRetainedScoped` により Hilt の Activity retained スコープで管理される。
  * - 実装: 内部に Map を持ち、キー（boardUrl / viewModelKey）に対して lazy に ViewModel を生成する。
  */
+@ActivityRetainedScoped
 class TabViewModelRegistry @Inject constructor(
     private val threadViewModelFactory: ThreadViewModelFactory,
     private val boardViewModelFactory: BoardViewModelFactory,

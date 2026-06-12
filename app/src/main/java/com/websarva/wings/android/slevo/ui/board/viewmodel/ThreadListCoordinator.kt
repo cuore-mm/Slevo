@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.board.viewmodel
 
+import androidx.compose.ui.text.input.TextFieldValue
 import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
@@ -49,9 +50,16 @@ class ThreadListCoordinator @AssistedInject constructor(
     /**
      * 検索クエリを更新し、一覧へ反映する。
      */
-    fun setSearchQuery(query: String) {
-        uiState.update { it.copy(searchQuery = query) }
+    fun updateSearchInput(inputValue: TextFieldValue) {
+        uiState.update { it.copy(searchInputValue = inputValue) }
         applyFiltersAndSort()
+    }
+
+    /**
+     * 文字列クエリだけを使う既存導線から検索入力を更新する。
+     */
+    fun setSearchQuery(query: String) {
+        updateSearchInput(TextFieldValue(query))
     }
 
     /**
@@ -63,8 +71,14 @@ class ThreadListCoordinator @AssistedInject constructor(
         if (isActive) {
             uiState.update { it.copy(isSearchActive = true, isTabSwipeEnabled = false) }
         } else {
-            uiState.update { it.copy(isSearchActive = false, isTabSwipeEnabled = true) }
-            setSearchQuery("")
+            uiState.update {
+                it.copy(
+                    isSearchActive = false,
+                    isTabSwipeEnabled = true,
+                    searchInputValue = TextFieldValue(""),
+                )
+            }
+            applyFiltersAndSort()
         }
     }
 
