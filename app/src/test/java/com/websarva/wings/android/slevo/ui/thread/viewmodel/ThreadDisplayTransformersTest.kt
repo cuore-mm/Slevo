@@ -190,9 +190,44 @@ class ThreadDisplayTransformersTest {
             DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = true, depth = 1, rootNumber = 388)
         )
 
-        val keys = duplicated.mapIndexed(::buildThreadListItemKey)
+        val keys = duplicated.map(::buildThreadListItemKey)
 
         assertEquals(3, keys.toSet().size)
+    }
+
+    @Test
+    fun buildThreadListItemKey_isStableAcrossDisplayIndexChanges() {
+        val row = DisplayPost(
+            num = 25,
+            post = post(content = "sample", id = "id2"),
+            dimmed = false,
+            isAfter = true,
+            depth = 2,
+            rootNumber = 1,
+        )
+
+        val keyAtFirstRender = buildThreadListItemKey(row)
+        val keyAtSecondRender = buildThreadListItemKey(row)
+
+        assertEquals(keyAtFirstRender, keyAtSecondRender)
+    }
+
+    @Test
+    fun buildThreadListItemKey_differsWhenDisplayRoleDiffers() {
+        val normal = DisplayPost(
+            num = 100,
+            post = post(content = "row", id = "id3"),
+            dimmed = false,
+            isAfter = false,
+            depth = 0,
+            rootNumber = 100,
+        )
+        val dimmedContext = normal.copy(dimmed = true, isAfter = true)
+
+        val normalKey = buildThreadListItemKey(normal)
+        val dimmedContextKey = buildThreadListItemKey(dimmedContext)
+
+        assertTrue(normalKey != dimmedContextKey)
     }
 
     @Test

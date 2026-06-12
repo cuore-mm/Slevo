@@ -7,6 +7,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenBoardTa
 import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadTabEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.util.ThreadNewResCalculator
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
@@ -160,6 +161,23 @@ class TabsRepository @Inject constructor(
             }
             threadStateRepository.collectGarbage()
         }
+    }
+
+    /**
+     * 指定 threadId のタブ固有スクロール位置だけを更新する。
+     * タブ一覧構造（sortOrder, isPinned など）は変更しない。
+     * 対象タブが存在しない場合は no-op として扱う。
+     */
+    suspend fun updateThreadTabScrollPosition(
+        threadId: ThreadId,
+        firstVisibleItemIndex: Int,
+        firstVisibleItemScrollOffset: Int,
+    ) = withContext(Dispatchers.IO) {
+        threadDao.updateThreadScrollPosition(
+            threadId = threadId,
+            firstVisibleItemIndex = firstVisibleItemIndex,
+            firstVisibleItemScrollOffset = firstVisibleItemScrollOffset,
+        )
     }
 
     fun observeLastSelectedPage(): Flow<Int> =

@@ -61,7 +61,7 @@ class ThreadTabCoordinatorTest {
     }
 
     @Test
-    fun updateThreadScrollPosition_updatesScrollOffsets() = runTest {
+    fun updateThreadScrollPosition_updatesScrollOffsetsViaDedicatedMethod() = runTest {
         val threadId = ThreadId.of("host", "board", "thread")
         val initialTab = ThreadTabInfo(
             id = threadId,
@@ -79,11 +79,14 @@ class ThreadTabCoordinatorTest {
         coordinator.updateThreadScrollPosition(threadId, firstVisibleIndex = 5, scrollOffset = 12)
         advanceUntilIdle()
 
-        val updatedTabs = captureSavedTabs(tabsRepository)
-        val updatedTab = updatedTabs.single()
-        assertEquals(5, updatedTab.firstVisibleItemIndex)
-        assertEquals(12, updatedTab.firstVisibleItemScrollOffset)
-
+        coVerify(exactly = 1) {
+            tabsRepository.updateThreadTabScrollPosition(
+                threadId = threadId,
+                firstVisibleItemIndex = 5,
+                firstVisibleItemScrollOffset = 12,
+            )
+        }
+        coVerify(exactly = 0) { tabsRepository.saveOpenThreadTabs(any()) }
         coVerify { readStateRepository wasNot Called }
     }
 

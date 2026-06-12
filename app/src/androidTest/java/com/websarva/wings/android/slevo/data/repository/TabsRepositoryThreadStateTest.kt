@@ -180,6 +180,103 @@ class TabsRepositoryThreadStateTest {
     }
 
     /**
+     * スクロール位置だけ更新しても、対象タブの sortOrder と isPinned、他タブの状態は変わらない。
+     */
+    @Test
+    fun updateThreadTabScrollPosition_updatesOnlyScrollColumns() = runBlocking {
+        val threadId1 = ThreadId.of("example.com", "test", "a")
+        val threadId2 = ThreadId.of("example.com", "test", "b")
+
+        // 2 つのタブを保存
+        repository.saveOpenThreadTabs(
+            listOf(
+                ThreadTabInfo(
+                    id = threadId1,
+                    title = "First",
+                    boardName = "Board",
+                    boardUrl = "https://example.com/test/",
+                    boardId = 1,
+                    isPinned = true,
+                    firstVisibleItemIndex = 0,
+                    firstVisibleItemScrollOffset = 0,
+                ),
+                ThreadTabInfo(
+                    id = threadId2,
+                    title = "Second",
+                    boardName = "Board",
+                    boardUrl = "https://example.com/test/",
+                    boardId = 1,
+                    isPinned = false,
+                    firstVisibleItemIndex = 0,
+                    firstVisibleItemScrollOffset = 0,
+                ),
+            )
+        )
+
+        // threadId1 のスクロール位置だけ更新
+        repository.updateThreadTabScrollPosition(
+            threadId = threadId1,
+            firstVisibleItemIndex = 7,
+            firstVisibleItemScrollOffset = 30,
+        )
+
+        val observed = repository.observeOpenThreadTabs().first()
+
+        val tab1 = observed.find { it.id == threadId1 }!!
+        val tab2 = observed.find { it.id == threadId2 }!!
+
+        // threadId1 のスクロール位置だけが変化する
+        assertEquals(7, tab1.firstVisibleItemIndex)
+        assertEquals(30, tab1.firstVisibleItemScrollOffset)
+        assertEquals(true, tab1.isPinned)
+
+        // threadId2 は影響を受けない
+        assertEquals(0, tab2.firstVisibleItemIndex)
+        assertEquals(0, tab2.firstVisibleItemScrollOffset)
+        assertEquals(false, tab2.isPinned)
+    }
+
+    /**
+     * 存在しない threadId へのスクロール位置保存は no-op となり、
+     * タブ一覧やスレッド状態を新規作成しない。
+     */
+    @Test
+    fun updateThreadTabScrollPosition_noOpForMissingTab() = runBlocking {
+        val existingThreadId = ThreadId.of("example.com", "test", "existing")
+        val missingThreadId = ThreadId.of("example.com", "test", "missing")
+
+        repository.saveOpenThreadTabs(
+            listOf(
+                ThreadTabInfo(
+                    id = existingThreadId,
+                    title = "Existing",
+                    boardName = "Board",
+                    boardUrl = "https://example.com/test/",
+                    boardId = 1,
+                    firstVisibleItemIndex = 0,
+                    firstVisibleItemScrollOffset = 0,
+                ),
+            )
+        )
+
+        // 存在しない threadId へスクロール位置保存
+        repository.updateThreadTabScrollPosition(
+            threadId = missingThreadId,
+            firstVisibleItemIndex = 5,
+            firstVisibleItemScrollOffset = 20,
+        )
+
+        val observed = repository.observeOpenThreadTabs().first()
+
+        // 既存タブはそのまま
+        assertEquals(1, observed.size)
+        val existingTab = observed.single()
+        assertEquals("Existing", existingTab.title)
+        assertEquals(0, existingTab.firstVisibleItemIndex)
+        assertEquals(0, existingTab.firstVisibleItemScrollOffset)
+    }
+
+    /**
      * テスト用の開いているスレッドタブを保存する。
      * Phase 3 ではタブ固有状態だけを保存し、タイトルやレス数は `thread_states` 側で用意する。
      */

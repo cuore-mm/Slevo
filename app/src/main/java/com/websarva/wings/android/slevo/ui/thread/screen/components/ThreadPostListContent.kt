@@ -87,7 +87,7 @@ fun LazyListScope.threadPostListContent(
     // --- Post rows ---
     itemsIndexed(
         items = visiblePosts,
-        key = { idx, display -> buildThreadListItemKey(idx, display) },
+        key = { _, display -> buildThreadListItemKey(display) },
     ) { idx, display ->
         val postNum = display.num
         val post = display.post

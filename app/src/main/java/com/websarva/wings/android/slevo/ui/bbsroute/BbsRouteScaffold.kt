@@ -23,7 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -42,10 +41,8 @@ import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarActionVisibility
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import com.websarva.wings.android.slevo.R
@@ -57,7 +54,7 @@ import kotlin.math.abs
  *
  * URL入力ダイアログは検証失敗時にエラー表示し、閉じずに再入力させる。
  */
-@OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState, *>> BbsRouteScaffold(
     route: AppRoute,
@@ -193,9 +190,11 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
 
+            val tabKey = getKey(tab)
+
             // 各タブごとにLazyListStateを復元する。キーに基づいてrememberするため
             // タブが切り替わっても正しいスクロール位置が再現される。
-            val listState = remember(getKey(tab)) {
+            val listState = remember(tabKey) {
                 LazyListState(
                     firstVisibleItemIndex = getScrollIndex(tab),
                     firstVisibleItemScrollOffset = getScrollOffset(tab)
@@ -203,9 +202,9 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             }
 
             // タブ初回表示時にViewModelの初期処理を行うためのフラグ
-            var hasInitialized by remember(getKey(tab)) { mutableStateOf(false) }
+            var hasInitialized by remember(tabKey) { mutableStateOf(false) }
             val isActive = pagerState.currentPage == page
-            LaunchedEffect(isActive, tab) {
+            LaunchedEffect(isActive, tabKey) {
                 if (isActive && !hasInitialized) {
                     // 表示されたときに初期化処理を実行
                     initializeViewModel(viewModel, tab)
@@ -213,17 +212,14 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 }
             }
 
-            // リストのスクロール位置が変わったら一定時間デバウンスしてViewModelに保存する
-            LaunchedEffect(listState, isActive) {
-                if (isActive) {
-                    snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-                        .debounce(200L)
-                        .collectLatest { (index, offset) ->
-                            // スクロール位置をViewModel側に伝える
-                            updateScrollPosition(viewModel, tab, index, offset)
-                        }
-                }
-            }
+            ObserveScrollPositionPersistence(
+                tabKey = tabKey,
+                listState = listState,
+                isActive = isActive,
+                onSave = { index, offset ->
+                    updateScrollPosition(viewModel, tab, index, offset)
+                },
+            )
 
             val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
             val actionVisibility = rememberBottomBarActionVisibility(
