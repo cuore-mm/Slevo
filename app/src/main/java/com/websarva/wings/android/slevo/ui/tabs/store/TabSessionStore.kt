@@ -57,6 +57,8 @@ class TabSessionStore @Inject constructor(
     val isRefreshing: StateFlow<Boolean> = threadTabsCoordinator.isRefreshing
     val refreshProgress: StateFlow<ThreadTabRefreshProgress?> = threadTabsCoordinator.refreshProgress
     val newResCounts: StateFlow<Map<String, Int>> = threadTabsCoordinator.newResCounts
+    val selectedBoardTabKey: StateFlow<String?> = boardTabsCoordinator.selectedBoardTabKey
+    val selectedThreadTabKey: StateFlow<String?> = threadTabsCoordinator.selectedThreadTabKey
 
     val boardCurrentPage: StateFlow<Int> = boardTabsCoordinator.boardCurrentPage
     val threadCurrentPage: StateFlow<Int> = threadTabsCoordinator.threadCurrentPage
@@ -98,6 +100,24 @@ class TabSessionStore @Inject constructor(
         return boardTabsCoordinator.ensureBoardTab(route)
     }
 
+    /**
+     * 板タブを保証したうえで、対象タブを選択状態へ更新する。
+     */
+    fun ensureAndSelectBoardTab(route: AppRoute.Board): Int {
+        return ensureBoardTab(route).also { index ->
+            if (index >= 0) {
+                selectBoardTab(route.boardUrl)
+            }
+        }
+    }
+
+    /**
+     * 選択中の板タブ key を更新する。
+     */
+    fun selectBoardTab(boardUrl: String?) {
+        boardTabsCoordinator.selectBoardTab(boardUrl)
+    }
+
     fun closeBoardTab(tab: BoardTabInfo) {
         boardTabsCoordinator.closeBoardTab(tab)
     }
@@ -120,6 +140,26 @@ class TabSessionStore @Inject constructor(
 
     fun ensureThreadTab(route: AppRoute.Thread): Int {
         return threadTabsCoordinator.ensureThreadTab(route)
+    }
+
+    /**
+     * スレッドタブを保証したうえで、対象タブを選択状態へ更新する。
+     */
+    fun ensureAndSelectThreadTab(route: AppRoute.Thread): Int {
+        return ensureThreadTab(route).also { index ->
+            if (index >= 0) {
+                val threadId = com.websarva.wings.android.slevo.ui.util.parseBoardUrl(route.boardUrl)
+                    ?.let { (host, board) -> ThreadId.of(host, board, route.threadKey) }
+                selectThreadTab(threadId)
+            }
+        }
+    }
+
+    /**
+     * 選択中のスレッドタブ key を更新する。
+     */
+    fun selectThreadTab(threadId: ThreadId?) {
+        threadTabsCoordinator.selectThreadTab(threadId)
     }
 
     fun closeThreadTab(tab: ThreadTabInfo) {

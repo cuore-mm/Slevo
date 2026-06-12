@@ -15,11 +15,7 @@ fun NavHostController.navigateToBoard(
     tabSessionStore?.let { store ->
         route.boardId?.takeIf { it != 0L }?.let {
             // 既存板の場合のみ選択状態を更新する（無効URLは検証後に保存）。
-            store.ensureBoardTab(route).let { index ->
-                if (index >= 0) {
-                    store.setBoardCurrentPage(index)
-                }
-            }
+            store.ensureAndSelectBoardTab(route)
         }
     }
     navigate(route) {
@@ -38,11 +34,7 @@ fun NavHostController.navigateToThread(
 ) {
     tabSessionStore?.let { store ->
         // boardId 未解決でもタブを登録し、選択状態を更新する。
-        store.ensureThreadTab(route).let { index ->
-            if (index >= 0) {
-                store.setThreadCurrentPage(index)
-            }
-        }
+        store.ensureAndSelectThreadTab(route)
     }
     navigate(route) {
         launchSingleTop = true

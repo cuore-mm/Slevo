@@ -75,6 +75,7 @@ fun ThreadScaffold(
 ) {
     val threadLoaded by tabSessionStore.threadLoaded.collectAsState()
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsState()
+    val selectedThreadTabKey by tabSessionStore.selectedThreadTabKey.collectAsState()
     val context = LocalContext.current
     val currentPage by tabSessionStore.threadCurrentPage.collectAsState()
     var isPopupVisible by remember { mutableStateOf(false) }
@@ -88,6 +89,10 @@ fun ThreadScaffold(
 
     LaunchedEffect(threadRoute, threadLoaded) {
         if (!threadLoaded) {
+            return@LaunchedEffect
+        }
+        // route 引数は初期化入力・placeholder として扱い、既に有効な選択中タブがある場合は上書きしない。
+        if (selectedThreadTabKey != null && openThreadTabs.any { it.id.value == selectedThreadTabKey }) {
             return@LaunchedEffect
         }
         val info = tabSessionStore.resolveBoardInfo(
@@ -107,7 +112,7 @@ fun ThreadScaffold(
             )
         )
         if (index >= 0) {
-            tabSessionStore.setThreadCurrentPage(index)
+            tabSessionStore.selectThreadTab(routeThreadId)
         }
     }
 

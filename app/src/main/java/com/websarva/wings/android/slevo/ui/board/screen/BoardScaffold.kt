@@ -60,12 +60,17 @@ fun BoardScaffold(
     // --- Tab/state ---
     val boardLoaded by tabSessionStore.boardLoaded.collectAsState()
     val openBoardTabs by tabSessionStore.openBoardTabs.collectAsState()
+    val selectedBoardTabKey by tabSessionStore.selectedBoardTabKey.collectAsState()
     val context = LocalContext.current
     val currentPage by tabSessionStore.boardCurrentPage.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(boardRoute, boardLoaded) {
         if (!boardLoaded) {
+            return@LaunchedEffect
+        }
+        // route 引数は初期化入力・placeholder として扱い、既に有効な選択中タブがある場合は上書きしない。
+        if (selectedBoardTabKey != null && openBoardTabs.any { it.boardUrl == selectedBoardTabKey }) {
             return@LaunchedEffect
         }
         // --- Board resolution ---
@@ -88,7 +93,7 @@ fun BoardScaffold(
             )
         )
         if (index >= 0) {
-            tabSessionStore.setBoardCurrentPage(index)
+            tabSessionStore.selectBoardTab(info.url)
         }
     }
 

@@ -1,18 +1,18 @@
 ## 1. 選択中タブ key の導入
 
-- [ ] 1.1 `BoardTabsCoordinator` に選択中板タブ key（正規化済み boardUrl）を管理する StateFlow/API を追加する
-- [ ] 1.2 `ThreadTabsCoordinator` に選択中スレッドタブ key（ThreadId）を管理する StateFlow/API を追加する
-- [ ] 1.3 `TabSessionStore` に板/スレッドのタブ登録・選択を分離した公開 API を追加する
-- [ ] 1.4 タブ削除時に selected key が削除対象だった場合、隣接タブまたは先頭タブへ補正する
-- [ ] 1.5 既存 `boardCurrentPage` / `threadCurrentPage` API を移行期間の互換レイヤーへ縮小し、永続化と正本利用を廃止する
+- [x] 1.1 `BoardTabsCoordinator` に選択中板タブ key（正規化済み boardUrl）を管理する StateFlow/API を追加する
+- [x] 1.2 `ThreadTabsCoordinator` に選択中スレッドタブ key（ThreadId）を管理する StateFlow/API を追加する
+- [x] 1.3 `TabSessionStore` に板/スレッドのタブ登録・選択を分離した公開 API を追加する
+- [x] 1.4 タブ削除時に selected key が削除対象だった場合、隣接タブまたは先頭タブへ補正する
+- [x] 1.5 既存 `boardCurrentPage` / `threadCurrentPage` API を移行期間の互換レイヤーへ縮小し、永続化と正本利用を廃止する
 
 ## 2. route entry と selected key の同期
 
-- [ ] 2.1 `AppRoute.Board` / `AppRoute.Thread` の既存引数構造を維持し、引数を初期化入力・読み込み中 placeholder として扱う方針を実装箇所に反映する
-- [ ] 2.2 `BoardScaffold` の route entry 時に、明示的な open 操作または selected key 未設定時だけ route を解決・正規化して板タブを登録し、選択中板タブ key を初期化する
-- [ ] 2.3 `ThreadScaffold` の route entry 時に、明示的な open 操作または selected key 未設定時だけ route を解決・正規化してスレッドタブを登録し、選択中スレッドタブ key を初期化する
-- [ ] 2.4 route 解決に失敗した場合は既存の無効 URL 表示と `navigateUp()` の挙動を維持する
-- [ ] 2.5 route entry 同期が横スワイプ後の通常再コンポーズで selected key を上書きしないよう、Effect key と補正条件を整理する
+- [x] 2.1 `AppRoute.Board` / `AppRoute.Thread` の既存引数構造を維持し、引数を初期化入力・読み込み中 placeholder として扱う方針を実装箇所に反映する
+- [x] 2.2 `BoardScaffold` の route entry 時に、明示的な open 操作または selected key 未設定時だけ route を解決・正規化して板タブを登録し、選択中板タブ key を初期化する
+- [x] 2.3 `ThreadScaffold` の route entry 時に、明示的な open 操作または selected key 未設定時だけ route を解決・正規化してスレッドタブを登録し、選択中スレッドタブ key を初期化する
+- [x] 2.4 route 解決に失敗した場合は既存の無効 URL 表示と `navigateUp()` の挙動を維持する
+- [x] 2.5 route entry 同期が横スワイプ後の通常再コンポーズで selected key を上書きしないよう、Effect key と補正条件を整理する
 
 ## 3. BbsRouteScaffold の Pager 状態整理
 

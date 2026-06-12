@@ -33,7 +33,7 @@ import javax.inject.Inject
  *
  * 主な責務:
  * - 開いているスレッドタブの状態を保持・更新する
- * - タブの追加/更新/削除、選択ページ管理、リフレッシュ処理を提供する
+ * - タブの追加/更新/削除、選択 key 管理、リフレッシュ処理を提供する
  * - タブの永続化（リポジトリ経由）を行う
  *
  * スコープは外部から bind(...) で渡されるスコープを使用する。
@@ -67,6 +67,9 @@ class ThreadTabsCoordinator @Inject constructor(
 
     private val _newResCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
     val newResCounts: StateFlow<Map<String, Int>> = _newResCounts.asStateFlow()
+
+    private val _selectedThreadTabKey = MutableStateFlow<String?>(null)
+    val selectedThreadTabKey: StateFlow<String?> = _selectedThreadTabKey.asStateFlow()
 
     private val _threadCurrentPage = MutableStateFlow(-1)
     val threadCurrentPage: StateFlow<Int> = _threadCurrentPage.asStateFlow()
@@ -108,6 +111,7 @@ class ThreadTabsCoordinator @Inject constructor(
                 tabs.map { tab -> tab.copy(bookmarkColorName = colorMap[tab.id.value]) }
             }.collect { threads ->
                 _openThreadTabs.value = threads
+                syncThreadCurrentPageFromSelectedKey(threads)
                 _newResCounts.value = threads
                     .filter { tab -> tab.newResCount > 0 }
                     .associate { tab -> tab.id.value to tab.newResCount }
@@ -153,6 +157,7 @@ class ThreadTabsCoordinator @Inject constructor(
         val key = tab.id.value
         tabViewModelRegistry.releaseThreadViewModel(key)
 
+        val selectedKeyBeforeRemoval = _selectedThreadTabKey.value
         val removedIndex = _openThreadTabs.value.indexOfFirst { it.id == tab.id }
         var updatedTabs: List<ThreadTabInfo> = emptyList()
         _openThreadTabs.update { state ->
@@ -161,8 +166,18 @@ class ThreadTabsCoordinator @Inject constructor(
             newTabs
         }
         _newResCounts.update { it - key }
-        updateCurrentPageAfterRemoval(_threadCurrentPage, removedIndex, updatedTabs.size)
+        updateSelectedThreadKeyAfterRemoval(selectedKeyBeforeRemoval, key, removedIndex, updatedTabs)
         saveThreadTabs(updatedTabs)
+    }
+
+    /**
+     * 選択中のスレッドタブ key を更新する。
+     */
+    fun selectThreadTab(threadId: ThreadId?) {
+        _selectedThreadTabKey.value = threadId?.value?.takeIf { target ->
+            _openThreadTabs.value.any { it.id.value == target }
+        }
+        syncThreadCurrentPageFromSelectedKey()
     }
 
     /**
@@ -178,9 +193,13 @@ class ThreadTabsCoordinator @Inject constructor(
 
     /**
      * 現在のページ（タブのインデックス）をセットする。
+     *
+     * 互換 API として残し、内部的には selectedThreadTabKey を更新する。
      */
     fun setThreadCurrentPage(page: Int) {
-        _threadCurrentPage.value = page
+        val tabs = _openThreadTabs.value
+        _selectedThreadTabKey.value = tabs.getOrNull(page)?.id?.value
+        syncThreadCurrentPageFromSelectedKey(tabs)
     }
 
     /**
@@ -359,27 +378,34 @@ class ThreadTabsCoordinator @Inject constructor(
     }
 
     /**
-     * タブ削除後に currentPage を調整するヘルパー。
-     * 挙動:
-     * - タブが空になったら -1 をセット
-     * - 削除したインデックスが現在ページと同じなら、最小値に合わせる
-     * - 削除前より current が大きければ 1 減らす
+     * selected key から互換用 currentPage を導出する。
      */
-    private fun updateCurrentPageAfterRemoval(
-        currentPageFlow: MutableStateFlow<Int>,
-        removedIndex: Int,
-        updatedSize: Int,
-    ) {
-        val current = currentPageFlow.value
-        val newPage = when {
-            updatedSize <= 0 -> -1
-            current < 0 -> current
-            removedIndex == -1 -> current.coerceIn(0, updatedSize - 1)
-            current == removedIndex -> removedIndex.coerceAtMost(updatedSize - 1)
-            current > removedIndex -> (current - 1).coerceIn(0, updatedSize - 1)
-            current >= updatedSize -> updatedSize - 1
-            else -> current
+    private fun syncThreadCurrentPageFromSelectedKey(tabs: List<ThreadTabInfo> = _openThreadTabs.value) {
+        val selectedKey = _selectedThreadTabKey.value
+        _threadCurrentPage.value = when {
+            tabs.isEmpty() -> -1
+            selectedKey == null -> -1
+            else -> tabs.indexOfFirst { it.id.value == selectedKey }
         }
-        currentPageFlow.value = newPage
+    }
+
+    /**
+     * タブ削除後に selected key を補正する。
+     */
+    private fun updateSelectedThreadKeyAfterRemoval(
+        selectedKeyBeforeRemoval: String?,
+        removedTabKey: String,
+        removedIndex: Int,
+        updatedTabs: List<ThreadTabInfo>,
+    ) {
+        val removedTabWasSelected = removedIndex >= 0 && selectedKeyBeforeRemoval == removedTabKey
+
+        _selectedThreadTabKey.value = when {
+            updatedTabs.isEmpty() -> null
+            !removedTabWasSelected && selectedKeyBeforeRemoval != null && updatedTabs.any { it.id.value == selectedKeyBeforeRemoval } -> selectedKeyBeforeRemoval
+            removedIndex in updatedTabs.indices -> updatedTabs[removedIndex].id.value
+            else -> updatedTabs.last().id.value
+        }
+        syncThreadCurrentPageFromSelectedKey(updatedTabs)
     }
 }
