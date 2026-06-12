@@ -6,6 +6,7 @@
 ## What Changes
 
 - 板画面 route とスレッド画面 route は分離したまま維持し、`BoardSurface` / `ThreadSurface` 相当の画面種別として扱う。
+- `AppRoute.Board` / `AppRoute.Thread` の引数構造は現状維持し、route 引数は初期化入力・読み込み中 placeholder・履歴復元用 snapshot として扱う。
 - 個別タブの正本は route 引数や page index ではなく、TabSessionStore の selected tab key（正規化済み板 URL / thread id）に寄せ、currentPage の永続化は廃止する。
 - `navigateToBoard` / `navigateToThread` の責務を、タブを開く処理・タブを選択する処理・NavController の画面遷移に分離する。
 - タブ一覧シートや横スワイプによるタブ切り替えでは、NavController の back stack を積まず TabSessionStore の選択状態だけを更新する。別種別タブ選択時は現在 surface を target surface に置換する。

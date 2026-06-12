@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: 板画面とスレッド画面の route 分離維持
-システムは板画面とスレッド画面を異なる navigation destination として維持しなければならないMUST。板画面からスレッドを開く操作はスレッド画面 route を back stack に積み、戻る操作で直前の板画面へ戻れるようにしなければならないMUST。
+システムは板画面とスレッド画面を異なる navigation destination として維持しなければならないMUST。`AppRoute.Board` / `AppRoute.Thread` の既存引数構造を維持しなければならないMUST。板画面からスレッドを開く操作はスレッド画面 route を back stack に積み、戻る操作で直前の板画面へ戻れるようにしなければならないMUST。
 
 #### Scenario: 板画面からスレッドを開いて戻る
 - **WHEN** ユーザーが板画面でスレッドを選択し、表示されたスレッド画面で戻る操作を行う
@@ -10,6 +10,14 @@
 #### Scenario: 板とスレッドの画面種別を分離する
 - **WHEN** NavController が現在 destination を判定する
 - **THEN** システムは板画面とスレッド画面を同一 route ではなく別々の画面種別として扱う
+
+#### Scenario: route 引数を placeholder として保持する
+- **WHEN** 板画面またはスレッド画面の初期データ読み込み中である
+- **THEN** システムは既存 route 引数に含まれる板名、URL、スレッドタイトルなどを読み込み中 placeholder として利用できる
+
+#### Scenario: route 引数で selected key を常時上書きしない
+- **WHEN** ユーザーが板画面で横スワイプにより別板タブを選択した後に再コンポーズが発生する
+- **THEN** システムは route 引数の板情報ではなく TabSessionStore の選択中板タブ key に基づいて表示タブを維持する
 
 ### Requirement: タブ切り替えは履歴遷移として扱わない
 システムはタブ一覧シート、フルスクリーンタブ一覧、横スワイプによる既存タブの切り替えで、不要な navigation back stack を積んではならないMUST NOT。タブ切り替えは TabSessionStore の選択状態更新として扱わなければならないMUST。

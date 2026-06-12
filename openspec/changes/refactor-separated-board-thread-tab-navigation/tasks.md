@@ -8,10 +8,11 @@
 
 ## 2. route entry と selected key の同期
 
-- [ ] 2.1 `BoardScaffold` の route entry 時に、route を解決・正規化して板タブを登録し、選択中板タブ key を更新する
-- [ ] 2.2 `ThreadScaffold` の route entry 時に、route を解決・正規化してスレッドタブを登録し、選択中スレッドタブ key を更新する
-- [ ] 2.3 route 解決に失敗した場合は既存の無効 URL 表示と `navigateUp()` の挙動を維持する
-- [ ] 2.4 route entry 同期が横スワイプ後の通常再コンポーズで不要に再実行されないよう、Effect key と補正条件を整理する
+- [ ] 2.1 `AppRoute.Board` / `AppRoute.Thread` の既存引数構造を維持し、引数を初期化入力・読み込み中 placeholder として扱う方針を実装箇所に反映する
+- [ ] 2.2 `BoardScaffold` の route entry 時に、明示的な open 操作または selected key 未設定時だけ route を解決・正規化して板タブを登録し、選択中板タブ key を初期化する
+- [ ] 2.3 `ThreadScaffold` の route entry 時に、明示的な open 操作または selected key 未設定時だけ route を解決・正規化してスレッドタブを登録し、選択中スレッドタブ key を初期化する
+- [ ] 2.4 route 解決に失敗した場合は既存の無効 URL 表示と `navigateUp()` の挙動を維持する
+- [ ] 2.5 route entry 同期が横スワイプ後の通常再コンポーズで selected key を上書きしないよう、Effect key と補正条件を整理する
 
 ## 3. BbsRouteScaffold の Pager 状態整理
 
