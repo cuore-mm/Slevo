@@ -248,7 +248,7 @@ class TabListViewModelTest {
     @Test
     fun openUrlInput_returnsErrorForUnknownUrl() = runTest {
         val result = viewModel.openUrlInput(
-            url = "https://example.com/unknown/",
+            url = "https://example.com/unknown/path/",
             invalidUrlMessage = "invalid",
         )
 
