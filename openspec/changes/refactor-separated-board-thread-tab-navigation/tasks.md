@@ -16,12 +16,12 @@
 
 ## 3. BbsRouteScaffold の Pager 状態整理
 
-- [ ] 3.1 `BbsRouteScaffold` の初期ページ決定を `currentPage` 優先から selected key 導出へ変更する
-- [ ] 3.2 selected key に一致するタブ index が存在する場合のみ Pager を同期し、通常再コンポーズでユーザーのスワイプ位置を戻さない
-- [ ] 3.3 Pager のユーザースワイプ完了時に、表示ページの tab key を selected key へ反映する
-- [ ] 3.4 タブ数変更・削除後に Pager index が範囲外にならないよう補正する
-- [ ] 3.5 板画面とスレッド画面で同じ補正規則を使えるよう、key 抽出と index 導出ロジックを共通化する
-- [ ] 3.6 復元時に過去の currentPage/index を fallback として使わず、selected key と補正規則だけで表示タブを決定する
+- [x] 3.1 `BbsRouteScaffold` の初期ページ決定を `currentPage` 優先から selected key 導出へ変更する
+- [x] 3.2 selected key に一致するタブ index が存在する場合のみ Pager を同期し、通常再コンポーズでユーザーのスワイプ位置を戻さない
+- [x] 3.3 Pager のユーザースワイプ完了時に、表示ページの tab key を selected key へ反映する
+- [x] 3.4 タブ数変更・削除後に Pager index が範囲外にならないよう補正する
+- [x] 3.5 板画面とスレッド画面で同じ補正規則を使えるよう、key 抽出と index 導出ロジックを共通化する
+- [x] 3.6 復元時に過去の currentPage/index を fallback として使わず、selected key と補正規則だけで表示タブを決定する
 
 ## 4. ナビゲーション API の責務分離
 

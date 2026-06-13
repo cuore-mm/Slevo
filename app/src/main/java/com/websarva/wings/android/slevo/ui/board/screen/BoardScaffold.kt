@@ -62,7 +62,6 @@ fun BoardScaffold(
     val openBoardTabs by tabSessionStore.openBoardTabs.collectAsState()
     val selectedBoardTabKey by tabSessionStore.selectedBoardTabKey.collectAsState()
     val context = LocalContext.current
-    val currentPage by tabSessionStore.boardCurrentPage.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(boardRoute, boardLoaded) {
@@ -105,7 +104,7 @@ fun BoardScaffold(
         isTabsLoaded = boardLoaded,
         onEmptyTabs = { navController.navigateUp() },
         openTabs = openBoardTabs,
-        currentRoutePredicate = { it.boardUrl == boardRoute.boardUrl },
+        selectedTabKey = selectedBoardTabKey,
         getViewModel = { tab -> tabSessionStore.getOrCreateBoardViewModel(tab.boardUrl) },
         getKey = { it.boardUrl },
         getScrollIndex = { it.firstVisibleItemIndex },
@@ -122,8 +121,7 @@ fun BoardScaffold(
         updateScrollPosition = { _, tab, index, offset ->
             tabSessionStore.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
-        currentPage = currentPage,
-        onPageChange = { tabSessionStore.setBoardCurrentPage(it) },
+        onTabSelected = { tabSessionStore.selectBoardTab(it.boardUrl) },
         animateToPageFlow = tabSessionStore.boardPageAnimation,
         bottomBar = { viewModel, uiState, actionProgress, openTabListSheet ->
             val actions = listOf(

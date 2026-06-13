@@ -77,7 +77,6 @@ fun ThreadScaffold(
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsState()
     val selectedThreadTabKey by tabSessionStore.selectedThreadTabKey.collectAsState()
     val context = LocalContext.current
-    val currentPage by tabSessionStore.threadCurrentPage.collectAsState()
     var isPopupVisible by remember { mutableStateOf(false) }
     val popupDialogState = rememberPostItemDialogState()
     var popupMenuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
@@ -123,7 +122,7 @@ fun ThreadScaffold(
         isTabsLoaded = threadLoaded,
         onEmptyTabs = { navController.navigateUp() },
         openTabs = openThreadTabs,
-        currentRoutePredicate = { routeThreadId != null && it.id == routeThreadId },
+        selectedTabKey = selectedThreadTabKey,
         getViewModel = { tab -> tabSessionStore.getOrCreateThreadViewModel(tab.id.value) },
         getKey = { it.id.value },
         getScrollIndex = { it.firstVisibleItemIndex },
@@ -142,8 +141,7 @@ fun ThreadScaffold(
         updateScrollPosition = { viewModel, tab, index, offset ->
             viewModel.updateThreadScrollPosition(tab.id, index, offset)
         },
-        currentPage = currentPage,
-        onPageChange = { tabSessionStore.setThreadCurrentPage(it) },
+        onTabSelected = { tabSessionStore.selectThreadTab(it.id) },
         animateToPageFlow = tabSessionStore.threadPageAnimation,
         bottomBarActionVisibilityEnabled = !isPopupVisible,
         bottomBar = { viewModel, uiState, actionProgress, openTabListSheet ->
