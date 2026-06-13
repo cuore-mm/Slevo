@@ -45,8 +45,9 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
 import com.websarva.wings.android.slevo.ui.board.screen.BoardInfoBottomSheet
-import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.showBoardSurfaceForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.showThreadSurfaceForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.TabListUiState
 import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenResult
@@ -84,7 +85,8 @@ fun TabScreenContent(
     navController: NavHostController,
     closeDrawer: () -> Unit,
     initialPage: Int = 0,
-    onPageChanged: (Int) -> Unit = {}
+    onPageChanged: (Int) -> Unit = {},
+    currentSurfaceRoute: AppRoute? = null,
 ) {
     val openBoardTabs by tabSessionStore.openBoardTabs.collectAsStateWithLifecycle()
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsStateWithLifecycle()
@@ -248,6 +250,7 @@ fun TabScreenContent(
                         onCloseRequestConsumed = { tabListViewModel.consumePendingCloseRequest() },
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = listUiState.isInLongPressSelectionMode,
+                        currentSurfaceRoute = currentSurfaceRoute,
                     )
                 }
             }
@@ -326,17 +329,19 @@ fun TabScreenContent(
                             val result = tabListViewModel.openUrlInput(url, invalidUrlMessage)
                             when (result) {
                                 is UrlOpenResult.NavigateBoard -> {
-                                    navController.navigateToBoard(
+                                    tabSessionStore.registerAndSelectBoardRoute(result.route)
+                                    navController.showBoardSurfaceForTabSelection(
+                                        currentSurfaceRoute = currentSurfaceRoute,
                                         route = result.route,
-                                        tabSessionStore = tabSessionStore,
                                     )
                                     closeDrawer()
                                 }
 
                                 is UrlOpenResult.NavigateThread -> {
-                                    navController.navigateToThread(
+                                    tabSessionStore.registerAndSelectThreadRoute(result.route)
+                                    navController.showThreadSurfaceForTabSelection(
+                                        currentSurfaceRoute = currentSurfaceRoute,
                                         route = result.route,
-                                        tabSessionStore = tabSessionStore,
                                     )
                                     closeDrawer()
                                 }

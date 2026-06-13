@@ -44,7 +44,7 @@ import com.websarva.wings.android.slevo.ui.common.InfoActionButton
 import com.websarva.wings.android.slevo.ui.common.InfoBottomSheetContent
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
+import com.websarva.wings.android.slevo.ui.navigation.navigateToBoardSurface
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.util.ExternalBrowserUtil
@@ -104,10 +104,8 @@ fun ThreadInfoBottomSheet(
                             boardName = boardInfo.name,
                             boardUrl = boardInfo.url
                         )
-                        navController.navigateToBoard(
-                            route = route,
-                            tabSessionStore = tabSessionStore,
-                        )
+                        tabSessionStore?.registerAndSelectBoardRoute(route)
+                        navController.navigateToBoardSurface(route)
                         onDismissRequest()
                     }
                 },

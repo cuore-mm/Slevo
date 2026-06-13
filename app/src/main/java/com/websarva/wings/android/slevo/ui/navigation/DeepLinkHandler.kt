@@ -71,10 +71,8 @@ private suspend fun handleDeepLinkUrl(
                     boardUrl = boardUrl
                 )
             )
-            navController.navigateToBoard(
-                route = route,
-                tabSessionStore = tabSessionStore
-            )
+            tabSessionStore.registerAndSelectBoardRoute(route)
+            navController.navigateToBoardSurface(route)
             true
         }
         is ResolvedUrl.Thread -> {
@@ -87,10 +85,8 @@ private suspend fun handleDeepLinkUrl(
                     threadTitle = null
                 )
             )
-            navController.navigateToThread(
-                route = route,
-                tabSessionStore = tabSessionStore
-            )
+            tabSessionStore.registerAndSelectThreadRoute(route)
+            navController.navigateToThreadSurface(route)
             true
         }
         is ResolvedUrl.Board -> {
@@ -101,10 +97,8 @@ private suspend fun handleDeepLinkUrl(
                     boardUrl = boardUrl
                 )
             )
-            navController.navigateToBoard(
-                route = route,
-                tabSessionStore = tabSessionStore
-                )
+            tabSessionStore.registerAndSelectBoardRoute(route)
+            navController.navigateToBoardSurface(route)
             true
         }
         is ResolvedUrl.Unknown -> false

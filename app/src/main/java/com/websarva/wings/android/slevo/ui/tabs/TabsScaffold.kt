@@ -26,6 +26,7 @@ fun TabsScaffold(
         navController = navController,
         closeDrawer = {}, // Scaffoldの場合は何もしない
         initialPage = lastPage,
-        onPageChanged = { tabSessionStore.setLastSelectedPage(it) }
+        onPageChanged = { tabSessionStore.setLastSelectedPage(it) },
+        currentSurfaceRoute = null,
     )
 }

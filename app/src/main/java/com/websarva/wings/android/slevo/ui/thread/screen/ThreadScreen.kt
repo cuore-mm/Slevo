@@ -49,7 +49,7 @@ import com.websarva.wings.android.slevo.ui.common.interaction.ObserveGestureHint
 import com.websarva.wings.android.slevo.ui.common.interaction.executeGestureScrollAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadSurface
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
@@ -127,10 +127,8 @@ fun ThreadScreen(
     val onThreadUrlClick: (AppRoute.Thread) -> Unit = { route ->
         coroutineScope.launch {
             val normalizedRoute = tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
-            navController.navigateToThread(
-                route = normalizedRoute,
-                tabSessionStore = tabSessionStore,
-            )
+            tabSessionStore?.registerAndSelectThreadRoute(normalizedRoute)
+            navController.navigateToThreadSurface(normalizedRoute)
         }
     }
     val onImageClick: (String, List<String>, Int, String) -> Unit =

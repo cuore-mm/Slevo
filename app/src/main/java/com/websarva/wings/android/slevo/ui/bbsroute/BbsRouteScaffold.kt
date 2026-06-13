@@ -32,8 +32,8 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.navigation.showBoardSurfaceForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.showThreadSurfaceForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
@@ -279,6 +279,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 navController = navController,
                 onDismissRequest = { showTabListSheet = false },
                 initialPage = initialPage,
+                currentSurfaceRoute = route,
             )
         }
 
@@ -311,15 +312,16 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                 )
                                 if (host != null) {
                                     val boardUrl = "https://$host/${resolved.boardKey}/"
-                                    val route = tabSessionStore.normalizeBoardRouteForNavigation(
+                                    val normalizedRoute = tabSessionStore.normalizeBoardRouteForNavigation(
                                         AppRoute.Board(
                                             boardName = boardUrl,
                                             boardUrl = boardUrl,
                                         )
                                     )
-                                    navController.navigateToBoard(
-                                        route = route,
-                                        tabSessionStore = tabSessionStore,
+                                    tabSessionStore.registerAndSelectBoardRoute(normalizedRoute)
+                                    navController.showBoardSurfaceForTabSelection(
+                                        currentSurfaceRoute = route,
+                                        route = normalizedRoute,
                                     )
                                     urlError = null
                                     showUrlDialog = false
@@ -337,7 +339,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     if (resolved is ResolvedUrl.Thread) {
                         coroutineScope.launch {
                             val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
-                            val route = tabSessionStore.normalizeThreadRouteForNavigation(
+                            val normalizedRoute = tabSessionStore.normalizeThreadRouteForNavigation(
                                 AppRoute.Thread(
                                     threadKey = resolved.threadKey,
                                     boardUrl = boardUrl,
@@ -345,9 +347,10 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                     threadTitle = null
                                 )
                             )
-                            navController.navigateToThread(
-                                route = route,
-                                tabSessionStore = tabSessionStore,
+                            tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
+                            navController.showThreadSurfaceForTabSelection(
+                                currentSurfaceRoute = route,
+                                route = normalizedRoute,
                             )
                             urlError = null
                             showUrlDialog = false
@@ -359,15 +362,16 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     if (resolved is ResolvedUrl.Board) {
                         coroutineScope.launch {
                             val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
-                            val route = tabSessionStore.normalizeBoardRouteForNavigation(
+                            val normalizedRoute = tabSessionStore.normalizeBoardRouteForNavigation(
                                 AppRoute.Board(
                                     boardName = boardUrl,
                                     boardUrl = boardUrl,
                                 )
                             )
-                            navController.navigateToBoard(
-                                route = route,
-                                tabSessionStore = tabSessionStore,
+                            tabSessionStore.registerAndSelectBoardRoute(normalizedRoute)
+                            navController.showBoardSurfaceForTabSelection(
+                                currentSurfaceRoute = route,
+                                route = normalizedRoute,
                             )
                             urlError = null
                             showUrlDialog = false
@@ -393,7 +397,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
 /**
  * selected key とタブ一覧から現在表示すべきページ index を導出する。
  */
-private fun <TabInfo : Any> deriveSelectedPageIndex(
+internal fun <TabInfo : Any> deriveSelectedPageIndex(
     tabs: List<TabInfo>,
     selectedKey: Any?,
     getKey: (TabInfo) -> Any,

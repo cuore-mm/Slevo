@@ -1,12 +1,14 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import io.mockk.mockk
+import io.mockk.every
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
@@ -92,6 +94,43 @@ class TabSessionStoreTest {
     fun togglePinBoardTab_delegatesToBoardCoordinator() {
         store.togglePinBoardTab("https://example.com/test/")
         verify { boardCoordinator.togglePinBoardTab("https://example.com/test/") }
+    }
+
+    /**
+     * 正規化済み板 route 登録 API が coordinator の ensure と select を順に呼ぶことを確認する。
+     */
+    @Test
+    fun registerAndSelectBoardRoute_delegatesToCoordinator() {
+        val route = AppRoute.Board(
+            boardId = 1L,
+            boardName = "board",
+            boardUrl = "https://example.com/test/",
+        )
+        every { boardCoordinator.ensureBoardTab(route) } returns 0
+
+        store.registerAndSelectBoardRoute(route)
+
+        verify { boardCoordinator.ensureBoardTab(route) }
+        verify { boardCoordinator.selectBoardTab(route.boardUrl) }
+    }
+
+    /**
+     * 正規化済みスレ route 登録 API が coordinator の ensure と select を順に呼ぶことを確認する。
+     */
+    @Test
+    fun registerAndSelectThreadRoute_delegatesToCoordinator() {
+        val route = AppRoute.Thread(
+            threadKey = "123",
+            boardUrl = "https://example.com/test/",
+            boardName = "board",
+            threadTitle = "title",
+        )
+        every { threadCoordinator.ensureThreadTab(route) } returns 0
+
+        store.registerAndSelectThreadRoute(route)
+
+        verify { threadCoordinator.ensureThreadTab(route) }
+        verify { threadCoordinator.selectThreadTab(any()) }
     }
 
     /**

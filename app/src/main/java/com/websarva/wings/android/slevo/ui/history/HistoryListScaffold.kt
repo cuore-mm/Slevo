@@ -21,7 +21,7 @@ import com.websarva.wings.android.slevo.data.model.threadKey
 import com.websarva.wings.android.slevo.ui.bottombar.BbsSelectBottomBar
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadSurface
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import kotlinx.coroutines.launch
 
@@ -86,10 +86,8 @@ fun HistoryListScaffold(
                             resCount = history.history.resCount
                         )
                     )
-                    navController.navigateToThread(
-                        route = route,
-                        tabSessionStore = tabSessionStore,
-                    )
+                    tabSessionStore.registerAndSelectThreadRoute(route)
+                    navController.navigateToThreadSurface(route)
                 }
             },
             onToggleSelection = { viewModel.toggleSelection(it) },

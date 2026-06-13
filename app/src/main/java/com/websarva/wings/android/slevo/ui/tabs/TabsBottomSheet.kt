@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.screen.TabScreenContent
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -21,6 +22,7 @@ fun TabsBottomSheet(
     navController: NavHostController,
     onDismissRequest: () -> Unit,
     initialPage: Int = 0,
+    currentSurfaceRoute: AppRoute? = null,
 ) {
     val tabListViewModel: TabListViewModel = hiltViewModel()
     SlevoBottomSheet(
@@ -42,7 +44,8 @@ fun TabsBottomSheet(
                 tabListViewModel.resetSearchState()
                 onDismissRequest()
             },
-            initialPage = initialPage
+            initialPage = initialPage,
+            currentSurfaceRoute = currentSurfaceRoute,
         )
     }
 }

@@ -10,6 +10,7 @@ import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import io.mockk.coVerify
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -102,6 +103,83 @@ class ThreadTabsCoordinatorTest {
         coordinator.togglePinThreadTab(threadId)
 
         assertEquals(false, coordinator.openThreadTabs.value.first().isPinned)
+    }
+
+    /**
+     * スレッドタブ選択時に selected key が ThreadId で更新されることを確認する。
+     */
+    @Test
+    fun selectThreadTab_updatesSelectedThreadTabKey() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "1723111700",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "test",
+            )
+        )
+        val threadId = coordinator.openThreadTabs.value.first().id
+
+        coordinator.selectThreadTab(threadId)
+
+        assertEquals(threadId.value, coordinator.selectedThreadTabKey.value)
+        assertEquals(0, coordinator.threadCurrentPage.value)
+    }
+
+    /**
+     * 選択中スレッドタブを閉じた場合、selected key が隣接タブへ補正されることを確認する。
+     */
+    @Test
+    fun closeThreadTab_updatesSelectedKeyToAdjacentTab() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "111",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "first",
+            )
+        )
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "222",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "second",
+            )
+        )
+        val first = coordinator.openThreadTabs.value.first()
+        val second = coordinator.openThreadTabs.value.last()
+        coordinator.selectThreadTab(first.id)
+
+        coordinator.closeThreadTab(first)
+
+        assertEquals(second.id.value, coordinator.selectedThreadTabKey.value)
+        assertEquals(0, coordinator.threadCurrentPage.value)
+    }
+
+    /**
+     * 最後のスレッドタブを閉じた場合、selected key が null になることを確認する。
+     */
+    @Test
+    fun closeLastThreadTab_clearsSelectedThreadTabKey() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "111",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "first",
+            )
+        )
+        val tab = coordinator.openThreadTabs.value.first()
+        coordinator.selectThreadTab(tab.id)
+
+        coordinator.closeThreadTab(tab)
+
+        assertNull(coordinator.selectedThreadTabKey.value)
+        assertEquals(-1, coordinator.threadCurrentPage.value)
     }
 
     /**

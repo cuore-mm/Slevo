@@ -35,7 +35,7 @@ import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActio
 import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadSurface
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
@@ -213,10 +213,8 @@ fun BoardScaffold(
                                 resCount = threadInfo.resCount
                             )
                         )
-                        navController.navigateToThread(
-                            route = route,
-                            tabSessionStore = tabSessionStore,
-                        )
+                        tabSessionStore.registerAndSelectThreadRoute(route)
+                        navController.navigateToThreadSurface(route)
                     }
                 },
                 onLongClick = { threadInfo ->

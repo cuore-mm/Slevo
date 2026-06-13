@@ -2,22 +2,14 @@ package com.websarva.wings.android.slevo.ui.navigation
 
 import androidx.navigation.NavHostController
 import androidx.navigation.NavOptionsBuilder
-import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 
 /**
- * 板画面への遷移を共通化した拡張関数。
+ * 板画面 route への画面遷移だけを行う拡張関数。
  */
-fun NavHostController.navigateToBoard(
+fun NavHostController.navigateToBoardSurface(
     route: AppRoute.Board,
-    tabSessionStore: TabSessionStore? = null,
     builder: NavOptionsBuilder.() -> Unit = {},
 ) {
-    tabSessionStore?.let { store ->
-        route.boardId?.takeIf { it != 0L }?.let {
-            // 既存板の場合のみ選択状態を更新する（無効URLは検証後に保存）。
-            store.ensureAndSelectBoardTab(route)
-        }
-    }
     navigate(route) {
         launchSingleTop = true
         builder()
@@ -25,19 +17,63 @@ fun NavHostController.navigateToBoard(
 }
 
 /**
- * スレ画面への遷移を共通化した拡張関数。
+ * スレ画面 route への画面遷移だけを行う拡張関数。
  */
-fun NavHostController.navigateToThread(
+fun NavHostController.navigateToThreadSurface(
     route: AppRoute.Thread,
-    tabSessionStore: TabSessionStore? = null,
     builder: NavOptionsBuilder.() -> Unit = {},
 ) {
-    tabSessionStore?.let { store ->
-        // boardId 未解決でもタブを登録し、選択状態を更新する。
-        store.ensureAndSelectThreadTab(route)
-    }
     navigate(route) {
         launchSingleTop = true
         builder()
+    }
+}
+
+/**
+ * タブ選択に応じて板画面 surface を表示する。
+ *
+ * 同種別 surface 上での板タブ切り替えでは navigation を積まず、
+ * 別種別 surface から板 surface へ移る場合のみ現在 surface を置換する。
+ */
+fun NavHostController.showBoardSurfaceForTabSelection(
+    currentSurfaceRoute: AppRoute?,
+    route: AppRoute.Board,
+) {
+    when (currentSurfaceRoute) {
+        is AppRoute.Board -> Unit
+        is AppRoute.Thread -> replaceCurrentSurface(currentSurfaceRoute, route)
+        else -> navigateToBoardSurface(route)
+    }
+}
+
+/**
+ * タブ選択に応じてスレ画面 surface を表示する。
+ *
+ * 同種別 surface 上でのスレタブ切り替えでは navigation を積まず、
+ * 別種別 surface からスレ surface へ移る場合のみ現在 surface を置換する。
+ */
+fun NavHostController.showThreadSurfaceForTabSelection(
+    currentSurfaceRoute: AppRoute?,
+    route: AppRoute.Thread,
+) {
+    when (currentSurfaceRoute) {
+        is AppRoute.Thread -> Unit
+        is AppRoute.Board -> replaceCurrentSurface(currentSurfaceRoute, route)
+        else -> navigateToThreadSurface(route)
+    }
+}
+
+/**
+ * 現在表示中 surface を別の surface で置換する。
+ */
+private fun NavHostController.replaceCurrentSurface(
+    currentSurfaceRoute: AppRoute,
+    targetRoute: AppRoute,
+) {
+    navigate(targetRoute) {
+        launchSingleTop = true
+        popUpTo(currentSurfaceRoute) {
+            inclusive = true
+        }
     }
 }

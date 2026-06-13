@@ -60,8 +60,6 @@ class TabSessionStore @Inject constructor(
     val selectedBoardTabKey: StateFlow<String?> = boardTabsCoordinator.selectedBoardTabKey
     val selectedThreadTabKey: StateFlow<String?> = threadTabsCoordinator.selectedThreadTabKey
 
-    val boardCurrentPage: StateFlow<Int> = boardTabsCoordinator.boardCurrentPage
-    val threadCurrentPage: StateFlow<Int> = threadTabsCoordinator.threadCurrentPage
     val boardPageAnimation: SharedFlow<Int> = boardTabsCoordinator.boardPageAnimation
     val threadPageAnimation: SharedFlow<Int> = threadTabsCoordinator.threadPageAnimation
 
@@ -112,6 +110,11 @@ class TabSessionStore @Inject constructor(
     }
 
     /**
+     * 正規化済み板 route から板タブを登録し、選択状態へ更新する。
+     */
+    fun registerAndSelectBoardRoute(route: AppRoute.Board): Int = ensureAndSelectBoardTab(route)
+
+    /**
      * 選択中の板タブ key を更新する。
      */
     fun selectBoardTab(boardUrl: String?) {
@@ -128,10 +131,6 @@ class TabSessionStore @Inject constructor(
 
     fun updateBoardScrollPosition(boardUrl: String, firstVisibleIndex: Int, scrollOffset: Int) {
         boardTabsCoordinator.updateBoardScrollPosition(boardUrl, firstVisibleIndex, scrollOffset)
-    }
-
-    fun setBoardCurrentPage(page: Int) {
-        boardTabsCoordinator.setBoardCurrentPage(page)
     }
 
     fun animateBoardPage(offset: Int) {
@@ -156,6 +155,11 @@ class TabSessionStore @Inject constructor(
     }
 
     /**
+     * 正規化済みスレッド route からスレッドタブを登録し、選択状態へ更新する。
+     */
+    fun registerAndSelectThreadRoute(route: AppRoute.Thread): Int = ensureAndSelectThreadTab(route)
+
+    /**
      * 選択中のスレッドタブ key を更新する。
      */
     fun selectThreadTab(threadId: ThreadId?) {
@@ -168,10 +172,6 @@ class TabSessionStore @Inject constructor(
 
     fun closeThreadTab(threadKey: String, boardUrl: String) {
         threadTabsCoordinator.closeThreadTab(threadKey, boardUrl)
-    }
-
-    fun setThreadCurrentPage(page: Int) {
-        threadTabsCoordinator.setThreadCurrentPage(page)
     }
 
     fun animateThreadPage(offset: Int) {

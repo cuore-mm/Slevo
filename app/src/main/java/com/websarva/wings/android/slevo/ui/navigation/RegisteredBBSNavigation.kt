@@ -308,10 +308,8 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                                     boardUrl = board.url
                                 )
                             )
-                            navController.navigateToBoard(
-                                route = route,
-                                tabSessionStore = tabSessionStore,
-                            ) {
+                            tabSessionStore.registerAndSelectBoardRoute(route)
+                            navController.navigateToBoardSurface(route) {
                                 popUpTo(route) {
                                     inclusive = false
                                     saveState = true

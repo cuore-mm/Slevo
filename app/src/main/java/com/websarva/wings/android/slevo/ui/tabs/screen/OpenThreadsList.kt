@@ -14,7 +14,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.navigation.showThreadSurfaceForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.component.RemovableTabList
 import com.websarva.wings.android.slevo.ui.tabs.component.TabHeaderTrailingContent
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
@@ -44,6 +44,7 @@ fun OpenThreadsList(
     onClearNewResCount: (ThreadId) -> Unit = {},
     tabSessionStore: TabSessionStore? = null,
     isInLongPressSelectionMode: Boolean = false,
+    currentSurfaceRoute: AppRoute? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -78,12 +79,11 @@ fun OpenThreadsList(
                 coroutineScope.launch {
                     val normalizedRoute =
                         tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
-                    navController.navigateToThread(
+                    tabSessionStore?.registerAndSelectThreadRoute(normalizedRoute)
+                    navController.showThreadSurfaceForTabSelection(
+                        currentSurfaceRoute = currentSurfaceRoute,
                         route = normalizedRoute,
-                        tabSessionStore = tabSessionStore,
-                    ) {
-                        restoreState = true
-                    }
+                    )
                 }
             },
             onLongPress = { bounds ->
