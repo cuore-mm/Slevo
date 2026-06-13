@@ -14,7 +14,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.showThreadSurfaceForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.component.RemovableTabList
 import com.websarva.wings.android.slevo.ui.tabs.component.TabHeaderTrailingContent
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
@@ -80,8 +80,8 @@ fun OpenThreadsList(
                     val normalizedRoute =
                         tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
                     tabSessionStore?.registerAndSelectThreadRoute(normalizedRoute)
-                    navController.showThreadSurfaceForTabSelection(
-                        currentSurfaceRoute = currentSurfaceRoute,
+                    navController.showThreadScreenForTabSelection(
+                        currentScreenRoute = currentSurfaceRoute,
                         route = normalizedRoute,
                     )
                 }

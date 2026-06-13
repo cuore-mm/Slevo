@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,7 +26,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -49,7 +47,7 @@ import com.websarva.wings.android.slevo.ui.common.interaction.ObserveGestureHint
 import com.websarva.wings.android.slevo.ui.common.interaction.executeGestureScrollAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadSurface
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadScreen
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
@@ -128,7 +126,7 @@ fun ThreadScreen(
         coroutineScope.launch {
             val normalizedRoute = tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
             tabSessionStore?.registerAndSelectThreadRoute(normalizedRoute)
-            navController.navigateToThreadSurface(normalizedRoute)
+            navController.navigateToThreadScreen(normalizedRoute)
         }
     }
     val onImageClick: (String, List<String>, Int, String) -> Unit =

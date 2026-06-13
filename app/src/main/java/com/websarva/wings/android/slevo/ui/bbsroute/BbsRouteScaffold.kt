@@ -32,8 +32,8 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.showBoardSurfaceForTabSelection
-import com.websarva.wings.android.slevo.ui.navigation.showThreadSurfaceForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
@@ -319,8 +319,8 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                         )
                                     )
                                     tabSessionStore.registerAndSelectBoardRoute(normalizedRoute)
-                                    navController.showBoardSurfaceForTabSelection(
-                                        currentSurfaceRoute = route,
+                                    navController.showBoardScreenForTabSelection(
+                                        currentScreenRoute = route,
                                         route = normalizedRoute,
                                     )
                                     urlError = null
@@ -348,8 +348,8 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                 )
                             )
                             tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
-                            navController.showThreadSurfaceForTabSelection(
-                                currentSurfaceRoute = route,
+                            navController.showThreadScreenForTabSelection(
+                                currentScreenRoute = route,
                                 route = normalizedRoute,
                             )
                             urlError = null
@@ -369,8 +369,8 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                 )
                             )
                             tabSessionStore.registerAndSelectBoardRoute(normalizedRoute)
-                            navController.showBoardSurfaceForTabSelection(
-                                currentSurfaceRoute = route,
+                            navController.showBoardScreenForTabSelection(
+                                currentScreenRoute = route,
                                 route = normalizedRoute,
                             )
                             urlError = null

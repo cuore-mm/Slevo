@@ -6,7 +6,7 @@ import androidx.navigation.NavOptionsBuilder
 /**
  * 板画面 route への画面遷移だけを行う拡張関数。
  */
-fun NavHostController.navigateToBoardSurface(
+fun NavHostController.navigateToBoardScreen(
     route: AppRoute.Board,
     builder: NavOptionsBuilder.() -> Unit = {},
 ) {
@@ -19,7 +19,7 @@ fun NavHostController.navigateToBoardSurface(
 /**
  * スレ画面 route への画面遷移だけを行う拡張関数。
  */
-fun NavHostController.navigateToThreadSurface(
+fun NavHostController.navigateToThreadScreen(
     route: AppRoute.Thread,
     builder: NavOptionsBuilder.() -> Unit = {},
 ) {
@@ -30,49 +30,49 @@ fun NavHostController.navigateToThreadSurface(
 }
 
 /**
- * タブ選択に応じて板画面 surface を表示する。
+ * タブ選択に応じて板画面 screen を表示する。
  *
- * 同種別 surface 上での板タブ切り替えでは navigation を積まず、
- * 別種別 surface から板 surface へ移る場合のみ現在 surface を置換する。
+ * 同種別 screen 上での板タブ切り替えでは navigation を積まず、
+ * 別種別 screen から板 screen へ移る場合のみ現在 screen を置換する。
  */
-fun NavHostController.showBoardSurfaceForTabSelection(
-    currentSurfaceRoute: AppRoute?,
+fun NavHostController.showBoardScreenForTabSelection(
+    currentScreenRoute: AppRoute?,
     route: AppRoute.Board,
 ) {
-    when (currentSurfaceRoute) {
+    when (currentScreenRoute) {
         is AppRoute.Board -> Unit
-        is AppRoute.Thread -> replaceCurrentSurface(currentSurfaceRoute, route)
-        else -> navigateToBoardSurface(route)
+        is AppRoute.Thread -> replaceCurrentScreen(currentScreenRoute, route)
+        else -> navigateToBoardScreen(route)
     }
 }
 
 /**
- * タブ選択に応じてスレ画面 surface を表示する。
+ * タブ選択に応じてスレ画面 screen を表示する。
  *
- * 同種別 surface 上でのスレタブ切り替えでは navigation を積まず、
- * 別種別 surface からスレ surface へ移る場合のみ現在 surface を置換する。
+ * 同種別 screen 上でのスレタブ切り替えでは navigation を積まず、
+ * 別種別 screen からスレ screen へ移る場合のみ現在 screen を置換する。
  */
-fun NavHostController.showThreadSurfaceForTabSelection(
-    currentSurfaceRoute: AppRoute?,
+fun NavHostController.showThreadScreenForTabSelection(
+    currentScreenRoute: AppRoute?,
     route: AppRoute.Thread,
 ) {
-    when (currentSurfaceRoute) {
+    when (currentScreenRoute) {
         is AppRoute.Thread -> Unit
-        is AppRoute.Board -> replaceCurrentSurface(currentSurfaceRoute, route)
-        else -> navigateToThreadSurface(route)
+        is AppRoute.Board -> replaceCurrentScreen(currentScreenRoute, route)
+        else -> navigateToThreadScreen(route)
     }
 }
 
 /**
- * 現在表示中 surface を別の surface で置換する。
+ * 現在表示中 screen を別の screen で置換する。
  */
-private fun NavHostController.replaceCurrentSurface(
-    currentSurfaceRoute: AppRoute,
+private fun NavHostController.replaceCurrentScreen(
+    currentScreenRoute: AppRoute,
     targetRoute: AppRoute,
 ) {
     navigate(targetRoute) {
         launchSingleTop = true
-        popUpTo(currentSurfaceRoute) {
+        popUpTo(currentScreenRoute) {
             inclusive = true
         }
     }

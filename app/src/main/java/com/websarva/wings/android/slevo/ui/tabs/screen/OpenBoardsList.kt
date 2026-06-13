@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.showBoardSurfaceForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.component.RemovableTabList
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -72,8 +72,8 @@ fun OpenBoardsList(
                     val normalizedRoute =
                         tabSessionStore?.normalizeBoardRouteForNavigation(route) ?: route
                     tabSessionStore?.registerAndSelectBoardRoute(normalizedRoute)
-                    navController.showBoardSurfaceForTabSelection(
-                        currentSurfaceRoute = currentSurfaceRoute,
+                    navController.showBoardScreenForTabSelection(
+                        currentScreenRoute = currentSurfaceRoute,
                         route = normalizedRoute,
                     )
                 }

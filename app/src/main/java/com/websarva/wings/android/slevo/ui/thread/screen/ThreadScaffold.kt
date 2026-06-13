@@ -42,7 +42,7 @@ import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGest
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadSurface
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadScreen
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
@@ -320,7 +320,7 @@ fun ThreadScaffold(
                     coroutineScope.launch {
                         val normalizedRoute = tabSessionStore.normalizeThreadRouteForNavigation(route)
                         tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
-                        navController.navigateToThreadSurface(normalizedRoute)
+                        navController.navigateToThreadScreen(normalizedRoute)
                     }
                 },
                 onImageClick = { _, imageUrls, tappedIndex, transitionNamespace ->
