@@ -53,7 +53,7 @@
 
 - [x] 7.1 selected key の追加・削除・補正に関する coordinator 単体テストを追加または更新する
 - [x] 7.2 BbsRouteScaffold の selected key から Pager index を導出するロジックをテスト可能な関数として検証する
-- [ ] 7.3 URL 入力、スレッドリンク、route 正規化の既存テストを新 API 方針に合わせて更新する
+- [x] 7.3 URL 入力、スレッドリンク、route 正規化の既存テストを新 API 方針に合わせて更新する
 - [ ] 7.4 手動で「登録板一覧→板→スレッド→戻る」「板→シート→別板」「スレッド→シート→別スレッド」「URL入力→板/スレッド」を確認する
 - [x] 7.5 CI の Android build/test workflow を実行し、成功を確認する
 
