@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
+import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
@@ -9,8 +10,10 @@ import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import io.mockk.mockk
 import io.mockk.every
+import io.mockk.coEvery
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -27,6 +30,7 @@ class TabSessionStoreTest {
     private val boardCoordinator = mockk<BoardTabsCoordinator>(relaxed = true)
     private val threadCoordinator = mockk<ThreadTabsCoordinator>(relaxed = true)
     private val registry = mockk<TabViewModelRegistry>(relaxed = true)
+    private val settingsRepository = mockk<SettingsRepository>(relaxed = true)
     private val store by lazy {
         TabSessionStore(
             boardTabsCoordinator = boardCoordinator,
@@ -35,7 +39,7 @@ class TabSessionStoreTest {
             tabsRepository = mockk(relaxed = true),
             boardRepository = mockk(relaxed = true),
             bbsServiceRepository = mockk(relaxed = true),
-            settingsRepository = mockk(relaxed = true),
+            settingsRepository = settingsRepository,
         )
     }
 
@@ -131,6 +135,42 @@ class TabSessionStoreTest {
 
         verify { threadCoordinator.ensureThreadTab(route) }
         verify { threadCoordinator.selectThreadTab(any()) }
+    }
+
+    /**
+     * 正規化設定が有効な場合、板 route の boardUrl が 5ch.io に置き換わることを確認する。
+     */
+    @Test
+    fun normalizeBoardRouteForNavigation_rewritesBoardUrlWhenEnabled() = runTest {
+        coEvery { settingsRepository.getIsRedirect5chNetToIoEnabled() } returns true
+        val route = AppRoute.Board(
+            boardName = "board",
+            boardUrl = "https://agree.5ch.net/operate/",
+        )
+
+        val normalized = store.normalizeBoardRouteForNavigation(route)
+
+        assertEquals("https://agree.5ch.io/operate/", normalized.boardUrl)
+        assertEquals(route.boardName, normalized.boardName)
+    }
+
+    /**
+     * 正規化設定が有効な場合、スレ route の boardUrl が 5ch.io に置き換わることを確認する。
+     */
+    @Test
+    fun normalizeThreadRouteForNavigation_rewritesBoardUrlWhenEnabled() = runTest {
+        coEvery { settingsRepository.getIsRedirect5chNetToIoEnabled() } returns true
+        val route = AppRoute.Thread(
+            threadKey = "123",
+            boardName = "board",
+            boardUrl = "https://agree.5ch.net/operate/",
+            threadTitle = "title",
+        )
+
+        val normalized = store.normalizeThreadRouteForNavigation(route)
+
+        assertEquals("https://agree.5ch.io/operate/", normalized.boardUrl)
+        assertEquals(route.threadKey, normalized.threadKey)
     }
 
     /**

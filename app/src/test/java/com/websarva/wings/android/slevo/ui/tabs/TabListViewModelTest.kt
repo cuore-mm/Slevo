@@ -4,10 +4,12 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import io.mockk.mockk
+import io.mockk.coEvery
 import io.mockk.verify
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -194,6 +196,64 @@ class TabListViewModelTest {
         val state = viewModel.uiState.first()
         assertFalse(state.showUrlDialog)
         assertNull(state.urlErrorMessage)
+    }
+
+    // --- URL open ---
+
+    /**
+     * 板URL入力が板遷移結果を返し、入力中フラグを終了することを確認する。
+     */
+    @Test
+    fun openUrlInput_returnsNavigateBoardResult() = runTest {
+        val route = AppRoute.Board(
+            boardName = "https://agree.5ch.io/operate/",
+            boardUrl = "https://agree.5ch.io/operate/",
+        )
+        coEvery { tabSessionStore.normalizeBoardRouteForNavigation(any()) } answers { firstArg() }
+
+        val result = viewModel.openUrlInput(
+            url = "https://agree.5ch.io/operate/",
+            invalidUrlMessage = "invalid",
+        )
+
+        assertEquals(UrlOpenResult.NavigateBoard(route), result)
+        assertFalse(viewModel.uiState.first().isUrlValidating)
+    }
+
+    /**
+     * スレURL入力がスレ遷移結果を返し、入力中フラグを終了することを確認する。
+     */
+    @Test
+    fun openUrlInput_returnsNavigateThreadResult() = runTest {
+        val route = AppRoute.Thread(
+            threadKey = "1234567890",
+            boardUrl = "https://agree.5ch.io/operate/",
+            boardName = "operate",
+            threadTitle = null,
+        )
+        coEvery { tabSessionStore.normalizeThreadRouteForNavigation(any()) } answers { firstArg() }
+
+        val result = viewModel.openUrlInput(
+            url = "https://agree.5ch.io/test/read.cgi/operate/1234567890/",
+            invalidUrlMessage = "invalid",
+        )
+
+        assertEquals(UrlOpenResult.NavigateThread(route), result)
+        assertFalse(viewModel.uiState.first().isUrlValidating)
+    }
+
+    /**
+     * 解決できないURL入力はエラー結果を返し、入力中フラグを終了することを確認する。
+     */
+    @Test
+    fun openUrlInput_returnsErrorForUnknownUrl() = runTest {
+        val result = viewModel.openUrlInput(
+            url = "https://example.com/unknown/",
+            invalidUrlMessage = "invalid",
+        )
+
+        assertEquals(UrlOpenResult.Error("invalid"), result)
+        assertFalse(viewModel.uiState.first().isUrlValidating)
     }
 
     // --- Pin toggle ---
