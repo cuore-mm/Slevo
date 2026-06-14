@@ -81,7 +81,7 @@ class NavigationExtensionsTest {
                     composable<AppRoute.Board> { }
                     composable<AppRoute.Thread> { }
                 }
-            )
+            , startDestinationArgs = null)
         }
     }
 
