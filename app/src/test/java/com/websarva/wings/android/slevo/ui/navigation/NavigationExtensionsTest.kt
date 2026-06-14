@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.navigation
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.ComposeNavigator
 import androidx.navigation.compose.composable
+import androidx.navigation.createGraph
 import androidx.navigation.testing.TestNavHostController
 import androidx.navigation.toRoute
 import androidx.test.core.app.ApplicationProvider
@@ -74,11 +75,13 @@ class NavigationExtensionsTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         return TestNavHostController(context).apply {
             navigatorProvider.addNavigator(ComposeNavigator())
-            setGraph(startDestination = AppRoute.RouteName.TABS) {
-                composable<AppRoute.Tabs> { }
-                composable<AppRoute.Board> { }
-                composable<AppRoute.Thread> { }
-            }
+            setGraph(
+                graph = createGraph(startDestination = AppRoute.Tabs) {
+                    composable<AppRoute.Tabs> { }
+                    composable<AppRoute.Board> { }
+                    composable<AppRoute.Thread> { }
+                }
+            )
         }
     }
 
