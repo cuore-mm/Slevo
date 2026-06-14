@@ -16,7 +16,7 @@ private val LAST_PAGE_KEY = intPreferencesKey("last_selected_page")
 
 @Singleton
 class TabsLocalDataSourceImpl @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : TabsLocalDataSource {
     override fun observeLastSelectedTabsPage(): Flow<Int> =
         context.tabsDataStore.data.map { prefs -> prefs[LAST_PAGE_KEY] ?: 0 }

@@ -16,6 +16,7 @@ espressoCore = "3.5.1"
 kotlinxCoroutinesTest = "1.10.2"
 mockk = "1.13.13"
 androidxTestCore = "1.7.0"
+navigationTesting = "2.9.8"
 robolectric = "4.16.1"
 kotlinxSerializationJson = "1.7.3"
 lifecycleRuntimeKtx = "2.6.1"
@@ -44,6 +45,7 @@ androidx-foundation = { module = "androidx.compose.foundation:foundation" }
 androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+androidx-navigation-testing = { module = "androidx.navigation:navigation-testing", version.ref = "navigationTesting" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "roomRuntime" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "roomRuntime" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "roomRuntime" }
