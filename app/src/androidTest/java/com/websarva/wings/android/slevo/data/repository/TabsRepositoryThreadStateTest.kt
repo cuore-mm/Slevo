@@ -302,8 +302,8 @@ class TabsRepositoryThreadStateTest {
      * DB 合成テストでは選択ページの永続化を使用しない。
      */
     private class FakeTabsLocalDataSource : TabsLocalDataSource {
-        override fun observeLastSelectedPage(): Flow<Int> = flowOf(0)
+        override fun observeLastSelectedTabsPage(): Flow<Int> = flowOf(0)
 
-        override suspend fun setLastSelectedPage(page: Int) = Unit
+        override suspend fun setLastSelectedTabsPage(page: Int) = Unit
     }
 }

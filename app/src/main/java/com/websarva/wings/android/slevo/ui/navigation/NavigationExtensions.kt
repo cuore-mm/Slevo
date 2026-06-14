@@ -30,10 +30,10 @@ fun NavHostController.navigateToThreadScreen(
 }
 
 /**
- * タブ選択に応じて板画面 screen を表示する。
+ * タブ選択に応じて板画面を表示する。
  *
- * 同種別 screen 上での板タブ切り替えでは navigation を積まず、
- * 別種別 screen から板 screen へ移る場合のみ現在 screen を置換する。
+ * 同種別画面上での板タブ切り替えでは navigation を積まず、
+ * 別種別画面から板画面へ移る場合のみ現在画面を置換する。
  */
 fun NavHostController.showBoardScreenForTabSelection(
     currentScreenRoute: AppRoute?,
@@ -47,10 +47,10 @@ fun NavHostController.showBoardScreenForTabSelection(
 }
 
 /**
- * タブ選択に応じてスレ画面 screen を表示する。
+ * タブ選択に応じてスレ画面を表示する。
  *
- * 同種別 screen 上でのスレタブ切り替えでは navigation を積まず、
- * 別種別 screen からスレ screen へ移る場合のみ現在 screen を置換する。
+ * 同種別画面上でのスレタブ切り替えでは navigation を積まず、
+ * 別種別画面からスレ画面へ移る場合のみ現在画面を置換する。
  */
 fun NavHostController.showThreadScreenForTabSelection(
     currentScreenRoute: AppRoute?,
@@ -64,7 +64,7 @@ fun NavHostController.showThreadScreenForTabSelection(
 }
 
 /**
- * 現在表示中 screen を別の screen で置換する。
+ * 現在表示中の画面を別の画面で置換する。
  */
 private fun NavHostController.replaceCurrentScreen(
     currentScreenRoute: AppRoute,

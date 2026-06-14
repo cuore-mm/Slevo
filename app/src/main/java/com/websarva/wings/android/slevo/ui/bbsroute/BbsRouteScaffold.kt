@@ -279,7 +279,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 navController = navController,
                 onDismissRequest = { showTabListSheet = false },
                 initialPage = initialPage,
-                currentSurfaceRoute = route,
+                currentScreenRoute = route,
             )
         }
 

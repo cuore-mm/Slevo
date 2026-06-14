@@ -124,7 +124,6 @@ class ThreadTabsCoordinatorTest {
         coordinator.selectThreadTab(threadId)
 
         assertEquals(threadId.value, coordinator.selectedThreadTabKey.value)
-        assertEquals(0, coordinator.threadCurrentPage.value)
     }
 
     /**
@@ -156,7 +155,6 @@ class ThreadTabsCoordinatorTest {
         coordinator.closeThreadTab(first)
 
         assertEquals(second.id.value, coordinator.selectedThreadTabKey.value)
-        assertEquals(0, coordinator.threadCurrentPage.value)
     }
 
     /**
@@ -179,7 +177,6 @@ class ThreadTabsCoordinatorTest {
         coordinator.closeThreadTab(tab)
 
         assertNull(coordinator.selectedThreadTabKey.value)
-        assertEquals(-1, coordinator.threadCurrentPage.value)
     }
 
     /**

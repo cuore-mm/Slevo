@@ -72,7 +72,6 @@ class ThreadTabsCoordinator @Inject constructor(
     val selectedThreadTabKey: StateFlow<String?> = _selectedThreadTabKey.asStateFlow()
 
     private val _threadCurrentPage = MutableStateFlow(-1)
-    val threadCurrentPage: StateFlow<Int> = _threadCurrentPage.asStateFlow()
 
     private val _threadPageAnimation = MutableSharedFlow<Int>(extraBufferCapacity = 1)
     val threadPageAnimation: SharedFlow<Int> = _threadPageAnimation.asSharedFlow()
@@ -188,30 +187,6 @@ class ThreadTabsCoordinator @Inject constructor(
         val id = ThreadId.of(host, board, threadKey)
         _openThreadTabs.value.find { it.id == id }?.let { tab ->
             closeThreadTab(tab)
-        }
-    }
-
-    /**
-     * 現在のページ（タブのインデックス）をセットする。
-     *
-     * 互換 API として残し、内部的には selectedThreadTabKey を更新する。
-     */
-    fun setThreadCurrentPage(page: Int) {
-        val tabs = _openThreadTabs.value
-        _selectedThreadTabKey.value = tabs.getOrNull(page)?.id?.value
-        syncThreadCurrentPageFromSelectedKey(tabs)
-    }
-
-    /**
-     * 現在ページから offset 分だけ移動する（範囲チェックあり）。
-     */
-    fun moveThreadPage(offset: Int) {
-        val tabs = _openThreadTabs.value
-        if (tabs.isEmpty()) return
-        val currentIndex = _threadCurrentPage.value.takeIf { it in tabs.indices } ?: 0
-        val targetIndex = currentIndex + offset
-        if (targetIndex in tabs.indices) {
-            setThreadCurrentPage(targetIndex)
         }
     }
 

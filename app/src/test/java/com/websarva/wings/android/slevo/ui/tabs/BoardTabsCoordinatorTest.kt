@@ -85,7 +85,6 @@ class BoardTabsCoordinatorTest {
         coordinator.selectBoardTab(tab.boardUrl)
 
         assertEquals(tab.boardUrl, coordinator.selectedBoardTabKey.value)
-        assertEquals(0, coordinator.boardCurrentPage.value)
     }
 
     /**
@@ -103,7 +102,6 @@ class BoardTabsCoordinatorTest {
         coordinator.closeBoardTab(first)
 
         assertEquals(second.boardUrl, coordinator.selectedBoardTabKey.value)
-        assertEquals(0, coordinator.boardCurrentPage.value)
     }
 
     /**
@@ -119,7 +117,6 @@ class BoardTabsCoordinatorTest {
         coordinator.closeBoardTab(tab)
 
         assertNull(coordinator.selectedBoardTabKey.value)
-        assertEquals(-1, coordinator.boardCurrentPage.value)
     }
 
     private fun createCoordinator(tabsRepository: TabsRepository): BoardTabsCoordinator {

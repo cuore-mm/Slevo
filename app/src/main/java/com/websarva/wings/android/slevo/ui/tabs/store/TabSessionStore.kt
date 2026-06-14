@@ -63,7 +63,7 @@ class TabSessionStore @Inject constructor(
     val boardPageAnimation: SharedFlow<Int> = boardTabsCoordinator.boardPageAnimation
     val threadPageAnimation: SharedFlow<Int> = threadTabsCoordinator.threadPageAnimation
 
-    val lastSelectedPage = tabsRepository.observeLastSelectedPage()
+    val lastSelectedTabsPage = tabsRepository.observeLastSelectedTabsPage()
 
     init {
         boardTabsCoordinator.bind(scope)
@@ -198,10 +198,10 @@ class TabSessionStore @Inject constructor(
         threadTabsCoordinator.togglePinThreadTab(threadId)
     }
 
-    // --- Page persistence ---
+    // --- Tabs page persistence ---
 
-    fun setLastSelectedPage(page: Int) {
-        scope.launch { tabsRepository.setLastSelectedPage(page) }
+    fun setLastSelectedTabsPage(page: Int) {
+        scope.launch { tabsRepository.setLastSelectedTabsPage(page) }
     }
 
     // --- Navigation helpers ---

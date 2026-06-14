@@ -171,6 +171,7 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.junit)
+    testImplementation("androidx.navigation:navigation-testing:2.8.9")
     testImplementation(libs.robolectric)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

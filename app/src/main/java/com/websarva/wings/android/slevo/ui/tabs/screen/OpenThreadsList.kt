@@ -44,7 +44,7 @@ fun OpenThreadsList(
     onClearNewResCount: (ThreadId) -> Unit = {},
     tabSessionStore: TabSessionStore? = null,
     isInLongPressSelectionMode: Boolean = false,
-    currentSurfaceRoute: AppRoute? = null,
+    currentScreenRoute: AppRoute? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -81,7 +81,7 @@ fun OpenThreadsList(
                         tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
                     tabSessionStore?.registerAndSelectThreadRoute(normalizedRoute)
                     navController.showThreadScreenForTabSelection(
-                        currentScreenRoute = currentSurfaceRoute,
+                        currentScreenRoute = currentScreenRoute,
                         route = normalizedRoute,
                     )
                 }

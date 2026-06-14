@@ -41,7 +41,7 @@ fun OpenBoardsList(
     onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit = { _, _ -> },
     tabSessionStore: TabSessionStore? = null,
     isInLongPressSelectionMode: Boolean = false,
-    currentSurfaceRoute: AppRoute? = null,
+    currentScreenRoute: AppRoute? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -73,7 +73,7 @@ fun OpenBoardsList(
                         tabSessionStore?.normalizeBoardRouteForNavigation(route) ?: route
                     tabSessionStore?.registerAndSelectBoardRoute(normalizedRoute)
                     navController.showBoardScreenForTabSelection(
-                        currentScreenRoute = currentSurfaceRoute,
+                        currentScreenRoute = currentScreenRoute,
                         route = normalizedRoute,
                     )
                 }

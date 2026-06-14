@@ -29,7 +29,6 @@ import javax.inject.Inject
  *   - `openBoardTabs`: 現在開かれているボードタブの一覧（StateFlow）。
  *   - `boardLoaded`: リポジトリからの初期読み込みが完了したかどうかのフラグ。
  *   - `selectedBoardTabKey`: 現在選択中の板タブ key。正規化済み boardUrl を保持する。
- *   - `boardCurrentPage`: 互換用の現在表示インデックス。selected key とタブ一覧から導出される。
  *
  * 実装ノート:
  * - `bind` で `tabsRepository` と `bookmarkBoardRepository` を combine してタブ情報を構築する。
@@ -54,9 +53,7 @@ class BoardTabsCoordinator @Inject constructor(
     private val _selectedBoardTabKey = MutableStateFlow<String?>(null)
     val selectedBoardTabKey: StateFlow<String?> = _selectedBoardTabKey.asStateFlow()
 
-    // 現在選択中のタブインデックス。互換 API 向けで、selectedBoardTabKey から導出される。
     private val _boardCurrentPage = MutableStateFlow(-1)
-    val boardCurrentPage: StateFlow<Int> = _boardCurrentPage.asStateFlow()
 
     // ページ遷移用のアニメーションイベント。オフセットではなくターゲットインデックスを送る。
     private val _boardPageAnimation = MutableSharedFlow<Int>(extraBufferCapacity = 1)
@@ -201,30 +198,6 @@ class BoardTabsCoordinator @Inject constructor(
             }
         }
         saveBoardTabs()
-    }
-
-    /**
-     * 現在のページを直接セットする。
-     *
-     * 互換 API として残し、内部的には selectedBoardTabKey を更新する。
-     */
-    fun setBoardCurrentPage(page: Int) {
-        val tabs = _openBoardTabs.value
-        _selectedBoardTabKey.value = tabs.getOrNull(page)?.boardUrl
-        syncBoardCurrentPageFromSelectedKey(tabs)
-    }
-
-    /**
-     * offset 分だけページを移動する（範囲外なら無視）。
-     */
-    fun moveBoardPage(offset: Int) {
-        val tabs = _openBoardTabs.value
-        if (tabs.isEmpty()) return
-        val currentIndex = _boardCurrentPage.value.takeIf { it in tabs.indices } ?: 0
-        val targetIndex = currentIndex + offset
-        if (targetIndex in tabs.indices) {
-            setBoardCurrentPage(targetIndex)
-        }
     }
 
     /**

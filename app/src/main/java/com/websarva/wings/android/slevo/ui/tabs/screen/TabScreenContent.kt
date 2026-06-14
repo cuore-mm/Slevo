@@ -85,7 +85,7 @@ fun TabScreenContent(
     closeDrawer: () -> Unit,
     initialPage: Int = 0,
     onPageChanged: (Int) -> Unit = {},
-    currentSurfaceRoute: AppRoute? = null,
+    currentScreenRoute: AppRoute? = null,
 ) {
     val openBoardTabs by tabSessionStore.openBoardTabs.collectAsStateWithLifecycle()
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsStateWithLifecycle()
@@ -249,7 +249,7 @@ fun TabScreenContent(
                         onCloseRequestConsumed = { tabListViewModel.consumePendingCloseRequest() },
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = listUiState.isInLongPressSelectionMode,
-                        currentSurfaceRoute = currentSurfaceRoute,
+                        currentScreenRoute = currentScreenRoute,
                     )
                 }
             }
@@ -330,7 +330,7 @@ fun TabScreenContent(
                                 is UrlOpenResult.NavigateBoard -> {
                                     tabSessionStore.registerAndSelectBoardRoute(result.route)
                                     navController.showBoardScreenForTabSelection(
-                                        currentScreenRoute = currentSurfaceRoute,
+                                        currentScreenRoute = currentScreenRoute,
                                         route = result.route,
                                     )
                                     closeDrawer()
@@ -339,7 +339,7 @@ fun TabScreenContent(
                                 is UrlOpenResult.NavigateThread -> {
                                     tabSessionStore.registerAndSelectThreadRoute(result.route)
                                     navController.showThreadScreenForTabSelection(
-                                        currentScreenRoute = currentSurfaceRoute,
+                                        currentScreenRoute = currentScreenRoute,
                                         route = result.route,
                                     )
                                     closeDrawer()

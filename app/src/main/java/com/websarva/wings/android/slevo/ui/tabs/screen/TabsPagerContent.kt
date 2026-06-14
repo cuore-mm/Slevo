@@ -76,7 +76,7 @@ fun TabsPagerContent(
     onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit,
     onClearNewResCount: (ThreadId) -> Unit,
     isInLongPressSelectionMode: Boolean = false,
-    currentSurfaceRoute: AppRoute? = null,
+    currentScreenRoute: AppRoute? = null,
 ) {
     HorizontalPager(
         state = pagerState,
@@ -104,7 +104,7 @@ fun TabsPagerContent(
                         onBoardTabLongPressed = onBoardTabLongPressed,
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
-                        currentSurfaceRoute = currentSurfaceRoute,
+                        currentScreenRoute = currentScreenRoute,
                     )
                 },
                 searchResultContent = {
@@ -150,7 +150,7 @@ fun TabsPagerContent(
                         onClearNewResCount = onClearNewResCount,
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
-                        currentSurfaceRoute = currentSurfaceRoute,
+                        currentScreenRoute = currentScreenRoute,
                     )
                 },
                 searchResultContent = {

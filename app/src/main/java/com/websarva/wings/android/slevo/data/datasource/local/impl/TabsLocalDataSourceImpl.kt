@@ -18,13 +18,12 @@ private val LAST_PAGE_KEY = intPreferencesKey("last_selected_page")
 class TabsLocalDataSourceImpl @Inject constructor(
     @ApplicationContext private val context: Context
 ) : TabsLocalDataSource {
-    override fun observeLastSelectedPage(): Flow<Int> =
+    override fun observeLastSelectedTabsPage(): Flow<Int> =
         context.tabsDataStore.data.map { prefs -> prefs[LAST_PAGE_KEY] ?: 0 }
 
-    override suspend fun setLastSelectedPage(page: Int) {
+    override suspend fun setLastSelectedTabsPage(page: Int) {
         context.tabsDataStore.edit { prefs ->
             prefs[LAST_PAGE_KEY] = page
         }
     }
 }
-

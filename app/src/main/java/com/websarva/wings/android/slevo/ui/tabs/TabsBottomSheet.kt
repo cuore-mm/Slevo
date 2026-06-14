@@ -22,7 +22,7 @@ fun TabsBottomSheet(
     navController: NavHostController,
     onDismissRequest: () -> Unit,
     initialPage: Int = 0,
-    currentSurfaceRoute: AppRoute? = null,
+    currentScreenRoute: AppRoute? = null,
 ) {
     val tabListViewModel: TabListViewModel = hiltViewModel()
     SlevoBottomSheet(
@@ -45,7 +45,7 @@ fun TabsBottomSheet(
                 onDismissRequest()
             },
             initialPage = initialPage,
-            currentSurfaceRoute = currentSurfaceRoute,
+            currentScreenRoute = currentScreenRoute,
         )
     }
 }
