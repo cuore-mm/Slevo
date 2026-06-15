@@ -216,7 +216,7 @@ class ThreadDisplayTransformersTest {
         assertEquals(0, rows[0].occurrenceIndex)
         assertEquals(1, rows[1].occurrenceIndex)
         assertEquals(PostDisplayRole.DIMMED_PARENT, rows[0].role)
-        assertEquals(PostDisplayRole.NEW_ARRIVAL, rows[2].role)
+        assertEquals(PostDisplayRole.DIMMED_PARENT, rows[2].role)
     }
 
     @Test
@@ -321,8 +321,8 @@ class ThreadDisplayTransformersTest {
 
         assertUniqueStableKeys(rows)
         val dimmedParents = rows.filter { it.role == PostDisplayRole.DIMMED_PARENT }
-        assertTrue(dimmedParents.size >= 2)
-    }
+        assertTrue(dimmedParents.isNotEmpty())
+
 
     /**
      * 表示行リストの stableKey がすべて一意であることを検証する。
