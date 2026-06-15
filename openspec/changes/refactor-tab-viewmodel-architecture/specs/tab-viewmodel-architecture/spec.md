@@ -33,6 +33,21 @@
 - **WHEN** 板画面 route の ViewModel が選択中板タブを表示する
 - **THEN** システムは Repository または UseCase から取得した板スレ一覧とタブセッション状態を合成して `BoardUiState` を生成する
 
+### Requirement: Pager composition 範囲に基づく UiState 購読
+システムは Pager の全タブ分の完全な `UiState` を常時合成してはならないMUST NOT。Pager が composition しているページだけが対象タブ key の `UiState` を購読し、composition から外れたページの重い合成処理は購読停止により停止できなければならないMUST。
+
+#### Scenario: Pager が隣接ページを compose する
+- **WHEN** Compose Pager が表示中ページまたは offscreen page を composition に含める
+- **THEN** システムはそのページの tab key に対応する `UiState` Flow だけを購読する
+
+#### Scenario: Pager がページを composition から外す
+- **WHEN** Compose Pager が非表示ページを composition から外す
+- **THEN** システムは対象 tab key の `UiState` 購読を停止し、Repository cache やタブセッション状態を除く重い表示合成を継続しない
+
+#### Scenario: 多数のタブを開く
+- **WHEN** ユーザーが多数の板タブまたはスレッドタブを開く
+- **THEN** システムは開いている全タブ分の完全な `UiState` を常時 combine せず、Pager が必要とするページ範囲に合成対象を限定する
+
 ### Requirement: 独自 ViewModel registry 依存の削減
 システムはタブ単位の ViewModel キャッシュをアプリ状態の正本として使用してはならないMUST NOT。既存互換のために registry を一時的に残す場合でも、タブ削除や画面破棄の正しい挙動はタブセッション状態と Android 標準の ViewModel ライフサイクルで表現されなければならないMUST。
 

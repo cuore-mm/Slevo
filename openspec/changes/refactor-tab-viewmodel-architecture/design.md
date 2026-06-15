@@ -55,10 +55,19 @@
 
 一括置換は差分が大きく、スクロール復元・新着同期・投稿ダイアログなどの退行リスクが高いため採用しない。
 
+### Decision 6: Pager の composition 範囲に UiState 購読を委譲する
+
+Pager の offscreen page をアプリ側で `previous/current/next` として明示管理せず、Compose Pager が composition するページだけが対象タブ key の `UiState` を購読する構造にする。route-level ViewModel は `observeUiState(tabKey)` または `uiStateFor(tabKey)` のような tab key 指定 API を提供し、全 open tabs 分の `UiState` を常時 combine しない。
+
+Flow は tab key ごとに遅延生成し、必要に応じて ViewModel 内で再利用してよい。ただし `SharingStarted.WhileSubscribed` 相当の購読中のみ動く共有方式を使い、Pager が composition から外したページの重い合成処理が継続しないようにする。Repository cache や軽量 summary の保持は許容するが、完全な `UiState` の常時合成は表示中・composition 中ページに限定する。
+
+代替案としてアプリ側で隣接ページを管理して先読みする案もあるが、Pager の offscreen policy と二重管理になりやすく、UI 層の composition 範囲と ViewModel の合成範囲がずれるため採用しない。性能問題が確認された場合のみ、Repository cache の先読みや小さな LRU cache を追加する。
+
 ## Risks / Trade-offs
 
 - [Risk] 非表示タブの UI セッション状態が失われる → `TabSessionStore` にタブ固有状態を移し、タブ切替・画面離脱・タブ削除の各タイミングで保存を検証する。
-- [Risk] 選択中タブのみ合成すると隣接 Pager ページの表示が遅れる → Pager 表示範囲のタブ key について必要な `UiState` を軽量に合成するか、Repository キャッシュを活用して初回表示遅延を抑える。
+- [Risk] Pager が compose したページごとに `UiState` Flow を作ることで Flow 生成が頻発する → tab key ごとの Flow 定義を再利用し、購読がなくなったら重い合成が止まる共有方式を使う。
+- [Risk] 完全な `UiState` を表示直前まで合成しないことで初回表示が遅れる → Repository cache や軽量 summary を活用し、必要になった場合だけ限定的な LRU cache を追加する。
 - [Risk] `ThreadViewModel` 分割中に既存挙動が壊れる → UseCase 抽出ごとに既存ユニットテストを追加し、移行中は互換 API を残す。
 - [Risk] 自動更新やバックグラウンド更新の責務が曖昧になる → 更新ポリシーを route-level ViewModel ではなく UseCase / coordinator に置き、表示中タブと一括更新のトリガーを明示する。
 - [Risk] `UiState` から正本状態を削ることで Compose 側の参照が大きく変わる → まず `UiState` のフィールドを読み取り専用の合成結果として維持し、内部の供給元だけを段階的に置き換える。
@@ -68,14 +77,13 @@
 1. 現状の `ThreadUiState` / `BoardUiState` と `ThreadTabInfo` / `BoardTabInfo` の重複項目を棚卸しし、正本を `TabSessionStore`、Repository、ViewModel 合成結果に分類する。
 2. `ThreadSessionState` / `BoardSessionState` 相当のタブ固有状態モデルを導入し、検索・表示モード・ポップアップ・ダイアログ下書きなどを移せる受け皿を作る。
 3. スレッド表示行生成、NG・検索適用、新着計算、板スレ一覧変換を UseCase / coordinator として切り出し、既存 ViewModel から利用する。
-4. route-level ViewModel を導入し、選択中タブ key とセッション状態を購読して `UiState` を生成する。
-5. `BbsRouteScaffold` のページ生成を per-tab ViewModel 取得から、タブ key と route-level ViewModel の状態参照へ切り替える。
+4. route-level ViewModel を導入し、tab key 指定で `UiState` Flow を遅延提供できる API を追加する。
+5. `BbsRouteScaffold` のページ生成を per-tab ViewModel 取得から、Pager が compose したページごとに tab key 指定 `UiState` Flow を購読する構造へ切り替える。
 6. `TabViewModelRegistry`、`BaseViewModel.release()`、per-tab ViewModel factory 依存を削除または互換層として縮小する。
 7. スクロール復元、タブ切替、新着表示、更新、投稿ダイアログ、検索、ポップアップの回帰テストを追加・更新する。
 
 ## Open Questions
 
 - 非表示タブの検索クエリやポップアップスタックを永続化するか、プロセス内セッション状態に限定するか。
-- Pager の offscreen page に対して完全な `UiState` を常時合成するか、表示直前に合成するか。
 - 自動更新を「表示中タブのみ」「開いている全タブ」「ユーザー操作時のみ」のどの粒度で扱うか。
 - 既存の `ThreadTabInfo` / `BoardTabInfo` にセッション状態を追加するか、新しい Session State モデルを分けるか。

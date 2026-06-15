@@ -21,15 +21,18 @@
 
 - [ ] 4.1 板画面 route 単位の ViewModel が選択中板タブ key、`BoardSessionState`、Repository / UseCase、Settings、NG、Bookmark を合成して `BoardUiState` を公開するようにする
 - [ ] 4.2 スレッド画面 route 単位の ViewModel が選択中スレッドタブ key、`ThreadSessionState`、Repository / UseCase、Settings、NG、Bookmark、既読状態を合成して `ThreadUiState` を公開するようにする
-- [ ] 4.3 選択中タブ key が変わっても ViewModel を再生成せず、同じ route ViewModel で表示状態を再合成することを確認する
-- [ ] 4.4 refresh / reload が ViewModel 再生成ではなく対象タブ key のデータ更新として動作するようにする
+- [ ] 4.3 route 単位 ViewModel に tab key 指定の `observeUiState` / `uiStateFor` 相当 API を追加し、要求された tab key の `UiState` Flow を遅延生成・再利用できるようにする
+- [ ] 4.4 `UiState` Flow の共有方式を購読中のみ動作する形にし、composition から外れたタブの重い合成が継続しないことを確認する
+- [ ] 4.5 選択中タブ key が変わっても ViewModel を再生成せず、同じ route ViewModel で表示状態を再合成することを確認する
+- [ ] 4.6 refresh / reload が ViewModel 再生成ではなく対象タブ key のデータ更新として動作するようにする
 
 ## 5. Scaffold / Pager の接続変更
 
 - [ ] 5.1 `BbsRouteScaffold` が Pager ページごとに `getOrCreateBoardViewModel` / `getOrCreateThreadViewModel` を呼ばない構造へ変更する
-- [ ] 5.2 Pager ページはタブ key と route-level ViewModel の合成状態を参照して描画するようにする
-- [ ] 5.3 スクロール位置保存・復元が Session State を通じて従来通り動くことを確認する
-- [ ] 5.4 タブ一覧シート、横スワイプ、別種別タブ選択で navigation back stack と selected key の既存挙動が維持されることを確認する
+- [ ] 5.2 Pager ページは自身が compose されたタイミングで tab key 指定の `UiState` Flow を購読し、アプリ側で previous/current/next を明示管理しない構造にする
+- [ ] 5.3 全 open tabs 分の完全な `UiState` を ViewModel 側で常時 combine していないことを確認する
+- [ ] 5.4 スクロール位置保存・復元が Session State を通じて従来通り動くことを確認する
+- [ ] 5.5 タブ一覧シート、横スワイプ、別種別タブ選択で navigation back stack と selected key の既存挙動が維持されることを確認する
 
 ## 6. per-tab ViewModel registry の縮小・削除
 
