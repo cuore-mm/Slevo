@@ -73,7 +73,7 @@ data class ThreadUiState(
     val headerTextScale: Float = 0.85f,
     val bodyTextScale: Float = 1f,
     val lineHeight: Float = DEFAULT_THREAD_LINE_HEIGHT,
-    val visiblePosts: List<DisplayPost> = emptyList(),
+    val visiblePostRows: List<ThreadListItem.PostRow> = emptyList(),
     val replyCounts: List<Int> = emptyList(),
     val firstAfterIndex: Int = -1,
     override val gestureSettings: GestureSettings = GestureSettings.DEFAULT,

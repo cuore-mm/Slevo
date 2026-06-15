@@ -40,6 +40,7 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDial
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadListItem
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
@@ -838,6 +839,7 @@ class ThreadViewModel @AssistedInject constructor(
      * グループ情報から表示対象の投稿リストを組み立てる。
      *
      * 最新グループにのみ isAfter を付与し、新着バー表示位置の基準とする。
+     * 戻り値は (groupIndex, DisplayPost) のペアで、key 生成時に groupIndex を使えるようにする。
      */
     private fun buildGroupedDisplayPosts(
         posts: List<ThreadPostUiModel>,
@@ -847,9 +849,9 @@ class ThreadViewModel @AssistedInject constructor(
         treeDepthMap: Map<Int, Int>,
         treeRootMap: Map<Int, Int>,
         latestArrivalGroupIndex: Int?
-    ): List<DisplayPost> {
+    ): List<Pair<Int, DisplayPost>> {
         // --- グループ毎の変換 ---
-        val result = mutableListOf<DisplayPost>()
+        val result = mutableListOf<Pair<Int, DisplayPost>>()
         groups.forEachIndexed { index, group ->
             val endResNo = group.endResNo.coerceAtMost(posts.size)
             if (endResNo <= 0 || group.startResNo > endResNo) {
@@ -876,7 +878,7 @@ class ThreadViewModel @AssistedInject constructor(
             val adjusted = groupPosts.map { post ->
                 post.copy(isAfter = markAsAfter)
             }
-            result.addAll(adjusted)
+            result.addAll(adjusted.map { index to it })
         }
         return result
     }
@@ -901,7 +903,7 @@ class ThreadViewModel @AssistedInject constructor(
         val query = uiState.value.searchQuery.toHiragana()
         val filteredPosts = if (query.isNotBlank()) {
             groupedPosts.filter {
-                it.post.body.content.toHiragana().contains(
+                it.second.post.body.content.toHiragana().contains(
                     query,
                     ignoreCase = true
                 )
@@ -910,14 +912,16 @@ class ThreadViewModel @AssistedInject constructor(
             groupedPosts
         }
         // --- NGフィルタ ---
-        val visiblePosts = filteredPosts.filterNot { it.num in uiState.value.ngPostNumbers }
+        val visibleGroupedPosts = filteredPosts.filterNot { it.second.num in uiState.value.ngPostNumbers }
+        // --- 最終表示行に変換 ---
+        val visiblePostRows = buildThreadListPostRows(visibleGroupedPosts)
         // --- 返信数と新着位置 ---
-        val replyCounts = visiblePosts.map { p -> uiState.value.replySourceMap[p.num]?.size ?: 0 }
-        val firstAfterIndex = visiblePosts.indexOfFirst { it.isAfter }
+        val replyCounts = visiblePostRows.map { p -> uiState.value.replySourceMap[p.displayPost.num]?.size ?: 0 }
+        val firstAfterIndex = visiblePostRows.indexOfFirst { it.displayPost.isAfter }
 
         _uiState.update {
             it.copy(
-                visiblePosts = visiblePosts,
+                visiblePostRows = visiblePostRows,
                 replyCounts = replyCounts,
                 firstAfterIndex = firstAfterIndex
             )

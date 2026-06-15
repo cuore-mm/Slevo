@@ -104,10 +104,10 @@ fun ThreadScreen(
 
     // 投稿一覧（nullの場合は空リスト）
     val posts = uiState.posts ?: emptyList()
-    // 表示対象の投稿（フィルタ済み）
-    val visiblePosts = uiState.visiblePosts
+    // 表示対象の投稿行（フィルタ済み）
+    val visiblePostRows = uiState.visiblePostRows
     // 表示用の投稿データ（ReplyInfo型）
-    val displayPosts = visiblePosts.map { it.post }
+    val displayPosts = visiblePostRows.map { it.displayPost.post }
     // 各投稿の返信数
     val replyCounts = uiState.replyCounts
     // 新着バーを表示するインデックス
@@ -148,7 +148,7 @@ fun ThreadScreen(
 
     ObserveLastReadEffect(
         listState = listState,
-        visiblePosts = visiblePosts,
+        visiblePostRows = visiblePostRows,
         sortType = uiState.sortType,
         totalPostCount = posts.size,
         onLastRead = onLastRead,
@@ -157,7 +157,7 @@ fun ThreadScreen(
     ObserveAutoScrollEffect(
         listState = listState,
         isAutoScroll = uiState.isAutoScroll,
-        fallbackItemCount = visiblePosts.size,
+        fallbackItemCount = visiblePostRows.size,
         onAutoScrollBottom = onAutoScrollBottom,
     )
 
@@ -204,7 +204,7 @@ fun ThreadScreen(
                         executeGestureScrollAction(
                             action = action,
                             listState = listState,
-                            fallbackItemCount = visiblePosts.size,
+                            fallbackItemCount = visiblePostRows.size,
                         )
                     }
                 } else {
@@ -215,7 +215,7 @@ fun ThreadScreen(
         val lazyColumnContent: LazyListScope.() -> Unit = {
             threadPostListContent(
                 uiState = uiState,
-                visiblePosts = visiblePosts,
+                visiblePostRows = visiblePostRows,
                 firstAfterIndex = firstAfterIndex,
                 popupStack = popupStack,
                 containerWidth = with(density) { listSize.width.toDp() },

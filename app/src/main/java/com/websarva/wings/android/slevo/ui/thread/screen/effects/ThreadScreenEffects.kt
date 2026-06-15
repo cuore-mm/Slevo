@@ -21,7 +21,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.ui.common.scroll.resolveBottomTargetIndex
-import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadListItem
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -33,13 +33,13 @@ import kotlin.math.min
 @Composable
 fun ObserveLastReadEffect(
     listState: LazyListState,
-    visiblePosts: List<DisplayPost>,
+    visiblePostRows: List<ThreadListItem.PostRow>,
     sortType: ThreadSortType,
     totalPostCount: Int,
     onLastRead: (Int) -> Unit,
 ) {
     // --- Scroll end observation ---
-    LaunchedEffect(listState, visiblePosts, sortType, totalPostCount) {
+    LaunchedEffect(listState, visiblePostRows, sortType, totalPostCount) {
         snapshotFlow { listState.isScrollInProgress }
             .collect { scrolling ->
                 if (!scrolling) {
@@ -54,11 +54,11 @@ fun ObserveLastReadEffect(
                                 .filter { it.offset < half }
                                 .mapNotNull { info ->
                                     val idx = info.index - 1
-                                    if (idx !in visiblePosts.indices) {
+                                    if (idx !in visiblePostRows.indices) {
                                         // Guard: ヘッダー行など投稿インデックス外は除外する。
                                         return@mapNotNull null
                                     }
-                                    val display = visiblePosts[idx]
+                                    val display = visiblePostRows[idx].displayPost
                                     if (sortType != ThreadSortType.TREE || display.depth == 0) {
                                         display.num
                                     } else {

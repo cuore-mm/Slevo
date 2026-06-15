@@ -20,11 +20,10 @@ import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
 import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
 import com.websarva.wings.android.slevo.ui.thread.res.PostItem
-import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadListItem
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.buildThreadListItemKey
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.screen.resolvePopupBaseOffset
@@ -39,7 +38,7 @@ import com.websarva.wings.android.slevo.ui.thread.calculateTreeIndentWidths
 @OptIn(ExperimentalSharedTransitionApi::class)
 fun LazyListScope.threadPostListContent(
     uiState: ThreadUiState,
-    visiblePosts: List<DisplayPost>,
+    visiblePostRows: List<ThreadListItem.PostRow>,
     firstAfterIndex: Int,
     popupStack: List<PopupInfo>,
     containerWidth: Dp,
@@ -64,16 +63,16 @@ fun LazyListScope.threadPostListContent(
     // --- Tree indent calculation ---
     val indentWidths = if (uiState.sortType == ThreadSortType.TREE) {
         calculateTreeIndentWidths(
-            depths = visiblePosts.map { it.depth },
-            rootNumbers = visiblePosts.map { it.rootNumber },
+            depths = visiblePostRows.map { it.displayPost.depth },
+            rootNumbers = visiblePostRows.map { it.displayPost.rootNumber },
             containerWidth = containerWidth,
         )
     } else {
-        List(visiblePosts.size) { 0.dp }
+        List(visiblePostRows.size) { 0.dp }
     }
 
     // --- Header divider ---
-    if (visiblePosts.isNotEmpty()) {
+    if (visiblePostRows.isNotEmpty()) {
         val firstIndent = if (uiState.sortType == ThreadSortType.TREE) {
             indentWidths.firstOrNull() ?: 0.dp
         } else {
@@ -86,9 +85,10 @@ fun LazyListScope.threadPostListContent(
 
     // --- Post rows ---
     itemsIndexed(
-        items = visiblePosts,
-        key = { _, display -> buildThreadListItemKey(display) },
-    ) { idx, display ->
+        items = visiblePostRows,
+        key = { _, row -> row.stableKey },
+    ) { idx, row ->
+        val display = row.displayPost
         val postNum = display.num
         val post = display.post
         val index = postNum - 1
@@ -97,7 +97,7 @@ fun LazyListScope.threadPostListContent(
         } else {
             0.dp
         }
-        val nextIndent = if (idx + 1 < visiblePosts.size && uiState.sortType == ThreadSortType.TREE) {
+        val nextIndent = if (idx + 1 < visiblePostRows.size && uiState.sortType == ThreadSortType.TREE) {
             indentWidths.getOrElse(idx + 1) { 0.dp }
         } else {
             0.dp
