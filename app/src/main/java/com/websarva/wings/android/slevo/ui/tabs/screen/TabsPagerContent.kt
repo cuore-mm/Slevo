@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListAnimationDefaults
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListLayoutDefaults
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -75,6 +76,7 @@ fun TabsPagerContent(
     onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit,
     onClearNewResCount: (ThreadId) -> Unit,
     isInLongPressSelectionMode: Boolean = false,
+    currentScreenRoute: AppRoute? = null,
 ) {
     HorizontalPager(
         state = pagerState,
@@ -102,6 +104,7 @@ fun TabsPagerContent(
                         onBoardTabLongPressed = onBoardTabLongPressed,
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
+                        currentScreenRoute = currentScreenRoute,
                     )
                 },
                 searchResultContent = {
@@ -147,6 +150,7 @@ fun TabsPagerContent(
                         onClearNewResCount = onClearNewResCount,
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
+                        currentScreenRoute = currentScreenRoute,
                     )
                 },
                 searchResultContent = {

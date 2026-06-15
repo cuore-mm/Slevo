@@ -4,7 +4,6 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
@@ -44,7 +43,7 @@ import com.websarva.wings.android.slevo.ui.common.InfoActionButton
 import com.websarva.wings.android.slevo.ui.common.InfoBottomSheetContent
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
+import com.websarva.wings.android.slevo.ui.navigation.navigateToBoardScreen
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.util.ExternalBrowserUtil
@@ -104,10 +103,8 @@ fun ThreadInfoBottomSheet(
                             boardName = boardInfo.name,
                             boardUrl = boardInfo.url
                         )
-                        navController.navigateToBoard(
-                            route = route,
-                            tabSessionStore = tabSessionStore,
-                        )
+                        tabSessionStore?.registerAndSelectBoardRoute(route)
+                        navController.navigateToBoardScreen(route)
                         onDismissRequest()
                     }
                 },

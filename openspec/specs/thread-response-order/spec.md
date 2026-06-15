@@ -37,6 +37,8 @@ TBD - created by archiving change update-thread-response-order. Update Purpose a
 ### Requirement: スレッド一覧の表示キー一意性
 システムは、THREAD画面のレス一覧を描画する際、同一更新セッション内で同じレス番号が複数回表示される場合でも、`LazyColumn` の各表示行に一意なキーを割り当てなければならない（SHALL）。
 この要件は TREE 表示および NUMBER 表示の両方に適用されなければならない（SHALL）。
+投稿行のキーは、レス番号だけでなく、表示ロール、更新グループ、同一文脈内の出現位置を含む表示行 identity から生成されなければならない（SHALL）。
+システムは、投稿の表示属性を表す中間モデルと、`LazyColumn` に渡す最終表示行モデルを分離し、最終表示行モデルが stable key を提供しなければならない（SHALL）。
 
 #### Scenario: TREE表示で複数更新グループがある場合もキーが重複しない
 - **WHEN** TREE表示でスレッドを複数回更新し、既存レスと新着グループの組み合わせにより同一レス番号が一覧内へ再登場する
@@ -45,4 +47,12 @@ TBD - created by archiving change update-thread-response-order. Update Purpose a
 #### Scenario: キー重複が発生しないためクラッシュしない
 - **WHEN** ユーザーがTHREAD画面を開いたまま更新を繰り返す
 - **THEN** `Key "..." was already used` に起因する `IllegalArgumentException` は発生しない
+
+#### Scenario: 同じレス番号のdimmed親行が複数グループに出現する
+- **WHEN** TREE表示で同じ親レスが複数の新着グループに dimmed 親行として挿入される
+- **THEN** それぞれの dimmed 親行は更新グループを含む別々の stable key を持つ
+
+#### Scenario: 表示属性モデルと最終表示行モデルを分離する
+- **WHEN** システムが投稿一覧を THREAD 画面の LazyColumn 用リストへ変換する
+- **THEN** 投稿の表示属性は中間モデルで表現され、LazyColumn の key は最終表示行モデルの stable key から取得される
 

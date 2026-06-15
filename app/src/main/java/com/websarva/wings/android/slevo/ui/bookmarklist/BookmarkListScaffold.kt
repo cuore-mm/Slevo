@@ -27,8 +27,8 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.common.SelectedTopBarScreen
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.navigation.navigateToBoardScreen
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadScreen
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import kotlinx.coroutines.launch
 
@@ -97,10 +97,8 @@ fun BookmarkListScaffold(
                             boardUrl = board.url
                         )
                     )
-                    navController.navigateToBoard(
-                        route = route,
-                        tabSessionStore = tabSessionStore,
-                    )
+                    tabSessionStore.registerAndSelectBoardRoute(route)
+                    navController.navigateToBoardScreen(route)
                 }
             },
             threadGroups = uiState.groupedThreadBookmarks,
@@ -116,10 +114,8 @@ fun BookmarkListScaffold(
                             resCount = thread.resCount
                         )
                     )
-                    navController.navigateToThread(
-                        route = route,
-                        tabSessionStore = tabSessionStore,
-                    )
+                    tabSessionStore.registerAndSelectThreadRoute(route)
+                    navController.navigateToThreadScreen(route)
                 }
             },
             selectMode = uiState.selectMode,

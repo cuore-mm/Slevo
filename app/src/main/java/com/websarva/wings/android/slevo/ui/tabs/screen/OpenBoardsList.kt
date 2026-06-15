@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
+import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.component.RemovableTabList
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -41,6 +41,7 @@ fun OpenBoardsList(
     onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit = { _, _ -> },
     tabSessionStore: TabSessionStore? = null,
     isInLongPressSelectionMode: Boolean = false,
+    currentScreenRoute: AppRoute? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -70,12 +71,11 @@ fun OpenBoardsList(
                 coroutineScope.launch {
                     val normalizedRoute =
                         tabSessionStore?.normalizeBoardRouteForNavigation(route) ?: route
-                    navController.navigateToBoard(
+                    tabSessionStore?.registerAndSelectBoardRoute(normalizedRoute)
+                    navController.showBoardScreenForTabSelection(
+                        currentScreenRoute = currentScreenRoute,
                         route = normalizedRoute,
-                        tabSessionStore = tabSessionStore,
-                    ) {
-                        restoreState = true
-                    }
+                    )
                 }
             },
             onLongPress = { bounds ->

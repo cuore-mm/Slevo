@@ -42,7 +42,7 @@ import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGest
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadScreen
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
@@ -75,8 +75,8 @@ fun ThreadScaffold(
 ) {
     val threadLoaded by tabSessionStore.threadLoaded.collectAsState()
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsState()
+    val selectedThreadTabKey by tabSessionStore.selectedThreadTabKey.collectAsState()
     val context = LocalContext.current
-    val currentPage by tabSessionStore.threadCurrentPage.collectAsState()
     var isPopupVisible by remember { mutableStateOf(false) }
     val popupDialogState = rememberPostItemDialogState()
     var popupMenuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
@@ -88,6 +88,10 @@ fun ThreadScaffold(
 
     LaunchedEffect(threadRoute, threadLoaded) {
         if (!threadLoaded) {
+            return@LaunchedEffect
+        }
+        // route 引数は初期化入力・placeholder として扱い、既に有効な選択中タブがある場合は上書きしない。
+        if (selectedThreadTabKey != null && openThreadTabs.any { it.id.value == selectedThreadTabKey }) {
             return@LaunchedEffect
         }
         val info = tabSessionStore.resolveBoardInfo(
@@ -107,7 +111,7 @@ fun ThreadScaffold(
             )
         )
         if (index >= 0) {
-            tabSessionStore.setThreadCurrentPage(index)
+            tabSessionStore.selectThreadTab(routeThreadId)
         }
     }
 
@@ -118,7 +122,7 @@ fun ThreadScaffold(
         isTabsLoaded = threadLoaded,
         onEmptyTabs = { navController.navigateUp() },
         openTabs = openThreadTabs,
-        currentRoutePredicate = { routeThreadId != null && it.id == routeThreadId },
+        selectedTabKey = selectedThreadTabKey,
         getViewModel = { tab -> tabSessionStore.getOrCreateThreadViewModel(tab.id.value) },
         getKey = { it.id.value },
         getScrollIndex = { it.firstVisibleItemIndex },
@@ -137,8 +141,7 @@ fun ThreadScaffold(
         updateScrollPosition = { viewModel, tab, index, offset ->
             viewModel.updateThreadScrollPosition(tab.id, index, offset)
         },
-        currentPage = currentPage,
-        onPageChange = { tabSessionStore.setThreadCurrentPage(it) },
+        onTabSelected = { tabSessionStore.selectThreadTab(it.id) },
         animateToPageFlow = tabSessionStore.threadPageAnimation,
         bottomBarActionVisibilityEnabled = !isPopupVisible,
         bottomBar = { viewModel, uiState, actionProgress, openTabListSheet ->
@@ -316,10 +319,8 @@ fun ThreadScaffold(
                 onThreadUrlClick = { route ->
                     coroutineScope.launch {
                         val normalizedRoute = tabSessionStore.normalizeThreadRouteForNavigation(route)
-                        navController.navigateToThread(
-                            route = normalizedRoute,
-                            tabSessionStore = tabSessionStore,
-                        )
+                        tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
+                        navController.navigateToThreadScreen(normalizedRoute)
                     }
                 },
                 onImageClick = { _, imageUrls, tappedIndex, transitionNamespace ->

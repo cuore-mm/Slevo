@@ -1,6 +1,8 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
+import com.websarva.wings.android.slevo.ui.thread.state.PostDisplayRole
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadListItem
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import java.text.SimpleDateFormat
@@ -341,12 +343,35 @@ internal fun buildGroupDisplayPosts(
 }
 
 /**
- * スレッド一覧の表示行キーを生成する。
+ * グループ付きの表示用投稿リストから、LazyColumn 用の投稿行リストを生成する。
  *
- * 同一レス番号の再登場があっても、表示上の役割を含めてキー重複を防ぐ。
+ * 同一レス番号が複数の更新グループや表示ロールで再登場しても、
+ * stableKey が重複しないよう (groupIndex, role, num, occurrenceIndex) から key を生成する。
  */
-internal fun buildThreadListItemKey(displayPost: DisplayPost): String {
-    return "${displayPost.num}_${displayPost.dimmed}_${displayPost.isAfter}_${displayPost.depth}"
+internal fun buildThreadListPostRows(
+    groupedPosts: List<Pair<Int, DisplayPost>>
+): List<ThreadListItem.PostRow> {
+    // --- 同一文脈内での出現順をカウントする ---
+    val occurrenceCounts = mutableMapOf<Triple<Int, PostDisplayRole, Int>, Int>()
+
+    return groupedPosts.map { (groupIndex, displayPost) ->
+        val role = when {
+            displayPost.dimmed -> PostDisplayRole.DIMMED_PARENT
+            displayPost.isAfter -> PostDisplayRole.NEW_ARRIVAL
+            else -> PostDisplayRole.NORMAL
+        }
+        val occurrenceKey = Triple(groupIndex, role, displayPost.num)
+        val occurrenceIndex = occurrenceCounts.getOrDefault(occurrenceKey, 0)
+        occurrenceCounts[occurrenceKey] = occurrenceIndex + 1
+
+        ThreadListItem.PostRow(
+            displayPost = displayPost,
+            groupIndex = groupIndex,
+            role = role,
+            occurrenceIndex = occurrenceIndex,
+            stableKey = "post_${displayPost.num}_${role.name}_group_${groupIndex}_occ_${occurrenceIndex}",
+        )
+    }
 }
 
 /**

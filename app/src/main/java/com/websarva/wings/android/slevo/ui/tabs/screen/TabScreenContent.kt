@@ -37,7 +37,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
@@ -45,8 +44,9 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
 import com.websarva.wings.android.slevo.ui.board.screen.BoardInfoBottomSheet
-import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.TabListUiState
 import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenResult
@@ -84,7 +84,8 @@ fun TabScreenContent(
     navController: NavHostController,
     closeDrawer: () -> Unit,
     initialPage: Int = 0,
-    onPageChanged: (Int) -> Unit = {}
+    onPageChanged: (Int) -> Unit = {},
+    currentScreenRoute: AppRoute? = null,
 ) {
     val openBoardTabs by tabSessionStore.openBoardTabs.collectAsStateWithLifecycle()
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsStateWithLifecycle()
@@ -248,6 +249,7 @@ fun TabScreenContent(
                         onCloseRequestConsumed = { tabListViewModel.consumePendingCloseRequest() },
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = listUiState.isInLongPressSelectionMode,
+                        currentScreenRoute = currentScreenRoute,
                     )
                 }
             }
@@ -326,17 +328,19 @@ fun TabScreenContent(
                             val result = tabListViewModel.openUrlInput(url, invalidUrlMessage)
                             when (result) {
                                 is UrlOpenResult.NavigateBoard -> {
-                                    navController.navigateToBoard(
+                                    tabSessionStore.registerAndSelectBoardRoute(result.route)
+                                    navController.showBoardScreenForTabSelection(
+                                        currentScreenRoute = currentScreenRoute,
                                         route = result.route,
-                                        tabSessionStore = tabSessionStore,
                                     )
                                     closeDrawer()
                                 }
 
                                 is UrlOpenResult.NavigateThread -> {
-                                    navController.navigateToThread(
+                                    tabSessionStore.registerAndSelectThreadRoute(result.route)
+                                    navController.showThreadScreenForTabSelection(
+                                        currentScreenRoute = currentScreenRoute,
                                         route = result.route,
-                                        tabSessionStore = tabSessionStore,
                                     )
                                     closeDrawer()
                                 }

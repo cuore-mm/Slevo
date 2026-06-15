@@ -35,7 +35,7 @@ import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActio
 import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadScreen
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
@@ -60,12 +60,16 @@ fun BoardScaffold(
     // --- Tab/state ---
     val boardLoaded by tabSessionStore.boardLoaded.collectAsState()
     val openBoardTabs by tabSessionStore.openBoardTabs.collectAsState()
+    val selectedBoardTabKey by tabSessionStore.selectedBoardTabKey.collectAsState()
     val context = LocalContext.current
-    val currentPage by tabSessionStore.boardCurrentPage.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(boardRoute, boardLoaded) {
         if (!boardLoaded) {
+            return@LaunchedEffect
+        }
+        // route 引数は初期化入力・placeholder として扱い、既に有効な選択中タブがある場合は上書きしない。
+        if (selectedBoardTabKey != null && openBoardTabs.any { it.boardUrl == selectedBoardTabKey }) {
             return@LaunchedEffect
         }
         // --- Board resolution ---
@@ -88,7 +92,7 @@ fun BoardScaffold(
             )
         )
         if (index >= 0) {
-            tabSessionStore.setBoardCurrentPage(index)
+            tabSessionStore.selectBoardTab(info.url)
         }
     }
 
@@ -100,7 +104,7 @@ fun BoardScaffold(
         isTabsLoaded = boardLoaded,
         onEmptyTabs = { navController.navigateUp() },
         openTabs = openBoardTabs,
-        currentRoutePredicate = { it.boardUrl == boardRoute.boardUrl },
+        selectedTabKey = selectedBoardTabKey,
         getViewModel = { tab -> tabSessionStore.getOrCreateBoardViewModel(tab.boardUrl) },
         getKey = { it.boardUrl },
         getScrollIndex = { it.firstVisibleItemIndex },
@@ -117,8 +121,7 @@ fun BoardScaffold(
         updateScrollPosition = { _, tab, index, offset ->
             tabSessionStore.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
-        currentPage = currentPage,
-        onPageChange = { tabSessionStore.setBoardCurrentPage(it) },
+        onTabSelected = { tabSessionStore.selectBoardTab(it.boardUrl) },
         animateToPageFlow = tabSessionStore.boardPageAnimation,
         bottomBar = { viewModel, uiState, actionProgress, openTabListSheet ->
             val actions = listOf(
@@ -210,10 +213,8 @@ fun BoardScaffold(
                                 resCount = threadInfo.resCount
                             )
                         )
-                        navController.navigateToThread(
-                            route = route,
-                            tabSessionStore = tabSessionStore,
-                        )
+                        tabSessionStore.registerAndSelectThreadRoute(route)
+                        navController.navigateToThreadScreen(route)
                     }
                 },
                 onLongClick = { threadInfo ->

@@ -32,8 +32,8 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToBoard
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThread
+import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
@@ -63,15 +63,14 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     isTabsLoaded: Boolean,
     onEmptyTabs: () -> Unit,
     openTabs: List<TabInfo>,
-    currentRoutePredicate: (TabInfo) -> Boolean,
+    selectedTabKey: Any?,
     getViewModel: (TabInfo) -> ViewModel,
     getKey: (TabInfo) -> Any,
     getScrollIndex: (TabInfo) -> Int,
     getScrollOffset: (TabInfo) -> Int,
     initializeViewModel: (viewModel: ViewModel, tabInfo: TabInfo) -> Unit,
     updateScrollPosition: (viewModel: ViewModel, tab: TabInfo, index: Int, offset: Int) -> Unit,
-    currentPage: Int,
-    onPageChange: (Int) -> Unit,
+    onTabSelected: (TabInfo) -> Unit,
     animateToPageFlow: Flow<Int>? = null,
     bottomBar: @Composable (
         viewModel: ViewModel,
@@ -115,34 +114,29 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     } else {
         emptyList()
     }
-    val currentTabInfo = tabs.find(currentRoutePredicate)
+    val selectedPage = remember(selectedTabKey, tabs) {
+        deriveSelectedPageIndex(tabs = tabs, selectedKey = selectedTabKey, getKey = getKey)
+    }
+    val currentTabInfo = tabs.getOrNull(selectedPage)
 
     if (tabs.isNotEmpty()) {
-        // 初期ページの決定。routeやタブ数が変わったら再計算される。
-        val initialPage = remember(route, tabs.size, currentTabInfo, currentPage) {
-            when {
-                currentPage in tabs.indices -> currentPage
-                currentPage >= 0 -> currentPage.coerceIn(0, tabs.size - 1)
-                currentTabInfo != null -> tabs.indexOf(currentTabInfo).takeIf { it >= 0 }
-                    ?: 0
-
-                else -> 0
-            }
-        }
-
         // Pagerの状態。ページ数はタブ数に応じて動的に提供される。
         val pagerState =
-            rememberPagerState(initialPage = initialPage, pageCount = { tabs.size })
+            rememberPagerState(initialPage = selectedPage, pageCount = { tabs.size })
 
-        // initialPage が現在のページと異なる場合は強制的に遷移する。
-        LaunchedEffect(initialPage) {
-            if (pagerState.currentPage != initialPage) {
-                pagerState.scrollToPage(initialPage)
+        // selected key とタブ一覧から導出したページにのみ同期する。
+        LaunchedEffect(selectedPage, tabs.size) {
+            if (selectedPage in tabs.indices && pagerState.currentPage != selectedPage) {
+                pagerState.scrollToPage(selectedPage)
             }
         }
 
-        LaunchedEffect(pagerState.currentPage) {
-            onPageChange(pagerState.currentPage)
+        LaunchedEffect(pagerState.currentPage, tabs) {
+            val page = pagerState.currentPage
+            val currentTab = tabs.getOrNull(page) ?: return@LaunchedEffect
+            if (getKey(currentTab) != selectedTabKey) {
+                onTabSelected(currentTab)
+            }
         }
 
         LaunchedEffect(animateToPageFlow, pagerState) {
@@ -285,6 +279,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 navController = navController,
                 onDismissRequest = { showTabListSheet = false },
                 initialPage = initialPage,
+                currentScreenRoute = route,
             )
         }
 
@@ -317,15 +312,16 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                 )
                                 if (host != null) {
                                     val boardUrl = "https://$host/${resolved.boardKey}/"
-                                    val route = tabSessionStore.normalizeBoardRouteForNavigation(
+                                    val normalizedRoute = tabSessionStore.normalizeBoardRouteForNavigation(
                                         AppRoute.Board(
                                             boardName = boardUrl,
                                             boardUrl = boardUrl,
                                         )
                                     )
-                                    navController.navigateToBoard(
-                                        route = route,
-                                        tabSessionStore = tabSessionStore,
+                                    tabSessionStore.registerAndSelectBoardRoute(normalizedRoute)
+                                    navController.showBoardScreenForTabSelection(
+                                        currentScreenRoute = route,
+                                        route = normalizedRoute,
                                     )
                                     urlError = null
                                     showUrlDialog = false
@@ -343,7 +339,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     if (resolved is ResolvedUrl.Thread) {
                         coroutineScope.launch {
                             val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
-                            val route = tabSessionStore.normalizeThreadRouteForNavigation(
+                            val normalizedRoute = tabSessionStore.normalizeThreadRouteForNavigation(
                                 AppRoute.Thread(
                                     threadKey = resolved.threadKey,
                                     boardUrl = boardUrl,
@@ -351,9 +347,10 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                                     threadTitle = null
                                 )
                             )
-                            navController.navigateToThread(
-                                route = route,
-                                tabSessionStore = tabSessionStore,
+                            tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
+                            navController.showThreadScreenForTabSelection(
+                                currentScreenRoute = route,
+                                route = normalizedRoute,
                             )
                             urlError = null
                             showUrlDialog = false
@@ -365,15 +362,16 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     if (resolved is ResolvedUrl.Board) {
                         coroutineScope.launch {
                             val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
-                            val route = tabSessionStore.normalizeBoardRouteForNavigation(
+                            val normalizedRoute = tabSessionStore.normalizeBoardRouteForNavigation(
                                 AppRoute.Board(
                                     boardName = boardUrl,
                                     boardUrl = boardUrl,
                                 )
                             )
-                            navController.navigateToBoard(
-                                route = route,
-                                tabSessionStore = tabSessionStore,
+                            tabSessionStore.registerAndSelectBoardRoute(normalizedRoute)
+                            navController.showBoardScreenForTabSelection(
+                                currentScreenRoute = route,
+                                route = normalizedRoute,
                             )
                             urlError = null
                             showUrlDialog = false
@@ -394,6 +392,21 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             CircularProgressIndicator()
         }
     }
+}
+
+/**
+ * selected key とタブ一覧から現在表示すべきページ index を導出する。
+ */
+internal fun <TabInfo : Any> deriveSelectedPageIndex(
+    tabs: List<TabInfo>,
+    selectedKey: Any?,
+    getKey: (TabInfo) -> Any,
+): Int {
+    if (tabs.isEmpty()) return -1
+    if (selectedKey == null) return 0
+    return tabs.indexOfFirst { getKey(it) == selectedKey }
+        .takeIf { it >= 0 }
+        ?: 0
 }
 
 /**

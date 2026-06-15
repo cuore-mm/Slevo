@@ -1,9 +1,12 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
+import com.websarva.wings.android.slevo.ui.thread.state.PostDisplayRole
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadListItem
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -183,51 +186,149 @@ class ThreadDisplayTransformersTest {
     }
 
     @Test
-    fun buildThreadListItemKey_keepsKeysUniqueWithDuplicatePosts() {
-        val duplicated = listOf(
-            DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = false, depth = 0, rootNumber = 388),
-            DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = true, depth = 0, rootNumber = 388),
-            DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = true, depth = 1, rootNumber = 388)
+    fun buildThreadListPostRows_keepsKeysUniqueAcrossGroupsAndRoles() {
+        val grouped = listOf(
+            0 to DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = false, isAfter = false, depth = 0, rootNumber = 388),
+            1 to DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = false, depth = 0, rootNumber = 388),
+            2 to DisplayPost(num = 388, post = post(content = "root", id = "id1"), dimmed = true, isAfter = true, depth = 0, rootNumber = 388),
         )
 
-        val keys = duplicated.map(::buildThreadListItemKey)
+        val rows = buildThreadListPostRows(grouped)
+        val keys = rows.map { it.stableKey }
+
+        assertEquals(3, rows.size)
+        assertEquals(3, keys.toSet().size)
+        assertTrue(rows.all { it.displayPost.num == 388 })
+    }
+
+    @Test
+    fun buildThreadListPostRows_incrementsOccurrenceIndexForDuplicateContext() {
+        val grouped = listOf(
+            1 to DisplayPost(num = 729, post = post(content = "root", id = "id1"), dimmed = true, isAfter = false, depth = 0, rootNumber = 729),
+            1 to DisplayPost(num = 729, post = post(content = "root", id = "id1"), dimmed = true, isAfter = false, depth = 0, rootNumber = 729),
+            2 to DisplayPost(num = 729, post = post(content = "root", id = "id1"), dimmed = true, isAfter = true, depth = 0, rootNumber = 729),
+        )
+
+        val rows = buildThreadListPostRows(grouped)
+        val keys = rows.map { it.stableKey }
 
         assertEquals(3, keys.toSet().size)
+        assertEquals(0, rows[0].occurrenceIndex)
+        assertEquals(1, rows[1].occurrenceIndex)
+        assertEquals(PostDisplayRole.DIMMED_PARENT, rows[0].role)
+        assertEquals(PostDisplayRole.DIMMED_PARENT, rows[2].role)
     }
 
     @Test
-    fun buildThreadListItemKey_isStableAcrossDisplayIndexChanges() {
-        val row = DisplayPost(
-            num = 25,
-            post = post(content = "sample", id = "id2"),
-            dimmed = false,
-            isAfter = true,
-            depth = 2,
-            rootNumber = 1,
+    fun buildThreadListPostRows_stableKeyDiffersWhenRoleDiffers() {
+        val grouped = listOf(
+            0 to DisplayPost(
+                num = 100,
+                post = post(content = "row", id = "id3"),
+                dimmed = false,
+                isAfter = false,
+                depth = 0,
+                rootNumber = 100,
+            ),
+            0 to DisplayPost(
+                num = 100,
+                post = post(content = "row", id = "id3"),
+                dimmed = true,
+                isAfter = true,
+                depth = 0,
+                rootNumber = 100,
+            ),
         )
 
-        val keyAtFirstRender = buildThreadListItemKey(row)
-        val keyAtSecondRender = buildThreadListItemKey(row)
+        val rows = buildThreadListPostRows(grouped)
 
-        assertEquals(keyAtFirstRender, keyAtSecondRender)
+        assertNotEquals(rows[0].stableKey, rows[1].stableKey)
+        assertEquals(PostDisplayRole.NORMAL, rows[0].role)
+        assertEquals(PostDisplayRole.DIMMED_PARENT, rows[1].role)
     }
 
     @Test
-    fun buildThreadListItemKey_differsWhenDisplayRoleDiffers() {
-        val normal = DisplayPost(
-            num = 100,
-            post = post(content = "row", id = "id3"),
-            dimmed = false,
-            isAfter = false,
-            depth = 0,
-            rootNumber = 100,
+    fun buildThreadListPostRows_isStableAcrossCalls() {
+        val grouped = listOf(
+            0 to DisplayPost(
+                num = 25,
+                post = post(content = "sample", id = "id2"),
+                dimmed = false,
+                isAfter = true,
+                depth = 2,
+                rootNumber = 1,
+            ),
         )
-        val dimmedContext = normal.copy(dimmed = true, isAfter = true)
 
-        val normalKey = buildThreadListItemKey(normal)
-        val dimmedContextKey = buildThreadListItemKey(dimmedContext)
+        val first = buildThreadListPostRows(grouped)
+        val second = buildThreadListPostRows(grouped)
 
-        assertTrue(normalKey != dimmedContextKey)
+        assertEquals(first.single().stableKey, second.single().stableKey)
+    }
+
+    @Test
+    fun buildThreadListPostRows_numberSortHasUniqueKeys() {
+        val grouped = listOf(
+            0 to DisplayPost(num = 1, post = post(content = "first", id = "id1"), dimmed = false, isAfter = false, depth = 0, rootNumber = 1),
+            0 to DisplayPost(num = 2, post = post(content = "second", id = "id2"), dimmed = false, isAfter = false, depth = 0, rootNumber = 2),
+            0 to DisplayPost(num = 3, post = post(content = "third", id = "id3"), dimmed = false, isAfter = true, depth = 0, rootNumber = 3),
+        )
+
+        val rows = buildThreadListPostRows(grouped)
+
+        assertUniqueStableKeys(rows)
+        assertEquals(PostDisplayRole.NORMAL, rows[0].role)
+        assertEquals(PostDisplayRole.NORMAL, rows[1].role)
+        assertEquals(PostDisplayRole.NEW_ARRIVAL, rows[2].role)
+    }
+
+    @Test
+    fun buildThreadListPostRows_treeAfterGrouping_keepsDimmedParentKeysUnique() {
+        val posts = listOf(
+            post(content = "root", id = "id1"),
+            post(content = ">>1 child", id = "id2"),
+            post(content = ">>2 grand", id = "id3"),
+            post(content = ">>1 new child", id = "id4"),
+        )
+        val (order, depthMap) = deriveTreeOrder(posts)
+        val roots = deriveTreeRoots(order, depthMap)
+
+        // グループ 0 は初回なので全件、グループ 1 は新着のみ。
+        val group0 = buildGroupDisplayPosts(
+            posts = posts,
+            order = order,
+            sortType = ThreadSortType.TREE,
+            treeDepthMap = depthMap,
+            treeRootMap = roots,
+            firstNewResNo = null,
+            prevResCount = 0,
+        )
+        val group1 = buildGroupDisplayPosts(
+            posts = posts,
+            order = order,
+            sortType = ThreadSortType.TREE,
+            treeDepthMap = depthMap,
+            treeRootMap = roots,
+            firstNewResNo = 4,
+            prevResCount = 3,
+        )
+
+        // 最新グループ以外は isAfter を false にする。
+        val grouped = group0.map { 0 to it } +
+            group1.map { 1 to it.copy(isAfter = false) }
+
+        val rows = buildThreadListPostRows(grouped)
+
+        assertUniqueStableKeys(rows)
+        val dimmedParents = rows.filter { it.role == PostDisplayRole.DIMMED_PARENT }
+        assertTrue(dimmedParents.isNotEmpty())
+    }
+
+    /**
+     * 表示行リストの stableKey がすべて一意であることを検証する。
+     */
+    private fun assertUniqueStableKeys(rows: List<ThreadListItem.PostRow>) {
+        assertEquals(rows.size, rows.map { it.stableKey }.toSet().size)
     }
 
     @Test

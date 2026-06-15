@@ -17,7 +17,7 @@ fun TabsScaffold(
     tabSessionStore: TabSessionStore,
     navController: NavHostController
 ) {
-    val lastPage by tabSessionStore.lastSelectedPage.collectAsState(initial = 0)
+    val lastPage by tabSessionStore.lastSelectedTabsPage.collectAsState(initial = 0)
     val tabListViewModel: TabListViewModel = hiltViewModel()
     TabScreenContent(
         modifier = Modifier.padding(parentPadding),
@@ -26,6 +26,7 @@ fun TabsScaffold(
         navController = navController,
         closeDrawer = {}, // Scaffoldの場合は何もしない
         initialPage = lastPage,
-        onPageChanged = { tabSessionStore.setLastSelectedPage(it) }
+        onPageChanged = { tabSessionStore.setLastSelectedTabsPage(it) },
+        currentScreenRoute = null,
     )
 }

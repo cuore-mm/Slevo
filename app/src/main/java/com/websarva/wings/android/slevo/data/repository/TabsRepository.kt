@@ -180,9 +180,9 @@ class TabsRepository @Inject constructor(
         )
     }
 
-    fun observeLastSelectedPage(): Flow<Int> =
-        tabsLocalDataSource.observeLastSelectedPage()
+    fun observeLastSelectedTabsPage(): Flow<Int> =
+        tabsLocalDataSource.observeLastSelectedTabsPage()
 
-    suspend fun setLastSelectedPage(page: Int) =
-        tabsLocalDataSource.setLastSelectedPage(page)
+    suspend fun setLastSelectedTabsPage(page: Int) =
+        tabsLocalDataSource.setLastSelectedTabsPage(page)
 }

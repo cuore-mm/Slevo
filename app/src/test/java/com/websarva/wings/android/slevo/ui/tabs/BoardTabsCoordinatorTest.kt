@@ -7,6 +7,7 @@ import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
@@ -65,6 +66,57 @@ class BoardTabsCoordinatorTest {
         val actual = coordinator.openBoardTabs.value.first()
         assertEquals(true, actual.isPinned)
         assertEquals("Updated Board", actual.boardName)
+    }
+
+    /**
+     * 板タブ選択時に selected key が boardUrl で更新されることを確認する。
+     */
+    @Test
+    fun selectBoardTab_updatesSelectedBoardTabKey() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        val tab = BoardTabInfo(
+            boardId = 1,
+            boardName = "Test Board",
+            boardUrl = "https://example.com/test/",
+            serviceName = "example.com",
+        )
+        coordinator.openBoardTab(tab)
+
+        coordinator.selectBoardTab(tab.boardUrl)
+
+        assertEquals(tab.boardUrl, coordinator.selectedBoardTabKey.value)
+    }
+
+    /**
+     * 選択中タブを閉じた場合、selected key が隣接タブへ補正されることを確認する。
+     */
+    @Test
+    fun closeBoardTab_updatesSelectedKeyToAdjacentTab() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        val first = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        val second = BoardTabInfo(2, "B", "https://example.com/b/", "example.com")
+        coordinator.openBoardTab(first)
+        coordinator.openBoardTab(second)
+        coordinator.selectBoardTab(first.boardUrl)
+
+        coordinator.closeBoardTab(first)
+
+        assertEquals(second.boardUrl, coordinator.selectedBoardTabKey.value)
+    }
+
+    /**
+     * 最後の板タブを閉じた場合、selected key が null になることを確認する。
+     */
+    @Test
+    fun closeLastBoardTab_clearsSelectedBoardTabKey() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        val tab = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        coordinator.openBoardTab(tab)
+        coordinator.selectBoardTab(tab.boardUrl)
+
+        coordinator.closeBoardTab(tab)
+
+        assertNull(coordinator.selectedBoardTabKey.value)
     }
 
     private fun createCoordinator(tabsRepository: TabsRepository): BoardTabsCoordinator {

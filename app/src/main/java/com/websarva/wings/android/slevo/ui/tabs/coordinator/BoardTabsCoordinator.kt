@@ -28,12 +28,12 @@ import javax.inject.Inject
  * - 主な公開プロパティ:
  *   - `openBoardTabs`: 現在開かれているボードタブの一覧（StateFlow）。
  *   - `boardLoaded`: リポジトリからの初期読み込みが完了したかどうかのフラグ。
- *   - `boardCurrentPage`: 現在表示中のタブインデックス。未選択は -1 を表す。
+ *   - `selectedBoardTabKey`: 現在選択中の板タブ key。正規化済み boardUrl を保持する。
  *
  * 実装ノート:
  * - `bind` で `tabsRepository` と `bookmarkBoardRepository` を combine してタブ情報を構築する。
  * - `upsertBoardTab` は同一 boardUrl が存在すれば上書き、なければ末尾に追加する。
- * - タブ削除時は `updateCurrentPageAfterRemoval` で現在ページの補正を行う。
+ * - タブ削除時は selected key を隣接タブまたは先頭タブへ補正する。
  */
 @ActivityRetainedScoped
 class BoardTabsCoordinator @Inject constructor(
@@ -49,9 +49,11 @@ class BoardTabsCoordinator @Inject constructor(
     private val _boardLoaded = MutableStateFlow(false)
     val boardLoaded: StateFlow<Boolean> = _boardLoaded.asStateFlow()
 
-    // 現在選択中のタブインデックス。0 以上が有効、未選択は -1。
+    // 現在選択中の板タブ key。正規化済み boardUrl を保持する。
+    private val _selectedBoardTabKey = MutableStateFlow<String?>(null)
+    val selectedBoardTabKey: StateFlow<String?> = _selectedBoardTabKey.asStateFlow()
+
     private val _boardCurrentPage = MutableStateFlow(-1)
-    val boardCurrentPage: StateFlow<Int> = _boardCurrentPage.asStateFlow()
 
     // ページ遷移用のアニメーションイベント。オフセットではなくターゲットインデックスを送る。
     private val _boardPageAnimation = MutableSharedFlow<Int>(extraBufferCapacity = 1)
@@ -85,6 +87,7 @@ class BoardTabsCoordinator @Inject constructor(
                 tabs.map { tab -> tab.copy(bookmarkColorName = colorMap[tab.boardId]) }
             }.collect { boards ->
                 _openBoardTabs.value = boards
+                syncBoardCurrentPageFromSelectedKey(boards)
                 _boardLoaded.value = true
             }
         }
@@ -117,6 +120,16 @@ class BoardTabsCoordinator @Inject constructor(
     }
 
     /**
+     * 選択中の板タブ key を更新する。
+     */
+    fun selectBoardTab(boardUrl: String?) {
+        _selectedBoardTabKey.value = boardUrl?.takeIf { target ->
+            _openBoardTabs.value.any { it.boardUrl == target }
+        }
+        syncBoardCurrentPageFromSelectedKey()
+    }
+
+    /**
      * 指定したタブを閉じる（キャッシュしている ViewModel も解放する）。
      * - ViewModel は `tabViewModelRegistry.releaseBoardViewModel` で解放する。
      * - 現在ページが削除により変化する場合は `updateCurrentPageAfterRemoval` で補正を行う。
@@ -125,6 +138,8 @@ class BoardTabsCoordinator @Inject constructor(
         // 関連する ViewModel を解放
         tabViewModelRegistry.releaseBoardViewModel(tab.boardUrl)
 
+        val selectedKeyBeforeRemoval = _selectedBoardTabKey.value
+        val removedTabKey = tab.boardUrl
         val removedIndex = _openBoardTabs.value.indexOfFirst { it.boardUrl == tab.boardUrl }
         var updatedTabs: List<BoardTabInfo> = emptyList()
         _openBoardTabs.update { state ->
@@ -132,7 +147,7 @@ class BoardTabsCoordinator @Inject constructor(
             updatedTabs = newTabs
             newTabs
         }
-        updateCurrentPageAfterRemoval(_boardCurrentPage, removedIndex, updatedTabs.size)
+        updateSelectedBoardKeyAfterRemoval(selectedKeyBeforeRemoval, removedTabKey, removedIndex, updatedTabs)
         saveBoardTabs(updatedTabs)
     }
 
@@ -183,26 +198,6 @@ class BoardTabsCoordinator @Inject constructor(
             }
         }
         saveBoardTabs()
-    }
-
-    /**
-     * 現在のページを直接セットする。
-     */
-    fun setBoardCurrentPage(page: Int) {
-        _boardCurrentPage.value = page
-    }
-
-    /**
-     * offset 分だけページを移動する（範囲外なら無視）。
-     */
-    fun moveBoardPage(offset: Int) {
-        val tabs = _openBoardTabs.value
-        if (tabs.isEmpty()) return
-        val currentIndex = _boardCurrentPage.value.takeIf { it in tabs.indices } ?: 0
-        val targetIndex = currentIndex + offset
-        if (targetIndex in tabs.indices) {
-            setBoardCurrentPage(targetIndex)
-        }
     }
 
     /**
@@ -260,34 +255,34 @@ class BoardTabsCoordinator @Inject constructor(
     }
 
     /**
-     * タブ削除後に現在ページ（index）を補正するロジック。
-     * - currentPageFlow: 現在ページを保持する MutableStateFlow
-     * - removedIndex: 削除されたタブのインデックス（存在しなければ -1）
-     * - updatedSize: 削除後のタブ数
-     *
-     * ケース一覧（実装ロジックに基づく）:
-     * - updatedSize <= 0 -> -1（タブ無し）
-     * - current < 0 -> 変更なし（選択なしのまま）
-     * - removedIndex == -1 -> 現在インデックスを bounds 内に収める
-     * - current == removedIndex -> 削除位置を最大値に丸めた値にする（削除されたタブの右隣が選択済みならそちらに移る）
-     * - current > removedIndex -> current - 1 にして bounds に収める（左に寄せる）
-     * - current >= updatedSize -> updatedSize - 1 にする
+     * selected key から互換用 currentPage を導出する。
      */
-    private fun updateCurrentPageAfterRemoval(
-        currentPageFlow: MutableStateFlow<Int>,
-        removedIndex: Int,
-        updatedSize: Int,
-    ) {
-        val current = currentPageFlow.value
-        val newPage = when {
-            updatedSize <= 0 -> -1
-            current < 0 -> current
-            removedIndex == -1 -> current.coerceIn(0, updatedSize - 1)
-            current == removedIndex -> removedIndex.coerceAtMost(updatedSize - 1)
-            current > removedIndex -> (current - 1).coerceIn(0, updatedSize - 1)
-            current >= updatedSize -> updatedSize - 1
-            else -> current
+    private fun syncBoardCurrentPageFromSelectedKey(tabs: List<BoardTabInfo> = _openBoardTabs.value) {
+        val selectedKey = _selectedBoardTabKey.value
+        _boardCurrentPage.value = when {
+            tabs.isEmpty() -> -1
+            selectedKey == null -> -1
+            else -> tabs.indexOfFirst { it.boardUrl == selectedKey }
         }
-        currentPageFlow.value = newPage
+    }
+
+    /**
+     * タブ削除後に selected key を補正する。
+     */
+    private fun updateSelectedBoardKeyAfterRemoval(
+        selectedKeyBeforeRemoval: String?,
+        removedTabKey: String,
+        removedIndex: Int,
+        updatedTabs: List<BoardTabInfo>,
+    ) {
+        val removedTabWasSelected = removedIndex >= 0 && selectedKeyBeforeRemoval == removedTabKey
+
+        _selectedBoardTabKey.value = when {
+            updatedTabs.isEmpty() -> null
+            !removedTabWasSelected && selectedKeyBeforeRemoval != null && updatedTabs.any { it.boardUrl == selectedKeyBeforeRemoval } -> selectedKeyBeforeRemoval
+            removedIndex in updatedTabs.indices -> updatedTabs[removedIndex].boardUrl
+            else -> updatedTabs.last().boardUrl
+        }
+        syncBoardCurrentPageFromSelectedKey(updatedTabs)
     }
 }

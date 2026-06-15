@@ -57,13 +57,13 @@ class TabSessionStore @Inject constructor(
     val isRefreshing: StateFlow<Boolean> = threadTabsCoordinator.isRefreshing
     val refreshProgress: StateFlow<ThreadTabRefreshProgress?> = threadTabsCoordinator.refreshProgress
     val newResCounts: StateFlow<Map<String, Int>> = threadTabsCoordinator.newResCounts
+    val selectedBoardTabKey: StateFlow<String?> = boardTabsCoordinator.selectedBoardTabKey
+    val selectedThreadTabKey: StateFlow<String?> = threadTabsCoordinator.selectedThreadTabKey
 
-    val boardCurrentPage: StateFlow<Int> = boardTabsCoordinator.boardCurrentPage
-    val threadCurrentPage: StateFlow<Int> = threadTabsCoordinator.threadCurrentPage
     val boardPageAnimation: SharedFlow<Int> = boardTabsCoordinator.boardPageAnimation
     val threadPageAnimation: SharedFlow<Int> = threadTabsCoordinator.threadPageAnimation
 
-    val lastSelectedPage = tabsRepository.observeLastSelectedPage()
+    val lastSelectedTabsPage = tabsRepository.observeLastSelectedTabsPage()
 
     init {
         boardTabsCoordinator.bind(scope)
@@ -98,6 +98,29 @@ class TabSessionStore @Inject constructor(
         return boardTabsCoordinator.ensureBoardTab(route)
     }
 
+    /**
+     * 板タブを保証したうえで、対象タブを選択状態へ更新する。
+     */
+    fun ensureAndSelectBoardTab(route: AppRoute.Board): Int {
+        return ensureBoardTab(route).also { index ->
+            if (index >= 0) {
+                selectBoardTab(route.boardUrl)
+            }
+        }
+    }
+
+    /**
+     * 正規化済み板 route から板タブを登録し、選択状態へ更新する。
+     */
+    fun registerAndSelectBoardRoute(route: AppRoute.Board): Int = ensureAndSelectBoardTab(route)
+
+    /**
+     * 選択中の板タブ key を更新する。
+     */
+    fun selectBoardTab(boardUrl: String?) {
+        boardTabsCoordinator.selectBoardTab(boardUrl)
+    }
+
     fun closeBoardTab(tab: BoardTabInfo) {
         boardTabsCoordinator.closeBoardTab(tab)
     }
@@ -110,10 +133,6 @@ class TabSessionStore @Inject constructor(
         boardTabsCoordinator.updateBoardScrollPosition(boardUrl, firstVisibleIndex, scrollOffset)
     }
 
-    fun setBoardCurrentPage(page: Int) {
-        boardTabsCoordinator.setBoardCurrentPage(page)
-    }
-
     fun animateBoardPage(offset: Int) {
         boardTabsCoordinator.animateBoardPage(offset)
     }
@@ -122,16 +141,37 @@ class TabSessionStore @Inject constructor(
         return threadTabsCoordinator.ensureThreadTab(route)
     }
 
+    /**
+     * スレッドタブを保証したうえで、対象タブを選択状態へ更新する。
+     */
+    fun ensureAndSelectThreadTab(route: AppRoute.Thread): Int {
+        return ensureThreadTab(route).also { index ->
+            if (index >= 0) {
+                val threadId = com.websarva.wings.android.slevo.ui.util.parseBoardUrl(route.boardUrl)
+                    ?.let { (host, board) -> ThreadId.of(host, board, route.threadKey) }
+                selectThreadTab(threadId)
+            }
+        }
+    }
+
+    /**
+     * 正規化済みスレッド route からスレッドタブを登録し、選択状態へ更新する。
+     */
+    fun registerAndSelectThreadRoute(route: AppRoute.Thread): Int = ensureAndSelectThreadTab(route)
+
+    /**
+     * 選択中のスレッドタブ key を更新する。
+     */
+    fun selectThreadTab(threadId: ThreadId?) {
+        threadTabsCoordinator.selectThreadTab(threadId)
+    }
+
     fun closeThreadTab(tab: ThreadTabInfo) {
         threadTabsCoordinator.closeThreadTab(tab)
     }
 
     fun closeThreadTab(threadKey: String, boardUrl: String) {
         threadTabsCoordinator.closeThreadTab(threadKey, boardUrl)
-    }
-
-    fun setThreadCurrentPage(page: Int) {
-        threadTabsCoordinator.setThreadCurrentPage(page)
     }
 
     fun animateThreadPage(offset: Int) {
@@ -158,10 +198,10 @@ class TabSessionStore @Inject constructor(
         threadTabsCoordinator.togglePinThreadTab(threadId)
     }
 
-    // --- Page persistence ---
+    // --- Tabs page persistence ---
 
-    fun setLastSelectedPage(page: Int) {
-        scope.launch { tabsRepository.setLastSelectedPage(page) }
+    fun setLastSelectedTabsPage(page: Int) {
+        scope.launch { tabsRepository.setLastSelectedTabsPage(page) }
     }
 
     // --- Navigation helpers ---
