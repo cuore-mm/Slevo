@@ -322,7 +322,7 @@ class ThreadDisplayTransformersTest {
         assertUniqueStableKeys(rows)
         val dimmedParents = rows.filter { it.role == PostDisplayRole.DIMMED_PARENT }
         assertTrue(dimmedParents.isNotEmpty())
-
+    }
 
     /**
      * 表示行リストの stableKey がすべて一意であることを検証する。
