@@ -20,6 +20,7 @@
 - DB スキーマや永続化形式は変更しない。
 - タブ経路、Navigation、板画面の設計は変更しない。
 - `LazyColumn` のスクロール位置保存仕様は変更しない。
+- 初回実装では header divider、投稿下 divider、新着バーを独立 item 化しない。
 
 ## Decisions
 
@@ -27,12 +28,10 @@
 
 `DisplayPost` は投稿をどのように表示するかを表す中間モデルに留め、`LazyColumn` へ渡す最終単位として `ThreadListItem` を導入する。
 
-想定する構成:
+初回実装で導入する構成:
 
 ```text
 ThreadListItem
-  ├─ HeaderDivider
-  ├─ NewArrivalDivider
   └─ PostRow
        ├─ displayPost
        ├─ groupIndex
@@ -41,9 +40,9 @@ ThreadListItem
        └─ stableKey
 ```
 
-これにより、投稿番号や見た目の属性ではなく、一覧上の表示行そのものを item identity として扱う。
+これにより、投稿番号や見た目の属性ではなく、一覧上の投稿行そのものを item identity として扱う。
 
-代替案として `DisplayPost` に `stableKey` を直接持たせる方法もあるが、`DisplayPost` が表示属性と LazyColumn identity の両方を担うため責務が曖昧になる。今後 divider や広告、エラー行など投稿以外の行が増える可能性も考慮し、最終表示行モデルを分離する。
+代替案として `DisplayPost` に `stableKey` を直接持たせる方法もあるが、`DisplayPost` が表示属性と LazyColumn identity の両方を担うため責務が曖昧になる。初回はクラッシュ原因である投稿行のみを `ThreadListItem.PostRow` 化し、divider 系 item の完全移行は別変更に分離する。
 
 ### 2. key は表示文脈から生成する
 
@@ -75,11 +74,13 @@ post_729_normal_group_0_occ_0
 
 この分割により、既存の表示順生成ロジックを大きく変更せず、LazyColumn key 一意性だけを明確な境界で保証できる。
 
-### 4. 新着バーと header は投稿行とは別 item として扱う
+### 4. 初回実装では divider と新着バーの独立 item 化を行わない
 
-現在の header divider や新着バー表示は、投稿行とは異なる item identity を持つ。`ThreadListItem` に divider 系 item を含めることで、一覧全体の key 生成を一箇所に集約する。
+現在の header divider は `item(key = "thread_header_divider")` として独立しており、投稿下 divider は投稿行内の Composable として描画されている。新着バーも `firstAfterIndex` の投稿行内に付随して表示されている。
 
-ただし、初期実装で既存 UI 構造を大きく変えるリスクが高い場合は、まず投稿行だけを `ThreadListItem.PostRow` 化し、divider は既存 key を維持してもよい。その場合も最終的な設計責務は `ThreadListItem` に寄せる。
+今回のクラッシュ原因は投稿行 key の重複であり、divider と新着バーは key 重複の直接原因ではない。初回実装では header divider の既存 key、投稿下 divider の行内配置、新着バーの行内配置を維持する。
+
+divider と新着バーを独立した `ThreadListItem` にすると、LazyColumn の item 数と index が変わる。その場合、`firstAfterIndex`、MomentumBar、スクロール位置保存、自動スクロール、最終既読位置などの index 前提を同時に再設計する必要がある。これは今回のクラッシュ修正より大きい変更になるため、別変更で扱う。
 
 ## Risks / Trade-offs
 
@@ -91,19 +92,22 @@ post_729_normal_group_0_occ_0
   - Mitigation: `PostDisplayRole` のような明示的な enum/sealed type を用意し、key 生成時に role を直接参照する。
 - [Risk] occurrenceIndex の付与ルールが不明確だと、重複回避はできても意図しない同一 item 扱いが起きる。
   - Mitigation: groupIndex、role、レス番号ごとにカウントし、同じ文脈内で複数回出る場合のみ増分する。
+- [Risk] divider や新着バーを同時に独立 item 化すると、LazyColumn item index と投稿 index の対応が変わる。
+  - Mitigation: 初回実装では独立 item 化せず、投稿行の key 一意性に変更範囲を限定する。
 
 ## Migration Plan
 
-1. `ThreadListItem` と投稿表示ロールを追加する。
+1. `ThreadListItem.PostRow` と投稿表示ロールを追加する。
 2. 既存の `DisplayPost` リストから `ThreadListItem.PostRow` リストを生成する変換処理を追加する。
-3. `ThreadUiState` または描画直前の入力を、`visiblePosts` から `visibleItems` へ段階的に移行する。
-4. `LazyColumn` の key を `ThreadListItem.stableKey` に変更する。
-5. TREE 表示 + 複数新着グループで key が重複しないテストを追加する。
-6. NUMBER 表示と既存表示挙動の回帰テストを確認する。
+3. header divider、投稿下 divider、新着バーは既存配置を維持する。
+4. `ThreadUiState` または描画直前の入力を、投稿行の `ThreadListItem.PostRow` を参照できる形へ段階的に移行する。
+5. `LazyColumn` の投稿行 key を `ThreadListItem.PostRow.stableKey` に変更する。
+6. TREE 表示 + 複数新着グループで key が重複しないテストを追加する。
+7. NUMBER 表示と既存表示挙動の回帰テストを確認する。
 
 Rollback は、変更前の `visiblePosts` 直接描画へ戻すことで可能。ただし key 重複クラッシュが再発するため、rollback は緊急時のみとする。
 
-## Open Questions
+## Deferred Work
 
-- divider 系 item を初回実装で完全に `ThreadListItem` 化するか、投稿行のみ先行移行するか。
-- 新着バーを「最新グループ先頭の投稿行に付随する表示」として残すか、独立した `NewArrivalDivider` item として扱うか。
+- divider 系 item の完全な `ThreadListItem` 化は今回行わない。実施する場合は、LazyColumn item index と投稿 index の対応表を設計する別変更として扱う。
+- 新着バーの `NewArrivalDivider` 独立 item 化は今回行わない。実施する場合は、`firstAfterIndex`、MomentumBar、スクロール位置保存、自動スクロールの index 前提を同時に見直す別変更として扱う。

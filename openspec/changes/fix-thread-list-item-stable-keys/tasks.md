@@ -1,6 +1,6 @@
 ## 1. 表示行モデルの追加
 
-- [ ] 1.1 `ThreadListItem` を追加し、投稿行と divider 系行を表せる最終表示行モデルを定義する
+- [ ] 1.1 `ThreadListItem.PostRow` を追加し、投稿行の最終表示行モデルを定義する
 - [ ] 1.2 投稿行の表示文脈を表す `PostDisplayRole` または同等の型を追加する
 - [ ] 1.3 投稿行がレス番号、表示ロール、更新グループ index、出現 index から `stableKey` を生成するようにする
 
@@ -13,10 +13,11 @@
 
 ## 3. LazyColumn 描画の移行
 
-- [ ] 3.1 THREAD画面の `LazyColumn` が `ThreadListItem.stableKey` を item key として使用するように変更する
+- [ ] 3.1 THREAD画面の `LazyColumn` が投稿行の `ThreadListItem.PostRow.stableKey` を item key として使用するように変更する
 - [ ] 3.2 投稿行描画では `ThreadListItem.PostRow.displayPost` から既存のレス表示情報を取得する
-- [ ] 3.3 header divider と新着バーの key が投稿行 key と衝突しないことを確認する
-- [ ] 3.4 既存のツリーインデント、返信ポップアップ、画像共有遷移、スクロール保存の参照 index が破綻しないように調整する
+- [ ] 3.3 header divider は既存の `thread_header_divider` key のまま維持し、投稿行 key と衝突しないことを確認する
+- [ ] 3.4 投稿下 divider と新着バーは投稿行内の既存配置を維持し、独立した LazyColumn item にしない
+- [ ] 3.5 既存のツリーインデント、返信ポップアップ、画像共有遷移、スクロール保存の参照 index が破綻しないことを確認する
 
 ## 4. テスト追加・回帰確認
 

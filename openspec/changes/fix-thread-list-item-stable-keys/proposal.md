@@ -4,8 +4,8 @@
 
 ## What Changes
 
-- スレッド一覧の `LazyColumn` に渡す最終表示単位として、投稿表示情報とは別の `ThreadListItem` モデルを導入する。
-- `ThreadListItem` は各表示行の `stableKey` を保持し、LazyColumn はその key のみを使用する。
+- スレッド一覧の `LazyColumn` に渡す投稿行の最終表示単位として、投稿表示情報とは別の `ThreadListItem.PostRow` モデルを導入する。
+- `ThreadListItem.PostRow` は各投稿行の `stableKey` を保持し、LazyColumn の投稿行 key はその key のみを使用する。
 - 投稿行には、レス番号だけでなく「表示文脈」を表す情報を持たせる。
   - 更新グループ index
   - 表示ロール（通常投稿、dimmed 親投稿など）
@@ -13,6 +13,7 @@
 - `DisplayPost` は投稿の表示属性を表す中間モデルとして残し、LazyColumn item の identity 生成責務を持たせない。
 - TREE 表示および NUMBER 表示の両方で、同一 `visibleItems` 内の key 重複をテストで検出できるようにする。
 - 既存の新着バー位置、ツリーインデント、スクロール位置保存、共有要素遷移の挙動は維持する。
+- 初回実装では header divider、投稿下 divider、新着バーを独立した `ThreadListItem` として扱わず、既存の配置を維持する。
 
 ## Capabilities
 
