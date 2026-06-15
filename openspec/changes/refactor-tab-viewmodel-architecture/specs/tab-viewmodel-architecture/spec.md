@@ -22,6 +22,21 @@
 - **WHEN** 構成変更などにより route 単位の ViewModel が再作成される
 - **THEN** システムはタブセッション状態と永続データから表示状態を再合成し、タブごとのセッション状態を ViewModel インスタンス消失で失わない
 
+### Requirement: TabInfo と Session State の分離
+システムは `ThreadTabInfo` / `BoardTabInfo` をタブ一覧、選択、並び順、復元に必要な軽量メタ情報として扱わなければならないMUST。検索クエリ、表示モード、ポップアップスタック、投稿ダイアログ下書き、自動スクロール状態などの UI セッション状態は、`ThreadSessionState` / `BoardSessionState` 相当の別モデルで管理しなければならないMUST。
+
+#### Scenario: タブ一覧を表示する
+- **WHEN** ユーザーがタブ一覧を表示する
+- **THEN** システムは `ThreadTabInfo` / `BoardTabInfo` からタブ識別子、タイトル、pin、並び順などの軽量メタ情報を取得し、ポップアップスタックや投稿下書きなどの UI セッション状態をタブ一覧モデルの必須入力にしない
+
+#### Scenario: タブ固有の検索状態を更新する
+- **WHEN** ユーザーが特定の板タブまたはスレッドタブで検索条件を変更する
+- **THEN** システムは対象タブの Session State を更新し、`ThreadTabInfo` / `BoardTabInfo` を検索条件の正本として更新しない
+
+#### Scenario: スクロール位置を復元する
+- **WHEN** アプリ再起動後に開いていたタブを復元する
+- **THEN** システムは復元に必要なスクロール位置を `TabInfo` または永続タブ状態から取得し、検索やポップアップなどのプロセス内 UI セッション状態とは分けて扱う
+
 ### Requirement: 表示データ正本と UiState 合成の分離
 システムは板一覧、スレ本文、パース済み投稿、既読状態、ブックマーク、NG 設定を Repository、DB、または UseCase の正本から取得しなければならないMUST。ViewModel はそれらの正本とタブセッション状態を合成した表示用 `UiState` を公開し、表示データの長期正本を保持してはならないMUST NOT。
 

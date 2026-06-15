@@ -1,15 +1,16 @@
 ## 1. 状態と責務の棚卸し
 
-- [ ] 1.1 `ThreadUiState`、`BoardUiState`、`ThreadTabInfo`、`BoardTabInfo`、`TabSessionStore` の保持項目を一覧化し、正本を「タブセッション状態」「Repository / DB / UseCase」「合成 `UiState`」に分類する
+- [ ] 1.1 `ThreadUiState`、`BoardUiState`、`ThreadTabInfo`、`BoardTabInfo`、`TabSessionStore` の保持項目を一覧化し、正本を「軽量 `TabInfo`」「UI `SessionState`」「Repository / DB / UseCase」「合成 `UiState`」に分類する
 - [ ] 1.2 `ThreadViewModel` と `BoardViewModel` のイベント、監視 Flow、Repository 依存、初期化処理、解放処理を洗い出す
 - [ ] 1.3 per-tab ViewModel でなければ保持できない状態が残っていないか確認し、残る場合は Session State または UseCase へ移す方針を決める
 
 ## 2. タブセッション状態の受け皿整備
 
-- [ ] 2.1 `ThreadSessionState` 相当のモデルを設計し、thread key、スクロール位置、検索条件、表示モード、ポップアップスタック、投稿ダイアログ下書き、新着表示補助情報を保持できるようにする
-- [ ] 2.2 `BoardSessionState` 相当のモデルを設計し、board key、スクロール位置、検索・ソート条件、新スレ投稿ダイアログ下書きなどを保持できるようにする
-- [ ] 2.3 `TabSessionStore` / coordinator に、タブ key ごとの Session State 取得・更新 API を追加する
-- [ ] 2.4 タブ削除時に対象 Session State だけが削除され、共通客観状態や履歴状態を削除しないことをテストする
+- [ ] 2.1 `ThreadTabInfo` / `BoardTabInfo` に残す項目を、タブ識別子、タイトル、pin、order、復元に必要なスクロール位置などの軽量メタ情報に限定する
+- [ ] 2.2 `ThreadSessionState` 相当のモデルを設計し、検索条件、表示モード、ポップアップスタック、投稿ダイアログ下書き、自動スクロール状態などを保持できるようにする
+- [ ] 2.3 `BoardSessionState` 相当のモデルを設計し、検索・ソート条件、新スレ投稿ダイアログ下書きなどを保持できるようにする
+- [ ] 2.4 `TabSessionStore` / coordinator に、タブ key ごとの Session State 取得・更新 API を追加する
+- [ ] 2.5 タブ削除時に対象 Session State だけが削除され、共通客観状態や履歴状態を削除しないことをテストする
 
 ## 3. データ取得・表示変換ロジックの分離
 
