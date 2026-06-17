@@ -203,6 +203,20 @@ Task 8 の棚卸し結果として、現時点の `legacyViewModel(tabKey)` 呼�
 
 Task 9 以降はこの分類を固定前提として進め、Task 10 で RouteViewModel が旧 `uiState` を読む経路を切り、Task 11 で旧 ViewModel と factory を削除する。
 
+### Task 10 split policy: direct `UiState` synthesis
+
+旧 ViewModel の `uiState` を読まない直接合成化は、Thread と Board で依存構造が異なるため同時に進めない。Thread 側は `ThreadContentLoadUseCase` / `ThreadVisiblePostsUseCase` が既に分離済みであり、dat 取得結果と SessionState から `ThreadUiState` を組み立てやすい。一方 Board 側は `ThreadListCoordinator` が `MutableStateFlow<BoardUiState>` を直接更新しており、まず filter / sort / history merge / thread_state merge を pure transformer または route-level coordinator へ分離する必要がある。
+
+直接合成化は以下の順で分割する。
+
+1. **ThreadRouteViewModel 直接合成**: `ThreadTabInfo`、`ThreadSessionState`、runtime state、Settings、NG、Bookmark、既読 / 履歴、dat 取得結果から `ThreadUiState` を合成し、Thread 側の `uiStateFor(tabKey)` が旧 `ThreadViewModel.uiState` を読まない形にする。
+2. **Thread 操作 API 移管**: reload、bottom pull、auto-scroll、検索、ソート、画像メニュー、ポップアップ、toast、投稿成功後処理、タブタイトル / resCount 更新を RouteViewModel + `TabSessionStore` / coordinator / Repository API へ移す。
+3. **Board 一覧合成の分離**: `ThreadListCoordinator` の `MutableStateFlow<BoardUiState>` 直書きをやめ、Board スレ一覧の filter / sort / NG / history merge / thread_state merge を RouteViewModel から再利用できる部品へ移す。
+4. **BoardRouteViewModel 直接合成**: `BoardTabInfo`、`BoardSessionState`、Settings、NG、Bookmark、板スレ一覧、履歴 / thread_state Flow から `BoardUiState` を合成し、Board 側の `uiStateFor(tabKey)` が旧 `BoardViewModel.uiState` を読まない形にする。
+5. **共通購読制御の検証**: Thread / Board 両方で `uiStateFor(tabKey)` が `SharingStarted.WhileSubscribed` に従い、購読中タブだけ重い合成を行うことを単体テストで確認する。
+
+この分割により、Thread 側を先に旧 ViewModel から切り離して小さく検証し、Board 側は一覧合成レイヤーの分離を挟んでから切り替える。旧 ViewModel / factory / `BaseViewModel` の削除は、Thread と Board の直接合成がどちらも完了し、Scaffold から `legacyViewModel(tabKey)` 呼び出しが消えた後に実施する。
+
 ## Risks / Trade-offs
 
 - [Risk] 非表示タブの UI セッション状態が失われる → `TabSessionStore` にタブ固有状態を移し、タブ切替・画面離脱・タブ削除の各タイミングで保存を検証する。
@@ -233,9 +247,11 @@ Task 9 以降はこの分類を固定前提として進め、Task 10 で RouteVi
 10. `TabViewModelRegistry`、`BaseViewModel.release()`、per-tab ViewModel registry 依存を削除し、旧 ViewModel は route ViewModel 内の互換レイヤーとして一時的に閉じ込める。
 11. `legacyViewModel(tabKey)` 呼び出しと旧 ViewModel 公開 API を棚卸しし、RouteViewModel API、SessionState、session holder、UseCase、Repository 同期への移管表を確定する。
 12. `bookmarkSheetHolder`、`postDialogController`、画像保存イベントを `TabSessionStore` 配下の tab key 別 session holder へ移す。
-13. `ThreadRouteViewModel` / `BoardRouteViewModel` が旧 ViewModel の `uiState` に依存せず、SessionState とデータ層 Flow から `UiState` を直接合成する形へ変える。
-14. `legacyViewModel(tabKey)`、旧 ViewModel factory、旧 ViewModel、`BaseViewModel`、旧 ViewModel 前提テストを削除または置換する。
-15. スクロール復元、タブ切替、新着表示、更新、投稿ダイアログ、検索、ポップアップの回帰テストを追加・更新する。
+13. Thread 側を先に旧 `ThreadViewModel.uiState` 依存から切り離し、`ThreadRouteViewModel` が SessionState とデータ層 Flow から `ThreadUiState` を直接合成する形へ変える。
+14. Board 側は `ThreadListCoordinator` の state 直書きを分離してから、`BoardRouteViewModel` が SessionState とデータ層 Flow から `BoardUiState` を直接合成する形へ変える。
+15. Thread / Board の直接合成化後に購読制御、session holder lifecycle、`legacyViewModel(tabKey)` 削除準備を確認する。
+16. `legacyViewModel(tabKey)`、旧 ViewModel factory、旧 ViewModel、`BaseViewModel`、旧 ViewModel 前提テストを削除または置換する。
+17. スクロール復元、タブ切替、新着表示、更新、投稿ダイアログ、検索、ポップアップの回帰テストを追加・更新する。
 
 ## Open Questions
 
