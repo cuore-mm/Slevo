@@ -1,15 +1,15 @@
 ## ADDED Requirements
 
-### Requirement: Route 単位の ViewModel 所有
-システムは板画面とスレッド画面の ViewModel を、開いているタブ単位ではなく画面 route 単位で所有しなければならないMUST。Pager の各タブページは独自の `BoardViewModel` または `ThreadViewModel` インスタンスを要求してはならないMUST NOT。
+### Requirement: per-tab ViewModel の廃止と Route 単位 ViewModel の所有
+システムは開いているタブ単位の `BoardViewModel` / `ThreadViewModel` を生成・保持してはならないMUST NOT。板画面とスレッド画面は、画面 route 単位の `BoardRouteViewModel` / `ThreadRouteViewModel` を所有しなければならないMUST。Pager の各タブページは独自の ViewModel インスタンスを要求してはならないMUST NOT。
 
 #### Scenario: 複数スレッドタブを表示する
 - **WHEN** ユーザーが複数のスレッドタブを開き、Pager でタブを切り替える
-- **THEN** システムはスレッドタブ数に比例して `ThreadViewModel` を生成せず、スレッド画面 route の ViewModel が選択中タブの状態を合成する
+- **THEN** システムはスレッドタブ数に比例して `ThreadViewModel` を生成せず、`ThreadRouteViewModel` が対象 tab key の状態を合成する
 
 #### Scenario: 複数板タブを表示する
 - **WHEN** ユーザーが複数の板タブを開き、Pager でタブを切り替える
-- **THEN** システムは板タブ数に比例して `BoardViewModel` を生成せず、板画面 route の ViewModel が選択中タブの状態を合成する
+- **THEN** システムは板タブ数に比例して `BoardViewModel` を生成せず、`BoardRouteViewModel` が対象 tab key の状態を合成する
 
 ### Requirement: タブセッション状態の正本管理
 システムはタブの並び順、選択状態、ピン留め、スクロール位置、検索クエリ、表示モード、ポップアップスタック、投稿ダイアログ下書きなどのタブ固有状態を、ViewModel インスタンスではなくタブセッション状態として管理しなければならないMUST。ViewModel はこれらの状態を長期保持する正本になってはならないMUST NOT。
@@ -18,7 +18,7 @@
 - **WHEN** ユーザーがスレッドタブ A で検索条件またはポップアップ状態を変更し、スレッドタブ B へ切り替えた後にタブ A へ戻る
 - **THEN** システムはタブ A のタブセッション状態から検索条件またはポップアップ状態を復元する
 
-#### Scenario: ViewModel が再作成される
+#### Scenario: Route ViewModel が再作成される
 - **WHEN** 構成変更などにより route 単位の ViewModel が再作成される
 - **THEN** システムはタブセッション状態と永続データから表示状態を再合成し、タブごとのセッション状態を ViewModel インスタンス消失で失わない
 
@@ -52,11 +52,11 @@
 システムは板一覧、スレ本文、パース済み投稿、既読状態、ブックマーク、NG 設定を Repository、DB、または UseCase の正本から取得しなければならないMUST。ViewModel はそれらの正本とタブセッション状態を合成した表示用 `UiState` を公開し、表示データの長期正本を保持してはならないMUST NOT。
 
 #### Scenario: スレッド本文を表示する
-- **WHEN** スレッド画面 route の ViewModel が選択中スレッドタブを表示する
+- **WHEN** `ThreadRouteViewModel` が選択中スレッドタブを表示する
 - **THEN** システムは Repository または UseCase から取得したスレ本文とタブセッション状態を合成して `ThreadUiState` を生成する
 
 #### Scenario: 板一覧を表示する
-- **WHEN** 板画面 route の ViewModel が選択中板タブを表示する
+- **WHEN** `BoardRouteViewModel` が選択中板タブを表示する
 - **THEN** システムは Repository または UseCase から取得した板スレ一覧とタブセッション状態を合成して `BoardUiState` を生成する
 
 ### Requirement: Pager composition 範囲に基づく UiState 購読

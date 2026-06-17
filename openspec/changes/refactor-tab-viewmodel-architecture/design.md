@@ -12,7 +12,7 @@
 
 - タブごとの `BoardViewModel` / `ThreadViewModel` キャッシュを廃止できる設計にする。
 - タブ固有状態、スレッド・板データの正本、画面表示用 `UiState` の責務境界を明確にする。
-- `ThreadViewModel` / `BoardViewModel` を軽量な route-level ViewModel に再構成し、データ取得・変換・更新処理を UseCase / Repository / coordinator へ分離する。
+- per-tab `ThreadViewModel` / `BoardViewModel` を廃止し、軽量な `ThreadRouteViewModel` / `BoardRouteViewModel` を導入して、データ取得・変換・更新処理を UseCase / Repository / coordinator へ分離する。
 - 既存のタブ切替、スクロール位置復元、新着表示、検索、ポップアップ、投稿ダイアログ、更新操作の体験を維持する。
 - 段階移行できるように、互換レイヤーとテスト観点を定義する。
 
@@ -20,14 +20,16 @@
 
 - UI デザインやナビゲーション仕様そのものの変更。
 - 板・スレッドデータの保存形式を必ず変更すること。
-- すべての `ThreadViewModel` 内部ロジックを一度の変更で完全に最適化すること。
+- 既存 `ThreadViewModel` 内部ロジックを一度の変更で完全に最適化すること。
 - Compose の Pager やタブ一覧 UI の大規模な見た目変更。
 
 ## Decisions
 
-### Decision 1: ViewModel はタブ単位ではなく route 単位で所有する
+### Decision 1: per-tab ViewModel を廃止し、route 単位 ViewModel を導入する
 
-`BoardRouteViewModel` 相当と `ThreadRouteViewModel` 相当を、板画面 route / スレッド画面 route の `ViewModelStoreOwner` に紐づけて 1 つずつ保持する。Pager の各ページは ViewModel インスタンスを直接所有せず、選択中または表示対象タブ key を ViewModel に渡して表示状態を得る。
+既存の `BoardViewModel` / `ThreadViewModel` をタブ単位で生成・保持する設計は廃止する。代わりに `BoardRouteViewModel` と `ThreadRouteViewModel` を、板画面 route / スレッド画面 route の `ViewModelStoreOwner` に紐づけて 1 つずつ保持する。Pager の各ページは ViewModel インスタンスを直接所有せず、表示対象 tab key を route ViewModel に渡して表示状態を得る。
+
+既存クラス名を段階移行中に一時的に流用する場合でも、設計上は「per-tab `BoardViewModel` / `ThreadViewModel`」ではなく「route-level `BoardRouteViewModel` / `ThreadRouteViewModel`」として扱う。最終形では名称も route-level であることが分かる形へ整理する。
 
 代替案として per-tab ViewModel を維持する案もあるが、`TabViewModelRegistry` による独自ライフサイクル管理、タブ数に比例するメモリ増加、状態重複の問題が残るため採用しない。
 
@@ -55,7 +57,7 @@
 
 ### Decision 5: 重い処理は UseCase / coordinator へ抽出して ViewModel を薄くする
 
-レスの表示行生成、検索・NG 適用、ツリー派生情報、更新処理、新着計算、自動更新判定などは、単体テスト可能な UseCase / coordinator へ移す。ViewModel はイベントを受け取り、UseCase を呼び、結果を `UiState` と `TabSessionStore` に反映する。
+レスの表示行生成、検索・NG 適用、ツリー派生情報、更新処理、新着計算、自動更新判定などは、単体テスト可能な UseCase / coordinator へ移す。route ViewModel はイベントを受け取り、UseCase を呼び、結果を `UiState` と `TabSessionStore` に反映する。
 
 代替案として ViewModel のままメソッド分割する案もあるが、route-level にした後も巨大 ViewModel が残り、テスト容易性と責務分離の改善が限定的になる。
 
@@ -127,7 +129,7 @@ ViewModel はこれらを保持せず、Repository / UseCase / coordinator の F
 - `bookmarkSheetHolder` と `postDialogController` は per-tab ViewModel の所有をやめ、`TabSessionStore` 配下の Session holder へ寄せる
 - `popupStack` と `isTabSwipeEnabled` はアクティブタブ基準で扱う SessionState とし、Pager 全体制御は `TabSessionStore` が担う
 - `pendingPost`、`observedThreadHistoryId`、`postHistoryCollectJob`、`lastAutoRefreshTime` のような ViewModel 内部の継続状態は Repository 監視または SessionState へ移す
-- `ThreadViewModel` / `BoardViewModel` に残すのは、対象 tab key の `UiState` Flow を遅延生成する presenter 責務だけに絞る
+- per-tab `ThreadViewModel` / `BoardViewModel` は廃止し、`ThreadRouteViewModel` / `BoardRouteViewModel` に対象 tab key の `UiState` Flow を遅延生成する presenter 責務だけを残す
 
 ## Risks / Trade-offs
 
@@ -135,7 +137,7 @@ ViewModel はこれらを保持せず、Repository / UseCase / coordinator の F
 - [Risk] `TabInfo` と `SessionState` の境界が曖昧になり状態が再び重複する → アプリ再起動後も復元する軽量タブ状態は `TabInfo`、タブを開いている間の UI セッション状態は `SessionState`、客観データは Repository / DB という分類基準を実装タスクで検証する。
 - [Risk] Pager が compose したページごとに `UiState` Flow を作ることで Flow 生成が頻発する → tab key ごとの Flow 定義を再利用し、購読がなくなったら重い合成が止まる共有方式を使う。
 - [Risk] 完全な `UiState` を表示直前まで合成しないことで初回表示が遅れる → Repository cache や軽量 summary を活用し、必要になった場合だけ限定的な LRU cache を追加する。
-- [Risk] `ThreadViewModel` 分割中に既存挙動が壊れる → UseCase 抽出ごとに既存ユニットテストを追加し、移行中は互換 API を残す。
+- [Risk] per-tab ViewModel 廃止中に既存挙動が壊れる → UseCase 抽出ごとに既存ユニットテストを追加し、移行中は route ViewModel から呼べる互換 API を残す。
 - [Risk] 自動更新やバックグラウンド更新の責務が曖昧になる → 更新ポリシーを route-level ViewModel ではなく UseCase / coordinator に置き、表示中タブと一括更新のトリガーを明示する。
 - [Risk] `UiState` から正本状態を削ることで Compose 側の参照が大きく変わる → まず `UiState` のフィールドを読み取り専用の合成結果として維持し、内部の供給元だけを段階的に置き換える。
 - [Risk] UI セッション状態を永続化しないことでアプリ再起動後に検索やポップアップ状態が失われる → 再起動後に復元する状態はタブ識別子とスクロール位置などの軽量タブ状態に限定する仕様として扱い、表示中の操作状態はプロセス内セッションに閉じる。
@@ -146,11 +148,11 @@ ViewModel はこれらを保持せず、Repository / UseCase / coordinator の F
 1. 現状の `ThreadUiState` / `BoardUiState` と `ThreadTabInfo` / `BoardTabInfo` の重複項目を棚卸しし、正本を `TabInfo`、`SessionState`、Repository / DB、ViewModel 合成結果に分類する。
 2. `ThreadTabInfo` / `BoardTabInfo` は軽量なタブメタ情報に限定し、検索・表示モード・ポップアップ・ダイアログ下書きなどを保持する `ThreadSessionState` / `BoardSessionState` 相当の別モデルを導入する。
 3. スレッド表示行生成、NG・検索適用、新着計算、板スレ一覧変換を UseCase / coordinator として切り出し、既存 ViewModel から利用する。
-4. route-level ViewModel を導入し、tab key 指定で `UiState` Flow を遅延提供できる API を追加する。
+4. `ThreadRouteViewModel` / `BoardRouteViewModel` を導入し、tab key 指定で `UiState` Flow を遅延提供できる API を追加する。
 5. `BbsRouteScaffold` のページ生成を per-tab ViewModel 取得から、Pager が compose したページごとに tab key 指定 `UiState` Flow を購読する構造へ切り替える。
 6. UI セッション状態はプロセス内 Session State に限定し、永続タブ状態へ保存しないように保存経路を整理する。
 7. 自動スクロールに伴う定期更新を表示中スレッドタブのみに限定し、全タブ更新は明示操作として分離する。
-8. `TabViewModelRegistry`、`BaseViewModel.release()`、per-tab ViewModel factory 依存を削除または互換層として縮小する。
+8. `TabViewModelRegistry`、`BaseViewModel.release()`、per-tab ViewModel factory 依存を削除し、必要な assisted factory は route ViewModel 用へ整理する。
 9. スクロール復元、タブ切替、新着表示、更新、投稿ダイアログ、検索、ポップアップの回帰テストを追加・更新する。
 
 ## Open Questions

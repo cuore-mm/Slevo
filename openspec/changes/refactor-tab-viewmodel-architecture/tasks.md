@@ -17,13 +17,13 @@
 
 - [ ] 3.1 スレッド本文取得、レス表示行生成、NG 適用、検索適用、ツリー派生情報、新着計算を UseCase / coordinator に切り出す
 - [ ] 3.2 板スレ一覧取得、ソート、フィルタ、NG 適用、ブックマーク合成を UseCase / coordinator に切り出す
-- [ ] 3.3 `ThreadViewModel` / `BoardViewModel` が切り出した UseCase を呼ぶ形へ変更し、既存挙動が維持されることを単体テストで確認する
+- [ ] 3.3 切り出した UseCase を `ThreadRouteViewModel` / `BoardRouteViewModel` から呼ぶ形へ変更し、既存挙動が維持されることを単体テストで確認する
 
 ## 4. Route 単位 ViewModel への移行
 
-- [ ] 4.1 板画面 route 単位の ViewModel が選択中板タブ key、`BoardSessionState`、Repository / UseCase、Settings、NG、Bookmark を合成して `BoardUiState` を公開するようにする
-- [ ] 4.2 スレッド画面 route 単位の ViewModel が選択中スレッドタブ key、`ThreadSessionState`、Repository / UseCase、Settings、NG、Bookmark、既読状態を合成して `ThreadUiState` を公開するようにする
-- [ ] 4.3 route 単位 ViewModel に tab key 指定の `observeUiState` / `uiStateFor` 相当 API を追加し、要求された tab key の `UiState` Flow を遅延生成・再利用できるようにする
+- [ ] 4.1 `BoardRouteViewModel` を導入し、選択中板タブ key、`BoardSessionState`、Repository / UseCase、Settings、NG、Bookmark を合成して `BoardUiState` を公開するようにする
+- [ ] 4.2 `ThreadRouteViewModel` を導入し、選択中スレッドタブ key、`ThreadSessionState`、Repository / UseCase、Settings、NG、Bookmark、既読状態を合成して `ThreadUiState` を公開するようにする
+- [ ] 4.3 `ThreadRouteViewModel` / `BoardRouteViewModel` に tab key 指定の `observeUiState` / `uiStateFor` 相当 API を追加し、要求された tab key の `UiState` Flow を遅延生成・再利用できるようにする
 - [ ] 4.4 `UiState` Flow の共有方式を購読中のみ動作する形にし、composition から外れたタブの重い合成が継続しないことを確認する
 - [ ] 4.5 選択中タブ key が変わっても ViewModel を再生成せず、同じ route ViewModel で表示状態を再合成することを確認する
 - [ ] 4.6 refresh / reload が ViewModel 再生成ではなく対象タブ key のデータ更新として動作するようにする
@@ -42,7 +42,7 @@
 
 - [ ] 6.1 `TabViewModelRegistry` の利用箇所を route-level ViewModel または Session State API に置き換える
 - [ ] 6.2 `BaseViewModel.release()` と `onCleared()` 手動呼び出しに依存する処理を削除する
-- [ ] 6.3 Assisted factory が per-tab ViewModel 生成専用になっている場合は不要化または route-level 用に整理する
+- [ ] 6.3 Assisted factory が per-tab ViewModel 生成専用になっている場合は削除し、必要な場合のみ route ViewModel 用に整理する
 - [ ] 6.4 registry 削除後もタブ削除、画面破棄、構成変更で監視ジョブが適切に終了・再開されることを確認する
 
 ## 7. 回帰確認とドキュメント整理
