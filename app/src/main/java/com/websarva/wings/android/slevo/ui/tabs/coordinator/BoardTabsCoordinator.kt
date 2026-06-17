@@ -3,7 +3,6 @@ package com.websarva.wings.android.slevo.ui.tabs.coordinator
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
@@ -40,7 +39,6 @@ import javax.inject.Inject
 class BoardTabsCoordinator @Inject constructor(
     private val tabsRepository: TabsRepository,
     private val bookmarkBoardRepository: BookmarkBoardRepository,
-    private val tabViewModelRegistry: TabViewModelRegistry,
 ) {
     // 現在開かれているボードタブの一覧。UI はこれを監視してタブ表示を行う。
     private val _openBoardTabs = MutableStateFlow<List<BoardTabInfo>>(emptyList())
@@ -134,14 +132,12 @@ class BoardTabsCoordinator @Inject constructor(
     }
 
     /**
-     * 指定したタブを閉じる（キャッシュしている ViewModel も解放する）。
-     * - ViewModel は `tabViewModelRegistry.releaseBoardViewModel` で解放する。
-     * - 現在ページが削除により変化する場合は `updateCurrentPageAfterRemoval` で補正を行う。
+     * 指定したタブを閉じる。
+     *
+     * セッション状態と選択 key を整理し、現在ページが削除により変化する場合は
+     * `updateCurrentPageAfterRemoval` で補正を行う。
      */
     fun closeBoardTab(tab: BoardTabInfo) {
-        // 関連する ViewModel を解放
-        tabViewModelRegistry.releaseBoardViewModel(tab.boardUrl)
-
         val selectedKeyBeforeRemoval = _selectedBoardTabKey.value
         val removedTabKey = tab.boardUrl
         val removedIndex = _openBoardTabs.value.indexOfFirst { it.boardUrl == tab.boardUrl }

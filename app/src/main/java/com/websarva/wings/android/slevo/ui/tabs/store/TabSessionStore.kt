@@ -6,18 +6,15 @@ import com.websarva.wings.android.slevo.data.repository.BbsServiceRepository
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
-import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
-import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionRuntimeState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.BoardUrlNormalizationInput
 import com.websarva.wings.android.slevo.ui.util.normalizeBoardUrlTo5chIo
 import dagger.hilt.android.scopes.ActivityRetainedScoped
@@ -42,7 +39,6 @@ import javax.inject.Inject
 class TabSessionStore @Inject constructor(
     internal val boardTabsCoordinator: BoardTabsCoordinator,
     internal val threadTabsCoordinator: ThreadTabsCoordinator,
-    internal val tabViewModelRegistry: TabViewModelRegistry,
     private val tabsRepository: TabsRepository,
     private val boardRepository: BoardRepository,
     private val bbsServiceRepository: BbsServiceRepository,
@@ -73,28 +69,6 @@ class TabSessionStore @Inject constructor(
     init {
         boardTabsCoordinator.bind(scope)
         threadTabsCoordinator.bind(scope)
-    }
-
-    // --- Child ViewModel access ---
-
-    fun getOrCreateThreadViewModel(viewModelKey: String): ThreadViewModel {
-        return tabViewModelRegistry.getOrCreateThreadViewModel(viewModelKey)
-    }
-
-    fun getOrCreateBoardViewModel(boardUrl: String): BoardViewModel {
-        return tabViewModelRegistry.getOrCreateBoardViewModel(boardUrl)
-    }
-
-    fun releaseBoardViewModel(boardUrl: String) {
-        tabViewModelRegistry.releaseBoardViewModel(boardUrl)
-    }
-
-    fun releaseThreadViewModel(viewModelKey: String) {
-        tabViewModelRegistry.releaseThreadViewModel(viewModelKey)
-    }
-
-    fun releaseAllViewModels() {
-        tabViewModelRegistry.releaseAll()
     }
 
     // --- Tab operations ---

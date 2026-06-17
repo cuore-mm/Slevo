@@ -6,7 +6,6 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionRuntimeState
@@ -46,7 +45,6 @@ class ThreadTabsCoordinator @Inject constructor(
     private val threadBookmarkRepository: ThreadBookmarkRepository,
     private val datRepository: DatRepository,
     private val threadStateRepository: ThreadStateRepository,
-    private val tabViewModelRegistry: TabViewModelRegistry,
 ) {
     /**
      * 正常完了時に 100% の進捗を表示し続ける時間。
@@ -158,12 +156,12 @@ class ThreadTabsCoordinator @Inject constructor(
     }
 
     /**
-     * 指定の ThreadTabInfo を閉じる（ViewModel の解放、内部状態更新、永続化）。
+     * 指定の ThreadTabInfo を閉じる。
+     *
+     * セッション状態、ランタイム状態、選択 key を整理してから永続状態を更新する。
      */
     fun closeThreadTab(tab: ThreadTabInfo) {
         val key = tab.id.value
-        tabViewModelRegistry.releaseThreadViewModel(key)
-
         val selectedKeyBeforeRemoval = _selectedThreadTabKey.value
         val removedIndex = _openThreadTabs.value.indexOfFirst { it.id == tab.id }
         var updatedTabs: List<ThreadTabInfo> = emptyList()

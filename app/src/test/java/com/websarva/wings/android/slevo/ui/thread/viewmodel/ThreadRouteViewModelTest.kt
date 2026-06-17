@@ -39,15 +39,15 @@ class ThreadRouteViewModelTest {
         val store = mockStore(
             openTabs = MutableStateFlow(listOf(tab)),
             selectedKey = MutableStateFlow(threadId.value),
-            viewModels = mapOf(threadId.value to mockThreadViewModel()),
         )
-        val viewModel = ThreadRouteViewModel(store)
+        val factory = mockFactory(mapOf(threadId.value to mockThreadViewModel()))
+        val viewModel = ThreadRouteViewModel(store, factory)
 
         val first = viewModel.uiStateFor(threadId.value)
         val second = viewModel.uiStateFor(threadId.value)
 
         assertSame(first, second)
-        verify(exactly = 1) { store.getOrCreateThreadViewModel(threadId.value) }
+        verify(exactly = 1) { factory.create(threadId.value) }
     }
 
     @Test
@@ -66,9 +66,9 @@ class ThreadRouteViewModelTest {
         val store = mockStore(
             openTabs = openTabs,
             selectedKey = selectedKey,
-            viewModels = mapOf(firstId.value to firstVm, secondId.value to secondVm),
         )
-        val viewModel = ThreadRouteViewModel(store)
+        val factory = mockFactory(mapOf(firstId.value to firstVm, secondId.value to secondVm))
+        val viewModel = ThreadRouteViewModel(store, factory)
         val collected = mutableListOf<String>()
 
         val job = launch {
@@ -85,8 +85,8 @@ class ThreadRouteViewModelTest {
         job.cancel()
 
         assertEquals(listOf("first", "second", "first"), collected.filter { it.isNotBlank() }.takeLast(3))
-        verify(exactly = 1) { store.getOrCreateThreadViewModel(firstId.value) }
-        verify(exactly = 1) { store.getOrCreateThreadViewModel(secondId.value) }
+        verify(exactly = 1) { factory.create(firstId.value) }
+        verify(exactly = 1) { factory.create(secondId.value) }
     }
 
     @Test
@@ -97,14 +97,14 @@ class ThreadRouteViewModelTest {
         val store = mockStore(
             openTabs = MutableStateFlow(listOf(tab)),
             selectedKey = MutableStateFlow(threadId.value),
-            viewModels = mapOf(threadId.value to legacy),
         )
-        val viewModel = ThreadRouteViewModel(store)
+        val factory = mockFactory(mapOf(threadId.value to legacy))
+        val viewModel = ThreadRouteViewModel(store, factory)
 
         viewModel.uiStateFor(threadId.value)
         viewModel.reloadThread(threadId.value)
 
-        verify(exactly = 1) { store.getOrCreateThreadViewModel(threadId.value) }
+        verify(exactly = 1) { factory.create(threadId.value) }
         verify(exactly = 1) { legacy.reloadThread() }
     }
 
@@ -122,9 +122,9 @@ class ThreadRouteViewModelTest {
                 )
             ),
             selectedKey = MutableStateFlow(firstId.value),
-            viewModels = mapOf(firstId.value to firstVm, secondId.value to secondVm),
         )
-        val viewModel = ThreadRouteViewModel(store)
+        val factory = mockFactory(mapOf(firstId.value to firstVm, secondId.value to secondVm))
+        val viewModel = ThreadRouteViewModel(store, factory)
 
         viewModel.onAutoScrollReachedBottom(secondId.value)
         viewModel.onAutoScrollReachedBottom(firstId.value)
@@ -138,9 +138,8 @@ class ThreadRouteViewModelTest {
         val store = mockStore(
             openTabs = MutableStateFlow(emptyList()),
             selectedKey = MutableStateFlow(null),
-            viewModels = emptyMap(),
         )
-        val viewModel = ThreadRouteViewModel(store)
+        val viewModel = ThreadRouteViewModel(store, mockFactory(emptyMap()))
 
         viewModel.refreshOpenThreads()
         viewModel.cancelRefreshOpenThreads()
@@ -149,21 +148,48 @@ class ThreadRouteViewModelTest {
         verify(exactly = 1) { store.cancelRefreshOpenThreads() }
     }
 
+    @Test
+    fun uiStateFor_disposesCachedViewModelWhenTabCloses() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "111")
+        val openTabs = MutableStateFlow(
+            listOf(ThreadTabInfo(threadId, "title", "board", "https://example.com/test/", 1L))
+        )
+        val legacy = mockThreadViewModel()
+        val viewModel = ThreadRouteViewModel(
+            mockStore(openTabs = openTabs, selectedKey = MutableStateFlow(threadId.value)),
+            mockFactory(mapOf(threadId.value to legacy)),
+        )
+
+        viewModel.uiStateFor(threadId.value)
+        advanceUntilIdle()
+        openTabs.value = emptyList()
+        advanceUntilIdle()
+
+        verify(exactly = 1) { legacy.disposeResources() }
+    }
+
     /**
      * テスト用の `TabSessionStore` を構成する。
      */
     private fun mockStore(
         openTabs: MutableStateFlow<List<ThreadTabInfo>>,
         selectedKey: MutableStateFlow<String?>,
-        viewModels: Map<String, ThreadViewModel>,
     ): TabSessionStore {
         val store = mockk<TabSessionStore>(relaxed = true)
         every { store.openThreadTabs } returns openTabs
         every { store.selectedThreadTabKey } returns selectedKey
-        viewModels.forEach { (key, viewModel) ->
-            every { store.getOrCreateThreadViewModel(key) } returns viewModel
-        }
         return store
+    }
+
+    /**
+     * テスト用の `ThreadViewModelFactory` モックを作る。
+     */
+    private fun mockFactory(viewModels: Map<String, ThreadViewModel>): ThreadViewModelFactory {
+        val factory = mockk<ThreadViewModelFactory>()
+        viewModels.forEach { (key, viewModel) ->
+            every { factory.create(key) } returns viewModel
+        }
+        return factory
     }
 
     /**

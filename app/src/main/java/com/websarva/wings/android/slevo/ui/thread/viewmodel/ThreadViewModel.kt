@@ -55,6 +55,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -872,10 +873,18 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     /**
+     * route-level キャッシュから外す際に、このタブ用の監視ジョブと補助状態を解放する。
+     */
+    fun disposeResources() {
+        bookmarkSheetHolder.dispose()
+        viewModelScope.cancel()
+    }
+
+    /**
      * ViewModel破棄時にステートホルダーのジョブを解放する。
      */
     override fun onCleared() {
-        bookmarkSheetHolder.dispose()
+        disposeResources()
         super.onCleared()
     }
 

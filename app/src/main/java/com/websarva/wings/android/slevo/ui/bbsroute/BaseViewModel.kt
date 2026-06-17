@@ -108,7 +108,4 @@ abstract class BaseViewModel<S, Args> : ViewModel() where S : BaseUiState<S> {
         initialize(force)
     }
 
-    fun release() {
-        onCleared()
-    }
 }

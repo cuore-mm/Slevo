@@ -6,7 +6,6 @@ import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
-import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.session.PendingThreadPostState
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -273,7 +272,6 @@ class ThreadTabsCoordinatorTest {
             threadBookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true),
             datRepository = mockk<DatRepository>(relaxed = true),
             threadStateRepository = mockk<ThreadStateRepository>(relaxed = true),
-            tabViewModelRegistry = mockk<TabViewModelRegistry>(relaxed = true),
         )
     }
 }

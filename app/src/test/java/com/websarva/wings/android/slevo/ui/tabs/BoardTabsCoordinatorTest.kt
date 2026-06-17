@@ -4,7 +4,6 @@ import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
-import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import io.mockk.coVerify
 import io.mockk.mockk
 import org.junit.Assert.assertFalse
@@ -166,7 +165,6 @@ class BoardTabsCoordinatorTest {
         return BoardTabsCoordinator(
             tabsRepository = tabsRepository,
             bookmarkBoardRepository = mockk<BookmarkBoardRepository>(relaxed = true),
-            tabViewModelRegistry = mockk<TabViewModelRegistry>(relaxed = true),
         )
     }
 }

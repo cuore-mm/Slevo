@@ -9,7 +9,6 @@ import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
-import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import io.mockk.mockk
 import io.mockk.every
@@ -33,13 +32,11 @@ class TabSessionStoreTest {
 
     private val boardCoordinator = mockk<BoardTabsCoordinator>(relaxed = true)
     private val threadCoordinator = mockk<ThreadTabsCoordinator>(relaxed = true)
-    private val registry = mockk<TabViewModelRegistry>(relaxed = true)
     private val settingsRepository = mockk<SettingsRepository>(relaxed = true)
     private val store by lazy {
         TabSessionStore(
             boardTabsCoordinator = boardCoordinator,
             threadTabsCoordinator = threadCoordinator,
-            tabViewModelRegistry = registry,
             tabsRepository = mockk(relaxed = true),
             boardRepository = mockk(relaxed = true),
             bbsServiceRepository = mockk(relaxed = true),
@@ -175,15 +172,6 @@ class TabSessionStoreTest {
 
         assertEquals("https://agree.5ch.io/operate/", normalized.boardUrl)
         assertEquals(route.threadKey, normalized.threadKey)
-    }
-
-    /**
-     * 全 ViewModel 解放が [TabViewModelRegistry.releaseAll] へ委譲されることを確認する。
-     */
-    @Test
-    fun releaseAllViewModels_delegatesToRegistry() {
-        store.releaseAllViewModels()
-        verify { registry.releaseAll() }
     }
 
     /**

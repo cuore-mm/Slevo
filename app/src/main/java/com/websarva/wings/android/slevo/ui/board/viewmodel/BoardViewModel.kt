@@ -31,6 +31,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -384,14 +385,22 @@ class BoardViewModel @AssistedInject constructor(
         }
     }
 
-    // ViewModel が破棄される直前に呼ばれる（アプリ停止や画面遷移時）
-    override fun onCleared() {
+    /**
+     * route-level キャッシュから外す際に、このタブ用の監視ジョブと補助状態を解放する。
+     */
+    fun disposeResources() {
         bookmarkSheetHolder.dispose()
         val boardId = _uiState.value.boardInfo.boardId
         if (boardId != 0L) {
             // 最終確認時刻（baseline）を同期的に保存しておく
             runBlocking { repository.updateBaseline(boardId, System.currentTimeMillis()) }
         }
+        viewModelScope.cancel()
+    }
+
+    // ViewModel が破棄される直前に呼ばれる（アプリ停止や画面遷移時）
+    override fun onCleared() {
+        disposeResources()
         super.onCleared()
     }
 

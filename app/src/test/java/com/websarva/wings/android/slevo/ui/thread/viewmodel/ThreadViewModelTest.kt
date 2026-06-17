@@ -27,7 +27,6 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUplo
 import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
-import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import io.mockk.coEvery
 import io.mockk.every
@@ -75,7 +74,6 @@ class ThreadViewModelTest {
             threadBookmarkRepository = threadBookmarkRepository,
             datRepository = datRepository,
             threadStateRepository = threadStateRepository,
-            tabViewModelRegistry = mockk<TabViewModelRegistry>(relaxed = true),
         ),
     ): ThreadViewModel {
         every { settingsRepository.observeTextScale() } returns flowOf(1.0f)
@@ -230,7 +228,6 @@ class ThreadViewModelTest {
             threadBookmarkRepository = threadBookmarkRepository,
             datRepository = datRepository,
             threadStateRepository = mockk(relaxed = true),
-            tabViewModelRegistry = mockk(relaxed = true),
         )
         val threadId = ThreadId.of("example.com", "test", "1234567890")
         coordinator.updateThreadSessionState(threadId) {

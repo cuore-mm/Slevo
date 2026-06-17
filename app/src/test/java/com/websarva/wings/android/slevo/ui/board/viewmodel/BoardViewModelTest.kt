@@ -19,7 +19,6 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUplo
 import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
-import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -52,7 +51,6 @@ class BoardViewModelTest {
         boardTabsCoordinator: BoardTabsCoordinator = BoardTabsCoordinator(
             tabsRepository = mockk(relaxed = true),
             bookmarkBoardRepository = bookmarkBoardRepository,
-            tabViewModelRegistry = mockk<TabViewModelRegistry>(relaxed = true),
         ),
         threadListCoordinatorFactory: ThreadListCoordinator.Factory = mockk(relaxed = true),
         postDialogControllerFactory: PostDialogController.Factory = mockk(relaxed = true),
@@ -174,7 +172,6 @@ class BoardViewModelTest {
         val coordinator = BoardTabsCoordinator(
             tabsRepository = mockk(relaxed = true),
             bookmarkBoardRepository = bookmarkBoardRepository,
-            tabViewModelRegistry = mockk(relaxed = true),
         )
         coordinator.updateBoardSessionState("https://example.com/test/") {
             it.copy(

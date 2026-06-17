@@ -33,15 +33,15 @@ class BoardRouteViewModelTest {
         val store = mockStore(
             openTabs = MutableStateFlow(listOf(tab)),
             selectedKey = MutableStateFlow(tab.boardUrl),
-            viewModels = mapOf(tab.boardUrl to mockBoardViewModel()),
         )
-        val viewModel = BoardRouteViewModel(store)
+        val factory = mockFactory(mapOf(tab.boardUrl to mockBoardViewModel()))
+        val viewModel = BoardRouteViewModel(store, factory)
 
         val first = viewModel.uiStateFor(tab.boardUrl)
         val second = viewModel.uiStateFor(tab.boardUrl)
 
         assertSame(first, second)
-        verify(exactly = 1) { store.getOrCreateBoardViewModel(tab.boardUrl) }
+        verify(exactly = 1) { factory.create(tab.boardUrl) }
     }
 
     @Test
@@ -52,12 +52,14 @@ class BoardRouteViewModelTest {
         val store = mockStore(
             openTabs = MutableStateFlow(listOf(first, second)),
             selectedKey = selectedKey,
-            viewModels = mapOf(
+        )
+        val factory = mockFactory(
+            mapOf(
                 first.boardUrl to mockBoardViewModel(title = "first"),
                 second.boardUrl to mockBoardViewModel(title = "second"),
-            ),
+            )
         )
-        val viewModel = BoardRouteViewModel(store)
+        val viewModel = BoardRouteViewModel(store, factory)
         val collected = mutableListOf<String>()
 
         val job = launch {
@@ -74,8 +76,8 @@ class BoardRouteViewModelTest {
         job.cancel()
 
         assertEquals(listOf("first", "second", "first"), collected.filter { it.isNotBlank() }.takeLast(3))
-        verify(exactly = 1) { store.getOrCreateBoardViewModel(first.boardUrl) }
-        verify(exactly = 1) { store.getOrCreateBoardViewModel(second.boardUrl) }
+        verify(exactly = 1) { factory.create(first.boardUrl) }
+        verify(exactly = 1) { factory.create(second.boardUrl) }
     }
 
     @Test
@@ -85,15 +87,33 @@ class BoardRouteViewModelTest {
         val store = mockStore(
             openTabs = MutableStateFlow(listOf(tab)),
             selectedKey = MutableStateFlow(tab.boardUrl),
-            viewModels = mapOf(tab.boardUrl to legacy),
         )
-        val viewModel = BoardRouteViewModel(store)
+        val factory = mockFactory(mapOf(tab.boardUrl to legacy))
+        val viewModel = BoardRouteViewModel(store, factory)
 
         viewModel.uiStateFor(tab.boardUrl)
         viewModel.refreshBoard(tab.boardUrl)
 
-        verify(exactly = 1) { store.getOrCreateBoardViewModel(tab.boardUrl) }
+        verify(exactly = 1) { factory.create(tab.boardUrl) }
         verify(exactly = 1) { legacy.refreshBoardData() }
+    }
+
+    @Test
+    fun uiStateFor_disposesCachedViewModelWhenTabCloses() = runTest {
+        val tab = BoardTabInfo(1L, "board", "https://example.com/test/", "5ch")
+        val openTabs = MutableStateFlow(listOf(tab))
+        val legacy = mockBoardViewModel()
+        val viewModel = BoardRouteViewModel(
+            mockStore(openTabs = openTabs, selectedKey = MutableStateFlow(tab.boardUrl)),
+            mockFactory(mapOf(tab.boardUrl to legacy)),
+        )
+
+        viewModel.uiStateFor(tab.boardUrl)
+        advanceUntilIdle()
+        openTabs.value = emptyList()
+        advanceUntilIdle()
+
+        verify(exactly = 1) { legacy.disposeResources() }
     }
 
     /**
@@ -102,15 +122,22 @@ class BoardRouteViewModelTest {
     private fun mockStore(
         openTabs: MutableStateFlow<List<BoardTabInfo>>,
         selectedKey: MutableStateFlow<String?>,
-        viewModels: Map<String, BoardViewModel>,
     ): TabSessionStore {
         val store = mockk<TabSessionStore>(relaxed = true)
         every { store.openBoardTabs } returns openTabs
         every { store.selectedBoardTabKey } returns selectedKey
-        viewModels.forEach { (key, viewModel) ->
-            every { store.getOrCreateBoardViewModel(key) } returns viewModel
-        }
         return store
+    }
+
+    /**
+     * テスト用の `BoardViewModelFactory` モックを作る。
+     */
+    private fun mockFactory(viewModels: Map<String, BoardViewModel>): BoardViewModelFactory {
+        val factory = mockk<BoardViewModelFactory>()
+        viewModels.forEach { (key, viewModel) ->
+            every { factory.create(key) } returns viewModel
+        }
+        return factory
     }
 
     /**

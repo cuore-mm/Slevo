@@ -11,10 +11,12 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * 板画面 route 単位でタブ表示状態を提供する ViewModel。
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.stateIn
 @HiltViewModel
 class BoardRouteViewModel @Inject constructor(
     private val tabSessionStore: TabSessionStore,
+    private val boardViewModelFactory: BoardViewModelFactory,
 ) : ViewModel() {
 
     private companion object {
@@ -33,6 +36,14 @@ class BoardRouteViewModel @Inject constructor(
 
     private val viewModelCache = mutableMapOf<String, BoardViewModel>()
     private val uiStateCache = mutableMapOf<String, StateFlow<BoardUiState>>()
+
+    init {
+        viewModelScope.launch {
+            tabSessionStore.openBoardTabs.collect { tabs ->
+                evictClosedTabs(tabs.map { tab -> tab.boardUrl }.toSet())
+            }
+        }
+    }
 
     /** 現在選択中の板タブ key。 */
     val selectedTabKey: StateFlow<String?> = tabSessionStore.selectedBoardTabKey
@@ -97,7 +108,7 @@ class BoardRouteViewModel @Inject constructor(
      */
     private fun boardViewModelFor(tabKey: String): BoardViewModel {
         return viewModelCache.getOrPut(tabKey) {
-            tabSessionStore.getOrCreateBoardViewModel(tabKey).also { viewModel ->
+            boardViewModelFactory.create(tabKey).also { viewModel ->
                 initializeBoardViewModel(viewModel, findTab(tabKey))
             }
         }
@@ -152,5 +163,26 @@ class BoardRouteViewModel @Inject constructor(
      */
     private fun findTab(tabKey: String): BoardTabInfo? {
         return tabSessionStore.openBoardTabs.value.find { tab -> tab.boardUrl == tabKey }
+    }
+
+    /**
+     * 開いているタブ一覧から外れたキャッシュだけを解放する。
+     */
+    private fun evictClosedTabs(openKeys: Set<String>) {
+        val removedKeys = viewModelCache.keys.filterNot(openKeys::contains)
+        removedKeys.forEach { key ->
+            viewModelCache.remove(key)?.disposeResources()
+            uiStateCache.remove(key)
+        }
+    }
+
+    /**
+     * route ViewModel 終了時に内部キャッシュの旧 ViewModel を解放する。
+     */
+    override fun onCleared() {
+        viewModelCache.values.forEach { it.disposeResources() }
+        viewModelCache.clear()
+        uiStateCache.clear()
+        super.onCleared()
     }
 }
