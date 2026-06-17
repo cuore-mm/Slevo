@@ -49,10 +49,10 @@
 
 ## 7. per-tab ViewModel registry の縮小・削除
 
-- [ ] 7.1 `TabViewModelRegistry` の利用箇所を route-level ViewModel または Session State API に置き換える
-- [ ] 7.2 `BaseViewModel.release()` と `onCleared()` 手動呼び出しに依存する処理を削除する
-- [ ] 7.3 Assisted factory が per-tab ViewModel 生成専用になっている場合は削除し、必要な場合のみ route ViewModel 用に整理する
-- [ ] 7.4 registry 削除後もタブ削除、画面破棄、構成変更で監視ジョブが適切に終了・再開されることを確認する
+- [x] 7.1 `TabViewModelRegistry` の利用箇所を route-level ViewModel または Session State API に置き換える
+- [x] 7.2 `BaseViewModel.release()` と `onCleared()` 手動呼び出しに依存する処理を削除する
+- [x] 7.3 Assisted factory が per-tab ViewModel 生成専用になっている場合は削除し、必要な場合のみ route ViewModel 用に整理する
+- [x] 7.4 registry 削除後もタブ削除、画面破棄、構成変更で監視ジョブが適切に終了・再開されることを確認する
 
 ## 8. 回帰確認とドキュメント整理
 
