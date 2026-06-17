@@ -147,6 +147,14 @@ Task 2 で `ThreadSessionState` / `BoardSessionState` と更新 API を用意し
 
 削除対象には `ThreadViewModel.kt`、`BoardViewModel.kt`、`ThreadViewModelFactory`、`BoardViewModelFactory`、旧 ViewModel 専用の `BaseViewModel` 利用、旧 ViewModel 前提のテストを含める。ただし純粋な表示変換、ポップアップ重複抑止、投稿ダイアログ状態アダプタなど再利用可能なロジックは、UseCase、transformer、session holder、または route ViewModel の private helper へ移管してから削除する。
 
+完全削除は以下の順で分割して実装する。
+
+1. `legacyViewModel(tabKey)` 呼び出しと旧 ViewModel 公開 API を棚卸しし、RouteViewModel API、SessionState 更新、session holder、UseCase、Repository 同期へ分類する。
+2. `bookmarkSheetHolder`、`postDialogController`、画像保存イベントなど、タブ固有の holder / event source を `TabSessionStore` 配下の tab key 別 session holder へ移す。
+3. `ThreadRouteViewModel` / `BoardRouteViewModel` が UseCase、Repository、Settings、NG、Bookmark、既読 Flow を直接購読し、旧 ViewModel の `uiState` に依存せず `UiState` を合成する形へ変える。
+4. Scaffold から `legacyViewModel(tabKey)` 呼び出しをすべて削除し、RouteViewModel API と session holder API のみを呼ぶ形にする。
+5. 旧 ViewModel、専用 factory、`BaseViewModel`、旧 ViewModel 前提のテストを削除または置換し、回帰テストでタブ切替、タブ削除、構成変更、投稿、ブックマーク、画像保存、ポップアップの混線がないことを確認する。
+
 ## Risks / Trade-offs
 
 - [Risk] 非表示タブの UI セッション状態が失われる → `TabSessionStore` にタブ固有状態を移し、タブ切替・画面離脱・タブ削除の各タイミングで保存を検証する。
@@ -175,8 +183,11 @@ Task 2 で `ThreadSessionState` / `BoardSessionState` と更新 API を用意し
 8. UI セッション状態はプロセス内 Session State に限定し、永続タブ状態へ保存しないように保存経路を整理する。
 9. 自動スクロールに伴う定期更新を表示中スレッドタブのみに限定し、全タブ更新は明示操作として分離する。
 10. `TabViewModelRegistry`、`BaseViewModel.release()`、per-tab ViewModel registry 依存を削除し、旧 ViewModel は route ViewModel 内の互換レイヤーとして一時的に閉じ込める。
-11. `legacyViewModel(tabKey)` 呼び出しを route ViewModel API / SessionState / UseCase / session holder へ移し、`ThreadViewModel` / `BoardViewModel` と専用 factory を完全削除する。
-12. スクロール復元、タブ切替、新着表示、更新、投稿ダイアログ、検索、ポップアップの回帰テストを追加・更新する。
+11. `legacyViewModel(tabKey)` 呼び出しと旧 ViewModel 公開 API を棚卸しし、RouteViewModel API、SessionState、session holder、UseCase、Repository 同期への移管表を確定する。
+12. `bookmarkSheetHolder`、`postDialogController`、画像保存イベントを `TabSessionStore` 配下の tab key 別 session holder へ移す。
+13. `ThreadRouteViewModel` / `BoardRouteViewModel` が旧 ViewModel の `uiState` に依存せず、SessionState とデータ層 Flow から `UiState` を直接合成する形へ変える。
+14. `legacyViewModel(tabKey)`、旧 ViewModel factory、旧 ViewModel、`BaseViewModel`、旧 ViewModel 前提テストを削除または置換する。
+15. スクロール復元、タブ切替、新着表示、更新、投稿ダイアログ、検索、ポップアップの回帰テストを追加・更新する。
 
 ## Open Questions
 

@@ -54,22 +54,43 @@
 - [x] 7.3 Assisted factory が per-tab ViewModel 生成専用になっている場合は削除し、必要な場合のみ route ViewModel 用に整理する
 - [x] 7.4 registry 削除後もタブ削除、画面破棄、構成変更で監視ジョブが適切に終了・再開されることを確認する
 
-## 8. `ThreadViewModel` / `BoardViewModel` 互換レイヤーの完全削除
+## 8. 旧 ViewModel 互換レイヤーの棚卸しと Route API 設計
 
-- [ ] 8.1 `ThreadScaffold` / `BoardScaffold` の `legacyViewModel(tabKey)` 呼び出しを一覧化し、検索、シート、ソート、ポップアップ、画像メニュー、自動スクロール、スクロール保存、投稿ダイアログ、ブックマーク操作へ分類する
-- [ ] 8.2 検索、シート、ソート、ポップアップ、画像メニュー、自動スクロールなど SessionState だけで表現できる操作を `ThreadRouteViewModel` / `BoardRouteViewModel` の tab key 指定 API へ移し、Composable から旧 ViewModel 操作を呼ばないようにする
-- [ ] 8.3 `bookmarkSheetHolder`、`postDialogController`、画像保存イベントなど per-tab ViewModel インスタンス所有の holder / event source を `TabSessionStore` 配下の tab key 別 session holder へ移し、タブ削除時に対象 holder だけ破棄されるようにする
-- [ ] 8.4 `ThreadContentLoadUseCase`、`ThreadVisiblePostsUseCase`、板スレ一覧変換、Repository / Settings / NG / Bookmark / 既読 Flow を `ThreadRouteViewModel` / `BoardRouteViewModel` へ直接注入し、`uiStateFor(tabKey)` が旧 ViewModel の `uiState` ではなく SessionState とデータ層から直接 `UiState` を合成するようにする
-- [ ] 8.5 `ThreadViewModelFactory` / `BoardViewModelFactory`、`legacyViewModel(tabKey)`、`viewModelCache`、旧 ViewModel 由来の `disposeResources()` 依存を削除し、RouteViewModel の `onCleared()` が route 単位のジョブだけを終了する形に整理する
-- [ ] 8.6 `ThreadViewModel.kt`、`BoardViewModel.kt`、`BaseViewModel.kt`、旧 ViewModel 専用 helper / adapter を削除または UseCase / transformer / session holder へ移管し、旧 ViewModel 前提の単体テストを RouteViewModel / UseCase / holder テストへ置き換える
-- [ ] 8.7 旧 ViewModel 削除後もタブ切替、タブ削除、画面破棄、構成変更で `UiState` 購読と session holder が適切に開始・停止し、タブ間で投稿下書き、ポップアップ、ブックマークシート、画像保存イベントが混線しないことを確認する
+- [ ] 8.1 `ThreadScaffold` / `BoardScaffold` の `legacyViewModel(tabKey)` 呼び出しを一覧化し、検索、シート、ソート、ポップアップ、画像メニュー、自動スクロール、スクロール保存、投稿ダイアログ、ブックマーク操作、データ更新、タイトル / 新着同期へ分類する
+- [ ] 8.2 `ThreadViewModel` / `BoardViewModel` の公開メソッド、内部 job、holder、event source、UseCase / Repository 依存を「SessionState 更新」「session holder 操作」「UseCase 実行」「Repository 同期」「UiState 合成専用」に分類する
+- [ ] 8.3 `ThreadRouteViewModel` / `BoardRouteViewModel` に追加する tab key 指定 API を定義し、Composable から旧 ViewModel 型を参照しない呼び出し形へ整理する
+- [ ] 8.4 `ThreadViewModel` / `BoardViewModel` 内の再利用可能な純粋ロジック、mapper、popup helper、PostDialog adapter を移管先（UseCase / transformer / session holder / route private helper）ごとに確定する
 
-## 9. 回帰確認とドキュメント整理
+## 9. Session holder と UI イベント source の移管
 
-- [ ] 9.1 複数板タブ・複数スレッドタブを開いた状態で、タブ切替、戻る操作、タブ削除、再追加の回帰テストを追加または更新する
-- [ ] 9.2 スレッドの新着表示、既読更新、スクロール復元、検索、ポップアップ、投稿ダイアログ、自動更新の回帰テストを追加または更新する
-- [ ] 9.3 板一覧の更新、ソート、フィルタ、NG、ブックマーク表示、新スレ投稿ダイアログの回帰テストを追加または更新する
-- [ ] 9.4 アプリ再起動後に検索条件、ポップアップ状態、投稿下書き、自動スクロール状態が永続復元されないことを確認する
-- [ ] 9.5 自動スクロール中の定期更新が表示中スレッドタブだけに作用し、非表示タブへ作用しないことを確認する
-- [ ] 9.6 `./gradlew test` と必要な Android / Compose テストまたは CI を実行し、ViewModel 所有単位変更による退行がないことを確認する
-- [ ] 9.7 実装後に OpenSpec の該当仕様と設計判断が実装内容と一致しているか確認する
+- [ ] 9.1 `bookmarkSheetHolder` を `TabSessionStore` 配下の tab key 別 holder へ移し、`BbsRouteScaffold` の `getBookmarkSheetHolder(tab)` が旧 ViewModel を経由しないようにする
+- [ ] 9.2 `postDialogController` と `PostDialogStateAdapter` を tab key 別 session holder へ移し、投稿ダイアログの表示、入力、履歴、確認画面、投稿実行が対象タブの SessionState にだけ反映されるようにする
+- [ ] 9.3 画像保存の `ImageSaveCoordinator` / `ImageSaveUiEvent` を tab key 別 event source または route-level event dispatcher へ移し、Composable が旧 ViewModel の `imageSaveEvents` を購読しないようにする
+- [ ] 9.4 タブ削除時に対象 tab key の bookmark holder、post dialog controller、image event source だけが破棄され、別タブの holder / draft / event が残ることを単体テストで確認する
+- [ ] 9.5 holder 移管後も投稿下書き、ブックマークシート表示、画像保存 permission / toast がタブ切替で混線しないことを確認する
+
+## 10. RouteViewModel による `UiState` 直接合成化
+
+- [ ] 10.1 `ThreadContentLoadUseCase`、`ThreadVisiblePostsUseCase`、Settings / NG / Bookmark / 既読 Flow を `ThreadRouteViewModel` へ注入し、`ThreadUiState` を旧 `ThreadViewModel.uiState` なしで合成する
+- [ ] 10.2 板スレ一覧取得、ソート、フィルタ、NG、ブックマーク合成を `BoardRouteViewModel` へ注入し、`BoardUiState` を旧 `BoardViewModel.uiState` なしで合成する
+- [ ] 10.3 reload / refresh / auto-scroll / bottom pull refresh / 明示的な全タブ更新を route ViewModel API と UseCase / Repository / coordinator 呼び出しへ移す
+- [ ] 10.4 スクロール保存、タイトル更新、新着 / 既読同期、baseline 更新を `TabSessionStore` / coordinator / Repository API 経由に移し、旧 `ThreadTabCoordinator` / 旧 ViewModel の内部 job に依存しないようにする
+- [ ] 10.5 `uiStateFor(tabKey)` が `SharingStarted.WhileSubscribed` で購読中だけ重い合成を行い、全 open tabs 分を常時 combine していないことを単体テストで確認する
+
+## 11. 旧 ViewModel / Factory / BaseViewModel の削除
+
+- [ ] 11.1 `ThreadScaffold` / `BoardScaffold` から `legacyViewModel(tabKey)` 呼び出しをすべて削除し、RouteViewModel API / session holder API のみを呼ぶ形にする
+- [ ] 11.2 `ThreadRouteViewModel` / `BoardRouteViewModel` から `legacyViewModel(tabKey)`、`viewModelCache`、`ThreadViewModelFactory` / `BoardViewModelFactory`、旧 ViewModel 由来の `disposeResources()` 依存を削除する
+- [ ] 11.3 `ThreadViewModel.kt`、`BoardViewModel.kt`、`BaseViewModel.kt`、旧 ViewModel 専用 helper / adapter / factory を削除し、必要なロジックだけを UseCase / transformer / session holder へ移管する
+- [ ] 11.4 `ThreadViewModelTest`、`BoardViewModelTest`、旧 ViewModel 前提の RouteViewModel テストを削除または置き換え、RouteViewModel / UseCase / holder / transformer の単体テストへ移す
+- [ ] 11.5 旧 ViewModel 削除後もタブ切替、タブ削除、画面破棄、構成変更で `UiState` 購読と session holder が適切に開始・停止することを確認する
+
+## 12. 回帰確認とドキュメント整理
+
+- [ ] 12.1 複数板タブ・複数スレッドタブを開いた状態で、タブ切替、戻る操作、タブ削除、再追加の回帰テストを追加または更新する
+- [ ] 12.2 スレッドの新着表示、既読更新、スクロール復元、検索、ポップアップ、投稿ダイアログ、自動更新の回帰テストを追加または更新する
+- [ ] 12.3 板一覧の更新、ソート、フィルタ、NG、ブックマーク表示、新スレ投稿ダイアログの回帰テストを追加または更新する
+- [ ] 12.4 アプリ再起動後に検索条件、ポップアップ状態、投稿下書き、自動スクロール状態が永続復元されないことを確認する
+- [ ] 12.5 自動スクロール中の定期更新が表示中スレッドタブだけに作用し、非表示タブへ作用しないことを確認する
+- [ ] 12.6 `./gradlew test` と必要な Android / Compose テストまたは CI を実行し、ViewModel 所有単位変更による退行がないことを確認する
+- [ ] 12.7 実装後に OpenSpec の該当仕様と設計判断が実装内容と一致しているか確認する
