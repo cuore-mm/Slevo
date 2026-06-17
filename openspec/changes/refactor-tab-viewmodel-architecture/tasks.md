@@ -41,11 +41,11 @@
 
 ## 6. Scaffold / Pager の接続変更
 
-- [ ] 6.1 `BbsRouteScaffold` が Pager ページごとに `getOrCreateBoardViewModel` / `getOrCreateThreadViewModel` を呼ばない構造へ変更する
-- [ ] 6.2 Pager ページは自身が compose されたタイミングで tab key 指定の `UiState` Flow を購読し、アプリ側で previous/current/next を明示管理しない構造にする
-- [ ] 6.3 全 open tabs 分の完全な `UiState` を ViewModel 側で常時 combine していないことを確認する
-- [ ] 6.4 スクロール位置保存・復元が Session State を通じて従来通り動くことを確認する
-- [ ] 6.5 タブ一覧シート、横スワイプ、別種別タブ選択で navigation back stack と selected key の既存挙動が維持されることを確認する
+- [x] 6.1 `BbsRouteScaffold` が Pager ページごとに `getOrCreateBoardViewModel` / `getOrCreateThreadViewModel` を呼ばない構造へ変更する
+- [x] 6.2 Pager ページは自身が compose されたタイミングで tab key 指定の `UiState` Flow を購読し、アプリ側で previous/current/next を明示管理しない構造にする
+- [x] 6.3 全 open tabs 分の完全な `UiState` を ViewModel 側で常時 combine していないことを確認する
+- [x] 6.4 スクロール位置保存・復元が Session State を通じて従来通り動くことを確認する
+- [x] 6.5 タブ一覧シート、横スワイプ、別種別タブ選択で navigation back stack と selected key の既存挙動が維持されることを確認する
 
 ## 7. per-tab ViewModel registry の縮小・削除
 
