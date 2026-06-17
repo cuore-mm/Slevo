@@ -120,7 +120,11 @@ class BoardRouteViewModelTest {
         val viewModel = mockk<BoardViewModel>(relaxed = true)
         every { viewModel.uiState } returns MutableStateFlow(
             BoardUiState(
-                boardInfo = com.websarva.wings.android.slevo.data.model.BoardInfo(name = title),
+                boardInfo = com.websarva.wings.android.slevo.data.model.BoardInfo(
+                    boardId = 0L,
+                    name = title,
+                    url = "",
+                ),
                 threads = listOf(ThreadInfo(title = title)),
             )
         )
