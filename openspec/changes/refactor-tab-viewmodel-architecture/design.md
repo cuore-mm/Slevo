@@ -63,7 +63,7 @@
 
 ### Decision 6: 移行は互換層を挟んだ段階移行にする
 
-最初にタブ固有状態の定義と正本を整理し、次に Thread / Board のデータ合成処理を UseCase 化する。その後 `BbsRouteScaffold` が per-tab ViewModel を要求しない形に変更し、最後に `TabViewModelRegistry` と手動 release を削除または互換用途のみに縮小する。
+最初にタブ固有状態の定義と正本を整理し、次に Thread / Board のデータ合成処理を UseCase 化する。その後 `BbsRouteScaffold` が per-tab ViewModel を要求しない形に変更し、`TabViewModelRegistry` と手動 release を削除する。registry 削除後に残る `legacyViewModel(tabKey)` 互換レイヤーは一時的な移行足場としてのみ扱い、最終段階で `ThreadViewModel` / `BoardViewModel` と専用 factory を完全削除する。
 
 一括置換は差分が大きく、スクロール復元・新着同期・投稿ダイアログなどの退行リスクが高いため採用しない。
 
@@ -139,6 +139,14 @@ Task 2 で `ThreadSessionState` / `BoardSessionState` と更新 API を用意し
 
 `pendingPost`、`popupIdGenerator`、`bookmarkSheetHolder`、`postDialogController`、画像メニュー対象、投稿ダイアログ下書きのように per-tab ViewModel インスタンス所有を前提にしている継続状態は、SessionState または `TabSessionStore` 配下の tab key ごとの session holder へ移す。Route ViewModel はこれらを単一インスタンスのフィールドとして持たず、対象 tab key を指定して読み書きする。
 
+### Decision 11: `legacyViewModel` 互換レイヤーを撤去して旧 ViewModel を完全削除する
+
+`TabViewModelRegistry` を削除した後も、`ThreadRouteViewModel` / `BoardRouteViewModel` が `legacyViewModel(tabKey)` 経由で旧 `ThreadViewModel` / `BoardViewModel` を生成・キャッシュしている間は、設計上の最終形ではない。この互換レイヤーは Task 6〜7 の移行を安全に進めるための一時的な足場として扱い、最終段階で削除する。
+
+完全削除では、Composable から旧 ViewModel 操作を呼ばないようにし、検索、シート、ソート、ポップアップ、画像メニュー、自動スクロール、スクロール保存、更新、投稿、ブックマーク操作を route ViewModel の tab key 指定 API、SessionState、UseCase、Repository、または `TabSessionStore` 配下の session holder へ移す。`uiStateFor(tabKey)` は旧 ViewModel の `uiState` を再公開するのではなく、SessionState とデータ層 Flow から `ThreadUiState` / `BoardUiState` を直接合成する。
+
+削除対象には `ThreadViewModel.kt`、`BoardViewModel.kt`、`ThreadViewModelFactory`、`BoardViewModelFactory`、旧 ViewModel 専用の `BaseViewModel` 利用、旧 ViewModel 前提のテストを含める。ただし純粋な表示変換、ポップアップ重複抑止、投稿ダイアログ状態アダプタなど再利用可能なロジックは、UseCase、transformer、session holder、または route ViewModel の private helper へ移管してから削除する。
+
 ## Risks / Trade-offs
 
 - [Risk] 非表示タブの UI セッション状態が失われる → `TabSessionStore` にタブ固有状態を移し、タブ切替・画面離脱・タブ削除の各タイミングで保存を検証する。
@@ -152,6 +160,8 @@ Task 2 で `ThreadSessionState` / `BoardSessionState` と更新 API を用意し
 - [Risk] 自動更新を表示中タブに限定すると非表示タブの新着が即時反映されない → 非表示タブの新着確認は明示的な一括更新またはタブ表示時の更新で扱う。
 - [Risk] SessionState の受け皿だけを作った状態で Route ViewModel 化すると、`_uiState` と SessionState の片方だけが更新される → Route ViewModel 導入前に揮発 UI 状態の更新経路を SessionState に統一し、`UiState` は合成結果として扱うテストを追加する。
 - [Risk] per-tab ViewModel のインスタンスフィールドを Route ViewModel に残すと、複数タブ間で投稿下書き、ポップアップ ID、自動更新状態が混線する → tab key ごとの SessionState / session holder に移し、単一 route ViewModel フィールドには共有可能な Repository / UseCase 依存だけを残す。
+- [Risk] `legacyViewModel(tabKey)` を残したまま完了扱いにすると per-tab ViewModel 生成が温存される → 完全削除タスクを独立させ、RouteViewModel の `uiStateFor(tabKey)` が旧 ViewModel に依存しないこと、Composable から旧 ViewModel 操作を呼ばないことを完了条件にする。
+- [Risk] 投稿ダイアログ、ブックマークシート、画像保存イベントなどの holder を route ViewModel 単一フィールドへ移すとタブ間で混線する → `TabSessionStore` 配下に tab key 別 holder を置き、タブ削除時に対象 key の holder だけを破棄する。
 
 ## Migration Plan
 
@@ -164,8 +174,9 @@ Task 2 で `ThreadSessionState` / `BoardSessionState` と更新 API を用意し
 7. `BbsRouteScaffold` のページ生成を per-tab ViewModel 取得から、Pager が compose したページごとに tab key 指定 `UiState` Flow を購読する構造へ切り替える。
 8. UI セッション状態はプロセス内 Session State に限定し、永続タブ状態へ保存しないように保存経路を整理する。
 9. 自動スクロールに伴う定期更新を表示中スレッドタブのみに限定し、全タブ更新は明示操作として分離する。
-10. `TabViewModelRegistry`、`BaseViewModel.release()`、per-tab ViewModel factory 依存を削除し、必要な assisted factory は route ViewModel 用へ整理する。
-11. スクロール復元、タブ切替、新着表示、更新、投稿ダイアログ、検索、ポップアップの回帰テストを追加・更新する。
+10. `TabViewModelRegistry`、`BaseViewModel.release()`、per-tab ViewModel registry 依存を削除し、旧 ViewModel は route ViewModel 内の互換レイヤーとして一時的に閉じ込める。
+11. `legacyViewModel(tabKey)` 呼び出しを route ViewModel API / SessionState / UseCase / session holder へ移し、`ThreadViewModel` / `BoardViewModel` と専用 factory を完全削除する。
+12. スクロール復元、タブ切替、新着表示、更新、投稿ダイアログ、検索、ポップアップの回帰テストを追加・更新する。
 
 ## Open Questions
 

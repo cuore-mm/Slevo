@@ -8,6 +8,7 @@
 - タブごとの差分状態は `TabSessionStore` 配下のセッション状態として扱い、ViewModel は選択中タブと Repository / UseCase / Settings 等を合成して `UiState` を生成する役割へ寄せる。
 - 板一覧・スレ本文・既読・ブックマーク・NG などのデータ正本は Repository / DB / UseCase 側に置き、ViewModel が長期保持する表示データを最小化する。
 - `TabViewModelRegistry` による per-tab ViewModel キャッシュを廃止または互換層へ縮小する移行方針を定義する。
+- registry 削除後に残る `legacyViewModel(tabKey)` 互換レイヤーを撤去し、`ThreadViewModel` / `BoardViewModel` と専用 factory を完全削除する計画を追加する。
 - 既存のタブ切替、スクロール位置復元、新着表示、検索、ポップアップ、投稿ダイアログ、自動更新のユーザー体験は維持する。
 - **BREAKING**: 内部設計として、タブごとの `BoardViewModel` / `ThreadViewModel` インスタンスを前提にした初期化・解放・同期フローを変更する。
 
@@ -34,4 +35,4 @@
   - `ui/board/state/BoardUiState.kt`
   - 関連する Repository / UseCase / テスト
 - 外部 API やデータベーススキーマの変更は必須ではないが、タブ固有状態の永続化項目を整理する場合は移行が必要になる可能性がある。
-- 実装は段階移行とし、まず責務切り出しと正本の明確化を行い、その後 per-tab ViewModel registry 依存を削減する。
+- 実装は段階移行とし、まず責務切り出しと正本の明確化を行い、その後 per-tab ViewModel registry 依存を削減し、最後に旧 ViewModel 互換レイヤーを撤去する。

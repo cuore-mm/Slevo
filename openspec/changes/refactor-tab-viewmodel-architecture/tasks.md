@@ -54,12 +54,22 @@
 - [x] 7.3 Assisted factory が per-tab ViewModel 生成専用になっている場合は削除し、必要な場合のみ route ViewModel 用に整理する
 - [x] 7.4 registry 削除後もタブ削除、画面破棄、構成変更で監視ジョブが適切に終了・再開されることを確認する
 
-## 8. 回帰確認とドキュメント整理
+## 8. `ThreadViewModel` / `BoardViewModel` 互換レイヤーの完全削除
 
-- [ ] 8.1 複数板タブ・複数スレッドタブを開いた状態で、タブ切替、戻る操作、タブ削除、再追加の回帰テストを追加または更新する
-- [ ] 8.2 スレッドの新着表示、既読更新、スクロール復元、検索、ポップアップ、投稿ダイアログ、自動更新の回帰テストを追加または更新する
-- [ ] 8.3 板一覧の更新、ソート、フィルタ、NG、ブックマーク表示、新スレ投稿ダイアログの回帰テストを追加または更新する
-- [ ] 8.4 アプリ再起動後に検索条件、ポップアップ状態、投稿下書き、自動スクロール状態が永続復元されないことを確認する
-- [ ] 8.5 自動スクロール中の定期更新が表示中スレッドタブだけに作用し、非表示タブへ作用しないことを確認する
-- [ ] 8.6 `./gradlew test` と必要な Android / Compose テストまたは CI を実行し、ViewModel 所有単位変更による退行がないことを確認する
-- [ ] 8.7 実装後に OpenSpec の該当仕様と設計判断が実装内容と一致しているか確認する
+- [ ] 8.1 `ThreadScaffold` / `BoardScaffold` の `legacyViewModel(tabKey)` 呼び出しを一覧化し、検索、シート、ソート、ポップアップ、画像メニュー、自動スクロール、スクロール保存、投稿ダイアログ、ブックマーク操作へ分類する
+- [ ] 8.2 検索、シート、ソート、ポップアップ、画像メニュー、自動スクロールなど SessionState だけで表現できる操作を `ThreadRouteViewModel` / `BoardRouteViewModel` の tab key 指定 API へ移し、Composable から旧 ViewModel 操作を呼ばないようにする
+- [ ] 8.3 `bookmarkSheetHolder`、`postDialogController`、画像保存イベントなど per-tab ViewModel インスタンス所有の holder / event source を `TabSessionStore` 配下の tab key 別 session holder へ移し、タブ削除時に対象 holder だけ破棄されるようにする
+- [ ] 8.4 `ThreadContentLoadUseCase`、`ThreadVisiblePostsUseCase`、板スレ一覧変換、Repository / Settings / NG / Bookmark / 既読 Flow を `ThreadRouteViewModel` / `BoardRouteViewModel` へ直接注入し、`uiStateFor(tabKey)` が旧 ViewModel の `uiState` ではなく SessionState とデータ層から直接 `UiState` を合成するようにする
+- [ ] 8.5 `ThreadViewModelFactory` / `BoardViewModelFactory`、`legacyViewModel(tabKey)`、`viewModelCache`、旧 ViewModel 由来の `disposeResources()` 依存を削除し、RouteViewModel の `onCleared()` が route 単位のジョブだけを終了する形に整理する
+- [ ] 8.6 `ThreadViewModel.kt`、`BoardViewModel.kt`、`BaseViewModel.kt`、旧 ViewModel 専用 helper / adapter を削除または UseCase / transformer / session holder へ移管し、旧 ViewModel 前提の単体テストを RouteViewModel / UseCase / holder テストへ置き換える
+- [ ] 8.7 旧 ViewModel 削除後もタブ切替、タブ削除、画面破棄、構成変更で `UiState` 購読と session holder が適切に開始・停止し、タブ間で投稿下書き、ポップアップ、ブックマークシート、画像保存イベントが混線しないことを確認する
+
+## 9. 回帰確認とドキュメント整理
+
+- [ ] 9.1 複数板タブ・複数スレッドタブを開いた状態で、タブ切替、戻る操作、タブ削除、再追加の回帰テストを追加または更新する
+- [ ] 9.2 スレッドの新着表示、既読更新、スクロール復元、検索、ポップアップ、投稿ダイアログ、自動更新の回帰テストを追加または更新する
+- [ ] 9.3 板一覧の更新、ソート、フィルタ、NG、ブックマーク表示、新スレ投稿ダイアログの回帰テストを追加または更新する
+- [ ] 9.4 アプリ再起動後に検索条件、ポップアップ状態、投稿下書き、自動スクロール状態が永続復元されないことを確認する
+- [ ] 9.5 自動スクロール中の定期更新が表示中スレッドタブだけに作用し、非表示タブへ作用しないことを確認する
+- [ ] 9.6 `./gradlew test` と必要な Android / Compose テストまたは CI を実行し、ViewModel 所有単位変更による退行がないことを確認する
+- [ ] 9.7 実装後に OpenSpec の該当仕様と設計判断が実装内容と一致しているか確認する
