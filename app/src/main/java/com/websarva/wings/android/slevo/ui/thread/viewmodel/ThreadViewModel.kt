@@ -944,12 +944,12 @@ class ThreadViewModel @AssistedInject constructor(
             val stack = state.popupStack
             if (index !in stack.indices) {
                 // 範囲外の更新は無視する。
-                return@update state
+                return@updateCurrentThreadSessionState state
             }
             val target = stack[index]
             if (target.size == size) {
                 // 変更がない場合は更新しない。
-                return@update state
+                return@updateCurrentThreadSessionState state
             }
             val updated = stack.toMutableList()
             updated[index] = target.copy(size = size)
@@ -965,7 +965,7 @@ class ThreadViewModel @AssistedInject constructor(
         updateCurrentThreadSessionState { state ->
             if (state.popupStack.isEmpty()) {
                 // 表示対象がない場合は何もしない。
-                return@update state
+                return@updateCurrentThreadSessionState state
             }
             val nextState = state.copy(popupStack = state.popupStack.dropLast(1))
             nextState.copy(isTabSwipeEnabled = shouldEnableTabSwipe(nextState))
