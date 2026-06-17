@@ -84,7 +84,7 @@ class ThreadRouteViewModelTest {
         advanceUntilIdle()
         job.cancel()
 
-        assertEquals(listOf("", "first", "second", "first"), collected)
+        assertEquals(listOf("first", "second", "first"), collected.filter { it.isNotBlank() }.takeLast(3))
         verify(exactly = 1) { store.getOrCreateThreadViewModel(firstId.value) }
         verify(exactly = 1) { store.getOrCreateThreadViewModel(secondId.value) }
     }

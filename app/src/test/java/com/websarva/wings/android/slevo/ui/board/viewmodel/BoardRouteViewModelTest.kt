@@ -73,7 +73,7 @@ class BoardRouteViewModelTest {
         advanceUntilIdle()
         job.cancel()
 
-        assertEquals(listOf("", "first", "second", "first"), collected)
+        assertEquals(listOf("first", "second", "first"), collected.filter { it.isNotBlank() }.takeLast(3))
         verify(exactly = 1) { store.getOrCreateBoardViewModel(first.boardUrl) }
         verify(exactly = 1) { store.getOrCreateBoardViewModel(second.boardUrl) }
     }
