@@ -81,6 +81,54 @@ Flow は tab key ごとに遅延生成し、必要に応じて ViewModel 内で�
 
 代替案として非表示タブの検索・ポップアップ状態を永続化する案もあるが、保存対象が増えて復元時の整合性が複雑になるため採用しない。開いている全タブを自動更新する案も、通信・変換・合成コストがタブ数に比例して増え、per-tab ViewModel 廃止の目的と逆行するため採用しない。
 
+### Decision 9: Task 1 の棚卸し結果を状態配置の正本とする
+
+Task 1 の時点で、`ThreadUiState`、`BoardUiState`、`ThreadTabInfo`、`BoardTabInfo`、`TabSessionStore`、`ThreadViewModel`、`BoardViewModel` の保持項目を以下の 4 区分へ確定分類する。この分類を以後の実装判断の基準とし、新しい状態を追加する場合も同じ区分に従う。
+
+#### 軽量 TabInfo に残す項目
+
+- `ThreadTabInfo` / `BoardTabInfo` の識別子: `ThreadId`、`boardUrl`、`boardName`、`serviceName`
+- タブ一覧表示に必要な軽量メタ情報: `title`、`bookmarkColorName`、`isPinned`
+- タブ復元に必要な永続状態: `firstVisibleItemIndex`、`firstVisibleItemScrollOffset`
+- 選択中タブ key とタブ並び順は `BoardTabsCoordinator` / `ThreadTabsCoordinator` の正本として扱い、`TabSessionStore` から再公開する
+
+`resCount`、`newResCount`、`prevResCount`、`lastReadResNo`、`firstNewResNo` のような客観状態・既読状態は、表示モデル互換のため当面 `ThreadTabInfo` に残りうるが、正本としては扱わず Repository 由来の合成値として段階的に縮小する。
+
+#### UI SessionState に移す項目
+
+- 検索状態: `searchInputValue`、`searchQuery`、`isSearchMode`、`isSearchActive`
+- シート / ダイアログ状態: `showThreadInfoSheet`、`showMoreSheet`、`showDisplaySettingsSheet`、`showImageMenuSheet`、`showImageNgDialog`、`showBoardInfoSheet`、`showSortSheet`、`postDialogState`
+- 一時操作状態: `popupStack`、`pendingToastResId`、`resetScroll`、`isTabSwipeEnabled`
+- 揮発 UI 状態: `imageMenuTargetUrl`、`imageMenuTargetUrls`、`imageNgTargetUrl`
+- 自動スクロール / 更新まわりの揮発状態: `isAutoScroll` の実行状態、`loadingSource`、`isLoading`、`loadProgress`
+
+これらは `ThreadSessionState` / `BoardSessionState` または `TabSessionStore` 配下の補助 holder に寄せ、アプリ再起動後は復元しない。
+
+#### Repository / DB / UseCase を正本にする項目
+
+- 板 / スレの客観データ: `boardInfo`、`threadInfo`、`threads`、`posts`
+- 既読・新着・履歴: `prevResCount`、`lastReadResNo`、`firstNewResNo`、`myPostNumbers`
+- ブックマーク状態: `bookmarkStatusState` の基データ
+- NG / 設定: `ngPostNumbers` の基データ、`textScale`、`headerTextScale`、`bodyTextScale`、`lineHeight`、`gestureSettings`、ソート設定
+
+ViewModel はこれらを保持せず、Repository / UseCase / coordinator の Flow を購読して表示用に合成する。
+
+#### 合成 UiState に限定する項目
+
+- スレッド表示派生: `visiblePostRows`、`replyCounts`、`firstAfterIndex`、`postGroups`、`latestArrivalGroupIndex`
+- ツリー / 返信 / ID 派生: `idCountMap`、`idIndexList`、`replySourceMap`、`treeOrder`、`treeDepthMap`、`treeRootMap`
+- 揮発キャッシュ: `imageLoadFailureByUrl`、`imageLoadingUrls`
+- 画面描画専用の一時値: `serviceName`、`showMinimapScrollbar`
+
+これらは保持の正本を持たず、SessionState と Repository の値から毎回再合成する。
+
+#### per-tab ViewModel 前提を解消する移管方針
+
+- `bookmarkSheetHolder` と `postDialogController` は per-tab ViewModel の所有をやめ、`TabSessionStore` 配下の Session holder へ寄せる
+- `popupStack` と `isTabSwipeEnabled` はアクティブタブ基準で扱う SessionState とし、Pager 全体制御は `TabSessionStore` が担う
+- `pendingPost`、`observedThreadHistoryId`、`postHistoryCollectJob`、`lastAutoRefreshTime` のような ViewModel 内部の継続状態は Repository 監視または SessionState へ移す
+- `ThreadViewModel` / `BoardViewModel` に残すのは、対象 tab key の `UiState` Flow を遅延生成する presenter 責務だけに絞る
+
 ## Risks / Trade-offs
 
 - [Risk] 非表示タブの UI セッション状態が失われる → `TabSessionStore` にタブ固有状態を移し、タブ切替・画面離脱・タブ削除の各タイミングで保存を検証する。

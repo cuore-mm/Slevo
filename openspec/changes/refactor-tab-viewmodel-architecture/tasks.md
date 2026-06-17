@@ -1,8 +1,8 @@
 ## 1. 状態と責務の棚卸し
 
-- [ ] 1.1 `ThreadUiState`、`BoardUiState`、`ThreadTabInfo`、`BoardTabInfo`、`TabSessionStore` の保持項目を一覧化し、正本を「軽量 `TabInfo`」「UI `SessionState`」「Repository / DB / UseCase」「合成 `UiState`」に分類する
-- [ ] 1.2 `ThreadViewModel` と `BoardViewModel` のイベント、監視 Flow、Repository 依存、初期化処理、解放処理を洗い出す
-- [ ] 1.3 per-tab ViewModel でなければ保持できない状態が残っていないか確認し、残る場合は Session State または UseCase へ移す方針を決める
+- [x] 1.1 `ThreadUiState`、`BoardUiState`、`ThreadTabInfo`、`BoardTabInfo`、`TabSessionStore` の保持項目を一覧化し、正本を「軽量 `TabInfo`」「UI `SessionState`」「Repository / DB / UseCase」「合成 `UiState`」に分類する
+- [x] 1.2 `ThreadViewModel` と `BoardViewModel` のイベント、監視 Flow、Repository 依存、初期化処理、解放処理を洗い出す
+- [x] 1.3 per-tab ViewModel でなければ保持できない状態が残っていないか確認し、残る場合は Session State または UseCase へ移す方針を決める
 
 ## 2. タブセッション状態の受け皿整備
 
