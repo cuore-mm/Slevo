@@ -66,7 +66,32 @@ class BoardTabSessionHolder(
                     ?: 0L
             },
             onPostSuccess = { success -> _postSuccessEvents.tryEmit(success) },
-)
+        )
+
+    private val postDialogImageUploader =
+        postDialogImageUploaderFactory.create(scope, Dispatchers.IO)
+
+    /**
+     * 投稿ダイアログに画像をアップロードし、URL を本文に追記する。
+     */
+    fun uploadPostDialogImage(context: Context, uri: Uri) {
+        postDialogImageUploader.uploadImage(context, uri) { url ->
+            postDialogController.appendImageUrl(url)
+        }
+    }
+
+    /**
+     * このタブ用の holder リソースを解放する。
+     */
+    fun dispose() {
+        bookmarkSheetHolder.dispose()
+        scope.cancel()
+    }
+
+    companion object {
+        private const val CREATE_IDENTITY_HISTORY_KEY = "board_create_identity"
+    }
+}
 
 /**
  * [BoardTabSessionHolder] を生成するためのファクトリ。
@@ -95,34 +120,4 @@ class BoardTabSessionHolderFactory @Inject constructor(
             boardUrl = boardUrl,
         )
     }
-}
-
-    }
-
-    /**
-     * このタブ用の holder リソースを解放する。
-     */
-    fun dispose() {
-        bookmarkSheetHolder.dispose()
-        scope.cancel()
-    }
-
-    companion object {
-        private const val CREATE_IDENTITY_HISTORY_KEY = "board_create_identity"
-    }
-}
-
-/**
- * [BoardTabSessionHolder] を生成するためのファクトリ。
- */
-@AssistedFactory
-interface BoardTabSessionHolderFactory {
-
-    /**
-     * 指定板 URL に紐づく holder を生成する。
-     */
-    fun create(
-        @Assisted("tabKey") tabKey: String,
-        @Assisted("boardUrl") boardUrl: String,
-    ): BoardTabSessionHolder
 }

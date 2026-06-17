@@ -300,9 +300,9 @@ class ThreadRouteViewModel @Inject constructor(
             current.copy(
                 pendingPost = PendingThreadPostState(
                     resNum = success.resNum,
-                    message = success.message,
+                    content = success.message,
                     name = success.name,
-                    mail = success.mail,
+                    email = success.mail,
                 )
             )
         }
