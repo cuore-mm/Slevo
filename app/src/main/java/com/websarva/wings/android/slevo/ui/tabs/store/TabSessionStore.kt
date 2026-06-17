@@ -262,6 +262,13 @@ class TabSessionStore @Inject constructor(
     }
 
     /**
+     * 指定スレッドタブの投稿成功イベント Flow を返す。
+     */
+    fun threadPostDialogSuccessEvents(tabKey: String): kotlinx.coroutines.flow.SharedFlow<com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogSuccess> {
+        return threadSessionHolder(tabKey).postSuccessEvents
+    }
+
+    /**
      * 指定スレッドタブの画像保存イベント Flow を返す。
      */
     fun threadImageSaveEvents(tabKey: String): kotlinx.coroutines.flow.SharedFlow<com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent> {
@@ -307,6 +314,13 @@ class TabSessionStore @Inject constructor(
      */
     fun boardPostDialogController(tabKey: String): com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController {
         return boardSessionHolder(tabKey).postDialogController
+    }
+
+    /**
+     * 指定板タブの投稿成功イベント Flow を返す。
+     */
+    fun boardPostDialogSuccessEvents(tabKey: String): kotlinx.coroutines.flow.SharedFlow<com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogSuccess> {
+        return boardSessionHolder(tabKey).postSuccessEvents
     }
 
     /**

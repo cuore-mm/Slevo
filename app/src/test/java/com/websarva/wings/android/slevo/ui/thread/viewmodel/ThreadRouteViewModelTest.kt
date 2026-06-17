@@ -179,14 +179,9 @@ class ThreadRouteViewModelTest {
         val store = mockk<TabSessionStore>(relaxed = true)
         every { store.openThreadTabs } returns openTabs
         every { store.selectedThreadTabKey } returns selectedKey
-        every { store.threadPostDialogController(any()) } returns mockPostDialogController()
+        every { store.threadPostDialogController(any()) } returns mockk(relaxed = true)
+        every { store.threadPostDialogSuccessEvents(any()) } returns MutableSharedFlow()
         return store
-    }
-
-    private fun mockPostDialogController(): com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController {
-        val controller = mockk<com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController>(relaxed = true)
-        every { controller.postSuccessEvents } returns MutableSharedFlow()
-        return controller
     }
 
     /**

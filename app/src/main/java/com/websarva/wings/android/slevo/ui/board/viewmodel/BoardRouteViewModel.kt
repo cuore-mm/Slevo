@@ -224,8 +224,7 @@ class BoardRouteViewModel @Inject constructor(
                 return@forEach
             }
             postSuccessCollectJobs[tab.boardUrl] = viewModelScope.launch {
-                tabSessionStore.boardPostDialogController(tab.boardUrl)
-                    .postSuccessEvents
+                tabSessionStore.boardPostDialogSuccessEvents(tab.boardUrl)
                     .collect {
                         refreshBoard(tab.boardUrl)
                     }

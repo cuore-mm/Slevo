@@ -282,8 +282,7 @@ class ThreadRouteViewModel @Inject constructor(
                 return@forEach
             }
             postSuccessCollectJobs[tab.id.value] = viewModelScope.launch {
-                tabSessionStore.threadPostDialogController(tab.id.value)
-                    .postSuccessEvents
+                tabSessionStore.threadPostDialogSuccessEvents(tab.id.value)
                     .collect { success ->
                         onThreadPostSuccess(tab.id.value, success)
                     }

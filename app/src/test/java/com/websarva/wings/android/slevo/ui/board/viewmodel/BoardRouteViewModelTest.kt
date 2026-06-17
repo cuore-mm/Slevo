@@ -127,14 +127,9 @@ class BoardRouteViewModelTest {
         val store = mockk<TabSessionStore>(relaxed = true)
         every { store.openBoardTabs } returns openTabs
         every { store.selectedBoardTabKey } returns selectedKey
-        every { store.boardPostDialogController(any()) } returns mockPostDialogController()
+        every { store.boardPostDialogController(any()) } returns mockk(relaxed = true)
+        every { store.boardPostDialogSuccessEvents(any()) } returns MutableSharedFlow()
         return store
-    }
-
-    private fun mockPostDialogController(): com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController {
-        val controller = mockk<com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController>(relaxed = true)
-        every { controller.postSuccessEvents } returns MutableSharedFlow()
-        return controller
     }
 
     /**
