@@ -21,12 +21,12 @@
 
 ## 4. SessionState の実利用化
 
-- [ ] 4.1 `ThreadUiState` / `BoardUiState` と `ThreadSessionState` / `BoardSessionState` の重複フィールドを再確認し、揮発 UI 状態の更新元を SessionState に統一する対象一覧を確定する
-- [ ] 4.2 検索状態、ソート状態、シート / ダイアログ表示、ポップアップスタック、画像メニュー、トースト、ローディング表示、タブスワイプ可否の更新を `TabSessionStore.updateThreadSessionState` / `updateBoardSessionState` 経由に寄せる
-- [ ] 4.3 既存 `ThreadViewModel` / `BoardViewModel` の移行期間中も、`UiState` を SessionState と Repository / UseCase 由来値から合成される読み取りモデルとして扱い、同じ揮発 UI 状態を `_uiState` と SessionState の両方で更新しないようにする
-- [ ] 4.4 `pendingPost`、`popupIdGenerator`、`bookmarkSheetHolder`、`postDialogController`、画像メニュー対象、投稿ダイアログ下書きなど per-tab ViewModel インスタンス所有の継続状態を、tab key ごとの SessionState または `TabSessionStore` 配下の session holder へ移す方針で整理する
-- [ ] 4.5 タブ切替後も検索、ポップアップ、投稿ダイアログ下書き、画像メニュー、自動スクロール状態が対象タブの SessionState から復元され、別タブへ混線しないことを単体テストで確認する
-- [ ] 4.6 SessionState へ移した揮発 UI 状態が永続タブ状態へ保存されず、タブ削除時に対象タブ分だけ破棄されることを確認する
+- [x] 4.1 `ThreadUiState` / `BoardUiState` と `ThreadSessionState` / `BoardSessionState` の重複フィールドを再確認し、揮発 UI 状態の更新元を SessionState に統一する対象一覧を確定する
+- [x] 4.2 検索状態、ソート状態、シート / ダイアログ表示、ポップアップスタック、画像メニュー、トースト、ローディング表示、タブスワイプ可否の更新を `TabSessionStore.updateThreadSessionState` / `updateBoardSessionState` 経由に寄せる
+- [x] 4.3 既存 `ThreadViewModel` / `BoardViewModel` の移行期間中も、`UiState` を SessionState と Repository / UseCase 由来値から合成される読み取りモデルとして扱い、同じ揮発 UI 状態を `_uiState` と SessionState の両方で更新しないようにする
+- [x] 4.4 `pendingPost`、`popupIdGenerator`、`bookmarkSheetHolder`、`postDialogController`、画像メニュー対象、投稿ダイアログ下書きなど per-tab ViewModel インスタンス所有の継続状態を、tab key ごとの SessionState または `TabSessionStore` 配下の session holder へ移す方針で整理する
+- [x] 4.5 タブ切替後も検索、ポップアップ、投稿ダイアログ下書き、画像メニュー、自動スクロール状態が対象タブの SessionState から復元され、別タブへ混線しないことを単体テストで確認する
+- [x] 4.6 SessionState へ移した揮発 UI 状態が永続タブ状態へ保存されず、タブ削除時に対象タブ分だけ破棄されることを確認する
 
 ## 5. Route 単位 ViewModel への移行
 
