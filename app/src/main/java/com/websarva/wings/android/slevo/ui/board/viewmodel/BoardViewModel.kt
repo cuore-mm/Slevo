@@ -423,7 +423,11 @@ class BoardViewModel @AssistedInject constructor(
     private fun updateCurrentBoardSessionState(
         transform: (BoardSessionState) -> BoardSessionState,
     ) {
-        val boardUrl = currentBoardUrl() ?: return
+        val boardUrl = currentBoardUrl()
+        if (boardUrl == null) {
+            applyBoardSessionToUiState(transform(currentBoardSessionState()))
+            return
+        }
         updateBoardSessionStateByUrl(boardUrl, transform)
         syncBoardUiStateFromSession(boardUrl)
     }
@@ -449,6 +453,13 @@ class BoardViewModel @AssistedInject constructor(
             return
         }
         val session = boardTabsCoordinator.getBoardSessionState(boardUrl)
+        applyBoardSessionToUiState(session)
+    }
+
+    /**
+     * SessionState の内容を現在の UiState へ投影する。
+     */
+    private fun applyBoardSessionToUiState(session: BoardSessionState) {
         _uiState.update { state ->
             state.copy(
                 showSortSheet = session.showSortSheet,

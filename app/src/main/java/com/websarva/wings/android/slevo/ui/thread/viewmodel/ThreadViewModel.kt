@@ -1385,7 +1385,11 @@ class ThreadViewModel @AssistedInject constructor(
     private fun updateCurrentThreadSessionState(
         transform: (ThreadSessionState) -> ThreadSessionState,
     ) {
-        val threadId = currentThreadId() ?: return
+        val threadId = currentThreadId()
+        if (threadId == null) {
+            applyThreadSessionToUiState(transform(currentThreadSessionState()))
+            return
+        }
         threadTabsCoordinator.updateThreadSessionState(threadId, transform)
         syncThreadUiStateFromSession(threadId)
     }
@@ -1405,6 +1409,13 @@ class ThreadViewModel @AssistedInject constructor(
      */
     private fun syncThreadUiStateFromSession(threadId: ThreadId) {
         val session = threadTabsCoordinator.getThreadSessionState(threadId)
+        applyThreadSessionToUiState(session)
+    }
+
+    /**
+     * SessionState の内容を現在の UiState へ投影する。
+     */
+    private fun applyThreadSessionToUiState(session: ThreadSessionState) {
         _uiState.update { state ->
             state.copy(
                 loadProgress = session.loadProgress,
