@@ -56,10 +56,10 @@
 
 ## 8. 旧 ViewModel 互換レイヤーの棚卸しと Route API 設計
 
-- [ ] 8.1 `ThreadScaffold` / `BoardScaffold` の `legacyViewModel(tabKey)` 呼び出しを一覧化し、検索、シート、ソート、ポップアップ、画像メニュー、自動スクロール、スクロール保存、投稿ダイアログ、ブックマーク操作、データ更新、タイトル / 新着同期へ分類する
-- [ ] 8.2 `ThreadViewModel` / `BoardViewModel` の公開メソッド、内部 job、holder、event source、UseCase / Repository 依存を「SessionState 更新」「session holder 操作」「UseCase 実行」「Repository 同期」「UiState 合成専用」に分類する
-- [ ] 8.3 `ThreadRouteViewModel` / `BoardRouteViewModel` に追加する tab key 指定 API を定義し、Composable から旧 ViewModel 型を参照しない呼び出し形へ整理する
-- [ ] 8.4 `ThreadViewModel` / `BoardViewModel` 内の再利用可能な純粋ロジック、mapper、popup helper、PostDialog adapter を移管先（UseCase / transformer / session holder / route private helper）ごとに確定する
+- [x] 8.1 `ThreadScaffold` / `BoardScaffold` の `legacyViewModel(tabKey)` 呼び出しを一覧化し、検索、シート、ソート、ポップアップ、画像メニュー、自動スクロール、スクロール保存、投稿ダイアログ、ブックマーク操作、データ更新、タイトル / 新着同期へ分類する
+- [x] 8.2 `ThreadViewModel` / `BoardViewModel` の公開メソッド、内部 job、holder、event source、UseCase / Repository 依存を「SessionState 更新」「session holder 操作」「UseCase 実行」「Repository 同期」「UiState 合成専用」に分類する
+- [x] 8.3 `ThreadRouteViewModel` / `BoardRouteViewModel` に追加する tab key 指定 API を定義し、Composable から旧 ViewModel 型を参照しない呼び出し形へ整理する
+- [x] 8.4 `ThreadViewModel` / `BoardViewModel` 内の再利用可能な純粋ロジック、mapper、popup helper、PostDialog adapter を移管先（UseCase / transformer / session holder / route private helper）ごとに確定する
 
 ## 9. Session holder と UI イベント source の移管
 

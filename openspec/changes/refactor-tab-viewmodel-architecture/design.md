@@ -155,6 +155,54 @@ Task 2 で `ThreadSessionState` / `BoardSessionState` と更新 API を用意し
 4. Scaffold から `legacyViewModel(tabKey)` 呼び出しをすべて削除し、RouteViewModel API と session holder API のみを呼ぶ形にする。
 5. 旧 ViewModel、専用 factory、`BaseViewModel`、旧 ViewModel 前提のテストを削除または置換し、回帰テストでタブ切替、タブ削除、構成変更、投稿、ブックマーク、画像保存、ポップアップの混線がないことを確認する。
 
+Task 8 の棚卸し結果として、現時点の `legacyViewModel(tabKey)` 呼び出しは `ThreadScaffold` 5 箇所、`BoardScaffold` 4 箇所に集約されている。呼び出し内容は次の 4 系統に分かれる。
+
+- **SessionState 更新へ移す操作**: スレッド検索開始 / 終了 / 入力更新、スレッド並び順切替、自動スクロール切替、各種シート開閉、画像メニュー開閉、画像 NG ダイアログ開閉、ポップアップ追加 / 削除 / サイズ更新、板検索開始 / 終了 / 入力更新、板ソートキー / 昇順切替、板情報 / スレ情報シート開閉、toast / resetScroll 消費
+- **session holder へ移す操作**: `bookmarkSheetHolder`、`postDialogController` / `postDialogActions`、スレッド画像保存の `imageSaveEvents`
+- **Repository / coordinator / UseCase 呼び出しへ移す操作**: `reloadThread`、`reloadThreadFromBottomPull`、`refreshBoardData`、`onAutoScrollReachedBottom`、`updateThreadScrollPosition`、`updateThreadLastRead`、`updateThreadTabInfo`、`setNewArrivalInfo`、画像ロード状態更新
+- **純粋ロジック / adapter として残して移管するもの**: `appendPopupIfDistinct`、`isSamePopupContent`、画像メニュー URL 正規化、Tree popup 選択ロジック、`ThreadPostDialogStateAdapter`、`BoardPostDialogStateAdapter`
+
+### Task 8 concrete migration policy
+
+#### 1. Scaffold call inventory
+
+- `ThreadScaffold`
+  - `getBookmarkSheetHolder` は tab key 別 bookmark holder 取得 API に置き換える
+  - `updateScrollPosition` は `ThreadRouteViewModel.updateScrollPosition(tabKey, index, offset)` 経由で `TabSessionStore` / coordinator へ委譲する
+  - bottom bar / content / optional sheet から呼んでいる検索、ソート、投稿、ブックマーク、シート、ポップアップ、画像保存、既読更新、タブ情報更新は RouteViewModel API と session holder API に分解する
+- `BoardScaffold`
+  - `getBookmarkSheetHolder` は tab key 別 bookmark holder 取得 API に置き換える
+  - bottom bar / content / optional sheet から呼んでいる検索、ソート、投稿、ブックマーク、シート、更新、toast / resetScroll 消費は RouteViewModel API と session holder API に分解する
+
+#### 2. RouteViewModel API boundary
+
+`ThreadRouteViewModel` / `BoardRouteViewModel` は旧 ViewModel 実体を返さず、次のような tab key 指定 API 群を直接持つ。
+
+- **SessionState 操作 API**: `startSearch(tabKey)`、`closeSearch(tabKey)`、`updateSearchInput(tabKey, value)`、`toggleSortType(tabKey)`、`toggleAutoScroll(tabKey)`、`openThreadInfoSheet(tabKey)`、`closeThreadInfoSheet(tabKey)`、`openMoreSheet(tabKey)`、`closeMoreSheet(tabKey)`、`openDisplaySettingsSheet(tabKey)`、`closeDisplaySettingsSheet(tabKey)`、`openImageMenu(tabKey, ...)`、`closeImageMenu(tabKey)`、`openImageNgDialog(tabKey, url)`、`closeImageNgDialog(tabKey)`、`addPopupForTree(tabKey, ...)`、`addPopupForReplyFrom(tabKey, ...)`、`addPopupForReplyNumber(tabKey, ...)`、`addPopupForId(tabKey, ...)`、`updatePopupSize(tabKey, ...)`、`removeTopPopup(tabKey)`、`consumeToast(tabKey)`、`consumeResetScroll(tabKey)`、`openSortBottomSheet(tabKey)`、`closeSortBottomSheet(tabKey)`、`setSortKey(tabKey, key)`、`toggleSortOrder(tabKey)`、`setSearchMode(tabKey, active)`、`openBoardInfoSheet(tabKey)`、`closeBoardInfoSheet(tabKey)`、`openBoardThreadInfoSheet(tabKey, threadInfo)`、`closeBoardThreadInfoSheet(tabKey)`
+- **更新 / 同期 API**: `reloadThread(tabKey)`、`reloadThreadFromBottomPull(tabKey)`、`refreshBoard(tabKey)`、`onAutoScrollReachedBottom(tabKey)`、`updateThreadScrollPosition(tabKey, index, offset)`、`updateThreadLastRead(tabKey, resNo)`、`updateThreadTabInfo(tabKey, title, resCount)`、`setNewArrivalInfo(tabKey, firstNewResNo, prevResCount)`、`onThreadImageLoadStart(tabKey, url)`、`onThreadImageLoadError(tabKey, url, failureType)`、`onThreadImageLoadSuccess(tabKey, url)`、`onThreadImageRetry(tabKey, url)`
+- **holder / event API**: `bookmarkSheetHolderFor(tabKey)`、`postDialogControllerFor(tabKey)`、`imageSaveEvents(tabKey)`
+
+#### 3. Session holder policy
+
+- `bookmarkSheetHolder` は tab key 別に `TabSessionStore` 配下で生成・キャッシュし、タブ削除時に対象 key のみ破棄する
+- `postDialogController` は tab key 別 session holder として保持し、状態本体は既存どおり `ThreadSessionState.postDialogState` / `BoardSessionState.postDialogState` を正本とする
+- スレッド画像保存イベントは RouteViewModel 単一 `SharedFlow` ではなく、tab key 別 event source または tab key を payload に含む dispatcher とし、Compose 側は表示中タブだけ購読する
+
+#### 4. Old ViewModel responsibility split
+
+- `ThreadViewModel`
+  - SessionState 更新責務: 検索、ポップアップ、各種シート、画像メニュー、画像 NG ダイアログ、自動スクロールフラグ、toast
+  - session holder 責務: bookmark sheet、post dialog controller、image save events
+  - coordinator / Repository 同期責務: タブタイトル更新、スクロール保存、既読更新、`pendingPost` / `lastAutoRefreshTime` など runtime state 更新
+  - UseCase / transformer 責務: visible rows 再計算、popup 重複抑止、画像 URL 正規化
+- `BoardViewModel`
+  - SessionState 更新責務: 検索、ソート、sort sheet、board info sheet、thread info sheet、toast、resetScroll、loading progress
+  - session holder 責務: bookmark sheet、post dialog controller
+  - coordinator / Repository 同期責務: board refresh、baseline 更新、一覧監視開始
+  - UseCase / transformer 責務: thread list filter / sort coordinator と post dialog state adapter
+
+Task 9 以降はこの分類を固定前提として進め、Task 10 で RouteViewModel が旧 `uiState` を読む経路を切り、Task 11 で旧 ViewModel と factory を削除する。
+
 ## Risks / Trade-offs
 
 - [Risk] 非表示タブの UI セッション状態が失われる → `TabSessionStore` にタブ固有状態を移し、タブ切替・画面離脱・タブ削除の各タイミングで保存を検証する。
