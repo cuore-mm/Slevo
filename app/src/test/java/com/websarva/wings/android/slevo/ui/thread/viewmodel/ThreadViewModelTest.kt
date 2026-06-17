@@ -2,9 +2,11 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.IntOffset
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.GestureSettings
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
@@ -14,14 +16,19 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolder
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUploader
 import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
+import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
+import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -56,12 +63,20 @@ class ThreadViewModelTest {
         settingsRepository: SettingsRepository = mockk(relaxed = true),
         tabsRepository: TabsRepository = mockk(relaxed = true),
         threadReadStateRepository: ThreadReadStateRepository = mockk(relaxed = true),
+        threadStateRepository: ThreadStateRepository = mockk(relaxed = true),
         postDialogImageUploaderFactory: PostDialogImageUploader.Factory = mockk(relaxed = true),
         postDialogControllerFactory: PostDialogController.Factory = mockk(relaxed = true),
         replyPostDialogExecutor: ThreadReplyPostDialogExecutor = mockk(relaxed = true),
         logger: AppLogger = mockk(relaxed = true),
         threadContentLoadUseCase: ThreadContentLoadUseCase = ThreadContentLoadUseCase(datRepository),
         threadVisiblePostsUseCase: ThreadVisiblePostsUseCase = ThreadVisiblePostsUseCase(),
+        threadTabsCoordinator: ThreadTabsCoordinator = ThreadTabsCoordinator(
+            tabsRepository = tabsRepository,
+            threadBookmarkRepository = threadBookmarkRepository,
+            datRepository = datRepository,
+            threadStateRepository = threadStateRepository,
+            tabViewModelRegistry = mockk<TabViewModelRegistry>(relaxed = true),
+        ),
     ): ThreadViewModel {
         every { settingsRepository.observeTextScale() } returns flowOf(1.0f)
         every { settingsRepository.observeIsIndividualTextScale() } returns flowOf(false)
@@ -97,6 +112,7 @@ class ThreadViewModelTest {
             ngRepository = ngRepository,
             settingsRepository = settingsRepository,
             tabsRepository = tabsRepository,
+            threadTabsCoordinator = threadTabsCoordinator,
             threadContentLoadUseCase = threadContentLoadUseCase,
             threadVisiblePostsUseCase = threadVisiblePostsUseCase,
             threadReadStateRepository = threadReadStateRepository,
@@ -197,5 +213,64 @@ class ThreadViewModelTest {
 
         assertEquals(inputValue, viewModel.uiState.value.searchInputValue)
         assertEquals("かな", viewModel.uiState.value.searchQuery)
+    }
+
+    @Test
+    fun initializeFlow_restoresSessionStateFromCoordinator() = runTest {
+        val datRepository = mockk<DatRepository>(relaxed = true)
+        coEvery { datRepository.getThread(any(), any(), any()) } returns null
+        val boardRepository = mockk<BoardRepository>(relaxed = true)
+        coEvery { boardRepository.ensureBoard(any()) } returns 1L
+        coEvery { boardRepository.fetchBoardNoname(any()) } returns null
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        every { tabsRepository.observeOpenThreadTabs() } returns flowOf(emptyList())
+        val threadBookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val coordinator = ThreadTabsCoordinator(
+            tabsRepository = tabsRepository,
+            threadBookmarkRepository = threadBookmarkRepository,
+            datRepository = datRepository,
+            threadStateRepository = mockk(relaxed = true),
+            tabViewModelRegistry = mockk(relaxed = true),
+        )
+        val threadId = ThreadId.of("example.com", "test", "1234567890")
+        coordinator.updateThreadSessionState(threadId) {
+            it.copy(
+                searchInputValue = TextFieldValue("かな", selection = TextRange(2), composition = TextRange(0, 2)),
+                isSearchMode = true,
+                popupStack = listOf(PopupInfo(popupId = 9L, postNumbers = listOf(1), offset = IntOffset.Zero)),
+                postDialogState = PostDialogState(namePlaceholder = "名無しさん", formState = PostDialogState().formState.copy(message = "draft")),
+                isAutoScroll = true,
+                showImageMenuSheet = true,
+                imageMenuTargetUrl = "https://example.com/image.jpg",
+                imageMenuTargetUrls = listOf("https://example.com/image.jpg"),
+                isTabSwipeEnabled = false,
+            )
+        }
+
+        val viewModel = createViewModel(
+            datRepository = datRepository,
+            boardRepository = boardRepository,
+            tabsRepository = tabsRepository,
+            threadBookmarkRepository = threadBookmarkRepository,
+            threadTabsCoordinator = coordinator,
+        )
+
+        viewModel.initializeFlow(
+            ThreadInitArgs(
+                threadKey = "1234567890",
+                boardInfo = BoardInfo(0, "test", "https://example.com/test/"),
+                threadTitle = null,
+            )
+        )
+        advanceUntilIdle()
+
+        assertEquals("かな", viewModel.uiState.value.searchQuery)
+        assertEquals(true, viewModel.uiState.value.isSearchMode)
+        assertEquals(1, viewModel.uiState.value.popupStack.size)
+        assertEquals("draft", viewModel.uiState.value.postDialogState.formState.message)
+        assertEquals(true, viewModel.uiState.value.isAutoScroll)
+        assertEquals(true, viewModel.uiState.value.showImageMenuSheet)
+        assertEquals("https://example.com/image.jpg", viewModel.uiState.value.imageMenuTargetUrl)
+        assertEquals(false, viewModel.uiState.value.isTabSwipeEnabled)
     }
 }

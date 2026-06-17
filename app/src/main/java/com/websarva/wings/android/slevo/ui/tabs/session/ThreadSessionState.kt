@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.tabs.session
 
+import androidx.compose.ui.text.input.TextFieldValue
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
@@ -12,7 +13,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
  * 自動スクロール・更新表示などの状態をまとめて扱う。
  */
 data class ThreadSessionState(
-    val searchQuery: String = "",
+    val searchInputValue: TextFieldValue = TextFieldValue(""),
     val isSearchMode: Boolean = false,
     val sortType: ThreadSortType = ThreadSortType.NUMBER,
     val popupStack: List<PopupInfo> = emptyList(),
@@ -31,4 +32,10 @@ data class ThreadSessionState(
     val imageMenuTargetUrls: List<String> = emptyList(),
     val showImageNgDialog: Boolean = false,
     val imageNgTargetUrl: String? = null,
-)
+) {
+    /**
+     * 投稿絞り込みに使う検索文字列を返す。
+     */
+    val searchQuery: String
+        get() = searchInputValue.text
+}

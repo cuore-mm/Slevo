@@ -23,6 +23,8 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUplo
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
+import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -55,6 +57,7 @@ class BoardViewModel @AssistedInject constructor(
     private val bookmarkBoardRepository: BookmarkBoardRepository,
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
+    private val boardTabsCoordinator: BoardTabsCoordinator,
     private val bookmarkSheetStateHolderFactory: BookmarkBottomSheetStateHolderFactory,
     threadListCoordinatorFactory: ThreadListCoordinator.Factory,
     postDialogControllerFactory: PostDialogController.Factory,
@@ -77,7 +80,14 @@ class BoardViewModel @AssistedInject constructor(
     // PostDialogの状態/操作を共通化するコントローラ
     private val postDialogController = postDialogControllerFactory.create(
         scope = viewModelScope,
-        stateAdapter = BoardPostDialogStateAdapter(_uiState),
+        stateAdapter = BoardPostDialogStateAdapter(
+            stateReader = { currentBoardSessionState().postDialogState },
+            stateUpdater = { transform ->
+                updateCurrentBoardSessionState { current ->
+                    current.copy(postDialogState = transform(current.postDialogState))
+                }
+            },
+        ),
         identityHistoryKey = CREATE_IDENTITY_HISTORY_KEY,
         executor = threadCreatePostDialogExecutor,
         boardIdProvider = { uiState.value.boardInfo.boardId },
@@ -134,9 +144,12 @@ class BoardViewModel @AssistedInject constructor(
             state.copy(
                 boardInfo = boardInfo,
                 serviceName = serviceName,
-                postDialogState = state.postDialogState.copy(namePlaceholder = boardInfo.noname),
             )
         }
+        updateBoardSessionStateByUrl(boardInfo.url) { state ->
+            state.copy(postDialogState = state.postDialogState.copy(namePlaceholder = boardInfo.noname))
+        }
+        syncBoardUiStateFromSession(boardInfo.url)
     }
 
     /**
@@ -154,9 +167,12 @@ class BoardViewModel @AssistedInject constructor(
                 _uiState.update { state ->
                     state.copy(
                         boardInfo = state.boardInfo.copy(noname = noname),
-                        postDialogState = state.postDialogState.copy(namePlaceholder = noname),
                     )
                 }
+                updateBoardSessionStateByUrl(boardInfo.url) { state ->
+                    state.copy(postDialogState = state.postDialogState.copy(namePlaceholder = noname))
+                }
+                syncBoardUiStateFromSession(boardInfo.url)
             }
 
             // スレッド作成時の名前/メール履歴を準備する。
@@ -217,7 +233,7 @@ class BoardViewModel @AssistedInject constructor(
         }
 
         // ローディング UI を表示しプログレスを初期化
-        _uiState.update { it.copy(isLoading = true, loadProgress = 0f) }
+        updateCurrentBoardSessionState { it.copy(isLoading = true, loadProgress = 0f) }
         val refreshStartAt = System.currentTimeMillis()
         val normalizedUrl = boardUrl.trimEnd('/')
         try {
@@ -228,18 +244,18 @@ class BoardViewModel @AssistedInject constructor(
                 refreshStartAt,
                 isRefresh
             ) { progress ->
-                _uiState.update { state -> state.copy(loadProgress = progress) }
+                updateCurrentBoardSessionState { state -> state.copy(loadProgress = progress) }
             }
             if (!success) {
-                _uiState.update { it.copy(pendingToastResId = R.string.board_load_failed) }
+                updateCurrentBoardSessionState { it.copy(pendingToastResId = R.string.board_load_failed) }
             }
         } catch (e: Exception) {
             // 例外詳細はログへ出し、ユーザーには短い文言を通知する。
             logger.e(message = "Failed to refresh board threads: ${boardInfo.url}", throwable = e)
-            _uiState.update { it.copy(pendingToastResId = R.string.board_load_failed) }
+            updateCurrentBoardSessionState { it.copy(pendingToastResId = R.string.board_load_failed) }
         } finally {
             // 読み込み終了後の UI 更新とスレッドコーディネータへの通知
-            _uiState.update { it.copy(isLoading = false, loadProgress = 1f, resetScroll = true) }
+            updateCurrentBoardSessionState { it.copy(isLoading = false, loadProgress = 1f, resetScroll = true) }
             threadListCoordinator.onRefreshCompleted()
         }
         // 取得結果を監視させる（リアルタイム更新の開始）
@@ -253,14 +269,14 @@ class BoardViewModel @AssistedInject constructor(
 
     // スクロールリセットフラグの消費（UI 側で呼ぶ）
     fun consumeResetScroll() {
-        _uiState.update { it.copy(resetScroll = false) }
+        updateCurrentBoardSessionState { it.copy(resetScroll = false) }
     }
 
     /**
      * 未表示Toastの消費（UI 側で表示後に呼ぶ）。
      */
     fun consumeToast() {
-        _uiState.update { it.copy(pendingToastResId = null) }
+        updateCurrentBoardSessionState { it.copy(pendingToastResId = null) }
     }
 
     // --- ブックマークシート関連 ---
@@ -284,20 +300,47 @@ class BoardViewModel @AssistedInject constructor(
     }
 
     // ソート関連の操作
-    fun setSortKey(sortKey: ThreadSortKey) = threadListCoordinator.setSortKey(sortKey)
+    fun setSortKey(sortKey: ThreadSortKey) {
+        updateCurrentBoardSessionState { it.copy(currentSortKey = sortKey) }
+        threadListCoordinator.applyFiltersAndSort()
+    }
 
-    fun toggleSortOrder() = threadListCoordinator.toggleSortOrder()
+    fun toggleSortOrder() {
+        if (uiState.value.currentSortKey == ThreadSortKey.DEFAULT) {
+            return
+        }
+        updateCurrentBoardSessionState { it.copy(isSortAscending = !it.isSortAscending) }
+        threadListCoordinator.applyFiltersAndSort()
+    }
 
-    fun updateSearchInput(inputValue: TextFieldValue) = threadListCoordinator.updateSearchInput(inputValue)
+    fun updateSearchInput(inputValue: TextFieldValue) {
+        updateCurrentBoardSessionState { it.copy(searchInputValue = inputValue) }
+        threadListCoordinator.applyFiltersAndSort()
+    }
 
-    fun setSearchQuery(query: String) = threadListCoordinator.setSearchQuery(query)
+    fun setSearchQuery(query: String) = updateSearchInput(TextFieldValue(query))
 
-    fun setSearchMode(isActive: Boolean) = threadListCoordinator.setSearchMode(isActive)
+    fun setSearchMode(isActive: Boolean) {
+        updateCurrentBoardSessionState {
+            if (isActive) {
+                it.copy(isSearchActive = true, isTabSwipeEnabled = false)
+            } else {
+                it.copy(
+                    isSearchActive = false,
+                    isTabSwipeEnabled = true,
+                    searchInputValue = TextFieldValue(""),
+                )
+            }
+        }
+        if (!isActive) {
+            threadListCoordinator.applyFiltersAndSort()
+        }
+    }
 
     // Sort BottomSheet 関連
-    fun openSortBottomSheet() = _uiState.update { it.copy(showSortSheet = true) }
+    fun openSortBottomSheet() = updateCurrentBoardSessionState { it.copy(showSortSheet = true) }
 
-    fun closeSortBottomSheet() = _uiState.update { it.copy(showSortSheet = false) }
+    fun closeSortBottomSheet() = updateCurrentBoardSessionState { it.copy(showSortSheet = false) }
 
     /**
      * スレッド情報シートを開く。
@@ -308,7 +351,7 @@ class BoardViewModel @AssistedInject constructor(
             // URLが空の場合はシートを開かない。
             return
         }
-        _uiState.update { state ->
+        updateCurrentBoardSessionState { state ->
             state.copy(
                 showThreadInfoSheet = true,
                 // シート側でスレURLを組み立てられるよう、板URLを注入する。
@@ -320,17 +363,17 @@ class BoardViewModel @AssistedInject constructor(
     /**
      * スレッド情報シートを閉じる。
      */
-    fun closeThreadInfoSheet() = _uiState.update { it.copy(showThreadInfoSheet = false) }
+    fun closeThreadInfoSheet() = updateCurrentBoardSessionState { it.copy(showThreadInfoSheet = false) }
 
     /**
      * 板情報シートを開く。
      */
-    fun openBoardInfoSheet() = _uiState.update { it.copy(showBoardInfoSheet = true) }
+    fun openBoardInfoSheet() = updateCurrentBoardSessionState { it.copy(showBoardInfoSheet = true) }
 
     /**
      * 板情報シートを閉じる。
      */
-    fun closeBoardInfoSheet() = _uiState.update { it.copy(showBoardInfoSheet = false) }
+    fun closeBoardInfoSheet() = updateCurrentBoardSessionState { it.copy(showBoardInfoSheet = false) }
 
     /**
      * 画像をアップロードし、成功時に本文へURLを挿入する。
@@ -358,31 +401,98 @@ class BoardViewModel @AssistedInject constructor(
     companion object {
         private const val CREATE_IDENTITY_HISTORY_KEY = "board_create_identity"
     }
+
+    /**
+     * 現在表示中の板タブ key を返す。
+     */
+    private fun currentBoardUrl(): String? {
+        return uiState.value.boardInfo.url.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * 現在表示中の板タブの SessionState を返す。
+     */
+    private fun currentBoardSessionState(): BoardSessionState {
+        val boardUrl = currentBoardUrl() ?: return BoardSessionState()
+        return boardTabsCoordinator.getBoardSessionState(boardUrl)
+    }
+
+    /**
+     * 現在表示中の板タブの SessionState を更新し、UiState へ同期する。
+     */
+    private fun updateCurrentBoardSessionState(
+        transform: (BoardSessionState) -> BoardSessionState,
+    ) {
+        val boardUrl = currentBoardUrl() ?: return
+        updateBoardSessionStateByUrl(boardUrl, transform)
+        syncBoardUiStateFromSession(boardUrl)
+    }
+
+    /**
+     * 指定板タブの SessionState を更新する。
+     */
+    private fun updateBoardSessionStateByUrl(
+        boardUrl: String,
+        transform: (BoardSessionState) -> BoardSessionState,
+    ) {
+        if (boardUrl.isBlank()) {
+            return
+        }
+        boardTabsCoordinator.updateBoardSessionState(boardUrl, transform)
+    }
+
+    /**
+     * 指定板タブの SessionState を UiState の読み取り用フィールドへ反映する。
+     */
+    private fun syncBoardUiStateFromSession(boardUrl: String) {
+        if (boardUrl.isBlank()) {
+            return
+        }
+        val session = boardTabsCoordinator.getBoardSessionState(boardUrl)
+        _uiState.update { state ->
+            state.copy(
+                showSortSheet = session.showSortSheet,
+                showThreadInfoSheet = session.showThreadInfoSheet,
+                threadInfoSheetTarget = session.threadInfoSheetTarget,
+                showBoardInfoSheet = session.showBoardInfoSheet,
+                currentSortKey = session.currentSortKey,
+                isSortAscending = session.isSortAscending,
+                isSearchActive = session.isSearchActive,
+                searchInputValue = session.searchInputValue,
+                postDialogState = session.postDialogState,
+                resetScroll = session.resetScroll,
+                pendingToastResId = session.pendingToastResId,
+                isLoading = session.isLoading,
+                loadProgress = session.loadProgress,
+                isTabSwipeEnabled = session.isTabSwipeEnabled,
+            )
+        }
+    }
 }
 
 /**
  * Board画面の投稿状態をPostDialogStateへ橋渡しするアダプタ。
  *
- * BoardUiState.postDialogStateを読み書きし、共通コントローラの更新を反映する。
+ * Board タブの SessionState 上にある PostDialogState を読み書きし、
+ * 共通コントローラの更新結果を現在タブへ反映する。
  */
 private class BoardPostDialogStateAdapter(
-    private val stateFlow: MutableStateFlow<BoardUiState>,
+    private val stateReader: () -> PostDialogState,
+    private val stateUpdater: ((PostDialogState) -> PostDialogState) -> Unit,
 ) : PostDialogStateAdapter {
 
     /**
-     * 現在のBoardUiStateからPostDialogStateを取得する。
+     * 現在タブの PostDialogState を取得する。
      */
     override fun readState(): PostDialogState {
-        return stateFlow.value.postDialogState
+        return stateReader.invoke()
     }
 
     /**
-     * PostDialogStateの更新結果をBoardUiStateへ反映する。
+     * PostDialogState の更新結果を現在タブの SessionState へ反映する。
      */
     override fun updateState(transform: (PostDialogState) -> PostDialogState) {
-        stateFlow.update { current ->
-            current.copy(postDialogState = transform(current.postDialogState))
-        }
+        stateUpdater.invoke(transform)
     }
 }
 

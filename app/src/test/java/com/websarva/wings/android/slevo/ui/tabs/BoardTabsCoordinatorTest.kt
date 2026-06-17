@@ -131,8 +131,12 @@ class BoardTabsCoordinatorTest {
         val second = BoardTabInfo(2, "B", "https://example.com/b/", "example.com")
         coordinator.openBoardTab(first)
         coordinator.openBoardTab(second)
-        coordinator.updateBoardSessionState(first.boardUrl) { it.copy(searchQuery = "first") }
-        coordinator.updateBoardSessionState(second.boardUrl) { it.copy(searchQuery = "second") }
+        coordinator.updateBoardSessionState(first.boardUrl) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("first"))
+        }
+        coordinator.updateBoardSessionState(second.boardUrl) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("second"))
+        }
 
         coordinator.closeBoardTab(first)
 
@@ -150,7 +154,9 @@ class BoardTabsCoordinatorTest {
         val tab = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
         coordinator.openBoardTab(tab)
 
-        coordinator.updateBoardSessionState(tab.boardUrl) { it.copy(searchQuery = "query") }
+        coordinator.updateBoardSessionState(tab.boardUrl) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("query"))
+        }
 
         assertEquals("query", coordinator.getBoardSessionState(tab.boardUrl).searchQuery)
         coVerify(exactly = 0) { tabsRepository.saveOpenBoardTabs(any()) }

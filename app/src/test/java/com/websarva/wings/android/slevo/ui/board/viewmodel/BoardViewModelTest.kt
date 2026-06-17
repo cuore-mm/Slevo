@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.board.viewmodel
 
+import androidx.compose.ui.text.input.TextFieldValue
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.GestureSettings
@@ -11,10 +12,13 @@ import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolder
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUploader
 import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
+import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -44,6 +48,11 @@ class BoardViewModelTest {
         ngRepository: NgRepository = mockk(relaxed = true),
         settingsRepository: SettingsRepository = mockk(relaxed = true),
         bookmarkSheetStateHolderFactory: BookmarkBottomSheetStateHolderFactory = mockk(relaxed = true),
+        boardTabsCoordinator: BoardTabsCoordinator = BoardTabsCoordinator(
+            tabsRepository = mockk(relaxed = true),
+            bookmarkBoardRepository = bookmarkBoardRepository,
+            tabViewModelRegistry = mockk<TabViewModelRegistry>(relaxed = true),
+        ),
         threadListCoordinatorFactory: ThreadListCoordinator.Factory = mockk(relaxed = true),
         postDialogControllerFactory: PostDialogController.Factory = mockk(relaxed = true),
         threadCreatePostDialogExecutor: ThreadCreatePostDialogExecutor = mockk(relaxed = true),
@@ -73,6 +82,7 @@ class BoardViewModelTest {
             bookmarkBoardRepository = bookmarkBoardRepository,
             ngRepository = ngRepository,
             settingsRepository = settingsRepository,
+            boardTabsCoordinator = boardTabsCoordinator,
             bookmarkSheetStateHolderFactory = bookmarkSheetStateHolderFactory,
             threadListCoordinatorFactory = threadListCoordinatorFactory,
             postDialogControllerFactory = postDialogControllerFactory,
@@ -151,5 +161,48 @@ class BoardViewModelTest {
         viewModel.openBoardInfoSheet()
         viewModel.closeBoardInfoSheet()
         assertEquals(false, viewModel.uiState.value.showBoardInfoSheet)
+    }
+
+    @Test
+    fun initializeFlow_restoresSessionStateFromCoordinator() = runTest {
+        val repository = mockk<BoardRepository>(relaxed = true)
+        coEvery { repository.ensureBoard(any()) } returns 1L
+        coEvery { repository.fetchBoardNoname(any()) } returns null
+        coEvery { repository.refreshThreadList(any(), any(), any(), any(), any()) } returns true
+        val bookmarkBoardRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val coordinator = BoardTabsCoordinator(
+            tabsRepository = mockk(relaxed = true),
+            bookmarkBoardRepository = bookmarkBoardRepository,
+            tabViewModelRegistry = mockk(relaxed = true),
+        )
+        coordinator.updateBoardSessionState("https://example.com/test/") {
+            it.copy(
+                searchInputValue = TextFieldValue("query"),
+                isSearchActive = true,
+                currentSortKey = ThreadSortKey.RES_COUNT,
+                isSortAscending = true,
+                showSortSheet = true,
+                showBoardInfoSheet = true,
+                postDialogState = PostDialogState(namePlaceholder = "名無しさん", formState = PostDialogState().formState.copy(message = "draft")),
+                isTabSwipeEnabled = false,
+            )
+        }
+        val viewModel = createViewModel(
+            repository = repository,
+            bookmarkBoardRepository = bookmarkBoardRepository,
+            boardTabsCoordinator = coordinator,
+        )
+
+        viewModel.initializeFlow(BoardInitArgs(BoardInfo(0, "test", "https://example.com/test/")))
+        advanceUntilIdle()
+
+        assertEquals("query", viewModel.uiState.value.searchQuery)
+        assertEquals(true, viewModel.uiState.value.isSearchActive)
+        assertEquals(ThreadSortKey.RES_COUNT, viewModel.uiState.value.currentSortKey)
+        assertEquals(true, viewModel.uiState.value.isSortAscending)
+        assertEquals(true, viewModel.uiState.value.showSortSheet)
+        assertEquals(true, viewModel.uiState.value.showBoardInfoSheet)
+        assertEquals("draft", viewModel.uiState.value.postDialogState.formState.message)
+        assertEquals(false, viewModel.uiState.value.isTabSwipeEnabled)
     }
 }

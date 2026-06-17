@@ -193,7 +193,9 @@ class TabSessionStoreTest {
     fun updateBoardSessionState_delegatesToBoardCoordinator() {
         val transform = slot<(BoardSessionState) -> BoardSessionState>()
 
-        store.updateBoardSessionState("https://example.com/test/") { it.copy(searchQuery = "query") }
+        store.updateBoardSessionState("https://example.com/test/") {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("query"))
+        }
 
         verify { boardCoordinator.updateBoardSessionState("https://example.com/test/", capture(transform)) }
         assertEquals("query", transform.captured(BoardSessionState()).searchQuery)
@@ -207,7 +209,9 @@ class TabSessionStoreTest {
         val threadId = ThreadId.of("example.com", "test", "123")
         val transform = slot<(ThreadSessionState) -> ThreadSessionState>()
 
-        store.updateThreadSessionState(threadId) { it.copy(searchQuery = "query") }
+        store.updateThreadSessionState(threadId) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("query"))
+        }
 
         verify { threadCoordinator.updateThreadSessionState(threadId, capture(transform)) }
         assertEquals("query", transform.captured(ThreadSessionState()).searchQuery)

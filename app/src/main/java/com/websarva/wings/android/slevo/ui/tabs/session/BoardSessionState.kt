@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.tabs.session
 
+import androidx.compose.ui.text.input.TextFieldValue
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
@@ -11,7 +12,7 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
  * UI 状態をまとめて扱う。
  */
 data class BoardSessionState(
-    val searchQuery: String = "",
+    val searchInputValue: TextFieldValue = TextFieldValue(""),
     val isSearchActive: Boolean = false,
     val currentSortKey: ThreadSortKey = ThreadSortKey.DEFAULT,
     val isSortAscending: Boolean = false,
@@ -25,4 +26,10 @@ data class BoardSessionState(
     val isLoading: Boolean = false,
     val loadProgress: Float = 0f,
     val isTabSwipeEnabled: Boolean = true,
-)
+) {
+    /**
+     * スレッド一覧の絞り込みに使う検索文字列を返す。
+     */
+    val searchQuery: String
+        get() = searchInputValue.text
+}

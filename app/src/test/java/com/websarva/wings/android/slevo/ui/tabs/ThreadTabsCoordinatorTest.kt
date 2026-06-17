@@ -7,6 +7,7 @@ import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
+import com.websarva.wings.android.slevo.ui.tabs.session.PendingThreadPostState
 import io.mockk.coVerify
 import io.mockk.mockk
 import org.junit.Assert.assertFalse
@@ -204,8 +205,12 @@ class ThreadTabsCoordinatorTest {
         )
         val first = coordinator.openThreadTabs.value.first()
         val second = coordinator.openThreadTabs.value.last()
-        coordinator.updateThreadSessionState(first.id) { it.copy(searchQuery = "first") }
-        coordinator.updateThreadSessionState(second.id) { it.copy(searchQuery = "second") }
+        coordinator.updateThreadSessionState(first.id) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("first"))
+        }
+        coordinator.updateThreadSessionState(second.id) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("second"))
+        }
 
         coordinator.closeThreadTab(first)
 
@@ -230,10 +235,33 @@ class ThreadTabsCoordinatorTest {
         )
         val tab = coordinator.openThreadTabs.value.first()
 
-        coordinator.updateThreadSessionState(tab.id) { it.copy(searchQuery = "query") }
+        coordinator.updateThreadSessionState(tab.id) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("query"))
+        }
 
         assertEquals("query", coordinator.getThreadSessionState(tab.id).searchQuery)
         coVerify(exactly = 0) { tabsRepository.saveOpenThreadTabs(any()) }
+    }
+
+    @Test
+    fun closeThreadTab_removesTargetRuntimeState() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "111",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "first",
+            )
+        )
+        val tab = coordinator.openThreadTabs.value.first()
+        coordinator.updateThreadRuntimeState(tab.id) {
+            it.copy(pendingPost = PendingThreadPostState(10, "message", "name", "mail"))
+        }
+
+        coordinator.closeThreadTab(tab)
+
+        assertEquals(null, coordinator.threadRuntimeStates.value[tab.id.value])
     }
 
     /**

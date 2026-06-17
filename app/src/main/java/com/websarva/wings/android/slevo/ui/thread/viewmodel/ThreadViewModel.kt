@@ -34,7 +34,11 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUplo
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.session.PendingThreadPostState
+import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionRuntimeState
+import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
@@ -58,20 +62,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-import java.util.concurrent.atomic.AtomicLong
-
-/**
- * 投稿送信前に保持する入力内容。
- *
- * 返信番号や投稿本文など、送信に必要な要素をまとめる。
- */
-private data class PendingPost(
-    val resNum: Int?,
-    val content: String,
-    val name: String,
-    val email: String,
-)
 
 /**
  * ThreadViewModel の初期化に必要な入力。
@@ -98,6 +88,7 @@ class ThreadViewModel @AssistedInject constructor(
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
     private val tabsRepository: TabsRepository,
+    private val threadTabsCoordinator: ThreadTabsCoordinator,
     private val threadContentLoadUseCase: ThreadContentLoadUseCase,
     private val threadVisiblePostsUseCase: ThreadVisiblePostsUseCase,
     threadReadStateRepository: ThreadReadStateRepository,
@@ -117,7 +108,6 @@ class ThreadViewModel @AssistedInject constructor(
     override val _uiState = MutableStateFlow(ThreadUiState())
     private var ngList: List<NgEntity> = emptyList()
     private var compiledNg: List<Triple<Long?, Regex, NgType>> = emptyList()
-    private var pendingPost: PendingPost? = null
     private val imageSaveCoordinator = ImageSaveCoordinator()
     private val _imageSaveEvents = MutableSharedFlow<ImageSaveUiEvent>(extraBufferCapacity = 1)
     val imageSaveEvents: SharedFlow<ImageSaveUiEvent> = _imageSaveEvents.asSharedFlow()
@@ -129,9 +119,6 @@ class ThreadViewModel @AssistedInject constructor(
         scope = viewModelScope,
         dispatcher = Dispatchers.IO,
     )
-    private var lastAutoRefreshTime: Long = 0L
-    private val popupIdGenerator = AtomicLong(1L)
-
     init {
         viewModelScope.launch {
             settingsRepository.observeTextScale().collect { scale ->
@@ -177,7 +164,14 @@ class ThreadViewModel @AssistedInject constructor(
 
     internal val postDialogController = postDialogControllerFactory.create(
         scope = viewModelScope,
-        stateAdapter = ThreadPostDialogStateAdapter(_uiState),
+        stateAdapter = ThreadPostDialogStateAdapter(
+            stateReader = { currentThreadSessionState().postDialogState },
+            stateUpdater = { transform ->
+                updateCurrentThreadSessionState { current ->
+                    current.copy(postDialogState = transform(current.postDialogState))
+                }
+            },
+        ),
         identityHistoryKey = POST_IDENTITY_HISTORY_KEY,
         executor = replyPostDialogExecutor,
         boardIdProvider = { uiState.value.boardInfo.boardId },
@@ -238,12 +232,17 @@ class ThreadViewModel @AssistedInject constructor(
             state.copy(
                 boardInfo = args.boardInfo,
                 threadInfo = threadInfo,
-                postDialogState = state.postDialogState.copy(namePlaceholder = args.boardInfo.noname),
                 postGroups = emptyList(),
                 lastLoadedResCount = 0,
                 latestArrivalGroupIndex = null,
                 imageLoadFailureByUrl = emptyMap(),
             )
+        }
+        currentThreadId()?.let { threadId ->
+            threadTabsCoordinator.updateThreadSessionState(threadId) { state ->
+                state.copy(postDialogState = state.postDialogState.copy(namePlaceholder = args.boardInfo.noname))
+            }
+            syncThreadUiStateFromSession(threadId)
         }
     }
 
@@ -271,8 +270,13 @@ class ThreadViewModel @AssistedInject constructor(
                 _uiState.update { state ->
                     state.copy(
                         boardInfo = state.boardInfo.copy(noname = noname),
-                        postDialogState = state.postDialogState.copy(namePlaceholder = noname)
                     )
+                }
+                currentThreadId()?.let { threadId ->
+                    threadTabsCoordinator.updateThreadSessionState(threadId) { state ->
+                        state.copy(postDialogState = state.postDialogState.copy(namePlaceholder = noname))
+                    }
+                    syncThreadUiStateFromSession(threadId)
                 }
             }
             postDialogController.prepareIdentityHistory(ensuredId)
@@ -324,7 +328,7 @@ class ThreadViewModel @AssistedInject constructor(
     override fun startInitialLoad(force: Boolean) {
         viewModelScope.launch {
             val isTree = settingsRepository.observeIsTreeSort().first()
-            _uiState.update { state ->
+            updateCurrentThreadSessionState { state ->
                 state.copy(sortType = if (isTree) ThreadSortType.TREE else ThreadSortType.NUMBER)
             }
             startThreadLoad(ThreadLoadingSource.INITIAL)
@@ -406,7 +410,7 @@ class ThreadViewModel @AssistedInject constructor(
 
         try {
             val derived = threadContentLoadUseCase.load(boardUrl, key) { progress ->
-                _uiState.update { it.copy(loadProgress = progress) }
+                updateCurrentThreadSessionState { it.copy(loadProgress = progress) }
             }
             if (derived == null) {
                 // データ取得に失敗した場合はここで終了する。
@@ -427,7 +431,7 @@ class ThreadViewModel @AssistedInject constructor(
      * 読み込み開始時の UIState を初期化する。
      */
     private fun startThreadLoad(source: ThreadLoadingSource) {
-        _uiState.update {
+        updateCurrentThreadSessionState {
             it.copy(
                 isLoading = true,
                 loadProgress = 0f,
@@ -441,17 +445,24 @@ class ThreadViewModel @AssistedInject constructor(
      */
     private fun applyLoadSuccess(derived: ThreadContentLoadResult) {
         val activeImageUrls = deriveActiveImageUrls(derived.uiPosts)
-        _uiState.update { state ->
-            val prunedPopupStack = prunePopupStackWithoutRenderablePosts(
-                popupStack = state.popupStack,
+        val currentState = uiState.value
+        val prunedPopupStack = prunePopupStackWithoutRenderablePosts(
+                popupStack = currentState.popupStack,
                 posts = derived.uiPosts,
-                ngPostNumbers = state.ngPostNumbers,
+                ngPostNumbers = currentState.ngPostNumbers,
             )
-            val nextState = state.copy(
-                posts = derived.uiPosts,
+        updateCurrentThreadSessionState { session ->
+            val nextSession = session.copy(
                 isLoading = false,
                 loadProgress = 1f,
                 loadingSource = ThreadLoadingSource.NONE,
+                popupStack = prunedPopupStack,
+            )
+            nextSession.copy(isTabSwipeEnabled = shouldEnableTabSwipe(nextSession))
+        }
+        _uiState.update { state ->
+            state.copy(
+                posts = derived.uiPosts,
                 threadInfo = state.threadInfo.copy(
                     title = derived.threadTitle ?: state.threadInfo.title,
                     resCount = derived.resCount,
@@ -464,7 +475,6 @@ class ThreadViewModel @AssistedInject constructor(
                 treeOrder = derived.treeOrder,
                 treeDepthMap = derived.treeDepthMap,
                 treeRootMap = derived.treeRootMap,
-                popupStack = prunedPopupStack,
                 imageLoadFailureByUrl = state.imageLoadFailureByUrl.filterKeys { url ->
                     url in activeImageUrls
                 },
@@ -472,7 +482,6 @@ class ThreadViewModel @AssistedInject constructor(
                     url in activeImageUrls
                 }.toSet(),
             )
-            withUpdatedTabSwipeState(nextState)
         }
     }
 
@@ -554,7 +563,7 @@ class ThreadViewModel @AssistedInject constructor(
      * 取得失敗時にローディングを解除し、必要ならログを出力する。
      */
     private fun handleLoadFailure(boardUrl: String, key: String, error: Throwable? = null) {
-        _uiState.update {
+        updateCurrentThreadSessionState {
             it.copy(
                 isLoading = false,
                 loadProgress = 1f,
@@ -566,14 +575,14 @@ class ThreadViewModel @AssistedInject constructor(
 
             logger.e("Failed to load thread data for board: $boardUrl key: $key")
         }
-        _uiState.update { it.copy(pendingToastResId = R.string.thread_load_failed) }
+        updateCurrentThreadSessionState { it.copy(pendingToastResId = R.string.thread_load_failed) }
     }
 
     /**
      * 未表示Toastの消費（UI 側で表示後に呼ぶ）。
      */
     fun consumeToast() {
-        _uiState.update { it.copy(pendingToastResId = null) }
+        updateCurrentThreadSessionState { it.copy(pendingToastResId = null) }
     }
 
     /**
@@ -615,7 +624,8 @@ class ThreadViewModel @AssistedInject constructor(
      * 保留投稿があれば履歴に記録し、保留状態をクリアする。
      */
     private suspend fun recordPendingPost(uiPosts: List<ThreadPostUiModel>, historyId: Long) {
-        val pending = pendingPost ?: run {
+        val threadId = currentThreadId() ?: return
+        val pending = currentThreadRuntimeState(threadId).pendingPost ?: run {
             // 保留投稿が無い場合は何もしない。
             return
         }
@@ -634,7 +644,7 @@ class ThreadViewModel @AssistedInject constructor(
             )
         }
         // 保留をクリア
-        pendingPost = null
+        updateThreadRuntimeState(threadId) { it.copy(pendingPost = null) }
     }
 
     /**
@@ -718,17 +728,17 @@ class ThreadViewModel @AssistedInject constructor(
             }
             if (isNg) idx + 1 else null
         }.toSet()
+        val prunedPopupStack = prunePopupStackWithoutRenderablePosts(
+            popupStack = uiState.value.popupStack,
+            posts = posts,
+            ngPostNumbers = ngNumbers,
+        )
         _uiState.update { state ->
-            val prunedPopupStack = prunePopupStackWithoutRenderablePosts(
-                popupStack = state.popupStack,
-                posts = posts,
-                ngPostNumbers = ngNumbers,
-            )
-            val nextState = state.copy(
-                ngPostNumbers = ngNumbers,
-                popupStack = prunedPopupStack,
-            )
-            withUpdatedTabSwipeState(nextState)
+            state.copy(ngPostNumbers = ngNumbers)
+        }
+        updateCurrentThreadSessionState { session ->
+            val nextSession = session.copy(popupStack = prunedPopupStack)
+            nextSession.copy(isTabSwipeEnabled = shouldEnableTabSwipe(nextSession))
         }
         updateDisplayPosts()
     }
@@ -805,25 +815,29 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     fun toggleAutoScroll() {
-        val enabled = !_uiState.value.isAutoScroll
-        _uiState.update { it.copy(isAutoScroll = enabled) }
-        if (!enabled) {
-            lastAutoRefreshTime = 0L
+        val enabled = !uiState.value.isAutoScroll
+        updateCurrentThreadSessionState { it.copy(isAutoScroll = enabled) }
+        currentThreadId()?.let { threadId ->
+            if (!enabled) {
+                updateThreadRuntimeState(threadId) { it.copy(lastAutoRefreshTime = 0L) }
+            }
         }
     }
 
     fun onAutoScrollReachedBottom() {
-        if (!_uiState.value.isAutoScroll) return
+        if (!uiState.value.isAutoScroll) return
+        val threadId = currentThreadId() ?: return
         val now = System.currentTimeMillis()
-        if (lastAutoRefreshTime == 0L || now - lastAutoRefreshTime >= 10_000L) {
-            lastAutoRefreshTime = now
+        val runtime = currentThreadRuntimeState(threadId)
+        if (runtime.lastAutoRefreshTime == 0L || now - runtime.lastAutoRefreshTime >= 10_000L) {
+            updateThreadRuntimeState(threadId) { it.copy(lastAutoRefreshTime = now) }
             startThreadLoad(ThreadLoadingSource.AUTO_SCROLL)
             initialize(force = true)
         }
     }
 
     fun toggleSortType() {
-        _uiState.update { state ->
+        updateCurrentThreadSessionState { state ->
             val next = if (state.sortType == ThreadSortType.NUMBER) {
                 ThreadSortType.TREE
             } else {
@@ -866,27 +880,27 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     fun openThreadInfoSheet() {
-        _uiState.update { it.copy(showThreadInfoSheet = true) }
+        updateCurrentThreadSessionState { it.copy(showThreadInfoSheet = true) }
     }
 
     fun closeThreadInfoSheet() {
-        _uiState.update { it.copy(showThreadInfoSheet = false) }
+        updateCurrentThreadSessionState { it.copy(showThreadInfoSheet = false) }
     }
 
     fun openMoreSheet() {
-        _uiState.update { it.copy(showMoreSheet = true) }
+        updateCurrentThreadSessionState { it.copy(showMoreSheet = true) }
     }
 
     fun closeMoreSheet() {
-        _uiState.update { it.copy(showMoreSheet = false) }
+        updateCurrentThreadSessionState { it.copy(showMoreSheet = false) }
     }
 
     fun openDisplaySettingsSheet() {
-        _uiState.update { it.copy(showDisplaySettingsSheet = true) }
+        updateCurrentThreadSessionState { it.copy(showDisplaySettingsSheet = true) }
     }
 
     fun closeDisplaySettingsSheet() {
-        _uiState.update { it.copy(showDisplaySettingsSheet = false) }
+        updateCurrentThreadSessionState { it.copy(showDisplaySettingsSheet = false) }
     }
 
     /**
@@ -898,7 +912,7 @@ class ThreadViewModel @AssistedInject constructor(
             return
         }
         val menuUrls = buildImageMenuUrls(url, imageUrls)
-        _uiState.update {
+        updateCurrentThreadSessionState {
             it.copy(
                 showImageMenuSheet = true,
                 imageMenuTargetUrl = url,
@@ -911,7 +925,7 @@ class ThreadViewModel @AssistedInject constructor(
      * 画像メニューを閉じて対象URLをクリアする。
      */
     fun closeImageMenu() {
-        _uiState.update {
+        updateCurrentThreadSessionState {
             it.copy(
                 showImageMenuSheet = false,
                 imageMenuTargetUrl = null,
@@ -926,7 +940,7 @@ class ThreadViewModel @AssistedInject constructor(
      * サイズが変わらない場合は更新しない。
      */
     fun updatePopupSize(index: Int, size: IntSize) {
-        _uiState.update { state ->
+        updateCurrentThreadSessionState { state ->
             val stack = state.popupStack
             if (index !in stack.indices) {
                 // 範囲外の更新は無視する。
@@ -940,7 +954,7 @@ class ThreadViewModel @AssistedInject constructor(
             val updated = stack.toMutableList()
             updated[index] = target.copy(size = size)
             val nextState = state.copy(popupStack = updated)
-            withUpdatedTabSwipeState(nextState)
+            nextState.copy(isTabSwipeEnabled = shouldEnableTabSwipe(nextState))
         }
     }
 
@@ -948,13 +962,13 @@ class ThreadViewModel @AssistedInject constructor(
      * 最上位のポップアップを取り除く。
      */
     fun removeTopPopup() {
-        _uiState.update { state ->
+        updateCurrentThreadSessionState { state ->
             if (state.popupStack.isEmpty()) {
                 // 表示対象がない場合は何もしない。
                 return@update state
             }
             val nextState = state.copy(popupStack = state.popupStack.dropLast(1))
-            withUpdatedTabSwipeState(nextState)
+            nextState.copy(isTabSwipeEnabled = shouldEnableTabSwipe(nextState))
         }
     }
 
@@ -1103,31 +1117,28 @@ class ThreadViewModel @AssistedInject constructor(
      * ポップアップ用の安定識別子を採番する。
      */
     private fun nextPopupId(): Long {
-        return popupIdGenerator.getAndIncrement()
+        val threadId = currentThreadId() ?: return 1L
+        var nextId = 1L
+        updateThreadRuntimeState(threadId) { state ->
+            nextId = state.nextPopupId
+            state.copy(nextPopupId = state.nextPopupId + 1)
+        }
+        return nextId
     }
 
     private fun appendPopup(info: PopupInfo) {
-        _uiState.update { state ->
+        updateCurrentThreadSessionState { state ->
             val updatedStack = appendPopupIfDistinct(state.popupStack, info)
             val nextState = state.copy(popupStack = updatedStack)
-            withUpdatedTabSwipeState(nextState)
+            nextState.copy(isTabSwipeEnabled = shouldEnableTabSwipe(nextState))
         }
     }
 
 
     /**
-     * タブ横スワイプ可否を最新状態へ同期したUI状態を返す。
+     * 現在の SessionState からタブ横スワイプ可否を判定する。
      */
-    private fun withUpdatedTabSwipeState(state: ThreadUiState): ThreadUiState {
-        return state.copy(isTabSwipeEnabled = shouldEnableTabSwipe(state))
-    }
-
-    /**
-     * タブ横スワイプを有効化できるか判定する。
-     *
-     * 検索モード中またはポップアップ表示中はスワイプを無効化する。
-     */
-    private fun shouldEnableTabSwipe(state: ThreadUiState): Boolean {
+    private fun shouldEnableTabSwipe(state: ThreadSessionState): Boolean {
         return !state.isSearchMode && state.popupStack.isEmpty()
     }
 
@@ -1217,14 +1228,14 @@ class ThreadViewModel @AssistedInject constructor(
             // 空URLはダイアログを開かない。
             return
         }
-        _uiState.update { it.copy(showImageNgDialog = true, imageNgTargetUrl = url) }
+        updateCurrentThreadSessionState { it.copy(showImageNgDialog = true, imageNgTargetUrl = url) }
     }
 
     /**
      * 画像URLのNG登録ダイアログを閉じて対象URLをクリアする。
      */
     fun closeImageNgDialog() {
-        _uiState.update { it.copy(showImageNgDialog = false, imageNgTargetUrl = null) }
+        updateCurrentThreadSessionState { it.copy(showImageNgDialog = false, imageNgTargetUrl = null) }
     }
 
     fun updateTextScale(scale: Float) {
@@ -1266,17 +1277,17 @@ class ThreadViewModel @AssistedInject constructor(
 
     // 書き込み画面を表示
     fun startSearch() {
-        _uiState.update { state ->
+        updateCurrentThreadSessionState { state ->
             val nextState = state.copy(isSearchMode = true)
-            withUpdatedTabSwipeState(nextState)
+            nextState.copy(isTabSwipeEnabled = shouldEnableTabSwipe(nextState))
         }
         updateDisplayPosts()
     }
 
     fun closeSearch() {
-        _uiState.update { state ->
+        updateCurrentThreadSessionState { state ->
             val nextState = state.copy(isSearchMode = false, searchInputValue = TextFieldValue(""))
-            withUpdatedTabSwipeState(nextState)
+            nextState.copy(isTabSwipeEnabled = shouldEnableTabSwipe(nextState))
         }
         updateDisplayPosts()
     }
@@ -1285,7 +1296,7 @@ class ThreadViewModel @AssistedInject constructor(
      * 検索入力状態を更新し、表示中の投稿リストへ再反映する。
      */
     fun updateSearchInput(inputValue: TextFieldValue) {
-        _uiState.update { it.copy(searchInputValue = inputValue) }
+        updateCurrentThreadSessionState { it.copy(searchInputValue = inputValue) }
         updateDisplayPosts()
     }
 
@@ -1297,7 +1308,13 @@ class ThreadViewModel @AssistedInject constructor(
      * 投稿成功時に画面固有の後処理を実行する。
      */
     fun onPostSuccess(resNum: Int?, message: String, name: String, mail: String) {
-        pendingPost = PendingPost(resNum, message, name, mail)
+        currentThreadId()?.let { threadId ->
+            updateThreadRuntimeState(threadId) {
+                it.copy(
+                    pendingPost = PendingThreadPostState(resNum, message, name, mail),
+                )
+            }
+        }
         reloadThread()
     }
 
@@ -1331,6 +1348,86 @@ class ThreadViewModel @AssistedInject constructor(
      */
     companion object {
         private const val POST_IDENTITY_HISTORY_KEY = "thread_post_identity"
+    }
+
+    /**
+     * 現在表示中のスレッドタブ ID を返す。
+     */
+    private fun currentThreadId(): ThreadId? {
+        val boardUrl = uiState.value.boardInfo.url
+        val threadKey = uiState.value.threadInfo.key
+        if (boardUrl.isBlank() || threadKey.isBlank()) {
+            return null
+        }
+        val parsed = parseBoardUrl(boardUrl) ?: return null
+        val (host, board) = parsed
+        return ThreadId.of(host, board, threadKey)
+    }
+
+    /**
+     * 現在表示中のスレッドタブの SessionState を返す。
+     */
+    private fun currentThreadSessionState(): ThreadSessionState {
+        val threadId = currentThreadId() ?: return ThreadSessionState()
+        return threadTabsCoordinator.getThreadSessionState(threadId)
+    }
+
+    /**
+     * 現在表示中のスレッドタブの継続ランタイム状態を返す。
+     */
+    private fun currentThreadRuntimeState(threadId: ThreadId): ThreadSessionRuntimeState {
+        return threadTabsCoordinator.getThreadRuntimeState(threadId)
+    }
+
+    /**
+     * 現在表示中のスレッドタブの SessionState を更新し、UiState へ同期する。
+     */
+    private fun updateCurrentThreadSessionState(
+        transform: (ThreadSessionState) -> ThreadSessionState,
+    ) {
+        val threadId = currentThreadId() ?: return
+        threadTabsCoordinator.updateThreadSessionState(threadId, transform)
+        syncThreadUiStateFromSession(threadId)
+    }
+
+    /**
+     * 指定スレッドタブの継続ランタイム状態を更新する。
+     */
+    private fun updateThreadRuntimeState(
+        threadId: ThreadId,
+        transform: (ThreadSessionRuntimeState) -> ThreadSessionRuntimeState,
+    ) {
+        threadTabsCoordinator.updateThreadRuntimeState(threadId, transform)
+    }
+
+    /**
+     * 指定スレッドタブの SessionState を UiState の読み取り用フィールドへ反映する。
+     */
+    private fun syncThreadUiStateFromSession(threadId: ThreadId) {
+        val session = threadTabsCoordinator.getThreadSessionState(threadId)
+        _uiState.update { state ->
+            state.copy(
+                loadProgress = session.loadProgress,
+                isLoading = session.isLoading,
+                loadingSource = session.loadingSource,
+                postDialogState = session.postDialogState,
+                showThreadInfoSheet = session.showThreadInfoSheet,
+                showMoreSheet = session.showMoreSheet,
+                showDisplaySettingsSheet = session.showDisplaySettingsSheet,
+                showImageMenuSheet = session.showImageMenuSheet,
+                imageMenuTargetUrl = session.imageMenuTargetUrl,
+                imageMenuTargetUrls = session.imageMenuTargetUrls,
+                showImageNgDialog = session.showImageNgDialog,
+                imageNgTargetUrl = session.imageNgTargetUrl,
+                popupStack = session.popupStack,
+                searchInputValue = session.searchInputValue,
+                isSearchMode = session.isSearchMode,
+                sortType = session.sortType,
+                isAutoScroll = session.isAutoScroll,
+                pendingToastResId = session.pendingToastResId,
+                isTabSwipeEnabled = session.isTabSwipeEnabled,
+            )
+        }
     }
 }
 
@@ -1369,28 +1466,26 @@ internal fun isSamePopupContent(
 /**
  * Thread画面の投稿状態をPostDialogStateへ橋渡しするアダプタ。
  *
- * ThreadUiState.postDialogStateを読み書きし、共通コントローラの更新を反映する。
+ * Thread タブの SessionState 上にある PostDialogState を読み書きし、
+ * 共通コントローラの更新結果を現在タブへ反映する。
  */
 private class ThreadPostDialogStateAdapter(
-    private val stateFlow: MutableStateFlow<ThreadUiState>,
+    private val stateReader: () -> PostDialogState,
+    private val stateUpdater: ((PostDialogState) -> PostDialogState) -> Unit,
 ) : PostDialogStateAdapter {
 
     /**
-     * 現在のThreadUiStateからPostDialogStateを取得する。
+     * 現在タブの PostDialogState を取得する。
      */
     override fun readState(): PostDialogState {
-        return stateFlow.value.postDialogState
+        return stateReader.invoke()
     }
 
     /**
-     * PostDialogStateの更新結果をThreadUiStateへ反映する。
+     * PostDialogState の更新結果を現在タブの SessionState へ反映する。
      */
     override fun updateState(transform: (PostDialogState) -> PostDialogState) {
-        stateFlow.update { current ->
-            current.copy(
-                postDialogState = transform(current.postDialogState),
-            )
-        }
+        stateUpdater.invoke(transform)
     }
 }
 

@@ -15,6 +15,7 @@ import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
 import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
+import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionRuntimeState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.BoardUrlNormalizationInput
@@ -214,6 +215,23 @@ class TabSessionStore @Inject constructor(
         transform: (ThreadSessionState) -> ThreadSessionState,
     ) {
         threadTabsCoordinator.updateThreadSessionState(threadId, transform)
+    }
+
+    /**
+     * 指定スレッドタブの継続ランタイム状態を返す。
+     */
+    fun getThreadRuntimeState(threadId: ThreadId): ThreadSessionRuntimeState {
+        return threadTabsCoordinator.getThreadRuntimeState(threadId)
+    }
+
+    /**
+     * 指定スレッドタブの継続ランタイム状態を更新する。
+     */
+    fun updateThreadRuntimeState(
+        threadId: ThreadId,
+        transform: (ThreadSessionRuntimeState) -> ThreadSessionRuntimeState,
+    ) {
+        threadTabsCoordinator.updateThreadRuntimeState(threadId, transform)
     }
 
     fun clearNewResCount(threadId: ThreadId) {

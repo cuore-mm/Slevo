@@ -9,6 +9,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
+import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionRuntimeState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import dagger.hilt.android.scopes.ActivityRetainedScoped
@@ -74,6 +75,9 @@ class ThreadTabsCoordinator @Inject constructor(
 
     private val _threadSessionStates = MutableStateFlow<Map<String, ThreadSessionState>>(emptyMap())
     val threadSessionStates: StateFlow<Map<String, ThreadSessionState>> = _threadSessionStates.asStateFlow()
+
+    private val _threadRuntimeStates = MutableStateFlow<Map<String, ThreadSessionRuntimeState>>(emptyMap())
+    val threadRuntimeStates: StateFlow<Map<String, ThreadSessionRuntimeState>> = _threadRuntimeStates.asStateFlow()
 
     private val _threadCurrentPage = MutableStateFlow(-1)
 
@@ -170,6 +174,7 @@ class ThreadTabsCoordinator @Inject constructor(
         }
         _newResCounts.update { it - key }
         _threadSessionStates.update { it - key }
+        _threadRuntimeStates.update { it - key }
         updateSelectedThreadKeyAfterRemoval(selectedKeyBeforeRemoval, key, removedIndex, updatedTabs)
         saveThreadTabs(updatedTabs)
     }
@@ -333,6 +338,27 @@ class ThreadTabsCoordinator @Inject constructor(
         val key = threadId.value
         _threadSessionStates.update { states ->
             val current = states[key] ?: ThreadSessionState()
+            states + (key to transform(current))
+        }
+    }
+
+    /**
+     * 指定スレッドタブの継続ランタイム状態を返す。
+     */
+    fun getThreadRuntimeState(threadId: ThreadId): ThreadSessionRuntimeState {
+        return _threadRuntimeStates.value[threadId.value] ?: ThreadSessionRuntimeState()
+    }
+
+    /**
+     * 指定スレッドタブの継続ランタイム状態を更新する。
+     */
+    fun updateThreadRuntimeState(
+        threadId: ThreadId,
+        transform: (ThreadSessionRuntimeState) -> ThreadSessionRuntimeState,
+    ) {
+        val key = threadId.value
+        _threadRuntimeStates.update { states ->
+            val current = states[key] ?: ThreadSessionRuntimeState()
             states + (key to transform(current))
         }
     }
