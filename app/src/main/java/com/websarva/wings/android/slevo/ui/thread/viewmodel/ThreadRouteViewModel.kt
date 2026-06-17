@@ -74,6 +74,14 @@ class ThreadRouteViewModel @Inject constructor(
     fun observeUiState(tabKey: String): Flow<ThreadUiState> = uiStateFor(tabKey)
 
     /**
+     * Task 6 移行中に既存の操作 API を再利用するため、対象タブの旧 ViewModel を返す。
+     *
+     * UI は `UiState` 購読を route ViewModel 経由へ切り替えつつ、詳細な操作委譲だけを
+     * 互換レイヤーとして既存 ViewModel に橋渡しする。
+     */
+    fun legacyViewModel(tabKey: String): ThreadViewModel = threadViewModelFor(tabKey)
+
+    /**
      * 指定スレッドタブを再読み込みする。
      *
      * ViewModel の再生成ではなく、対象タブの既存 ViewModel へ更新要求を送る。

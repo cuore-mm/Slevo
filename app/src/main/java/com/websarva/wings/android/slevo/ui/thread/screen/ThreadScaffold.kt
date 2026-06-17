@@ -23,9 +23,9 @@ import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.toClipEntry
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
@@ -55,6 +55,7 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.DisplaySettingsBottomShe
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadRouteViewModel
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import kotlinx.coroutines.launch
 
@@ -73,6 +74,7 @@ fun ThreadScaffold(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
+    val routeViewModel: ThreadRouteViewModel = hiltViewModel()
     val threadLoaded by tabSessionStore.threadLoaded.collectAsState()
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsState()
     val selectedThreadTabKey by tabSessionStore.selectedThreadTabKey.collectAsState()
@@ -123,28 +125,19 @@ fun ThreadScaffold(
         onEmptyTabs = { navController.navigateUp() },
         openTabs = openThreadTabs,
         selectedTabKey = selectedThreadTabKey,
-        getViewModel = { tab -> tabSessionStore.getOrCreateThreadViewModel(tab.id.value) },
+        getUiState = { tab -> routeViewModel.uiStateFor(tab.id.value) },
+        getBookmarkSheetHolder = { tab -> routeViewModel.legacyViewModel(tab.id.value).bookmarkSheetHolder },
         getKey = { it.id.value },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
-        initializeViewModel = { viewModel, tab ->
-            viewModel.initializeThread(
-                threadKey = tab.threadKey,
-                boardInfo = BoardInfo(
-                    name = tab.boardName,
-                    url = tab.boardUrl,
-                    boardId = tab.boardId
-                ),
-                threadTitle = tab.title
-            )
-        },
-        updateScrollPosition = { viewModel, tab, index, offset ->
-            viewModel.updateThreadScrollPosition(tab.id, index, offset)
+        updateScrollPosition = { tab, index, offset ->
+            routeViewModel.legacyViewModel(tab.id.value).updateThreadScrollPosition(tab.id, index, offset)
         },
         onTabSelected = { tabSessionStore.selectThreadTab(it.id) },
         animateToPageFlow = tabSessionStore.threadPageAnimation,
         bottomBarActionVisibilityEnabled = !isPopupVisible,
-        bottomBar = { viewModel, uiState, actionProgress, openTabListSheet ->
+        bottomBar = { tab, uiState, actionProgress, openTabListSheet ->
+            val viewModel = routeViewModel.legacyViewModel(tab.id.value)
             BbsRouteBottomBar(
                 isSearchMode = uiState.isSearchMode,
                 onCloseSearch = { viewModel.closeSearch() },
@@ -177,7 +170,8 @@ fun ThreadScaffold(
                 }
             )
         },
-        content = { viewModel, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
+        content = { tab, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
+            val viewModel = routeViewModel.legacyViewModel(tab.id.value)
             LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
                 if (
@@ -267,7 +261,8 @@ fun ThreadScaffold(
                 }
             )
         },
-        optionalSheetContent = { viewModel, uiState ->
+        optionalSheetContent = { tab, uiState ->
+            val viewModel = routeViewModel.legacyViewModel(tab.id.value)
             val clipboard = LocalClipboard.current
             val coroutineScope = rememberCoroutineScope()
             val uriHandler = LocalUriHandler.current

@@ -17,12 +17,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
 import com.websarva.wings.android.slevo.ui.common.PostDialog
@@ -41,6 +41,7 @@ import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardRouteViewModel
 import kotlinx.coroutines.launch
 
 /**
@@ -57,6 +58,7 @@ fun BoardScaffold(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
+    val routeViewModel: BoardRouteViewModel = hiltViewModel()
     // --- Tab/state ---
     val boardLoaded by tabSessionStore.boardLoaded.collectAsState()
     val openBoardTabs by tabSessionStore.openBoardTabs.collectAsState()
@@ -105,25 +107,18 @@ fun BoardScaffold(
         onEmptyTabs = { navController.navigateUp() },
         openTabs = openBoardTabs,
         selectedTabKey = selectedBoardTabKey,
-        getViewModel = { tab -> tabSessionStore.getOrCreateBoardViewModel(tab.boardUrl) },
+        getUiState = { tab -> routeViewModel.uiStateFor(tab.boardUrl) },
+        getBookmarkSheetHolder = { tab -> routeViewModel.legacyViewModel(tab.boardUrl).bookmarkSheetHolder },
         getKey = { it.boardUrl },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
-        initializeViewModel = { viewModel, tab ->
-            viewModel.initializeBoard(
-                boardInfo = BoardInfo(
-                    boardId = tab.boardId,
-                    name = tab.boardName,
-                    url = tab.boardUrl
-                )
-            )
-        },
-        updateScrollPosition = { _, tab, index, offset ->
+        updateScrollPosition = { tab, index, offset ->
             tabSessionStore.updateBoardScrollPosition(tab.boardUrl, index, offset)
         },
         onTabSelected = { tabSessionStore.selectBoardTab(it.boardUrl) },
         animateToPageFlow = tabSessionStore.boardPageAnimation,
-        bottomBar = { viewModel, uiState, actionProgress, openTabListSheet ->
+        bottomBar = { tab, uiState, actionProgress, openTabListSheet ->
+            val viewModel = routeViewModel.legacyViewModel(tab.boardUrl)
             val actions = listOf(
                 TabToolBarAction(
                     icon = Icons.AutoMirrored.Filled.Sort,
@@ -184,7 +179,8 @@ fun BoardScaffold(
                 }
             )
         },
-        content = { viewModel, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
+        content = { tab, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
+            val viewModel = routeViewModel.legacyViewModel(tab.boardUrl)
             LaunchedEffect(uiState.pendingToastResId) {
                 uiState.pendingToastResId?.let { resId ->
                     Toast.makeText(context, resId, Toast.LENGTH_SHORT).show()
@@ -265,7 +261,8 @@ fun BoardScaffold(
                 boardUrl = uiState.boardInfo.url,
             )
         },
-        optionalSheetContent = { viewModel, uiState ->
+        optionalSheetContent = { tab, uiState ->
+            val viewModel = routeViewModel.legacyViewModel(tab.boardUrl)
             val sortSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             if (uiState.showSortSheet) {
                 SortBottomSheet(
