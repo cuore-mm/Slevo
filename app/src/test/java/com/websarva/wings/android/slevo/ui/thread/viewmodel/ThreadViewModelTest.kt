@@ -89,7 +89,6 @@ class ThreadViewModelTest {
         every { postDialogImageUploaderFactory.create(any(), any()) } returns mockk(relaxed = true)
 
         return ThreadViewModel(
-            datRepository = datRepository,
             boardRepository = boardRepository,
             historyRepository = historyRepository,
             postHistoryRepository = postHistoryRepository,
