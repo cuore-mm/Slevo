@@ -32,6 +32,7 @@ class ThreadListCoordinatorTest {
             repository = mockk<BoardRepository>(relaxed = true),
             historyRepository = mockk<ThreadHistoryRepository>(relaxed = true),
             threadStateRepository = mockk<ThreadStateRepository>(relaxed = true),
+            boardThreadListTransformUseCase = BoardThreadListTransformUseCase(),
             uiState = uiState,
             scope = backgroundScope,
         )

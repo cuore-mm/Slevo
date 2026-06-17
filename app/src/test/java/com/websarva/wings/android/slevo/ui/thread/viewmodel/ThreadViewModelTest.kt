@@ -60,6 +60,8 @@ class ThreadViewModelTest {
         postDialogControllerFactory: PostDialogController.Factory = mockk(relaxed = true),
         replyPostDialogExecutor: ThreadReplyPostDialogExecutor = mockk(relaxed = true),
         logger: AppLogger = mockk(relaxed = true),
+        threadContentLoadUseCase: ThreadContentLoadUseCase = ThreadContentLoadUseCase(datRepository),
+        threadVisiblePostsUseCase: ThreadVisiblePostsUseCase = ThreadVisiblePostsUseCase(),
     ): ThreadViewModel {
         every { settingsRepository.observeTextScale() } returns flowOf(1.0f)
         every { settingsRepository.observeIsIndividualTextScale() } returns flowOf(false)
@@ -96,6 +98,8 @@ class ThreadViewModelTest {
             ngRepository = ngRepository,
             settingsRepository = settingsRepository,
             tabsRepository = tabsRepository,
+            threadContentLoadUseCase = threadContentLoadUseCase,
+            threadVisiblePostsUseCase = threadVisiblePostsUseCase,
             threadReadStateRepository = threadReadStateRepository,
             postDialogImageUploaderFactory = postDialogImageUploaderFactory,
             postDialogControllerFactory = postDialogControllerFactory,

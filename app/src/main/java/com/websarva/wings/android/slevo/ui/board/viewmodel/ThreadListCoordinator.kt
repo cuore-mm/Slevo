@@ -1,16 +1,13 @@
 package com.websarva.wings.android.slevo.ui.board.viewmodel
 
 import androidx.compose.ui.text.input.TextFieldValue
-import com.websarva.wings.android.slevo.data.model.THREAD_KEY_THRESHOLD
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
-import com.websarva.wings.android.slevo.data.util.ThreadNewResCalculator
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
-import com.websarva.wings.android.slevo.ui.util.toHiragana
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -29,6 +26,7 @@ class ThreadListCoordinator @AssistedInject constructor(
     private val repository: BoardRepository,
     private val historyRepository: ThreadHistoryRepository,
     private val threadStateRepository: ThreadStateRepository,
+    private val boardThreadListTransformUseCase: BoardThreadListTransformUseCase,
     @Assisted private val uiState: MutableStateFlow<BoardUiState>,
     @Assisted private val scope: CoroutineScope,
 ) {
@@ -106,58 +104,16 @@ class ThreadListCoordinator @AssistedInject constructor(
      */
     fun applyFiltersAndSort() {
         originalThreads?.let { allThreads ->
-            // --- Search ---
-            val query = uiState.value.searchQuery.toHiragana()
-            val searchFiltered = if (query.isNotBlank()) {
-                allThreads.filter { it.title.toHiragana().contains(query, ignoreCase = true) }
-            } else {
-                allThreads
-            }
-
-            // --- NG filter ---
-            val filteredList = searchFiltered.filterNot { thread ->
-                threadTitleNg.any { (boardId, regex) ->
-                    (boardId == null || boardId == uiState.value.boardInfo.boardId) &&
-                            regex.containsMatchIn(thread.title)
-                }
-            }
-
-            // --- Sort ---
-            val (normalThreads, largeKeyThreads) = filteredList.partition { thread ->
-                thread.key.toLongOrNull()?.let { it < THREAD_KEY_THRESHOLD } ?: true
-            }
-
-            val sortedList = applySort(
-                normalThreads,
-                uiState.value.currentSortKey,
-                uiState.value.isSortAscending
-            ) + largeKeyThreads
-
-            // --- New thread ordering ---
-            val (newThreads, existingThreads) = sortedList.partition { it.isNew }
-            uiState.update { it.copy(threads = newThreads + existingThreads) }
+            val threads = boardThreadListTransformUseCase.filterAndSort(
+                allThreads = allThreads,
+                searchQuery = uiState.value.searchQuery,
+                threadTitleNg = threadTitleNg,
+                boardId = uiState.value.boardInfo.boardId,
+                sortKey = uiState.value.currentSortKey,
+                ascending = uiState.value.isSortAscending,
+            )
+            uiState.update { it.copy(threads = threads) }
         }
-    }
-
-    /**
-     * 指定のソートキーと順序でスレッド一覧を並び替える。
-     */
-    private fun applySort(
-        list: List<ThreadInfo>,
-        sortKey: ThreadSortKey,
-        ascending: Boolean,
-    ): List<ThreadInfo> {
-        if (sortKey == ThreadSortKey.DEFAULT && uiState.value.searchQuery.isBlank()) {
-            // デフォルト表示かつ検索なしの場合は並び替えを省略する。
-            return list
-        }
-        val sortedList = when (sortKey) {
-            ThreadSortKey.DEFAULT -> list
-            ThreadSortKey.MOMENTUM -> list.sortedBy { it.momentum }
-            ThreadSortKey.RES_COUNT -> list.sortedBy { it.resCount }
-            ThreadSortKey.DATE_CREATED -> list.sortedBy { it.key.toLongOrNull() ?: 0L }
-        }
-        return if (ascending) sortedList else sortedList.reversed()
     }
 
     /**
@@ -168,18 +124,7 @@ class ThreadListCoordinator @AssistedInject constructor(
             // 表示対象がない場合は統合処理を行わない。
             return
         }
-        val merged = baseThreads.map { thread ->
-            val history = historyMap[thread.key]
-            if (history != null) {
-                val newResCount = ThreadNewResCalculator.calculate(
-                    latestResCount = thread.resCount,
-                    readState = history.readState,
-                )
-                thread.copy(isVisited = true, newResCount = newResCount)
-            } else {
-                thread
-            }
-        }
+        val merged = boardThreadListTransformUseCase.mergeHistory(baseThreads, historyMap)
         currentHistoryMap = historyMap
         originalThreads = merged
         applyFiltersAndSort()

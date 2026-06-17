@@ -15,9 +15,9 @@
 
 ## 3. データ取得・表示変換ロジックの分離
 
-- [ ] 3.1 スレッド本文取得、レス表示行生成、NG 適用、検索適用、ツリー派生情報、新着計算を UseCase / coordinator に切り出す
-- [ ] 3.2 板スレ一覧取得、ソート、フィルタ、NG 適用、ブックマーク合成を UseCase / coordinator に切り出す
-- [ ] 3.3 切り出した UseCase を `ThreadRouteViewModel` / `BoardRouteViewModel` から呼ぶ形へ変更し、既存挙動が維持されることを単体テストで確認する
+- [x] 3.1 スレッド本文取得、レス表示行生成、NG 適用、検索適用、ツリー派生情報、新着計算を UseCase / coordinator に切り出す
+- [x] 3.2 板スレ一覧取得、ソート、フィルタ、NG 適用、ブックマーク合成を UseCase / coordinator に切り出す
+- [x] 3.3 切り出した UseCase を `ThreadRouteViewModel` / `BoardRouteViewModel` から呼ぶ形へ変更し、既存挙動が維持されることを単体テストで確認する
 
 ## 4. Route 単位 ViewModel への移行
 

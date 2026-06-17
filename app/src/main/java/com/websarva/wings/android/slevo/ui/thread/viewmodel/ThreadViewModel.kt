@@ -11,12 +11,9 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
-import com.websarva.wings.android.slevo.data.model.ReplyInfo
-import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
-import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
@@ -24,7 +21,6 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
-import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseViewModel
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolderFactory
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
@@ -38,9 +34,7 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogStateAdapter
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
-import com.websarva.wings.android.slevo.ui.thread.state.DisplayPost
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
-import com.websarva.wings.android.slevo.ui.thread.state.ThreadListItem
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
@@ -51,7 +45,6 @@ import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
-import com.websarva.wings.android.slevo.ui.util.toHiragana
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -80,25 +73,6 @@ private data class PendingPost(
 )
 
 /**
- * loadData 成功時に必要な派生情報をまとめたコンテナ。
- *
- * 投稿一覧・派生マップ・スレ情報の更新に必要な値を保持する。
- */
-private data class ThreadLoadDerived(
-    val uiPosts: List<ThreadPostUiModel>,
-    val threadTitle: String?,
-    val resCount: Int,
-    val threadDate: ThreadDate,
-    val momentum: Double,
-    val idCountMap: Map<String, Int>,
-    val idIndexList: List<Int>,
-    val replySourceMap: Map<Int, List<Int>>,
-    val treeOrder: List<Int>,
-    val treeDepthMap: Map<Int, Int>,
-    val treeRootMap: Map<Int, Int>,
-)
-
-/**
  * ThreadViewModel の初期化に必要な入力。
  *
  * スレッド識別子と表示情報を初期化フローで利用する。
@@ -115,7 +89,6 @@ data class ThreadInitArgs(
  * 投稿の表示や操作に関するUI状態を保持・更新する。
  */
 class ThreadViewModel @AssistedInject constructor(
-    private val datRepository: DatRepository,
     private val boardRepository: BoardRepository,
     private val historyRepository: ThreadHistoryRepository,
     private val postHistoryRepository: PostHistoryRepository,
@@ -124,6 +97,8 @@ class ThreadViewModel @AssistedInject constructor(
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
     private val tabsRepository: TabsRepository,
+    private val threadContentLoadUseCase: ThreadContentLoadUseCase,
+    private val threadVisiblePostsUseCase: ThreadVisiblePostsUseCase,
     threadReadStateRepository: ThreadReadStateRepository,
     private val postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
     private val postDialogControllerFactory: PostDialogController.Factory,
@@ -429,13 +404,14 @@ class ThreadViewModel @AssistedInject constructor(
         val key = uiState.value.threadInfo.key
 
         try {
-            val threadData = fetchThreadData(boardUrl, key)
-            if (threadData == null) {
+            val derived = threadContentLoadUseCase.load(boardUrl, key) { progress ->
+                _uiState.update { it.copy(loadProgress = progress) }
+            }
+            if (derived == null) {
                 // データ取得に失敗した場合はここで終了する。
                 handleLoadFailure(boardUrl, key)
                 return
             }
-            val derived = buildThreadLoadDerived(threadData, key)
             applyLoadSuccess(derived)
             updatePostGroupsOnLoad(derived.uiPosts)
             updateNgPostNumbers()
@@ -460,59 +436,9 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     /**
-     * dat 取得を行い、進捗を UIState に反映する。
-     */
-    private suspend fun fetchThreadData(
-        boardUrl: String,
-        key: String,
-    ): Pair<List<ReplyInfo>, String?>? {
-        return datRepository.getThread(boardUrl, key) { progress ->
-            _uiState.update { it.copy(loadProgress = progress) }
-        }
-    }
-
-    /**
-     * dat 取得結果から UI 反映に必要な派生情報を構築する。
-     */
-    private fun buildThreadLoadDerived(
-        threadData: Pair<List<ReplyInfo>, String?>,
-        key: String,
-    ): ThreadLoadDerived {
-        // --- 投稿一覧の変換 ---
-        val (posts, title) = threadData
-        val uiPosts = posts.map { it.toThreadPostUiModel() }
-
-        // --- 派生マップ ---
-        val (idCountMap, idIndexList, replySourceMap) = deriveReplyMaps(uiPosts)
-        val (treeOrder, treeDepthMap) = deriveTreeOrder(uiPosts)
-        val treeRootMap = deriveTreeRoots(treeOrder, treeDepthMap)
-
-        // --- スレ情報 ---
-        val resCount = uiPosts.size
-        val derived = ThreadInfoDerivedCalculator.calculate(
-            threadKey = key,
-            resCount = resCount,
-        )
-
-        return ThreadLoadDerived(
-            uiPosts = uiPosts,
-            threadTitle = title,
-            resCount = resCount,
-            threadDate = derived.date,
-            momentum = derived.momentum,
-            idCountMap = idCountMap,
-            idIndexList = idIndexList,
-            replySourceMap = replySourceMap,
-            treeOrder = treeOrder,
-            treeDepthMap = treeDepthMap,
-            treeRootMap = treeRootMap,
-        )
-    }
-
-    /**
      * 取得成功時の UIState を一括で更新する。
      */
-    private fun applyLoadSuccess(derived: ThreadLoadDerived) {
+    private fun applyLoadSuccess(derived: ThreadContentLoadResult) {
         val activeImageUrls = deriveActiveImageUrls(derived.uiPosts)
         _uiState.update { state ->
             val prunedPopupStack = prunePopupStackWithoutRenderablePosts(
@@ -836,94 +762,28 @@ class ThreadViewModel @AssistedInject constructor(
     }
 
     /**
-     * グループ情報から表示対象の投稿リストを組み立てる。
-     *
-     * 最新グループにのみ isAfter を付与し、新着バー表示位置の基準とする。
-     * 戻り値は (groupIndex, DisplayPost) のペアで、key 生成時に groupIndex を使えるようにする。
-     */
-    private fun buildGroupedDisplayPosts(
-        posts: List<ThreadPostUiModel>,
-        groups: List<ThreadPostGroup>,
-        sortType: ThreadSortType,
-        treeOrder: List<Int>,
-        treeDepthMap: Map<Int, Int>,
-        treeRootMap: Map<Int, Int>,
-        latestArrivalGroupIndex: Int?
-    ): List<Pair<Int, DisplayPost>> {
-        // --- グループ毎の変換 ---
-        val result = mutableListOf<Pair<Int, DisplayPost>>()
-        groups.forEachIndexed { index, group ->
-            val endResNo = group.endResNo.coerceAtMost(posts.size)
-            if (endResNo <= 0 || group.startResNo > endResNo) {
-                // 無効な範囲はスキップする。
-                return@forEachIndexed
-            }
-            val targetPosts = posts.take(endResNo)
-            val order = if (sortType == ThreadSortType.TREE && treeOrder.isNotEmpty()) {
-                treeOrder.filter { it <= endResNo }
-            } else {
-                (1..endResNo).toList()
-            }
-            val firstNewResNo = if (group.prevResCount == 0) null else group.startResNo
-            val groupPosts = buildGroupDisplayPosts(
-                posts = targetPosts,
-                order = order,
-                sortType = sortType,
-                treeDepthMap = treeDepthMap,
-                treeRootMap = treeRootMap,
-                firstNewResNo = firstNewResNo,
-                prevResCount = group.prevResCount
-            )
-            val markAsAfter = latestArrivalGroupIndex != null && index == latestArrivalGroupIndex
-            val adjusted = groupPosts.map { post ->
-                post.copy(isAfter = markAsAfter)
-            }
-            result.addAll(adjusted.map { index to it })
-        }
-        return result
-    }
-
-    /**
      * 検索/NGを反映した表示用投稿リストを更新する。
      */
     private fun updateDisplayPosts() {
         val posts = uiState.value.posts ?: return // 投稿未取得時は更新しない。
-        // --- グループ反映 ---
-        val groupedPosts = buildGroupedDisplayPosts(
+        val result = threadVisiblePostsUseCase.buildVisibleRows(
             posts = posts,
             groups = uiState.value.postGroups,
             sortType = uiState.value.sortType,
             treeOrder = uiState.value.treeOrder,
             treeDepthMap = uiState.value.treeDepthMap,
             treeRootMap = uiState.value.treeRootMap,
-            latestArrivalGroupIndex = uiState.value.latestArrivalGroupIndex
+            latestArrivalGroupIndex = uiState.value.latestArrivalGroupIndex,
+            searchQuery = uiState.value.searchQuery,
+            ngPostNumbers = uiState.value.ngPostNumbers,
+            replySourceMap = uiState.value.replySourceMap,
         )
-
-        // --- 検索フィルタ ---
-        val query = uiState.value.searchQuery.toHiragana()
-        val filteredPosts = if (query.isNotBlank()) {
-            groupedPosts.filter {
-                it.second.post.body.content.toHiragana().contains(
-                    query,
-                    ignoreCase = true
-                )
-            }
-        } else {
-            groupedPosts
-        }
-        // --- NGフィルタ ---
-        val visibleGroupedPosts = filteredPosts.filterNot { it.second.num in uiState.value.ngPostNumbers }
-        // --- 最終表示行に変換 ---
-        val visiblePostRows = buildThreadListPostRows(visibleGroupedPosts)
-        // --- 返信数と新着位置 ---
-        val replyCounts = visiblePostRows.map { p -> uiState.value.replySourceMap[p.displayPost.num]?.size ?: 0 }
-        val firstAfterIndex = visiblePostRows.indexOfFirst { it.displayPost.isAfter }
 
         _uiState.update {
             it.copy(
-                visiblePostRows = visiblePostRows,
-                replyCounts = replyCounts,
-                firstAfterIndex = firstAfterIndex
+                visiblePostRows = result.visiblePostRows,
+                replyCounts = result.replyCounts,
+                firstAfterIndex = result.firstAfterIndex,
             )
         }
     }
