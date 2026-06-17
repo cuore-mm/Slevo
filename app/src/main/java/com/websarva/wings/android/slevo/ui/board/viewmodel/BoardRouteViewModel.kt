@@ -1,21 +1,30 @@
 package com.websarva.wings.android.slevo.ui.board.viewmodel
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
+import com.websarva.wings.android.slevo.ui.common.bookmark.BoardTarget
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolder
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 
 /**
@@ -36,11 +45,17 @@ class BoardRouteViewModel @Inject constructor(
 
     private val viewModelCache = mutableMapOf<String, BoardViewModel>()
     private val uiStateCache = mutableMapOf<String, StateFlow<BoardUiState>>()
+    private val postSuccessCollectJobs = mutableMapOf<String, Job>()
 
     init {
         viewModelScope.launch {
             tabSessionStore.openBoardTabs.collect { tabs ->
                 evictClosedTabs(tabs.map { tab -> tab.boardUrl }.toSet())
+            }
+        }
+        viewModelScope.launch {
+            tabSessionStore.openBoardTabs.collect { tabs ->
+                attachPostSuccessCollectors(tabs)
             }
         }
     }
@@ -88,6 +103,46 @@ class BoardRouteViewModel @Inject constructor(
     fun legacyViewModel(tabKey: String): BoardViewModel = boardViewModelFor(tabKey)
 
     /**
+     * 指定板タブのブックマークシート holder を返す。
+     */
+    fun bookmarkSheetHolderFor(tabKey: String): BookmarkBottomSheetStateHolder {
+        return tabSessionStore.boardBookmarkSheetHolder(tabKey)
+    }
+
+    /**
+     * 指定板タブのブックマークシートを開く。
+     */
+    fun openBookmarkSheet(tabKey: String) {
+        val state = boardViewModelFor(tabKey).uiState.value
+        val boardInfo = state.boardInfo
+        if (boardInfo.url.isBlank()) {
+            // URLが空の場合はシートを開かない。
+            return
+        }
+        val targets = listOf(
+            BoardTarget(
+                boardInfo = boardInfo,
+                currentGroupId = state.bookmarkStatusState.selectedGroup?.id,
+            )
+        )
+        tabSessionStore.boardBookmarkSheetHolder(tabKey).open(targets)
+    }
+
+    /**
+     * 指定板タブの投稿ダイアログコントローラを返す。
+     */
+    fun postDialogActionsFor(tabKey: String): PostDialogController {
+        return tabSessionStore.boardPostDialogController(tabKey)
+    }
+
+    /**
+     * 指定板タブの投稿ダイアログに画像をアップロードする。
+     */
+    fun uploadPostDialogImage(tabKey: String, context: Context, uri: Uri) {
+        tabSessionStore.boardUploadPostDialogImage(tabKey, context, uri)
+    }
+
+    /**
      * 指定板タブのスレッド一覧を更新する。
      *
      * ViewModel の再生成ではなく、対象タブの既存 ViewModel へ更新要求を送る。
@@ -119,6 +174,7 @@ class BoardRouteViewModel @Inject constructor(
      */
     private fun createUiStateFlow(tabKey: String): StateFlow<BoardUiState> {
         val viewModel = boardViewModelFor(tabKey)
+        preparePostDialogIdentityHistory(tabKey, viewModel)
         return tabSessionStore.openBoardTabs
             .map { tabs -> tabs.find { tab -> tab.boardUrl == tabKey } }
             .flatMapLatest { tab ->
@@ -137,6 +193,44 @@ class BoardRouteViewModel @Inject constructor(
                 started = SharingStarted.WhileSubscribed(UI_STATE_STOP_TIMEOUT_MILLIS),
                 initialValue = viewModel.uiState.value,
             )
+    }
+
+    /**
+     * boardId が確定したタイミングで、新しい holder 側の投稿ダイアログに履歴監視を準備する。
+     */
+    private fun preparePostDialogIdentityHistory(tabKey: String, viewModel: BoardViewModel) {
+        viewModelScope.launch {
+            viewModel.uiState
+                .map { it.boardInfo.boardId }
+                .distinctUntilChanged()
+                .filter { it != 0L }
+                .take(1)
+                .collect { boardId ->
+                    tabSessionStore.boardPostDialogController(tabKey).prepareIdentityHistory(boardId)
+                }
+        }
+    }
+
+    /**
+     * 開いているタブ全ての投稿成功イベントを監視し、対象板の一覧を更新する。
+     */
+    private fun attachPostSuccessCollectors(tabs: List<BoardTabInfo>) {
+        val currentKeys = tabs.map { it.boardUrl }.toSet()
+        postSuccessCollectJobs.keys.filterNot { it in currentKeys }.forEach { key ->
+            postSuccessCollectJobs.remove(key)?.cancel()
+        }
+        tabs.forEach { tab ->
+            if (postSuccessCollectJobs.containsKey(tab.boardUrl)) {
+                return@forEach
+            }
+            postSuccessCollectJobs[tab.boardUrl] = viewModelScope.launch {
+                tabSessionStore.boardPostDialogController(tab.boardUrl)
+                    .postSuccessEvents
+                    .collect {
+                        refreshBoard(tab.boardUrl)
+                    }
+            }
+        }
     }
 
     /**

@@ -126,7 +126,7 @@ fun ThreadScaffold(
         openTabs = openThreadTabs,
         selectedTabKey = selectedThreadTabKey,
         getUiState = { tab -> routeViewModel.uiStateFor(tab.id.value) },
-        getBookmarkSheetHolder = { tab -> routeViewModel.legacyViewModel(tab.id.value).bookmarkSheetHolder },
+        getBookmarkSheetHolder = { tab -> routeViewModel.bookmarkSheetHolderFor(tab.id.value) },
         getKey = { it.id.value },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
@@ -157,11 +157,11 @@ fun ThreadScaffold(
                         uiState = uiState,
                         isTreeSort = uiState.sortType == ThreadSortType.TREE,
                         onSortClick = { viewModel.toggleSortType() },
-                        onPostClick = { viewModel.postDialogActions.showDialog() },
+                        onPostClick = { routeViewModel.postDialogActionsFor(tab.id.value).showDialog() },
                         onTabListClick = openTabListSheet,
                         onRefreshClick = { viewModel.reloadThread() },
                         onSearchClick = { viewModel.startSearch() },
-                        onBookmarkClick = { viewModel.openBookmarkSheet() },
+                        onBookmarkClick = { routeViewModel.openBookmarkSheet(tab.id.value) },
                         onThreadInfoClick = { viewModel.openThreadInfoSheet() },
                         onMoreClick = { viewModel.openMoreSheet() },
                         onAutoScrollClick = { viewModel.toggleAutoScroll() },
@@ -239,7 +239,7 @@ fun ThreadScaffold(
                         action = action,
                         handlers = CommonGestureActionHandlers(
                             onRefresh = { viewModel.reloadThread() },
-                            onPostOrCreateThread = { viewModel.postDialogActions.showDialog() },
+                            onPostOrCreateThread = { routeViewModel.postDialogActionsFor(tab.id.value).showDialog() },
                             onSearch = { viewModel.startSearch() },
                             onOpenTabList = openTabListSheet,
                             onOpenBookmarkList = { navController.navigate(AppRoute.BookmarkList) },
@@ -269,12 +269,13 @@ fun ThreadScaffold(
             val imageSavePermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission()
             ) { granted ->
-                viewModel.onImageSavePermissionResult(context, granted)
+                routeViewModel.onImageSavePermissionResult(tab.id.value, context, granted)
             }
 
             // --- Image save event ---
-            LaunchedEffect(viewModel) {
-                viewModel.imageSaveEvents.collect { event ->
+            val imageSaveEvents = remember(tab.id.value) { routeViewModel.imageSaveEventsFor(tab.id.value) }
+            LaunchedEffect(imageSaveEvents) {
+                imageSaveEvents.collect { event ->
                     when (event) {
                         is ImageSaveUiEvent.RequestPermission -> {
                             imageSavePermissionLauncher.launch(event.permission)
@@ -364,7 +365,7 @@ fun ThreadScaffold(
                 scope = coroutineScope,
                 dialogState = popupDialogState,
                 onClearMenuTarget = { popupMenuTarget = null },
-                onReply = { target -> viewModel.postDialogActions.showReplyDialog(target.postNum) },
+                onReply = { target -> routeViewModel.postDialogActionsFor(tab.id.value).showReplyDialog(target.postNum) },
                 onCopy = { target ->
                     popupDialogTarget = target
                     popupDialogState.showCopyDialog()
@@ -402,16 +403,17 @@ fun ThreadScaffold(
                             currentImageUrl = targetUrl,
                             imageUrls = uiState.imageMenuTargetUrls,
                             onOpenNgDialog = { url -> viewModel.openImageNgDialog(url) },
-                            onRequestSaveSingle = { url ->
-                                viewModel.requestImageSave(context, listOf(url))
-                            },
-                            onRequestSaveAll = { urls ->
-                                // レス内画像が2件以上ある場合のみ処理する。
-                                if (urls.size >= 2) {
-                                    viewModel.requestImageSave(context, urls)
-                                }
-                            },
-                            onActionHandled = { viewModel.closeImageMenu() },
+                onRequestSaveSingle = { url ->
+                    routeViewModel.requestImageSave(tab.id.value, context, listOf(url))
+                },
+                onRequestSaveAll = { urls ->
+                    // レス内画像が2件以上ある場合のみ処理する。
+                    if (urls.size >= 2) {
+                        routeViewModel.requestImageSave(tab.id.value, context, urls)
+                    }
+                },
+                onActionHandled = { viewModel.closeImageMenu() },
+
                             onSetClipboardText = { text ->
                                 val clip = ClipData.newPlainText("", text).toClipEntry()
                                 clipboard.setClipEntry(clip)
@@ -488,33 +490,33 @@ fun ThreadScaffold(
                 val context = LocalContext.current
                 PostDialog(
                     uiState = postDialogState,
-                    onDismissRequest = { viewModel.postDialogActions.hideDialog() },
+                    onDismissRequest = { routeViewModel.postDialogActionsFor(tab.id.value).hideDialog() },
                     onAction = { action ->
                         when (action) {
                             is PostDialogAction.ChangeName ->
-                                viewModel.postDialogActions.updateName(action.value)
+                                routeViewModel.postDialogActionsFor(tab.id.value).updateName(action.value)
 
                             is PostDialogAction.ChangeMail ->
-                                viewModel.postDialogActions.updateMail(action.value)
+                                routeViewModel.postDialogActionsFor(tab.id.value).updateMail(action.value)
 
                             is PostDialogAction.ChangeMessage ->
-                                viewModel.postDialogActions.updateMessage(action.value)
+                                routeViewModel.postDialogActionsFor(tab.id.value).updateMessage(action.value)
 
                             is PostDialogAction.SelectNameHistory ->
-                                viewModel.postDialogActions.selectNameHistory(action.value)
+                                routeViewModel.postDialogActionsFor(tab.id.value).selectNameHistory(action.value)
 
                             is PostDialogAction.SelectMailHistory ->
-                                viewModel.postDialogActions.selectMailHistory(action.value)
+                                routeViewModel.postDialogActionsFor(tab.id.value).selectMailHistory(action.value)
 
                             is PostDialogAction.DeleteNameHistory ->
-                                viewModel.postDialogActions.deleteNameHistory(action.value)
+                                routeViewModel.postDialogActionsFor(tab.id.value).deleteNameHistory(action.value)
 
                             is PostDialogAction.DeleteMailHistory ->
-                                viewModel.postDialogActions.deleteMailHistory(action.value)
+                                routeViewModel.postDialogActionsFor(tab.id.value).deleteMailHistory(action.value)
 
                             PostDialogAction.Post -> {
                                 parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                    viewModel.postDialogActions.postFirstPhase(
+                                    routeViewModel.postDialogActionsFor(tab.id.value).postFirstPhase(
                                         host,
                                         boardKey,
                                         threadKey = uiState.threadInfo.key,
@@ -525,7 +527,7 @@ fun ThreadScaffold(
                             is PostDialogAction.ChangeTitle -> Unit
                         }
                     },
-                    onImageUpload = { uri -> viewModel.uploadImage(context, uri) },
+                    onImageUpload = { uri -> routeViewModel.uploadPostDialogImage(tab.id.value, context, uri) },
                     onImageUrlClick = { urls, tappedIndex, transitionNamespace ->
                         val route = buildImageViewerRoute(
                             imageUrls = urls,
@@ -544,17 +546,18 @@ fun ThreadScaffold(
                 postDialogState.postConfirmation?.let { confirmationData ->
                     ResponseWebViewDialog(
                         htmlContent = confirmationData.html,
-                        onDismissRequest = { viewModel.postDialogActions.hideConfirmationScreen() },
-                        onConfirm = {
-                            parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                viewModel.postDialogActions.postSecondPhase(
-                                    host,
-                                    boardKey,
-                                    threadKey = uiState.threadInfo.key,
-                                    confirmationData = confirmationData,
-                                )
-                            }
-                        },
+                    onDismissRequest = { routeViewModel.postDialogActionsFor(tab.id.value).hideConfirmationScreen() },
+                    onConfirm = {
+                        parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
+                            routeViewModel.postDialogActionsFor(tab.id.value).postSecondPhase(
+                                host,
+                                boardKey,
+                                threadKey = uiState.threadInfo.key,
+                                confirmationData = confirmationData,
+                            )
+                        }
+                    },
+
                         title = "書き込み確認",
                         confirmButtonText = "書き込む"
                     )
@@ -564,7 +567,7 @@ fun ThreadScaffold(
             if (postDialogState.showErrorWebView) {
                 ResponseWebViewDialog(
                     htmlContent = postDialogState.errorHtmlContent,
-                    onDismissRequest = { viewModel.postDialogActions.hideErrorWebView() },
+                    onDismissRequest = { routeViewModel.postDialogActionsFor(tab.id.value).hideErrorWebView() },
                     title = "応答結果",
                     onConfirm = null // 確認ボタンは不要なのでnull
                 )

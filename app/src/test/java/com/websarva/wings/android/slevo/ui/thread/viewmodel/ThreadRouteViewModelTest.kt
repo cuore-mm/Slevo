@@ -8,6 +8,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -178,7 +179,14 @@ class ThreadRouteViewModelTest {
         val store = mockk<TabSessionStore>(relaxed = true)
         every { store.openThreadTabs } returns openTabs
         every { store.selectedThreadTabKey } returns selectedKey
+        every { store.threadPostDialogController(any()) } returns mockPostDialogController()
         return store
+    }
+
+    private fun mockPostDialogController(): com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController {
+        val controller = mockk<com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController>(relaxed = true)
+        every { controller.postSuccessEvents } returns MutableSharedFlow()
+        return controller
     }
 
     /**

@@ -108,7 +108,7 @@ fun BoardScaffold(
         openTabs = openBoardTabs,
         selectedTabKey = selectedBoardTabKey,
         getUiState = { tab -> routeViewModel.uiStateFor(tab.boardUrl) },
-        getBookmarkSheetHolder = { tab -> routeViewModel.legacyViewModel(tab.boardUrl).bookmarkSheetHolder },
+        getBookmarkSheetHolder = { tab -> routeViewModel.bookmarkSheetHolderFor(tab.boardUrl) },
         getKey = { it.boardUrl },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
@@ -138,7 +138,7 @@ fun BoardScaffold(
                 TabToolBarAction(
                     icon = Icons.Filled.Create,
                     contentDescriptionRes = R.string.create_thread,
-                    onClick = { viewModel.postDialogActions.showDialog() },
+                    onClick = { routeViewModel.postDialogActionsFor(tab.boardUrl).showDialog() },
                 ),
             )
 
@@ -160,10 +160,10 @@ fun BoardScaffold(
                         modifier = modifier,
                         title = uiState.boardInfo.name,
                         bookmarkState = uiState.bookmarkStatusState,
-                        onBookmarkClick = { viewModel.openBookmarkSheet() },
+                        onBookmarkClick = { routeViewModel.openBookmarkSheet(tab.boardUrl) },
                         actions = actions,
                         onTabListClick = openTabListSheet,
-                        onPostClick = { viewModel.postDialogActions.showDialog() },
+                        onPostClick = { routeViewModel.postDialogActionsFor(tab.boardUrl).showDialog() },
                         tabIconContentDescriptionRes = R.string.open_tablist,
                         postIconContentDescriptionRes = R.string.create_thread,
                         actionsProgress = if (uiState.isSearchActive) 0f else actionProgress,
@@ -225,7 +225,7 @@ fun BoardScaffold(
                         action = action,
                         handlers = CommonGestureActionHandlers(
                             onRefresh = { viewModel.refreshBoardData() },
-                            onPostOrCreateThread = { viewModel.postDialogActions.showDialog() },
+                            onPostOrCreateThread = { routeViewModel.postDialogActionsFor(tab.boardUrl).showDialog() },
                             onSearch = { viewModel.setSearchMode(true) },
                             onOpenTabList = openTabListSheet,
                             onOpenBookmarkList = { navController.navigate(AppRoute.BookmarkList) },
@@ -281,35 +281,38 @@ fun BoardScaffold(
                 val context = LocalContext.current
                 PostDialog(
                     uiState = postDialogState,
-                    onDismissRequest = { viewModel.postDialogActions.hideDialog() },
+                    onDismissRequest = { routeViewModel.postDialogActionsFor(tab.boardUrl).hideDialog() },
                     onAction = { action ->
                         when (action) {
-                            is PostDialogAction.ChangeName -> viewModel.postDialogActions.updateName(action.value)
-                            is PostDialogAction.ChangeMail -> viewModel.postDialogActions.updateMail(action.value)
-                            is PostDialogAction.ChangeTitle -> viewModel.postDialogActions.updateTitle(action.value)
-                            is PostDialogAction.ChangeMessage -> viewModel.postDialogActions.updateMessage(
+                            is PostDialogAction.ChangeName -> routeViewModel.postDialogActionsFor(tab.boardUrl).updateName(action.value)
+                            is PostDialogAction.ChangeMail -> routeViewModel.postDialogActionsFor(tab.boardUrl).updateMail(action.value)
+                            is PostDialogAction.ChangeTitle -> routeViewModel.postDialogActionsFor(tab.boardUrl).updateTitle(
                                 action.value
                             )
 
-                            is PostDialogAction.SelectNameHistory -> viewModel.postDialogActions.selectNameHistory(
+                            is PostDialogAction.ChangeMessage -> routeViewModel.postDialogActionsFor(tab.boardUrl).updateMessage(
                                 action.value
                             )
 
-                            is PostDialogAction.SelectMailHistory -> viewModel.postDialogActions.selectMailHistory(
+                            is PostDialogAction.SelectNameHistory -> routeViewModel.postDialogActionsFor(tab.boardUrl).selectNameHistory(
                                 action.value
                             )
 
-                            is PostDialogAction.DeleteNameHistory -> viewModel.postDialogActions.deleteNameHistory(
+                            is PostDialogAction.SelectMailHistory -> routeViewModel.postDialogActionsFor(tab.boardUrl).selectMailHistory(
                                 action.value
                             )
 
-                            is PostDialogAction.DeleteMailHistory -> viewModel.postDialogActions.deleteMailHistory(
+                            is PostDialogAction.DeleteNameHistory -> routeViewModel.postDialogActionsFor(tab.boardUrl).deleteNameHistory(
+                                action.value
+                            )
+
+                            is PostDialogAction.DeleteMailHistory -> routeViewModel.postDialogActionsFor(tab.boardUrl).deleteMailHistory(
                                 action.value
                             )
 
                             PostDialogAction.Post -> {
                                 parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                    viewModel.postDialogActions.postFirstPhase(
+                                    routeViewModel.postDialogActionsFor(tab.boardUrl).postFirstPhase(
                                         host,
                                         boardKey,
                                         threadKey = null,
@@ -318,7 +321,8 @@ fun BoardScaffold(
                             }
                         }
                     },
-                    onImageUpload = { uri -> viewModel.uploadImage(context, uri) },
+                    onImageUpload = { uri -> routeViewModel.uploadPostDialogImage(tab.boardUrl, context, uri) },
+
                     onImageUrlClick = { urls, tappedIndex, transitionNamespace ->
                         val route = buildImageViewerRoute(
                             imageUrls = urls,
@@ -337,17 +341,18 @@ fun BoardScaffold(
                 postDialogState.postConfirmation?.let { confirmationData ->
                     ResponseWebViewDialog(
                         htmlContent = confirmationData.html,
-                        onDismissRequest = { viewModel.postDialogActions.hideConfirmationScreen() },
-                        onConfirm = {
-                            parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                viewModel.postDialogActions.postSecondPhase(
-                                    host,
-                                    boardKey,
-                                    threadKey = null,
-                                    confirmationData = confirmationData,
-                                )
-                            }
-                        },
+                    onDismissRequest = { routeViewModel.postDialogActionsFor(tab.boardUrl).hideConfirmationScreen() },
+                    onConfirm = {
+                        parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
+                            routeViewModel.postDialogActionsFor(tab.boardUrl).postSecondPhase(
+                                host,
+                                boardKey,
+                                threadKey = null,
+                                confirmationData = confirmationData,
+                            )
+                        }
+                    },
+
                         title = "書き込み確認",
                         confirmButtonText = "書き込む"
                     )
@@ -357,7 +362,7 @@ fun BoardScaffold(
             if (postDialogState.showErrorWebView) {
                 ResponseWebViewDialog(
                     htmlContent = postDialogState.errorHtmlContent,
-                    onDismissRequest = { viewModel.postDialogActions.hideErrorWebView() },
+                    onDismissRequest = { routeViewModel.postDialogActionsFor(tab.boardUrl).hideErrorWebView() },
                     title = "応答結果",
                     onConfirm = null
                 )
