@@ -9,6 +9,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
+import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import kotlinx.coroutines.CancellationException
@@ -70,6 +71,9 @@ class ThreadTabsCoordinator @Inject constructor(
 
     private val _selectedThreadTabKey = MutableStateFlow<String?>(null)
     val selectedThreadTabKey: StateFlow<String?> = _selectedThreadTabKey.asStateFlow()
+
+    private val _threadSessionStates = MutableStateFlow<Map<String, ThreadSessionState>>(emptyMap())
+    val threadSessionStates: StateFlow<Map<String, ThreadSessionState>> = _threadSessionStates.asStateFlow()
 
     private val _threadCurrentPage = MutableStateFlow(-1)
 
@@ -165,6 +169,7 @@ class ThreadTabsCoordinator @Inject constructor(
             newTabs
         }
         _newResCounts.update { it - key }
+        _threadSessionStates.update { it - key }
         updateSelectedThreadKeyAfterRemoval(selectedKeyBeforeRemoval, key, removedIndex, updatedTabs)
         saveThreadTabs(updatedTabs)
     }
@@ -309,6 +314,27 @@ class ThreadTabsCoordinator @Inject constructor(
      */
     fun getTabInfo(threadId: ThreadId): ThreadTabInfo? {
         return _openThreadTabs.value.find { it.id == threadId }
+    }
+
+    /**
+     * 指定スレッドタブの揮発 UI セッション状態を返す。
+     */
+    fun getThreadSessionState(threadId: ThreadId): ThreadSessionState {
+        return _threadSessionStates.value[threadId.value] ?: ThreadSessionState()
+    }
+
+    /**
+     * 指定スレッドタブの揮発 UI セッション状態を更新する。
+     */
+    fun updateThreadSessionState(
+        threadId: ThreadId,
+        transform: (ThreadSessionState) -> ThreadSessionState,
+    ) {
+        val key = threadId.value
+        _threadSessionStates.update { states ->
+            val current = states[key] ?: ThreadSessionState()
+            states + (key to transform(current))
+        }
     }
 
     /**

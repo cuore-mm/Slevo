@@ -9,6 +9,7 @@ import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinato
 import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import io.mockk.coVerify
 import io.mockk.mockk
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -177,6 +178,62 @@ class ThreadTabsCoordinatorTest {
         coordinator.closeThreadTab(tab)
 
         assertNull(coordinator.selectedThreadTabKey.value)
+    }
+
+    /**
+     * タブを閉じたときに対象タブのセッション状態だけが削除されることを確認する。
+     */
+    @Test
+    fun closeThreadTab_removesOnlyTargetSessionState() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "111",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "first",
+            )
+        )
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "222",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "second",
+            )
+        )
+        val first = coordinator.openThreadTabs.value.first()
+        val second = coordinator.openThreadTabs.value.last()
+        coordinator.updateThreadSessionState(first.id) { it.copy(searchQuery = "first") }
+        coordinator.updateThreadSessionState(second.id) { it.copy(searchQuery = "second") }
+
+        coordinator.closeThreadTab(first)
+
+        assertFalse(coordinator.threadSessionStates.value.containsKey(first.id.value))
+        assertEquals("second", coordinator.getThreadSessionState(second.id).searchQuery)
+    }
+
+    /**
+     * セッション状態更新が永続タブ保存を呼ばないことを確認する。
+     */
+    @Test
+    fun updateThreadSessionState_doesNotPersistTabs() {
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val coordinator = createCoordinator(tabsRepository)
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "111",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "first",
+            )
+        )
+        val tab = coordinator.openThreadTabs.value.first()
+
+        coordinator.updateThreadSessionState(tab.id) { it.copy(searchQuery = "query") }
+
+        assertEquals("query", coordinator.getThreadSessionState(tab.id).searchQuery)
+        coVerify(exactly = 0) { tabsRepository.saveOpenThreadTabs(any()) }
     }
 
     /**

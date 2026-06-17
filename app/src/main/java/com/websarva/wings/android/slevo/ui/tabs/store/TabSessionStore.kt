@@ -14,6 +14,8 @@ import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
 import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
+import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
+import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.BoardUrlNormalizationInput
 import com.websarva.wings.android.slevo.ui.util.normalizeBoardUrlTo5chIo
@@ -59,6 +61,8 @@ class TabSessionStore @Inject constructor(
     val newResCounts: StateFlow<Map<String, Int>> = threadTabsCoordinator.newResCounts
     val selectedBoardTabKey: StateFlow<String?> = boardTabsCoordinator.selectedBoardTabKey
     val selectedThreadTabKey: StateFlow<String?> = threadTabsCoordinator.selectedThreadTabKey
+    val boardSessionStates: StateFlow<Map<String, BoardSessionState>> = boardTabsCoordinator.boardSessionStates
+    val threadSessionStates: StateFlow<Map<String, ThreadSessionState>> = threadTabsCoordinator.threadSessionStates
 
     val boardPageAnimation: SharedFlow<Int> = boardTabsCoordinator.boardPageAnimation
     val threadPageAnimation: SharedFlow<Int> = threadTabsCoordinator.threadPageAnimation
@@ -137,6 +141,23 @@ class TabSessionStore @Inject constructor(
         boardTabsCoordinator.animateBoardPage(offset)
     }
 
+    /**
+     * 指定板タブの揮発 UI セッション状態を返す。
+     */
+    fun getBoardSessionState(boardUrl: String): BoardSessionState {
+        return boardTabsCoordinator.getBoardSessionState(boardUrl)
+    }
+
+    /**
+     * 指定板タブの揮発 UI セッション状態を更新する。
+     */
+    fun updateBoardSessionState(
+        boardUrl: String,
+        transform: (BoardSessionState) -> BoardSessionState,
+    ) {
+        boardTabsCoordinator.updateBoardSessionState(boardUrl, transform)
+    }
+
     fun ensureThreadTab(route: AppRoute.Thread): Int {
         return threadTabsCoordinator.ensureThreadTab(route)
     }
@@ -176,6 +197,23 @@ class TabSessionStore @Inject constructor(
 
     fun animateThreadPage(offset: Int) {
         threadTabsCoordinator.animateThreadPage(offset)
+    }
+
+    /**
+     * 指定スレッドタブの揮発 UI セッション状態を返す。
+     */
+    fun getThreadSessionState(threadId: ThreadId): ThreadSessionState {
+        return threadTabsCoordinator.getThreadSessionState(threadId)
+    }
+
+    /**
+     * 指定スレッドタブの揮発 UI セッション状態を更新する。
+     */
+    fun updateThreadSessionState(
+        threadId: ThreadId,
+        transform: (ThreadSessionState) -> ThreadSessionState,
+    ) {
+        threadTabsCoordinator.updateThreadSessionState(threadId, transform)
     }
 
     fun clearNewResCount(threadId: ThreadId) {

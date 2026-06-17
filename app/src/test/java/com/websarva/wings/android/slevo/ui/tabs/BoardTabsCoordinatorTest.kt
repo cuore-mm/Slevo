@@ -5,7 +5,9 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
+import io.mockk.coVerify
 import io.mockk.mockk
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -117,6 +119,41 @@ class BoardTabsCoordinatorTest {
         coordinator.closeBoardTab(tab)
 
         assertNull(coordinator.selectedBoardTabKey.value)
+    }
+
+    /**
+     * タブを閉じたときに対象板タブのセッション状態だけが削除されることを確認する。
+     */
+    @Test
+    fun closeBoardTab_removesOnlyTargetSessionState() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        val first = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        val second = BoardTabInfo(2, "B", "https://example.com/b/", "example.com")
+        coordinator.openBoardTab(first)
+        coordinator.openBoardTab(second)
+        coordinator.updateBoardSessionState(first.boardUrl) { it.copy(searchQuery = "first") }
+        coordinator.updateBoardSessionState(second.boardUrl) { it.copy(searchQuery = "second") }
+
+        coordinator.closeBoardTab(first)
+
+        assertFalse(coordinator.boardSessionStates.value.containsKey(first.boardUrl))
+        assertEquals("second", coordinator.getBoardSessionState(second.boardUrl).searchQuery)
+    }
+
+    /**
+     * セッション状態更新が永続タブ保存を呼ばないことを確認する。
+     */
+    @Test
+    fun updateBoardSessionState_doesNotPersistTabs() {
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val coordinator = createCoordinator(tabsRepository)
+        val tab = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        coordinator.openBoardTab(tab)
+
+        coordinator.updateBoardSessionState(tab.boardUrl) { it.copy(searchQuery = "query") }
+
+        assertEquals("query", coordinator.getBoardSessionState(tab.boardUrl).searchQuery)
+        coVerify(exactly = 0) { tabsRepository.saveOpenBoardTabs(any()) }
     }
 
     private fun createCoordinator(tabsRepository: TabsRepository): BoardTabsCoordinator {

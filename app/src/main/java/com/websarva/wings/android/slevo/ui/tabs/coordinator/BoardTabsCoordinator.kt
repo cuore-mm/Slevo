@@ -5,6 +5,7 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import kotlinx.coroutines.CoroutineScope
@@ -52,6 +53,9 @@ class BoardTabsCoordinator @Inject constructor(
     // 現在選択中の板タブ key。正規化済み boardUrl を保持する。
     private val _selectedBoardTabKey = MutableStateFlow<String?>(null)
     val selectedBoardTabKey: StateFlow<String?> = _selectedBoardTabKey.asStateFlow()
+
+    private val _boardSessionStates = MutableStateFlow<Map<String, BoardSessionState>>(emptyMap())
+    val boardSessionStates: StateFlow<Map<String, BoardSessionState>> = _boardSessionStates.asStateFlow()
 
     private val _boardCurrentPage = MutableStateFlow(-1)
 
@@ -147,6 +151,7 @@ class BoardTabsCoordinator @Inject constructor(
             updatedTabs = newTabs
             newTabs
         }
+        _boardSessionStates.update { it - tab.boardUrl }
         updateSelectedBoardKeyAfterRemoval(selectedKeyBeforeRemoval, removedTabKey, removedIndex, updatedTabs)
         saveBoardTabs(updatedTabs)
     }
@@ -198,6 +203,26 @@ class BoardTabsCoordinator @Inject constructor(
             }
         }
         saveBoardTabs()
+    }
+
+    /**
+     * 指定板タブの揮発 UI セッション状態を返す。
+     */
+    fun getBoardSessionState(boardUrl: String): BoardSessionState {
+        return _boardSessionStates.value[boardUrl] ?: BoardSessionState()
+    }
+
+    /**
+     * 指定板タブの揮発 UI セッション状態を更新する。
+     */
+    fun updateBoardSessionState(
+        boardUrl: String,
+        transform: (BoardSessionState) -> BoardSessionState,
+    ) {
+        _boardSessionStates.update { states ->
+            val current = states[boardUrl] ?: BoardSessionState()
+            states + (boardUrl to transform(current))
+        }
     }
 
     /**

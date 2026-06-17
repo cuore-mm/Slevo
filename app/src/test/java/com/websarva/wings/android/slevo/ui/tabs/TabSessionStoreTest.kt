@@ -1,8 +1,11 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
+import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
@@ -12,6 +15,7 @@ import io.mockk.mockk
 import io.mockk.every
 import io.mockk.coEvery
 import io.mockk.verify
+import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -180,5 +184,32 @@ class TabSessionStoreTest {
     fun releaseAllViewModels_delegatesToRegistry() {
         store.releaseAllViewModels()
         verify { registry.releaseAll() }
+    }
+
+    /**
+     * 板セッション状態更新 API が coordinator へ委譲されることを確認する。
+     */
+    @Test
+    fun updateBoardSessionState_delegatesToBoardCoordinator() {
+        val transform = slot<(BoardSessionState) -> BoardSessionState>()
+
+        store.updateBoardSessionState("https://example.com/test/") { it.copy(searchQuery = "query") }
+
+        verify { boardCoordinator.updateBoardSessionState("https://example.com/test/", capture(transform)) }
+        assertEquals("query", transform.captured(BoardSessionState()).searchQuery)
+    }
+
+    /**
+     * スレッドセッション状態更新 API が coordinator へ委譲されることを確認する。
+     */
+    @Test
+    fun updateThreadSessionState_delegatesToThreadCoordinator() {
+        val threadId = ThreadId.of("example.com", "test", "123")
+        val transform = slot<(ThreadSessionState) -> ThreadSessionState>()
+
+        store.updateThreadSessionState(threadId) { it.copy(searchQuery = "query") }
+
+        verify { threadCoordinator.updateThreadSessionState(threadId, capture(transform)) }
+        assertEquals("query", transform.captured(ThreadSessionState()).searchQuery)
     }
 }
