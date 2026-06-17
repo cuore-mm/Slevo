@@ -9,9 +9,7 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUplo
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogSuccess
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadCreatePostDialogExecutor
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,14 +24,14 @@ import kotlinx.coroutines.flow.asSharedFlow
  * ブックマークシートと投稿ダイアログの状態をタブ単位で保持し、
  * タブ削除時にまとめて解放する。
  */
-class BoardTabSessionHolder @AssistedInject constructor(
+class BoardTabSessionHolder(
     private val bookmarkSheetStateHolderFactory: BookmarkBottomSheetStateHolderFactory,
     private val postDialogControllerFactory: PostDialogController.Factory,
     private val postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
     private val threadCreatePostDialogExecutor: ThreadCreatePostDialogExecutor,
-    @Assisted("tabKey") private val tabKey: String,
-    @Assisted("boardUrl") private val boardUrl: String,
     private val boardTabsCoordinator: BoardTabsCoordinator,
+    private val tabKey: String,
+    private val boardUrl: String,
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -68,18 +66,37 @@ class BoardTabSessionHolder @AssistedInject constructor(
                     ?: 0L
             },
             onPostSuccess = { success -> _postSuccessEvents.tryEmit(success) },
-        )
+)
 
-    private val postDialogImageUploader =
-        postDialogImageUploaderFactory.create(scope, Dispatchers.IO)
+/**
+ * [BoardTabSessionHolder] を生成するためのファクトリ。
+ *
+ * Hilt 注入された依存を保持し、タブ key / 板 URL はメソッド引数で受け取る。
+ */
+class BoardTabSessionHolderFactory @Inject constructor(
+    private val bookmarkSheetStateHolderFactory: BookmarkBottomSheetStateHolderFactory,
+    private val postDialogControllerFactory: PostDialogController.Factory,
+    private val postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
+    private val threadCreatePostDialogExecutor: ThreadCreatePostDialogExecutor,
+    private val boardTabsCoordinator: BoardTabsCoordinator,
+) {
 
     /**
-     * 投稿ダイアログに画像をアップロードし、URL を本文に追記する。
+     * 指定板 URL に紐づく holder を生成する。
      */
-    fun uploadPostDialogImage(context: Context, uri: Uri) {
-        postDialogImageUploader.uploadImage(context, uri) { url ->
-            postDialogController.appendImageUrl(url)
-        }
+    fun create(tabKey: String, boardUrl: String): BoardTabSessionHolder {
+        return BoardTabSessionHolder(
+            bookmarkSheetStateHolderFactory = bookmarkSheetStateHolderFactory,
+            postDialogControllerFactory = postDialogControllerFactory,
+            postDialogImageUploaderFactory = postDialogImageUploaderFactory,
+            threadCreatePostDialogExecutor = threadCreatePostDialogExecutor,
+            boardTabsCoordinator = boardTabsCoordinator,
+            tabKey = tabKey,
+            boardUrl = boardUrl,
+        )
+    }
+}
+
     }
 
     /**

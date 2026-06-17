@@ -13,9 +13,7 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogImageUplo
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogSuccess
 import com.websarva.wings.android.slevo.ui.common.postdialog.ThreadReplyPostDialogExecutor
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,14 +29,14 @@ import kotlinx.coroutines.launch
  * ブックマークシート、投稿ダイアログ、画像保存の状態をタブ単位で保持し、
  * タブ削除時にまとめて解放する。
  */
-class ThreadTabSessionHolder @AssistedInject constructor(
+class ThreadTabSessionHolder(
     private val bookmarkSheetStateHolderFactory: BookmarkBottomSheetStateHolderFactory,
     private val postDialogControllerFactory: PostDialogController.Factory,
     private val postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
     private val replyPostDialogExecutor: ThreadReplyPostDialogExecutor,
-    @Assisted("tabKey") private val tabKey: String,
-    @Assisted("threadId") private val threadId: ThreadId,
     private val threadTabsCoordinator: ThreadTabsCoordinator,
+    private val tabKey: String,
+    private val threadId: ThreadId,
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -166,15 +164,29 @@ class ThreadTabSessionHolder @AssistedInject constructor(
 
 /**
  * [ThreadTabSessionHolder] を生成するためのファクトリ。
+ *
+ * Hilt 注入された依存を保持し、タブ key / スレッド ID はメソッド引数で受け取る。
  */
-@AssistedFactory
-interface ThreadTabSessionHolderFactory {
+class ThreadTabSessionHolderFactory @Inject constructor(
+    private val bookmarkSheetStateHolderFactory: BookmarkBottomSheetStateHolderFactory,
+    private val postDialogControllerFactory: PostDialogController.Factory,
+    private val postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
+    private val replyPostDialogExecutor: ThreadReplyPostDialogExecutor,
+    private val threadTabsCoordinator: ThreadTabsCoordinator,
+) {
 
     /**
      * 指定タブ key とスレッド ID に紐づく holder を生成する。
      */
-    fun create(
-        @Assisted("tabKey") tabKey: String,
-        @Assisted("threadId") threadId: ThreadId,
-    ): ThreadTabSessionHolder
+    fun create(tabKey: String, threadId: ThreadId): ThreadTabSessionHolder {
+        return ThreadTabSessionHolder(
+            bookmarkSheetStateHolderFactory = bookmarkSheetStateHolderFactory,
+            postDialogControllerFactory = postDialogControllerFactory,
+            postDialogImageUploaderFactory = postDialogImageUploaderFactory,
+            replyPostDialogExecutor = replyPostDialogExecutor,
+            threadTabsCoordinator = threadTabsCoordinator,
+            tabKey = tabKey,
+            threadId = threadId,
+        )
+    }
 }
