@@ -30,14 +30,14 @@
 
 ## 5. Route 単位 ViewModel への移行
 
-- [ ] 5.1 `BoardRouteViewModel` を導入し、選択中板タブ key、`BoardSessionState`、Repository / UseCase、Settings、NG、Bookmark を合成して `BoardUiState` を公開するようにする
-- [ ] 5.2 `ThreadRouteViewModel` を導入し、選択中スレッドタブ key、`ThreadSessionState`、Repository / UseCase、Settings、NG、Bookmark、既読状態を合成して `ThreadUiState` を公開するようにする
-- [ ] 5.3 `ThreadRouteViewModel` / `BoardRouteViewModel` に tab key 指定の `observeUiState` / `uiStateFor` 相当 API を追加し、要求された tab key の `UiState` Flow を遅延生成・再利用できるようにする
-- [ ] 5.4 `UiState` Flow の共有方式を購読中のみ動作する形にし、composition から外れたタブの重い合成が継続しないことを確認する
-- [ ] 5.5 選択中タブ key が変わっても ViewModel を再生成せず、同じ route ViewModel で表示状態を再合成することを確認する
-- [ ] 5.6 refresh / reload が ViewModel 再生成ではなく対象タブ key のデータ更新として動作するようにする
-- [ ] 5.7 自動スクロールに伴う定期 reload / refresh を表示中スレッドタブのみに限定し、非表示タブを自動更新しないようにする
-- [ ] 5.8 開いている全タブの更新は自動更新ではなく、ユーザーの明示的な一括更新操作として扱う
+- [x] 5.1 `BoardRouteViewModel` を導入し、選択中板タブ key、`BoardSessionState`、Repository / UseCase、Settings、NG、Bookmark を合成して `BoardUiState` を公開するようにする
+- [x] 5.2 `ThreadRouteViewModel` を導入し、選択中スレッドタブ key、`ThreadSessionState`、Repository / UseCase、Settings、NG、Bookmark、既読状態を合成して `ThreadUiState` を公開するようにする
+- [x] 5.3 `ThreadRouteViewModel` / `BoardRouteViewModel` に tab key 指定の `observeUiState` / `uiStateFor` 相当 API を追加し、要求された tab key の `UiState` Flow を遅延生成・再利用できるようにする
+- [x] 5.4 `UiState` Flow の共有方式を購読中のみ動作する形にし、composition から外れたタブの重い合成が継続しないことを確認する
+- [x] 5.5 選択中タブ key が変わっても ViewModel を再生成せず、同じ route ViewModel で表示状態を再合成することを確認する
+- [x] 5.6 refresh / reload が ViewModel 再生成ではなく対象タブ key のデータ更新として動作するようにする
+- [x] 5.7 自動スクロールに伴う定期 reload / refresh を表示中スレッドタブのみに限定し、非表示タブを自動更新しないようにする
+- [x] 5.8 開いている全タブの更新は自動更新ではなく、ユーザーの明示的な一括更新操作として扱う
 
 ## 6. Scaffold / Pager の接続変更
 
