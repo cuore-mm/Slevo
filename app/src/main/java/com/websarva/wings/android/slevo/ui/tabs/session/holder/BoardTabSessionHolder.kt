@@ -31,8 +31,8 @@ class BoardTabSessionHolder @AssistedInject constructor(
     private val postDialogControllerFactory: PostDialogController.Factory,
     private val postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
     private val threadCreatePostDialogExecutor: ThreadCreatePostDialogExecutor,
-    @Assisted private val tabKey: String,
-    @Assisted private val boardUrl: String,
+    @Assisted("tabKey") private val tabKey: String,
+    @Assisted("boardUrl") private val boardUrl: String,
     private val boardTabsCoordinator: BoardTabsCoordinator,
 ) {
 
@@ -104,5 +104,8 @@ interface BoardTabSessionHolderFactory {
     /**
      * 指定板 URL に紐づく holder を生成する。
      */
-    fun create(tabKey: String, boardUrl: String): BoardTabSessionHolder
+    fun create(
+        @Assisted("tabKey") tabKey: String,
+        @Assisted("boardUrl") boardUrl: String,
+    ): BoardTabSessionHolder
 }

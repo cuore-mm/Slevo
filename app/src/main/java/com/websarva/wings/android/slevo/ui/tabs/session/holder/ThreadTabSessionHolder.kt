@@ -36,8 +36,8 @@ class ThreadTabSessionHolder @AssistedInject constructor(
     private val postDialogControllerFactory: PostDialogController.Factory,
     private val postDialogImageUploaderFactory: PostDialogImageUploader.Factory,
     private val replyPostDialogExecutor: ThreadReplyPostDialogExecutor,
-    @Assisted private val tabKey: String,
-    @Assisted private val threadId: ThreadId,
+    @Assisted("tabKey") private val tabKey: String,
+    @Assisted("threadId") private val threadId: ThreadId,
     private val threadTabsCoordinator: ThreadTabsCoordinator,
 ) {
 
@@ -173,5 +173,8 @@ interface ThreadTabSessionHolderFactory {
     /**
      * 指定タブ key とスレッド ID に紐づく holder を生成する。
      */
-    fun create(tabKey: String, threadId: ThreadId): ThreadTabSessionHolder
+    fun create(
+        @Assisted("tabKey") tabKey: String,
+        @Assisted("threadId") threadId: ThreadId,
+    ): ThreadTabSessionHolder
 }
