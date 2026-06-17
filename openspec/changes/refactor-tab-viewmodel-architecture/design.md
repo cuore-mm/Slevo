@@ -131,6 +131,14 @@ ViewModel はこれらを保持せず、Repository / UseCase / coordinator の F
 - `pendingPost`、`observedThreadHistoryId`、`postHistoryCollectJob`、`lastAutoRefreshTime` のような ViewModel 内部の継続状態は Repository 監視または SessionState へ移す
 - per-tab `ThreadViewModel` / `BoardViewModel` は廃止し、`ThreadRouteViewModel` / `BoardRouteViewModel` に対象 tab key の `UiState` Flow を遅延生成する presenter 責務だけを残す
 
+### Decision 10: Route ViewModel 化の前に SessionState を実際の正本として使う
+
+Task 2 で `ThreadSessionState` / `BoardSessionState` と更新 API を用意しただけでは、既存 `ThreadViewModel` / `BoardViewModel` の `_uiState` 更新と SessionState が二重正本になりうる。Route ViewModel 化へ進む前に、検索、シート、ダイアログ、ポップアップ、自動スクロール、ローディング表示、トースト、タブスワイプ可否などの揮発 UI 状態を `TabSessionStore.updateThreadSessionState` / `updateBoardSessionState` 経由で更新する形へ統一する。
+
+移行中も既存 Composable からは `ThreadUiState` / `BoardUiState` を読み続けてよい。ただしその `UiState` は SessionState と Repository / UseCase 由来値から合成される読み取り用モデルとして扱い、同じフィールドを ViewModel 内の `_uiState` と SessionState の両方で更新しない。これにより Task 4 以降で `uiStateFor(tabKey)` を導入しても、タブ切替時に古い `_uiState` が SessionState を上書きする問題を避ける。
+
+`pendingPost`、`popupIdGenerator`、`bookmarkSheetHolder`、`postDialogController`、画像メニュー対象、投稿ダイアログ下書きのように per-tab ViewModel インスタンス所有を前提にしている継続状態は、SessionState または `TabSessionStore` 配下の tab key ごとの session holder へ移す。Route ViewModel はこれらを単一インスタンスのフィールドとして持たず、対象 tab key を指定して読み書きする。
+
 ## Risks / Trade-offs
 
 - [Risk] 非表示タブの UI セッション状態が失われる → `TabSessionStore` にタブ固有状態を移し、タブ切替・画面離脱・タブ削除の各タイミングで保存を検証する。
@@ -142,18 +150,22 @@ ViewModel はこれらを保持せず、Repository / UseCase / coordinator の F
 - [Risk] `UiState` から正本状態を削ることで Compose 側の参照が大きく変わる → まず `UiState` のフィールドを読み取り専用の合成結果として維持し、内部の供給元だけを段階的に置き換える。
 - [Risk] UI セッション状態を永続化しないことでアプリ再起動後に検索やポップアップ状態が失われる → 再起動後に復元する状態はタブ識別子とスクロール位置などの軽量タブ状態に限定する仕様として扱い、表示中の操作状態はプロセス内セッションに閉じる。
 - [Risk] 自動更新を表示中タブに限定すると非表示タブの新着が即時反映されない → 非表示タブの新着確認は明示的な一括更新またはタブ表示時の更新で扱う。
+- [Risk] SessionState の受け皿だけを作った状態で Route ViewModel 化すると、`_uiState` と SessionState の片方だけが更新される → Route ViewModel 導入前に揮発 UI 状態の更新経路を SessionState に統一し、`UiState` は合成結果として扱うテストを追加する。
+- [Risk] per-tab ViewModel のインスタンスフィールドを Route ViewModel に残すと、複数タブ間で投稿下書き、ポップアップ ID、自動更新状態が混線する → tab key ごとの SessionState / session holder に移し、単一 route ViewModel フィールドには共有可能な Repository / UseCase 依存だけを残す。
 
 ## Migration Plan
 
 1. 現状の `ThreadUiState` / `BoardUiState` と `ThreadTabInfo` / `BoardTabInfo` の重複項目を棚卸しし、正本を `TabInfo`、`SessionState`、Repository / DB、ViewModel 合成結果に分類する。
 2. `ThreadTabInfo` / `BoardTabInfo` は軽量なタブメタ情報に限定し、検索・表示モード・ポップアップ・ダイアログ下書きなどを保持する `ThreadSessionState` / `BoardSessionState` 相当の別モデルを導入する。
 3. スレッド表示行生成、NG・検索適用、新着計算、板スレ一覧変換を UseCase / coordinator として切り出し、既存 ViewModel から利用する。
-4. `ThreadRouteViewModel` / `BoardRouteViewModel` を導入し、tab key 指定で `UiState` Flow を遅延提供できる API を追加する。
-5. `BbsRouteScaffold` のページ生成を per-tab ViewModel 取得から、Pager が compose したページごとに tab key 指定 `UiState` Flow を購読する構造へ切り替える。
-6. UI セッション状態はプロセス内 Session State に限定し、永続タブ状態へ保存しないように保存経路を整理する。
-7. 自動スクロールに伴う定期更新を表示中スレッドタブのみに限定し、全タブ更新は明示操作として分離する。
-8. `TabViewModelRegistry`、`BaseViewModel.release()`、per-tab ViewModel factory 依存を削除し、必要な assisted factory は route ViewModel 用へ整理する。
-9. スクロール復元、タブ切替、新着表示、更新、投稿ダイアログ、検索、ポップアップの回帰テストを追加・更新する。
+4. 既存 ViewModel の揮発 UI 状態更新を SessionState 更新 API に寄せ、`UiState` を SessionState と Repository / UseCase 由来値の合成結果として扱えるようにする。
+5. `pendingPost`、`popupIdGenerator`、`bookmarkSheetHolder`、`postDialogController` など per-tab ViewModel インスタンス所有の継続状態を tab key ごとの SessionState / session holder へ移す。
+6. `ThreadRouteViewModel` / `BoardRouteViewModel` を導入し、tab key 指定で `UiState` Flow を遅延提供できる API を追加する。
+7. `BbsRouteScaffold` のページ生成を per-tab ViewModel 取得から、Pager が compose したページごとに tab key 指定 `UiState` Flow を購読する構造へ切り替える。
+8. UI セッション状態はプロセス内 Session State に限定し、永続タブ状態へ保存しないように保存経路を整理する。
+9. 自動スクロールに伴う定期更新を表示中スレッドタブのみに限定し、全タブ更新は明示操作として分離する。
+10. `TabViewModelRegistry`、`BaseViewModel.release()`、per-tab ViewModel factory 依存を削除し、必要な assisted factory は route ViewModel 用へ整理する。
+11. スクロール復元、タブ切替、新着表示、更新、投稿ダイアログ、検索、ポップアップの回帰テストを追加・更新する。
 
 ## Open Questions
 
