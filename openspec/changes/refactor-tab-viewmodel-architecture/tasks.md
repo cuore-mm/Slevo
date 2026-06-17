@@ -63,11 +63,20 @@
 
 ## 9. Session holder と UI イベント source の移管
 
-- [ ] 9.1 `bookmarkSheetHolder` を `TabSessionStore` 配下の tab key 別 holder へ移し、`BbsRouteScaffold` の `getBookmarkSheetHolder(tab)` が旧 ViewModel を経由しないようにする
-- [ ] 9.2 `postDialogController` と `PostDialogStateAdapter` を tab key 別 session holder へ移し、投稿ダイアログの表示、入力、履歴、確認画面、投稿実行が対象タブの SessionState にだけ反映されるようにする
-- [ ] 9.3 画像保存の `ImageSaveCoordinator` / `ImageSaveUiEvent` を tab key 別 event source または route-level event dispatcher へ移し、Composable が旧 ViewModel の `imageSaveEvents` を購読しないようにする
-- [ ] 9.4 タブ削除時に対象 tab key の bookmark holder、post dialog controller、image event source だけが破棄され、別タブの holder / draft / event が残ることを単体テストで確認する
-- [ ] 9.5 holder 移管後も投稿下書き、ブックマークシート表示、画像保存 permission / toast がタブ切替で混線しないことを確認する
+- [x] 9.1 `bookmarkSheetHolder` を `TabSessionStore` 配下の tab key 別 holder へ移し、`BbsRouteScaffold` の `getBookmarkSheetHolder(tab)` が旧 ViewModel を経由しないようにする
+- [x] 9.2 `postDialogController` と `PostDialogStateAdapter` を tab key 別 session holder へ移し、投稿ダイアログの表示、入力、履歴、確認画面、投稿実行が対象タブの SessionState にだけ反映されるようにする
+- [x] 9.3 画像保存の `ImageSaveCoordinator` / `ImageSaveUiEvent` を tab key 別 event source へ移し、Composable が旧 ViewModel の `imageSaveEvents` を購読しないようにする
+- [x] 9.4 タブ削除時に対象 tab key の bookmark holder、post dialog controller、image event source だけが破棄され、別タブの holder / draft / event が残ることを単体テストで確認する
+- [x] 9.5 holder 移管後も投稿下書き、ブックマークシート表示、画像保存 permission / toast がタブ切替で混線しないことを確認する
+
+### Implementation notes
+
+- `ui/tabs/session/holder/` に `ThreadTabSessionHolder` / `BoardTabSessionHolder` を新設し、`TabSessionStore` が tab key ごとに生成・キャッシュする。
+- 各 holder は `BookmarkBottomSheetStateHolder`、`PostDialogController`、スレッド holder では `ImageSaveCoordinator` + `ImageSaveUiEvent` Flow を保持する。
+- `ThreadRouteViewModel` / `BoardRouteViewModel` は `TabSessionStore` の holder API を介して bookmark / post dialog / image save へアクセスし、Scaffold から旧 ViewModel 型を参照しない形に変更した。
+- 投稿成功イベントは holder が発行し、RouteViewModel が収集してスレッド再読み込み / 板一覧更新を行う。
+- `TabSessionStoreTest` にタブ削除時の holder 破棄と `close()` 時の全 holder 破棄テストを追加した。
+- CI（Run #27686888156）でビルド・テストが通過した。
 
 ## 10. RouteViewModel による `UiState` 直接合成化
 
