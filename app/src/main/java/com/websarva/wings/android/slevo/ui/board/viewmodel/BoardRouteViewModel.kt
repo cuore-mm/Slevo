@@ -67,6 +67,7 @@ class BoardRouteViewModel @Inject constructor(
     private val uiStateCache = mutableMapOf<String, StateFlow<BoardUiState>>()
     private val initializationJobs = mutableMapOf<String, Job>()
     private val postSuccessCollectJobs = mutableMapOf<String, Job>()
+    private val boardIdCache = mutableMapOf<String, Long>()
 
     init {
         viewModelScope.launch {
@@ -328,6 +329,7 @@ class BoardRouteViewModel @Inject constructor(
         if (initializationJobs.containsKey(tabKey)) return
         initializationJobs[tabKey] = viewModelScope.launch {
             val ensuredId = boardRepository.ensureBoard(BoardInfo(tab.boardId, tab.boardName, tab.boardUrl))
+            boardIdCache[tabKey] = ensuredId
             boardRepository.fetchBoardNoname("${tab.boardUrl}SETTING.TXT")?.let { noname ->
                 updateBoardSessionState(tabKey) { state ->
                     state.copy(postDialogState = state.postDialogState.copy(namePlaceholder = noname))
@@ -390,7 +392,7 @@ class BoardRouteViewModel @Inject constructor(
     private fun evictClosedTabs(openKeys: Set<String>) {
         val removedKeys = uiStateCache.keys.filterNot(openKeys::contains)
         removedKeys.forEach { key ->
-            val boardId = tabSessionStore.openBoardTabs.value.find { it.boardUrl == key }?.boardId
+            val boardId = boardIdCache.remove(key)
             if (boardId != null && boardId != 0L) {
                 viewModelScope.launch { boardRepository.updateBaseline(boardId, System.currentTimeMillis()) }
             }
@@ -406,6 +408,7 @@ class BoardRouteViewModel @Inject constructor(
         postSuccessCollectJobs.values.forEach(Job::cancel)
         initializationJobs.clear()
         postSuccessCollectJobs.clear()
+        boardIdCache.clear()
         uiStateCache.clear()
         super.onCleared()
     }
