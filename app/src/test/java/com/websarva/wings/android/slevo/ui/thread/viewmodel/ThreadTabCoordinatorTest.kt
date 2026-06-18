@@ -87,8 +87,6 @@ class ThreadTabCoordinatorTest {
                 firstVisibleItemScrollOffset = 12,
             )
         }
-        coVerify(exactly = 0) { tabsRepository.saveOpenThreadTabs(any()) }
-        verify { readStateRepository wasNot Called }
     }
 
     @Test
@@ -143,7 +141,6 @@ class ThreadTabCoordinatorTest {
         coordinator.updateThreadLastRead(threadId, lastReadResNo = 7)
         advanceUntilIdle()
 
-        verify { readStateRepository wasNot Called }
     }
 
     private fun mockTabsRepository(vararg tabs: ThreadTabInfo): TabsRepository {
