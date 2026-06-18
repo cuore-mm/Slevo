@@ -34,8 +34,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -271,20 +269,30 @@ class BoardRouteViewModel @Inject constructor(
             }
         }
 
-        return combine(
+        val baseUiStateFlow = combine(
             tabFlow,
             sessionFlow,
             bookmarkStatusFlow,
-            bookmarkSheetStateFlow,
             settingsFlow,
             threadsFlow,
-        ) { tab, session, bookmarkStatus, bookmarkSheetState, gestureSettings, threads ->
-            if (tab == null) return@combine BoardUiState()
+        ) { tab, session, bookmarkStatus, gestureSettings, threads ->
+            BoardRouteBaseUiStateInput(
+                tab = tab,
+                session = session,
+                bookmarkStatus = bookmarkStatus,
+                gestureSettings = gestureSettings,
+                threads = threads,
+            )
+        }
+
+        return combine(baseUiStateFlow, bookmarkSheetStateFlow) { baseInput, bookmarkSheetState ->
+            val tab = baseInput.tab ?: return@combine BoardUiState()
+            val session = baseInput.session
             val boardInfo = BoardInfo(boardId = tab.boardId, name = tab.boardName, url = tab.boardUrl)
             BoardUiState(
-                threads = threads,
+                threads = baseInput.threads,
                 boardInfo = boardInfo,
-                bookmarkStatusState = bookmarkStatus,
+                bookmarkStatusState = baseInput.bookmarkStatus,
                 bookmarkSheetState = bookmarkSheetState,
                 showSortSheet = session.showSortSheet,
                 showThreadInfoSheet = session.showThreadInfoSheet,
@@ -299,7 +307,7 @@ class BoardRouteViewModel @Inject constructor(
                 resetScroll = session.resetScroll,
                 pendingToastResId = session.pendingToastResId,
                 loadProgress = session.loadProgress,
-                gestureSettings = gestureSettings,
+                gestureSettings = baseInput.gestureSettings,
                 isLoading = session.isLoading,
                 isTabSwipeEnabled = session.isTabSwipeEnabled,
             )
@@ -402,3 +410,14 @@ class BoardRouteViewModel @Inject constructor(
         super.onCleared()
     }
 }
+
+/**
+ * BoardUiState 合成前の結合済み入力。
+ */
+private data class BoardRouteBaseUiStateInput(
+    val tab: BoardTabInfo?,
+    val session: BoardSessionState,
+    val bookmarkStatus: BookmarkStatusState,
+    val gestureSettings: com.websarva.wings.android.slevo.data.model.GestureSettings,
+    val threads: List<ThreadInfo>,
+)
