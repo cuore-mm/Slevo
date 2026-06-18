@@ -30,6 +30,7 @@ import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -40,6 +41,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 /**
  * 板画面 route 単位で `BoardUiState` を直接合成する ViewModel。
@@ -67,6 +69,7 @@ class BoardRouteViewModel @Inject constructor(
     private val uiStateCache = mutableMapOf<String, StateFlow<BoardUiState>>()
     private val initializationJobs = mutableMapOf<String, Job>()
     private val postSuccessCollectJobs = mutableMapOf<String, Job>()
+    private val boardRefreshJobs = mutableMapOf<String, Job>()
     private val boardIdCache = mutableMapOf<String, Long>()
 
     init {
@@ -129,8 +132,7 @@ class BoardRouteViewModel @Inject constructor(
     /** 指定板タブのスレッド一覧を更新する。 */
     fun refreshBoard(tabKey: String) {
         val tab = tabSessionStore.openBoardTabs.value.find { it.boardUrl == tabKey } ?: return
-        updateBoardSessionState(tabKey) { it.copy(isLoading = true, loadProgress = 0f) }
-        viewModelScope.launch { refreshBoardInternal(tab, isManual = true) }
+        launchBoardRefresh(tab, isManual = true)
     }
 
     /** 選択中タブ key を更新する。 */
@@ -337,14 +339,34 @@ class BoardRouteViewModel @Inject constructor(
             }
             tabSessionStore.boardPostDialogController(tabKey).prepareIdentityHistory(ensuredId)
             if (tabSessionStore.getBoardSessionState(tabKey).loadProgress == 0f && !tabSessionStore.getBoardSessionState(tabKey).isLoading) {
-                updateBoardSessionState(tabKey) { it.copy(isLoading = true, loadProgress = 0f) }
-                refreshBoardInternal(tab.copy(boardId = ensuredId), isManual = false)
+                launchBoardRefresh(tab.copy(boardId = ensuredId), isManual = false)
             }
         }
     }
 
+    /** 指定板タブの更新ジョブを 1 本だけ動かす。 */
+    private fun launchBoardRefresh(tab: BoardTabInfo, isManual: Boolean) {
+        val tabKey = tab.boardUrl
+        boardRefreshJobs.remove(tabKey)?.cancel()
+        updateBoardSessionState(tabKey) { it.copy(isLoading = true, loadProgress = 0f) }
+        val job = viewModelScope.launch {
+            try {
+                refreshBoardInternal(tab, isManual)
+            } finally {
+                if (boardRefreshJobs[tabKey] === this.coroutineContext[Job]) {
+                    boardRefreshJobs.remove(tabKey)
+                }
+            }
+        }
+        boardRefreshJobs[tabKey] = job
+    }
+
     /** subject.txt を取得して一覧更新を反映する。 */
     private suspend fun refreshBoardInternal(tab: BoardTabInfo, isManual: Boolean) {
+        // --- Guard ---
+        if (!isBoardTabOpen(tab.boardUrl)) return
+
+        // --- Refresh ---
         val boardUrl = tab.boardUrl.trimEnd('/')
         val refreshStartAt = System.currentTimeMillis()
         try {
@@ -360,10 +382,14 @@ class BoardRouteViewModel @Inject constructor(
                 updateBoardSessionState(tab.boardUrl) { it.copy(pendingToastResId = R.string.board_load_failed) }
             }
         } catch (error: Exception) {
+            if (error is CancellationException) throw error
             logger.e(message = "Failed to refresh board threads: ${tab.boardUrl}", throwable = error)
             updateBoardSessionState(tab.boardUrl) { it.copy(pendingToastResId = R.string.board_load_failed) }
         } finally {
-            updateBoardSessionState(tab.boardUrl) { it.copy(isLoading = false, loadProgress = 1f, resetScroll = true) }
+            // --- UI state update ---
+            if (isBoardTabOpen(tab.boardUrl)) {
+                updateBoardSessionState(tab.boardUrl) { it.copy(isLoading = false, loadProgress = 1f, resetScroll = true) }
+            }
         }
     }
 
@@ -388,15 +414,46 @@ class BoardRouteViewModel @Inject constructor(
         tabSessionStore.updateBoardSessionState(tabKey, transform)
     }
 
+    /** 指定 key の板タブが現在も開いているかを返す。 */
+    private fun isBoardTabOpen(tabKey: String): Boolean {
+        return tabSessionStore.openBoardTabs.value.any { it.boardUrl == tabKey }
+    }
+
+    /** baseline 保存対象の boardId 一覧を集約する。 */
+    private fun currentBoardIdsForBaselineSync(): Set<Long> {
+        return buildSet {
+            addAll(boardIdCache.values)
+            addAll(tabSessionStore.openBoardTabs.value.map { it.boardId })
+        }.filter { it != 0L }.toSet()
+    }
+
+    /** route 終了時の baseline 同期を同期的に完了させる。 */
+    private fun syncBoardBaselinesOnClear() {
+        val boardIds = currentBoardIdsForBaselineSync()
+        if (boardIds.isEmpty()) return
+        val timestamp = System.currentTimeMillis()
+        runBlocking {
+            boardIds.forEach { boardId -> boardRepository.updateBaseline(boardId, timestamp) }
+        }
+    }
+
     /** 閉じたタブのキャッシュと baseline 同期を行う。 */
     private fun evictClosedTabs(openKeys: Set<String>) {
-        val removedKeys = uiStateCache.keys.filterNot(openKeys::contains)
+        val trackedKeys = buildSet {
+            addAll(uiStateCache.keys)
+            addAll(initializationJobs.keys)
+            addAll(boardRefreshJobs.keys)
+            addAll(postSuccessCollectJobs.keys)
+            addAll(boardIdCache.keys)
+        }
+        val removedKeys = trackedKeys.filterNot(openKeys::contains)
         removedKeys.forEach { key ->
             val boardId = boardIdCache.remove(key)
             if (boardId != null && boardId != 0L) {
                 viewModelScope.launch { boardRepository.updateBaseline(boardId, System.currentTimeMillis()) }
             }
             initializationJobs.remove(key)?.cancel()
+            boardRefreshJobs.remove(key)?.cancel()
             postSuccessCollectJobs.remove(key)?.cancel()
             uiStateCache.remove(key)
         }
@@ -404,9 +461,12 @@ class BoardRouteViewModel @Inject constructor(
 
     /** route ViewModel 終了時に内部ジョブを解放する。 */
     override fun onCleared() {
+        syncBoardBaselinesOnClear()
         initializationJobs.values.forEach(Job::cancel)
+        boardRefreshJobs.values.forEach(Job::cancel)
         postSuccessCollectJobs.values.forEach(Job::cancel)
         initializationJobs.clear()
+        boardRefreshJobs.clear()
         postSuccessCollectJobs.clear()
         boardIdCache.clear()
         uiStateCache.clear()

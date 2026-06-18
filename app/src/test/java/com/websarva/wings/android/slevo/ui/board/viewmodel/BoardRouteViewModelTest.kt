@@ -6,12 +6,10 @@ import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
-import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
-import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -21,12 +19,18 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -71,9 +75,58 @@ class BoardRouteViewModelTest {
         }
     }
 
+    @Test
+    fun uiStateFor_doesNotObserveThreadsUntilCollected() = runTest {
+        val tab = boardTab("https://example.com/test/", "board")
+        val dependencies = mockDependencies(listOf(tab), tab.boardUrl)
+        val viewModel = dependencies.createViewModel()
+
+        viewModel.uiStateFor(tab.boardUrl)
+        advanceUntilIdle()
+
+        verify(exactly = 0) { dependencies.boardRepository.observeThreads(any()) }
+
+        val collectJob = backgroundScope.launch { viewModel.uiStateFor(tab.boardUrl).collect() }
+        advanceUntilIdle()
+
+        verify(atLeast = 1) { dependencies.boardRepository.observeThreads(tab.boardId) }
+        collectJob.cancelAndJoin()
+    }
+
+    @Test
+    fun refreshBoard_closedTabCancelsInFlightRefresh() = runTest {
+        val tab = boardTab("https://example.com/test/", "board")
+        val dependencies = mockDependencies(listOf(tab), tab.boardUrl, suspendRefresh = true)
+        val viewModel = dependencies.createViewModel()
+
+        viewModel.refreshBoard(tab.boardUrl)
+        advanceUntilIdle()
+        dependencies.openTabs.value = emptyList()
+        advanceUntilIdle()
+
+        assertTrue(dependencies.boardRefreshCancelled.value)
+    }
+
+    @Test
+    fun onCleared_syncsBoardBaseline() = runTest {
+        val tab = boardTab("https://example.com/test/", "board")
+        val dependencies = mockDependencies(listOf(tab), tab.boardUrl)
+        val viewModel = dependencies.createViewModel()
+
+        val collectJob = backgroundScope.launch { viewModel.uiStateFor(tab.boardUrl).collect() }
+        advanceUntilIdle()
+        invokeOnCleared(viewModel)
+        advanceUntilIdle()
+
+        coVerify(atLeast = 1) { dependencies.boardRepository.updateBaseline(tab.boardId, any()) }
+        assertEquals(1, dependencies.sessionStates.value.size)
+        collectJob.cancelAndJoin()
+    }
+
     private fun mockDependencies(
         tabs: List<BoardTabInfo>,
         selectedTabKey: String?,
+        suspendRefresh: Boolean = false,
     ): RouteDependencies {
         val openTabs = MutableStateFlow(tabs)
         val selectedKey = MutableStateFlow<String?>(selectedTabKey)
@@ -93,6 +146,7 @@ class BoardRouteViewModelTest {
         }
 
         val boardRepository = mockk<BoardRepository>()
+        val boardRefreshCancelled = MutableStateFlow(false)
         tabs.forEach { tab ->
             every { boardRepository.observeThreads(tab.boardId) } returns flowOf(listOf(ThreadInfo(title = tab.boardName, key = "1")))
             coEvery {
@@ -103,10 +157,19 @@ class BoardRouteViewModelTest {
                     isManual = any(),
                     onProgress = any(),
                 )
-            } returns true
+            } coAnswers {
+                if (suspendRefresh) {
+                    suspendCancellableCoroutine { continuation ->
+                        continuation.invokeOnCancellation { boardRefreshCancelled.value = true }
+                    }
+                } else {
+                    true
+                }
+            }
         }
         coEvery { boardRepository.ensureBoard(any()) } answers { firstArg<BoardInfo>().boardId.takeIf { it != 0L } ?: 1L }
         coEvery { boardRepository.fetchBoardNoname(any()) } returns null
+        coEvery { boardRepository.updateBaseline(any(), any()) } returns Unit
 
         val bookmarkBoardRepository = mockk<BookmarkBoardRepository>()
         every { bookmarkBoardRepository.getBoardWithBookmarkAndGroupByUrlFlow(any()) } returns flowOf(null)
@@ -125,6 +188,9 @@ class BoardRouteViewModelTest {
 
         return RouteDependencies(
             store = store,
+            openTabs = openTabs,
+            sessionStates = sessionStates,
+            boardRefreshCancelled = boardRefreshCancelled,
             boardRepository = boardRepository,
             bookmarkBoardRepository = bookmarkBoardRepository,
             ngRepository = ngRepository,
@@ -138,6 +204,9 @@ class BoardRouteViewModelTest {
 
     private data class RouteDependencies(
         val store: TabSessionStore,
+        val openTabs: MutableStateFlow<List<BoardTabInfo>>,
+        val sessionStates: MutableStateFlow<Map<String, BoardSessionState>>,
+        val boardRefreshCancelled: MutableStateFlow<Boolean>,
         val boardRepository: BoardRepository,
         val bookmarkBoardRepository: BookmarkBoardRepository,
         val ngRepository: NgRepository,
@@ -169,5 +238,12 @@ class BoardRouteViewModelTest {
             boardUrl = url,
             serviceName = "5ch",
         )
+    }
+
+    /** protected onCleared をテストから呼び出す。 */
+    private fun invokeOnCleared(viewModel: BoardRouteViewModel) {
+        val method = BoardRouteViewModel::class.java.getDeclaredMethod("onCleared")
+        method.isAccessible = true
+        method.invoke(viewModel)
     }
 }

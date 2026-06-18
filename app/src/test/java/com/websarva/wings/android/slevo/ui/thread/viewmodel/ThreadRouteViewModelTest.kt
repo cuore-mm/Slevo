@@ -22,14 +22,19 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -88,11 +93,67 @@ class ThreadRouteViewModelTest {
         coVerify(exactly = 0) { dependencies.threadContentLoadUseCase.load(any(), "222", any()) }
     }
 
+    @Test
+    fun uiStateFor_doesNotStartInitialLoadUntilCollected() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "111")
+        val dependencies = mockDependencies(listOf(threadTab(threadId, "title")), selectedTabKey = threadId.value)
+        val viewModel = dependencies.createViewModel()
+
+        viewModel.uiStateFor(threadId.value)
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { dependencies.threadContentLoadUseCase.load(any(), any(), any()) }
+
+        val collectJob = backgroundScope.launch { viewModel.uiStateFor(threadId.value).collect() }
+        advanceUntilIdle()
+
+        coVerify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), "111", any()) }
+        collectJob.cancelAndJoin()
+    }
+
+    @Test
+    fun closingThreadTab_cancelsInFlightLoad() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "111")
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            suspendLoad = true,
+        )
+        val viewModel = dependencies.createViewModel()
+
+        viewModel.reloadThread(threadId.value)
+        advanceUntilIdle()
+        dependencies.openTabs.value = emptyList()
+        advanceUntilIdle()
+
+        assertTrue(dependencies.threadLoadCancelled.value)
+    }
+
+    @Test
+    fun onCleared_keepsSessionStateButCancelsRouteJobs() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "111")
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            suspendLoad = true,
+        )
+        val viewModel = dependencies.createViewModel()
+
+        viewModel.reloadThread(threadId.value)
+        advanceUntilIdle()
+        invokeOnCleared(viewModel)
+        advanceUntilIdle()
+
+        assertTrue(dependencies.threadLoadCancelled.value)
+        assertEquals(1, dependencies.sessionStates.value.size)
+    }
+
     /** テスト用依存一式を構築する。 */
     private fun mockDependencies(
         tabs: List<ThreadTabInfo>,
         selectedTabKey: String?,
         initialSessionStates: Map<String, ThreadSessionState> = tabs.associate { it.id.value to ThreadSessionState() },
+        suspendLoad: Boolean = false,
     ): RouteDependencies {
         val openTabs = MutableStateFlow(tabs)
         val selectedKey = MutableStateFlow(selectedTabKey)
@@ -144,24 +205,36 @@ class ThreadRouteViewModelTest {
         val readStateRepository = mockk<ThreadReadStateRepository>(relaxed = true)
 
         val threadContentLoadUseCase = mockk<ThreadContentLoadUseCase>()
+        val threadLoadCancelled = MutableStateFlow(false)
         tabs.forEach { tab ->
-            coEvery { threadContentLoadUseCase.load(tab.boardUrl, tab.threadKey, any()) } returns ThreadContentLoadResult(
-                uiPosts = emptyList(),
-                threadTitle = tab.title,
-                resCount = 0,
-                threadDate = ThreadDate(2024, 1, 1, 0, 0, "月"),
-                momentum = 0.0,
-                idCountMap = emptyMap(),
-                idIndexList = emptyList(),
-                replySourceMap = emptyMap(),
-                treeOrder = emptyList(),
-                treeDepthMap = emptyMap(),
-                treeRootMap = emptyMap(),
-            )
+            coEvery { threadContentLoadUseCase.load(tab.boardUrl, tab.threadKey, any()) } coAnswers {
+                if (suspendLoad) {
+                    suspendCancellableCoroutine { continuation ->
+                        continuation.invokeOnCancellation { threadLoadCancelled.value = true }
+                    }
+                } else {
+                    ThreadContentLoadResult(
+                        uiPosts = emptyList(),
+                        threadTitle = tab.title,
+                        resCount = 0,
+                        threadDate = ThreadDate(2024, 1, 1, 0, 0, "月"),
+                        momentum = 0.0,
+                        idCountMap = emptyMap(),
+                        idIndexList = emptyList(),
+                        replySourceMap = emptyMap(),
+                        treeOrder = emptyList(),
+                        treeDepthMap = emptyMap(),
+                        treeRootMap = emptyMap(),
+                    )
+                }
+            }
         }
 
         return RouteDependencies(
             store = store,
+            openTabs = openTabs,
+            sessionStates = sessionStates,
+            threadLoadCancelled = threadLoadCancelled,
             boardRepository = boardRepository,
             historyRepository = historyRepository,
             postHistoryRepository = postHistoryRepository,
@@ -179,6 +252,9 @@ class ThreadRouteViewModelTest {
     /** テスト用依存 bundle。 */
     private data class RouteDependencies(
         val store: TabSessionStore,
+        val openTabs: MutableStateFlow<List<ThreadTabInfo>>,
+        val sessionStates: MutableStateFlow<Map<String, ThreadSessionState>>,
+        val threadLoadCancelled: MutableStateFlow<Boolean>,
         val boardRepository: BoardRepository,
         val historyRepository: ThreadHistoryRepository,
         val postHistoryRepository: PostHistoryRepository,
@@ -219,5 +295,12 @@ class ThreadRouteViewModelTest {
             boardUrl = "https://example.com/test/",
             boardId = 1L,
         )
+    }
+
+    /** protected onCleared をテストから呼び出す。 */
+    private fun invokeOnCleared(viewModel: ThreadRouteViewModel) {
+        val method = ThreadRouteViewModel::class.java.getDeclaredMethod("onCleared")
+        method.isAccessible = true
+        method.invoke(viewModel)
     }
 }

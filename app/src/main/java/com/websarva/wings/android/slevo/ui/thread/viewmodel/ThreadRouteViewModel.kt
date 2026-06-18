@@ -44,6 +44,7 @@ import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,6 +101,7 @@ class ThreadRouteViewModel @Inject constructor(
     private val uiStateCache = mutableMapOf<String, StateFlow<ThreadUiState>>()
     private val contentStates = MutableStateFlow<Map<String, ThreadRouteContentState>>(emptyMap())
     private val initializationJobs = mutableMapOf<String, Job>()
+    private val threadLoadJobs = mutableMapOf<String, Job>()
     private val postSuccessCollectJobs = mutableMapOf<String, Job>()
     private val myPostCollectJobs = mutableMapOf<String, Job>()
 
@@ -184,14 +186,12 @@ class ThreadRouteViewModel @Inject constructor(
 
     /** 指定スレッドタブを再読み込みする。 */
     fun reloadThread(tabKey: String) {
-        startThreadLoad(tabKey, ThreadLoadingSource.MANUAL)
-        viewModelScope.launch { loadThreadContent(tabKey) }
+        launchThreadLoad(tabKey, ThreadLoadingSource.MANUAL)
     }
 
     /** 下端プル更新を実行する。 */
     fun reloadThreadFromBottomPull(tabKey: String) {
-        startThreadLoad(tabKey, ThreadLoadingSource.BOTTOM_PULL)
-        viewModelScope.launch { loadThreadContent(tabKey) }
+        launchThreadLoad(tabKey, ThreadLoadingSource.BOTTOM_PULL)
     }
 
     /** 表示中タブだけ自動更新する。 */
@@ -210,8 +210,7 @@ class ThreadRouteViewModel @Inject constructor(
             return
         }
         tabSessionStore.updateThreadRuntimeState(threadId) { it.copy(lastAutoRefreshTime = now) }
-        startThreadLoad(tabKey, ThreadLoadingSource.AUTO_SCROLL)
-        viewModelScope.launch { loadThreadContent(tabKey) }
+        launchThreadLoad(tabKey, ThreadLoadingSource.AUTO_SCROLL)
     }
 
     /** 開いているスレッドタブの更新を開始する。 */
@@ -561,9 +560,11 @@ class ThreadRouteViewModel @Inject constructor(
     /** route ViewModel の内部ジョブを解放する。 */
     override fun onCleared() {
         initializationJobs.values.forEach(Job::cancel)
+        threadLoadJobs.values.forEach(Job::cancel)
         postSuccessCollectJobs.values.forEach(Job::cancel)
         myPostCollectJobs.values.forEach(Job::cancel)
         initializationJobs.clear()
+        threadLoadJobs.clear()
         postSuccessCollectJobs.clear()
         myPostCollectJobs.clear()
         uiStateCache.clear()
@@ -677,10 +678,25 @@ class ThreadRouteViewModel @Inject constructor(
                 updateThreadSessionState(tab.id.value) { state ->
                     state.copy(sortType = if (isTree) ThreadSortType.TREE else ThreadSortType.NUMBER)
                 }
-                startThreadLoad(tab.id.value, ThreadLoadingSource.INITIAL)
-                loadThreadContent(tab.id.value)
+                launchThreadLoad(tab.id.value, ThreadLoadingSource.INITIAL)
             }
         }
+    }
+
+    /** 指定スレッドタブの読み込みジョブを 1 本だけ動かす。 */
+    private fun launchThreadLoad(tabKey: String, source: ThreadLoadingSource) {
+        threadLoadJobs.remove(tabKey)?.cancel()
+        startThreadLoad(tabKey, source)
+        val job = viewModelScope.launch {
+            try {
+                loadThreadContent(tabKey)
+            } finally {
+                if (threadLoadJobs[tabKey] === this.coroutineContext[Job]) {
+                    threadLoadJobs.remove(tabKey)
+                }
+            }
+        }
+        threadLoadJobs[tabKey] = job
     }
 
     /** タブ metadata と投稿ダイアログ初期値を補完する。 */
@@ -724,12 +740,14 @@ class ThreadRouteViewModel @Inject constructor(
 
     /** dat 読み込みと派生状態更新を実行する。 */
     private suspend fun loadThreadContent(tabKey: String) {
+        // --- Guard ---
         val tab = tabSessionStore.openThreadTabs.value.find { it.id.value == tabKey } ?: return
         val content = contentStates.value[tabKey] ?: ThreadRouteContentState(
             boardInfo = BoardInfo(tab.boardId, tab.boardName, tab.boardUrl),
             threadInfo = ThreadInfo(key = tab.threadKey, title = tab.title, url = tab.boardUrl),
         )
         try {
+            // --- Load ---
             val derived = threadContentLoadUseCase.load(tab.boardUrl, tab.threadKey) { progress ->
                 updateThreadSessionState(tabKey) { it.copy(loadProgress = progress) }
             }
@@ -737,6 +755,9 @@ class ThreadRouteViewModel @Inject constructor(
                 handleLoadFailure(tabKey, tab.boardUrl, tab.threadKey)
                 return
             }
+            if (!isThreadTabOpen(tabKey)) return
+
+            // --- Persistence / derived state update ---
             applyLoadSuccess(tabKey, content, derived)
             val nextContent = contentStates.value[tabKey] ?: ThreadRouteContentState()
             val historyId = historyRepository.recordHistory(
@@ -747,6 +768,7 @@ class ThreadRouteViewModel @Inject constructor(
             collectMyPostNumbers(tabKey, historyId)
             recordPendingPost(tabKey, derived.uiPosts, historyId)
         } catch (error: Exception) {
+            if (error is CancellationException) throw error
             handleLoadFailure(tabKey, tab.boardUrl, tab.threadKey, error)
         }
     }
@@ -1129,13 +1151,27 @@ class ThreadRouteViewModel @Inject constructor(
 
     /** 閉じたタブのキャッシュと監視ジョブを解放する。 */
     private fun evictClosedTabs(openKeys: Set<String>) {
-        uiStateCache.keys.filterNot(openKeys::contains).forEach { key ->
+        val trackedKeys = buildSet {
+            addAll(uiStateCache.keys)
+            addAll(contentStates.value.keys)
+            addAll(initializationJobs.keys)
+            addAll(threadLoadJobs.keys)
+            addAll(postSuccessCollectJobs.keys)
+            addAll(myPostCollectJobs.keys)
+        }
+        trackedKeys.filterNot(openKeys::contains).forEach { key ->
             uiStateCache.remove(key)
             initializationJobs.remove(key)?.cancel()
+            threadLoadJobs.remove(key)?.cancel()
             postSuccessCollectJobs.remove(key)?.cancel()
             myPostCollectJobs.remove(key)?.cancel()
         }
         contentStates.update { states -> states.filterKeys { it in openKeys } }
+    }
+
+    /** 指定 key のスレッドタブが現在も開いているかを返す。 */
+    private fun isThreadTabOpen(tabKey: String): Boolean {
+        return tabSessionStore.openThreadTabs.value.any { it.id.value == tabKey }
     }
 }
 

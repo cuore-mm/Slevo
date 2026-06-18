@@ -100,11 +100,11 @@
 
 ## 12. RouteViewModel 直接合成の共通検証と購読制御
 
-- [ ] 12.1 `ThreadRouteViewModel` / `BoardRouteViewModel` から `ThreadViewModelFactory` / `BoardViewModelFactory`、`viewModelCache`、`legacyViewModel(tabKey)`、旧 ViewModel 由来 `disposeResources()` 依存を削除する
-- [ ] 12.2 `uiStateFor(tabKey)` が `SharingStarted.WhileSubscribed` で購読中だけ重い合成を行い、全 open tabs 分を常時 combine していないことを Thread / Board 両方の単体テストで確認する
-- [ ] 12.3 route ViewModel 終了時は route-level job のみを止め、tab key 別 session holder / SessionState はタブ削除または `TabSessionStore.close()` で破棄されることを確認する
-- [ ] 12.4 Thread / Board の `selectedUiState`、`observeUiState`、Pager ページ購読が直接合成 Flow へ切り替わっても、未選択タブの重い合成が継続しないことを確認する
-- [ ] 12.5 Task 10〜11 の直接合成化後、OpenSpec の仕様・設計判断と実装内容が一致しているか確認する
+- [x] 12.1 `ThreadRouteViewModel` / `BoardRouteViewModel` から `ThreadViewModelFactory` / `BoardViewModelFactory`、`viewModelCache`、`legacyViewModel(tabKey)`、旧 ViewModel 由来 `disposeResources()` 依存を削除する
+- [x] 12.2 `uiStateFor(tabKey)` が `SharingStarted.WhileSubscribed` で購読中だけ重い合成を行い、全 open tabs 分を常時 combine していないことを Thread / Board 両方の単体テストで確認する
+- [x] 12.3 route ViewModel 終了時は route-level job のみを止め、tab key 別 session holder / SessionState はタブ削除または `TabSessionStore.close()` で破棄されることを確認する
+- [x] 12.4 Thread / Board の `selectedUiState`、`observeUiState`、Pager ページ購読が直接合成 Flow へ切り替わっても、未選択タブの重い合成が継続しないことを確認する
+- [x] 12.5 Task 10〜11 の直接合成化後、OpenSpec の仕様・設計判断と実装内容が一致しているか確認する
 
 ## 13. 旧 ViewModel / Factory / BaseViewModel の削除準備
 
