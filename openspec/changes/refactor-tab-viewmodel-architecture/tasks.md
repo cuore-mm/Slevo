@@ -90,13 +90,13 @@
 
 ## 11. BoardRouteViewModel による `BoardUiState` 直接合成化
 
-- [ ] 11.1 `ThreadListCoordinator` が `MutableStateFlow<BoardUiState>` を直接更新する構造を分離し、板一覧の filter / sort / NG / history merge / thread_state merge を pure transformer または route-level coordinator として再利用できる形にする
-- [ ] 11.2 `BoardRouteViewModel` に BoardRepository、BookmarkBoardRepository、NG、Settings、ThreadHistory、ThreadState、`BoardThreadListTransformUseCase` などを注入し、旧 `BoardViewModelFactory` なしで板表示に必要な入力を取得できるようにする
-- [ ] 11.3 `BoardRouteViewModel.uiStateFor(tabKey)` を、`BoardTabInfo`、`BoardSessionState`、Settings Flow、Bookmark Flow、NG Flow、板スレ一覧 Flow、履歴 / thread_state Flow から `BoardUiState` を合成する Flow へ置き換える
-- [ ] 11.4 `refreshBoard(tabKey)`、pull refresh、投稿成功後更新を BoardRepository refresh + SessionState loading / toast / resetScroll 更新で実装し、旧 `BoardViewModel.refreshBoardData()` に委譲しないようにする
-- [ ] 11.5 検索、ソート、sort sheet、board info sheet、thread info sheet、toast / resetScroll 消費を `BoardRouteViewModel` の tab key API へ移し、SessionState だけを更新する形にする
-- [ ] 11.6 板タブ削除時に baseline 更新など旧 `BoardViewModel.disposeResources()` が担っていた同期を Repository / coordinator API へ移し、route ViewModel のライフサイクルに依存しないようにする
-- [ ] 11.7 Board 側の `legacyViewModel(tabKey)` 呼び出しを Scaffold / RouteViewModel から削除しても、タブ切替、更新、検索、ソート、ブックマーク、新スレ投稿ダイアログが動くことを単体テストと CI で確認する
+- [x] 11.1 `ThreadListCoordinator` が `MutableStateFlow<BoardUiState>` を直接更新する構造を分離し、板一覧の filter / sort / NG / history merge / thread_state merge を pure transformer または route-level coordinator として再利用できる形にする
+- [x] 11.2 `BoardRouteViewModel` に BoardRepository、BookmarkBoardRepository、NG、Settings、ThreadHistory、ThreadState、`BoardThreadListTransformUseCase` などを注入し、旧 `BoardViewModelFactory` なしで板表示に必要な入力を取得できるようにする
+- [x] 11.3 `BoardRouteViewModel.uiStateFor(tabKey)` を、`BoardTabInfo`、`BoardSessionState`、Settings Flow、Bookmark Flow、NG Flow、板スレ一覧 Flow、履歴 / thread_state Flow から `BoardUiState` を合成する Flow へ置き換える
+- [x] 11.4 `refreshBoard(tabKey)`、pull refresh、投稿成功後更新を BoardRepository refresh + SessionState loading / toast / resetScroll 更新で実装し、旧 `BoardViewModel.refreshBoardData()` に委譲しないようにする
+- [x] 11.5 検索、ソート、sort sheet、board info sheet、thread info sheet、toast / resetScroll 消費を `BoardRouteViewModel` の tab key API へ移し、SessionState だけを更新する形にする
+- [x] 11.6 板タブ削除時に baseline 更新など旧 `BoardViewModel.disposeResources()` が担っていた同期を Repository / coordinator API へ移し、route ViewModel のライフサイクルに依存しないようにする
+- [x] 11.7 Board 側の `legacyViewModel(tabKey)` 呼び出しを Scaffold / RouteViewModel から削除しても、タブ切替、更新、検索、ソート、ブックマーク、新スレ投稿ダイアログが動くことを単体テストと CI で確認する
 
 ## 12. RouteViewModel 直接合成の共通検証と購読制御
 
