@@ -58,6 +58,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.update
@@ -107,7 +108,6 @@ class ThreadRouteViewModel @Inject constructor(
             tabSessionStore.openThreadTabs.collect { tabs ->
                 evictClosedTabs(tabs.map { tab -> tab.id.value }.toSet())
                 attachPostSuccessCollectors(tabs)
-                tabs.forEach { tab -> ensureTabInitialized(tab) }
             }
         }
     }
@@ -647,11 +647,22 @@ class ThreadRouteViewModel @Inject constructor(
                 ngList = ngList,
             )
         }
+            .onStart {
+                // --- Lazy initialization ---
+                // 実際に購読されたタブだけ metadata 補完と初回ロードを開始する。
+                ensureTabInitialized(tabKey)
+            }
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(UI_STATE_STOP_TIMEOUT_MILLIS),
                 initialValue = ThreadUiState(),
             )
+    }
+
+    /** 指定 tab key の初期化を必要時だけ開始する。 */
+    private fun ensureTabInitialized(tabKey: String) {
+        val tab = tabSessionStore.openThreadTabs.value.find { it.id.value == tabKey } ?: return
+        ensureTabInitialized(tab)
     }
 
     /** 初期化未実行タブの board 情報補完と初回ロードを開始する。 */
