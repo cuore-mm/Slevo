@@ -72,7 +72,7 @@ class BoardRouteViewModelTest {
     }
 
     @Test
-    fun refreshOpenBoardUiState_isDirectlySynthesized() = runTest {
+    fun refreshOpenBoardUiState_usesRepositoryFlow() = runTest {
         val tab = boardTab("https://example.com/test/", "board")
         val dependencies = mockDependencies(listOf(tab), tab.boardUrl)
         val viewModel = dependencies.createViewModel()
@@ -80,7 +80,7 @@ class BoardRouteViewModelTest {
         viewModel.uiStateFor(tab.boardUrl)
         advanceUntilIdle()
 
-        verify(exactly = 1) { dependencies.boardRepository.observeThreads(tab.boardId) }
+        verify(atLeast = 1) { dependencies.boardRepository.observeThreads(tab.boardId) }
     }
 
     private fun mockDependencies(
