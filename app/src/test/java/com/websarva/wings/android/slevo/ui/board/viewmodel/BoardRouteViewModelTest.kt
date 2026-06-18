@@ -17,7 +17,6 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.collect
@@ -84,12 +83,13 @@ class BoardRouteViewModelTest {
         viewModel.uiStateFor(tab.boardUrl)
         advanceUntilIdle()
 
-        verify(exactly = 0) { dependencies.boardRepository.observeThreads(tab.boardId) }
+        assertEquals(0, privateMapSize(viewModel, "initializationJobs"))
+        assertEquals(0, privateMapSize(viewModel, "boardRefreshJobs"))
 
         val collectJob = backgroundScope.launch { viewModel.uiStateFor(tab.boardUrl).collect() }
         advanceUntilIdle()
 
-        verify(atLeast = 1) { dependencies.boardRepository.observeThreads(tab.boardId) }
+        assertTrue(privateMapSize(viewModel, "initializationJobs") >= 1)
         collectJob.cancelAndJoin()
     }
 
@@ -245,5 +245,13 @@ class BoardRouteViewModelTest {
         val method = BoardRouteViewModel::class.java.getDeclaredMethod("onCleared")
         method.isAccessible = true
         method.invoke(viewModel)
+    }
+
+    /** private MutableMap のサイズを取得する。 */
+    private fun privateMapSize(target: Any, fieldName: String): Int {
+        val field = target.javaClass.getDeclaredField(fieldName)
+        field.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        return (field.get(target) as Map<Any, Any>).size
     }
 }

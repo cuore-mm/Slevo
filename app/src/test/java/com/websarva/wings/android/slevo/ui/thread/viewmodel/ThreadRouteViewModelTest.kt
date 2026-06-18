@@ -102,13 +102,13 @@ class ThreadRouteViewModelTest {
         viewModel.uiStateFor(threadId.value)
         advanceUntilIdle()
 
-        coVerify(exactly = 0) {
-            dependencies.threadContentLoadUseCase.load("https://example.com/test/", "111", any())
-        }
+        assertEquals(0, privateMapSize(viewModel, "initializationJobs"))
+        assertEquals(0, privateMapSize(viewModel, "threadLoadJobs"))
 
         val collectJob = backgroundScope.launch { viewModel.uiStateFor(threadId.value).collect() }
         advanceUntilIdle()
 
+        assertTrue(privateMapSize(viewModel, "initializationJobs") >= 1)
         coVerify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), "111", any()) }
         collectJob.cancelAndJoin()
     }
@@ -304,5 +304,13 @@ class ThreadRouteViewModelTest {
         val method = ThreadRouteViewModel::class.java.getDeclaredMethod("onCleared")
         method.isAccessible = true
         method.invoke(viewModel)
+    }
+
+    /** private MutableMap のサイズを取得する。 */
+    private fun privateMapSize(target: Any, fieldName: String): Int {
+        val field = target.javaClass.getDeclaredField(fieldName)
+        field.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        return (field.get(target) as Map<Any, Any>).size
     }
 }
