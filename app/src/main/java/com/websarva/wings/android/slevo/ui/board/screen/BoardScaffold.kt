@@ -118,17 +118,16 @@ fun BoardScaffold(
         onTabSelected = { tabSessionStore.selectBoardTab(it.boardUrl) },
         animateToPageFlow = tabSessionStore.boardPageAnimation,
         bottomBar = { tab, uiState, actionProgress, openTabListSheet ->
-            val viewModel = routeViewModel.legacyViewModel(tab.boardUrl)
             val actions = listOf(
                 TabToolBarAction(
                     icon = Icons.AutoMirrored.Filled.Sort,
                     contentDescriptionRes = R.string.sort,
-                    onClick = { viewModel.openSortBottomSheet() },
+                    onClick = { routeViewModel.openSortBottomSheet(tab.boardUrl) },
                 ),
                 TabToolBarAction(
                     icon = Icons.Filled.Search,
                     contentDescriptionRes = R.string.search,
-                    onClick = { viewModel.setSearchMode(true) },
+                    onClick = { routeViewModel.setSearchMode(tab.boardUrl, true) },
                 ),
                 TabToolBarAction(
                     icon = Icons.Filled.CropSquare,
@@ -144,13 +143,13 @@ fun BoardScaffold(
 
             BbsRouteBottomBar(
                 isSearchMode = uiState.isSearchActive,
-                onCloseSearch = { viewModel.setSearchMode(false) },
+                onCloseSearch = { routeViewModel.setSearchMode(tab.boardUrl, false) },
                 animationLabel = "BoardBottomBarAnimation",
                 searchContent = { modifier, closeSearch ->
                     SearchBottomBar(
                         modifier = modifier,
                         searchInputValue = uiState.searchInputValue,
-                        onSearchInputChange = { viewModel.updateSearchInput(it) },
+                        onSearchInputChange = { routeViewModel.updateSearchInput(tab.boardUrl, it) },
                         onCloseSearch = closeSearch,
                         placeholderResId = R.string.search_in_board,
                     )
@@ -167,8 +166,8 @@ fun BoardScaffold(
                         tabIconContentDescriptionRes = R.string.open_tablist,
                         postIconContentDescriptionRes = R.string.create_thread,
                         actionsProgress = if (uiState.isSearchActive) 0f else actionProgress,
-                        onTitleClick = { viewModel.openBoardInfoSheet() },
-                        onRefreshClick = { viewModel.refreshBoardData() },
+                        onTitleClick = { routeViewModel.openBoardInfoSheet(tab.boardUrl) },
+                        onRefreshClick = { routeViewModel.refreshBoard(tab.boardUrl) },
                         isLoading = uiState.isLoading,
                         loadProgress = uiState.loadProgress,
                         titleStyle = MaterialTheme.typography.titleMedium,
@@ -180,18 +179,17 @@ fun BoardScaffold(
             )
         },
         content = { tab, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
-            val viewModel = routeViewModel.legacyViewModel(tab.boardUrl)
             LaunchedEffect(uiState.pendingToastResId) {
                 uiState.pendingToastResId?.let { resId ->
                     Toast.makeText(context, resId, Toast.LENGTH_SHORT).show()
-                    viewModel.consumeToast()
+                    routeViewModel.consumeToast(tab.boardUrl)
                 }
             }
             LaunchedEffect(uiState.resetScroll) {
                 if (uiState.resetScroll) {
                     listState.scrollToItem(0)
                     tabSessionStore.updateBoardScrollPosition(uiState.boardInfo.url, 0, 0)
-                    viewModel.consumeResetScroll()
+                    routeViewModel.consumeResetScroll(tab.boardUrl)
                 }
             }
             BoardScreen(
@@ -214,19 +212,19 @@ fun BoardScaffold(
                     }
                 },
                 onLongClick = { threadInfo ->
-                    viewModel.openThreadInfoSheet(threadInfo)
+                    routeViewModel.openThreadInfoSheet(tab.boardUrl, threadInfo)
                 },
                 isRefreshing = uiState.isLoading,
-                onRefresh = { viewModel.refreshBoardData() },
+                onRefresh = { routeViewModel.refreshBoard(tab.boardUrl) },
                 listState = listState,
                 gestureSettings = uiState.gestureSettings,
                 onGestureAction = { action ->
                     dispatchCommonGestureAction(
                         action = action,
                         handlers = CommonGestureActionHandlers(
-                            onRefresh = { viewModel.refreshBoardData() },
+                            onRefresh = { routeViewModel.refreshBoard(tab.boardUrl) },
                             onPostOrCreateThread = { routeViewModel.postDialogActionsFor(tab.boardUrl).showDialog() },
-                            onSearch = { viewModel.setSearchMode(true) },
+                            onSearch = { routeViewModel.setSearchMode(tab.boardUrl, true) },
                             onOpenTabList = openTabListSheet,
                             onOpenBookmarkList = { navController.navigate(AppRoute.BookmarkList) },
                             onOpenBoardList = { navController.navigate(AppRoute.ServiceList) },
@@ -246,7 +244,7 @@ fun BoardScaffold(
             )
             ThreadInfoBottomSheet(
                 showThreadInfoSheet = uiState.showThreadInfoSheet,
-                onDismissRequest = { viewModel.closeThreadInfoSheet() },
+                onDismissRequest = { routeViewModel.closeThreadInfoSheet(tab.boardUrl) },
                 threadInfo = uiState.threadInfoSheetTarget,
                 boardInfo = uiState.boardInfo,
                 navController = navController,
@@ -255,24 +253,23 @@ fun BoardScaffold(
             )
             BoardInfoBottomSheet(
                 showBoardInfoSheet = uiState.showBoardInfoSheet,
-                onDismissRequest = { viewModel.closeBoardInfoSheet() },
+                onDismissRequest = { routeViewModel.closeBoardInfoSheet(tab.boardUrl) },
                 boardName = uiState.boardInfo.name,
                 serviceName = uiState.serviceName,
                 boardUrl = uiState.boardInfo.url,
             )
         },
         optionalSheetContent = { tab, uiState ->
-            val viewModel = routeViewModel.legacyViewModel(tab.boardUrl)
             val sortSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             if (uiState.showSortSheet) {
                 SortBottomSheet(
                     sheetState = sortSheetState,
-                    onDismissRequest = { viewModel.closeSortBottomSheet() },
+                    onDismissRequest = { routeViewModel.closeSortBottomSheet(tab.boardUrl) },
                     sortKeys = uiState.sortKeys,
                     currentSortKey = uiState.currentSortKey,
                     isSortAscending = uiState.isSortAscending,
-                    onSortKeySelected = { viewModel.setSortKey(it) },
-                    onToggleSortOrder = { viewModel.toggleSortOrder() },
+                    onSortKeySelected = { routeViewModel.setSortKey(tab.boardUrl, it) },
+                    onToggleSortOrder = { routeViewModel.toggleSortOrder(tab.boardUrl) },
                 )
             }
 

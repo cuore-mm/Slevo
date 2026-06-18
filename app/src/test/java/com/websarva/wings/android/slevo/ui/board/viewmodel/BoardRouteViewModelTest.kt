@@ -1,26 +1,37 @@
 package com.websarva.wings.android.slevo.ui.board.viewmodel
 
+import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.repository.BoardRepository
+import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
+import com.websarva.wings.android.slevo.data.repository.NgRepository
+import com.websarva.wings.android.slevo.data.repository.SettingsRepository
+import com.websarva.wings.android.slevo.data.repository.TabsRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Rule
 import org.junit.Test
 
 /**
- * [BoardRouteViewModel] のタブ key 単位 UiState 提供と更新委譲を検証するテスト。
+ * [BoardRouteViewModel] の軽量回帰テスト。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class BoardRouteViewModelTest {
@@ -30,134 +41,145 @@ class BoardRouteViewModelTest {
 
     @Test
     fun uiStateFor_sameKeyReusesCachedFlow() {
-        val tab = BoardTabInfo(1L, "board", "https://example.com/test/", "5ch")
-        val store = mockStore(
-            openTabs = MutableStateFlow(listOf(tab)),
-            selectedKey = MutableStateFlow(tab.boardUrl),
-        )
-        val factory = mockFactory(mapOf(tab.boardUrl to mockBoardViewModel()))
-        val viewModel = BoardRouteViewModel(store, factory)
+        val tab = boardTab("https://example.com/test/", "board")
+        val dependencies = mockDependencies(listOf(tab), tab.boardUrl)
+        val viewModel = dependencies.createViewModel()
 
         val first = viewModel.uiStateFor(tab.boardUrl)
         val second = viewModel.uiStateFor(tab.boardUrl)
 
         assertSame(first, second)
-        verify(exactly = 1) { factory.create(tab.boardUrl) }
     }
 
     @Test
-    fun selectedUiState_switchesTabsWithoutRecreatingExistingFlow() = runTest {
-        val first = BoardTabInfo(1L, "first", "https://example.com/test/", "5ch")
-        val second = BoardTabInfo(2L, "second", "https://example.com/other/", "5ch")
-        val selectedKey = MutableStateFlow<String?>(first.boardUrl)
-        val store = mockStore(
-            openTabs = MutableStateFlow(listOf(first, second)),
-            selectedKey = selectedKey,
-        )
-        val factory = mockFactory(
-            mapOf(
-                first.boardUrl to mockBoardViewModel(title = "first"),
-                second.boardUrl to mockBoardViewModel(title = "second"),
-            )
-        )
-        val viewModel = BoardRouteViewModel(store, factory)
-        val collected = mutableListOf<String>()
+    fun refreshBoard_callsRepositoryRefresh() = runTest {
+        val tab = boardTab("https://example.com/test/", "board")
+        val dependencies = mockDependencies(listOf(tab), tab.boardUrl)
+        val viewModel = dependencies.createViewModel()
 
-        val job = launch {
-            viewModel.selectedUiState.collect { state ->
-                collected += state.boardInfo.name
-            }
-        }
-        advanceUntilIdle()
-
-        selectedKey.value = second.boardUrl
-        advanceUntilIdle()
-        selectedKey.value = first.boardUrl
-        advanceUntilIdle()
-        job.cancel()
-
-        assertEquals(listOf("first", "second", "first"), collected.filter { it.isNotBlank() }.takeLast(3))
-        verify(exactly = 1) { factory.create(first.boardUrl) }
-        verify(exactly = 1) { factory.create(second.boardUrl) }
-    }
-
-    @Test
-    fun refreshBoard_usesCachedViewModelForTargetTab() {
-        val tab = BoardTabInfo(1L, "board", "https://example.com/test/", "5ch")
-        val legacy = mockBoardViewModel()
-        val store = mockStore(
-            openTabs = MutableStateFlow(listOf(tab)),
-            selectedKey = MutableStateFlow(tab.boardUrl),
-        )
-        val factory = mockFactory(mapOf(tab.boardUrl to legacy))
-        val viewModel = BoardRouteViewModel(store, factory)
-
-        viewModel.uiStateFor(tab.boardUrl)
         viewModel.refreshBoard(tab.boardUrl)
+        advanceUntilIdle()
 
-        verify(exactly = 1) { factory.create(tab.boardUrl) }
-        verify(exactly = 1) { legacy.refreshBoardData() }
+        coVerify(atLeast = 1) {
+            dependencies.boardRepository.refreshThreadList(
+                boardId = tab.boardId,
+                subjectUrl = "https://example.com/test/subject.txt",
+                refreshStartAt = any(),
+                isManual = true,
+                onProgress = any(),
+            )
+        }
     }
 
     @Test
-    fun uiStateFor_disposesCachedViewModelWhenTabCloses() = runTest {
-        val tab = BoardTabInfo(1L, "board", "https://example.com/test/", "5ch")
-        val openTabs = MutableStateFlow(listOf(tab))
-        val legacy = mockBoardViewModel()
-        val viewModel = BoardRouteViewModel(
-            mockStore(openTabs = openTabs, selectedKey = MutableStateFlow(tab.boardUrl)),
-            mockFactory(mapOf(tab.boardUrl to legacy)),
-        )
+    fun refreshOpenBoardUiState_isDirectlySynthesized() = runTest {
+        val tab = boardTab("https://example.com/test/", "board")
+        val dependencies = mockDependencies(listOf(tab), tab.boardUrl)
+        val viewModel = dependencies.createViewModel()
 
         viewModel.uiStateFor(tab.boardUrl)
         advanceUntilIdle()
-        openTabs.value = emptyList()
-        advanceUntilIdle()
 
-        verify(exactly = 1) { legacy.disposeResources() }
+        verify(exactly = 1) { dependencies.boardRepository.observeThreads(tab.boardId) }
     }
 
-    /**
-     * テスト用の `TabSessionStore` を構成する。
-     */
-    private fun mockStore(
-        openTabs: MutableStateFlow<List<BoardTabInfo>>,
-        selectedKey: MutableStateFlow<String?>,
-    ): TabSessionStore {
+    private fun mockDependencies(
+        tabs: List<BoardTabInfo>,
+        selectedTabKey: String?,
+    ): RouteDependencies {
+        val openTabs = MutableStateFlow(tabs)
+        val selectedKey = MutableStateFlow<String?>(selectedTabKey)
+        val sessionStates = MutableStateFlow(tabs.associate { it.boardUrl to BoardSessionState() })
         val store = mockk<TabSessionStore>(relaxed = true)
         every { store.openBoardTabs } returns openTabs
         every { store.selectedBoardTabKey } returns selectedKey
+        every { store.boardSessionStates } returns sessionStates
+        every { store.boardBookmarkSheetHolder(any()).uiState } returns MutableStateFlow(com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState())
         every { store.boardPostDialogController(any()) } returns mockk(relaxed = true)
         every { store.boardPostDialogSuccessEvents(any()) } returns MutableSharedFlow()
-        return store
-    }
-
-    /**
-     * テスト用の `BoardViewModelFactory` モックを作る。
-     */
-    private fun mockFactory(viewModels: Map<String, BoardViewModel>): BoardViewModelFactory {
-        val factory = mockk<BoardViewModelFactory>()
-        viewModels.forEach { (key, viewModel) ->
-            every { factory.create(key) } returns viewModel
+        every { store.getBoardSessionState(any()) } answers { sessionStates.value[firstArg<String>()] ?: BoardSessionState() }
+        every { store.updateBoardSessionState(any(), any()) } answers {
+            val key = firstArg<String>()
+            val transform = secondArg<(BoardSessionState) -> BoardSessionState>()
+            sessionStates.value = sessionStates.value + (key to transform(sessionStates.value[key] ?: BoardSessionState()))
         }
-        return factory
+
+        val boardRepository = mockk<BoardRepository>()
+        tabs.forEach { tab ->
+            every { boardRepository.observeThreads(tab.boardId) } returns flowOf(listOf(ThreadInfo(title = tab.boardName, key = "1")))
+            coEvery {
+                boardRepository.refreshThreadList(
+                    boardId = tab.boardId,
+                    subjectUrl = any(),
+                    refreshStartAt = any(),
+                    isManual = any(),
+                    onProgress = any(),
+                )
+            } returns true
+        }
+        coEvery { boardRepository.ensureBoard(any()) } answers { firstArg<BoardInfo>().boardId.takeIf { it != 0L } ?: 1L }
+        coEvery { boardRepository.fetchBoardNoname(any()) } returns null
+
+        val bookmarkBoardRepository = mockk<BookmarkBoardRepository>()
+        every { bookmarkBoardRepository.getBoardWithBookmarkAndGroupByUrlFlow(any()) } returns flowOf(null)
+
+        val ngRepository = mockk<NgRepository>()
+        every { ngRepository.observeNgs() } returns flowOf(emptyList())
+
+        val settingsRepository = mockk<SettingsRepository>()
+        every { settingsRepository.observeGestureSettings() } returns flowOf(com.websarva.wings.android.slevo.data.model.GestureSettings.DEFAULT)
+
+        val historyRepository = mockk<ThreadHistoryRepository>()
+        every { historyRepository.observeHistoryReadStateMap(any()) } returns flowOf(emptyMap())
+
+        val threadStateRepository = mockk<ThreadStateRepository>()
+        every { threadStateRepository.observeThreadStateMapByBoard(any()) } returns flowOf(emptyMap())
+
+        return RouteDependencies(
+            store = store,
+            boardRepository = boardRepository,
+            bookmarkBoardRepository = bookmarkBoardRepository,
+            ngRepository = ngRepository,
+            settingsRepository = settingsRepository,
+            historyRepository = historyRepository,
+            threadStateRepository = threadStateRepository,
+            boardThreadListTransformUseCase = BoardThreadListTransformUseCase(),
+            logger = mockk(relaxed = true),
+        )
     }
 
-    /**
-     * テスト用の `BoardViewModel` モックを作る。
-     */
-    private fun mockBoardViewModel(title: String = ""): BoardViewModel {
-        val viewModel = mockk<BoardViewModel>(relaxed = true)
-        every { viewModel.uiState } returns MutableStateFlow(
-            BoardUiState(
-                boardInfo = com.websarva.wings.android.slevo.data.model.BoardInfo(
-                    boardId = 0L,
-                    name = title,
-                    url = "",
-                ),
-                threads = listOf(ThreadInfo(title = title)),
+    private data class RouteDependencies(
+        val store: TabSessionStore,
+        val boardRepository: BoardRepository,
+        val bookmarkBoardRepository: BookmarkBoardRepository,
+        val ngRepository: NgRepository,
+        val settingsRepository: SettingsRepository,
+        val historyRepository: ThreadHistoryRepository,
+        val threadStateRepository: ThreadStateRepository,
+        val boardThreadListTransformUseCase: BoardThreadListTransformUseCase,
+        val logger: AppLogger,
+    ) {
+        fun createViewModel(): BoardRouteViewModel {
+            return BoardRouteViewModel(
+                tabSessionStore = store,
+                boardRepository = boardRepository,
+                bookmarkBoardRepository = bookmarkBoardRepository,
+                ngRepository = ngRepository,
+                settingsRepository = settingsRepository,
+                historyRepository = historyRepository,
+                threadStateRepository = threadStateRepository,
+                boardThreadListTransformUseCase = boardThreadListTransformUseCase,
+                logger = logger,
             )
+        }
+    }
+
+    private fun boardTab(url: String, name: String): BoardTabInfo {
+        return BoardTabInfo(
+            boardId = 1L,
+            boardName = name,
+            boardUrl = url,
+            serviceName = "5ch",
         )
-        return viewModel
     }
 }
