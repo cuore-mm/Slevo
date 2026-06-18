@@ -80,12 +80,12 @@
 
 ## 10. ThreadRouteViewModel による `ThreadUiState` 直接合成化
 
-- [ ] 10.1 `ThreadRouteViewModel` に `ThreadContentLoadUseCase`、`ThreadVisiblePostsUseCase`、Settings / NG / Bookmark / 既読 / History / ReadState / BoardRepository / TabsRepository 依存を注入し、旧 `ThreadViewModelFactory` なしでスレッド表示に必要な入力を取得できるようにする
-- [ ] 10.2 `ThreadRouteViewModel.uiStateFor(tabKey)` を、`ThreadTabInfo`、`ThreadSessionState`、`ThreadSessionRuntimeState`、Settings Flow、Bookmark Flow、NG Flow、既読 / 履歴 Flow、dat 取得結果から `ThreadUiState` を合成する Flow へ置き換える
-- [ ] 10.3 `reloadThread(tabKey)`、`reloadThreadFromBottomPull(tabKey)`、`onAutoScrollReachedBottom(tabKey)` を `ThreadContentLoadUseCase` + SessionState loading source / progress 更新 + runtime state 更新で実装し、旧 `ThreadViewModel.reloadThread()` に委譲しないようにする
-- [ ] 10.4 検索、ソート、自動スクロール、画像メニュー、ポップアップ、toast、シート開閉、画像ロード状態など ThreadScaffold が呼ぶ操作を `ThreadRouteViewModel` の tab key API へ移し、SessionState / runtime state / route 内 cache だけを更新する形にする
-- [ ] 10.5 `ThreadVisiblePostsUseCase` による `visiblePostRows`、`replyCounts`、`firstAfterIndex` 合成を RouteViewModel 側で行い、検索 / NG / ソート変更時に旧 `ThreadViewModel.updateDisplayPosts()` へ依存しないことを単体テストで確認する
-- [ ] 10.6 投稿成功後の `pendingPost` 記録、履歴更新、my post 番号更新、新着 group / baseline 更新、タブタイトル / resCount 更新を `TabSessionStore` / coordinator / Repository API 経由に移す
+- [x] 10.1 `ThreadRouteViewModel` に `ThreadContentLoadUseCase`、`ThreadVisiblePostsUseCase`、Settings / NG / Bookmark / 既読 / History / ReadState / BoardRepository / TabsRepository 依存を注入し、旧 `ThreadViewModelFactory` なしでスレッド表示に必要な入力を取得できるようにする
+- [x] 10.2 `ThreadRouteViewModel.uiStateFor(tabKey)` を、`ThreadTabInfo`、`ThreadSessionState`、`ThreadSessionRuntimeState`、Settings Flow、Bookmark Flow、NG Flow、既読 / 履歴 Flow、dat 取得結果から `ThreadUiState` を合成する Flow へ置き換える
+- [x] 10.3 `reloadThread(tabKey)`、`reloadThreadFromBottomPull(tabKey)`、`onAutoScrollReachedBottom(tabKey)` を `ThreadContentLoadUseCase` + SessionState loading source / progress 更新 + runtime state 更新で実装し、旧 `ThreadViewModel.reloadThread()` に委譲しないようにする
+- [x] 10.4 検索、ソート、自動スクロール、画像メニュー、ポップアップ、toast、シート開閉、画像ロード状態など ThreadScaffold が呼ぶ操作を `ThreadRouteViewModel` の tab key API へ移し、SessionState / runtime state / route 内 cache だけを更新する形にする
+- [x] 10.5 `ThreadVisiblePostsUseCase` による `visiblePostRows`、`replyCounts`、`firstAfterIndex` 合成を RouteViewModel 側で行い、検索 / NG / ソート変更時に旧 `ThreadViewModel.updateDisplayPosts()` へ依存しないことを単体テストで確認する
+- [x] 10.6 投稿成功後の `pendingPost` 記録、履歴更新、my post 番号更新、新着 group / baseline 更新、タブタイトル / resCount 更新を `TabSessionStore` / coordinator / Repository API 経由に移す
 - [ ] 10.7 Thread 側の `legacyViewModel(tabKey)` 呼び出しを Scaffold / RouteViewModel から削除しても、タブ切替、下端更新、自動更新、検索、ポップアップ、画像保存、投稿ダイアログが動くことを単体テストと CI で確認する
 
 ## 11. BoardRouteViewModel による `BoardUiState` 直接合成化
