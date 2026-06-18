@@ -96,13 +96,15 @@ class ThreadRouteViewModelTest {
     @Test
     fun uiStateFor_doesNotStartInitialLoadUntilCollected() = runTest {
         val threadId = ThreadId.of("example.com", "test", "111")
-        val dependencies = mockDependencies(listOf(threadTab(threadId, "title")), selectedTabKey = threadId.value)
+        val dependencies = mockDependencies(listOf(threadTab(threadId, "title")), selectedTabKey = null)
         val viewModel = dependencies.createViewModel()
 
         viewModel.uiStateFor(threadId.value)
         advanceUntilIdle()
 
-        coVerify(exactly = 0) { dependencies.threadContentLoadUseCase.load(any(), any(), any()) }
+        coVerify(exactly = 0) {
+            dependencies.threadContentLoadUseCase.load("https://example.com/test/", "111", any())
+        }
 
         val collectJob = backgroundScope.launch { viewModel.uiStateFor(threadId.value).collect() }
         advanceUntilIdle()

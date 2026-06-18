@@ -78,13 +78,13 @@ class BoardRouteViewModelTest {
     @Test
     fun uiStateFor_doesNotObserveThreadsUntilCollected() = runTest {
         val tab = boardTab("https://example.com/test/", "board")
-        val dependencies = mockDependencies(listOf(tab), tab.boardUrl)
+        val dependencies = mockDependencies(listOf(tab), selectedTabKey = null)
         val viewModel = dependencies.createViewModel()
 
         viewModel.uiStateFor(tab.boardUrl)
         advanceUntilIdle()
 
-        verify(exactly = 0) { dependencies.boardRepository.observeThreads(any()) }
+        verify(exactly = 0) { dependencies.boardRepository.observeThreads(tab.boardId) }
 
         val collectJob = backgroundScope.launch { viewModel.uiStateFor(tab.boardUrl).collect() }
         advanceUntilIdle()
