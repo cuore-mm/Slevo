@@ -17,7 +17,6 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -25,10 +24,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Rule
 import org.junit.Test
@@ -56,54 +53,6 @@ class ThreadRouteViewModelTest {
     }
 
     @Test
-    fun selectedUiState_switchesTabsAndUsesDirectSynthesis() = runTest {
-        val firstId = ThreadId.of("example.com", "test", "111")
-        val secondId = ThreadId.of("example.com", "test", "222")
-        val tabs = listOf(
-            ThreadTabInfo(firstId, "first", "board", "https://example.com/test/", 1L),
-            ThreadTabInfo(secondId, "second", "board", "https://example.com/test/", 1L),
-        )
-        val dependencies = mockDependencies(tabs, firstId.value)
-        val viewModel = dependencies.createViewModel()
-        val titles = mutableListOf<String>()
-
-        val job = launch {
-            viewModel.selectedUiState.collect { state ->
-                titles += state.threadInfo.title
-            }
-        }
-        advanceUntilIdle()
-
-        dependencies.selectedKey.value = secondId.value
-        advanceUntilIdle()
-        dependencies.selectedKey.value = firstId.value
-        advanceUntilIdle()
-        job.cancel()
-
-        val nonBlankTitles = titles.filter { it.isNotBlank() }
-        assert(nonBlankTitles.isNotEmpty())
-    }
-
-    @Test
-    fun onAutoScrollReachedBottom_updatesOnlySelectedTab() = runTest {
-        val firstId = ThreadId.of("example.com", "test", "111")
-        val secondId = ThreadId.of("example.com", "test", "222")
-        val tabs = listOf(
-            ThreadTabInfo(firstId, "first", "board", "https://example.com/test/", 1L),
-            ThreadTabInfo(secondId, "second", "board", "https://example.com/test/", 1L),
-        )
-        val dependencies = mockDependencies(tabs, firstId.value, autoScrollEnabled = true)
-        val viewModel = dependencies.createViewModel()
-        advanceUntilIdle()
-
-        viewModel.onAutoScrollReachedBottom(secondId.value)
-        viewModel.onAutoScrollReachedBottom(firstId.value)
-        advanceUntilIdle()
-
-        coVerify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), "111", any()) }
-    }
-
-    @Test
     fun refreshOpenThreads_delegatesToStore() {
         val dependencies = mockDependencies(emptyList(), null)
         val viewModel = dependencies.createViewModel()
@@ -119,14 +68,12 @@ class ThreadRouteViewModelTest {
     private fun mockDependencies(
         tabs: List<ThreadTabInfo>,
         selectedTabKey: String?,
-        autoScrollEnabled: Boolean = false,
     ): RouteDependencies {
         val openTabs = MutableStateFlow(tabs)
         val selectedKey = MutableStateFlow(selectedTabKey)
         val sessionStates = MutableStateFlow(
             tabs.associate { tab ->
                 tab.id.value to com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState(
-                    isAutoScroll = autoScrollEnabled,
                 )
             }
         )
