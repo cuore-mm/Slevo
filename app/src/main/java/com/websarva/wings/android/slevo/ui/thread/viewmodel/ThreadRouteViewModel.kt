@@ -573,21 +573,32 @@ class ThreadRouteViewModel @Inject constructor(
 
     /** タブごとの共有 `UiState` Flow を組み立てる。 */
     private fun createUiStateFlow(tabKey: String): StateFlow<ThreadUiState> {
-        val settingsFlow = combine(
+        val textSettingsFlow = combine(
             settingsRepository.observeTextScale(),
             settingsRepository.observeIsIndividualTextScale(),
             settingsRepository.observeHeaderTextScale(),
             settingsRepository.observeBodyTextScale(),
             settingsRepository.observeLineHeight(),
-            settingsRepository.observeIsThreadMinimapScrollbarEnabled(),
-            settingsRepository.observeGestureSettings(),
-        ) { textScale, isIndividual, headerScale, bodyScale, lineHeight, showMinimap, gestureSettings ->
-            ThreadRouteSettingsState(
+        ) { textScale, isIndividual, headerScale, bodyScale, lineHeight ->
+            ThreadRouteTextSettingsState(
                 textScale = textScale,
                 isIndividualTextScale = isIndividual,
                 headerTextScale = headerScale,
                 bodyTextScale = bodyScale,
                 lineHeight = lineHeight,
+            )
+        }
+        val settingsFlow = combine(
+            textSettingsFlow,
+            settingsRepository.observeIsThreadMinimapScrollbarEnabled(),
+            settingsRepository.observeGestureSettings(),
+        ) { textSettings, showMinimap, gestureSettings ->
+            ThreadRouteSettingsState(
+                textScale = textSettings.textScale,
+                isIndividualTextScale = textSettings.isIndividualTextScale,
+                headerTextScale = textSettings.headerTextScale,
+                bodyTextScale = textSettings.bodyTextScale,
+                lineHeight = textSettings.lineHeight,
                 showMinimapScrollbar = showMinimap,
                 gestureSettings = gestureSettings,
             )
@@ -608,24 +619,30 @@ class ThreadRouteViewModel @Inject constructor(
         }
         val ngFlow = ngRepository.observeNgs()
 
-        return combine(
+        val baseUiStateFlow = combine(
             tabFlow,
             sessionFlow,
             contentFlow,
             settingsFlow,
             bookmarkStatusFlow,
-            bookmarkSheetStateFlow,
-            ngFlow,
-        ) { tab, session, content, settings, bookmarkStatus, bookmarkSheetState, ngList ->
-            if (tab == null) {
-                return@combine ThreadUiState()
-            }
-            composeThreadUiState(
+        ) { tab, session, content, settings, bookmarkStatus ->
+            ThreadRouteBaseUiStateInput(
                 tab = tab,
                 session = session,
                 content = content,
                 settings = settings,
                 bookmarkStatus = bookmarkStatus,
+            )
+        }
+
+        return combine(baseUiStateFlow, bookmarkSheetStateFlow, ngFlow) { baseInput, bookmarkSheetState, ngList ->
+            val tab = baseInput.tab ?: return@combine ThreadUiState()
+            composeThreadUiState(
+                tab = tab,
+                session = baseInput.session,
+                content = baseInput.content,
+                settings = baseInput.settings,
+                bookmarkStatus = baseInput.bookmarkStatus,
                 bookmarkSheetState = bookmarkSheetState,
                 ngList = ngList,
             )
@@ -1146,6 +1163,28 @@ private data class ThreadRouteSettingsState(
     val lineHeight: Float,
     val showMinimapScrollbar: Boolean,
     val gestureSettings: com.websarva.wings.android.slevo.data.model.GestureSettings,
+)
+
+/**
+ * テキスト表示設定だけをまとめた中間状態。
+ */
+private data class ThreadRouteTextSettingsState(
+    val textScale: Float,
+    val isIndividualTextScale: Boolean,
+    val headerTextScale: Float,
+    val bodyTextScale: Float,
+    val lineHeight: Float,
+)
+
+/**
+ * `ThreadUiState` 合成前の結合済み入力。
+ */
+private data class ThreadRouteBaseUiStateInput(
+    val tab: ThreadTabInfo?,
+    val session: ThreadSessionState,
+    val content: ThreadRouteContentState,
+    val settings: ThreadRouteSettingsState,
+    val bookmarkStatus: BookmarkStatusState,
 )
 
 /**
