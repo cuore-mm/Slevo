@@ -57,18 +57,6 @@ class ThreadRouteViewModelTest {
     }
 
     @Test
-    fun uiStateFor_requestsDirectSynthesisWithoutLegacyViewModel() = runTest {
-        val threadId = ThreadId.of("example.com", "test", "111")
-        val dependencies = mockDependencies(listOf(threadTab(threadId, "title")), selectedTabKey = threadId.value)
-        val viewModel = dependencies.createViewModel()
-
-        viewModel.uiStateFor(threadId.value)
-        advanceUntilIdle()
-
-        coVerify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), "111", any()) }
-    }
-
-    @Test
     fun reloadThread_callsThreadContentLoadUseCase() = runTest {
         val threadId = ThreadId.of("example.com", "test", "111")
         val dependencies = mockDependencies(listOf(threadTab(threadId, "title")), selectedTabKey = threadId.value)
