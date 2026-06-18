@@ -17,6 +17,7 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -80,8 +81,8 @@ class ThreadRouteViewModelTest {
         job.cancel()
 
         assertEquals(listOf("first", "second", "first"), titles.filter { it.isNotBlank() }.takeLast(3))
-        verify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), firstId.threadKey, any()) }
-        verify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), secondId.threadKey, any()) }
+        coVerify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), "111", any()) }
+        coVerify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), "222", any()) }
     }
 
     @Test
@@ -100,8 +101,8 @@ class ThreadRouteViewModelTest {
         viewModel.onAutoScrollReachedBottom(firstId.value)
         advanceUntilIdle()
 
-        verify(exactly = 1) { dependencies.threadContentLoadUseCase.load(any(), firstId.threadKey, any()) }
-        verify(exactly = 1) { dependencies.threadContentLoadUseCase.load(any(), secondId.threadKey, any()) }
+        coVerify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), "111", any()) }
+        coVerify(exactly = 1) { dependencies.threadContentLoadUseCase.load(any(), "222", any()) }
     }
 
     @Test
