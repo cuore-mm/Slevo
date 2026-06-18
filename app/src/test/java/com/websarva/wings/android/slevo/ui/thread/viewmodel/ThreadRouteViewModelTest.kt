@@ -27,7 +27,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertSame
@@ -58,19 +57,13 @@ class ThreadRouteViewModelTest {
     }
 
     @Test
-    fun uiStateFor_doesNotLoadUntilCollected() = runTest {
+    fun uiStateFor_requestsDirectSynthesisWithoutLegacyViewModel() = runTest {
         val threadId = ThreadId.of("example.com", "test", "111")
         val dependencies = mockDependencies(listOf(threadTab(threadId, "title")), selectedTabKey = threadId.value)
         val viewModel = dependencies.createViewModel()
 
         viewModel.uiStateFor(threadId.value)
         advanceUntilIdle()
-
-        coVerify(exactly = 0) { dependencies.threadContentLoadUseCase.load(any(), any(), any()) }
-
-        val job = launch { viewModel.uiStateFor(threadId.value).collect { } }
-        advanceUntilIdle()
-        job.cancel()
 
         coVerify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), "111", any()) }
     }
