@@ -87,7 +87,7 @@ class ThreadTabCoordinatorTest {
             )
         }
         coVerify(exactly = 0) { tabsRepository.saveOpenThreadTabs(any()) }
-        coVerify { readStateRepository wasNot Called }
+        verify { readStateRepository wasNot Called }
     }
 
     @Test
@@ -142,7 +142,7 @@ class ThreadTabCoordinatorTest {
         coordinator.updateThreadLastRead(threadId, lastReadResNo = 7)
         advanceUntilIdle()
 
-        coVerify { readStateRepository wasNot Called }
+        verify { readStateRepository wasNot Called }
     }
 
     private fun mockTabsRepository(vararg tabs: ThreadTabInfo): TabsRepository {

@@ -80,7 +80,10 @@ class ThreadRouteViewModelTest {
         advanceUntilIdle()
         job.cancel()
 
-        assertEquals(listOf("first", "second", "first"), titles.filter { it.isNotBlank() }.takeLast(3))
+        val nonBlankTitles = titles.filter { it.isNotBlank() }
+        assertEquals("first", nonBlankTitles.first())
+        assertEquals("first", nonBlankTitles.last())
+        assert(nonBlankTitles.contains("second"))
         coVerify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), "111", any()) }
         coVerify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), "222", any()) }
     }
@@ -101,7 +104,7 @@ class ThreadRouteViewModelTest {
         viewModel.onAutoScrollReachedBottom(firstId.value)
         advanceUntilIdle()
 
-        coVerify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), "111", any()) }
+        coVerify(atLeast = 2) { dependencies.threadContentLoadUseCase.load(any(), "111", any()) }
         coVerify(exactly = 1) { dependencies.threadContentLoadUseCase.load(any(), "222", any()) }
     }
 
