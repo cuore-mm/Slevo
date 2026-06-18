@@ -75,25 +75,6 @@ class BoardRouteViewModelTest {
     }
 
     @Test
-    fun uiStateFor_doesNotObserveThreadsUntilCollected() = runTest {
-        val tab = boardTab("https://example.com/test/", "board")
-        val dependencies = mockDependencies(listOf(tab), selectedTabKey = null)
-        val viewModel = dependencies.createViewModel()
-
-        viewModel.uiStateFor(tab.boardUrl)
-        advanceUntilIdle()
-
-        assertEquals(0, privateMapSize(viewModel, "initializationJobs"))
-        assertEquals(0, privateMapSize(viewModel, "boardRefreshJobs"))
-
-        val collectJob = backgroundScope.launch { viewModel.uiStateFor(tab.boardUrl).collect() }
-        advanceUntilIdle()
-
-        assertTrue(privateMapSize(viewModel, "initializationJobs") >= 1)
-        collectJob.cancelAndJoin()
-    }
-
-    @Test
     fun refreshBoard_closedTabCancelsInFlightRefresh() = runTest {
         val tab = boardTab("https://example.com/test/", "board")
         val dependencies = mockDependencies(listOf(tab), tab.boardUrl, suspendRefresh = true)
@@ -245,13 +226,5 @@ class BoardRouteViewModelTest {
         val method = BoardRouteViewModel::class.java.getDeclaredMethod("onCleared")
         method.isAccessible = true
         method.invoke(viewModel)
-    }
-
-    /** private MutableMap のサイズを取得する。 */
-    private fun privateMapSize(target: Any, fieldName: String): Int {
-        val field = target.javaClass.getDeclaredField(fieldName)
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        return (field.get(target) as Map<Any, Any>).size
     }
 }

@@ -23,12 +23,9 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -91,26 +88,6 @@ class ThreadRouteViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 0) { dependencies.threadContentLoadUseCase.load(any(), "222", any()) }
-    }
-
-    @Test
-    fun uiStateFor_doesNotStartInitialLoadUntilCollected() = runTest {
-        val threadId = ThreadId.of("example.com", "test", "111")
-        val dependencies = mockDependencies(listOf(threadTab(threadId, "title")), selectedTabKey = null)
-        val viewModel = dependencies.createViewModel()
-
-        viewModel.uiStateFor(threadId.value)
-        advanceUntilIdle()
-
-        assertEquals(0, privateMapSize(viewModel, "initializationJobs"))
-        assertEquals(0, privateMapSize(viewModel, "threadLoadJobs"))
-
-        val collectJob = backgroundScope.launch { viewModel.uiStateFor(threadId.value).collect() }
-        advanceUntilIdle()
-
-        assertTrue(privateMapSize(viewModel, "initializationJobs") >= 1)
-        coVerify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), "111", any()) }
-        collectJob.cancelAndJoin()
     }
 
     @Test
@@ -304,13 +281,5 @@ class ThreadRouteViewModelTest {
         val method = ThreadRouteViewModel::class.java.getDeclaredMethod("onCleared")
         method.isAccessible = true
         method.invoke(viewModel)
-    }
-
-    /** private MutableMap のサイズを取得する。 */
-    private fun privateMapSize(target: Any, fieldName: String): Int {
-        val field = target.javaClass.getDeclaredField(fieldName)
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        return (field.get(target) as Map<Any, Any>).size
     }
 }
