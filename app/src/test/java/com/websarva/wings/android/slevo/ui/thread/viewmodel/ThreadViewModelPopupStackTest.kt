@@ -7,7 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * ThreadViewModel のポップアップ重複抑止ロジックを検証するユニットテスト。
+ * ポップアップ重複抑止ロジックを検証するユニットテスト。
  *
  * 連続同一の抑止と A→B→A 許可の要件を、表示内容ベース判定で確認する。
  */

@@ -86,7 +86,7 @@
 - [x] 10.4 検索、ソート、自動スクロール、画像メニュー、ポップアップ、toast、シート開閉、画像ロード状態など ThreadScaffold が呼ぶ操作を `ThreadRouteViewModel` の tab key API へ移し、SessionState / runtime state / route 内 cache だけを更新する形にする
 - [x] 10.5 `ThreadVisiblePostsUseCase` による `visiblePostRows`、`replyCounts`、`firstAfterIndex` 合成を RouteViewModel 側で行い、検索 / NG / ソート変更時に旧 `ThreadViewModel.updateDisplayPosts()` へ依存しないことを単体テストで確認する
 - [x] 10.6 投稿成功後の `pendingPost` 記録、履歴更新、my post 番号更新、新着 group / baseline 更新、タブタイトル / resCount 更新を `TabSessionStore` / coordinator / Repository API 経由に移す
-- [ ] 10.7 Thread 側の `legacyViewModel(tabKey)` 呼び出しを Scaffold / RouteViewModel から削除しても、タブ切替、下端更新、自動更新、検索、ポップアップ、画像保存、投稿ダイアログが動くことを単体テストと CI で確認する
+- [x] 10.7 Thread 側の `legacyViewModel(tabKey)` 呼び出しを Scaffold / RouteViewModel から削除しても、タブ切替、下端更新、自動更新、検索、ポップアップ、画像保存、投稿ダイアログが動くことを単体テストと CI で確認する
 
 ## 11. BoardRouteViewModel による `BoardUiState` 直接合成化
 
@@ -108,11 +108,11 @@
 
 ## 13. 旧 ViewModel / Factory / BaseViewModel の削除準備
 
-- [ ] 13.1 `ThreadScaffold` / `BoardScaffold` から `legacyViewModel(tabKey)` 呼び出しをすべて削除し、RouteViewModel API / session holder API のみを呼ぶ形にする
-- [ ] 13.2 `ThreadRouteViewModel` / `BoardRouteViewModel` から `legacyViewModel(tabKey)`、`viewModelCache`、`ThreadViewModelFactory` / `BoardViewModelFactory`、旧 ViewModel 由来の `disposeResources()` 依存を削除する
-- [ ] 13.3 `ThreadViewModel.kt`、`BoardViewModel.kt`、`BaseViewModel.kt`、旧 ViewModel 専用 helper / adapter / factory を削除し、必要なロジックだけを UseCase / transformer / session holder へ移管する
-- [ ] 13.4 `ThreadViewModelTest`、`BoardViewModelTest`、旧 ViewModel 前提の RouteViewModel テストを削除または置き換え、RouteViewModel / UseCase / holder / transformer の単体テストへ移す
-- [ ] 13.5 旧 ViewModel 削除後もタブ切替、タブ削除、画面破棄、構成変更で `UiState` 購読と session holder が適切に開始・停止することを確認する
+- [x] 13.1 `ThreadScaffold` / `BoardScaffold` から `legacyViewModel(tabKey)` 呼び出しをすべて削除し、RouteViewModel API / session holder API のみを呼ぶ形にする
+- [x] 13.2 `ThreadRouteViewModel` / `BoardRouteViewModel` から `legacyViewModel(tabKey)`、`viewModelCache`、`ThreadViewModelFactory` / `BoardViewModelFactory`、旧 ViewModel 由来の `disposeResources()` 依存を削除する
+- [x] 13.3 `ThreadViewModel.kt`、`BoardViewModel.kt`、`BaseViewModel.kt`、旧 ViewModel 専用 helper / adapter / factory を削除し、必要なロジックだけを UseCase / transformer / session holder へ移管する
+- [x] 13.4 `ThreadViewModelTest`、`BoardViewModelTest`、旧 ViewModel 前提の RouteViewModel テストを削除または置き換え、RouteViewModel / UseCase / holder / transformer の単体テストへ移す
+- [x] 13.5 旧 ViewModel 削除後もタブ切替、タブ削除、画面破棄、構成変更で `UiState` 購読と session holder が適切に開始・停止することを確認する
 
 ## 14. 旧 ViewModel / Factory / BaseViewModel の削除
 
