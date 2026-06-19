@@ -6,6 +6,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
@@ -14,24 +15,20 @@ import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
-import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.board.state.ThreadSortKey
 import com.websarva.wings.android.slevo.ui.common.bookmark.BoardTarget
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolder
-import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
-import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogSuccess
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -42,6 +39,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import javax.inject.Inject
 
 /**
  * 板画面 route 単位で `BoardUiState` を直接合成する ViewModel。
@@ -81,25 +79,10 @@ class BoardRouteViewModel @Inject constructor(
         }
     }
 
-    /** 現在選択中の板タブ key。 */
-    val selectedTabKey: StateFlow<String?> = tabSessionStore.selectedBoardTabKey
-
-    /** 選択中タブの `UiState` を返す。 */
-    val selectedUiState: StateFlow<BoardUiState> = selectedTabKey
-        .flatMapLatest { tabKey -> if (tabKey == null) flowOf(BoardUiState()) else uiStateFor(tabKey) }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(UI_STATE_STOP_TIMEOUT_MILLIS),
-            initialValue = BoardUiState(),
-        )
-
     /** 指定タブ key の `UiState` Flow を返す。 */
     fun uiStateFor(tabKey: String): StateFlow<BoardUiState> {
         return uiStateCache.getOrPut(tabKey) { createUiStateFlow(tabKey) }
     }
-
-    /** `uiStateFor` と同じ内容を `Flow` として公開する互換 API。 */
-    fun observeUiState(tabKey: String): Flow<BoardUiState> = uiStateFor(tabKey)
 
     /** 指定板タブのブックマークシート holder を返す。 */
     fun bookmarkSheetHolderFor(tabKey: String): BookmarkBottomSheetStateHolder =
@@ -133,11 +116,6 @@ class BoardRouteViewModel @Inject constructor(
     fun refreshBoard(tabKey: String) {
         val tab = tabSessionStore.openBoardTabs.value.find { it.boardUrl == tabKey } ?: return
         launchBoardRefresh(tab, isManual = true)
-    }
-
-    /** 選択中タブ key を更新する。 */
-    fun selectTab(boardUrl: String?) {
-        tabSessionStore.selectBoardTab(boardUrl)
     }
 
     /** 検索入力状態を更新する。 */
@@ -187,7 +165,10 @@ class BoardRouteViewModel @Inject constructor(
         val boardUrl = uiStateFor(tabKey).value.boardInfo.url
         if (boardUrl.isBlank()) return
         updateBoardSessionState(tabKey) {
-            it.copy(showThreadInfoSheet = true, threadInfoSheetTarget = threadInfo.copy(url = boardUrl))
+            it.copy(
+                showThreadInfoSheet = true,
+                threadInfoSheetTarget = threadInfo.copy(url = boardUrl)
+            )
         }
     }
 
@@ -217,18 +198,23 @@ class BoardRouteViewModel @Inject constructor(
     }
 
     /** タブごとの共有 `UiState` Flow を組み立てる。 */
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun createUiStateFlow(tabKey: String): StateFlow<BoardUiState> {
-        val tabFlow = tabSessionStore.openBoardTabs.map { tabs -> tabs.find { it.boardUrl == tabKey } }
-        val sessionFlow = tabSessionStore.boardSessionStates.map { states -> states[tabKey] ?: BoardSessionState() }
+        val tabFlow =
+            tabSessionStore.openBoardTabs.map { tabs -> tabs.find { it.boardUrl == tabKey } }
+        val sessionFlow = tabSessionStore.boardSessionStates.map { states ->
+            states[tabKey] ?: BoardSessionState()
+        }
         val bookmarkSheetStateFlow = tabSessionStore.boardBookmarkSheetHolder(tabKey).uiState
         val bookmarkStatusFlow = tabFlow.flatMapLatest { tab ->
             if (tab == null) {
                 flowOf(BookmarkStatusState())
             } else {
-                bookmarkBoardRepository.getBoardWithBookmarkAndGroupByUrlFlow(tab.boardUrl).map { boardWithBookmark ->
-                    val group = boardWithBookmark?.bookmarkWithGroup?.group
-                    BookmarkStatusState(isBookmarked = group != null, selectedGroup = group)
-                }
+                bookmarkBoardRepository.getBoardWithBookmarkAndGroupByUrlFlow(tab.boardUrl)
+                    .map { boardWithBookmark ->
+                        val group = boardWithBookmark?.bookmarkWithGroup?.group
+                        BookmarkStatusState(isBookmarked = group != null, selectedGroup = group)
+                    }
             }
         }
         val settingsFlow = settingsRepository.observeGestureSettings()
@@ -252,14 +238,17 @@ class BoardRouteViewModel @Inject constructor(
                             thread
                         }
                     }
-                    val historyMerged = boardThreadListTransformUseCase.mergeHistory(mergedStateThreads, historyMap)
-                    val titleNg = ngList.filter { it.type == com.websarva.wings.android.slevo.data.model.NgType.THREAD_TITLE }
-                        .mapNotNull { ng ->
-                            runCatching {
-                                val regex = if (ng.isRegex) Regex(ng.pattern) else Regex(Regex.escape(ng.pattern))
-                                ng.boardId to regex
-                            }.getOrNull()
-                        }
+                    val historyMerged =
+                        boardThreadListTransformUseCase.mergeHistory(mergedStateThreads, historyMap)
+                    val titleNg =
+                        ngList.filter { it.type == com.websarva.wings.android.slevo.data.model.NgType.THREAD_TITLE }
+                            .mapNotNull { ng ->
+                                runCatching {
+                                    val regex =
+                                        if (ng.isRegex) Regex(ng.pattern) else Regex(Regex.escape(ng.pattern))
+                                    ng.boardId to regex
+                                }.getOrNull()
+                            }
                     boardThreadListTransformUseCase.filterAndSort(
                         allThreads = historyMerged,
                         searchQuery = session.searchQuery,
@@ -291,7 +280,8 @@ class BoardRouteViewModel @Inject constructor(
         return combine(baseUiStateFlow, bookmarkSheetStateFlow) { baseInput, bookmarkSheetState ->
             val tab = baseInput.tab ?: return@combine BoardUiState()
             val session = baseInput.session
-            val boardInfo = BoardInfo(boardId = tab.boardId, name = tab.boardName, url = tab.boardUrl)
+            val boardInfo =
+                BoardInfo(boardId = tab.boardId, name = tab.boardName, url = tab.boardUrl)
             BoardUiState(
                 threads = baseInput.threads,
                 boardInfo = boardInfo,
@@ -330,7 +320,8 @@ class BoardRouteViewModel @Inject constructor(
         val tab = tabSessionStore.openBoardTabs.value.find { it.boardUrl == tabKey } ?: return
         if (initializationJobs.containsKey(tabKey)) return
         initializationJobs[tabKey] = viewModelScope.launch {
-            val ensuredId = boardRepository.ensureBoard(BoardInfo(tab.boardId, tab.boardName, tab.boardUrl))
+            val ensuredId =
+                boardRepository.ensureBoard(BoardInfo(tab.boardId, tab.boardName, tab.boardUrl))
             boardIdCache[tabKey] = ensuredId
             boardRepository.fetchBoardNoname("${tab.boardUrl}SETTING.TXT")?.let { noname ->
                 updateBoardSessionState(tabKey) { state ->
@@ -338,7 +329,10 @@ class BoardRouteViewModel @Inject constructor(
                 }
             }
             tabSessionStore.boardPostDialogController(tabKey).prepareIdentityHistory(ensuredId)
-            if (tabSessionStore.getBoardSessionState(tabKey).loadProgress == 0f && !tabSessionStore.getBoardSessionState(tabKey).isLoading) {
+            if (tabSessionStore.getBoardSessionState(tabKey).loadProgress == 0f && !tabSessionStore.getBoardSessionState(
+                    tabKey
+                ).isLoading
+            ) {
                 launchBoardRefresh(tab.copy(boardId = ensuredId), isManual = false)
             }
         }
@@ -383,12 +377,21 @@ class BoardRouteViewModel @Inject constructor(
             }
         } catch (error: Exception) {
             if (error is CancellationException) throw error
-            logger.e(message = "Failed to refresh board threads: ${tab.boardUrl}", throwable = error)
+            logger.e(
+                message = "Failed to refresh board threads: ${tab.boardUrl}",
+                throwable = error
+            )
             updateBoardSessionState(tab.boardUrl) { it.copy(pendingToastResId = R.string.board_load_failed) }
         } finally {
             // --- UI state update ---
             if (isBoardTabOpen(tab.boardUrl)) {
-                updateBoardSessionState(tab.boardUrl) { it.copy(isLoading = false, loadProgress = 1f, resetScroll = true) }
+                updateBoardSessionState(tab.boardUrl) {
+                    it.copy(
+                        isLoading = false,
+                        loadProgress = 1f,
+                        resetScroll = true
+                    )
+                }
             }
         }
     }
@@ -410,7 +413,10 @@ class BoardRouteViewModel @Inject constructor(
     }
 
     /** 指定板タブの SessionState を更新する。 */
-    private fun updateBoardSessionState(tabKey: String, transform: (BoardSessionState) -> BoardSessionState) {
+    private fun updateBoardSessionState(
+        tabKey: String,
+        transform: (BoardSessionState) -> BoardSessionState
+    ) {
         tabSessionStore.updateBoardSessionState(tabKey, transform)
     }
 
@@ -450,7 +456,12 @@ class BoardRouteViewModel @Inject constructor(
         removedKeys.forEach { key ->
             val boardId = boardIdCache.remove(key)
             if (boardId != null && boardId != 0L) {
-                viewModelScope.launch { boardRepository.updateBaseline(boardId, System.currentTimeMillis()) }
+                viewModelScope.launch {
+                    boardRepository.updateBaseline(
+                        boardId,
+                        System.currentTimeMillis()
+                    )
+                }
             }
             initializationJobs.remove(key)?.cancel()
             boardRefreshJobs.remove(key)?.cancel()

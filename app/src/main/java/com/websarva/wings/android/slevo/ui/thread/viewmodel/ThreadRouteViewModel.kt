@@ -6,8 +6,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
-import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.ThreadId
@@ -20,7 +20,6 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
-import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolder
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
@@ -30,7 +29,6 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogControlle
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogSuccess
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.session.PendingThreadPostState
-import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionRuntimeState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
@@ -43,27 +41,23 @@ import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.distinctImageUrls
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * スレッド画面 route 単位でタブ表示状態を直接合成する ViewModel。
@@ -118,25 +112,11 @@ class ThreadRouteViewModel @Inject constructor(
     val selectedTabKey: StateFlow<String?> = tabSessionStore.selectedThreadTabKey
 
     /**
-     * 選択中タブの `UiState` を返す。
-     */
-    val selectedUiState: StateFlow<ThreadUiState> = selectedTabKey
-        .flatMapLatest { tabKey -> if (tabKey == null) flowOf(ThreadUiState()) else uiStateFor(tabKey) }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(UI_STATE_STOP_TIMEOUT_MILLIS),
-            initialValue = ThreadUiState(),
-        )
-
-    /**
      * 指定タブ key の `UiState` Flow を返す。
      */
     fun uiStateFor(tabKey: String): StateFlow<ThreadUiState> {
         return uiStateCache.getOrPut(tabKey) { createUiStateFlow(tabKey) }
     }
-
-    /** `uiStateFor` の互換公開。 */
-    fun observeUiState(tabKey: String): Flow<ThreadUiState> = uiStateFor(tabKey)
 
     /** 指定スレッドタブのブックマークシート holder を返す。 */
     fun bookmarkSheetHolderFor(tabKey: String): BookmarkBottomSheetStateHolder =
@@ -156,12 +136,20 @@ class ThreadRouteViewModel @Inject constructor(
     }
 
     /** 指定スレッドタブの画像保存権限要求結果を処理する。 */
-    fun onImageSavePermissionResult(tabKey: String, context: android.content.Context, granted: Boolean) {
+    fun onImageSavePermissionResult(
+        tabKey: String,
+        context: android.content.Context,
+        granted: Boolean
+    ) {
         tabSessionStore.threadOnImageSavePermissionResult(tabKey, context, granted)
     }
 
     /** 指定スレッドタブの投稿ダイアログに画像をアップロードする。 */
-    fun uploadPostDialogImage(tabKey: String, context: android.content.Context, uri: android.net.Uri) {
+    fun uploadPostDialogImage(
+        tabKey: String,
+        context: android.content.Context,
+        uri: android.net.Uri
+    ) {
         tabSessionStore.threadUploadPostDialogImage(tabKey, context, uri)
     }
 
@@ -213,12 +201,6 @@ class ThreadRouteViewModel @Inject constructor(
         launchThreadLoad(tabKey, ThreadLoadingSource.AUTO_SCROLL)
     }
 
-    /** 開いているスレッドタブの更新を開始する。 */
-    fun refreshOpenThreads() = tabSessionStore.refreshOpenThreads()
-
-    /** 開いているスレッドタブの更新をキャンセルする。 */
-    fun cancelRefreshOpenThreads() = tabSessionStore.cancelRefreshOpenThreads()
-
     /** スクロール位置を保存する。 */
     fun updateThreadScrollPosition(threadId: ThreadId, firstVisibleIndex: Int, scrollOffset: Int) {
         tabCoordinator.updateThreadScrollPosition(threadId, firstVisibleIndex, scrollOffset)
@@ -236,7 +218,12 @@ class ThreadRouteViewModel @Inject constructor(
 
     /** タブ由来の新着境界を現在の表示状態へ反映する。 */
     fun setNewArrivalInfo(tabKey: String, firstNewResNo: Int?, prevResCount: Int) {
-        updateContentState(tabKey) { current -> current.copy(firstNewResNo = firstNewResNo, prevResCount = prevResCount) }
+        updateContentState(tabKey) { current ->
+            current.copy(
+                firstNewResNo = firstNewResNo,
+                prevResCount = prevResCount
+            )
+        }
     }
 
     /** 検索バーを開く。 */
@@ -327,7 +314,11 @@ class ThreadRouteViewModel @Inject constructor(
     /** 画像メニューを閉じる。 */
     fun closeImageMenu(tabKey: String) {
         updateThreadSessionState(tabKey) {
-            it.copy(showImageMenuSheet = false, imageMenuTargetUrl = null, imageMenuTargetUrls = emptyList())
+            it.copy(
+                showImageMenuSheet = false,
+                imageMenuTargetUrl = null,
+                imageMenuTargetUrls = emptyList()
+            )
         }
     }
 
@@ -336,12 +327,22 @@ class ThreadRouteViewModel @Inject constructor(
         if (url.isBlank()) {
             return
         }
-        updateThreadSessionState(tabKey) { it.copy(showImageNgDialog = true, imageNgTargetUrl = url) }
+        updateThreadSessionState(tabKey) {
+            it.copy(
+                showImageNgDialog = true,
+                imageNgTargetUrl = url
+            )
+        }
     }
 
     /** 画像 NG ダイアログを閉じる。 */
     fun closeImageNgDialog(tabKey: String) {
-        updateThreadSessionState(tabKey) { it.copy(showImageNgDialog = false, imageNgTargetUrl = null) }
+        updateThreadSessionState(tabKey) {
+            it.copy(
+                showImageNgDialog = false,
+                imageNgTargetUrl = null
+            )
+        }
     }
 
     /** 画像読み込み開始を反映する。 */
@@ -353,7 +354,11 @@ class ThreadRouteViewModel @Inject constructor(
     }
 
     /** 画像読み込み失敗を反映する。 */
-    fun onThreadImageLoadError(tabKey: String, imageUrl: String, failureType: ImageLoadFailureType) {
+    fun onThreadImageLoadError(
+        tabKey: String,
+        imageUrl: String,
+        failureType: ImageLoadFailureType
+    ) {
         if (imageUrl.isBlank()) {
             return
         }
@@ -424,7 +429,8 @@ class ThreadRouteViewModel @Inject constructor(
     fun addPopupForReplyFrom(tabKey: String, baseOffset: IntOffset, replyNumbers: List<Int>) {
         val state = uiStateFor(tabKey).value
         val posts = state.posts ?: return
-        val targetNumbers = replyNumbers.filterNot { it in state.ngPostNumbers }.filter { it in 1..posts.size }
+        val targetNumbers =
+            replyNumbers.filterNot { it in state.ngPostNumbers }.filter { it in 1..posts.size }
         if (targetNumbers.isEmpty()) {
             return
         }
@@ -483,7 +489,8 @@ class ThreadRouteViewModel @Inject constructor(
     fun addPopupForTree(tabKey: String, baseOffset: IntOffset, postNumber: Int) {
         val state = uiStateFor(tabKey).value
         val posts = state.posts ?: return
-        val selection = deriveTreePopupSelection(postNumber, state.treeOrder, state.treeDepthMap) ?: return
+        val selection =
+            deriveTreePopupSelection(postNumber, state.treeOrder, state.treeDepthMap) ?: return
         val postNumbers = mutableListOf<Int>()
         val indentLevels = mutableListOf<Int>()
         val rootNumbers = mutableListOf<Int>()
@@ -552,11 +559,6 @@ class ThreadRouteViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.setLineHeight(height) }
     }
 
-    /** 選択中タブ key を更新する。 */
-    fun selectTab(threadId: ThreadId?) {
-        tabSessionStore.selectThreadTab(threadId)
-    }
-
     /** route ViewModel の内部ジョブを解放する。 */
     override fun onCleared() {
         initializationJobs.values.forEach(Job::cancel)
@@ -573,6 +575,7 @@ class ThreadRouteViewModel @Inject constructor(
     }
 
     /** タブごとの共有 `UiState` Flow を組み立てる。 */
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun createUiStateFlow(tabKey: String): StateFlow<ThreadUiState> {
         val textSettingsFlow = combine(
             settingsRepository.observeTextScale(),
@@ -604,18 +607,23 @@ class ThreadRouteViewModel @Inject constructor(
                 gestureSettings = gestureSettings,
             )
         }
-        val tabFlow = tabSessionStore.openThreadTabs.map { tabs -> tabs.find { it.id.value == tabKey } }
-        val sessionFlow = tabSessionStore.threadSessionStates.map { states -> states[tabKey] ?: ThreadSessionState() }
-        val contentFlow = contentStates.map { states -> states[tabKey] ?: ThreadRouteContentState() }
+        val tabFlow =
+            tabSessionStore.openThreadTabs.map { tabs -> tabs.find { it.id.value == tabKey } }
+        val sessionFlow = tabSessionStore.threadSessionStates.map { states ->
+            states[tabKey] ?: ThreadSessionState()
+        }
+        val contentFlow =
+            contentStates.map { states -> states[tabKey] ?: ThreadRouteContentState() }
         val bookmarkSheetStateFlow = tabSessionStore.threadBookmarkSheetHolder(tabKey).uiState
         val bookmarkStatusFlow = tabFlow.flatMapLatest { tab ->
             if (tab == null) {
                 flowOf(BookmarkStatusState())
             } else {
-                threadBookmarkRepository.getBookmarkWithGroup(tab.threadKey, tab.boardUrl).map { threadWithBookmark ->
-                    val group = threadWithBookmark?.group
-                    BookmarkStatusState(isBookmarked = group != null, selectedGroup = group)
-                }
+                threadBookmarkRepository.getBookmarkWithGroup(tab.threadKey, tab.boardUrl)
+                    .map { threadWithBookmark ->
+                        val group = threadWithBookmark?.group
+                        BookmarkStatusState(isBookmarked = group != null, selectedGroup = group)
+                    }
             }
         }
         val ngFlow = ngRepository.observeNgs()
@@ -636,7 +644,11 @@ class ThreadRouteViewModel @Inject constructor(
             )
         }
 
-        return combine(baseUiStateFlow, bookmarkSheetStateFlow, ngFlow) { baseInput, bookmarkSheetState, ngList ->
+        return combine(
+            baseUiStateFlow,
+            bookmarkSheetStateFlow,
+            ngFlow
+        ) { baseInput, bookmarkSheetState, ngList ->
             val tab = baseInput.tab ?: return@combine ThreadUiState()
             composeThreadUiState(
                 tab = tab,
@@ -702,7 +714,13 @@ class ThreadRouteViewModel @Inject constructor(
     /** タブ metadata と投稿ダイアログ初期値を補完する。 */
     private suspend fun initializeTabMetadata(tab: ThreadTabInfo) {
         val boardInfo = BoardInfo(
-            boardId = boardRepository.ensureBoard(BoardInfo(tab.boardId, tab.boardName, tab.boardUrl)),
+            boardId = boardRepository.ensureBoard(
+                BoardInfo(
+                    tab.boardId,
+                    tab.boardName,
+                    tab.boardUrl
+                )
+            ),
             name = tab.boardName,
             url = tab.boardUrl,
         )
@@ -728,7 +746,8 @@ class ThreadRouteViewModel @Inject constructor(
                 state.copy(postDialogState = state.postDialogState.copy(namePlaceholder = noname))
             }
         }
-        tabSessionStore.threadPostDialogController(tab.id.value).prepareIdentityHistory(boardInfo.boardId)
+        tabSessionStore.threadPostDialogController(tab.id.value)
+            .prepareIdentityHistory(boardInfo.boardId)
     }
 
     /** 読み込み開始状態を SessionState に反映する。 */
@@ -803,7 +822,8 @@ class ThreadRouteViewModel @Inject constructor(
             current.copy(
                 posts = derived.uiPosts,
                 threadInfo = (if (current.threadInfo.key.isBlank()) previous.threadInfo else current.threadInfo).copy(
-                    title = derived.threadTitle ?: current.threadInfo.title.ifBlank { previous.threadInfo.title },
+                    title = derived.threadTitle
+                        ?: current.threadInfo.title.ifBlank { previous.threadInfo.title },
                     key = current.threadInfo.key.ifBlank { previous.threadInfo.key },
                     url = current.threadInfo.url.ifBlank { previous.threadInfo.url },
                     resCount = derived.resCount,
@@ -817,7 +837,8 @@ class ThreadRouteViewModel @Inject constructor(
                 treeDepthMap = derived.treeDepthMap,
                 treeRootMap = derived.treeRootMap,
                 imageLoadFailureByUrl = current.imageLoadFailureByUrl.filterKeys { it in activeImageUrls },
-                imageLoadingUrls = current.imageLoadingUrls.filter { it in activeImageUrls }.toSet(),
+                imageLoadingUrls = current.imageLoadingUrls.filter { it in activeImageUrls }
+                    .toSet(),
                 postGroups = groups.groups,
                 lastLoadedResCount = groups.lastLoadedResCount,
                 latestArrivalGroupIndex = groups.latestArrivalGroupIndex,
@@ -828,12 +849,20 @@ class ThreadRouteViewModel @Inject constructor(
     }
 
     /** 失敗時にローディング解除と toast を反映する。 */
-    private fun handleLoadFailure(tabKey: String, boardUrl: String, threadKey: String, error: Throwable? = null) {
+    private fun handleLoadFailure(
+        tabKey: String,
+        boardUrl: String,
+        threadKey: String,
+        error: Throwable? = null
+    ) {
         updateThreadSessionState(tabKey) {
             it.copy(isLoading = false, loadProgress = 1f, loadingSource = ThreadLoadingSource.NONE)
         }
         if (error != null) {
-            logger.e(message = "Failed to load thread data for board: $boardUrl key: $threadKey", throwable = error)
+            logger.e(
+                message = "Failed to load thread data for board: $boardUrl key: $threadKey",
+                throwable = error
+            )
         }
         updateThreadSessionState(tabKey) { it.copy(pendingToastResId = R.string.thread_load_failed) }
     }
@@ -887,7 +916,11 @@ class ThreadRouteViewModel @Inject constructor(
     }
 
     /** 保留投稿があれば履歴へ保存して消費する。 */
-    private suspend fun recordPendingPost(tabKey: String, uiPosts: List<ThreadPostUiModel>, historyId: Long) {
+    private suspend fun recordPendingPost(
+        tabKey: String,
+        uiPosts: List<ThreadPostUiModel>,
+        historyId: Long
+    ) {
         val threadId = ThreadId(tabKey)
         val pending = tabSessionStore.getThreadRuntimeState(threadId).pendingPost ?: return
         val boardInfo = (contentStates.value[tabKey] ?: ThreadRouteContentState()).boardInfo
@@ -1107,7 +1140,8 @@ class ThreadRouteViewModel @Inject constructor(
         posts: List<ThreadPostUiModel>,
     ): ThreadRoutePostGroupState {
         val newResCount = posts.size
-        val needsReset = previousResCount == 0 || previousGroups.isEmpty() || newResCount < previousResCount
+        val needsReset =
+            previousResCount == 0 || previousGroups.isEmpty() || newResCount < previousResCount
         if (newResCount == 0 || needsReset) {
             val nextGroups = if (newResCount > 0) {
                 listOf(ThreadPostGroup(startResNo = 1, endResNo = newResCount, prevResCount = 0))
@@ -1128,7 +1162,11 @@ class ThreadRouteViewModel @Inject constructor(
     }
 
     /** タイトル未取得時の初期表示名を組み立てる。 */
-    private fun buildInitialThreadTitle(boardUrl: String, threadKey: String, threadTitle: String?): String {
+    private fun buildInitialThreadTitle(
+        boardUrl: String,
+        threadKey: String,
+        threadTitle: String?
+    ): String {
         threadTitle?.takeIf { it.isNotBlank() }?.let { return it }
         val parsed = com.websarva.wings.android.slevo.ui.util.parseBoardUrl(boardUrl) ?: return ""
         val (host, boardKey) = parsed
