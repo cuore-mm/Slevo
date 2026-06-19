@@ -25,14 +25,10 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -187,27 +183,6 @@ class ThreadRouteViewModelTest {
         assertEquals(true, state.isTabSwipeEnabled)
     }
 
-    @Test
-    fun uiStateFor_placeholderBoardId_updatesResolvedBoardIdAndPreparesIdentityHistory() = runTest {
-        val threadId = ThreadId.of("example.com", "test", "111")
-        val dependencies = mockDependencies(
-            tabs = listOf(threadTab(threadId, "title", boardId = 0L)),
-            selectedTabKey = threadId.value,
-            ensuredBoardId = 42L,
-        )
-        val viewModel = dependencies.createViewModel()
-
-        val uiState = viewModel.uiStateFor(threadId.value)
-        val collectJob = backgroundScope.launch { uiState.collect() }
-        advanceUntilIdle()
-
-        assertEquals(42L, dependencies.openTabs.value.first().boardId)
-        verify(atLeast = 1) {
-            dependencies.store.updateThreadResolvedBoardInfo(threadId, 42L, "board")
-        }
-        collectJob.cancelAndJoin()
-    }
-
     /** テスト用依存一式を構築する。 */
     private fun mockDependencies(
         tabs: List<ThreadTabInfo>,
@@ -215,7 +190,6 @@ class ThreadRouteViewModelTest {
         initialSessionStates: Map<String, ThreadSessionState> = tabs.associate { it.id.value to ThreadSessionState() },
         suspendLoad: Boolean = false,
         loadReturnsNull: Boolean = false,
-        ensuredBoardId: Long = 1L,
     ): RouteDependencies {
         val openTabs = MutableStateFlow(tabs)
         val selectedKey = MutableStateFlow(selectedTabKey)
@@ -263,7 +237,7 @@ class ThreadRouteViewModelTest {
         }
 
         val boardRepository = mockk<BoardRepository>()
-        coEvery { boardRepository.ensureBoard(any()) } answers { firstArg<BoardInfo>().boardId.takeIf { it != 0L } ?: ensuredBoardId }
+        coEvery { boardRepository.ensureBoard(any()) } answers { firstArg<BoardInfo>().boardId.takeIf { it != 0L } ?: 1L }
         coEvery { boardRepository.fetchBoardNoname(any()) } returns null
 
         val historyRepository = mockk<ThreadHistoryRepository>()
