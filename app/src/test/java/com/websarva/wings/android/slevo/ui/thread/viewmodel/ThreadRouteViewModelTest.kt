@@ -204,8 +204,18 @@ class ThreadRouteViewModelTest {
         every { store.getThreadSessionState(any()) } answers {
             sessionStates.value[firstArg<ThreadId>().value] ?: ThreadSessionState()
         }
+        every { store.updateThreadSessionState(any(), any()) } answers {
+            val threadId = firstArg<ThreadId>().value
+            val transform = secondArg<(ThreadSessionState) -> ThreadSessionState>()
+            sessionStates.value = sessionStates.value + (threadId to transform(sessionStates.value[threadId] ?: ThreadSessionState()))
+        }
         every { store.getThreadRuntimeState(any()) } answers {
             runtimeStates.value[firstArg<ThreadId>().value] ?: ThreadSessionRuntimeState()
+        }
+        every { store.updateThreadRuntimeState(any(), any()) } answers {
+            val threadId = firstArg<ThreadId>().value
+            val transform = secondArg<(ThreadSessionRuntimeState) -> ThreadSessionRuntimeState>()
+            runtimeStates.value = runtimeStates.value + (threadId to transform(runtimeStates.value[threadId] ?: ThreadSessionRuntimeState()))
         }
 
         val boardRepository = mockk<BoardRepository>()
