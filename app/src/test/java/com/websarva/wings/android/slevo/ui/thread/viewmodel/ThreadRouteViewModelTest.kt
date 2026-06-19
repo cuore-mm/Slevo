@@ -202,18 +202,20 @@ class ThreadRouteViewModelTest {
         every { store.threadPostDialogController(any()) } returns mockk(relaxed = true)
         every { store.threadPostDialogSuccessEvents(any()) } returns MutableSharedFlow()
         every { store.getThreadSessionState(any()) } answers {
-            sessionStates.value[firstArg<ThreadId>().value] ?: ThreadSessionState()
+            val threadKey = threadKey(firstArg())
+            sessionStates.value[threadKey] ?: ThreadSessionState()
         }
         every { store.updateThreadSessionState(any(), any()) } answers {
-            val threadId = firstArg<ThreadId>().value
+            val threadId = threadKey(firstArg())
             val transform = secondArg<(ThreadSessionState) -> ThreadSessionState>()
             sessionStates.value = sessionStates.value + (threadId to transform(sessionStates.value[threadId] ?: ThreadSessionState()))
         }
         every { store.getThreadRuntimeState(any()) } answers {
-            runtimeStates.value[firstArg<ThreadId>().value] ?: ThreadSessionRuntimeState()
+            val threadKey = threadKey(firstArg())
+            runtimeStates.value[threadKey] ?: ThreadSessionRuntimeState()
         }
         every { store.updateThreadRuntimeState(any(), any()) } answers {
-            val threadId = firstArg<ThreadId>().value
+            val threadId = threadKey(firstArg())
             val transform = secondArg<(ThreadSessionRuntimeState) -> ThreadSessionRuntimeState>()
             runtimeStates.value = runtimeStates.value + (threadId to transform(runtimeStates.value[threadId] ?: ThreadSessionRuntimeState()))
         }
@@ -349,5 +351,14 @@ class ThreadRouteViewModelTest {
         val method = ThreadRouteViewModel::class.java.getDeclaredMethod("onCleared")
         method.isAccessible = true
         method.invoke(viewModel)
+    }
+
+    /** MockK 引数から thread key を取り出す。 */
+    private fun threadKey(arg: Any?): String {
+        return when (arg) {
+            is ThreadId -> arg.value
+            is String -> arg
+            else -> error("Unexpected thread key argument: $arg")
+        }
     }
 }
