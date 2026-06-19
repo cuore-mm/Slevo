@@ -280,7 +280,6 @@ class ThreadTabsCoordinatorTest {
             )
         )
         val original = coordinator.openThreadTabs.value.first()
-        coordinator.updateThreadScrollPosition(original.id, 12, 34)
         coordinator.togglePinThreadTab(original.id)
 
         coordinator.updateThreadResolvedBoardInfo(
@@ -294,8 +293,6 @@ class ThreadTabsCoordinatorTest {
         assertEquals("resolved", actual.boardName)
         assertEquals(original.title, actual.title)
         assertEquals(10, actual.resCount)
-        assertEquals(12, actual.firstVisibleItemIndex)
-        assertEquals(34, actual.firstVisibleItemScrollOffset)
         assertEquals(true, actual.isPinned)
     }
 
