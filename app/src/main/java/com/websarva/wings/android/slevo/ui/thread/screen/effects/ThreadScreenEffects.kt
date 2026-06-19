@@ -86,10 +86,9 @@ fun ObserveAutoScrollEffect(
 ) {
     val density = LocalDensity.current
     val autoScrollDpPerSec = 40f
-    val isScrollInProgress = listState.isScrollInProgress
 
-    LaunchedEffect(isAutoScroll, isScrollInProgress, density, fallbackItemCount) {
-        if (!isAutoScroll || isScrollInProgress) {
+    LaunchedEffect(isAutoScroll, density, fallbackItemCount) {
+        if (!isAutoScroll) {
             return@LaunchedEffect
         }
         val pxPerSec = with(density) { autoScrollDpPerSec.dp.toPx() }

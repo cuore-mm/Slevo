@@ -49,6 +49,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -608,7 +609,9 @@ class ThreadRouteViewModel @Inject constructor(
             )
         }
         val tabFlow =
-            tabSessionStore.openThreadTabs.map { tabs -> tabs.find { it.id.value == tabKey } }
+            tabSessionStore.openThreadTabs
+                .map { tabs -> tabs.find { it.id.value == tabKey } }
+                .distinctUntilChangedBy { tab -> tab?.toUiStateSourceKey() }
         val sessionFlow = tabSessionStore.threadSessionStates.map { states ->
             states[tabKey] ?: ThreadSessionState()
         }
@@ -1217,6 +1220,44 @@ class ThreadRouteViewModel @Inject constructor(
     private fun isThreadTabOpen(tabKey: String): Boolean {
         return tabSessionStore.openThreadTabs.value.any { it.id.value == tabKey }
     }
+}
+
+/**
+ * `ThreadUiState` 合成に影響する `ThreadTabInfo` の比較キー。
+ *
+ * スクロール位置の保存では再合成を発火させないため、scroll offset 系は含めない。
+ */
+private data class ThreadTabUiStateSourceKey(
+    val id: ThreadId,
+    val title: String,
+    val boardName: String,
+    val boardUrl: String,
+    val boardId: Long,
+    val resCount: Int,
+    val newResCount: Int,
+    val prevResCount: Int,
+    val lastReadResNo: Int,
+    val firstNewResNo: Int?,
+    val bookmarkColorName: String?,
+    val isPinned: Boolean,
+)
+
+/** `ThreadTabInfo` から `ThreadUiState` 合成用の比較キーを作る。 */
+private fun ThreadTabInfo.toUiStateSourceKey(): ThreadTabUiStateSourceKey {
+    return ThreadTabUiStateSourceKey(
+        id = id,
+        title = title,
+        boardName = boardName,
+        boardUrl = boardUrl,
+        boardId = boardId,
+        resCount = resCount,
+        newResCount = newResCount,
+        prevResCount = prevResCount,
+        lastReadResNo = lastReadResNo,
+        firstNewResNo = firstNewResNo,
+        bookmarkColorName = bookmarkColorName,
+        isPinned = isPinned,
+    )
 }
 
 /**
