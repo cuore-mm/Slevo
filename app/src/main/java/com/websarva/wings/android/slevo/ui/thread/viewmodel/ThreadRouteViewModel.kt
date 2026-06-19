@@ -713,14 +713,20 @@ class ThreadRouteViewModel @Inject constructor(
 
     /** タブ metadata と投稿ダイアログ初期値を補完する。 */
     private suspend fun initializeTabMetadata(tab: ThreadTabInfo) {
+        val ensuredBoardId = boardRepository.ensureBoard(
+            BoardInfo(
+                tab.boardId,
+                tab.boardName,
+                tab.boardUrl
+            )
+        )
+        tabSessionStore.updateThreadResolvedBoardInfo(
+            threadId = tab.id,
+            boardId = ensuredBoardId,
+            boardName = tab.boardName,
+        )
         val boardInfo = BoardInfo(
-            boardId = boardRepository.ensureBoard(
-                BoardInfo(
-                    tab.boardId,
-                    tab.boardName,
-                    tab.boardUrl
-                )
-            ),
+            boardId = ensuredBoardId,
             name = tab.boardName,
             url = tab.boardUrl,
         )

@@ -264,6 +264,56 @@ class ThreadTabsCoordinatorTest {
     }
 
     /**
+     * 解決済み boardId を反映しても、既存の表示メタ情報とスクロール位置を保持することを確認する。
+     */
+    @Test
+    fun updateThreadResolvedBoardInfo_updatesBoardIdAndPreservesThreadTabFields() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "111",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "first",
+                boardId = 0L,
+                resCount = 10,
+            )
+        )
+        val original = coordinator.openThreadTabs.value.first().copy(
+            newResCount = 2,
+            prevResCount = 8,
+            lastReadResNo = 7,
+            firstNewResNo = 9,
+            firstVisibleItemIndex = 12,
+            firstVisibleItemScrollOffset = 34,
+            bookmarkColorName = "blue",
+            isPinned = true,
+        )
+        coordinator.closeThreadTab(coordinator.openThreadTabs.value.first())
+        coordinator.openThreadTab(original)
+
+        coordinator.updateThreadResolvedBoardInfo(
+            threadId = original.id,
+            boardId = 42L,
+            boardName = "resolved",
+        )
+
+        val actual = coordinator.openThreadTabs.value.first()
+        assertEquals(42L, actual.boardId)
+        assertEquals("resolved", actual.boardName)
+        assertEquals(original.title, actual.title)
+        assertEquals(10, actual.resCount)
+        assertEquals(2, actual.newResCount)
+        assertEquals(8, actual.prevResCount)
+        assertEquals(7, actual.lastReadResNo)
+        assertEquals(9, actual.firstNewResNo)
+        assertEquals(12, actual.firstVisibleItemIndex)
+        assertEquals(34, actual.firstVisibleItemScrollOffset)
+        assertEquals("blue", actual.bookmarkColorName)
+        assertEquals(true, actual.isPinned)
+    }
+
+    /**
      * テスト用に依存を差し替えた `ThreadTabsCoordinator` を生成する。
      */
     private fun createCoordinator(tabsRepository: TabsRepository): ThreadTabsCoordinator {

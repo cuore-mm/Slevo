@@ -362,6 +362,35 @@ class ThreadTabsCoordinator @Inject constructor(
     }
 
     /**
+     * ensure 済みの boardId を既存スレッドタブへ反映して永続状態も更新する。
+     *
+     * URL から開いた placeholder boardId のタブを、Repository で解決した実 boardId に差し替える。
+     */
+    fun updateThreadResolvedBoardInfo(
+        threadId: ThreadId,
+        boardId: Long,
+        boardName: String? = null,
+    ) {
+        if (boardId == 0L) return
+        var updatedTabs: List<ThreadTabInfo> = emptyList()
+        _openThreadTabs.update { tabs ->
+            val updated = tabs.map { tab ->
+                if (tab.id == threadId) {
+                    tab.copy(
+                        boardId = boardId,
+                        boardName = boardName?.takeIf(String::isNotBlank) ?: tab.boardName,
+                    )
+                } else {
+                    tab
+                }
+            }
+            updatedTabs = updated
+            updated
+        }
+        saveThreadTabs(updatedTabs)
+    }
+
+    /**
      * タブを挿入または更新し、そのタブのインデックスを返す。
      * 保存は非同期で行われる。
      */

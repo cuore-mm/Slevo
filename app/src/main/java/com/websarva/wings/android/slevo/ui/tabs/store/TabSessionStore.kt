@@ -234,6 +234,15 @@ class TabSessionStore @Inject constructor(
         threadTabsCoordinator.updateThreadRuntimeState(threadId, transform)
     }
 
+    /** 解決済みの boardId と名称を既存スレッドタブへ反映する。 */
+    fun updateThreadResolvedBoardInfo(
+        threadId: ThreadId,
+        boardId: Long,
+        boardName: String? = null,
+    ) {
+        threadTabsCoordinator.updateThreadResolvedBoardInfo(threadId, boardId, boardName)
+    }
+
     fun clearNewResCount(threadId: ThreadId) {
         threadTabsCoordinator.clearNewResCount(threadId)
     }

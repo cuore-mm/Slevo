@@ -16,6 +16,7 @@ import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepositor
 import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
+import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionRuntimeState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
@@ -24,10 +25,14 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -182,6 +187,30 @@ class ThreadRouteViewModelTest {
         assertEquals(true, state.isTabSwipeEnabled)
     }
 
+    @Test
+    fun uiStateFor_placeholderBoardId_updatesResolvedBoardIdAndPreparesIdentityHistory() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "111")
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title", boardId = 0L)),
+            selectedTabKey = threadId.value,
+            ensuredBoardId = 42L,
+        )
+        val viewModel = dependencies.createViewModel()
+
+        val uiState = viewModel.uiStateFor(threadId.value)
+        val collectJob = backgroundScope.launch { uiState.collect() }
+        advanceUntilIdle()
+
+        assertEquals(42L, dependencies.openTabs.value.first().boardId)
+        assertEquals(42L, uiState.value.boardInfo.boardId)
+        assertTrue(dependencies.ensuredBoards.any { board ->
+            board.boardId == 0L && board.url == "https://example.com/test/"
+        })
+        coVerify(atLeast = 1) { dependencies.boardRepository.ensureBoard(any()) }
+        verify(atLeast = 1) { dependencies.postDialogController.prepareIdentityHistory(42L) }
+        collectJob.cancelAndJoin()
+    }
+
     /** テスト用依存一式を構築する。 */
     private fun mockDependencies(
         tabs: List<ThreadTabInfo>,
@@ -189,17 +218,19 @@ class ThreadRouteViewModelTest {
         initialSessionStates: Map<String, ThreadSessionState> = tabs.associate { it.id.value to ThreadSessionState() },
         suspendLoad: Boolean = false,
         loadReturnsNull: Boolean = false,
+        ensuredBoardId: Long = 1L,
     ): RouteDependencies {
         val openTabs = MutableStateFlow(tabs)
         val selectedKey = MutableStateFlow(selectedTabKey)
         val sessionStates = MutableStateFlow(initialSessionStates)
         val runtimeStates = MutableStateFlow(tabs.associate { it.id.value to ThreadSessionRuntimeState() })
+        val postDialogController = mockk<PostDialogController>(relaxed = true)
         val store = mockk<TabSessionStore>(relaxed = true)
         every { store.openThreadTabs } returns openTabs
         every { store.selectedThreadTabKey } returns selectedKey
         every { store.threadSessionStates } returns sessionStates
         every { store.threadBookmarkSheetHolder(any()).uiState } returns MutableStateFlow(BookmarkSheetUiState())
-        every { store.threadPostDialogController(any()) } returns mockk(relaxed = true)
+        every { store.threadPostDialogController(any()) } returns postDialogController
         every { store.threadPostDialogSuccessEvents(any()) } returns MutableSharedFlow()
         every { store.getThreadSessionState(any()) } answers {
             val threadKey = threadKey(firstArg())
@@ -219,9 +250,27 @@ class ThreadRouteViewModelTest {
             val transform = secondArg<(ThreadSessionRuntimeState) -> ThreadSessionRuntimeState>()
             runtimeStates.value = runtimeStates.value + (threadId to transform(runtimeStates.value[threadId] ?: ThreadSessionRuntimeState()))
         }
+        every { store.updateThreadResolvedBoardInfo(any(), any(), any()) } answers {
+            val threadId = firstArg<ThreadId>()
+            val boardId = secondArg<Long>()
+            val boardName = thirdArg<String?>()
+            openTabs.value = openTabs.value.map { tab ->
+                if (tab.id == threadId) {
+                    tab.copy(
+                        boardId = boardId,
+                        boardName = boardName?.takeIf(String::isNotBlank) ?: tab.boardName,
+                    )
+                } else {
+                    tab
+                }
+            }
+        }
 
         val boardRepository = mockk<BoardRepository>()
-        coEvery { boardRepository.ensureBoard(any()) } answers { firstArg<BoardInfo>().boardId.takeIf { it != 0L } ?: 1L }
+        val ensuredBoards = mutableListOf<BoardInfo>()
+        coEvery { boardRepository.ensureBoard(any()) } answers {
+            firstArg<BoardInfo>().also(ensuredBoards::add).boardId.takeIf { it != 0L } ?: ensuredBoardId
+        }
         coEvery { boardRepository.fetchBoardNoname(any()) } returns null
 
         val historyRepository = mockk<ThreadHistoryRepository>()
@@ -283,8 +332,10 @@ class ThreadRouteViewModelTest {
             store = store,
             openTabs = openTabs,
             sessionStates = sessionStates,
+            ensuredBoards = ensuredBoards,
             threadLoadCancelled = threadLoadCancelled,
             boardRepository = boardRepository,
+            postDialogController = postDialogController,
             historyRepository = historyRepository,
             postHistoryRepository = postHistoryRepository,
             bookmarkRepository = bookmarkRepository,
@@ -303,8 +354,10 @@ class ThreadRouteViewModelTest {
         val store: TabSessionStore,
         val openTabs: MutableStateFlow<List<ThreadTabInfo>>,
         val sessionStates: MutableStateFlow<Map<String, ThreadSessionState>>,
+        val ensuredBoards: MutableList<BoardInfo>,
         val threadLoadCancelled: MutableStateFlow<Boolean>,
         val boardRepository: BoardRepository,
+        val postDialogController: PostDialogController,
         val historyRepository: ThreadHistoryRepository,
         val postHistoryRepository: PostHistoryRepository,
         val bookmarkRepository: ThreadBookmarkRepository,
@@ -336,13 +389,13 @@ class ThreadRouteViewModelTest {
     }
 
     /** テスト用のタブ情報を作る。 */
-    private fun threadTab(threadId: ThreadId, title: String): ThreadTabInfo {
+    private fun threadTab(threadId: ThreadId, title: String, boardId: Long = 1L): ThreadTabInfo {
         return ThreadTabInfo(
             id = threadId,
             title = title,
             boardName = "board",
             boardUrl = "https://example.com/test/",
-            boardId = 1L,
+            boardId = boardId,
         )
     }
 
