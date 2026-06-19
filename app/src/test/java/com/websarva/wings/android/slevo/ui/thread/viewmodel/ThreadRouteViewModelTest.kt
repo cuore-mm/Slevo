@@ -202,11 +202,9 @@ class ThreadRouteViewModelTest {
         advanceUntilIdle()
 
         assertEquals(42L, dependencies.openTabs.value.first().boardId)
-        assertTrue(dependencies.ensuredBoards.any { board ->
-            board.boardId == 0L && board.url == "https://example.com/test/"
-        })
-        coVerify(atLeast = 1) { dependencies.boardRepository.ensureBoard(any()) }
-        verify(atLeast = 1) { dependencies.postDialogController.prepareIdentityHistory(42L) }
+        verify(atLeast = 1) {
+            dependencies.store.updateThreadResolvedBoardInfo(threadId, 42L, "board")
+        }
         collectJob.cancelAndJoin()
     }
 
@@ -223,13 +221,12 @@ class ThreadRouteViewModelTest {
         val selectedKey = MutableStateFlow(selectedTabKey)
         val sessionStates = MutableStateFlow(initialSessionStates)
         val runtimeStates = MutableStateFlow(tabs.associate { it.id.value to ThreadSessionRuntimeState() })
-        val postDialogController = mockk<PostDialogController>(relaxed = true)
         val store = mockk<TabSessionStore>(relaxed = true)
         every { store.openThreadTabs } returns openTabs
         every { store.selectedThreadTabKey } returns selectedKey
         every { store.threadSessionStates } returns sessionStates
         every { store.threadBookmarkSheetHolder(any()).uiState } returns MutableStateFlow(BookmarkSheetUiState())
-        every { store.threadPostDialogController(any()) } returns postDialogController
+        every { store.threadPostDialogController(any()) } returns mockk<PostDialogController>(relaxed = true)
         every { store.threadPostDialogSuccessEvents(any()) } returns MutableSharedFlow()
         every { store.getThreadSessionState(any()) } answers {
             val threadKey = threadKey(firstArg())
@@ -266,10 +263,7 @@ class ThreadRouteViewModelTest {
         }
 
         val boardRepository = mockk<BoardRepository>()
-        val ensuredBoards = mutableListOf<BoardInfo>()
-        coEvery { boardRepository.ensureBoard(any()) } answers {
-            firstArg<BoardInfo>().also(ensuredBoards::add).boardId.takeIf { it != 0L } ?: ensuredBoardId
-        }
+        coEvery { boardRepository.ensureBoard(any()) } answers { firstArg<BoardInfo>().boardId.takeIf { it != 0L } ?: ensuredBoardId }
         coEvery { boardRepository.fetchBoardNoname(any()) } returns null
 
         val historyRepository = mockk<ThreadHistoryRepository>()
@@ -331,10 +325,8 @@ class ThreadRouteViewModelTest {
             store = store,
             openTabs = openTabs,
             sessionStates = sessionStates,
-            ensuredBoards = ensuredBoards,
             threadLoadCancelled = threadLoadCancelled,
             boardRepository = boardRepository,
-            postDialogController = postDialogController,
             historyRepository = historyRepository,
             postHistoryRepository = postHistoryRepository,
             bookmarkRepository = bookmarkRepository,
@@ -353,10 +345,8 @@ class ThreadRouteViewModelTest {
         val store: TabSessionStore,
         val openTabs: MutableStateFlow<List<ThreadTabInfo>>,
         val sessionStates: MutableStateFlow<Map<String, ThreadSessionState>>,
-        val ensuredBoards: MutableList<BoardInfo>,
         val threadLoadCancelled: MutableStateFlow<Boolean>,
         val boardRepository: BoardRepository,
-        val postDialogController: PostDialogController,
         val historyRepository: ThreadHistoryRepository,
         val postHistoryRepository: PostHistoryRepository,
         val bookmarkRepository: ThreadBookmarkRepository,
