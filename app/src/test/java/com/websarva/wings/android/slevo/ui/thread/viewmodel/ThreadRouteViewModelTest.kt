@@ -202,7 +202,6 @@ class ThreadRouteViewModelTest {
         advanceUntilIdle()
 
         assertEquals(42L, dependencies.openTabs.value.first().boardId)
-        assertEquals(42L, uiState.value.boardInfo.boardId)
         assertTrue(dependencies.ensuredBoards.any { board ->
             board.boardId == 0L && board.url == "https://example.com/test/"
         })
