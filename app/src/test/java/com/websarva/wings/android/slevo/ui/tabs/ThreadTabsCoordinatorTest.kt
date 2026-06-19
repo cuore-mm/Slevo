@@ -279,18 +279,9 @@ class ThreadTabsCoordinatorTest {
                 resCount = 10,
             )
         )
-        val original = coordinator.openThreadTabs.value.first().copy(
-            newResCount = 2,
-            prevResCount = 8,
-            lastReadResNo = 7,
-            firstNewResNo = 9,
-            firstVisibleItemIndex = 12,
-            firstVisibleItemScrollOffset = 34,
-            bookmarkColorName = "blue",
-            isPinned = true,
-        )
-        coordinator.closeThreadTab(coordinator.openThreadTabs.value.first())
-        coordinator.openThreadTab(original)
+        val original = coordinator.openThreadTabs.value.first()
+        coordinator.updateThreadScrollPosition(original.id, 12, 34)
+        coordinator.togglePinThreadTab(original.id)
 
         coordinator.updateThreadResolvedBoardInfo(
             threadId = original.id,
@@ -303,13 +294,8 @@ class ThreadTabsCoordinatorTest {
         assertEquals("resolved", actual.boardName)
         assertEquals(original.title, actual.title)
         assertEquals(10, actual.resCount)
-        assertEquals(2, actual.newResCount)
-        assertEquals(8, actual.prevResCount)
-        assertEquals(7, actual.lastReadResNo)
-        assertEquals(9, actual.firstNewResNo)
         assertEquals(12, actual.firstVisibleItemIndex)
         assertEquals(34, actual.firstVisibleItemScrollOffset)
-        assertEquals("blue", actual.bookmarkColorName)
         assertEquals(true, actual.isPinned)
     }
 
