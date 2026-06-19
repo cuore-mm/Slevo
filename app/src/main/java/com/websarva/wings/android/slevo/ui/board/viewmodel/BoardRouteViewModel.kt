@@ -323,6 +323,11 @@ class BoardRouteViewModel @Inject constructor(
             val ensuredId =
                 boardRepository.ensureBoard(BoardInfo(tab.boardId, tab.boardName, tab.boardUrl))
             boardIdCache[tabKey] = ensuredId
+            tabSessionStore.updateBoardResolvedInfo(
+                boardUrl = tabKey,
+                boardId = ensuredId,
+                boardName = tab.boardName,
+            )
             boardRepository.fetchBoardNoname("${tab.boardUrl}SETTING.TXT")?.let { noname ->
                 updateBoardSessionState(tabKey) { state ->
                     state.copy(postDialogState = state.postDialogState.copy(namePlaceholder = noname))

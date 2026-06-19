@@ -161,6 +161,40 @@ class BoardTabsCoordinatorTest {
         coVerify(exactly = 0) { tabsRepository.saveOpenBoardTabs(any()) }
     }
 
+    /**
+     * 解決済み boardId を反映しても、固定状態とスクロール位置を保持したまま永続保存されることを確認する。
+     */
+    @Test
+    fun updateBoardResolvedInfo_updatesBoardIdAndPreservesPersistentFields() {
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val coordinator = createCoordinator(tabsRepository)
+        coordinator.openBoardTab(
+            BoardTabInfo(
+                boardId = 0,
+                boardName = "Test Board",
+                boardUrl = "https://example.com/test/",
+                serviceName = "example.com",
+                firstVisibleItemIndex = 12,
+                firstVisibleItemScrollOffset = 34,
+                isPinned = true,
+            )
+        )
+
+        coordinator.updateBoardResolvedInfo(
+            boardUrl = "https://example.com/test/",
+            boardId = 42L,
+            boardName = "Resolved Board",
+        )
+
+        val actual = coordinator.openBoardTabs.value.first()
+        assertEquals(42L, actual.boardId)
+        assertEquals("Resolved Board", actual.boardName)
+        assertEquals(12, actual.firstVisibleItemIndex)
+        assertEquals(34, actual.firstVisibleItemScrollOffset)
+        assertEquals(true, actual.isPinned)
+        coVerify(atLeast = 1) { tabsRepository.saveOpenBoardTabs(any()) }
+    }
+
     private fun createCoordinator(tabsRepository: TabsRepository): BoardTabsCoordinator {
         return BoardTabsCoordinator(
             tabsRepository = tabsRepository,

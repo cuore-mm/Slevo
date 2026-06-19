@@ -19,6 +19,8 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
+import io.mockk.withArg
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.collect
@@ -144,11 +146,44 @@ class BoardRouteViewModelTest {
         assertEquals(false, dependencies.sessionStates.value[tab.boardUrl]?.showBoardInfoSheet)
     }
 
+    @Test
+    fun uiStateFor_placeholderBoardId_updatesResolvedBoardIdAndObservesResolvedSources() = runTest {
+        val placeholderTab = boardTab("https://example.com/test/", "board", boardId = 0L)
+        val dependencies = mockDependencies(
+            tabs = listOf(placeholderTab),
+            selectedTabKey = placeholderTab.boardUrl,
+            ensuredBoardId = 42L,
+        )
+        val viewModel = dependencies.createViewModel()
+
+        val uiState = viewModel.uiStateFor(placeholderTab.boardUrl)
+        advanceUntilIdle()
+
+        assertEquals(42L, dependencies.openTabs.value.first().boardId)
+        assertEquals(42L, uiState.value.boardInfo.boardId)
+        coVerify(atLeast = 1) { dependencies.boardRepository.ensureBoard(withArg { board ->
+            assertEquals(0L, board.boardId)
+            assertEquals(placeholderTab.boardUrl, board.url)
+        }) }
+        verify(atLeast = 1) { dependencies.boardRepository.observeThreads(42L) }
+        verify(atLeast = 1) { dependencies.threadStateRepository.observeThreadStateMapByBoard(42L) }
+        coVerify(atLeast = 1) {
+            dependencies.boardRepository.refreshThreadList(
+                boardId = 42L,
+                subjectUrl = "https://example.com/test/subject.txt",
+                refreshStartAt = any(),
+                isManual = false,
+                onProgress = any(),
+            )
+        }
+    }
+
     private fun mockDependencies(
         tabs: List<BoardTabInfo>,
         selectedTabKey: String?,
         suspendRefresh: Boolean = false,
         refreshReturnsFalse: Boolean = false,
+        ensuredBoardId: Long = 1L,
     ): RouteDependencies {
         val openTabs = MutableStateFlow(tabs)
         val selectedKey = MutableStateFlow<String?>(selectedTabKey)
@@ -166,32 +201,49 @@ class BoardRouteViewModelTest {
             val transform = secondArg<(BoardSessionState) -> BoardSessionState>()
             sessionStates.value = sessionStates.value + (key to transform(sessionStates.value[key] ?: BoardSessionState()))
         }
-
-        val boardRepository = mockk<BoardRepository>()
-        val boardRefreshCancelled = MutableStateFlow(false)
-        tabs.forEach { tab ->
-            every { boardRepository.observeThreads(tab.boardId) } returns flowOf(listOf(ThreadInfo(title = tab.boardName, key = "1")))
-            coEvery {
-                boardRepository.refreshThreadList(
-                    boardId = tab.boardId,
-                    subjectUrl = any(),
-                    refreshStartAt = any(),
-                    isManual = any(),
-                    onProgress = any(),
-                )
-            } coAnswers {
-                if (suspendRefresh) {
-                    suspendCancellableCoroutine { continuation ->
-                        continuation.invokeOnCancellation { boardRefreshCancelled.value = true }
-                    }
-                } else if (refreshReturnsFalse) {
-                    false
+        every { store.updateBoardResolvedInfo(any(), any(), any()) } answers {
+            val boardUrl = firstArg<String>()
+            val boardId = secondArg<Long>()
+            val boardName = thirdArg<String?>()
+            openTabs.value = openTabs.value.map { tab ->
+                if (tab.boardUrl == boardUrl) {
+                    tab.copy(
+                        boardId = boardId,
+                        boardName = boardName?.takeIf(String::isNotBlank) ?: tab.boardName,
+                    )
                 } else {
-                    true
+                    tab
                 }
             }
         }
-        coEvery { boardRepository.ensureBoard(any()) } answers { firstArg<BoardInfo>().boardId.takeIf { it != 0L } ?: 1L }
+
+        val boardRepository = mockk<BoardRepository>()
+        val boardRefreshCancelled = MutableStateFlow(false)
+        every { boardRepository.observeThreads(any()) } answers {
+            val boardId = firstArg<Long>()
+            val boardName = openTabs.value.find { it.boardId == boardId }?.boardName ?: "board-$boardId"
+            flowOf(listOf(ThreadInfo(title = boardName, key = "1")))
+        }
+        coEvery {
+            boardRepository.refreshThreadList(
+                boardId = any(),
+                subjectUrl = any(),
+                refreshStartAt = any(),
+                isManual = any(),
+                onProgress = any(),
+            )
+        } coAnswers {
+            if (suspendRefresh) {
+                suspendCancellableCoroutine { continuation ->
+                    continuation.invokeOnCancellation { boardRefreshCancelled.value = true }
+                }
+            } else if (refreshReturnsFalse) {
+                false
+            } else {
+                true
+            }
+        }
+        coEvery { boardRepository.ensureBoard(any()) } answers { firstArg<BoardInfo>().boardId.takeIf { it != 0L } ?: ensuredBoardId }
         coEvery { boardRepository.fetchBoardNoname(any()) } returns null
         coEvery { boardRepository.updateBaseline(any(), any()) } returns Unit
 
@@ -255,9 +307,9 @@ class BoardRouteViewModelTest {
         }
     }
 
-    private fun boardTab(url: String, name: String): BoardTabInfo {
+    private fun boardTab(url: String, name: String, boardId: Long = 1L): BoardTabInfo {
         return BoardTabInfo(
-            boardId = 1L,
+            boardId = boardId,
             boardName = name,
             boardUrl = url,
             serviceName = "5ch",

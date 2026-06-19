@@ -145,6 +145,15 @@ class TabSessionStore @Inject constructor(
         boardTabsCoordinator.updateBoardSessionState(boardUrl, transform)
     }
 
+    /** 解決済みの boardId と名称を既存板タブへ反映する。 */
+    fun updateBoardResolvedInfo(
+        boardUrl: String,
+        boardId: Long,
+        boardName: String? = null,
+    ) {
+        boardTabsCoordinator.updateBoardResolvedInfo(boardUrl, boardId, boardName)
+    }
+
     fun ensureThreadTab(route: AppRoute.Thread): Int {
         return threadTabsCoordinator.ensureThreadTab(route)
     }

@@ -222,6 +222,32 @@ class BoardTabsCoordinator @Inject constructor(
     }
 
     /**
+     * ensure 済みの boardId を既存板タブへ反映して永続状態も更新する。
+     *
+     * URL から開いた placeholder boardId のタブを、Repository で解決した実 boardId に差し替える。
+     */
+    fun updateBoardResolvedInfo(
+        boardUrl: String,
+        boardId: Long,
+        boardName: String? = null,
+    ) {
+        if (boardId == 0L) return
+        _openBoardTabs.update { tabs ->
+            tabs.map { tab ->
+                if (tab.boardUrl == boardUrl) {
+                    tab.copy(
+                        boardId = boardId,
+                        boardName = boardName?.takeIf(String::isNotBlank) ?: tab.boardName,
+                    )
+                } else {
+                    tab
+                }
+            }
+        }
+        saveBoardTabs()
+    }
+
+    /**
      * アニメーション付きでページ移動を通知する。内部で SharedFlow にターゲットインデックスを emit する。
      */
     fun animateBoardPage(offset: Int) {
