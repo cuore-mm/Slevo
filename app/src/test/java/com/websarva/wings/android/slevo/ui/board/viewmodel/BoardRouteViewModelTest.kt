@@ -19,7 +19,6 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.match
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
@@ -161,13 +160,9 @@ class BoardRouteViewModelTest {
 
         assertEquals(42L, dependencies.openTabs.value.first().boardId)
         assertEquals(42L, uiState.value.boardInfo.boardId)
-        coVerify(atLeast = 1) {
-            dependencies.boardRepository.ensureBoard(
-                match { board ->
-                    board.boardId == 0L && board.url == placeholderTab.boardUrl
-                }
-            )
-        }
+        assertTrue(dependencies.ensuredBoards.any { board ->
+            board.boardId == 0L && board.url == placeholderTab.boardUrl
+        })
         verify(atLeast = 1) { dependencies.boardRepository.observeThreads(42L) }
         verify(atLeast = 1) { dependencies.threadStateRepository.observeThreadStateMapByBoard(42L) }
         coVerify(atLeast = 1) {
@@ -221,6 +216,7 @@ class BoardRouteViewModelTest {
         }
 
         val boardRepository = mockk<BoardRepository>()
+        val ensuredBoards = mutableListOf<BoardInfo>()
         val boardRefreshCancelled = MutableStateFlow(false)
         every { boardRepository.observeThreads(any()) } answers {
             val boardId = firstArg<Long>()
@@ -246,7 +242,9 @@ class BoardRouteViewModelTest {
                 true
             }
         }
-        coEvery { boardRepository.ensureBoard(any()) } answers { firstArg<BoardInfo>().boardId.takeIf { it != 0L } ?: ensuredBoardId }
+        coEvery { boardRepository.ensureBoard(any()) } answers {
+            firstArg<BoardInfo>().also(ensuredBoards::add).boardId.takeIf { it != 0L } ?: ensuredBoardId
+        }
         coEvery { boardRepository.fetchBoardNoname(any()) } returns null
         coEvery { boardRepository.updateBaseline(any(), any()) } returns Unit
 
@@ -269,6 +267,7 @@ class BoardRouteViewModelTest {
             store = store,
             openTabs = openTabs,
             sessionStates = sessionStates,
+            ensuredBoards = ensuredBoards,
             boardRefreshCancelled = boardRefreshCancelled,
             boardRepository = boardRepository,
             bookmarkBoardRepository = bookmarkBoardRepository,
@@ -285,6 +284,7 @@ class BoardRouteViewModelTest {
         val store: TabSessionStore,
         val openTabs: MutableStateFlow<List<BoardTabInfo>>,
         val sessionStates: MutableStateFlow<Map<String, BoardSessionState>>,
+        val ensuredBoards: MutableList<BoardInfo>,
         val boardRefreshCancelled: MutableStateFlow<Boolean>,
         val boardRepository: BoardRepository,
         val bookmarkBoardRepository: BookmarkBoardRepository,
