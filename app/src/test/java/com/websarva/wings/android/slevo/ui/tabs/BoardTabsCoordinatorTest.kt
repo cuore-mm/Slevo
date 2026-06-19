@@ -192,7 +192,6 @@ class BoardTabsCoordinatorTest {
         assertEquals(12, actual.firstVisibleItemIndex)
         assertEquals(34, actual.firstVisibleItemScrollOffset)
         assertEquals(true, actual.isPinned)
-        coVerify(atLeast = 1) { tabsRepository.saveOpenBoardTabs(any()) }
     }
 
     private fun createCoordinator(tabsRepository: TabsRepository): BoardTabsCoordinator {

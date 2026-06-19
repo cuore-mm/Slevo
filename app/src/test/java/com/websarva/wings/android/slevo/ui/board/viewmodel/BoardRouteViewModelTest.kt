@@ -156,6 +156,7 @@ class BoardRouteViewModelTest {
         val viewModel = dependencies.createViewModel()
 
         val uiState = viewModel.uiStateFor(placeholderTab.boardUrl)
+        val collectJob = backgroundScope.launch { uiState.collect() }
         advanceUntilIdle()
 
         assertEquals(42L, dependencies.openTabs.value.first().boardId)
@@ -174,6 +175,7 @@ class BoardRouteViewModelTest {
                 onProgress = any(),
             )
         }
+        collectJob.cancelAndJoin()
     }
 
     private fun mockDependencies(
