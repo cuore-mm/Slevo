@@ -1,5 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadId
@@ -127,12 +129,66 @@ class ThreadRouteViewModelTest {
         assertEquals(1, dependencies.sessionStates.value.size)
     }
 
+    @Test
+    fun reloadThread_loadFailure_setsPendingToast() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "111")
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            loadReturnsNull = true,
+        )
+        val viewModel = dependencies.createViewModel()
+
+        viewModel.reloadThread(threadId.value)
+        advanceUntilIdle()
+
+        assertEquals(com.websarva.wings.android.slevo.R.string.thread_load_failed, dependencies.sessionStates.value[threadId.value]?.pendingToastResId)
+    }
+
+    @Test
+    fun updateSearchInput_preservesComposition() {
+        val threadId = ThreadId.of("example.com", "test", "111")
+        val dependencies = mockDependencies(listOf(threadTab(threadId, "title")), selectedTabKey = threadId.value)
+        val viewModel = dependencies.createViewModel()
+        val input = TextFieldValue(text = "かな", selection = TextRange(2), composition = TextRange(0, 2))
+
+        viewModel.updateSearchInput(threadId.value, input)
+
+        assertEquals(input, dependencies.sessionStates.value[threadId.value]?.searchInputValue)
+        assertEquals("かな", dependencies.sessionStates.value[threadId.value]?.searchQuery)
+    }
+
+    @Test
+    fun closeSearch_clearsSearchAndRestoresSwipe() {
+        val threadId = ThreadId.of("example.com", "test", "111")
+        val dependencies = mockDependencies(
+            listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            initialSessionStates = mapOf(
+                threadId.value to ThreadSessionState(
+                    isSearchMode = true,
+                    searchInputValue = TextFieldValue("query"),
+                    isTabSwipeEnabled = false,
+                )
+            )
+        )
+        val viewModel = dependencies.createViewModel()
+
+        viewModel.closeSearch(threadId.value)
+
+        val state = dependencies.sessionStates.value[threadId.value]!!
+        assertEquals(TextFieldValue(""), state.searchInputValue)
+        assertEquals(false, state.isSearchMode)
+        assertEquals(true, state.isTabSwipeEnabled)
+    }
+
     /** テスト用依存一式を構築する。 */
     private fun mockDependencies(
         tabs: List<ThreadTabInfo>,
         selectedTabKey: String?,
         initialSessionStates: Map<String, ThreadSessionState> = tabs.associate { it.id.value to ThreadSessionState() },
         suspendLoad: Boolean = false,
+        loadReturnsNull: Boolean = false,
     ): RouteDependencies {
         val openTabs = MutableStateFlow(tabs)
         val selectedKey = MutableStateFlow(selectedTabKey)
@@ -191,6 +247,8 @@ class ThreadRouteViewModelTest {
                     suspendCancellableCoroutine { continuation ->
                         continuation.invokeOnCancellation { threadLoadCancelled.value = true }
                     }
+                } else if (loadReturnsNull) {
+                    null
                 } else {
                     ThreadContentLoadResult(
                         uiPosts = emptyList(),

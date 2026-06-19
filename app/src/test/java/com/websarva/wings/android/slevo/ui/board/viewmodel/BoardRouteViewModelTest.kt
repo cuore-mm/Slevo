@@ -1,5 +1,7 @@
 package com.websarva.wings.android.slevo.ui.board.viewmodel
 
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
@@ -104,10 +106,49 @@ class BoardRouteViewModelTest {
         collectJob.cancelAndJoin()
     }
 
+    @Test
+    fun refreshBoard_failure_setsPendingToast() = runTest {
+        val tab = boardTab("https://example.com/test/", "board")
+        val dependencies = mockDependencies(listOf(tab), tab.boardUrl, refreshReturnsFalse = true)
+        val viewModel = dependencies.createViewModel()
+
+        viewModel.refreshBoard(tab.boardUrl)
+        advanceUntilIdle()
+
+        assertEquals(com.websarva.wings.android.slevo.R.string.board_load_failed, dependencies.sessionStates.value[tab.boardUrl]?.pendingToastResId)
+    }
+
+    @Test
+    fun updateSearchInput_preservesComposition() {
+        val tab = boardTab("https://example.com/test/", "board")
+        val dependencies = mockDependencies(listOf(tab), tab.boardUrl)
+        val viewModel = dependencies.createViewModel()
+        val input = TextFieldValue(text = "かな", selection = TextRange(2), composition = TextRange(0, 2))
+
+        viewModel.updateSearchInput(tab.boardUrl, input)
+
+        assertEquals(input, dependencies.sessionStates.value[tab.boardUrl]?.searchInputValue)
+        assertEquals("かな", dependencies.sessionStates.value[tab.boardUrl]?.searchQuery)
+    }
+
+    @Test
+    fun boardInfoSheet_openAndClose_updatesSessionState() {
+        val tab = boardTab("https://example.com/test/", "board")
+        val dependencies = mockDependencies(listOf(tab), tab.boardUrl)
+        val viewModel = dependencies.createViewModel()
+
+        viewModel.openBoardInfoSheet(tab.boardUrl)
+        assertEquals(true, dependencies.sessionStates.value[tab.boardUrl]?.showBoardInfoSheet)
+
+        viewModel.closeBoardInfoSheet(tab.boardUrl)
+        assertEquals(false, dependencies.sessionStates.value[tab.boardUrl]?.showBoardInfoSheet)
+    }
+
     private fun mockDependencies(
         tabs: List<BoardTabInfo>,
         selectedTabKey: String?,
         suspendRefresh: Boolean = false,
+        refreshReturnsFalse: Boolean = false,
     ): RouteDependencies {
         val openTabs = MutableStateFlow(tabs)
         val selectedKey = MutableStateFlow<String?>(selectedTabKey)
@@ -143,6 +184,8 @@ class BoardRouteViewModelTest {
                     suspendCancellableCoroutine { continuation ->
                         continuation.invokeOnCancellation { boardRefreshCancelled.value = true }
                     }
+                } else if (refreshReturnsFalse) {
+                    false
                 } else {
                     true
                 }
