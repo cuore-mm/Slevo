@@ -19,8 +19,8 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.match
 import io.mockk.verify
-import io.mockk.withArg
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.collect
@@ -161,10 +161,13 @@ class BoardRouteViewModelTest {
 
         assertEquals(42L, dependencies.openTabs.value.first().boardId)
         assertEquals(42L, uiState.value.boardInfo.boardId)
-        coVerify(atLeast = 1) { dependencies.boardRepository.ensureBoard(withArg { board ->
-            assertEquals(0L, board.boardId)
-            assertEquals(placeholderTab.boardUrl, board.url)
-        }) }
+        coVerify(atLeast = 1) {
+            dependencies.boardRepository.ensureBoard(
+                match { board ->
+                    board.boardId == 0L && board.url == placeholderTab.boardUrl
+                }
+            )
+        }
         verify(atLeast = 1) { dependencies.boardRepository.observeThreads(42L) }
         verify(atLeast = 1) { dependencies.threadStateRepository.observeThreadStateMapByBoard(42L) }
         coVerify(atLeast = 1) {
