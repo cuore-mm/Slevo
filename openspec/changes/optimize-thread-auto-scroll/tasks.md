@@ -11,7 +11,7 @@
 - [ ] 2.2 ユーザー手動 drag を `LazyListState.interactionSource.interactions` で検知し、自動スクロール中のユーザー操作を一時停止状態として扱う
 - [ ] 2.3 `DragInteraction.Stop` / `Cancel` 後に自動スクロールが再開するようにし、`isAutoScroll` 自体は解除しない
 - [ ] 2.4 手動 scroll / fling と自動スクロール再開の境界で、ユーザー操作を奪わない猶予または再開条件を定義する
-- [ ] 2.5 自動スクロール中に下端へ到達したとき、`onAutoScrollBottom` が過剰に連続発火しないか確認し、必要なら UI 側で edge-trigger または throttle を追加する
+- [ ] 2.5 下端到達通知の発火ポリシーは変更せず、既存の ViewModel 側 10 秒制御で自動更新頻度が維持されることを確認する
 
 ## 3. スクロール位置保存と復元の維持
 

@@ -19,6 +19,7 @@
 - スクロール位置保存の DB スキーマ変更。
 - `ThreadTabInfo` からスクロール位置を完全に別モデルへ移す大規模分離。
 - ミニマップ/勢いバー描画の全面最適化。
+- 下端到達通知の発火ポリシー変更。自動更新の実行可否は既存どおり ViewModel 側の 10 秒制御に任せる。
 
 ## Decisions
 
@@ -42,11 +43,11 @@
 
 これにより、`isScrollInProgress` による自動再起動には戻さず、ユーザー操作だけを再開トリガーとして扱う。
 
-### Decision 4: 下端到達通知は過剰発火を抑える
+### Decision 4: 下端到達通知は今回変更しない
 
-自動スクロールが下端に到達した状態では、フレームごとに `onAutoScrollBottom()` を呼ぶと ViewModel 側 throttling があっても不要な呼び出しが続く。必要に応じて、下端へ入った瞬間または一定間隔だけ通知する edge-trigger / throttle を追加する。
+自動スクロールが下端に到達した状態では `onAutoScrollBottom()` が複数回呼ばれうるが、現在は `ThreadRouteViewModel.onAutoScrollReachedBottom(tabKey)` が表示中タブ確認、`isAutoScroll` 確認、10 秒間隔制御を持っている。今回の不具合はスクロール位置保存による再合成と、手動スクロール後の再開トリガー喪失が主因であり、下端到達通知の発火ポリシー変更は直接の修正対象にしない。
 
-この判断は主因対策ではないが、長時間自動スクロール時の余分な処理を抑える補助策として扱う。
+UI 側 edge-trigger / throttle は、下端滞在中の呼び出し負荷が実測上問題になった場合の follow-up とする。今回の実装では既存挙動を維持し、更新間隔の正本を ViewModel 側に残す。
 
 ## Risks / Trade-offs
 
@@ -60,10 +61,9 @@
 1. `ThreadRouteViewModel` の `tabFlow` に、スクロール位置を除外した比較キーによる `distinctUntilChangedBy` を追加する。
 2. `ObserveAutoScrollEffect` から `isScrollInProgress` key 依存を外す。
 3. `DragInteraction` を用いたユーザー操作中の一時停止・操作終了後の再開を追加する。
-4. 必要に応じて下端到達通知の過剰発火を抑える。
+4. 下端到達通知の発火ポリシーは変更せず、ViewModel 側の既存 10 秒制御に任せる。
 5. 自動スクロール中のスクロール位置保存、手動操作後の再開、タブ切替/画面離脱時の復元をテストする。
 
 ## Open Questions
 
 - 手動スクロール後の再開猶予を固定時間にするか、fling 完了検知に寄せるか。
-- 下端到達通知の throttle は ViewModel 側の既存 10 秒制御だけで十分か、UI 側でも edge-trigger を持つべきか。
