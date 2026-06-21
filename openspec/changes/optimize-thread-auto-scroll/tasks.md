@@ -29,9 +29,10 @@
 ### Implementation notes
 
 - `ThreadRouteViewModel` の `tabFlow` に `distinctUntilChangedBy { tab -> tab?.toUiStateSourceKey() }` を追加し、scroll position だけの `ThreadTabInfo` 更新では `ThreadUiState` を再合成しないようにした。
-- `ObserveAutoScrollEffect` から `isScrollInProgress` を `LaunchedEffect` key から外し、`DragInteraction.Start / Stop / Cancel` を別 `LaunchedEffect` で監視して `isUserInteracting` 状態を管理する形に変更した。
-- 自動スクロール loop は `isUserInteracting` を読み取り、ユーザー操作中は `delay(16L)` で待機する。
-- ユーザー操作終了後は `snapshotFlow { listState.isScrollInProgress }` の false 確認と 150ms 程度の猶予を組み合わせてから自動スクロールを再開する。
+- `ObserveAutoScrollEffect` から loop 内の `isScrollInProgress` 監視と `isScrollInProgressWaiting` ヘルパーを削除し、programmatic scroll 自身の進行状態とユーザー操作判定が混ざらないようにした。
+- `DragInteraction.Start / Stop / Cancel` は別 `LaunchedEffect` で監視し、`isPausedByUser` と `isResumePending` を更新して手動操作中の pause と操作終了後の resume 待ちを分離した。
+- 再開待ち中は別 `LaunchedEffect` で `snapshotFlow { listState.isScrollInProgress }` が false になるのを待ち、その後 150ms の猶予を置いて自動スクロール loop を再開する。
+- 自動スクロール loop 自体は `isAutoScroll` と `isPausedByUser` だけを key に持つ単純な構造へ戻し、ユーザー操作中の毎フレーム polling を避けた。
 - 下端到達通知は既存どおり `ThreadRouteViewModel.onAutoScrollReachedBottom(tabKey)` の 10 秒制御に任せる形を維持し、UI 側の edge-trigger / throttle 変更は行わなかった。
 - 既存 `ScrollPositionPersistence` 系の単測は変更していないため、周期保存・非アクティブ化時保存・破棄時保存の挙動は維持される。
 - `ThreadRouteViewModel` 側の `distinctUntilChangedBy` 導入は `ThreadTabUiStateSourceKey` ヘルパーと `toUiStateSourceKey` 拡張関数を同ファイル内に private で追加し、表示内容へ影響するフィールドを網羅する。

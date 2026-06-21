@@ -39,9 +39,11 @@
 
 ### Decision 3: 手動スクロールは「自動スクロール解除」ではなく「一時停止」として扱う
 
-ユーザーが自動スクロール中にドラッグした場合、`isAutoScroll` 自体は true のまま維持する。`LazyListState.interactionSource.interactions` の `DragInteraction.Start` / `Stop` / `Cancel` を監視し、ユーザー操作中だけ自動スクロールの `scrollBy()` ループを止める。操作終了後は `snapshotFlow { listState.isScrollInProgress }` などでユーザー由来の fling が完了していることを確認し、さらに 100〜200ms 程度の短い猶予を置いてから自動スクロールを再開する。
+ユーザーが自動スクロール中にドラッグした場合、`isAutoScroll` 自体は true のまま維持する。`LazyListState.interactionSource.interactions` の `DragInteraction.Start` / `Stop` / `Cancel` を監視し、drag 開始で `isPausedByUser = true`、drag 終了で「再開待ち」状態へ遷移させる。
 
-これにより、`isScrollInProgress` を `LaunchedEffect` key に戻さずに、ユーザー操作終了と fling 完了だけを再開トリガーとして扱う。固定時間だけで再開する案は実装が単純だが、fling 中に自動スクロールが介入しうるため採用しない。
+再開待ち中は、自動スクロール loop とは別の `LaunchedEffect` で `snapshotFlow { listState.isScrollInProgress }` を監視し、慣性 scroll が完全に止まったことを確認してから 100〜200ms 程度の短い猶予を置き、最後に `isPausedByUser = false` として loop を再開する。自動スクロール loop 本体では `isScrollInProgress` を参照せず、`isAutoScroll` と `isPausedByUser` だけで起動/停止を切り替える。
+
+これにより、programmatic scroll 自身が作る `isScrollInProgress` を loop 内で誤検知せず、手動操作による一時停止と再開条件だけを分離して扱える。固定時間だけで再開する案は実装が単純だが、fling 中に自動スクロールが介入しうるため採用しない。
 
 ### Decision 4: 下端到達通知は今回変更しない
 
@@ -52,15 +54,15 @@ UI 側 edge-trigger / throttle は、下端滞在中の呼び出し負荷が実�
 ## Risks / Trade-offs
 
 - [Risk] scroll offset を `ThreadUiState` 合成入力から除外すると、スクロール位置に依存した表示フィールドが将来追加された際に更新漏れが起きる → `ThreadTabUiStateSourceKey` に含める項目を明示し、表示内容に関係するタブ項目を追加した場合は比較キーも更新する。
-- [Risk] ユーザー操作検知を `DragInteraction` のみにすると fling や programmatic scroll の扱いが曖昧になる → ユーザー drag 中は停止し、`DragInteraction.Stop` / `Cancel` 後は fling 完了を待ってから短い猶予後に再開する。
-- [Risk] 自動スクロール再開が早すぎるとユーザー操作を奪う → fling 完了検知と 100〜200ms 程度の猶予を組み合わせ、固定時間だけで再開しない。
+- [Risk] 手動操作停止と自動スクロール再開を同じ loop に混在させると、programmatic scroll と user scroll の境界が曖昧になりやすい → 停止/再開判定は別 `LaunchedEffect` に分離し、loop 本体では `isScrollInProgress` を見ない。
+- [Risk] 自動スクロール再開が早すぎるとユーザー操作を奪う → `DragInteraction.Stop` / `Cancel` 後は fling 完了検知と 100〜200ms 程度の猶予を組み合わせる。
 - [Risk] `distinctUntilChangedBy` により必要な tab 変更が抑制される → boardId、title、レス数、新着境界、bookmark 色、pin など表示に関係する項目を比較キーへ含める。
 
 ## Migration Plan
 
 1. `ThreadRouteViewModel` の `tabFlow` に、スクロール位置を除外した比較キーによる `distinctUntilChangedBy` を追加する。
 2. `ObserveAutoScrollEffect` から `isScrollInProgress` key 依存を外す。
-3. `DragInteraction` と fling 完了検知を用いたユーザー操作中の一時停止・操作終了後の再開を追加する。
+3. `DragInteraction` による pause 状態管理と、別 `LaunchedEffect` による fling 完了待ち + 猶予再開を追加する。
 4. 下端到達通知の発火ポリシーは変更せず、ViewModel 側の既存 10 秒制御に任せる。
 5. 自動スクロール中のスクロール位置保存、手動操作後の再開、タブ切替/画面離脱時の復元をテストする。
 
