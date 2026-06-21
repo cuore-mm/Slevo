@@ -4,8 +4,9 @@ import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
-import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
+import io.mockk.coVerify
 import io.mockk.mockk
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -119,11 +120,84 @@ class BoardTabsCoordinatorTest {
         assertNull(coordinator.selectedBoardTabKey.value)
     }
 
+    /**
+     * タブを閉じたときに対象板タブのセッション状態だけが削除されることを確認する。
+     */
+    @Test
+    fun closeBoardTab_removesOnlyTargetSessionState() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        val first = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        val second = BoardTabInfo(2, "B", "https://example.com/b/", "example.com")
+        coordinator.openBoardTab(first)
+        coordinator.openBoardTab(second)
+        coordinator.updateBoardSessionState(first.boardUrl) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("first"))
+        }
+        coordinator.updateBoardSessionState(second.boardUrl) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("second"))
+        }
+
+        coordinator.closeBoardTab(first)
+
+        assertFalse(coordinator.boardSessionStates.value.containsKey(first.boardUrl))
+        assertEquals("second", coordinator.getBoardSessionState(second.boardUrl).searchQuery)
+    }
+
+    /**
+     * セッション状態更新が永続タブ保存を呼ばないことを確認する。
+     */
+    @Test
+    fun updateBoardSessionState_doesNotPersistTabs() {
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val coordinator = createCoordinator(tabsRepository)
+        val tab = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        coordinator.openBoardTab(tab)
+
+        coordinator.updateBoardSessionState(tab.boardUrl) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("query"))
+        }
+
+        assertEquals("query", coordinator.getBoardSessionState(tab.boardUrl).searchQuery)
+        coVerify(exactly = 0) { tabsRepository.saveOpenBoardTabs(any()) }
+    }
+
+    /**
+     * 解決済み boardId を反映しても、固定状態とスクロール位置を保持したまま永続保存されることを確認する。
+     */
+    @Test
+    fun updateBoardResolvedInfo_updatesBoardIdAndPreservesPersistentFields() {
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val coordinator = createCoordinator(tabsRepository)
+        coordinator.openBoardTab(
+            BoardTabInfo(
+                boardId = 0,
+                boardName = "Test Board",
+                boardUrl = "https://example.com/test/",
+                serviceName = "example.com",
+                firstVisibleItemIndex = 12,
+                firstVisibleItemScrollOffset = 34,
+                isPinned = true,
+            )
+        )
+
+        coordinator.updateBoardResolvedInfo(
+            boardUrl = "https://example.com/test/",
+            boardId = 42L,
+            boardName = "Resolved Board",
+        )
+
+        val actual = coordinator.openBoardTabs.value.first()
+        assertEquals(42L, actual.boardId)
+        assertEquals("Resolved Board", actual.boardName)
+        assertEquals(12, actual.firstVisibleItemIndex)
+        assertEquals(34, actual.firstVisibleItemScrollOffset)
+        assertEquals(true, actual.isPinned)
+    }
+
     private fun createCoordinator(tabsRepository: TabsRepository): BoardTabsCoordinator {
         return BoardTabsCoordinator(
             tabsRepository = tabsRepository,
             bookmarkBoardRepository = mockk<BookmarkBoardRepository>(relaxed = true),
-            tabViewModelRegistry = mockk<TabViewModelRegistry>(relaxed = true),
         )
     }
 }

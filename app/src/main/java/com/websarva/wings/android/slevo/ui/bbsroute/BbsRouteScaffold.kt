@@ -29,7 +29,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.navigation.NavHostController
-import com.websarva.wings.android.slevo.ui.board.viewmodel.BoardViewModel
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolder
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
@@ -37,11 +37,11 @@ import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenForTabSele
 import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadViewModel
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarActionVisibility
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
@@ -56,7 +56,7 @@ import kotlin.math.abs
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<UiState, *>> BbsRouteScaffold(
+fun <TabInfo : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
     route: AppRoute,
     tabSessionStore: TabSessionStore,
     navController: NavHostController,
@@ -64,22 +64,22 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     onEmptyTabs: () -> Unit,
     openTabs: List<TabInfo>,
     selectedTabKey: Any?,
-    getViewModel: (TabInfo) -> ViewModel,
+    getUiState: (TabInfo) -> StateFlow<UiState>,
+    getBookmarkSheetHolder: (TabInfo) -> BookmarkBottomSheetStateHolder? = { null },
     getKey: (TabInfo) -> Any,
     getScrollIndex: (TabInfo) -> Int,
     getScrollOffset: (TabInfo) -> Int,
-    initializeViewModel: (viewModel: ViewModel, tabInfo: TabInfo) -> Unit,
-    updateScrollPosition: (viewModel: ViewModel, tab: TabInfo, index: Int, offset: Int) -> Unit,
+    updateScrollPosition: (tab: TabInfo, index: Int, offset: Int) -> Unit,
     onTabSelected: (TabInfo) -> Unit,
     animateToPageFlow: Flow<Int>? = null,
     bottomBar: @Composable (
-        viewModel: ViewModel,
+        tabInfo: TabInfo,
         uiState: UiState,
         actionProgress: Float,
         openTabListSheet: () -> Unit,
     ) -> Unit,
     content: @Composable (
-        viewModel: ViewModel,
+        tabInfo: TabInfo,
         uiState: UiState,
         listState: LazyListState,
         modifier: Modifier,
@@ -89,11 +89,11 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
     ) -> Unit,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     bottomBarActionVisibilityEnabled: Boolean = true,
-    optionalSheetContent: @Composable (viewModel: ViewModel, uiState: UiState) -> Unit = { _, _ -> }
+    optionalSheetContent: @Composable (tabInfo: TabInfo, uiState: UiState) -> Unit = { _, _ -> }
 ) {
     // このComposableはタブベースの画面レイアウトを提供します。
     // - HorizontalPagerで複数タブを左右にスワイプできる
-    // - 各タブごとにViewModelとリストのスクロール位置を保持/復元する
+    // - 各タブごとのUiState購読とリストのスクロール位置を保持/復元する
     // - 共通のボトムシートやダイアログを表示する
 
     LaunchedEffect(isTabsLoaded, openTabs) {
@@ -163,8 +163,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
         val coroutineScope = rememberCoroutineScope()
 
         val currentUiState = currentTabInfo?.let { tabInfo ->
-            val currentViewModel = getViewModel(tabInfo)
-            currentViewModel.uiState.collectAsState().value
+            getUiState(tabInfo).collectAsState().value
         }
         val pagerUserScrollEnabled = currentUiState?.isTabSwipeEnabled ?: true
 
@@ -174,14 +173,9 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
             userScrollEnabled = pagerUserScrollEnabled
         ) { page ->
             val tab = tabs[page]
-            val viewModel = getViewModel(tab)
-            val uiState by viewModel.uiState.collectAsState()
+            val uiState by getUiState(tab).collectAsState()
             val bookmarkSheetUiState = uiState.bookmarkSheetState
-            val bookmarkSheetHolder = when (viewModel) {
-                is BoardViewModel -> viewModel.bookmarkSheetHolder
-                is ThreadViewModel -> viewModel.bookmarkSheetHolder
-                else -> null
-            }
+            val bookmarkSheetHolder = getBookmarkSheetHolder(tab)
 
 
             val tabKey = getKey(tab)
@@ -195,23 +189,14 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                 )
             }
 
-            // タブ初回表示時にViewModelの初期処理を行うためのフラグ
-            var hasInitialized by remember(tabKey) { mutableStateOf(false) }
             val isActive = pagerState.currentPage == page
-            LaunchedEffect(isActive, tabKey) {
-                if (isActive && !hasInitialized) {
-                    // 表示されたときに初期化処理を実行
-                    initializeViewModel(viewModel, tab)
-                    hasInitialized = true
-                }
-            }
 
             ObserveScrollPositionPersistence(
                 tabKey = tabKey,
                 listState = listState,
                 isActive = isActive,
                 onSave = { index, offset ->
-                    updateScrollPosition(viewModel, tab, index, offset)
+                    updateScrollPosition(tab, index, offset)
                 },
             )
 
@@ -230,7 +215,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         },
                     bottomBar = {
                         bottomBar(
-                            viewModel,
+                            tab,
                             uiState,
                             actionVisibility.progress.value
                         ) {
@@ -243,7 +228,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                         .consumeTabSwipeByDragDirection()
                     // 各画面の実際のコンテンツを呼び出す
                     content(
-                        viewModel,
+                        tab,
                         uiState,
                         listState,
                         contentModifier,
@@ -263,7 +248,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>, ViewModel : BaseViewModel<Ui
                     )
                 }
                 // 各画面固有のシートやダイアログをScaffoldの外側に重ねることでボトムバーも覆う
-                optionalSheetContent(viewModel, uiState)
+                optionalSheetContent(tab, uiState)
             }
         }
 

@@ -1,10 +1,4 @@
-# board-thread-init Specification
-
-## Purpose
-
-板画面とスレッド画面の Route 単位 ViewModel における初期化シーケンス、共通ロジック、ガード条件を定義する。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Board/Thread Route ViewModel の初期化シーケンス統一
 BoardRouteViewModel と ThreadRouteViewModel は、画面 route 単位の ViewModel として初期化され、選択中タブ key の変更に応じて表示状態を再合成しなければならない（MUST）。既存のタブ単位 BoardViewModel / ThreadViewModel を初期化対象として扱ってはならない（MUST NOT）。初期化フェーズは以下を含み、タブごとの ViewModel インスタンス生成を前提としてはならない（MUST NOT）。
@@ -31,4 +25,3 @@ BoardRouteViewModel と ThreadRouteViewModel は、route 単位の初期化を�
 #### Scenario: 選択中タブが変更される
 - **WHEN** ユーザーが板またはスレッドの別タブへ切り替える
 - **THEN** システムは既存の route 単位 ViewModel で新しい選択中タブ key のタブセッション状態とデータを合成する
-

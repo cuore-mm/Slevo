@@ -1,20 +1,28 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
+import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
-import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
+import com.websarva.wings.android.slevo.ui.tabs.session.holder.BoardTabSessionHolder
+import com.websarva.wings.android.slevo.ui.tabs.session.holder.BoardTabSessionHolderFactory
+import com.websarva.wings.android.slevo.ui.tabs.session.holder.ThreadTabSessionHolder
+import com.websarva.wings.android.slevo.ui.tabs.session.holder.ThreadTabSessionHolderFactory
 import io.mockk.mockk
 import io.mockk.every
 import io.mockk.coEvery
 import io.mockk.verify
+import io.mockk.slot
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -29,13 +37,16 @@ class TabSessionStoreTest {
 
     private val boardCoordinator = mockk<BoardTabsCoordinator>(relaxed = true)
     private val threadCoordinator = mockk<ThreadTabsCoordinator>(relaxed = true)
-    private val registry = mockk<TabViewModelRegistry>(relaxed = true)
+    private val threadHolderFactory = mockk<ThreadTabSessionHolderFactory>(relaxed = true)
+    private val boardHolderFactory = mockk<BoardTabSessionHolderFactory>(relaxed = true)
     private val settingsRepository = mockk<SettingsRepository>(relaxed = true)
-    private val store by lazy {
-        TabSessionStore(
+
+    private fun createStore(): TabSessionStore {
+        return TabSessionStore(
             boardTabsCoordinator = boardCoordinator,
             threadTabsCoordinator = threadCoordinator,
-            tabViewModelRegistry = registry,
+            threadTabSessionHolderFactory = threadHolderFactory,
+            boardTabSessionHolderFactory = boardHolderFactory,
             tabsRepository = mockk(relaxed = true),
             boardRepository = mockk(relaxed = true),
             bbsServiceRepository = mockk(relaxed = true),
@@ -43,19 +54,94 @@ class TabSessionStoreTest {
         )
     }
 
+    private val store by lazy { createStore() }
+
     /**
-     * [close] 呼び出し時に内部 CoroutineScope がキャンセルされることを確認する。
+     * [close] 呼び出し時に内部 CoroutineScope と全 holder が解放されることを確認する。
      */
     @Test
-    fun close_cancelsInternalScope() {
-        store.close()
-        // close() は CoroutineScope.cancel() を呼ぶ。
-        // キャンセル後の新規 launch は実行されないことを確認する。
-        var launched = false
-        store.boardTabsCoordinator.bind(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined))
-        // 注: bind は外部スコープを受け取るが、内部スコープのキャンセル状態を直接検証する手段がないため、
-        // close() 後に TabSessionStore のメソッド呼び出しが例外を投げないことで間接的に確認する。
-        assertTrue(true) // close() が例外なしで完了
+    fun close_disposesAllHoldersAndCancelsScope() {
+        val threadHolder = mockThreadHolder()
+        val boardHolder = mockBoardHolder()
+        every { threadHolderFactory.create(any(), any()) } returns threadHolder
+        every { boardHolderFactory.create(any(), any()) } returns boardHolder
+
+        val testStore = createStore()
+        testStore.threadBookmarkSheetHolder("example.com/test/123")
+        testStore.boardBookmarkSheetHolder("https://example.com/test/")
+
+        testStore.close()
+
+        verify { threadHolder.dispose() }
+        verify { boardHolder.dispose() }
+    }
+
+    /**
+     * スレッドタブ削除時に対象 holder だけが破棄されることを確認する。
+     */
+    @Test
+    fun closeThreadTab_disposesTargetHolderOnly() {
+        val holder1 = mockThreadHolder()
+        val holder2 = mockThreadHolder()
+        every { threadHolderFactory.create("example.com/test/123", any()) } returns holder1
+        every { threadHolderFactory.create("example.com/test/456", any()) } returns holder2
+
+        val testStore = createStore()
+        testStore.threadBookmarkSheetHolder("example.com/test/123")
+        testStore.threadBookmarkSheetHolder("example.com/test/456")
+
+        val tab = ThreadTabInfo(
+            id = ThreadId.of("example.com", "test", "123"),
+            title = "Thread 1",
+            boardName = "Test Board",
+            boardUrl = "https://example.com/test/",
+            boardId = 1L,
+        )
+        testStore.closeThreadTab(tab)
+
+        verify { holder1.dispose() }
+        verify(exactly = 0) { holder2.dispose() }
+    }
+
+    /**
+     * 板タブ削除時に対象 holder だけが破棄されることを確認する。
+     */
+    @Test
+    fun closeBoardTab_disposesTargetHolderOnly() {
+        val holder1 = mockBoardHolder()
+        val holder2 = mockBoardHolder()
+        every { boardHolderFactory.create("https://example.com/a/", any()) } returns holder1
+        every { boardHolderFactory.create("https://example.com/b/", any()) } returns holder2
+
+        val testStore = createStore()
+        testStore.boardBookmarkSheetHolder("https://example.com/a/")
+        testStore.boardBookmarkSheetHolder("https://example.com/b/")
+
+        val tab = BoardTabInfo(
+            boardId = 1,
+            boardName = "A",
+            boardUrl = "https://example.com/a/",
+            serviceName = "example.com",
+        )
+        testStore.closeBoardTab(tab)
+
+        verify { holder1.dispose() }
+        verify(exactly = 0) { holder2.dispose() }
+    }
+
+    private fun mockThreadHolder(): ThreadTabSessionHolder {
+        val holder = mockk<ThreadTabSessionHolder>(relaxed = true)
+        every { holder.bookmarkSheetHolder } returns mockk(relaxed = true)
+        every { holder.postDialogController } returns mockk(relaxed = true)
+        every { holder.imageSaveEvents } returns MutableSharedFlow<com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent>()
+        return holder
+    }
+
+    private fun mockBoardHolder(): BoardTabSessionHolder {
+        val holder = mockk<BoardTabSessionHolder>(relaxed = true)
+        every { holder.bookmarkSheetHolder } returns mockk(relaxed = true)
+        every { holder.postDialogController } returns mockk(relaxed = true)
+        return holder
     }
 
     /**
@@ -174,11 +260,33 @@ class TabSessionStoreTest {
     }
 
     /**
-     * 全 ViewModel 解放が [TabViewModelRegistry.releaseAll] へ委譲されることを確認する。
+     * 板セッション状態更新 API が coordinator へ委譲されることを確認する。
      */
     @Test
-    fun releaseAllViewModels_delegatesToRegistry() {
-        store.releaseAllViewModels()
-        verify { registry.releaseAll() }
+    fun updateBoardSessionState_delegatesToBoardCoordinator() {
+        val transform = slot<(BoardSessionState) -> BoardSessionState>()
+
+        store.updateBoardSessionState("https://example.com/test/") {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("query"))
+        }
+
+        verify { boardCoordinator.updateBoardSessionState("https://example.com/test/", capture(transform)) }
+        assertEquals("query", transform.captured(BoardSessionState()).searchQuery)
+    }
+
+    /**
+     * スレッドセッション状態更新 API が coordinator へ委譲されることを確認する。
+     */
+    @Test
+    fun updateThreadSessionState_delegatesToThreadCoordinator() {
+        val threadId = ThreadId.of("example.com", "test", "123")
+        val transform = slot<(ThreadSessionState) -> ThreadSessionState>()
+
+        store.updateThreadSessionState(threadId) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("query"))
+        }
+
+        verify { threadCoordinator.updateThreadSessionState(threadId, capture(transform)) }
+        assertEquals("query", transform.captured(ThreadSessionState()).searchQuery)
     }
 }

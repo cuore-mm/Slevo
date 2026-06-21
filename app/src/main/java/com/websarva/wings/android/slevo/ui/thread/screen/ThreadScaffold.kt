@@ -23,9 +23,9 @@ import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.toClipEntry
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
@@ -55,6 +55,7 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.DisplaySettingsBottomShe
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuSheet
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadRouteViewModel
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import kotlinx.coroutines.launch
 
@@ -73,6 +74,7 @@ fun ThreadScaffold(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
+    val routeViewModel: ThreadRouteViewModel = hiltViewModel()
     val threadLoaded by tabSessionStore.threadLoaded.collectAsState()
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsState()
     val selectedThreadTabKey by tabSessionStore.selectedThreadTabKey.collectAsState()
@@ -123,37 +125,27 @@ fun ThreadScaffold(
         onEmptyTabs = { navController.navigateUp() },
         openTabs = openThreadTabs,
         selectedTabKey = selectedThreadTabKey,
-        getViewModel = { tab -> tabSessionStore.getOrCreateThreadViewModel(tab.id.value) },
+        getUiState = { tab -> routeViewModel.uiStateFor(tab.id.value) },
+        getBookmarkSheetHolder = { tab -> routeViewModel.bookmarkSheetHolderFor(tab.id.value) },
         getKey = { it.id.value },
         getScrollIndex = { it.firstVisibleItemIndex },
         getScrollOffset = { it.firstVisibleItemScrollOffset },
-        initializeViewModel = { viewModel, tab ->
-            viewModel.initializeThread(
-                threadKey = tab.threadKey,
-                boardInfo = BoardInfo(
-                    name = tab.boardName,
-                    url = tab.boardUrl,
-                    boardId = tab.boardId
-                ),
-                threadTitle = tab.title
-            )
-        },
-        updateScrollPosition = { viewModel, tab, index, offset ->
-            viewModel.updateThreadScrollPosition(tab.id, index, offset)
+        updateScrollPosition = { tab, index, offset ->
+            routeViewModel.updateThreadScrollPosition(tab.id, index, offset)
         },
         onTabSelected = { tabSessionStore.selectThreadTab(it.id) },
         animateToPageFlow = tabSessionStore.threadPageAnimation,
         bottomBarActionVisibilityEnabled = !isPopupVisible,
-        bottomBar = { viewModel, uiState, actionProgress, openTabListSheet ->
+        bottomBar = { tab, uiState, actionProgress, openTabListSheet ->
             BbsRouteBottomBar(
                 isSearchMode = uiState.isSearchMode,
-                onCloseSearch = { viewModel.closeSearch() },
+                onCloseSearch = { routeViewModel.closeSearch(tab.id.value) },
                 animationLabel = "BottomBarAnimation",
                 searchContent = { modifier, closeSearch ->
                     SearchBottomBar(
                         modifier = modifier,
                         searchInputValue = uiState.searchInputValue,
-                        onSearchInputChange = { viewModel.updateSearchInput(it) },
+                        onSearchInputChange = { routeViewModel.updateSearchInput(tab.id.value, it) },
                         onCloseSearch = closeSearch,
                         placeholderResId = R.string.search_in_thread,
                     )
@@ -163,21 +155,21 @@ fun ThreadScaffold(
                         modifier = modifier,
                         uiState = uiState,
                         isTreeSort = uiState.sortType == ThreadSortType.TREE,
-                        onSortClick = { viewModel.toggleSortType() },
-                        onPostClick = { viewModel.postDialogActions.showDialog() },
+                        onSortClick = { routeViewModel.toggleSortType(tab.id.value) },
+                        onPostClick = { routeViewModel.postDialogActionsFor(tab.id.value).showDialog() },
                         onTabListClick = openTabListSheet,
-                        onRefreshClick = { viewModel.reloadThread() },
-                        onSearchClick = { viewModel.startSearch() },
-                        onBookmarkClick = { viewModel.openBookmarkSheet() },
-                        onThreadInfoClick = { viewModel.openThreadInfoSheet() },
-                        onMoreClick = { viewModel.openMoreSheet() },
-                        onAutoScrollClick = { viewModel.toggleAutoScroll() },
+                        onRefreshClick = { routeViewModel.reloadThread(tab.id.value) },
+                        onSearchClick = { routeViewModel.startSearch(tab.id.value) },
+                        onBookmarkClick = { routeViewModel.openBookmarkSheet(tab.id.value) },
+                        onThreadInfoClick = { routeViewModel.openThreadInfoSheet(tab.id.value) },
+                        onMoreClick = { routeViewModel.openMoreSheet(tab.id.value) },
+                        onAutoScrollClick = { routeViewModel.toggleAutoScroll(tab.id.value) },
                         actionsProgress = if (uiState.isSearchMode) 0f else actionProgress,
                     )
                 }
             )
         },
-        content = { viewModel, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
+        content = { tab, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
             LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
                 if (
@@ -187,7 +179,7 @@ fun ThreadScaffold(
                     uiState.threadInfo.key.isNotEmpty()
                 ) {
                     parseBoardUrl(uiState.boardInfo.url)?.let { (host, board) ->
-                        viewModel.updateThreadTabInfo(
+                        routeViewModel.updateThreadTabInfo(
                             threadId = ThreadId.of(host, board, uiState.threadInfo.key),
                             title = uiState.threadInfo.title,
                             resCount = uiState.posts.size
@@ -201,7 +193,7 @@ fun ThreadScaffold(
             }
             LaunchedEffect(tabInfo?.firstNewResNo, tabInfo?.prevResCount) {
                 tabInfo?.let {
-                    viewModel.setNewArrivalInfo(it.firstNewResNo, it.prevResCount)
+                    routeViewModel.setNewArrivalInfo(tab.id.value, it.firstNewResNo, it.prevResCount)
                 }
             }
             ThreadScreen(
@@ -210,33 +202,33 @@ fun ThreadScaffold(
                 listState = listState,
                 navController = navController,
                 tabSessionStore = tabSessionStore,
-                onAutoScrollBottom = { viewModel.onAutoScrollReachedBottom() },
-                onBottomRefresh = { viewModel.reloadThreadFromBottomPull() },
+                onAutoScrollBottom = { routeViewModel.onAutoScrollReachedBottom(tab.id.value) },
+                onBottomRefresh = { routeViewModel.reloadThreadFromBottomPull(tab.id.value) },
                 onLastRead = { resNum ->
-                    routeThreadId?.let { viewModel.updateThreadLastRead(it, resNum) }
+                    routeThreadId?.let { routeViewModel.updateThreadLastRead(it, resNum) }
                 },
                 gestureSettings = uiState.gestureSettings,
                 onPopupVisibilityChange = { isPopupVisible = it },
                 onRequestPostMenu = { target -> popupMenuTarget = target },
                 onRequestTextMenu = { text, type -> popupDialogState.showTextMenu(text, type) },
-                onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
-                onImageLoadStart = { url -> viewModel.onThreadImageLoadStart(url) },
+                onImageLongPress = { url, urls -> routeViewModel.openImageMenu(tab.id.value, url, urls) },
+                onImageLoadStart = { url -> routeViewModel.onThreadImageLoadStart(tab.id.value, url) },
                 onImageLoadError = { url, failureType ->
-                    viewModel.onThreadImageLoadError(url, failureType)
+                    routeViewModel.onThreadImageLoadError(tab.id.value, url, failureType)
                 },
-                onImageLoadSuccess = { url -> viewModel.onThreadImageLoadSuccess(url) },
-                onImageRetry = { url -> viewModel.onThreadImageRetry(url) },
+                onImageLoadSuccess = { url -> routeViewModel.onThreadImageLoadSuccess(tab.id.value, url) },
+                onImageRetry = { url -> routeViewModel.onThreadImageRetry(tab.id.value, url) },
                 onRequestTreePopup = { postNum, baseOffset ->
-                    viewModel.addPopupForTree(baseOffset, postNum)
+                    routeViewModel.addPopupForTree(tab.id.value, baseOffset, postNum)
                 },
                 onAddPopupForReplyFrom = { replyNumbers, baseOffset ->
-                    viewModel.addPopupForReplyFrom(baseOffset, replyNumbers)
+                    routeViewModel.addPopupForReplyFrom(tab.id.value, baseOffset, replyNumbers)
                 },
                 onAddPopupForReplyNumber = { postNumber, baseOffset ->
-                    viewModel.addPopupForReplyNumber(baseOffset, postNumber)
+                    routeViewModel.addPopupForReplyNumber(tab.id.value, baseOffset, postNumber)
                 },
                 onAddPopupForId = { id, baseOffset ->
-                    viewModel.addPopupForId(baseOffset, id)
+                    routeViewModel.addPopupForId(tab.id.value, baseOffset, id)
                 },
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
@@ -244,9 +236,9 @@ fun ThreadScaffold(
                     dispatchCommonGestureAction(
                         action = action,
                         handlers = CommonGestureActionHandlers(
-                            onRefresh = { viewModel.reloadThread() },
-                            onPostOrCreateThread = { viewModel.postDialogActions.showDialog() },
-                            onSearch = { viewModel.startSearch() },
+                            onRefresh = { routeViewModel.reloadThread(tab.id.value) },
+                            onPostOrCreateThread = { routeViewModel.postDialogActionsFor(tab.id.value).showDialog() },
+                            onSearch = { routeViewModel.startSearch(tab.id.value) },
                             onOpenTabList = openTabListSheet,
                             onOpenBookmarkList = { navController.navigate(AppRoute.BookmarkList) },
                             onOpenBoardList = { navController.navigate(AppRoute.ServiceList) },
@@ -267,19 +259,20 @@ fun ThreadScaffold(
                 }
             )
         },
-        optionalSheetContent = { viewModel, uiState ->
+        optionalSheetContent = { tab, uiState ->
             val clipboard = LocalClipboard.current
             val coroutineScope = rememberCoroutineScope()
             val uriHandler = LocalUriHandler.current
             val imageSavePermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission()
             ) { granted ->
-                viewModel.onImageSavePermissionResult(context, granted)
+                routeViewModel.onImageSavePermissionResult(tab.id.value, context, granted)
             }
 
             // --- Image save event ---
-            LaunchedEffect(viewModel) {
-                viewModel.imageSaveEvents.collect { event ->
+            val imageSaveEvents = remember(tab.id.value) { routeViewModel.imageSaveEventsFor(tab.id.value) }
+            LaunchedEffect(imageSaveEvents) {
+                imageSaveEvents.collect { event ->
                     when (event) {
                         is ImageSaveUiEvent.RequestPermission -> {
                             imageSavePermissionLauncher.launch(event.permission)
@@ -296,7 +289,7 @@ fun ThreadScaffold(
             LaunchedEffect(uiState.pendingToastResId) {
                 uiState.pendingToastResId?.let { resId ->
                     Toast.makeText(context, resId, Toast.LENGTH_SHORT).show()
-                    viewModel.consumeToast()
+                    routeViewModel.consumeToast(tab.id.value)
                 }
             }
 
@@ -331,32 +324,32 @@ fun ThreadScaffold(
                     )
                     route?.let(navController::navigate)
                 },
-                onImageLongPress = { url, urls -> viewModel.openImageMenu(url, urls) },
+                onImageLongPress = { url, urls -> routeViewModel.openImageMenu(tab.id.value, url, urls) },
                 imageLoadFailureByUrl = uiState.imageLoadFailureByUrl,
-                onImageLoadStart = { url -> viewModel.onThreadImageLoadStart(url) },
+                onImageLoadStart = { url -> routeViewModel.onThreadImageLoadStart(tab.id.value, url) },
                 onImageLoadError = { url, failureType ->
-                    viewModel.onThreadImageLoadError(url, failureType)
+                    routeViewModel.onThreadImageLoadError(tab.id.value, url, failureType)
                 },
-                onImageLoadSuccess = { url -> viewModel.onThreadImageLoadSuccess(url) },
-                onImageRetry = { url -> viewModel.onThreadImageRetry(url) },
+                onImageLoadSuccess = { url -> routeViewModel.onThreadImageLoadSuccess(tab.id.value, url) },
+                onImageRetry = { url -> routeViewModel.onThreadImageRetry(tab.id.value, url) },
                 onRequestMenu = { target -> popupMenuTarget = target },
                 onShowTextMenu = { text, type -> popupDialogState.showTextMenu(text, type) },
                 onRequestTreePopup = { postNum, baseOffset ->
-                    viewModel.addPopupForTree(baseOffset, postNum)
+                    routeViewModel.addPopupForTree(tab.id.value, baseOffset, postNum)
                 },
                 onAddPopupForReplyFrom = { replyNumbers, baseOffset ->
-                    viewModel.addPopupForReplyFrom(baseOffset, replyNumbers)
+                    routeViewModel.addPopupForReplyFrom(tab.id.value, baseOffset, replyNumbers)
                 },
                 onAddPopupForReplyNumber = { postNumber, baseOffset ->
-                    viewModel.addPopupForReplyNumber(baseOffset, postNumber)
+                    routeViewModel.addPopupForReplyNumber(tab.id.value, baseOffset, postNumber)
                 },
                 onAddPopupForId = { id, baseOffset ->
-                    viewModel.addPopupForId(baseOffset, id)
+                    routeViewModel.addPopupForId(tab.id.value, baseOffset, id)
                 },
                 onPopupSizeChange = { index, size ->
-                    viewModel.updatePopupSize(index, size)
+                    routeViewModel.updatePopupSize(tab.id.value, index, size)
                 },
-                onClose = { viewModel.removeTopPopup() },
+                onClose = { routeViewModel.removeTopPopup(tab.id.value) },
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
             )
@@ -369,7 +362,7 @@ fun ThreadScaffold(
                 scope = coroutineScope,
                 dialogState = popupDialogState,
                 onClearMenuTarget = { popupMenuTarget = null },
-                onReply = { target -> viewModel.postDialogActions.showReplyDialog(target.postNum) },
+                onReply = { target -> routeViewModel.postDialogActionsFor(tab.id.value).showReplyDialog(target.postNum) },
                 onCopy = { target ->
                     popupDialogTarget = target
                     popupDialogState.showCopyDialog()
@@ -382,7 +375,7 @@ fun ThreadScaffold(
 
             ThreadInfoBottomSheet(
                 showThreadInfoSheet = uiState.showThreadInfoSheet,
-                onDismissRequest = { viewModel.closeThreadInfoSheet() },
+                onDismissRequest = { routeViewModel.closeThreadInfoSheet(tab.id.value) },
                 threadInfo = uiState.threadInfo,
                 boardInfo = uiState.boardInfo,
                 navController = navController,
@@ -406,17 +399,18 @@ fun ThreadScaffold(
                             coroutineScope = coroutineScope,
                             currentImageUrl = targetUrl,
                             imageUrls = uiState.imageMenuTargetUrls,
-                            onOpenNgDialog = { url -> viewModel.openImageNgDialog(url) },
-                            onRequestSaveSingle = { url ->
-                                viewModel.requestImageSave(context, listOf(url))
-                            },
-                            onRequestSaveAll = { urls ->
-                                // レス内画像が2件以上ある場合のみ処理する。
-                                if (urls.size >= 2) {
-                                    viewModel.requestImageSave(context, urls)
-                                }
-                            },
-                            onActionHandled = { viewModel.closeImageMenu() },
+                            onOpenNgDialog = { url -> routeViewModel.openImageNgDialog(tab.id.value, url) },
+                onRequestSaveSingle = { url ->
+                    routeViewModel.requestImageSave(tab.id.value, context, listOf(url))
+                },
+                onRequestSaveAll = { urls ->
+                    // レス内画像が2件以上ある場合のみ処理する。
+                    if (urls.size >= 2) {
+                        routeViewModel.requestImageSave(tab.id.value, context, urls)
+                    }
+                },
+                onActionHandled = { routeViewModel.closeImageMenu(tab.id.value) },
+
                             onSetClipboardText = { text ->
                                 val clip = ClipData.newPlainText("", text).toClipEntry()
                                 clipboard.setClipEntry(clip)
@@ -432,7 +426,7 @@ fun ThreadScaffold(
                         ),
                     )
                 },
-                onDismissRequest = { viewModel.closeImageMenu() },
+                onDismissRequest = { routeViewModel.closeImageMenu(tab.id.value) },
             )
 
             if (uiState.showImageNgDialog) {
@@ -442,33 +436,33 @@ fun ThreadScaffold(
                         type = NgType.WORD,
                         boardName = uiState.boardInfo.name,
                         boardId = uiState.boardInfo.boardId.takeIf { it != 0L },
-                        onDismiss = { viewModel.closeImageNgDialog() }
+                        onDismiss = { routeViewModel.closeImageNgDialog(tab.id.value) }
                     )
                 }
             }
 
             if (uiState.showMoreSheet) {
                 ThreadToolbarOverflowMenu(
-                    onDismissRequest = { viewModel.closeMoreSheet() },
+                    onDismissRequest = { routeViewModel.closeMoreSheet(tab.id.value) },
                     onBookmarkClick = {
-                        viewModel.closeMoreSheet()
+                        routeViewModel.closeMoreSheet(tab.id.value)
                         navController.navigate(AppRoute.BookmarkList)
                     },
                     onBoardListClick = {
-                        viewModel.closeMoreSheet()
+                        routeViewModel.closeMoreSheet(tab.id.value)
                         navController.navigate(AppRoute.ServiceList)
                     },
                     onHistoryClick = {
-                        viewModel.closeMoreSheet()
+                        routeViewModel.closeMoreSheet(tab.id.value)
                         navController.navigate(AppRoute.HistoryList)
                     },
                     onSettingsClick = {
-                        viewModel.closeMoreSheet()
+                        routeViewModel.closeMoreSheet(tab.id.value)
                         navController.navigate(AppRoute.SettingsHome)
                     },
                     onDisplaySettingsClick = {
-                        viewModel.closeMoreSheet()
-                        viewModel.openDisplaySettingsSheet()
+                        routeViewModel.closeMoreSheet(tab.id.value)
+                        routeViewModel.openDisplaySettingsSheet(tab.id.value)
                     }
                 )
             }
@@ -480,12 +474,12 @@ fun ThreadScaffold(
                 headerTextScale = uiState.headerTextScale,
                 bodyTextScale = uiState.bodyTextScale,
                 lineHeight = uiState.lineHeight,
-                onDismissRequest = { viewModel.closeDisplaySettingsSheet() },
-                onTextScaleChange = { viewModel.updateTextScale(it) },
-                onIndividualChange = { viewModel.updateIndividualTextScale(it) },
-                onHeaderTextScaleChange = { viewModel.updateHeaderTextScale(it) },
-                onBodyTextScaleChange = { viewModel.updateBodyTextScale(it) },
-                onLineHeightChange = { viewModel.updateLineHeight(it) }
+                onDismissRequest = { routeViewModel.closeDisplaySettingsSheet(tab.id.value) },
+                onTextScaleChange = { routeViewModel.updateTextScale(it) },
+                onIndividualChange = { routeViewModel.updateIndividualTextScale(it) },
+                onHeaderTextScaleChange = { routeViewModel.updateHeaderTextScale(it) },
+                onBodyTextScaleChange = { routeViewModel.updateBodyTextScale(it) },
+                onLineHeightChange = { routeViewModel.updateLineHeight(it) }
             )
 
             val postDialogState = uiState.postDialogState
@@ -493,33 +487,33 @@ fun ThreadScaffold(
                 val context = LocalContext.current
                 PostDialog(
                     uiState = postDialogState,
-                    onDismissRequest = { viewModel.postDialogActions.hideDialog() },
+                    onDismissRequest = { routeViewModel.postDialogActionsFor(tab.id.value).hideDialog() },
                     onAction = { action ->
                         when (action) {
                             is PostDialogAction.ChangeName ->
-                                viewModel.postDialogActions.updateName(action.value)
+                                routeViewModel.postDialogActionsFor(tab.id.value).updateName(action.value)
 
                             is PostDialogAction.ChangeMail ->
-                                viewModel.postDialogActions.updateMail(action.value)
+                                routeViewModel.postDialogActionsFor(tab.id.value).updateMail(action.value)
 
                             is PostDialogAction.ChangeMessage ->
-                                viewModel.postDialogActions.updateMessage(action.value)
+                                routeViewModel.postDialogActionsFor(tab.id.value).updateMessage(action.value)
 
                             is PostDialogAction.SelectNameHistory ->
-                                viewModel.postDialogActions.selectNameHistory(action.value)
+                                routeViewModel.postDialogActionsFor(tab.id.value).selectNameHistory(action.value)
 
                             is PostDialogAction.SelectMailHistory ->
-                                viewModel.postDialogActions.selectMailHistory(action.value)
+                                routeViewModel.postDialogActionsFor(tab.id.value).selectMailHistory(action.value)
 
                             is PostDialogAction.DeleteNameHistory ->
-                                viewModel.postDialogActions.deleteNameHistory(action.value)
+                                routeViewModel.postDialogActionsFor(tab.id.value).deleteNameHistory(action.value)
 
                             is PostDialogAction.DeleteMailHistory ->
-                                viewModel.postDialogActions.deleteMailHistory(action.value)
+                                routeViewModel.postDialogActionsFor(tab.id.value).deleteMailHistory(action.value)
 
                             PostDialogAction.Post -> {
                                 parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                    viewModel.postDialogActions.postFirstPhase(
+                                    routeViewModel.postDialogActionsFor(tab.id.value).postFirstPhase(
                                         host,
                                         boardKey,
                                         threadKey = uiState.threadInfo.key,
@@ -530,7 +524,7 @@ fun ThreadScaffold(
                             is PostDialogAction.ChangeTitle -> Unit
                         }
                     },
-                    onImageUpload = { uri -> viewModel.uploadImage(context, uri) },
+                    onImageUpload = { uri -> routeViewModel.uploadPostDialogImage(tab.id.value, context, uri) },
                     onImageUrlClick = { urls, tappedIndex, transitionNamespace ->
                         val route = buildImageViewerRoute(
                             imageUrls = urls,
@@ -549,17 +543,18 @@ fun ThreadScaffold(
                 postDialogState.postConfirmation?.let { confirmationData ->
                     ResponseWebViewDialog(
                         htmlContent = confirmationData.html,
-                        onDismissRequest = { viewModel.postDialogActions.hideConfirmationScreen() },
-                        onConfirm = {
-                            parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
-                                viewModel.postDialogActions.postSecondPhase(
-                                    host,
-                                    boardKey,
-                                    threadKey = uiState.threadInfo.key,
-                                    confirmationData = confirmationData,
-                                )
-                            }
-                        },
+                    onDismissRequest = { routeViewModel.postDialogActionsFor(tab.id.value).hideConfirmationScreen() },
+                    onConfirm = {
+                        parseBoardUrl(uiState.boardInfo.url)?.let { (host, boardKey) ->
+                            routeViewModel.postDialogActionsFor(tab.id.value).postSecondPhase(
+                                host,
+                                boardKey,
+                                threadKey = uiState.threadInfo.key,
+                                confirmationData = confirmationData,
+                            )
+                        }
+                    },
+
                         title = "書き込み確認",
                         confirmButtonText = "書き込む"
                     )
@@ -569,7 +564,7 @@ fun ThreadScaffold(
             if (postDialogState.showErrorWebView) {
                 ResponseWebViewDialog(
                     htmlContent = postDialogState.errorHtmlContent,
-                    onDismissRequest = { viewModel.postDialogActions.hideErrorWebView() },
+                    onDismissRequest = { routeViewModel.postDialogActionsFor(tab.id.value).hideErrorWebView() },
                     title = "応答結果",
                     onConfirm = null // 確認ボタンは不要なのでnull
                 )

@@ -24,6 +24,7 @@ import com.websarva.wings.android.slevo.ui.common.scroll.resolveBottomTargetInde
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadListItem
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlin.math.min
 
@@ -75,7 +76,13 @@ fun ObserveLastReadEffect(
 }
 
 /**
- * 自動スクロールの進行を管理し、終端到達時に通知する副作用を管理する。
+ * 自動スクロールの進行とユーザー操作との衝突を管理する副作用。
+ *
+ * - 自動スクロールの駆動は `isAutoScroll` と `LaunchedEffect` ライフサイクルを基準にし、
+ *   プログラムスクロール自身の `isScrollInProgress` 変化で Effect が再起動しないようにする。
+ * - ユーザー手動 drag は `LazyListState.interactionSource.interactions` で検知し、
+ *   drag 中は pause 状態にして loop 自体を停止する。
+ * - drag 終了後は別 Effect で fling 完了を待ってから短い猶予を置いて再開する。
  */
 @Composable
 fun ObserveAutoScrollEffect(
@@ -86,12 +93,64 @@ fun ObserveAutoScrollEffect(
 ) {
     val density = LocalDensity.current
     val autoScrollDpPerSec = 40f
-    val isScrollInProgress = listState.isScrollInProgress
+    val resumeGraceMillis = 150L
 
-    LaunchedEffect(isAutoScroll, isScrollInProgress, density, fallbackItemCount) {
-        if (!isAutoScroll || isScrollInProgress) {
+    // ユーザー操作による一時停止状態。true の間は自動スクロール loop を起動しない。
+    var isPausedByUser by remember { mutableStateOf(false) }
+    // drag 終了後に fling 完了待ち + 猶予再開を行うための保留状態。
+    var isResumePending by remember { mutableStateOf(false) }
+
+    // --- Manual pause tracking ---
+    // drag 開始で pause、drag 終了で resume 待ちへ遷移する。
+    LaunchedEffect(listState) {
+        listState.interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is DragInteraction.Start -> {
+                    isPausedByUser = true
+                    isResumePending = false
+                }
+
+                is DragInteraction.Stop,
+                is DragInteraction.Cancel -> {
+                    isResumePending = true
+                }
+            }
+        }
+    }
+
+    // --- Auto scroll state reset ---
+    // Guard: 自動スクロール OFF 中は pause / resume 待ち状態を残さない。
+    LaunchedEffect(isAutoScroll) {
+        if (!isAutoScroll) {
+            isPausedByUser = false
+            isResumePending = false
+        }
+    }
+
+    // --- Resume after user scroll ---
+    // drag 終了後に慣性 scroll の完了を待ち、短い猶予後に pause を解除する。
+    LaunchedEffect(listState, isAutoScroll, isResumePending) {
+        if (!isAutoScroll || !isResumePending) {
             return@LaunchedEffect
         }
+
+        // Guard: 慣性 scroll が残っている間は再開しない。
+        snapshotFlow { listState.isScrollInProgress }
+            .first { scrolling -> !scrolling }
+
+        delay(resumeGraceMillis)
+        if (isAutoScroll && isResumePending) {
+            isPausedByUser = false
+            isResumePending = false
+        }
+    }
+
+    // --- Auto scroll loop ---
+    LaunchedEffect(isAutoScroll, isPausedByUser, density, fallbackItemCount) {
+        if (!isAutoScroll || isPausedByUser) {
+            return@LaunchedEffect
+        }
+
         val pxPerSec = with(density) { autoScrollDpPerSec.dp.toPx() }
         var lastTime: Long? = null
         while (isActive) {

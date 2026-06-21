@@ -10,7 +10,7 @@ import java.util.Locale
 import java.util.TimeZone
 
 /**
- * ThreadViewModel の表示変換ロジックをテストしやすいように分離したヘルパー群。
+ * スレッド表示変換ロジックをテストしやすいように分離したヘルパー群。
  */
 internal val DATE_FORMAT = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN).apply {
     timeZone = TimeZone.getTimeZone("Asia/Tokyo")

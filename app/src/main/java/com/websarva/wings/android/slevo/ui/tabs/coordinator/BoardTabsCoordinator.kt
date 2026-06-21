@@ -3,8 +3,8 @@ package com.websarva.wings.android.slevo.ui.tabs.coordinator
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import kotlinx.coroutines.CoroutineScope
@@ -39,7 +39,6 @@ import javax.inject.Inject
 class BoardTabsCoordinator @Inject constructor(
     private val tabsRepository: TabsRepository,
     private val bookmarkBoardRepository: BookmarkBoardRepository,
-    private val tabViewModelRegistry: TabViewModelRegistry,
 ) {
     // 現在開かれているボードタブの一覧。UI はこれを監視してタブ表示を行う。
     private val _openBoardTabs = MutableStateFlow<List<BoardTabInfo>>(emptyList())
@@ -52,6 +51,9 @@ class BoardTabsCoordinator @Inject constructor(
     // 現在選択中の板タブ key。正規化済み boardUrl を保持する。
     private val _selectedBoardTabKey = MutableStateFlow<String?>(null)
     val selectedBoardTabKey: StateFlow<String?> = _selectedBoardTabKey.asStateFlow()
+
+    private val _boardSessionStates = MutableStateFlow<Map<String, BoardSessionState>>(emptyMap())
+    val boardSessionStates: StateFlow<Map<String, BoardSessionState>> = _boardSessionStates.asStateFlow()
 
     private val _boardCurrentPage = MutableStateFlow(-1)
 
@@ -130,14 +132,12 @@ class BoardTabsCoordinator @Inject constructor(
     }
 
     /**
-     * 指定したタブを閉じる（キャッシュしている ViewModel も解放する）。
-     * - ViewModel は `tabViewModelRegistry.releaseBoardViewModel` で解放する。
-     * - 現在ページが削除により変化する場合は `updateCurrentPageAfterRemoval` で補正を行う。
+     * 指定したタブを閉じる。
+     *
+     * セッション状態と選択 key を整理し、現在ページが削除により変化する場合は
+     * `updateCurrentPageAfterRemoval` で補正を行う。
      */
     fun closeBoardTab(tab: BoardTabInfo) {
-        // 関連する ViewModel を解放
-        tabViewModelRegistry.releaseBoardViewModel(tab.boardUrl)
-
         val selectedKeyBeforeRemoval = _selectedBoardTabKey.value
         val removedTabKey = tab.boardUrl
         val removedIndex = _openBoardTabs.value.indexOfFirst { it.boardUrl == tab.boardUrl }
@@ -147,6 +147,7 @@ class BoardTabsCoordinator @Inject constructor(
             updatedTabs = newTabs
             newTabs
         }
+        _boardSessionStates.update { it - tab.boardUrl }
         updateSelectedBoardKeyAfterRemoval(selectedKeyBeforeRemoval, removedTabKey, removedIndex, updatedTabs)
         saveBoardTabs(updatedTabs)
     }
@@ -191,6 +192,52 @@ class BoardTabsCoordinator @Inject constructor(
                     tab.copy(
                         firstVisibleItemIndex = firstVisibleIndex,
                         firstVisibleItemScrollOffset = scrollOffset,
+                    )
+                } else {
+                    tab
+                }
+            }
+        }
+        saveBoardTabs()
+    }
+
+    /**
+     * 指定板タブの揮発 UI セッション状態を返す。
+     */
+    fun getBoardSessionState(boardUrl: String): BoardSessionState {
+        return _boardSessionStates.value[boardUrl] ?: BoardSessionState()
+    }
+
+    /**
+     * 指定板タブの揮発 UI セッション状態を更新する。
+     */
+    fun updateBoardSessionState(
+        boardUrl: String,
+        transform: (BoardSessionState) -> BoardSessionState,
+    ) {
+        _boardSessionStates.update { states ->
+            val current = states[boardUrl] ?: BoardSessionState()
+            states + (boardUrl to transform(current))
+        }
+    }
+
+    /**
+     * ensure 済みの boardId を既存板タブへ反映して永続状態も更新する。
+     *
+     * URL から開いた placeholder boardId のタブを、Repository で解決した実 boardId に差し替える。
+     */
+    fun updateBoardResolvedInfo(
+        boardUrl: String,
+        boardId: Long,
+        boardName: String? = null,
+    ) {
+        if (boardId == 0L) return
+        _openBoardTabs.update { tabs ->
+            tabs.map { tab ->
+                if (tab.boardUrl == boardUrl) {
+                    tab.copy(
+                        boardId = boardId,
+                        boardName = boardName?.takeIf(String::isNotBlank) ?: tab.boardName,
                     )
                 } else {
                     tab

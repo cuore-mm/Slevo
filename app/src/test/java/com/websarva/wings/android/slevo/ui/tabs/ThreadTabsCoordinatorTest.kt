@@ -6,9 +6,10 @@ import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
-import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
+import com.websarva.wings.android.slevo.ui.tabs.session.PendingThreadPostState
 import io.mockk.coVerify
 import io.mockk.mockk
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -180,6 +181,122 @@ class ThreadTabsCoordinatorTest {
     }
 
     /**
+     * タブを閉じたときに対象タブのセッション状態だけが削除されることを確認する。
+     */
+    @Test
+    fun closeThreadTab_removesOnlyTargetSessionState() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "111",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "first",
+            )
+        )
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "222",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "second",
+            )
+        )
+        val first = coordinator.openThreadTabs.value.first()
+        val second = coordinator.openThreadTabs.value.last()
+        coordinator.updateThreadSessionState(first.id) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("first"))
+        }
+        coordinator.updateThreadSessionState(second.id) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("second"))
+        }
+
+        coordinator.closeThreadTab(first)
+
+        assertFalse(coordinator.threadSessionStates.value.containsKey(first.id.value))
+        assertEquals("second", coordinator.getThreadSessionState(second.id).searchQuery)
+    }
+
+    /**
+     * セッション状態更新が永続タブ保存を呼ばないことを確認する。
+     */
+    @Test
+    fun updateThreadSessionState_doesNotPersistTabs() {
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val coordinator = createCoordinator(tabsRepository)
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "111",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "first",
+            )
+        )
+        val tab = coordinator.openThreadTabs.value.first()
+
+        coordinator.updateThreadSessionState(tab.id) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("query"))
+        }
+
+        assertEquals("query", coordinator.getThreadSessionState(tab.id).searchQuery)
+        coVerify(exactly = 0) { tabsRepository.saveOpenThreadTabs(any()) }
+    }
+
+    @Test
+    fun closeThreadTab_removesTargetRuntimeState() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "111",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "first",
+            )
+        )
+        val tab = coordinator.openThreadTabs.value.first()
+        coordinator.updateThreadRuntimeState(tab.id) {
+            it.copy(pendingPost = PendingThreadPostState(10, "message", "name", "mail"))
+        }
+
+        coordinator.closeThreadTab(tab)
+
+        assertEquals(null, coordinator.threadRuntimeStates.value[tab.id.value])
+    }
+
+    /**
+     * 解決済み boardId を反映しても、既存の表示メタ情報とスクロール位置を保持することを確認する。
+     */
+    @Test
+    fun updateThreadResolvedBoardInfo_updatesBoardIdAndPreservesThreadTabFields() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "111",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "first",
+                boardId = 0L,
+                resCount = 10,
+            )
+        )
+        val original = coordinator.openThreadTabs.value.first()
+        coordinator.togglePinThreadTab(original.id)
+
+        coordinator.updateThreadResolvedBoardInfo(
+            threadId = original.id,
+            boardId = 42L,
+            boardName = "resolved",
+        )
+
+        val actual = coordinator.openThreadTabs.value.first()
+        assertEquals(42L, actual.boardId)
+        assertEquals("resolved", actual.boardName)
+        assertEquals(original.title, actual.title)
+        assertEquals(10, actual.resCount)
+        assertEquals(true, actual.isPinned)
+    }
+
+    /**
      * テスト用に依存を差し替えた `ThreadTabsCoordinator` を生成する。
      */
     private fun createCoordinator(tabsRepository: TabsRepository): ThreadTabsCoordinator {
@@ -188,7 +305,6 @@ class ThreadTabsCoordinatorTest {
             threadBookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true),
             datRepository = mockk<DatRepository>(relaxed = true),
             threadStateRepository = mockk<ThreadStateRepository>(relaxed = true),
-            tabViewModelRegistry = mockk<TabViewModelRegistry>(relaxed = true),
         )
     }
 }

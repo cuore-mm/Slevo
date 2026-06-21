@@ -1,0 +1,258 @@
+## Context
+
+現状の板・スレッド画面は `BbsRouteScaffold` の Pager ページごとに `TabSessionStore.getOrCreateBoardViewModel()` / `getOrCreateThreadViewModel()` を呼び、`TabViewModelRegistry` がタブ key 単位で ViewModel をキャッシュしている。これはタブ切替の体感速度とタブごとの UI 状態分離には有利だが、ViewModel の寿命を Android 標準の `ViewModelStoreOwner` ではなく独自 Map で扱うため、生成・解放・監視 Flow の停止責務が曖昧になりやすい。
+
+特に `ThreadViewModel` はスレ本文取得、レス表示変換、NG、検索、ツリー表示、ポップアップ、ブックマーク、投稿ダイアログ、画像保存、自動更新、スクロール保存、新着情報同期を抱えており、同時に開いたスレッドタブ数ぶん重いインスタンスが常駐する。加えて `ThreadTabInfo` と `ThreadUiState` の双方に新着・既読・スクロール周辺の状態が存在し、正本が分かりにくい。
+
+この変更では、タブを「独立した Android ViewModel の所有単位」ではなく「画面内のセッション単位」として扱う。ViewModel は板画面 route / スレッド画面 route に 1 つずつ置き、選択中タブのセッション状態とデータ層を合成して表示状態を作る。
+
+## Goals / Non-Goals
+
+**Goals:**
+
+- タブごとの `BoardViewModel` / `ThreadViewModel` キャッシュを廃止できる設計にする。
+- タブ固有状態、スレッド・板データの正本、画面表示用 `UiState` の責務境界を明確にする。
+- per-tab `ThreadViewModel` / `BoardViewModel` を廃止し、軽量な `ThreadRouteViewModel` / `BoardRouteViewModel` を導入して、データ取得・変換・更新処理を UseCase / Repository / coordinator へ分離する。
+- 既存のタブ切替、スクロール位置復元、新着表示、検索、ポップアップ、投稿ダイアログ、更新操作の体験を維持する。
+- 段階移行できるように、互換レイヤーとテスト観点を定義する。
+
+**Non-Goals:**
+
+- UI デザインやナビゲーション仕様そのものの変更。
+- 板・スレッドデータの保存形式を必ず変更すること。
+- 既存 `ThreadViewModel` 内部ロジックを一度の変更で完全に最適化すること。
+- Compose の Pager やタブ一覧 UI の大規模な見た目変更。
+
+## Decisions
+
+### Decision 1: per-tab ViewModel を廃止し、route 単位 ViewModel を導入する
+
+既存の `BoardViewModel` / `ThreadViewModel` をタブ単位で生成・保持する設計は廃止する。代わりに `BoardRouteViewModel` と `ThreadRouteViewModel` を、板画面 route / スレッド画面 route の `ViewModelStoreOwner` に紐づけて 1 つずつ保持する。Pager の各ページは ViewModel インスタンスを直接所有せず、表示対象 tab key を route ViewModel に渡して表示状態を得る。
+
+既存クラス名を段階移行中に一時的に流用する場合でも、設計上は「per-tab `BoardViewModel` / `ThreadViewModel`」ではなく「route-level `BoardRouteViewModel` / `ThreadRouteViewModel`」として扱う。最終形では名称も route-level であることが分かる形へ整理する。
+
+代替案として per-tab ViewModel を維持する案もあるが、`TabViewModelRegistry` による独自ライフサイクル管理、タブ数に比例するメモリ増加、状態重複の問題が残るため採用しない。
+
+### Decision 2: タブ固有状態は TabSessionStore 配下の Session State に集約する
+
+タブの並び順、選択状態、ピン留め、スクロール位置、検索クエリ、表示モード、ポップアップスタック、投稿ダイアログ下書きなど「タブを閉じるまで保持したい UI セッション状態」は `TabSessionStore` 配下に集約する。ViewModel はこれらの正本を複製せず、Flow として購読して `UiState` に反映する。
+
+代替案として `UiState` にタブ固有状態を残す案もあるが、タブ切替時に ViewModel 側と Store 側の同期が必要になり、現在の重複状態問題を解消できない。
+
+### Decision 3: TabInfo と Session State は分離する
+
+`ThreadTabInfo` / `BoardTabInfo` は、タブ一覧・選択・並び順・復元に必要な軽量メタ情報に限定する。thread key / board key、表示タイトル、pin、order、復元に必要なスクロール位置など、アプリ再起動後もタブとして復元したい最小限の状態を扱う。
+
+検索クエリ、表示モード、ポップアップスタック、投稿ダイアログ下書き、自動スクロール状態など、タブを開いている間の UI セッション状態は `ThreadSessionState` / `BoardSessionState` として別モデルに分ける。これにより `TabInfo` の肥大化を防ぎ、タブ一覧用モデル、セッション状態、描画用 `UiState` の責務を分離する。
+
+スクロール位置は既存仕様との互換性と復元要件が強いため、`TabInfo` 側または永続タブ状態に残す。ただしスレッドの最新レス数、最初の新着レス番号、最終既読レス番号などの客観状態・既読状態は `TabInfo` / Session State の正本にせず、Repository / 履歴状態から合成する。
+
+代替案として既存の `ThreadTabInfo` / `BoardTabInfo` にセッション状態を追加する案もあるが、タブ一覧・永続化・UI セッションの責務が混ざり、将来の状態同期や保存単位が不明瞭になるため採用しない。
+
+### Decision 4: 板・スレ内容の正本は Repository / DB / UseCase に置く
+
+板一覧、スレ本文、パース済み投稿、既読、ブックマーク、NG 設定、投稿履歴は Repository / DB / UseCase を正本とする。ViewModel は長期キャッシュではなく、選択中タブと各データソースを合成する collector / presenter として振る舞う。
+
+代替案として `TabSessionStore` がスレ本文や板一覧を直接保持する案もあるが、永続化・更新・キャッシュ整合性の責務が肥大化するため採用しない。
+
+### Decision 5: 重い処理は UseCase / coordinator へ抽出して ViewModel を薄くする
+
+レスの表示行生成、検索・NG 適用、ツリー派生情報、更新処理、新着計算、自動更新判定などは、単体テスト可能な UseCase / coordinator へ移す。route ViewModel はイベントを受け取り、UseCase を呼び、結果を `UiState` と `TabSessionStore` に反映する。
+
+代替案として ViewModel のままメソッド分割する案もあるが、route-level にした後も巨大 ViewModel が残り、テスト容易性と責務分離の改善が限定的になる。
+
+### Decision 6: 移行は互換層を挟んだ段階移行にする
+
+最初にタブ固有状態の定義と正本を整理し、次に Thread / Board のデータ合成処理を UseCase 化する。その後 `BbsRouteScaffold` が per-tab ViewModel を要求しない形に変更し、`TabViewModelRegistry` と手動 release を削除する。registry 削除後に残る `legacyViewModel(tabKey)` 互換レイヤーは一時的な移行足場としてのみ扱い、最終段階で `ThreadViewModel` / `BoardViewModel` と専用 factory を完全削除する。
+
+一括置換は差分が大きく、スクロール復元・新着同期・投稿ダイアログなどの退行リスクが高いため採用しない。
+
+### Decision 7: Pager の composition 範囲に UiState 購読を委譲する
+
+Pager の offscreen page をアプリ側で `previous/current/next` として明示管理せず、Compose Pager が composition するページだけが対象タブ key の `UiState` を購読する構造にする。route-level ViewModel は `observeUiState(tabKey)` または `uiStateFor(tabKey)` のような tab key 指定 API を提供し、全 open tabs 分の `UiState` を常時 combine しない。
+
+Flow は tab key ごとに遅延生成し、必要に応じて ViewModel 内で再利用してよい。ただし `SharingStarted.WhileSubscribed` 相当の購読中のみ動く共有方式を使い、Pager が composition から外したページの重い合成処理が継続しないようにする。Repository cache や軽量 summary の保持は許容するが、完全な `UiState` の常時合成は表示中・composition 中ページに限定する。
+
+代替案としてアプリ側で隣接ページを管理して先読みする案もあるが、Pager の offscreen policy と二重管理になりやすく、UI 層の composition 範囲と ViewModel の合成範囲がずれるため採用しない。性能問題が確認された場合のみ、Repository cache の先読みや小さな LRU cache を追加する。
+
+### Decision 8: UI セッション状態は永続化せず、自動更新は表示中タブに限定する
+
+検索クエリ、表示モード、ポップアップスタック、投稿ダイアログ下書き、自動スクロール状態などの UI セッション状態は、プロセス内のタブセッション状態として扱い、アプリ再起動後の永続復元対象にしない。永続化するのはタブ識別子、タイトル、pin、order、スクロール位置など、タブ一覧・選択・復元に必要な軽量状態に限定する。
+
+自動スクロールに伴う定期 reload / refresh は、現在表示中のスレッドタブのみを対象にする。非表示タブは自動更新せず、開いている全タブの更新はタブ一覧や更新ボタンなどの明示操作として扱う。
+
+代替案として非表示タブの検索・ポップアップ状態を永続化する案もあるが、保存対象が増えて復元時の整合性が複雑になるため採用しない。開いている全タブを自動更新する案も、通信・変換・合成コストがタブ数に比例して増え、per-tab ViewModel 廃止の目的と逆行するため採用しない。
+
+### Decision 9: Task 1 の棚卸し結果を状態配置の正本とする
+
+Task 1 の時点で、`ThreadUiState`、`BoardUiState`、`ThreadTabInfo`、`BoardTabInfo`、`TabSessionStore`、`ThreadViewModel`、`BoardViewModel` の保持項目を以下の 4 区分へ確定分類する。この分類を以後の実装判断の基準とし、新しい状態を追加する場合も同じ区分に従う。
+
+#### 軽量 TabInfo に残す項目
+
+- `ThreadTabInfo` / `BoardTabInfo` の識別子: `ThreadId`、`boardUrl`、`boardName`、`serviceName`
+- タブ一覧表示に必要な軽量メタ情報: `title`、`bookmarkColorName`、`isPinned`
+- タブ復元に必要な永続状態: `firstVisibleItemIndex`、`firstVisibleItemScrollOffset`
+- 選択中タブ key とタブ並び順は `BoardTabsCoordinator` / `ThreadTabsCoordinator` の正本として扱い、`TabSessionStore` から再公開する
+
+`resCount`、`newResCount`、`prevResCount`、`lastReadResNo`、`firstNewResNo` のような客観状態・既読状態は、表示モデル互換のため当面 `ThreadTabInfo` に残りうるが、正本としては扱わず Repository 由来の合成値として段階的に縮小する。
+
+#### UI SessionState に移す項目
+
+- 検索状態: `searchInputValue`、`searchQuery`、`isSearchMode`、`isSearchActive`
+- シート / ダイアログ状態: `showThreadInfoSheet`、`showMoreSheet`、`showDisplaySettingsSheet`、`showImageMenuSheet`、`showImageNgDialog`、`showBoardInfoSheet`、`showSortSheet`、`postDialogState`
+- 一時操作状態: `popupStack`、`pendingToastResId`、`resetScroll`、`isTabSwipeEnabled`
+- 揮発 UI 状態: `imageMenuTargetUrl`、`imageMenuTargetUrls`、`imageNgTargetUrl`
+- 自動スクロール / 更新まわりの揮発状態: `isAutoScroll` の実行状態、`loadingSource`、`isLoading`、`loadProgress`
+
+これらは `ThreadSessionState` / `BoardSessionState` または `TabSessionStore` 配下の補助 holder に寄せ、アプリ再起動後は復元しない。
+
+#### Repository / DB / UseCase を正本にする項目
+
+- 板 / スレの客観データ: `boardInfo`、`threadInfo`、`threads`、`posts`
+- 既読・新着・履歴: `prevResCount`、`lastReadResNo`、`firstNewResNo`、`myPostNumbers`
+- ブックマーク状態: `bookmarkStatusState` の基データ
+- NG / 設定: `ngPostNumbers` の基データ、`textScale`、`headerTextScale`、`bodyTextScale`、`lineHeight`、`gestureSettings`、ソート設定
+
+ViewModel はこれらを保持せず、Repository / UseCase / coordinator の Flow を購読して表示用に合成する。
+
+#### 合成 UiState に限定する項目
+
+- スレッド表示派生: `visiblePostRows`、`replyCounts`、`firstAfterIndex`、`postGroups`、`latestArrivalGroupIndex`
+- ツリー / 返信 / ID 派生: `idCountMap`、`idIndexList`、`replySourceMap`、`treeOrder`、`treeDepthMap`、`treeRootMap`
+- 揮発キャッシュ: `imageLoadFailureByUrl`、`imageLoadingUrls`
+- 画面描画専用の一時値: `serviceName`、`showMinimapScrollbar`
+
+これらは保持の正本を持たず、SessionState と Repository の値から毎回再合成する。
+
+#### per-tab ViewModel 前提を解消する移管方針
+
+- `bookmarkSheetHolder` と `postDialogController` は per-tab ViewModel の所有をやめ、`TabSessionStore` 配下の Session holder へ寄せる
+- `popupStack` と `isTabSwipeEnabled` はアクティブタブ基準で扱う SessionState とし、Pager 全体制御は `TabSessionStore` が担う
+- `pendingPost`、`observedThreadHistoryId`、`postHistoryCollectJob`、`lastAutoRefreshTime` のような ViewModel 内部の継続状態は Repository 監視または SessionState へ移す
+- per-tab `ThreadViewModel` / `BoardViewModel` は廃止し、`ThreadRouteViewModel` / `BoardRouteViewModel` に対象 tab key の `UiState` Flow を遅延生成する presenter 責務だけを残す
+
+### Decision 10: Route ViewModel 化の前に SessionState を実際の正本として使う
+
+Task 2 で `ThreadSessionState` / `BoardSessionState` と更新 API を用意しただけでは、既存 `ThreadViewModel` / `BoardViewModel` の `_uiState` 更新と SessionState が二重正本になりうる。Route ViewModel 化へ進む前に、検索、シート、ダイアログ、ポップアップ、自動スクロール、ローディング表示、トースト、タブスワイプ可否などの揮発 UI 状態を `TabSessionStore.updateThreadSessionState` / `updateBoardSessionState` 経由で更新する形へ統一する。
+
+移行中も既存 Composable からは `ThreadUiState` / `BoardUiState` を読み続けてよい。ただしその `UiState` は SessionState と Repository / UseCase 由来値から合成される読み取り用モデルとして扱い、同じフィールドを ViewModel 内の `_uiState` と SessionState の両方で更新しない。これにより Task 4 以降で `uiStateFor(tabKey)` を導入しても、タブ切替時に古い `_uiState` が SessionState を上書きする問題を避ける。
+
+`pendingPost`、`popupIdGenerator`、`bookmarkSheetHolder`、`postDialogController`、画像メニュー対象、投稿ダイアログ下書きのように per-tab ViewModel インスタンス所有を前提にしている継続状態は、SessionState または `TabSessionStore` 配下の tab key ごとの session holder へ移す。Route ViewModel はこれらを単一インスタンスのフィールドとして持たず、対象 tab key を指定して読み書きする。
+
+### Decision 11: `legacyViewModel` 互換レイヤーを撤去して旧 ViewModel を完全削除する
+
+`TabViewModelRegistry` を削除した後も、`ThreadRouteViewModel` / `BoardRouteViewModel` が `legacyViewModel(tabKey)` 経由で旧 `ThreadViewModel` / `BoardViewModel` を生成・キャッシュしている間は、設計上の最終形ではない。この互換レイヤーは Task 6〜7 の移行を安全に進めるための一時的な足場として扱い、最終段階で削除する。
+
+完全削除では、Composable から旧 ViewModel 操作を呼ばないようにし、検索、シート、ソート、ポップアップ、画像メニュー、自動スクロール、スクロール保存、更新、投稿、ブックマーク操作を route ViewModel の tab key 指定 API、SessionState、UseCase、Repository、または `TabSessionStore` 配下の session holder へ移す。`uiStateFor(tabKey)` は旧 ViewModel の `uiState` を再公開するのではなく、SessionState とデータ層 Flow から `ThreadUiState` / `BoardUiState` を直接合成する。
+
+削除対象には `ThreadViewModel.kt`、`BoardViewModel.kt`、`ThreadViewModelFactory`、`BoardViewModelFactory`、旧 ViewModel 専用の `BaseViewModel` 利用、旧 ViewModel 前提のテストを含める。ただし純粋な表示変換、ポップアップ重複抑止、投稿ダイアログ状態アダプタなど再利用可能なロジックは、UseCase、transformer、session holder、または route ViewModel の private helper へ移管してから削除する。
+
+完全削除は以下の順で分割して実装する。
+
+1. `legacyViewModel(tabKey)` 呼び出しと旧 ViewModel 公開 API を棚卸しし、RouteViewModel API、SessionState 更新、session holder、UseCase、Repository 同期へ分類する。
+2. `bookmarkSheetHolder`、`postDialogController`、画像保存イベントなど、タブ固有の holder / event source を `TabSessionStore` 配下の tab key 別 session holder へ移す。
+3. `ThreadRouteViewModel` / `BoardRouteViewModel` が UseCase、Repository、Settings、NG、Bookmark、既読 Flow を直接購読し、旧 ViewModel の `uiState` に依存せず `UiState` を合成する形へ変える。
+4. Scaffold から `legacyViewModel(tabKey)` 呼び出しをすべて削除し、RouteViewModel API と session holder API のみを呼ぶ形にする。
+5. 旧 ViewModel、専用 factory、`BaseViewModel`、旧 ViewModel 前提のテストを削除または置換し、回帰テストでタブ切替、タブ削除、構成変更、投稿、ブックマーク、画像保存、ポップアップの混線がないことを確認する。
+
+Task 8 の棚卸し結果として、現時点の `legacyViewModel(tabKey)` 呼び出しは `ThreadScaffold` 5 箇所、`BoardScaffold` 4 箇所に集約されている。呼び出し内容は次の 4 系統に分かれる。
+
+- **SessionState 更新へ移す操作**: スレッド検索開始 / 終了 / 入力更新、スレッド並び順切替、自動スクロール切替、各種シート開閉、画像メニュー開閉、画像 NG ダイアログ開閉、ポップアップ追加 / 削除 / サイズ更新、板検索開始 / 終了 / 入力更新、板ソートキー / 昇順切替、板情報 / スレ情報シート開閉、toast / resetScroll 消費
+- **session holder へ移す操作**: `bookmarkSheetHolder`、`postDialogController` / `postDialogActions`、スレッド画像保存の `imageSaveEvents`
+- **Repository / coordinator / UseCase 呼び出しへ移す操作**: `reloadThread`、`reloadThreadFromBottomPull`、`refreshBoardData`、`onAutoScrollReachedBottom`、`updateThreadScrollPosition`、`updateThreadLastRead`、`updateThreadTabInfo`、`setNewArrivalInfo`、画像ロード状態更新
+- **純粋ロジック / adapter として残して移管するもの**: `appendPopupIfDistinct`、`isSamePopupContent`、画像メニュー URL 正規化、Tree popup 選択ロジック、`ThreadPostDialogStateAdapter`、`BoardPostDialogStateAdapter`
+
+### Task 8 concrete migration policy
+
+#### 1. Scaffold call inventory
+
+- `ThreadScaffold`
+  - `getBookmarkSheetHolder` は tab key 別 bookmark holder 取得 API に置き換える
+  - `updateScrollPosition` は `ThreadRouteViewModel.updateScrollPosition(tabKey, index, offset)` 経由で `TabSessionStore` / coordinator へ委譲する
+  - bottom bar / content / optional sheet から呼んでいる検索、ソート、投稿、ブックマーク、シート、ポップアップ、画像保存、既読更新、タブ情報更新は RouteViewModel API と session holder API に分解する
+- `BoardScaffold`
+  - `getBookmarkSheetHolder` は tab key 別 bookmark holder 取得 API に置き換える
+  - bottom bar / content / optional sheet から呼んでいる検索、ソート、投稿、ブックマーク、シート、更新、toast / resetScroll 消費は RouteViewModel API と session holder API に分解する
+
+#### 2. RouteViewModel API boundary
+
+`ThreadRouteViewModel` / `BoardRouteViewModel` は旧 ViewModel 実体を返さず、次のような tab key 指定 API 群を直接持つ。
+
+- **SessionState 操作 API**: `startSearch(tabKey)`、`closeSearch(tabKey)`、`updateSearchInput(tabKey, value)`、`toggleSortType(tabKey)`、`toggleAutoScroll(tabKey)`、`openThreadInfoSheet(tabKey)`、`closeThreadInfoSheet(tabKey)`、`openMoreSheet(tabKey)`、`closeMoreSheet(tabKey)`、`openDisplaySettingsSheet(tabKey)`、`closeDisplaySettingsSheet(tabKey)`、`openImageMenu(tabKey, ...)`、`closeImageMenu(tabKey)`、`openImageNgDialog(tabKey, url)`、`closeImageNgDialog(tabKey)`、`addPopupForTree(tabKey, ...)`、`addPopupForReplyFrom(tabKey, ...)`、`addPopupForReplyNumber(tabKey, ...)`、`addPopupForId(tabKey, ...)`、`updatePopupSize(tabKey, ...)`、`removeTopPopup(tabKey)`、`consumeToast(tabKey)`、`consumeResetScroll(tabKey)`、`openSortBottomSheet(tabKey)`、`closeSortBottomSheet(tabKey)`、`setSortKey(tabKey, key)`、`toggleSortOrder(tabKey)`、`setSearchMode(tabKey, active)`、`openBoardInfoSheet(tabKey)`、`closeBoardInfoSheet(tabKey)`、`openBoardThreadInfoSheet(tabKey, threadInfo)`、`closeBoardThreadInfoSheet(tabKey)`
+- **更新 / 同期 API**: `reloadThread(tabKey)`、`reloadThreadFromBottomPull(tabKey)`、`refreshBoard(tabKey)`、`onAutoScrollReachedBottom(tabKey)`、`updateThreadScrollPosition(tabKey, index, offset)`、`updateThreadLastRead(tabKey, resNo)`、`updateThreadTabInfo(tabKey, title, resCount)`、`setNewArrivalInfo(tabKey, firstNewResNo, prevResCount)`、`onThreadImageLoadStart(tabKey, url)`、`onThreadImageLoadError(tabKey, url, failureType)`、`onThreadImageLoadSuccess(tabKey, url)`、`onThreadImageRetry(tabKey, url)`
+- **holder / event API**: `bookmarkSheetHolderFor(tabKey)`、`postDialogControllerFor(tabKey)`、`imageSaveEvents(tabKey)`
+
+#### 3. Session holder policy
+
+- `bookmarkSheetHolder` は tab key 別に `TabSessionStore` 配下で生成・キャッシュし、タブ削除時に対象 key のみ破棄する
+- `postDialogController` は tab key 別 session holder として保持し、状態本体は既存どおり `ThreadSessionState.postDialogState` / `BoardSessionState.postDialogState` を正本とする
+- スレッド画像保存イベントは RouteViewModel 単一 `SharedFlow` ではなく、tab key 別 event source または tab key を payload に含む dispatcher とし、Compose 側は表示中タブだけ購読する
+
+#### 4. Old ViewModel responsibility split
+
+- `ThreadViewModel`
+  - SessionState 更新責務: 検索、ポップアップ、各種シート、画像メニュー、画像 NG ダイアログ、自動スクロールフラグ、toast
+  - session holder 責務: bookmark sheet、post dialog controller、image save events
+  - coordinator / Repository 同期責務: タブタイトル更新、スクロール保存、既読更新、`pendingPost` / `lastAutoRefreshTime` など runtime state 更新
+  - UseCase / transformer 責務: visible rows 再計算、popup 重複抑止、画像 URL 正規化
+- `BoardViewModel`
+  - SessionState 更新責務: 検索、ソート、sort sheet、board info sheet、thread info sheet、toast、resetScroll、loading progress
+  - session holder 責務: bookmark sheet、post dialog controller
+  - coordinator / Repository 同期責務: board refresh、baseline 更新、一覧監視開始
+  - UseCase / transformer 責務: thread list filter / sort coordinator と post dialog state adapter
+
+Task 9 以降はこの分類を固定前提として進め、Task 10 で RouteViewModel が旧 `uiState` を読む経路を切り、Task 11 で旧 ViewModel と factory を削除する。
+
+### Task 10 split policy: direct `UiState` synthesis
+
+旧 ViewModel の `uiState` を読まない直接合成化は、Thread と Board で依存構造が異なるため同時に進めない。Thread 側は `ThreadContentLoadUseCase` / `ThreadVisiblePostsUseCase` が既に分離済みであり、dat 取得結果と SessionState から `ThreadUiState` を組み立てやすい。一方 Board 側は `ThreadListCoordinator` が `MutableStateFlow<BoardUiState>` を直接更新しており、まず filter / sort / history merge / thread_state merge を pure transformer または route-level coordinator へ分離する必要がある。
+
+直接合成化は以下の順で分割する。
+
+1. **ThreadRouteViewModel 直接合成**: `ThreadTabInfo`、`ThreadSessionState`、runtime state、Settings、NG、Bookmark、既読 / 履歴、dat 取得結果から `ThreadUiState` を合成し、Thread 側の `uiStateFor(tabKey)` が旧 `ThreadViewModel.uiState` を読まない形にする。
+2. **Thread 操作 API 移管**: reload、bottom pull、auto-scroll、検索、ソート、画像メニュー、ポップアップ、toast、投稿成功後処理、タブタイトル / resCount 更新を RouteViewModel + `TabSessionStore` / coordinator / Repository API へ移す。
+3. **Board 一覧合成の分離**: `ThreadListCoordinator` の `MutableStateFlow<BoardUiState>` 直書きをやめ、Board スレ一覧の filter / sort / NG / history merge / thread_state merge を RouteViewModel から再利用できる部品へ移す。
+4. **BoardRouteViewModel 直接合成**: `BoardTabInfo`、`BoardSessionState`、Settings、NG、Bookmark、板スレ一覧、履歴 / thread_state Flow から `BoardUiState` を合成し、Board 側の `uiStateFor(tabKey)` が旧 `BoardViewModel.uiState` を読まない形にする。
+5. **共通購読制御の検証**: Thread / Board 両方で `uiStateFor(tabKey)` が `SharingStarted.WhileSubscribed` に従い、購読中タブだけ重い合成を行うことを単体テストで確認する。
+
+この分割により、Thread 側を先に旧 ViewModel から切り離して小さく検証し、Board 側は一覧合成レイヤーの分離を挟んでから切り替える。旧 ViewModel / factory / `BaseViewModel` の削除は、Thread と Board の直接合成がどちらも完了し、Scaffold から `legacyViewModel(tabKey)` 呼び出しが消えた後に実施する。
+
+## Risks / Trade-offs
+
+- [Risk] 非表示タブの UI セッション状態が失われる → `TabSessionStore` にタブ固有状態を移し、タブ切替・画面離脱・タブ削除の各タイミングで保存を検証する。
+- [Risk] `TabInfo` と `SessionState` の境界が曖昧になり状態が再び重複する → アプリ再起動後も復元する軽量タブ状態は `TabInfo`、タブを開いている間の UI セッション状態は `SessionState`、客観データは Repository / DB という分類基準を実装タスクで検証する。
+- [Risk] Pager が compose したページごとに `UiState` Flow を作ることで Flow 生成が頻発する → tab key ごとの Flow 定義を再利用し、購読がなくなったら重い合成が止まる共有方式を使う。
+- [Risk] 完全な `UiState` を表示直前まで合成しないことで初回表示が遅れる → Repository cache や軽量 summary を活用し、必要になった場合だけ限定的な LRU cache を追加する。
+- [Risk] per-tab ViewModel 廃止中に既存挙動が壊れる → UseCase 抽出ごとに既存ユニットテストを追加し、移行中は route ViewModel から呼べる互換 API を残す。
+- [Risk] 自動更新やバックグラウンド更新の責務が曖昧になる → 更新ポリシーを route-level ViewModel ではなく UseCase / coordinator に置き、表示中タブと一括更新のトリガーを明示する。
+- [Risk] `UiState` から正本状態を削ることで Compose 側の参照が大きく変わる → まず `UiState` のフィールドを読み取り専用の合成結果として維持し、内部の供給元だけを段階的に置き換える。
+- [Risk] UI セッション状態を永続化しないことでアプリ再起動後に検索やポップアップ状態が失われる → 再起動後に復元する状態はタブ識別子とスクロール位置などの軽量タブ状態に限定する仕様として扱い、表示中の操作状態はプロセス内セッションに閉じる。
+- [Risk] 自動更新を表示中タブに限定すると非表示タブの新着が即時反映されない → 非表示タブの新着確認は明示的な一括更新またはタブ表示時の更新で扱う。
+- [Risk] SessionState の受け皿だけを作った状態で Route ViewModel 化すると、`_uiState` と SessionState の片方だけが更新される → Route ViewModel 導入前に揮発 UI 状態の更新経路を SessionState に統一し、`UiState` は合成結果として扱うテストを追加する。
+- [Risk] per-tab ViewModel のインスタンスフィールドを Route ViewModel に残すと、複数タブ間で投稿下書き、ポップアップ ID、自動更新状態が混線する → tab key ごとの SessionState / session holder に移し、単一 route ViewModel フィールドには共有可能な Repository / UseCase 依存だけを残す。
+- [Risk] `legacyViewModel(tabKey)` を残したまま完了扱いにすると per-tab ViewModel 生成が温存される → 完全削除タスクを独立させ、RouteViewModel の `uiStateFor(tabKey)` が旧 ViewModel に依存しないこと、Composable から旧 ViewModel 操作を呼ばないことを完了条件にする。
+- [Risk] 投稿ダイアログ、ブックマークシート、画像保存イベントなどの holder を route ViewModel 単一フィールドへ移すとタブ間で混線する → `TabSessionStore` 配下に tab key 別 holder を置き、タブ削除時に対象 key の holder だけを破棄する。
+
+## Migration Plan
+
+1. 現状の `ThreadUiState` / `BoardUiState` と `ThreadTabInfo` / `BoardTabInfo` の重複項目を棚卸しし、正本を `TabInfo`、`SessionState`、Repository / DB、ViewModel 合成結果に分類する。
+2. `ThreadTabInfo` / `BoardTabInfo` は軽量なタブメタ情報に限定し、検索・表示モード・ポップアップ・ダイアログ下書きなどを保持する `ThreadSessionState` / `BoardSessionState` 相当の別モデルを導入する。
+3. スレッド表示行生成、NG・検索適用、新着計算、板スレ一覧変換を UseCase / coordinator として切り出し、既存 ViewModel から利用する。
+4. 既存 ViewModel の揮発 UI 状態更新を SessionState 更新 API に寄せ、`UiState` を SessionState と Repository / UseCase 由来値の合成結果として扱えるようにする。
+5. `pendingPost`、`popupIdGenerator`、`bookmarkSheetHolder`、`postDialogController` など per-tab ViewModel インスタンス所有の継続状態を tab key ごとの SessionState / session holder へ移す。
+6. `ThreadRouteViewModel` / `BoardRouteViewModel` を導入し、tab key 指定で `UiState` Flow を遅延提供できる API を追加する。
+7. `BbsRouteScaffold` のページ生成を per-tab ViewModel 取得から、Pager が compose したページごとに tab key 指定 `UiState` Flow を購読する構造へ切り替える。
+8. UI セッション状態はプロセス内 Session State に限定し、永続タブ状態へ保存しないように保存経路を整理する。
+9. 自動スクロールに伴う定期更新を表示中スレッドタブのみに限定し、全タブ更新は明示操作として分離する。
+10. `TabViewModelRegistry`、`BaseViewModel.release()`、per-tab ViewModel registry 依存を削除し、旧 ViewModel は route ViewModel 内の互換レイヤーとして一時的に閉じ込める。
+11. `legacyViewModel(tabKey)` 呼び出しと旧 ViewModel 公開 API を棚卸しし、RouteViewModel API、SessionState、session holder、UseCase、Repository 同期への移管表を確定する。
+12. `bookmarkSheetHolder`、`postDialogController`、画像保存イベントを `TabSessionStore` 配下の tab key 別 session holder へ移す。
+13. Thread 側を先に旧 `ThreadViewModel.uiState` 依存から切り離し、`ThreadRouteViewModel` が SessionState とデータ層 Flow から `ThreadUiState` を直接合成する形へ変える。
+14. Board 側は `ThreadListCoordinator` の state 直書きを分離してから、`BoardRouteViewModel` が SessionState とデータ層 Flow から `BoardUiState` を直接合成する形へ変える。
+15. Thread / Board の直接合成化後に購読制御、session holder lifecycle、`legacyViewModel(tabKey)` 削除準備を確認する。
+16. `legacyViewModel(tabKey)`、旧 ViewModel factory、旧 ViewModel、`BaseViewModel`、旧 ViewModel 前提テストを削除または置換する。
+17. スクロール復元、タブ切替、新着表示、更新、投稿ダイアログ、検索、ポップアップの回帰テストを追加・更新する。
+
+## Open Questions
+
+- なし。

@@ -10,6 +10,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
+import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -58,36 +59,6 @@ class ThreadTabCoordinatorTest {
                 )
             )
         }
-    }
-
-    @Test
-    fun updateThreadScrollPosition_updatesScrollOffsetsViaDedicatedMethod() = runTest {
-        val threadId = ThreadId.of("host", "board", "thread")
-        val initialTab = ThreadTabInfo(
-            id = threadId,
-            title = "Title",
-            boardName = "Board",
-            boardUrl = "https://example.com",
-            boardId = 1L,
-            firstVisibleItemIndex = 0,
-            firstVisibleItemScrollOffset = 0,
-        )
-        val tabsRepository = mockTabsRepository(initialTab)
-        val readStateRepository = mockReadStateRepository()
-        val coordinator = ThreadTabCoordinator(this, tabsRepository, readStateRepository)
-
-        coordinator.updateThreadScrollPosition(threadId, firstVisibleIndex = 5, scrollOffset = 12)
-        advanceUntilIdle()
-
-        coVerify(exactly = 1) {
-            tabsRepository.updateThreadTabScrollPosition(
-                threadId = threadId,
-                firstVisibleItemIndex = 5,
-                firstVisibleItemScrollOffset = 12,
-            )
-        }
-        coVerify(exactly = 0) { tabsRepository.saveOpenThreadTabs(any()) }
-        coVerify { readStateRepository wasNot Called }
     }
 
     @Test
@@ -142,7 +113,6 @@ class ThreadTabCoordinatorTest {
         coordinator.updateThreadLastRead(threadId, lastReadResNo = 7)
         advanceUntilIdle()
 
-        coVerify { readStateRepository wasNot Called }
     }
 
     private fun mockTabsRepository(vararg tabs: ThreadTabInfo): TabsRepository {

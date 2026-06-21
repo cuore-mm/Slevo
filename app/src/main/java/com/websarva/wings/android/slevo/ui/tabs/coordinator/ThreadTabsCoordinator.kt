@@ -6,9 +6,10 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.tabs.registry.TabViewModelRegistry
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
+import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionRuntimeState
+import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import kotlinx.coroutines.CancellationException
@@ -44,7 +45,6 @@ class ThreadTabsCoordinator @Inject constructor(
     private val threadBookmarkRepository: ThreadBookmarkRepository,
     private val datRepository: DatRepository,
     private val threadStateRepository: ThreadStateRepository,
-    private val tabViewModelRegistry: TabViewModelRegistry,
 ) {
     /**
      * 正常完了時に 100% の進捗を表示し続ける時間。
@@ -70,6 +70,12 @@ class ThreadTabsCoordinator @Inject constructor(
 
     private val _selectedThreadTabKey = MutableStateFlow<String?>(null)
     val selectedThreadTabKey: StateFlow<String?> = _selectedThreadTabKey.asStateFlow()
+
+    private val _threadSessionStates = MutableStateFlow<Map<String, ThreadSessionState>>(emptyMap())
+    val threadSessionStates: StateFlow<Map<String, ThreadSessionState>> = _threadSessionStates.asStateFlow()
+
+    private val _threadRuntimeStates = MutableStateFlow<Map<String, ThreadSessionRuntimeState>>(emptyMap())
+    val threadRuntimeStates: StateFlow<Map<String, ThreadSessionRuntimeState>> = _threadRuntimeStates.asStateFlow()
 
     private val _threadCurrentPage = MutableStateFlow(-1)
 
@@ -150,12 +156,12 @@ class ThreadTabsCoordinator @Inject constructor(
     }
 
     /**
-     * 指定の ThreadTabInfo を閉じる（ViewModel の解放、内部状態更新、永続化）。
+     * 指定の ThreadTabInfo を閉じる。
+     *
+     * セッション状態、ランタイム状態、選択 key を整理してから永続状態を更新する。
      */
     fun closeThreadTab(tab: ThreadTabInfo) {
         val key = tab.id.value
-        tabViewModelRegistry.releaseThreadViewModel(key)
-
         val selectedKeyBeforeRemoval = _selectedThreadTabKey.value
         val removedIndex = _openThreadTabs.value.indexOfFirst { it.id == tab.id }
         var updatedTabs: List<ThreadTabInfo> = emptyList()
@@ -165,6 +171,8 @@ class ThreadTabsCoordinator @Inject constructor(
             newTabs
         }
         _newResCounts.update { it - key }
+        _threadSessionStates.update { it - key }
+        _threadRuntimeStates.update { it - key }
         updateSelectedThreadKeyAfterRemoval(selectedKeyBeforeRemoval, key, removedIndex, updatedTabs)
         saveThreadTabs(updatedTabs)
     }
@@ -309,6 +317,77 @@ class ThreadTabsCoordinator @Inject constructor(
      */
     fun getTabInfo(threadId: ThreadId): ThreadTabInfo? {
         return _openThreadTabs.value.find { it.id == threadId }
+    }
+
+    /**
+     * 指定スレッドタブの揮発 UI セッション状態を返す。
+     */
+    fun getThreadSessionState(threadId: ThreadId): ThreadSessionState {
+        return _threadSessionStates.value[threadId.value] ?: ThreadSessionState()
+    }
+
+    /**
+     * 指定スレッドタブの揮発 UI セッション状態を更新する。
+     */
+    fun updateThreadSessionState(
+        threadId: ThreadId,
+        transform: (ThreadSessionState) -> ThreadSessionState,
+    ) {
+        val key = threadId.value
+        _threadSessionStates.update { states ->
+            val current = states[key] ?: ThreadSessionState()
+            states + (key to transform(current))
+        }
+    }
+
+    /**
+     * 指定スレッドタブの継続ランタイム状態を返す。
+     */
+    fun getThreadRuntimeState(threadId: ThreadId): ThreadSessionRuntimeState {
+        return _threadRuntimeStates.value[threadId.value] ?: ThreadSessionRuntimeState()
+    }
+
+    /**
+     * 指定スレッドタブの継続ランタイム状態を更新する。
+     */
+    fun updateThreadRuntimeState(
+        threadId: ThreadId,
+        transform: (ThreadSessionRuntimeState) -> ThreadSessionRuntimeState,
+    ) {
+        val key = threadId.value
+        _threadRuntimeStates.update { states ->
+            val current = states[key] ?: ThreadSessionRuntimeState()
+            states + (key to transform(current))
+        }
+    }
+
+    /**
+     * ensure 済みの boardId を既存スレッドタブへ反映して永続状態も更新する。
+     *
+     * URL から開いた placeholder boardId のタブを、Repository で解決した実 boardId に差し替える。
+     */
+    fun updateThreadResolvedBoardInfo(
+        threadId: ThreadId,
+        boardId: Long,
+        boardName: String? = null,
+    ) {
+        if (boardId == 0L) return
+        var updatedTabs: List<ThreadTabInfo> = emptyList()
+        _openThreadTabs.update { tabs ->
+            val updated = tabs.map { tab ->
+                if (tab.id == threadId) {
+                    tab.copy(
+                        boardId = boardId,
+                        boardName = boardName?.takeIf(String::isNotBlank) ?: tab.boardName,
+                    )
+                } else {
+                    tab
+                }
+            }
+            updatedTabs = updated
+            updated
+        }
+        saveThreadTabs(updatedTabs)
     }
 
     /**
