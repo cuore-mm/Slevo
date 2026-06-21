@@ -39,9 +39,9 @@
 
 ### Decision 3: 手動スクロールは「自動スクロール解除」ではなく「一時停止」として扱う
 
-ユーザーが自動スクロール中にドラッグした場合、`isAutoScroll` 自体は true のまま維持する。`LazyListState.interactionSource.interactions` の `DragInteraction.Start` / `Stop` / `Cancel` を監視し、ユーザー操作中だけ自動スクロールの `scrollBy()` ループを止める。操作終了後は短い待機または次フレーム以降に自動スクロールを再開する。
+ユーザーが自動スクロール中にドラッグした場合、`isAutoScroll` 自体は true のまま維持する。`LazyListState.interactionSource.interactions` の `DragInteraction.Start` / `Stop` / `Cancel` を監視し、ユーザー操作中だけ自動スクロールの `scrollBy()` ループを止める。操作終了後は `snapshotFlow { listState.isScrollInProgress }` などでユーザー由来の fling が完了していることを確認し、さらに 100〜200ms 程度の短い猶予を置いてから自動スクロールを再開する。
 
-これにより、`isScrollInProgress` による自動再起動には戻さず、ユーザー操作だけを再開トリガーとして扱う。
+これにより、`isScrollInProgress` を `LaunchedEffect` key に戻さずに、ユーザー操作終了と fling 完了だけを再開トリガーとして扱う。固定時間だけで再開する案は実装が単純だが、fling 中に自動スクロールが介入しうるため採用しない。
 
 ### Decision 4: 下端到達通知は今回変更しない
 
@@ -52,18 +52,18 @@ UI 側 edge-trigger / throttle は、下端滞在中の呼び出し負荷が実�
 ## Risks / Trade-offs
 
 - [Risk] scroll offset を `ThreadUiState` 合成入力から除外すると、スクロール位置に依存した表示フィールドが将来追加された際に更新漏れが起きる → `ThreadTabUiStateSourceKey` に含める項目を明示し、表示内容に関係するタブ項目を追加した場合は比較キーも更新する。
-- [Risk] ユーザー操作検知を `DragInteraction` のみにすると fling や programmatic scroll の扱いが曖昧になる → ユーザー drag 中は停止し、drag 終了後の fling は短い待機後に再開する挙動として定義する。
-- [Risk] 自動スクロール再開が早すぎるとユーザー操作を奪う → `DragInteraction.Stop` / `Cancel` 後に小さな猶予を置く、または fling 完了を待つ設計を検討する。
+- [Risk] ユーザー操作検知を `DragInteraction` のみにすると fling や programmatic scroll の扱いが曖昧になる → ユーザー drag 中は停止し、`DragInteraction.Stop` / `Cancel` 後は fling 完了を待ってから短い猶予後に再開する。
+- [Risk] 自動スクロール再開が早すぎるとユーザー操作を奪う → fling 完了検知と 100〜200ms 程度の猶予を組み合わせ、固定時間だけで再開しない。
 - [Risk] `distinctUntilChangedBy` により必要な tab 変更が抑制される → boardId、title、レス数、新着境界、bookmark 色、pin など表示に関係する項目を比較キーへ含める。
 
 ## Migration Plan
 
 1. `ThreadRouteViewModel` の `tabFlow` に、スクロール位置を除外した比較キーによる `distinctUntilChangedBy` を追加する。
 2. `ObserveAutoScrollEffect` から `isScrollInProgress` key 依存を外す。
-3. `DragInteraction` を用いたユーザー操作中の一時停止・操作終了後の再開を追加する。
+3. `DragInteraction` と fling 完了検知を用いたユーザー操作中の一時停止・操作終了後の再開を追加する。
 4. 下端到達通知の発火ポリシーは変更せず、ViewModel 側の既存 10 秒制御に任せる。
 5. 自動スクロール中のスクロール位置保存、手動操作後の再開、タブ切替/画面離脱時の復元をテストする。
 
 ## Open Questions
 
-- 手動スクロール後の再開猶予を固定時間にするか、fling 完了検知に寄せるか。
+- なし。

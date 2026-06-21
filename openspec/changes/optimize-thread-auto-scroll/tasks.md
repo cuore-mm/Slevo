@@ -9,8 +9,8 @@
 
 - [ ] 2.1 `ObserveAutoScrollEffect` の `LaunchedEffect` key から `listState.isScrollInProgress` 依存を除去し、programmatic scroll 自身で Effect が再起動しないようにする
 - [ ] 2.2 ユーザー手動 drag を `LazyListState.interactionSource.interactions` で検知し、自動スクロール中のユーザー操作を一時停止状態として扱う
-- [ ] 2.3 `DragInteraction.Stop` / `Cancel` 後に自動スクロールが再開するようにし、`isAutoScroll` 自体は解除しない
-- [ ] 2.4 手動 scroll / fling と自動スクロール再開の境界で、ユーザー操作を奪わない猶予または再開条件を定義する
+- [ ] 2.3 `DragInteraction.Stop` / `Cancel` 後は fling 完了を検知し、100〜200ms 程度の猶予後に自動スクロールを再開する
+- [ ] 2.4 手動 scroll / fling の終了待ち中も `isAutoScroll` 自体は解除せず、ユーザー操作を奪わない再開条件をテストする
 - [ ] 2.5 下端到達通知の発火ポリシーは変更せず、既存の ViewModel 側 10 秒制御で自動更新頻度が維持されることを確認する
 
 ## 3. スクロール位置保存と復元の維持
