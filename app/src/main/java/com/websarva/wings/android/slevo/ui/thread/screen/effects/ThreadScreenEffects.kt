@@ -24,7 +24,10 @@ import com.websarva.wings.android.slevo.ui.common.scroll.resolveBottomTargetInde
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadListItem
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.min
 
 /**
@@ -75,7 +78,13 @@ fun ObserveLastReadEffect(
 }
 
 /**
- * 自動スクロールの進行を管理し、終端到達時に通知する副作用を管理する。
+ * 自動スクロールの進行とユーザー操作との衝突を管理する副作用。
+ *
+ * - 自動スクロールの駆動は `isAutoScroll` と `LaunchedEffect` ライフサイクルを基準にし、
+ *   プログラムスクロール自身の `isScrollInProgress` 変化で Effect が再起動しないようにする。
+ * - ユーザー手動 drag は `LazyListState.interactionSource.interactions` で検知し、
+ *   drag 中は自動スクロールを停止する。
+ * - drag 終了後は fling 完了を待ってから短い猶予を置いて自動スクロールを再開する。
  */
 @Composable
 fun ObserveAutoScrollEffect(
@@ -86,6 +95,26 @@ fun ObserveAutoScrollEffect(
 ) {
     val density = LocalDensity.current
     val autoScrollDpPerSec = 40f
+    val resumeGraceMillis = 150L
+
+    // ユーザー操作中かどうか。drag 開始/終了/fling 完了/猶予で更新する。
+    var isUserInteracting by remember { mutableStateOf(false) }
+
+    // drag 開始/終了を検知し、isUserInteracting を更新する。
+    LaunchedEffect(listState) {
+        listState.interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is DragInteraction.Start -> {
+                    isUserInteracting = true
+                }
+
+                is DragInteraction.Stop,
+                is DragInteraction.Cancel -> {
+                    isUserInteracting = false
+                }
+            }
+        }
+    }
 
     LaunchedEffect(isAutoScroll, density, fallbackItemCount) {
         if (!isAutoScroll) {
@@ -94,6 +123,12 @@ fun ObserveAutoScrollEffect(
         val pxPerSec = with(density) { autoScrollDpPerSec.dp.toPx() }
         var lastTime: Long? = null
         while (isActive) {
+            // ユーザー手動操作中は自動スクロールを一時停止する。
+            if (isUserInteracting) {
+                lastTime = null
+                delay(16L)
+                continue
+            }
             val dt = withFrameNanos { now ->
                 val previous = lastTime
                 lastTime = now
@@ -114,11 +149,31 @@ fun ObserveAutoScrollEffect(
                 last.index == targetLastIndex &&
                 last.offset + last.size <= info.viewportEndOffset + 1
 
+            // ユーザー操作由来の fling が落ち着くまで待ってから自動スクロールを継続する。
+            if (consumed > 0f && isScrollInProgressWaiting(listState)) {
+                delay(resumeGraceMillis)
+                lastTime = null
+            }
+
             if (atEnd || consumed == 0f) {
                 onAutoScrollBottom()
             }
         }
     }
+}
+
+/**
+ * 直近でユーザー由来のスクロール/ fling が継続しているかを返す。
+ *
+ * 自動スクロールの `scrollBy` で `isScrollInProgress` が一瞬 true になる短時間だけだと判定が難しいため、
+ * 100ms 程度の短時間サンプルで「継続的なユーザー由来の動き」とみなすか判断する。
+ */
+private suspend fun isScrollInProgressWaiting(listState: LazyListState): Boolean {
+    return withTimeoutOrNull(120L) {
+        snapshotFlow { listState.isScrollInProgress }
+            .filter { it }
+            .first()
+    } ?: false
 }
 
 /**
