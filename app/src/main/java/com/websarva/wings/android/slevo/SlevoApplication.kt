@@ -33,7 +33,7 @@ class SlevoApplication : Application() {
         // PendingRestoreApplier.runIfNeeded() は内部で top-level catch するが、
         // 念のため SlevoApplication 側でも catch して通常起動を妨げない。
         try {
-            runBlocking {
+            runPendingRestoreBeforeDatabase {
                 PendingRestoreApplier(this@SlevoApplication).runIfNeeded()
             }
         } catch (t: Throwable) {
@@ -85,5 +85,19 @@ class SlevoApplication : Application() {
                 existingHandler?.uncaughtException(thread, throwable)
             }
         }
+    }
+}
+
+/**
+ * pending restore の durable recovery が完了するまで startup caller を block する seam。
+ *
+ * Application はこの関数から戻った後に Hilt/Room 依存初期化へ進むため、rollback 確定前に
+ * wrapped migration が開始されない。テストでは pending restore action を差し替えて順序を検証する。
+ */
+internal fun runPendingRestoreBeforeDatabase(
+    pendingRestore: suspend () -> Unit,
+) {
+    runBlocking {
+        pendingRestore()
     }
 }

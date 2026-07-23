@@ -56,6 +56,25 @@ class PendingRestoreManagerTest {
         assertEquals("integrity check failed", decoded.failureReason)
     }
 
+    @Test
+    fun marker_encodeDecode_preservesMigrationAttemptStartedBothValues() {
+        val adapter = moshi.adapter(PendingRestoreMarker::class.java)
+
+        listOf(false, true).forEach { attemptStarted ->
+            val marker = PendingRestoreMarker(
+                status = RestoreStatus.MIGRATION_PENDING,
+                createdAt = "2026-01-01T00:00:00Z",
+                includeCookies = false,
+                databaseVersion = 8,
+                migrationAttemptStarted = attemptStarted,
+            )
+
+            val decoded = requireNotNull(adapter.fromJson(adapter.toJson(marker)))
+
+            assertEquals(attemptStarted, decoded.migrationAttemptStarted)
+        }
+    }
+
     // --- State transitions ---
 
     @Test

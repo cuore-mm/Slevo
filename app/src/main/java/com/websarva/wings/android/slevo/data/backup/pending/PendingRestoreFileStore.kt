@@ -20,6 +20,27 @@ internal object PendingRestoreResultFileLock {
 }
 
 /**
+ * marker の条件判定と atomic publication を同一 process 内で保護する monitor。
+ *
+ * marker を扱う全 store instance が共有し、recorder の read-check-write と通常の marker 操作を
+ * 同じ排他境界へ置く。
+ */
+internal object PendingRestoreMarkerFileLock {
+    /** marker file 操作を保護する monitor。 */
+    val monitor = Any()
+}
+
+/**
+ * marker の conditional mutation の結果と、公開する置換 marker をまとめる値。
+ *
+ * `replacement` が null の場合は marker を変更せず、現在の marker に対する判定結果だけを返す。
+ */
+internal data class PendingRestoreMarkerMutation<T>(
+    val result: T,
+    val replacement: PendingRestoreMarker? = null,
+)
+
+/**
  * pending restore のatomic marker/result file とcleanupを扱う抽象。
  *
  * [PendingRestoreApplier] から file I/O の詳細を分離し、
@@ -44,6 +65,21 @@ internal interface PendingRestoreFileStore {
 
     /** marker を上書き保存する。 */
     fun writeMarker(marker: PendingRestoreMarker)
+
+    /**
+     * 最新 marker を lock 内で読み取り、必要な場合だけ atomic replace する。
+     *
+     * callback は lock 内の最新値に対して一度だけ評価されるため、stale な copy を公開しない。
+     */
+    fun <T> mutateMarkerAtomically(
+        mutation: (PendingRestoreMarker?) -> PendingRestoreMarkerMutation<T>,
+    ): T {
+        synchronized(PendingRestoreMarkerFileLock.monitor) {
+            val decision = mutation(readMarker())
+            decision.replacement?.let(::writeMarker)
+            return decision.result
+        }
+    }
 
     /** result file を保存する。診断情報を含む。 */
     fun writeResult(
@@ -126,9 +162,15 @@ internal class RealPendingRestoreFileStore(
     }
 
     /** malformed marker は通常起動優先のため null 扱いにする。 */
-    override fun readMarker(): PendingRestoreMarker? = markerStore.read()
+    override fun readMarker(): PendingRestoreMarker? = synchronized(PendingRestoreMarkerFileLock.monitor) {
+        markerStore.read()
+    }
 
-    override fun writeMarker(marker: PendingRestoreMarker) = markerStore.write(marker)
+    override fun writeMarker(marker: PendingRestoreMarker) {
+        synchronized(PendingRestoreMarkerFileLock.monitor) {
+            markerStore.write(marker)
+        }
+    }
 
     /** result JSONを共有monitor下で保存し、別instanceのreaderと競合しないようにする。 */
     override fun writeResult(
@@ -168,32 +210,34 @@ internal class RealPendingRestoreFileStore(
      * は成功扱いにし、残存 payload または marker の削除失敗だけを retryable failure とする。
      */
     override fun cleanupPending(): Boolean {
-        return try {
-            // --- Owned pending payload ---
-            val payloads = listOf(
-                File(pendingDir, "database"),
-                File(pendingDir, "datastore"),
-                rollbackDir,
-                File(pendingDir, PendingRestoreManager.DATASTORE_ROLLBACK_SNAPSHOT_FILENAME),
-            )
-            if (payloads.any { !deletePayload(it) }) {
-                logWarn("cleanup pending payload failed")
-                return false
-            }
+        synchronized(PendingRestoreMarkerFileLock.monitor) {
+            return try {
+                // --- Owned pending payload ---
+                val payloads = listOf(
+                    File(pendingDir, "database"),
+                    File(pendingDir, "datastore"),
+                    rollbackDir,
+                    File(pendingDir, PendingRestoreManager.DATASTORE_ROLLBACK_SNAPSHOT_FILENAME),
+                )
+                if (payloads.any { !deletePayload(it) }) {
+                    logWarn("cleanup pending payload failed")
+                    return false
+                }
 
-            // --- Marker removal commit point ---
-            if (!markerStore.delete()) {
-                logWarn("cleanup pending marker failed")
-                return false
+                // --- Marker removal commit point ---
+                if (!markerStore.delete()) {
+                    logWarn("cleanup pending marker failed")
+                    return false
+                }
+                // 空 directory の削除は best effort。payload と marker が消えていれば成功扱いにする。
+                if (pendingDir.exists() && pendingDir.listFiles().orEmpty().isEmpty()) {
+                    pendingDir.delete()
+                }
+                true
+            } catch (e: Exception) {
+                logWarn("cleanup pending failed: ${e.message}")
+                false
             }
-            // 空 directory の削除は best effort。payload と marker が消えていれば成功扱いにする。
-            if (pendingDir.exists() && pendingDir.listFiles().orEmpty().isEmpty()) {
-                pendingDir.delete()
-            }
-            true
-        } catch (e: Exception) {
-            logWarn("cleanup pending failed: ${e.message}")
-            false
         }
     }
 

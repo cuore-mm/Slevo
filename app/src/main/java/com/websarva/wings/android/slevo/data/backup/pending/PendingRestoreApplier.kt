@@ -276,8 +276,8 @@ class PendingRestoreApplier private constructor(
     /**
      * pending restore が存在する場合、DB 置換と DataStore 反映を同期的に完了する。
      *
-     * 例外は外へ投げない。想定外例外は marker を `failed` に更新し、
-     * result file に失敗を記録して return する。
+     * 例外は外へ投げない。DB置換前のmarkerだけを `failed` に更新し、
+     * recoveryまたはfinalizationを示すmarkerは保持したままresult fileへ失敗を記録する。
      */
     suspend fun runIfNeeded() {
         withContext(Dispatchers.IO) {
@@ -356,6 +356,15 @@ class PendingRestoreApplier private constructor(
         if (userVersion == marker.databaseVersion) {
             val preError = dbValidator.preValidate(liveDbFile, marker.databaseVersion)
             if (preError == null) {
+                if (marker.migrationAttemptStarted) {
+                    // old user_version と durable 開始証跡の組み合わせは、前回 transaction が
+                    // commit されなかった反復失敗として扱い、同じ migration を再試行しない。
+                    val reason = "repeated migration failure: migration attempt already started" +
+                        " (dbVersion=${userVersion}, markerVersion=${marker.databaseVersion})"
+                    logWarn("MIGRATION_PENDING: $reason")
+                    rollbackMigrationFailure(marker, reason, liveDbFile, hasRollback)
+                    return
+                }
                 // migration 前 DB は健全。Room open 後の migration と completion checker に委ねる。
                 logInfo("MIGRATION_PENDING: pre-migration validation passed," +
                     " awaiting Room migration (dbVersion=${userVersion}," +
@@ -745,31 +754,60 @@ class PendingRestoreApplier private constructor(
         }
     }
 
-    /** 想定外例外を `failed` marker/result として記録する。 */
+    /**
+     * 想定外例外の診断結果を記録し、回復可能なmarkerをterminal failureへ変更しない。
+     *
+     * markerはDB/DataStore recoveryの再開点であるため、DB置換前の [RestoreStatus.PREPARED]
+     * と [RestoreStatus.APPLYING] だけを [RestoreStatus.FAILED] へ更新する。保護対象markerの
+     * write、pending cleanup、artifact削除は行わず、failure resultだけをbest-effortで記録する。
+     */
     private fun recordStartupRestoreFailureOnIo(e: Exception) {
         logError("startup restore failed unexpectedly", e)
 
+        // --- Marker classification ---
+        val marker = try {
+            fileStore.readMarker()
+        } catch (markerReadError: Exception) {
+            // 直前のatomic markerを推測せず、二次I/O failureだけを診断してresult記録へ進む。
+            logWarn("startup restore marker read failed: ${markerReadError.message}")
+            null
+        }
+
         try {
-            fileStore.readMarker()?.let { marker ->
-                fileStore.writeMarker(
+            when (marker?.status) {
+                RestoreStatus.PREPARED,
+                RestoreStatus.APPLYING -> fileStore.writeMarker(
                     marker.copy(
                         status = RestoreStatus.FAILED,
                         failureReason = "unexpected error: ${e.message}",
                     ),
                 )
+
+                RestoreStatus.ROLLBACK_READY,
+                RestoreStatus.DB_SWAPPED,
+                RestoreStatus.MIGRATION_PENDING,
+                RestoreStatus.ROLLBACK_REQUIRED,
+                RestoreStatus.COMPLETED,
+                RestoreStatus.FAILED,
+                null -> {
+                    // 回復/完了markerと既存FAILEDはそのまま保持し、marker再writeを避ける。
+                }
             }
-        } catch (_: Exception) {
-            // marker 更新失敗は握りつぶす
+        } catch (markerWriteError: Exception) {
+            // pre-swap markerのatomic write failureでも直前のmarkerとpendingを保持する。
+            logWarn("startup restore failure marker write failed: ${markerWriteError.message}")
         }
 
+        // --- Best-effort diagnostic result ---
         try {
             fileStore.writeResult(
                 success = false,
                 message = "unexpected error: ${e.message}",
                 timestamp = nowProvider(),
             )
-        } catch (_: Exception) {
-            // result file 書き込み失敗も握りつぶす
+        } catch (resultWriteError: Exception) {
+            // result failureはmarker classificationやrecovery artifactを変更しない。
+            logWarn("startup restore failure result write failed: ${resultWriteError.message}")
         }
     }
 
@@ -835,6 +873,7 @@ class PendingRestoreApplier private constructor(
         val dbSwappedMarker = marker.copy(
             status = RestoreStatus.DB_SWAPPED,
             hadExistingLiveDb = hadExistingLiveDb,
+            migrationAttemptStarted = false,
         )
         fileStore.writeMarker(dbSwappedMarker)
 
@@ -859,6 +898,7 @@ class PendingRestoreApplier private constructor(
             marker.copy(
                 status = RestoreStatus.MIGRATION_PENDING,
                 hadExistingLiveDb = hadExistingLiveDb,
+                migrationAttemptStarted = false,
             ),
         )
         logInfo("applyRestore: transitioned to MIGRATION_PENDING")

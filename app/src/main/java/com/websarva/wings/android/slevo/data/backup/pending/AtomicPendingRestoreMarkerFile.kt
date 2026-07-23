@@ -2,9 +2,11 @@ package com.websarva.wings.android.slevo.data.backup.pending
 
 import android.util.AtomicFile
 import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.JsonEncodingException
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
+import java.io.IOException
 import java.nio.charset.StandardCharsets
 
 /**
@@ -28,20 +30,29 @@ internal class AtomicPendingRestoreMarkerFile(
      * malformed JSONやmarker未作成はpending restoreなしとして扱う。
      */
     fun read(): PendingRestoreMarker? {
-        return try {
-            // AtomicFile.openRead() normally restores this backup. Keep an explicit fallback for
-            // framework/Robolectric versions that do not restore when the base file is missing.
-            if (!markerFile.exists() && backupFile.exists() && !backupFile.renameTo(markerFile)) {
-                return null
+        synchronized(PendingRestoreMarkerFileLock.monitor) {
+            return try {
+                // AtomicFile.openRead() normally restores this backup. Keep an explicit fallback for
+                // framework/Robolectric versions that do not restore when the base file is missing.
+                if (!markerFile.exists() && backupFile.exists() && !backupFile.renameTo(markerFile)) {
+                    return null
+                }
+                val json = atomicFile.openRead().use { input ->
+                    input.readBytes().toString(StandardCharsets.UTF_8)
+                }
+                adapter.fromJson(json)
+            } catch (_: FileNotFoundException) {
+                null
+            } catch (_: JsonEncodingException) {
+                // malformed JSON is an invalid marker, not a filesystem read failure.
+                null
+            } catch (error: IOException) {
+                // filesystem read failure must reach the migration wrapper; treating it as an
+                // absent marker would allow SQL to run without durable attempt evidence.
+                throw error
+            } catch (_: Exception) {
+                null
             }
-            val json = atomicFile.openRead().use { input ->
-                input.readBytes().toString(StandardCharsets.UTF_8)
-            }
-            adapter.fromJson(json)
-        } catch (_: FileNotFoundException) {
-            null
-        } catch (_: Exception) {
-            null
         }
     }
 
@@ -52,40 +63,44 @@ internal class AtomicPendingRestoreMarkerFile(
      * [AtomicFile.failWrite]で直前のbackupを復元し、元の例外をcallerへ再throwする。
      */
     fun write(marker: PendingRestoreMarker) {
-        // --- Parent directory ---
-        val parent = markerFile.parentFile
-            ?: throw IllegalStateException("marker has no parent directory: $markerFile")
-        if (!parent.exists() && !parent.mkdirs()) {
-            throw IllegalStateException("failed to create marker directory: $parent")
-        }
-        if (!parent.isDirectory) {
-            throw IllegalStateException("marker parent is not a directory: $parent")
-        }
-
-        // --- Atomic publication ---
-        val output: FileOutputStream = atomicFile.startWrite()
-        try {
-            output.write(adapter.toJson(marker).toByteArray(StandardCharsets.UTF_8))
-            output.fd.sync()
-            atomicFile.finishWrite(output)
-        } catch (error: Exception) {
-            try {
-                atomicFile.failWrite(output)
-            } catch (cleanupError: Exception) {
-                error.addSuppressed(cleanupError)
+        synchronized(PendingRestoreMarkerFileLock.monitor) {
+            // --- Parent directory ---
+            val parent = markerFile.parentFile
+                ?: throw IllegalStateException("marker has no parent directory: $markerFile")
+            if (!parent.exists() && !parent.mkdirs()) {
+                throw IllegalStateException("failed to create marker directory: $parent")
             }
-            throw error
+            if (!parent.isDirectory) {
+                throw IllegalStateException("marker parent is not a directory: $parent")
+            }
+
+            // --- Atomic publication ---
+            val output: FileOutputStream = atomicFile.startWrite()
+            try {
+                output.write(adapter.toJson(marker).toByteArray(StandardCharsets.UTF_8))
+                output.fd.sync()
+                atomicFile.finishWrite(output)
+            } catch (error: Exception) {
+                try {
+                    atomicFile.failWrite(output)
+                } catch (cleanupError: Exception) {
+                    error.addSuppressed(cleanupError)
+                }
+                throw error
+            }
         }
     }
 
     /** marker と interrupted write の backup を削除し、marker removal の成否を返す。 */
     fun delete(): Boolean {
-        var deleted = true
-        // temp file を先に除去し、失敗時に authoritative marker を残す。
-        if (temporaryFile.exists() && !temporaryFile.delete()) deleted = false
-        if (!deleted) return false
-        if (markerFile.exists() && !markerFile.delete()) deleted = false
-        if (backupFile.exists() && !backupFile.delete()) deleted = false
-        return deleted && !markerFile.exists() && !backupFile.exists() && !temporaryFile.exists()
+        synchronized(PendingRestoreMarkerFileLock.monitor) {
+            var deleted = true
+            // temp file を先に除去し、失敗時に authoritative marker を残す。
+            if (temporaryFile.exists() && !temporaryFile.delete()) deleted = false
+            if (!deleted) return false
+            if (markerFile.exists() && !markerFile.delete()) deleted = false
+            if (backupFile.exists() && !backupFile.delete()) deleted = false
+            return deleted && !markerFile.exists() && !backupFile.exists() && !temporaryFile.exists()
+        }
     }
 }

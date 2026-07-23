@@ -51,6 +51,37 @@ class PendingRestoreMarkerTest {
     }
 
     @Test
+    fun serializeAndDeserialize_withMigrationAttemptStartedTrue_roundTrips() {
+        val marker = PendingRestoreMarker(
+            status = RestoreStatus.MIGRATION_PENDING,
+            createdAt = "2026-07-03T00:00:00Z",
+            includeCookies = false,
+            databaseVersion = 8,
+            migrationAttemptStarted = true,
+        )
+
+        val restored = requireNotNull(adapter.fromJson(adapter.toJson(marker)))
+
+        assertEquals(true, restored.migrationAttemptStarted)
+    }
+
+    @Test
+    fun deserialize_legacyJsonWithoutMigrationAttemptStarted_defaultsToFalse() {
+        val legacyJson = """
+            {
+                "status": "MIGRATION_PENDING",
+                "createdAt": "2026-07-03T00:00:00Z",
+                "includeCookies": false,
+                "databaseVersion": 8
+            }
+        """.trimIndent()
+
+        val restored = requireNotNull(adapter.fromJson(legacyJson))
+
+        assertEquals(false, restored.migrationAttemptStarted)
+    }
+
+    @Test
     fun deserialize_legacyJsonWithoutHadExistingLiveDb_parsesAsNull() {
         val legacyJson = """
             {

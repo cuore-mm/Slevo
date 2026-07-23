@@ -131,6 +131,7 @@ class PendingRestoreManager @Inject constructor(
             createdAt = Instant.now().toString(),
             includeCookies = preview.containsCookies,
             databaseVersion = preview.databaseVersion,
+            migrationAttemptStarted = false,
         )
         logD("prepareRestore: writing marker includeCookies=${marker.includeCookies}")
         try {

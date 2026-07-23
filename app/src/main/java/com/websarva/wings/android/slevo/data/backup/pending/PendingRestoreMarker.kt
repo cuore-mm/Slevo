@@ -31,6 +31,8 @@ import com.squareup.moshi.JsonClass
  * @property failureReason 失敗理由。`failed` の場合のみ設定される。
  * @property hadExistingLiveDb restore 開始時に live DB が存在したか。
  *   新規 marker では必ず `true` または `false` が入る。`null` は field を持たない旧 JSON との互換値。
+ * @property migrationAttemptStarted Room migration の delegate 開始を永続化済みか。
+ *   旧 JSON では欠落時に `false` として扱い、`MIGRATION_PENDING` の復元世代にだけ使用する。
  */
 @JsonClass(generateAdapter = true)
 data class PendingRestoreMarker(
@@ -40,6 +42,7 @@ data class PendingRestoreMarker(
     val databaseVersion: Int,
     val failureReason: String? = null,
     val hadExistingLiveDb: Boolean? = null,
+    val migrationAttemptStarted: Boolean = false,
 )
 
 /**

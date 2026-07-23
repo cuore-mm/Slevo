@@ -54,7 +54,9 @@ class PendingRestoreApplierTest {
 
     @Test
     fun prepared_happyPath_transitionsToMigrationPending() = runTest {
-        fileStore.marker = marker(RestoreStatus.PREPARED, includeCookies = true)
+        fileStore.marker = marker(RestoreStatus.PREPARED, includeCookies = true).copy(
+            migrationAttemptStarted = true,
+        )
         dbSwapper.liveDbExists = true
 
         createApplier().runIfNeeded()
@@ -75,6 +77,7 @@ class PendingRestoreApplierTest {
         Assert.assertTrue(dbSwapper.replaceRequested)
         Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.lastWrittenMarker?.status)
         Assert.assertEquals(true, fileStore.lastWrittenMarker?.hadExistingLiveDb)
+        Assert.assertEquals(false, fileStore.lastWrittenMarker?.migrationAttemptStarted)
     }
 
     // --- 8.1: same-startup migration finalization ordering ---
@@ -340,6 +343,43 @@ class PendingRestoreApplierTest {
         Assert.assertFalse(fileStore.events.any { it.contains("writeResult:false") })
         // cleanup も呼ばれない
         Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+    }
+
+    @Test
+    fun migrationPending_previousAttemptEvidence_rollsBackWithoutRetrying() = runTest {
+        val oldVersion = 7
+        fileStore.marker = marker(
+            status = RestoreStatus.MIGRATION_PENDING,
+            databaseVersion = oldVersion,
+            migrationAttemptStarted = true,
+        )
+        dbSwapper.hasRollbackBackup = true
+        validator.userVersion = oldVersion
+        validator.nextResult = null
+
+        createApplier().runIfNeeded()
+
+        Assert.assertTrue(dbSwapper.restoreRollbackRequested)
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(
+            fileStore.events.any { it.contains("repeated migration failure") },
+        )
+    }
+
+    @Test
+    fun migrationPending_attemptEvidenceWithCurrentVersion_finalizesNormally() = runTest {
+        fileStore.marker = marker(
+            status = RestoreStatus.MIGRATION_PENDING,
+            migrationAttemptStarted = true,
+        )
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = null
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.COMPLETED, fileStore.lastWrittenMarker?.status)
+        Assert.assertFalse(dbSwapper.restoreRollbackRequested)
+        Assert.assertTrue(fileStore.events.contains("cleanupPending"))
     }
 
     // --- 4.3a: stale MIGRATION_PENDING (pre-migration: validation fails + rollback exists) ---
@@ -733,6 +773,7 @@ class PendingRestoreApplierTest {
         )
     }
 
+    /** DB_SWAPPED後の想定外例外でmarker、failure result、pending artifactを保持することを検証する。 */
     @Test
     fun unexpectedException_doesNotEscapeAndWritesFailureResult() = runTest {
         fileStore.marker = marker(RestoreStatus.PREPARED)
@@ -740,12 +781,189 @@ class PendingRestoreApplierTest {
 
         createApplier().runIfNeeded()
 
-        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
-        Assert.assertEquals(
-            "unexpected error: boom",
-            fileStore.lastWrittenMarker?.failureReason,
-        )
+        Assert.assertEquals(RestoreStatus.DB_SWAPPED, fileStore.marker?.status)
+        Assert.assertEquals(RestoreStatus.DB_SWAPPED, fileStore.lastWrittenMarker?.status)
+        Assert.assertEquals(0, fileStore.writtenMarkers.count { it.status == RestoreStatus.FAILED })
         Assert.assertEquals("writeResult:false:unexpected error: boom", fileStore.events.last())
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+    }
+
+    /** DB置換後のDB_SWAPPED公開失敗を二回目の起動で両generationへrollbackできることを検証する。 */
+    @Test
+    fun rollbackReady_afterDbReplaceAndMarkerPublicationFailure_retriesRollbackOnSecondStart() = runTest {
+        fileStore.marker = marker(RestoreStatus.PREPARED, hadExistingLiveDb = true)
+        dbSwapper.liveDbExists = true
+        dbSwapper.hasRollbackBackup = true
+        dbSwapper.liveDbGeneration = "original-db"
+        dbSwapper.rollbackGeneration = "original-db"
+        reflector.dataStoreGeneration = "original-datastore"
+        reflector.rollbackGeneration = "original-datastore"
+        fileStore.markerWriteFailureStatuses += RestoreStatus.DB_SWAPPED
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.ROLLBACK_READY, fileStore.marker?.status)
+        Assert.assertEquals("restored-db", dbSwapper.liveDbGeneration)
+        Assert.assertEquals("original-datastore", reflector.dataStoreGeneration)
+        Assert.assertTrue(dbSwapper.rollbackArtifactPresent)
+        Assert.assertTrue(reflector.rollbackArtifactPresent)
+        Assert.assertTrue(fileStore.stagingPresent)
+        Assert.assertEquals(0, fileStore.writtenMarkers.count { it.status == RestoreStatus.FAILED })
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals("original-db", dbSwapper.liveDbGeneration)
+        Assert.assertEquals("original-datastore", reflector.dataStoreGeneration)
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(fileStore.events.contains("cleanupPending"))
+        Assert.assertFalse(fileStore.stagingPresent)
+        Assert.assertFalse(dbSwapper.rollbackArtifactPresent)
+        Assert.assertFalse(reflector.rollbackArtifactPresent)
+    }
+
+    /** MIGRATION_PENDINGのversion取得失敗後にmarkerを保持し、次回validationを再開することを検証する。 */
+    @Test
+    fun migrationPending_unexpectedVersionReadFailure_preservesMarkerAndArtifacts() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.hasRollbackBackup = true
+        validator.throwOnGetUserVersion = IllegalStateException("version unavailable")
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+        Assert.assertEquals(0, fileStore.writtenMarkers.size)
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+        Assert.assertTrue(dbSwapper.rollbackArtifactPresent)
+        Assert.assertTrue(fileStore.stagingPresent)
+
+        validator.throwOnGetUserVersion = null
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.COMPLETED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(fileStore.events.contains("cleanupPending"))
+    }
+
+    /** ROLLBACK_REQUIREDのrollback例外後にartifactを保持し、次回rollbackを再試行することを検証する。 */
+    @Test
+    fun rollbackRequired_unexpectedRollbackFailure_preservesMarkerAndRetries() = runTest {
+        fileStore.marker = marker(RestoreStatus.ROLLBACK_REQUIRED, hadExistingLiveDb = true)
+        dbSwapper.hasRollbackBackup = true
+        reflector.throwOnRestoreRollbackSnapshot = IllegalStateException("rollback unavailable")
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.ROLLBACK_REQUIRED, fileStore.marker?.status)
+        Assert.assertEquals(0, fileStore.writtenMarkers.size)
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+        Assert.assertTrue(dbSwapper.rollbackArtifactPresent)
+        Assert.assertTrue(reflector.rollbackArtifactPresent)
+
+        reflector.throwOnRestoreRollbackSnapshot = null
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(fileStore.events.contains("cleanupPending"))
+    }
+
+    /** 全保護対象statusでgeneric handlerがmarker writeとcleanupを行わないことを検証する。 */
+    @Test
+    fun protectedMarkerStatuses_doNotRewriteOrCleanupAfterUnexpectedException() = runTest {
+        val statuses = listOf(
+            RestoreStatus.ROLLBACK_READY,
+            RestoreStatus.DB_SWAPPED,
+            RestoreStatus.MIGRATION_PENDING,
+            RestoreStatus.ROLLBACK_REQUIRED,
+            RestoreStatus.COMPLETED,
+        )
+
+        statuses.forEach { status ->
+            setUp()
+            fileStore.marker = marker(status, hadExistingLiveDb = true)
+            when (status) {
+                RestoreStatus.ROLLBACK_READY -> dbSwapper.throwOnGetLiveDbFile = IllegalStateException("boom")
+                RestoreStatus.DB_SWAPPED -> {
+                    dbSwapper.throwOnHasRollbackBackup = IllegalStateException("boom")
+                }
+                RestoreStatus.MIGRATION_PENDING -> validator.throwOnGetUserVersion = IllegalStateException("boom")
+                RestoreStatus.ROLLBACK_REQUIRED -> {
+                    dbSwapper.hasRollbackBackup = true
+                    reflector.throwOnRestoreRollbackSnapshot = IllegalStateException("boom")
+                }
+                RestoreStatus.COMPLETED -> fileStore.resultWriteFailure = IOException("boom")
+                else -> error("unexpected protected status: $status")
+            }
+
+            createApplier().runIfNeeded()
+
+            Assert.assertEquals(status, fileStore.marker?.status)
+            Assert.assertEquals(0, fileStore.writtenMarkers.size)
+            Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+        }
+    }
+
+    /** pre-swap例外だけをFAILEDへ記録し、live DB replaceを実行しないことを検証する。 */
+    @Test
+    fun preSwapUnexpectedException_recordsFailedWithoutReplacingDatabase() = runTest {
+        listOf(RestoreStatus.PREPARED, RestoreStatus.APPLYING).forEach { status ->
+            setUp()
+            fileStore.marker = marker(status)
+            if (status == RestoreStatus.PREPARED) {
+                dbSwapper.liveDbExists = true
+                reflector.throwOnPrepareRollbackSnapshot = IllegalStateException("boom")
+            } else {
+                dbSwapper.throwOnGetLiveDbFile = IllegalStateException("boom")
+            }
+
+            createApplier().runIfNeeded()
+
+            Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+            Assert.assertFalse(dbSwapper.replaceRequested)
+            Assert.assertTrue(fileStore.events.any { it == "writeResult:false:unexpected error: boom" })
+        }
+    }
+
+    /** marker read failure時に二次例外をescapeさせず、cleanupとmarker writeを行わないことを検証する。 */
+    @Test
+    fun markerReadFailure_doesNotRewriteOrCleanupAndDoesNotEscape() = runTest {
+        fileStore.markerReadFailure = IOException("marker unavailable")
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(0, fileStore.markerWriteCalls)
+        Assert.assertEquals(0, fileStore.cleanupCalls)
+        Assert.assertTrue(fileStore.resultWriteCalls == 1)
+    }
+
+    /** pre-swap FAILED marker write failure時に直前markerとpendingを保持することを検証する。 */
+    @Test
+    fun preSwapFailureMarkerWriteFailure_preservesPreSwapMarkerAndDoesNotReplaceDatabase() = runTest {
+        fileStore.marker = marker(RestoreStatus.PREPARED)
+        fileStore.markerWriteFailureStatuses += RestoreStatus.FAILED
+        dbSwapper.liveDbExists = true
+        reflector.throwOnPrepareRollbackSnapshot = IllegalStateException("boom")
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.APPLYING, fileStore.marker?.status)
+        Assert.assertFalse(dbSwapper.replaceRequested)
+        Assert.assertEquals(0, fileStore.cleanupCalls)
+        Assert.assertEquals(1, fileStore.resultWriteCalls)
+    }
+
+    /** failure result write failureがrecoverable markerの保持を妨げないことを検証する。 */
+    @Test
+    fun protectedMarker_failureResultWriteFailure_keepsRecoveryState() = runTest {
+        fileStore.marker = marker(RestoreStatus.DB_SWAPPED)
+        fileStore.resultWriteFailure = IOException("result unavailable")
+        dbSwapper.throwOnHasRollbackBackup = IllegalStateException("boom")
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.DB_SWAPPED, fileStore.marker?.status)
+        Assert.assertEquals(0, fileStore.writtenMarkers.size)
+        Assert.assertEquals(0, fileStore.cleanupCalls)
     }
 
     // --- fix-quarantine-copy-integrity: postcondition and retry tests ---
@@ -1006,6 +1224,10 @@ class PendingRestoreApplierTest {
     private fun createApplier(
         fileOperations: PendingRestoreFileOperations = RealPendingRestoreFileOperations(),
     ): PendingRestoreApplier {
+        fileStore.onCleanup = {
+            dbSwapper.rollbackArtifactPresent = false
+            reflector.rollbackArtifactPresent = false
+        }
         return PendingRestoreApplier.createForTest(
             context = context,
             dbValidator = validator,
@@ -1022,6 +1244,7 @@ class PendingRestoreApplierTest {
         includeCookies: Boolean = false,
         databaseVersion: Int = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION,
         hadExistingLiveDb: Boolean? = null,
+        migrationAttemptStarted: Boolean = false,
     ): PendingRestoreMarker {
         return PendingRestoreMarker(
             status = status,
@@ -1029,6 +1252,7 @@ class PendingRestoreApplierTest {
             includeCookies = includeCookies,
             databaseVersion = databaseVersion,
             hadExistingLiveDb = hadExistingLiveDb,
+            migrationAttemptStarted = migrationAttemptStarted,
         )
     }
 
@@ -1038,6 +1262,7 @@ class PendingRestoreApplierTest {
         var nextResult: String? = null
         var nextValidateResult: String? = null
         var userVersion: Int? = null
+        var throwOnGetUserVersion: Exception? = null
 
         override fun validate(dbFile: File): String? {
             validatedFiles += dbFile
@@ -1049,7 +1274,11 @@ class PendingRestoreApplierTest {
             return nextResult
         }
 
-        override fun getUserVersion(dbFile: File): Int? = userVersion
+        /** user version取得時の想定外例外を決定的に注入する。 */
+        override fun getUserVersion(dbFile: File): Int? {
+            throwOnGetUserVersion?.let { throw it }
+            return userVersion
+        }
     }
 
     /** [PendingRestoreFileOperations]を実filesystemへ委譲し、各操作結果を注入するfake。 */
@@ -1101,12 +1330,20 @@ class PendingRestoreApplierTest {
         val writtenMarkers = mutableListOf<PendingRestoreMarker>()
         val results = mutableListOf<PendingRestoreResultFile>()
         val events = mutableListOf<String>()
+        var readMarkerCalls = 0
+        var markerWriteCalls = 0
+        var resultWriteCalls = 0
+        var cleanupCalls = 0
+        var markerReadFailure: IOException? = null
+        val markerWriteFailureStatuses = mutableSetOf<RestoreStatus>()
         var quarantineCreationFailure: IOException? = null
         var quarantineIncidentIsFile = false
         var cleanupFailure: IOException? = null
         var cleanupReturnsFalse = false
         var resultWriteFailure: IOException? = null
         var markerWriteFailure: IOException? = null
+        var stagingPresent = true
+        var onCleanup: () -> Unit = {}
 
         override fun createQuarantineIncidentDir(): File {
             quarantineCreationFailure?.let { throw it }
@@ -1120,16 +1357,27 @@ class PendingRestoreApplierTest {
             return incidentDir
         }
 
-        override fun readMarker(): PendingRestoreMarker? = marker
+        /** marker read回数を記録し、recoverable marker read failureを注入する。 */
+        override fun readMarker(): PendingRestoreMarker? {
+            readMarkerCalls++
+            markerReadFailure?.let { throw it }
+            return marker
+        }
 
+        /** marker write回数を記録し、status単位のatomic write failureを注入する。 */
         override fun writeMarker(marker: PendingRestoreMarker) {
+            markerWriteCalls++
             markerWriteFailure?.let { throw it }
+            if (marker.status in markerWriteFailureStatuses) {
+                throw IOException("marker unavailable for ${marker.status}")
+            }
             lastWrittenMarker = marker
             this.marker = marker
             writtenMarkers += marker
             events += "writeMarker:${marker.status}"
         }
 
+        /** failure/success resultの保存回数を記録し、result I/O failureを注入する。 */
         override fun writeResult(
             success: Boolean,
             message: String,
@@ -1142,6 +1390,7 @@ class PendingRestoreApplierTest {
             rollbackRequiredAt: String?,
             finalFailureReason: String?,
         ) {
+            resultWriteCalls++
             resultWriteFailure?.let { throw it }
             results += PendingRestoreResultFile(
                 success = success,
@@ -1158,11 +1407,15 @@ class PendingRestoreApplierTest {
             events += "writeResult:$success:$message"
         }
 
+        /** pending cleanup回数を記録し、terminal cleanup failureを注入する。 */
         override fun cleanupPending(): Boolean {
+            cleanupCalls++
             events += "cleanupPending"
             cleanupFailure?.let { throw it }
             if (cleanupReturnsFalse) return false
             marker = null
+            stagingPresent = false
+            onCleanup()
             return true
         }
 
@@ -1183,8 +1436,15 @@ class PendingRestoreApplierTest {
         var replaceRequested = false
         var restoreRollbackRequested = false
         var cleanupCorruptRequested = false
+        var throwOnGetLiveDbFile: Exception? = null
+        var throwOnHasRollbackBackup: Exception? = null
+        var liveDbGeneration = "restored-db"
+        var rollbackGeneration = "original-db"
+        var rollbackArtifactPresent = true
 
+        /** live DB path取得時のstartup exceptionを注入する。 */
         override fun getLiveDbFile(): File {
+            throwOnGetLiveDbFile?.let { throw it }
             if (liveDbExists && !liveDbPath.exists()) {
                 liveDbPath.writeText("live-db")
             }
@@ -1198,13 +1458,22 @@ class PendingRestoreApplierTest {
 
         override fun replaceDbFile(stagedDbFile: File, liveDbFile: File): String? {
             replaceRequested = true
+            liveDbGeneration = "restored-db"
             return replaceDbFileResult
         }
 
-        override fun hasRollbackBackup(rollbackDir: File, liveDbFile: File): Boolean = hasRollbackBackup
+        /** rollback artifact確認時のstartup exceptionを注入する。 */
+        override fun hasRollbackBackup(rollbackDir: File, liveDbFile: File): Boolean {
+            throwOnHasRollbackBackup?.let { throw it }
+            return hasRollbackBackup
+        }
 
+        /** rollback実行後のgenerationとartifact状態を記録する。 */
         override fun restoreRollbackBackup(liveDbFile: File, rollbackDir: File): Boolean {
             restoreRollbackRequested = true
+            if (restoreRollbackBackupResult) {
+                liveDbGeneration = rollbackGeneration
+            }
             return restoreRollbackBackupResult
         }
 
@@ -1221,24 +1490,37 @@ class PendingRestoreApplierTest {
         var prepareSnapshotResult: String? = null
         var rollbackSnapshotResult: String? = null
         var throwOnReflect: Exception? = null
+        var throwOnPrepareRollbackSnapshot: Exception? = null
+        var throwOnRestoreRollbackSnapshot: Exception? = null
         var result: String? = null
+        var dataStoreGeneration = "restored-datastore"
+        var rollbackGeneration = "original-datastore"
+        var rollbackArtifactPresent = true
 
+        /** pre-swap rollback snapshot準備時の例外を注入する。 */
         override suspend fun prepareRollbackSnapshot(
             pendingDir: File,
             includeCookies: Boolean,
         ): String? {
             prepareSnapshotCalls++
+            throwOnPrepareRollbackSnapshot?.let { throw it }
             return prepareSnapshotResult
         }
 
+        /** DataStore reflect時の例外とrestore後generationを記録する。 */
         override suspend fun reflect(pendingDir: File, includeCookies: Boolean): String? {
             calls += pendingDir to includeCookies
             throwOnReflect?.let { throw it }
+            dataStoreGeneration = "restored-datastore"
             return result
         }
 
+        /** DataStore rollback時の例外と復元generationを記録する。 */
         override suspend fun restoreRollbackSnapshot(pendingDir: File): String? {
             rollbackSnapshotCalls++
+            throwOnRestoreRollbackSnapshot?.let { throw it }
+            dataStoreGeneration = rollbackGeneration
+            rollbackArtifactPresent = false
             return rollbackSnapshotResult
         }
     }

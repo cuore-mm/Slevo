@@ -1,11 +1,19 @@
 package com.websarva.wings.android.slevo.data.datasource.local
 
+import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
+import androidx.room.migration.Migration
 import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.websarva.wings.android.slevo.data.backup.BackupMoshiFactory
+import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreMigrationAttemptRecorder
+import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreMigrationWrapper
+import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreMarker
+import com.websarva.wings.android.slevo.data.backup.pending.RealPendingRestoreFileStore
+import com.websarva.wings.android.slevo.data.backup.pending.RestoreStatus
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import kotlinx.coroutines.runBlocking
@@ -692,6 +700,68 @@ class AppDatabaseMigrationTest {
         }
 
         db.close()
+    }
+
+    /**
+     * wrapped migration が SQL transaction の前に開始証跡を commit し、delegate 例外後も旧 version
+     * を残すことを実 DB で検証する。
+     */
+    @Test
+    fun wrappedMigrationFailure_persistsAttemptAndLeavesUserVersionAtStart() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val databaseName = "wrapped-migration-failure-test"
+        val fileStore = RealPendingRestoreFileStore(context, BackupMoshiFactory.create())
+        context.deleteDatabase(databaseName)
+        fileStore.cleanupPending()
+
+        helper.createDatabase(databaseName, 8).close()
+        fileStore.writeMarker(
+            PendingRestoreMarker(
+                status = RestoreStatus.MIGRATION_PENDING,
+                createdAt = "2026-07-03T00:00:00Z",
+                includeCookies = false,
+                databaseVersion = 8,
+            ),
+        )
+
+        var migrationDatabase: AppDatabase? = null
+        try {
+            val recorder = PendingRestoreMigrationAttemptRecorder(fileStore)
+            val failingMigration = object : Migration(8, 9) {
+                override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    throw IllegalStateException("intentional migration failure")
+                }
+            }
+            migrationDatabase = Room.databaseBuilder(context, AppDatabase::class.java, databaseName)
+                .addMigrations(PendingRestoreMigrationWrapper(failingMigration, recorder))
+                .build()
+
+            try {
+                migrationDatabase.openHelper.writableDatabase
+                throw AssertionError("wrapped migration should fail")
+            } catch (_: Throwable) {
+                // The exception is expected; the durable state is checked below.
+            }
+
+            assertEquals(true, fileStore.readMarker()?.migrationAttemptStarted)
+            val database = SQLiteDatabase.openDatabase(
+                context.getDatabasePath(databaseName).path,
+                null,
+                SQLiteDatabase.OPEN_READONLY,
+            )
+            try {
+                database.rawQuery("PRAGMA user_version", null).use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals(8, cursor.getInt(0))
+                }
+            } finally {
+                database.close()
+            }
+        } finally {
+            migrationDatabase?.close()
+            fileStore.cleanupPending()
+            context.deleteDatabase(databaseName)
+        }
     }
 
     companion object {

@@ -61,6 +61,23 @@ class PendingRestoreFileStoreTest {
     }
 
     @Test
+    fun conditionalMarkerMutation_rechecksAndPublishesLatestMarkerAtomically() {
+        val store = createStore()
+        store.writeMarker(marker(RestoreStatus.MIGRATION_PENDING))
+
+        val result = store.mutateMarkerAtomically { current ->
+            assertEquals(RestoreStatus.MIGRATION_PENDING, current?.status)
+            PendingRestoreMarkerMutation(
+                result = "recorded",
+                replacement = current?.copy(migrationAttemptStarted = true),
+            )
+        }
+
+        assertEquals("recorded", result)
+        assertEquals(true, store.readMarker()?.migrationAttemptStarted)
+    }
+
+    @Test
     fun interruptedUpdate_recoversThePreviouslyCommittedMarker() {
         val store = createStore()
         val previous = marker(RestoreStatus.PREPARED)
@@ -72,6 +89,29 @@ class PendingRestoreFileStoreTest {
         interruptedWrite.close()
 
         assertEquals(previous, store.readMarker())
+    }
+
+    @Test
+    fun interruptedAttemptEvidenceUpdate_exposesOnlyPreviousCommittedMarker() {
+        val store = createStore()
+        val previous = marker(RestoreStatus.MIGRATION_PENDING).copy(
+            migrationAttemptStarted = false,
+        )
+        val markerFile = File(store.pendingDir, PendingRestoreManager.MARKER_FILENAME)
+
+        store.writeMarker(previous)
+        val interruptedWrite = AtomicFile(markerFile).startWrite()
+        interruptedWrite.write(
+            moshi.adapter<PendingRestoreMarker>().toJson(
+                previous.copy(migrationAttemptStarted = true),
+            ).toByteArray(),
+        )
+        interruptedWrite.close()
+
+        val restored = store.readMarker()
+
+        assertEquals(previous, restored)
+        assertTrue(restored?.migrationAttemptStarted == false)
     }
 
     /** marker の pre-commit failure 注入時に既存の marker を保持する。 */
