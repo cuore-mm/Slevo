@@ -10,13 +10,14 @@ import com.squareup.moshi.JsonClass
  *
  * 状態遷移:
  * ```
- * prepared -> applying -> db-swapped -> migration-pending -> completed -> (deleted on success)
- *                                    \            \               \
- *                                     +------------+---------------+-> failed (on error)
+ * prepared -> applying -> rollback-ready -> db-swapped -> migration-pending -> completed -> (deleted on success)
+ *                                          \                          \               \
+ *                                           +--------------------------+---------------+-> failed (on error)
  * ```
  *
  * - `prepared`: staging 完了、次回起動で適用待ち。
- * - `applying`: [PendingRestoreApplier] が DB 置換を開始した。
+ * - `applying`: [PendingRestoreApplier] が rollback snapshot 作成を開始した。
+ * - `rollback-ready`: rollback snapshot 作成完了または元 DB が不要で、DB 置換を開始可能。
  * - `db-swapped`: DB 置換完了、DataStore 反映待ち。
  * - `migration-pending`: DB swap と DataStore 反映完了。Room migration/current DB open の成功確認待ち。
  * - `rollback-required`: Room open 後の post-migration validation 失敗。次回 cold start で rollback する。
@@ -28,6 +29,8 @@ import com.squareup.moshi.JsonClass
  * @property includeCookies Cookie を復元対象に含むか。
  * @property databaseVersion バックアップの Room DB version。
  * @property failureReason 失敗理由。`failed` の場合のみ設定される。
+ * @property hadExistingLiveDb restore 開始時に live DB が存在したか。
+ *   新規 marker では必ず `true` または `false` が入る。`null` は field を持たない旧 JSON との互換値。
  */
 @JsonClass(generateAdapter = true)
 data class PendingRestoreMarker(
@@ -36,6 +39,7 @@ data class PendingRestoreMarker(
     val includeCookies: Boolean,
     val databaseVersion: Int,
     val failureReason: String? = null,
+    val hadExistingLiveDb: Boolean? = null,
 )
 
 /**
@@ -45,8 +49,10 @@ data class PendingRestoreMarker(
 enum class RestoreStatus {
     /** staging 完了、次回起動で適用待ち。 */
     PREPARED,
-    /** [PendingRestoreApplier] が DB 置換を開始した。 */
+    /** [PendingRestoreApplier] が rollback snapshot 作成を開始した。 */
     APPLYING,
+    /** rollback snapshot 作成完了または元 DB が不要で、DB 置換を開始可能。 */
+    ROLLBACK_READY,
     /** DB 置換完了、DataStore 反映待ち。 */
     DB_SWAPPED,
     /** DB swap と DataStore 反映完了。Room migration/current DB open の成功確認待ち。 */

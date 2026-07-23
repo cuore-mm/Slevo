@@ -5,12 +5,15 @@ import android.util.Log
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import java.io.File
+import java.io.IOException
+import java.util.UUID
 
 /**
- * pending restore の marker/result file と cleanup を扱う抽象。
+ * pending restore のatomic marker/result file とcleanupを扱う抽象。
  *
  * [PendingRestoreApplier] から file I/O の詳細を分離し、
- * state machine orchestration だけに集中できるようにする。
+ * state machine orchestrationだけに集中できるようにする。markerのatomic publicationは
+ * 本番実装の責務であり、result fileとquarantine artifactは別のlifecycleを持つ。
  */
 internal interface PendingRestoreFileStore {
     /** pending restore directory。 */
@@ -18,6 +21,12 @@ internal interface PendingRestoreFileStore {
 
     /** rollback backup directory。 */
     val rollbackDir: File
+
+    /** pending cleanupから独立したquarantine artifactのroot directory。 */
+    val quarantineRootDir: File
+
+    /** 1回のquarantine failure専用のincident directoryを作成する。 */
+    fun createQuarantineIncidentDir(): File
 
     /** marker を読み取る。parse 失敗時は null。 */
     fun readMarker(): PendingRestoreMarker?
@@ -49,8 +58,8 @@ internal interface PendingRestoreFileStore {
 /**
  * [PendingRestoreFileStore] の本番実装。
  *
- * marker/result JSON の encode/decode と pending/result directory cleanup を
- * DB/Hilt 非依存で扱う。
+ * atomic marker/result JSON のencode/decodeとpending/result directory cleanup、および
+ * pending cleanupから独立したquarantine artifactの保存先をDB/Hilt非依存で扱う。
  */
 @OptIn(ExperimentalStdlibApi::class)
 internal class RealPendingRestoreFileStore(
@@ -65,25 +74,45 @@ internal class RealPendingRestoreFileStore(
         File(appContext.filesDir, PendingRestoreManager.PENDING_DIR_NAME)
     override val rollbackDir: File =
         File(pendingDir, PendingRestoreManager.ROLLBACK_DIR_NAME)
+    override val quarantineRootDir: File =
+        File(appContext.filesDir, PendingRestoreManager.QUARANTINE_DIR_NAME)
 
     private val markerFile = File(pendingDir, PendingRestoreManager.MARKER_FILENAME)
+    private val markerStore = AtomicPendingRestoreMarkerFile(markerFile, markerAdapter)
     private val resultDir = File(appContext.filesDir, PendingRestoreManager.RESULT_DIR_NAME)
     private val resultFile = File(resultDir, PendingRestoreManager.RESULT_FILENAME)
 
-    /** malformed marker は通常起動優先のため null 扱いにする。 */
-    override fun readMarker(): PendingRestoreMarker? {
-        if (!markerFile.exists()) return null
-        return try {
-            markerAdapter.fromJson(markerFile.readText())
-        } catch (_: Exception) {
-            null
+    /**
+     * 既存artifactを上書きしないquarantine incident directoryを作成する。
+     *
+     * rootとincidentの作成はそれぞれ明示的に検証し、作成できない場合はcallerへ
+     * 例外を返す。incidentはpending directory外にあるため、pending cleanupで削除されない。
+     */
+    override fun createQuarantineIncidentDir(): File {
+        if (!quarantineRootDir.exists() && !quarantineRootDir.mkdirs()) {
+            throw IOException("failed to create quarantine root: $quarantineRootDir")
         }
+        if (!quarantineRootDir.isDirectory) {
+            throw IOException("quarantine root is not a directory: $quarantineRootDir")
+        }
+
+        repeat(MAX_QUARANTINE_DIRECTORY_ATTEMPTS) {
+            val incidentDir = File(
+                quarantineRootDir,
+                "incident-${UUID.randomUUID()}",
+            )
+            if (incidentDir.mkdir()) {
+                return incidentDir
+            }
+        }
+
+        throw IOException("failed to create unique quarantine incident in $quarantineRootDir")
     }
 
-    override fun writeMarker(marker: PendingRestoreMarker) {
-        markerFile.parentFile?.mkdirs()
-        markerFile.writeText(markerAdapter.toJson(marker))
-    }
+    /** malformed marker は通常起動優先のため null 扱いにする。 */
+    override fun readMarker(): PendingRestoreMarker? = markerStore.read()
+
+    override fun writeMarker(marker: PendingRestoreMarker) = markerStore.write(marker)
 
     override fun writeResult(
         success: Boolean,
@@ -145,5 +174,6 @@ internal class RealPendingRestoreFileStore(
     /** 定数。 */
     private companion object {
         private const val TAG = "PendingRestoreFileStore"
+        private const val MAX_QUARANTINE_DIRECTORY_ATTEMPTS = 3
     }
 }

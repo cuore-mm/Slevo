@@ -157,7 +157,8 @@ class PendingRestoreDataStoreWriter(
     /**
      * 通常実行時の DataStore 現在値 snapshot を取得する。
      *
-     * DataStore write 前に呼ぶことで、write 失敗時の rollback source として使う。
+     * DataStore write 前に呼ぶことで、write 失敗時およびprocess death後の rollback source として使う。
+     * callerは返却値を [PendingRestoreDataStoreSnapshotStore] へatomicに永続化してからwriteを開始する。
      * [includeCookies] が `false` の場合、cookies snapshot は取得しない。
      *
      * [com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreApplier.RealPendingRestoreDataStoreReflector.reflect]

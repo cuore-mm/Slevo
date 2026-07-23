@@ -1,10 +1,12 @@
 package com.websarva.wings.android.slevo.data.database
 
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -111,6 +113,22 @@ class DatabaseWriteGate @Inject constructor() {
     private val stateRef = java.util.concurrent.atomic.AtomicReference(State())
     private val stateLock = Mutex()
 
+    /**
+     * RESERVED signal受信後、state lock取得前に実行するtest hook。
+     *
+     * productionでは何もしない。JVM testだけがこのwindowでcoroutineを停止し、
+     * cancellation後のreservation cleanupを検証するために差し替える。
+     */
+    internal var afterWriterSignalHook: suspend () -> Unit = {}
+
+    /**
+     * state lockをtestから保持するためのinternal seam。
+     *
+     * production APIでは使用せず、test以外ではstate lock内でsuspendしないこと。
+     */
+    internal suspend fun <T> withStateLockHeldForTest(block: suspend () -> T): T =
+        stateLock.withLock { block() }
+
     // --- Public API ---
 
     /**
@@ -142,30 +160,27 @@ class DatabaseWriteGate @Inject constructor() {
             }
         }
 
-        if (runningWriter.state == WriterWaiterState.QUEUED) {
-            // queue 待機 → await
-            try {
-                runningWriter.signal.await()
-            } catch (ce: CancellationException) {
-                // --- cancellation cleanup ---
-                cleanupWriter(runningWriter)
-                throw ce
-            }
-            // await 成功。block 開始前に state を RUNNING に更新する。
-            stateLock.withLock {
-                if (runningWriter.state == WriterWaiterState.RESERVED) {
-                    runningWriter.state = WriterWaiterState.RUNNING
-                }
-            }
-        }
-
-        // --- block 実行 + release ---
         return try {
+            if (runningWriter.state == WriterWaiterState.QUEUED) {
+                // --- Queue wait ---
+                runningWriter.signal.await()
+                afterWriterSignalHook()
+
+                // --- RESERVED -> RUNNING ---
+                withNonCancellableStateLock {
+                    if (runningWriter.state == WriterWaiterState.RESERVED) {
+                        runningWriter.state = WriterWaiterState.RUNNING
+                    }
+                }
+                // signal後にcancelされたwriterはuser blockを開始しない。
+                currentCoroutineContext().ensureActive()
+            }
+
+            // --- User block ---
             block()
         } finally {
-            stateLock.withLock {
-                releaseReservedWriterLocked(runningWriter)
-            }
+            // token解放はcaller cancellation後も必ず完了させる。
+            cleanupWriter(runningWriter)
         }
     }
 
@@ -198,24 +213,17 @@ class DatabaseWriteGate @Inject constructor() {
             }
         }
 
-        if (activeSuspension.state == SuspensionWaiterState.QUEUED) {
-            // queue 待機 → await
-            try {
-                activeSuspension.signal.await()
-            } catch (ce: CancellationException) {
-                // --- cancellation cleanup ---
-                cleanupSuspension(activeSuspension)
-                throw ce
-            }
-        }
-
-        // --- block 実行 + release ---
         return try {
+            if (activeSuspension.state == SuspensionWaiterState.QUEUED) {
+                // --- Queue wait ---
+                activeSuspension.signal.await()
+            }
+
+            // --- User block ---
             block()
         } finally {
-            stateLock.withLock {
-                releaseActiveSuspensionLocked(activeSuspension)
-            }
+            // suspension解放はcaller cancellation後も必ず完了させる。
+            cleanupSuspension(activeSuspension)
         }
     }
 
@@ -326,7 +334,7 @@ class DatabaseWriteGate @Inject constructor() {
      * `stateLock` 内で呼び出すこと。
      */
     private suspend fun cleanupWriter(writer: WriterWaiter) {
-        stateLock.withLock {
+        withNonCancellableStateLock {
             if (writer.state == WriterWaiterState.QUEUED) {
                 // まだ queue 内 → 取り除く。
                 val current = stateRef.get()
@@ -353,7 +361,7 @@ class DatabaseWriteGate @Inject constructor() {
      * `stateLock` 内で呼び出すこと。
      */
     private suspend fun cleanupSuspension(suspension: SuspensionWaiter) {
-        stateLock.withLock {
+        withNonCancellableStateLock {
             if (suspension.state == SuspensionWaiterState.QUEUED) {
                 // まだ queue 内 → 取り除く。
                 val current = stateRef.get()
@@ -370,4 +378,15 @@ class DatabaseWriteGate @Inject constructor() {
             }
         }
     }
+
+    /**
+     * cancellation中もgate state cleanupを完了するlock境界。
+     *
+     * actionは同期的なstate mutationだけを受け取り、user block、signal待機、DB I/O、
+     * 外部callbackをこのNonCancellable範囲へ含めない。
+     */
+    private suspend fun <T> withNonCancellableStateLock(action: () -> T): T =
+        withContext(NonCancellable) {
+            stateLock.withLock { action() }
+        }
 }

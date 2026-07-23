@@ -37,6 +37,8 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
@@ -47,6 +49,7 @@ import java.util.zip.ZipOutputStream
  * [com.websarva.wings.android.slevo.data.backup.BackupRepositoryImpl] の preview / restore orchestration を検証する。
  */
 @OptIn(ExperimentalStdlibApi::class)
+@RunWith(RobolectricTestRunner::class)
 class BackupRestoreRepositoryTest {
 
     @get:Rule

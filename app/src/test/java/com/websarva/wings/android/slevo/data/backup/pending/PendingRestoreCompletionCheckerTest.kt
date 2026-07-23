@@ -164,10 +164,20 @@ class PendingRestoreCompletionCheckerTest {
     private class FakePendingRestoreFileStore : PendingRestoreFileStore {
         override val pendingDir: File = File("pending-dir")
         override val rollbackDir: File = File(pendingDir, "rollback")
+        override val quarantineRootDir: File = File(
+            System.getProperty("java.io.tmpdir"),
+            "pending-restore-quarantine-${System.nanoTime()}",
+        )
         var marker: PendingRestoreMarker? = null
         val events = mutableListOf<String>()
         var markerWriteFailsAfter: Int? = null
         private var writeCount = 0
+
+        override fun createQuarantineIncidentDir(): File {
+            val incidentDir = File(quarantineRootDir, "incident-${System.nanoTime()}")
+            incidentDir.mkdirs()
+            return incidentDir
+        }
 
         override fun readMarker(): PendingRestoreMarker? = marker
 

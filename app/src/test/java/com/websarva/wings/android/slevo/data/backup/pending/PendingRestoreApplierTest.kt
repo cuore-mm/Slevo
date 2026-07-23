@@ -1,20 +1,32 @@
 package com.websarva.wings.android.slevo.data.backup.pending
 
 import android.content.Context
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.adapter
 import com.websarva.wings.android.slevo.data.backup.restore.BackupDatabaseValidator
 import com.websarva.wings.android.slevo.data.backup.restore.RealBackupDatabaseValidator
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import java.io.File
+import java.io.IOException
 import org.junit.Assert
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
-import java.io.File
+import org.junit.rules.TemporaryFolder
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /**
  * [PendingRestoreApplier] の orchestration を fake collaborator で検証する。
  */
+@OptIn(ExperimentalStdlibApi::class)
+@RunWith(RobolectricTestRunner::class)
 class PendingRestoreApplierTest {
+    @get:Rule
+    val tempFolder = TemporaryFolder()
+
     private lateinit var context: Context
     private lateinit var validator: FakeBackupDatabaseValidator
     private lateinit var fileStore: FakePendingRestoreFileStore
@@ -50,6 +62,7 @@ class PendingRestoreApplierTest {
         Assert.assertEquals(
             listOf(
                 "writeMarker:APPLYING",
+                "writeMarker:ROLLBACK_READY",
                 "writeMarker:DB_SWAPPED",
                 "writeResult:true:restore completed successfully",
                 "writeMarker:MIGRATION_PENDING",
@@ -61,6 +74,7 @@ class PendingRestoreApplierTest {
         Assert.assertTrue(dbSwapper.rollbackRequested)
         Assert.assertTrue(dbSwapper.replaceRequested)
         Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.lastWrittenMarker?.status)
+        Assert.assertEquals(true, fileStore.lastWrittenMarker?.hadExistingLiveDb)
     }
 
     // --- 4.3: stale MIGRATION_PENDING (strict validation success) ---
@@ -108,6 +122,147 @@ class PendingRestoreApplierTest {
         Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
         Assert.assertTrue(fileStore.lastWrittenMarker!!.failureReason!!.contains("quarantine"))
         Assert.assertFalse(dbSwapper.restoreRollbackRequested)
+    }
+
+    @Test
+    fun migrationPending_strictValidationFailsNoRollback_preservesRealQuarantineAfterCleanup() = runTest {
+        val filesDir = tempFolder.newFolder("files")
+        every { context.filesDir } returns filesDir
+        val moshi = Moshi.Builder().build()
+        val realStore = RealPendingRestoreFileStore(context, moshi)
+        realStore.writeMarker(marker(RestoreStatus.MIGRATION_PENDING))
+        dbSwapper.liveDbExists = true
+        dbSwapper.hasRollbackBackup = false
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        File(dbSwapper.liveDbPath.absolutePath + "-wal").writeText("wal")
+        File(dbSwapper.liveDbPath.absolutePath + "-shm").writeText("shm")
+
+        PendingRestoreApplier.createForTest(
+            context = context,
+            dbValidator = validator,
+            dataStoreReflector = reflector,
+            fileStore = realStore,
+            dbSwapper = dbSwapper,
+            nowProvider = { "2026-07-03T00:00:00Z" },
+        ).runIfNeeded()
+
+        val incidents = realStore.quarantineRootDir.listFiles().orEmpty()
+        Assert.assertEquals(1, incidents.size)
+        Assert.assertEquals("live-db", File(incidents.single(), dbSwapper.liveDbPath.name).readText())
+        Assert.assertEquals("wal", File(incidents.single(), "${dbSwapper.liveDbPath.name}-wal").readText())
+        Assert.assertEquals("shm", File(incidents.single(), "${dbSwapper.liveDbPath.name}-shm").readText())
+        Assert.assertFalse(realStore.pendingDir.exists())
+
+        val resultFile = File(
+            filesDir,
+            "${PendingRestoreManager.RESULT_DIR_NAME}/${PendingRestoreManager.RESULT_FILENAME}",
+        )
+        val result = moshi.adapter<PendingRestoreResultFile>().fromJson(resultFile.readText())
+        Assert.assertNotNull(result)
+        Assert.assertTrue(result!!.message.contains(incidents.single().canonicalPath))
+
+        // A cold-start retry must not remove the independent recovery artifact.
+        PendingRestoreApplier.createForTest(
+            context = context,
+            dbValidator = validator,
+            dataStoreReflector = reflector,
+            fileStore = realStore,
+            dbSwapper = dbSwapper,
+            nowProvider = { "2026-07-03T00:00:00Z" },
+        ).runIfNeeded()
+        Assert.assertTrue(File(incidents.single(), dbSwapper.liveDbPath.name).exists())
+    }
+
+    @Test
+    fun migrationPending_strictValidationFailsNoRollback_withoutSidecars_preservesMainDb() = runTest {
+        val filesDir = tempFolder.newFolder("files")
+        every { context.filesDir } returns filesDir
+        val realStore = RealPendingRestoreFileStore(context, Moshi.Builder().build())
+        realStore.writeMarker(marker(RestoreStatus.MIGRATION_PENDING))
+        dbSwapper.liveDbExists = true
+        dbSwapper.hasRollbackBackup = false
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+
+        PendingRestoreApplier.createForTest(
+            context = context,
+            dbValidator = validator,
+            dataStoreReflector = reflector,
+            fileStore = realStore,
+            dbSwapper = dbSwapper,
+            nowProvider = { "2026-07-03T00:00:00Z" },
+        ).runIfNeeded()
+
+        val incident = realStore.quarantineRootDir.listFiles().orEmpty().single()
+        Assert.assertTrue(File(incident, dbSwapper.liveDbPath.name).exists())
+        Assert.assertFalse(File(incident, "${dbSwapper.liveDbPath.name}-wal").exists())
+        Assert.assertFalse(File(incident, "${dbSwapper.liveDbPath.name}-shm").exists())
+    }
+
+    @Test
+    fun migrationPending_quarantineCreationFails_doesNotReportMissingSuccessPath() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.hasRollbackBackup = false
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        fileStore.quarantineCreationFailure = IOException("root unavailable")
+
+        createApplier().runIfNeeded()
+
+        val reason = fileStore.lastWrittenMarker!!.failureReason!!
+        Assert.assertTrue(reason.contains("quarantine failed"))
+        Assert.assertFalse(reason.contains("quarantined to"))
+    }
+
+    @Test
+    fun migrationPending_mainDbMoveAndCopyFail_doesNotReportMissingSuccessPath() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.liveDbExists = true
+        dbSwapper.hasRollbackBackup = false
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        fileStore.quarantineIncidentIsFile = true
+
+        try {
+            createApplier().runIfNeeded()
+
+            val reason = fileStore.lastWrittenMarker!!.failureReason!!
+            Assert.assertTrue(reason.contains("quarantine failed"))
+            Assert.assertFalse(reason.contains("quarantined to"))
+        } finally {
+            dbSwapper.liveDbPath.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun migrationPending_cleanupFailure_preservesSavedIncident() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.liveDbExists = true
+        dbSwapper.hasRollbackBackup = false
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        fileStore.cleanupFailure = IOException("cleanup unavailable")
+
+        createApplier().runIfNeeded()
+
+        val incident = fileStore.quarantineRootDir.listFiles().orEmpty().single()
+        Assert.assertTrue(File(incident, dbSwapper.liveDbPath.name).exists())
+    }
+
+    @Test
+    fun migrationPending_resultWriteFailure_preservesSavedIncident() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.liveDbExists = true
+        dbSwapper.hasRollbackBackup = false
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        fileStore.resultWriteFailure = IOException("result unavailable")
+
+        createApplier().runIfNeeded()
+
+        val incident = fileStore.quarantineRootDir.listFiles().orEmpty().single()
+        Assert.assertTrue(File(incident, dbSwapper.liveDbPath.name).exists())
     }
 
     // --- 4.3a: stale MIGRATION_PENDING (pre-migration: validation passes, waits) ---
@@ -257,6 +412,7 @@ class PendingRestoreApplierTest {
         createApplier().runIfNeeded()
 
         Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.lastWrittenMarker?.status)
+        Assert.assertEquals(true, fileStore.lastWrittenMarker?.hadExistingLiveDb)
         Assert.assertFalse(fileStore.events.contains("cleanupPending"))
     }
 
@@ -272,16 +428,85 @@ class PendingRestoreApplierTest {
     }
 
     @Test
-    fun staleApplying_rollsBackAndWritesFailureResult() = runTest {
-        fileStore.marker = marker(RestoreStatus.APPLYING)
+    fun staleApplying_withCompleteSnapshot_andExistingLiveDb_rollsBack() = runTest {
+        fileStore.marker = marker(RestoreStatus.APPLYING, hadExistingLiveDb = true)
         dbSwapper.hasRollbackBackup = true
 
         createApplier().runIfNeeded()
 
         Assert.assertTrue(dbSwapper.restoreRollbackRequested)
         Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
-        Assert.assertEquals("writeResult:false:stale marker: APPLYING", fileStore.events[1])
+        Assert.assertTrue(
+            fileStore.events.any { it == "writeResult:false:stale marker: APPLYING" },
+        )
         Assert.assertEquals("cleanupPending", fileStore.events.last())
+    }
+
+    @Test
+    fun staleApplying_withIncompleteSnapshot_preservesLiveDb() = runTest {
+        fileStore.marker = marker(RestoreStatus.APPLYING, hadExistingLiveDb = true)
+        dbSwapper.hasRollbackBackup = false
+
+        createApplier().runIfNeeded()
+
+        Assert.assertFalse(dbSwapper.restoreRollbackRequested)
+        Assert.assertFalse(dbSwapper.cleanupCorruptRequested)
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(
+            fileStore.lastWrittenMarker?.failureReason?.contains("incomplete rollback snapshot") == true,
+        )
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+    }
+
+    @Test
+    fun staleApplying_freshInstall_cleansUpCorruptLiveDb() = runTest {
+        fileStore.marker = marker(RestoreStatus.APPLYING, hadExistingLiveDb = false)
+        dbSwapper.hasRollbackBackup = false
+
+        createApplier().runIfNeeded()
+
+        Assert.assertTrue(dbSwapper.cleanupCorruptRequested)
+        Assert.assertFalse(dbSwapper.restoreRollbackRequested)
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+    }
+
+    @Test
+    fun prepared_writesHadExistingLiveDbInApplyingMarker() = runTest {
+        fileStore.marker = marker(RestoreStatus.PREPARED)
+        dbSwapper.liveDbExists = true
+
+        createApplier().runIfNeeded()
+
+        val applyingMarker = fileStore.writtenMarkers.find { it.status == RestoreStatus.APPLYING }
+        Assert.assertNotNull(applyingMarker)
+        Assert.assertEquals(true, applyingMarker?.hadExistingLiveDb)
+    }
+
+    @Test
+    fun prepared_noExistingLiveDb_skipsRollbackBackup() = runTest {
+        fileStore.marker = marker(RestoreStatus.PREPARED)
+        dbSwapper.liveDbExists = false
+
+        createApplier().runIfNeeded()
+
+        Assert.assertFalse(dbSwapper.rollbackRequested)
+        Assert.assertTrue(dbSwapper.replaceRequested)
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.lastWrittenMarker?.status)
+        Assert.assertEquals(false, fileStore.lastWrittenMarker?.hadExistingLiveDb)
+    }
+
+    @Test
+    fun prepared_snapshotFailure_doesNotReplaceDatabase() = runTest {
+        fileStore.marker = marker(RestoreStatus.PREPARED)
+        dbSwapper.liveDbExists = true
+        reflector.prepareSnapshotResult = "snapshot write failed"
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(1, reflector.prepareSnapshotCalls)
+        Assert.assertFalse(dbSwapper.replaceRequested)
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(fileStore.events.contains("cleanupPending"))
     }
 
     @Test
@@ -299,15 +524,104 @@ class PendingRestoreApplierTest {
 
     @Test
     fun rollbackCopyFailure_preservesPendingForManualRecovery() = runTest {
-        fileStore.marker = marker(RestoreStatus.APPLYING)
+        fileStore.marker = marker(RestoreStatus.APPLYING, hadExistingLiveDb = true)
         dbSwapper.hasRollbackBackup = true
         dbSwapper.restoreRollbackBackupResult = false
 
         createApplier().runIfNeeded()
 
         Assert.assertTrue(dbSwapper.restoreRollbackRequested)
-        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertEquals(RestoreStatus.ROLLBACK_REQUIRED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(reflector.rollbackSnapshotCalls > 0)
         Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+    }
+
+    @Test
+    fun staleRollbackReady_withCompleteSnapshot_andExistingLiveDb_rollsBack() = runTest {
+        fileStore.marker = marker(RestoreStatus.ROLLBACK_READY, hadExistingLiveDb = true)
+        dbSwapper.hasRollbackBackup = true
+
+        createApplier().runIfNeeded()
+
+        Assert.assertTrue(dbSwapper.restoreRollbackRequested)
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+    }
+
+    @Test
+    fun staleRollbackReady_withIncompleteSnapshot_preservesLiveDb() = runTest {
+        fileStore.marker = marker(RestoreStatus.ROLLBACK_READY, hadExistingLiveDb = true)
+        dbSwapper.hasRollbackBackup = false
+
+        createApplier().runIfNeeded()
+
+        Assert.assertFalse(dbSwapper.restoreRollbackRequested)
+        Assert.assertFalse(dbSwapper.cleanupCorruptRequested)
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(
+            fileStore.lastWrittenMarker?.failureReason?.contains("incomplete rollback snapshot") == true,
+        )
+    }
+
+    @Test
+    fun staleRollbackReady_freshInstall_cleansUpCorruptLiveDb() = runTest {
+        fileStore.marker = marker(RestoreStatus.ROLLBACK_READY, hadExistingLiveDb = false)
+        dbSwapper.hasRollbackBackup = false
+
+        createApplier().runIfNeeded()
+
+        Assert.assertTrue(dbSwapper.cleanupCorruptRequested)
+        Assert.assertFalse(dbSwapper.restoreRollbackRequested)
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+    }
+
+    @Test
+    fun staleDbSwapped_withIncompleteSnapshot_preservesLiveDb() = runTest {
+        fileStore.marker = marker(RestoreStatus.DB_SWAPPED, hadExistingLiveDb = true)
+        dbSwapper.hasRollbackBackup = false
+
+        createApplier().runIfNeeded()
+
+        Assert.assertFalse(dbSwapper.restoreRollbackRequested)
+        Assert.assertFalse(dbSwapper.cleanupCorruptRequested)
+        Assert.assertEquals(RestoreStatus.ROLLBACK_REQUIRED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(
+            fileStore.lastWrittenMarker?.failureReason?.contains("incomplete rollback snapshot") == true,
+        )
+    }
+
+    @Test
+    fun rollbackRequired_dataStoreFailure_preservesArtifactsAndRetries() = runTest {
+        fileStore.marker = marker(RestoreStatus.ROLLBACK_REQUIRED, hadExistingLiveDb = true)
+        dbSwapper.hasRollbackBackup = true
+        reflector.rollbackSnapshotResult = "DataStore rollback failed"
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.ROLLBACK_REQUIRED, fileStore.lastWrittenMarker?.status)
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+
+        reflector.rollbackSnapshotResult = null
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(fileStore.events.contains("cleanupPending"))
+        Assert.assertEquals(2, reflector.rollbackSnapshotCalls)
+    }
+
+    @Test
+    fun staleApplying_legacyMarkerWithoutHadExistingLiveDb_preservesFiles() = runTest {
+        fileStore.marker = marker(RestoreStatus.APPLYING, hadExistingLiveDb = null)
+        dbSwapper.liveDbExists = true
+        dbSwapper.hasRollbackBackup = false
+
+        createApplier().runIfNeeded()
+
+        Assert.assertFalse(dbSwapper.restoreRollbackRequested)
+        Assert.assertFalse(dbSwapper.cleanupCorruptRequested)
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(
+            fileStore.lastWrittenMarker?.failureReason?.contains("manual recovery required") == true,
+        )
     }
 
     @Test
@@ -355,12 +669,14 @@ class PendingRestoreApplierTest {
         status: RestoreStatus,
         includeCookies: Boolean = false,
         databaseVersion: Int = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION,
+        hadExistingLiveDb: Boolean? = null,
     ): PendingRestoreMarker {
         return PendingRestoreMarker(
             status = status,
             createdAt = "2026-07-03T00:00:00Z",
             includeCookies = includeCookies,
             databaseVersion = databaseVersion,
+            hadExistingLiveDb = hadExistingLiveDb,
         )
     }
 
@@ -388,15 +704,37 @@ class PendingRestoreApplierTest {
     private class FakePendingRestoreFileStore : PendingRestoreFileStore {
         override val pendingDir: File = File("pending-dir")
         override val rollbackDir: File = File(pendingDir, "rollback")
+        override val quarantineRootDir: File = File(
+            System.getProperty("java.io.tmpdir"),
+            "pending-restore-quarantine-${System.nanoTime()}",
+        )
         var marker: PendingRestoreMarker? = null
         var lastWrittenMarker: PendingRestoreMarker? = null
+        val writtenMarkers = mutableListOf<PendingRestoreMarker>()
         val events = mutableListOf<String>()
+        var quarantineCreationFailure: IOException? = null
+        var quarantineIncidentIsFile = false
+        var cleanupFailure: IOException? = null
+        var resultWriteFailure: IOException? = null
+
+        override fun createQuarantineIncidentDir(): File {
+            quarantineCreationFailure?.let { throw it }
+            val incidentDir = File(quarantineRootDir, "incident-${System.nanoTime()}")
+            quarantineRootDir.mkdirs()
+            if (quarantineIncidentIsFile) {
+                incidentDir.writeText("not a directory")
+            } else {
+                incidentDir.mkdirs()
+            }
+            return incidentDir
+        }
 
         override fun readMarker(): PendingRestoreMarker? = marker
 
         override fun writeMarker(marker: PendingRestoreMarker) {
             lastWrittenMarker = marker
             this.marker = marker
+            writtenMarkers += marker
             events += "writeMarker:${marker.status}"
         }
 
@@ -412,12 +750,14 @@ class PendingRestoreApplierTest {
             rollbackRequiredAt: String?,
             finalFailureReason: String?,
         ) {
+            resultWriteFailure?.let { throw it }
             events += "writeResult:$success:$message"
         }
 
         override fun cleanupPending() {
             events += "cleanupPending"
             marker = null
+            cleanupFailure?.let { throw it }
         }
 
         override fun cleanupResult() {
@@ -470,13 +810,30 @@ class PendingRestoreApplierTest {
     /** [PendingRestoreDataStoreReflector] の fake 実装。 */
     private class FakePendingRestoreDataStoreReflector : PendingRestoreDataStoreReflector {
         val calls = mutableListOf<Pair<File, Boolean>>()
+        var prepareSnapshotCalls = 0
+        var rollbackSnapshotCalls = 0
+        var prepareSnapshotResult: String? = null
+        var rollbackSnapshotResult: String? = null
         var throwOnReflect: Exception? = null
         var result: String? = null
+
+        override suspend fun prepareRollbackSnapshot(
+            pendingDir: File,
+            includeCookies: Boolean,
+        ): String? {
+            prepareSnapshotCalls++
+            return prepareSnapshotResult
+        }
 
         override suspend fun reflect(pendingDir: File, includeCookies: Boolean): String? {
             calls += pendingDir to includeCookies
             throwOnReflect?.let { throw it }
             return result
+        }
+
+        override suspend fun restoreRollbackSnapshot(pendingDir: File): String? {
+            rollbackSnapshotCalls++
+            return rollbackSnapshotResult
         }
     }
 

@@ -20,19 +20,27 @@ import java.time.Instant
  * pending restore 用 DataStore 反映処理の抽象。
  *
  * [PendingRestoreApplier] から分離し、JVM unit test では fake 実装へ差し替える。
+ * prepareが成功した後だけreflectを呼び出し、rollbackはpending directoryのdurable snapshotを使う。
  */
 internal interface PendingRestoreDataStoreReflector {
+    /** staged DataStore JSONを検証し、restore前snapshotをpendingへ永続化する。 */
+    suspend fun prepareRollbackSnapshot(pendingDir: File, includeCookies: Boolean): String?
+
     /**
      * staging 済み JSON を DataStore へ反映する。
      */
     suspend fun reflect(pendingDir: File, includeCookies: Boolean): String?
+
+    /** durable snapshotからDataStoreをrestore前状態へ戻す。 */
+    suspend fun restoreRollbackSnapshot(pendingDir: File): String?
 }
 
 /**
  * [PendingRestoreDataStoreReflector] の本番実装。
  *
  * pending directory の JSON を読み取り、[PendingRestoreDataStoreWriter] で
- * settings / tabs / cookies を DataStore へ反映する。
+ * settings / tabs / cookies を DataStore へ反映する。DB置換前のrollback snapshotを保存し、
+ * process death後のstale recoveryでも同じsnapshotから復元する。
  */
 @OptIn(ExperimentalStdlibApi::class)
 internal class RealPendingRestoreDataStoreReflector(
@@ -43,66 +51,80 @@ internal class RealPendingRestoreDataStoreReflector(
     private val tabsAdapter = moshi.adapter<BackupTabsJson>()
     private val cookiesAdapter = moshi.adapter<BackupCookiesJson>()
 
+    /** staged restore dataの全parse/pre-validation後にDataStoreへ書く値を保持する。 */
+    private data class PreparedRestoreData(
+        val settings: BackupSettingsJson,
+        val tabs: BackupTabsJson,
+        val preparedCookies: PendingRestoreDataStoreWriter.PreparedCookies.Success?,
+    )
+
+    /** staged JSONを全て読み取り、DataStore write前のvalidationを完了する。 */
+    private fun loadPreparedRestoreData(
+        pendingDir: File,
+        includeCookies: Boolean,
+        writer: PendingRestoreDataStoreWriter,
+    ): PreparedRestoreData {
+        val settingsFile = File(pendingDir, "datastore/settings.json")
+        val tabsFile = File(pendingDir, "datastore/tabs.json")
+        val cookiesFile = File(pendingDir, "datastore/cookies.json")
+
+        val settings = settingsAdapter.fromJson(settingsFile.readText())
+            ?: throw IllegalStateException("failed to parse settings JSON")
+        val tabs = tabsAdapter.fromJson(tabsFile.readText())
+            ?: throw IllegalStateException("failed to parse tabs JSON")
+
+        val preparedCookies = if (includeCookies && cookiesFile.exists()) {
+            val cookies = cookiesAdapter.fromJson(cookiesFile.readText())
+                ?: throw IllegalStateException("failed to parse cookies JSON")
+            when (val result = writer.prepareCookies(cookies)) {
+                is PendingRestoreDataStoreWriter.PreparedCookies.Success -> result
+                is PendingRestoreDataStoreWriter.PreparedCookies.Failure -> {
+                    throw IllegalStateException(result.message)
+                }
+            }
+        } else {
+            null
+        }
+
+        return PreparedRestoreData(settings, tabs, preparedCookies)
+    }
+
+    /** staged JSONと現在のDataStoreを検証し、rollback sourceをatomicに保存する。 */
+    override suspend fun prepareRollbackSnapshot(
+        pendingDir: File,
+        includeCookies: Boolean,
+    ): String? {
+        return try {
+            val writer = PendingRestoreDataStoreWriter(context, moshi)
+            val prepared = loadPreparedRestoreData(pendingDir, includeCookies, writer)
+            val snapshot = writer.snapshotDataStores(includeCookies = prepared.preparedCookies != null)
+            PendingRestoreDataStoreSnapshotStore(pendingDir, moshi).write(snapshot)
+            null
+        } catch (e: Exception) {
+            "DataStore snapshot preparation failed: ${e.message}"
+        }
+    }
+
     /** pending directory の JSON を DataStore へ反映する。 */
     override suspend fun reflect(pendingDir: File, includeCookies: Boolean): String? {
         return try {
             val writer = PendingRestoreDataStoreWriter(context, moshi)
-
-            // --- JSON read (all files before any write) ---
-            val settingsFile = File(pendingDir, "datastore/settings.json")
-            val tabsFile = File(pendingDir, "datastore/tabs.json")
-            val cookiesFile = File(pendingDir, "datastore/cookies.json")
-
-            val settings = settingsAdapter.fromJson(settingsFile.readText())
-                ?: return "failed to parse settings JSON"
-            val tabs = tabsAdapter.fromJson(tabsFile.readText())
-                ?: return "failed to parse tabs JSON"
-
-            var preparedCookies: PendingRestoreDataStoreWriter.PreparedCookies.Success? = null
-
-            if (includeCookies && cookiesFile.exists()) {
-                val cookies = cookiesAdapter.fromJson(cookiesFile.readText())
-                    ?: return "failed to parse cookies JSON"
-
-                // --- Cookie pre-validation ---
-                when (val result = writer.prepareCookies(cookies)) {
-                    is PendingRestoreDataStoreWriter.PreparedCookies.Success -> {
-                        preparedCookies = result
-                    }
-                    is PendingRestoreDataStoreWriter.PreparedCookies.Failure -> {
-                        return result.message
-                    }
-                }
-            }
-
-            // --- DataStore snapshot (before any write) ---
-            val snapshot = writer.snapshotDataStores(includeCookies = preparedCookies != null)
-            var settingsWritten = false
-            var tabsWritten = false
-            var cookiesWritten = false
+            val prepared = loadPreparedRestoreData(pendingDir, includeCookies, writer)
 
             try {
                 // --- DataStore write (only after all parse and pre-validation succeed) ---
-                writer.writeSettings(settings)
-                settingsWritten = true
-                writer.writeTabs(tabs)
-                tabsWritten = true
+                writer.writeSettings(prepared.settings)
+                writer.writeTabs(prepared.tabs)
 
-                if (preparedCookies != null) {
-                    writer.writePreparedCookies(preparedCookies.cookieJsonSet)
-                    cookiesWritten = true
+                if (prepared.preparedCookies != null) {
+                    writer.writePreparedCookies(prepared.preparedCookies.cookieJsonSet)
                 }
             } catch (writeError: Exception) {
-                // --- Best-effort DataStore rollback ---
-                try {
-                    writer.restoreDataStores(
-                        snapshot = snapshot,
-                        restoreSettings = settingsWritten,
-                        restoreTabs = tabsWritten,
-                        restoreCookies = cookiesWritten,
-                    )
-                } catch (_: Exception) {
-                    // rollback failure は diagnostic 扱い。元 write failure を維持する。
+                // --- Best-effort durable DataStore rollback ---
+                val rollbackError = restoreRollbackSnapshot(pendingDir)
+                if (rollbackError != null) {
+                    return "DataStore reflection failed: ${writeError.message};" +
+                        " rollback failed: $rollbackError"
                 }
                 throw writeError
             }
@@ -110,6 +132,23 @@ internal class RealPendingRestoreDataStoreReflector(
             null
         } catch (e: Exception) {
             "DataStore reflection failed: ${e.message}"
+        }
+    }
+
+    /** durable snapshotを読み取り、対象DataStoreをrestore前状態へfull overwriteする。 */
+    override suspend fun restoreRollbackSnapshot(pendingDir: File): String? {
+        return try {
+            val snapshot = PendingRestoreDataStoreSnapshotStore(pendingDir, moshi).read()
+                ?: return "DataStore rollback snapshot is missing"
+            PendingRestoreDataStoreWriter(context, moshi).restoreDataStores(
+                snapshot = snapshot,
+                restoreSettings = true,
+                restoreTabs = true,
+                restoreCookies = snapshot.cookies != null,
+            )
+            null
+        } catch (e: Exception) {
+            "DataStore rollback failed: ${e.message}"
         }
     }
 }
@@ -175,15 +214,9 @@ class PendingRestoreApplier private constructor(
         when (marker.status) {
             RestoreStatus.PREPARED -> applyRestore(marker)
             RestoreStatus.APPLYING, RestoreStatus.DB_SWAPPED -> {
-                logWarn("stale marker found: ${marker.status}, rolling back")
-                val liveDbFile = dbSwapper.getLiveDbFile()
-                rollbackAndFail(
-                    marker = marker,
-                    reason = "stale marker: ${marker.status}",
-                    liveDbFile = liveDbFile,
-                    hadExistingLiveDb = dbSwapper.hasRollbackBackup(fileStore.rollbackDir, liveDbFile),
-                )
+                recoverFromStaleApplyingOrDbSwapped(marker)
             }
+            RestoreStatus.ROLLBACK_READY -> recoverFromRollbackReady(marker)
             RestoreStatus.MIGRATION_PENDING -> recoverFromMigrationPending(marker)
             RestoreStatus.ROLLBACK_REQUIRED -> recoverFromRollbackRequired(marker)
             RestoreStatus.COMPLETED -> recoverFromCompleted(marker)
@@ -194,7 +227,7 @@ class PendingRestoreApplier private constructor(
     }
 
     /** MIGRATION_PENDING: Room migration 前後の状態を判定して復旧する。 */
-    private fun recoverFromMigrationPending(marker: PendingRestoreMarker) {
+    private suspend fun recoverFromMigrationPending(marker: PendingRestoreMarker) {
         val liveDbFile = dbSwapper.getLiveDbFile()
         val hasRollback = dbSwapper.hasRollbackBackup(fileStore.rollbackDir, liveDbFile)
 
@@ -205,11 +238,7 @@ class PendingRestoreApplier private constructor(
         if (userVersion == null) {
             val reason = "stale MIGRATION_PENDING: db unreadable (userVersion=null)," +
                 " markerVersion=${marker.databaseVersion}, currentVersion=$currentDbVersion"
-            if (hasRollback) {
-                rollbackAndFail(marker, reason, liveDbFile, true)
-            } else {
-                quarantineAndFail(marker, reason, liveDbFile)
-            }
+            rollbackMigrationFailure(marker, reason, liveDbFile, hasRollback)
             return
         }
 
@@ -223,20 +252,12 @@ class PendingRestoreApplier private constructor(
             }
 
             logWarn("MIGRATION_PENDING: strict validation failed: $strictError")
-            if (hasRollback) {
-                rollbackAndFail(
-                    marker,
-                    "stale MIGRATION_PENDING: $strictError (post-migration)",
-                    liveDbFile,
-                    true,
-                )
-            } else {
-                quarantineAndFail(
-                    marker,
-                    "stale MIGRATION_PENDING (no rollback backup, post-migration): $strictError",
-                    liveDbFile,
-                )
-            }
+            rollbackMigrationFailure(
+                marker = marker,
+                reason = "stale MIGRATION_PENDING: $strictError (post-migration)",
+                liveDbFile = liveDbFile,
+                hasRollback = hasRollback,
+            )
             return
         }
 
@@ -253,20 +274,12 @@ class PendingRestoreApplier private constructor(
 
             // pre-validation 失敗 → 破損または不整合な旧版 DB
             logWarn("MIGRATION_PENDING: pre-migration validation failed: $preError")
-            if (hasRollback) {
-                rollbackAndFail(
-                    marker,
-                    "stale MIGRATION_PENDING (pre-migration failure): $preError",
-                    liveDbFile,
-                    true,
-                )
-            } else {
-                quarantineAndFail(
-                    marker,
-                    "stale MIGRATION_PENDING (no rollback backup, pre-migration failure): $preError",
-                    liveDbFile,
-                )
-            }
+            rollbackMigrationFailure(
+                marker = marker,
+                reason = "stale MIGRATION_PENDING (pre-migration failure): $preError",
+                liveDbFile = liveDbFile,
+                hasRollback = hasRollback,
+            )
             return
         }
 
@@ -275,17 +288,51 @@ class PendingRestoreApplier private constructor(
             " (userVersion=$userVersion, markerVersion=${marker.databaseVersion}," +
             " currentVersion=$currentDbVersion)"
         logWarn(mismatchReason)
-        if (hasRollback) {
-            rollbackAndFail(marker, mismatchReason, liveDbFile, true)
-        } else {
-            quarantineAndFail(marker, mismatchReason, liveDbFile)
+        rollbackMigrationFailure(marker, mismatchReason, liveDbFile, hasRollback)
+    }
+
+    /** migration validation failureをDB/DataStore rollbackまたはlegacy保全へ振り分ける。 */
+    private suspend fun rollbackMigrationFailure(
+        marker: PendingRestoreMarker,
+        reason: String,
+        liveDbFile: File,
+        hasRollback: Boolean,
+    ) {
+        when {
+            marker.hadExistingLiveDb == false -> {
+                rollbackAndFail(
+                    marker = marker,
+                    reason = reason,
+                    liveDbFile = liveDbFile,
+                    hadExistingLiveDb = false,
+                )
+            }
+            hasRollback -> {
+                rollbackAndFail(
+                    marker = marker,
+                    reason = reason,
+                    liveDbFile = liveDbFile,
+                    hadExistingLiveDb = true,
+                )
+            }
+            else -> quarantineAndFail(marker, reason, liveDbFile)
         }
     }
 
     /** ROLLBACK_REQUIRED: completion checker が post-validation 失敗を検出した状態。rollback する。 */
-    private fun recoverFromRollbackRequired(marker: PendingRestoreMarker) {
+    private suspend fun recoverFromRollbackRequired(marker: PendingRestoreMarker) {
         val liveDbFile = dbSwapper.getLiveDbFile()
         val hasRollback = dbSwapper.hasRollbackBackup(fileStore.rollbackDir, liveDbFile)
+
+        if (marker.hadExistingLiveDb == false) {
+            rollbackAndFail(
+                marker = marker,
+                reason = "rollback required",
+                liveDbFile = liveDbFile,
+                hadExistingLiveDb = false,
+            )
+            return
+        }
 
         if (!hasRollback) {
             logWarn("ROLLBACK_REQUIRED: no rollback backup available")
@@ -314,38 +361,211 @@ class PendingRestoreApplier private constructor(
         fileStore.cleanupPending()
     }
 
-    /** rollback backup がなく invalid DB を quarantine して fresh DB 起動を優先する。 */
+    /** stale APPLYING または DB_SWAPPED を復旧する。 */
+    private suspend fun recoverFromStaleApplyingOrDbSwapped(marker: PendingRestoreMarker) {
+        val liveDbFile = dbSwapper.getLiveDbFile()
+        val hasCompleteSnapshot = dbSwapper.hasRollbackBackup(fileStore.rollbackDir, liveDbFile)
+        val hadExistingLiveDb = marker.hadExistingLiveDb
+
+        when {
+            hadExistingLiveDb == true && hasCompleteSnapshot -> {
+                logWarn("stale marker found: ${marker.status}, rolling back from complete snapshot")
+                rollbackAndFail(
+                    marker = marker,
+                    reason = "stale marker: ${marker.status}",
+                    liveDbFile = liveDbFile,
+                    hadExistingLiveDb = true,
+                )
+            }
+            hadExistingLiveDb == true -> {
+                // swap 開始前に process death した。元 live DB はそのまま保持する。
+                logWarn("stale marker found: ${marker.status}, incomplete rollback snapshot, preserving live DB")
+                if (marker.status == RestoreStatus.DB_SWAPPED) {
+                    preserveRollbackRequired(
+                        marker,
+                        "stale ${marker.status}: incomplete rollback snapshot, live DB preserved",
+                    )
+                } else {
+                    preserveAndFail(
+                        marker,
+                        "stale ${marker.status}: incomplete rollback snapshot, live DB preserved",
+                    )
+                }
+            }
+            hadExistingLiveDb == false -> {
+                // 元 DB なしで swap 未開始または swap 後。live DB は復元不要な一時 file のみ。
+                logWarn("stale marker found: ${marker.status}, fresh install, cleaning up")
+                if (marker.status == RestoreStatus.DB_SWAPPED) {
+                    rollbackAndFail(
+                        marker = marker,
+                        reason = "stale ${marker.status}: fresh install cleanup",
+                        liveDbFile = liveDbFile,
+                        hadExistingLiveDb = false,
+                    )
+                } else {
+                    dbSwapper.cleanupCorruptFreshInstallDb(liveDbFile)
+                    fileStore.writeMarker(
+                        marker.copy(
+                            status = RestoreStatus.FAILED,
+                            failureReason = "stale ${marker.status}: fresh install cleanup",
+                        ),
+                    )
+                    writeFailureResult("stale ${marker.status}: fresh install cleanup", marker)
+                }
+            }
+            else -> {
+                // 旧 marker (hadExistingLiveDb = null)。推測しないで保全する。
+                preserveAmbiguousStateAndFail(marker, liveDbFile)
+            }
+        }
+    }
+
+    /** stale ROLLBACK_READY を復旧する。 */
+    private suspend fun recoverFromRollbackReady(marker: PendingRestoreMarker) {
+        val liveDbFile = dbSwapper.getLiveDbFile()
+        val hasCompleteSnapshot = dbSwapper.hasRollbackBackup(fileStore.rollbackDir, liveDbFile)
+        val hadExistingLiveDb = marker.hadExistingLiveDb
+
+        when {
+            hadExistingLiveDb == true && hasCompleteSnapshot -> {
+                logWarn("stale ROLLBACK_READY: rolling back from complete snapshot")
+                rollbackAndFail(
+                    marker = marker,
+                    reason = "stale marker: ROLLBACK_READY",
+                    liveDbFile = liveDbFile,
+                    hadExistingLiveDb = true,
+                )
+            }
+            hadExistingLiveDb == true -> {
+                // snapshot が不完全なら live DB を上書きしない。
+                logWarn("stale ROLLBACK_READY: incomplete snapshot, preserving live DB")
+                preserveAndFail(
+                    marker,
+                    "stale ROLLBACK_READY: incomplete rollback snapshot, live DB preserved",
+                )
+            }
+            hadExistingLiveDb == false -> {
+                // 元 DB なしで swap 開始可能状態。fresh install の live DB sidecar を cleanup。
+                logWarn("stale ROLLBACK_READY: fresh install, cleaning up")
+                rollbackAndFail(
+                    marker = marker,
+                    reason = "stale ROLLBACK_READY: fresh install cleanup",
+                    liveDbFile = liveDbFile,
+                    hadExistingLiveDb = false,
+                )
+            }
+            else -> {
+                preserveAmbiguousStateAndFail(marker, liveDbFile)
+            }
+        }
+    }
+
+    /**
+     * 元 live DB と rollback files を上書き・削除せず failure を記録する。
+     *
+     * swap phase が不明な旧 marker 用。
+     */
+    private fun preserveAmbiguousStateAndFail(marker: PendingRestoreMarker, liveDbFile: File) {
+        val liveExists = liveDbFile.exists()
+        val hasCompleteSnapshot = dbSwapper.hasRollbackBackup(fileStore.rollbackDir, liveDbFile)
+        val reason = buildString {
+            append("stale ${marker.status}: ambiguous legacy marker")
+            append(", liveExists=")
+            append(liveExists)
+            append(", completeSnapshot=")
+            append(hasCompleteSnapshot)
+            append("; manual recovery required")
+        }
+        logError(reason)
+        fileStore.writeMarker(
+            marker.copy(
+                status = RestoreStatus.FAILED,
+                failureReason = reason,
+            ),
+        )
+        writeFailureResult(reason, marker)
+    }
+
+    /** rollback snapshot と live DB を保全して failure を記録する。 */
+    private fun preserveAndFail(marker: PendingRestoreMarker, reason: String) {
+        logError(reason)
+        fileStore.writeMarker(
+            marker.copy(status = RestoreStatus.FAILED, failureReason = reason),
+        )
+        writeFailureResult(reason, marker)
+    }
+
+    /** rollback source不足時にpending artifactを残し、次回起動のmanual recoveryへ委ねる。 */
+    private fun preserveRollbackRequired(marker: PendingRestoreMarker, reason: String) {
+        logError(reason)
+        fileStore.writeMarker(
+            marker.copy(status = RestoreStatus.ROLLBACK_REQUIRED, failureReason = reason),
+        )
+        writeFailureResult(reason, marker)
+    }
+
+    /** failure result file を書き込む helper。 */
+    private fun writeFailureResult(reason: String, marker: PendingRestoreMarker) {
+        fileStore.writeResult(
+            success = false,
+            message = reason,
+            timestamp = nowProvider(),
+            backupDatabaseVersion = marker.databaseVersion,
+            currentDatabaseVersion = currentDbVersion,
+            migrationRequired = marker.databaseVersion < currentDbVersion,
+            migrationCompleted = false,
+        )
+    }
+
+    /**
+     * rollback backupがないinvalid DBをpending cleanupから独立したincidentへ保存して失敗を記録する。
+     *
+     * main DBを保存できた場合だけ実在するincident pathをfailure reasonへ含める。sidecarや
+     * cleanupの失敗があっても、作成済みのincident artifactは追加削除しない。
+     */
     private fun quarantineAndFail(
         marker: PendingRestoreMarker,
         reason: String,
         liveDbFile: File,
     ) {
         logError("quarantine: $reason")
-        val quarantineDir = File(fileStore.pendingDir, "quarantine")
-        quarantineDir.mkdirs()
-        var quarantineSuccess = true
+        var quarantineDir: File? = null
+        var mainDbSaved = false
+        var sidecarFailure = false
 
-        // live DB main, -wal, -shm を quarantine へ移動
-        for (suffix in listOf("", "-wal", "-shm")) {
-            val file = File(liveDbFile.absolutePath + suffix)
-            if (file.exists()) {
-                val dest = File(quarantineDir, file.name)
-                try {
-                    if (!file.renameTo(dest)) {
-                        file.copyTo(dest, overwrite = true)
-                        file.delete()
-                    }
-                } catch (e: Exception) {
-                    logError("quarantine failed for ${file.name}: ${e.message}")
-                    quarantineSuccess = false
+        // --- Incident directory ---
+        try {
+            val incidentDir = fileStore.createQuarantineIncidentDir()
+            quarantineDir = incidentDir
+
+            // --- Database set preservation ---
+            for (suffix in listOf("", "-wal", "-shm")) {
+                val source = File(liveDbFile.absolutePath + suffix)
+                if (!source.exists()) continue
+
+                val destination = File(incidentDir, source.name)
+                val saved = preserveQuarantineFile(source, destination)
+                if (suffix.isEmpty()) {
+                    mainDbSaved = saved && destination.exists()
+                } else if (!saved) {
+                    sidecarFailure = true
                 }
             }
+        } catch (e: Exception) {
+            logError("quarantine setup failed: ${e.message}")
         }
 
-        val finalReason = if (quarantineSuccess) {
-            "$reason (invalid DB quarantined to $quarantineDir)"
-        } else {
-            "$reason (quarantine partially failed: manual intervention required)"
+        // --- Failure reason ---
+        val finalReason = when {
+            mainDbSaved && !sidecarFailure -> {
+                "$reason (invalid DB quarantined to $quarantineDir)"
+            }
+            mainDbSaved -> {
+                "$reason (invalid DB quarantined to $quarantineDir; sidecar quarantine partially failed)"
+            }
+            else -> {
+                "$reason (quarantine failed: manual intervention required)"
+            }
         }
 
         fileStore.writeMarker(marker.copy(status = RestoreStatus.FAILED, failureReason = finalReason))
@@ -359,6 +579,25 @@ class PendingRestoreApplier private constructor(
             migrationCompleted = false,
         )
         fileStore.cleanupPending()
+    }
+
+    /**
+     * DB本体またはsidecarをincidentへ移動し、renameできないfilesystemではcopyへfallbackする。
+     *
+     * copy後のsource削除は既存のquarantine semanticsに合わせてbest effortとし、保存先が
+     * 存在することを成功条件にする。
+     */
+    private fun preserveQuarantineFile(source: File, destination: File): Boolean {
+        return try {
+            if (!source.renameTo(destination)) {
+                source.copyTo(destination, overwrite = true)
+                source.delete()
+            }
+            destination.exists()
+        } catch (e: Exception) {
+            logError("quarantine failed for ${source.name}: ${e.message}")
+            false
+        }
     }
 
     /** 想定外例外を `failed` marker/result として記録する。 */
@@ -391,34 +630,55 @@ class PendingRestoreApplier private constructor(
 
     /** pending restore の prepared state を適用する。 */
     private suspend fun applyRestore(marker: PendingRestoreMarker) {
-        val applyingMarker = marker.copy(status = RestoreStatus.APPLYING)
-        fileStore.writeMarker(applyingMarker)
-
         val stagedDbFile = File(fileStore.pendingDir, "database/slevo.db")
         val liveDbFile = dbSwapper.getLiveDbFile()
         val hadExistingLiveDb = liveDbFile.exists()
+
+        // --- Applying marker: rollback snapshot 作成前に元 DB 有無を永続化 ---
+        val applyingMarker = marker.copy(
+            status = RestoreStatus.APPLYING,
+            hadExistingLiveDb = hadExistingLiveDb,
+        )
+        fileStore.writeMarker(applyingMarker)
 
         // --- Rollback backup ---
         if (hadExistingLiveDb) {
             val rollbackError = dbSwapper.createRollbackBackup(liveDbFile, fileStore.rollbackDir)
             if (rollbackError != null) {
-                rollbackAndFail(applyingMarker, rollbackError, liveDbFile, hadExistingLiveDb)
+                failBeforeDbSwap(applyingMarker, rollbackError)
                 return
             }
         }
 
+        // --- Durable DataStore rollback snapshot ---
+        val dataStoreSnapshotError = dataStoreReflector.prepareRollbackSnapshot(
+            pendingDir = fileStore.pendingDir,
+            includeCookies = marker.includeCookies,
+        )
+        if (dataStoreSnapshotError != null) {
+            failBeforeDbSwap(applyingMarker, dataStoreSnapshotError)
+            return
+        }
+
+        // --- Rollback snapshot 完成または元 DB なしを記録してから swap を開始 ---
+        val rollbackReadyMarker = marker.copy(
+            status = RestoreStatus.ROLLBACK_READY,
+            hadExistingLiveDb = hadExistingLiveDb,
+        )
+        fileStore.writeMarker(rollbackReadyMarker)
+
         // --- DB replace ---
         val replaceError = dbSwapper.replaceDbFile(stagedDbFile, liveDbFile)
         if (replaceError != null) {
-            rollbackAndFail(applyingMarker, replaceError, liveDbFile, hadExistingLiveDb)
+            rollbackAndFail(rollbackReadyMarker, replaceError, liveDbFile, hadExistingLiveDb)
             return
         }
 
         // --- Post-replace pre-migration validation ---
-        val validationError = dbValidator.preValidate(liveDbFile, applyingMarker.databaseVersion)
+        val validationError = dbValidator.preValidate(liveDbFile, rollbackReadyMarker.databaseVersion)
         if (validationError != null) {
             rollbackAndFail(
-                applyingMarker,
+                rollbackReadyMarker,
                 "post-replace validation failed: $validationError",
                 liveDbFile,
                 hadExistingLiveDb,
@@ -427,7 +687,10 @@ class PendingRestoreApplier private constructor(
         }
 
         // --- DataStore reflection ---
-        val dbSwappedMarker = marker.copy(status = RestoreStatus.DB_SWAPPED)
+        val dbSwappedMarker = marker.copy(
+            status = RestoreStatus.DB_SWAPPED,
+            hadExistingLiveDb = hadExistingLiveDb,
+        )
         fileStore.writeMarker(dbSwappedMarker)
 
         val dataStoreError = dataStoreReflector.reflect(fileStore.pendingDir, marker.includeCookies)
@@ -447,27 +710,62 @@ class PendingRestoreApplier private constructor(
             migrationCompleted = !migrationRequired,
         )
         // --- MIGRATION_PENDING: cleanup せず marker/rollback を保持 ---
-        fileStore.writeMarker(marker.copy(status = RestoreStatus.MIGRATION_PENDING))
+        fileStore.writeMarker(
+            marker.copy(
+                status = RestoreStatus.MIGRATION_PENDING,
+                hadExistingLiveDb = hadExistingLiveDb,
+            ),
+        )
         logInfo("applyRestore: transitioned to MIGRATION_PENDING")
     }
 
-    /** rollback を実行して `failed` marker / result を記録する。 */
-    private fun rollbackAndFail(
+    /** DBとDataStoreをrollbackして、完了時だけfailure cleanupを行う。 */
+    private suspend fun rollbackAndFail(
         marker: PendingRestoreMarker,
         reason: String,
         liveDbFile: File,
         hadExistingLiveDb: Boolean,
     ) {
         logError("rollback: $reason")
-        var shouldCleanupPending = true
+        val rollbackErrors = mutableListOf<String>()
 
+        // --- Database rollback ---
         if (hadExistingLiveDb) {
-            val restored = dbSwapper.restoreRollbackBackup(liveDbFile, fileStore.rollbackDir)
-            if (!restored) {
-                shouldCleanupPending = false
+            try {
+                if (!dbSwapper.restoreRollbackBackup(liveDbFile, fileStore.rollbackDir)) {
+                    rollbackErrors += "database rollback failed"
+                }
+            } catch (e: Exception) {
+                rollbackErrors += "database rollback failed: ${e.message}"
             }
         } else {
             dbSwapper.cleanupCorruptFreshInstallDb(liveDbFile)
+        }
+
+        // --- DataStore rollback ---
+        dataStoreReflector.restoreRollbackSnapshot(fileStore.pendingDir)?.let { error ->
+            rollbackErrors += error
+        }
+
+        if (rollbackErrors.isNotEmpty()) {
+            val rollbackReason = "$reason; rollback incomplete: ${rollbackErrors.joinToString("; ")}"
+            fileStore.writeMarker(
+                marker.copy(
+                    status = RestoreStatus.ROLLBACK_REQUIRED,
+                    failureReason = rollbackReason,
+                ),
+            )
+            fileStore.writeResult(
+                success = false,
+                message = rollbackReason,
+                timestamp = nowProvider(),
+                backupDatabaseVersion = marker.databaseVersion,
+                currentDatabaseVersion = currentDbVersion,
+                migrationRequired = marker.databaseVersion < currentDbVersion,
+                migrationCompleted = false,
+            )
+            logWarn("rollback incomplete; preserving pending artifacts")
+            return
         }
 
         fileStore.writeMarker(marker.copy(status = RestoreStatus.FAILED, failureReason = reason))
@@ -481,11 +779,22 @@ class PendingRestoreApplier private constructor(
             migrationCompleted = false,
         )
 
-        if (shouldCleanupPending) {
-            fileStore.cleanupPending()
-        } else {
-            logWarn("rollback backup preserved for manual recovery")
-        }
+        fileStore.cleanupPending()
+    }
+
+    /** DB置換前の準備失敗を記録し、変更されていないpendingをcleanupする。 */
+    private fun failBeforeDbSwap(marker: PendingRestoreMarker, reason: String) {
+        fileStore.writeMarker(marker.copy(status = RestoreStatus.FAILED, failureReason = reason))
+        fileStore.writeResult(
+            success = false,
+            message = reason,
+            timestamp = nowProvider(),
+            backupDatabaseVersion = marker.databaseVersion,
+            currentDatabaseVersion = currentDbVersion,
+            migrationRequired = marker.databaseVersion < currentDbVersion,
+            migrationCompleted = false,
+        )
+        fileStore.cleanupPending()
     }
 
     private fun logInfo(message: String) {

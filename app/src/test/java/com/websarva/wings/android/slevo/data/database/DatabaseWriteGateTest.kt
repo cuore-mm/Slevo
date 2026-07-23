@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -797,6 +798,184 @@ class DatabaseWriteGateTest {
         after.await()
         writer.join()
     }
+
+    // --- Cancellation cleanup under stateLock contention ---
+
+    @Test
+    fun queuedWriterCancellation_waitsForContendedCleanupAndGateRecovers() =
+        runTest(UnconfinedTestDispatcher()) {
+            val gate = DatabaseWriteGate()
+            val suspensionEntered = CompletableDeferred<Unit>()
+            val suspensionRelease = CompletableDeferred<Unit>()
+            val lockHeld = CompletableDeferred<Unit>()
+            val lockRelease = CompletableDeferred<Unit>()
+
+            val suspension = launch {
+                gate.withWritesSuspended {
+                    suspensionEntered.complete(Unit)
+                    suspensionRelease.await()
+                }
+            }
+            suspensionEntered.await()
+
+            val queuedWriter = launch {
+                gate.withWritePermit { fail("cancelled queued writer must not run") }
+            }
+            advanceUntilIdle()
+
+            val lockHolder = launch {
+                gate.withStateLockHeldForTest {
+                    lockHeld.complete(Unit)
+                    lockRelease.await()
+                }
+            }
+            lockHeld.await()
+            queuedWriter.cancel()
+            assertTrue("cleanup should wait for the contended state lock", !queuedWriter.isCompleted)
+
+            lockRelease.complete(Unit)
+            queuedWriter.join()
+            suspensionRelease.complete(Unit)
+            suspension.join()
+            lockHolder.join()
+
+            val writerRan = CompletableDeferred<Unit>()
+            withTimeout(1_000) {
+                gate.withWritePermit { writerRan.complete(Unit) }
+                writerRan.await()
+            }
+            withTimeout(1_000) {
+                gate.withWritesSuspended { }
+            }
+        }
+
+    @Test
+    fun runningWriterCancellation_waitsForContendedReleaseAndGateRecovers() =
+        runTest(UnconfinedTestDispatcher()) {
+            val gate = DatabaseWriteGate()
+            val writerEntered = CompletableDeferred<Unit>()
+            val writerRelease = CompletableDeferred<Unit>()
+            val lockHeld = CompletableDeferred<Unit>()
+            val lockRelease = CompletableDeferred<Unit>()
+
+            val writer = launch {
+                gate.withWritePermit {
+                    writerEntered.complete(Unit)
+                    writerRelease.await()
+                }
+            }
+            writerEntered.await()
+
+            val lockHolder = launch {
+                gate.withStateLockHeldForTest {
+                    lockHeld.complete(Unit)
+                    lockRelease.await()
+                }
+            }
+            lockHeld.await()
+            writer.cancel()
+            assertTrue("release should wait for the contended state lock", !writer.isCompleted)
+
+            lockRelease.complete(Unit)
+            writer.join()
+            writerRelease.complete(Unit)
+            lockHolder.join()
+
+            withTimeout(1_000) {
+                gate.withWritesSuspended { }
+            }
+        }
+
+    @Test
+    fun reservedWriterCancellation_beforeRunningReleasesReservation() =
+        runTest(UnconfinedTestDispatcher()) {
+            val gate = DatabaseWriteGate()
+            val suspensionEntered = CompletableDeferred<Unit>()
+            val suspensionRelease = CompletableDeferred<Unit>()
+            val signalReceived = CompletableDeferred<Unit>()
+            val transitionRelease = CompletableDeferred<Unit>()
+            var writerBlockRan = false
+
+            gate.afterWriterSignalHook = {
+                signalReceived.complete(Unit)
+                transitionRelease.await()
+            }
+
+            val suspension = launch {
+                gate.withWritesSuspended {
+                    suspensionEntered.complete(Unit)
+                    suspensionRelease.await()
+                }
+            }
+            suspensionEntered.await()
+            val writer = launch {
+                gate.withWritePermit {
+                    writerBlockRan = true
+                }
+            }
+            advanceUntilIdle()
+
+            suspensionRelease.complete(Unit)
+            suspension.join()
+            signalReceived.await()
+            writer.cancel()
+            transitionRelease.complete(Unit)
+            writer.join()
+
+            assertTrue("cancelled reserved writer must not run its block", !writerBlockRan)
+            withTimeout(1_000) {
+                gate.withWritesSuspended { }
+            }
+        }
+
+    @Test
+    fun queuedSuspensionCancellation_waitsForContendedCleanupAndPreservesFifo() =
+        runTest(UnconfinedTestDispatcher()) {
+            val gate = DatabaseWriteGate()
+            val activeSuspensionEntered = CompletableDeferred<Unit>()
+            val activeSuspensionRelease = CompletableDeferred<Unit>()
+            val lockHeld = CompletableDeferred<Unit>()
+            val lockRelease = CompletableDeferred<Unit>()
+            val events = mutableListOf<String>()
+
+            val activeSuspension = launch {
+                gate.withWritesSuspended {
+                    activeSuspensionEntered.complete(Unit)
+                    activeSuspensionRelease.await()
+                }
+            }
+            activeSuspensionEntered.await()
+
+            val queuedSuspension = launch {
+                gate.withWritesSuspended { fail("cancelled queued suspension must not run") }
+            }
+            val queuedWriter = launch {
+                gate.withWritePermit { events += "writer" }
+            }
+            advanceUntilIdle()
+
+            val lockHolder = launch {
+                gate.withStateLockHeldForTest {
+                    lockHeld.complete(Unit)
+                    lockRelease.await()
+                }
+            }
+            lockHeld.await()
+            queuedSuspension.cancel()
+            assertTrue("cleanup should wait for the contended state lock", !queuedSuspension.isCompleted)
+
+            lockRelease.complete(Unit)
+            queuedSuspension.join()
+            activeSuspensionRelease.complete(Unit)
+            activeSuspension.join()
+            queuedWriter.join()
+            lockHolder.join()
+
+            assertEquals(listOf("writer"), events)
+            withTimeout(1_000) {
+                gate.withWritesSuspended { }
+            }
+        }
 
     // --- 7.9: pending suspension cancel 後、古い queued writer を新規 writer が追い越さない ---
 

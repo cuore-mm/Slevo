@@ -151,4 +151,63 @@ class PendingRestoreManagerPrepareTest {
             if (pendingDir.exists()) pendingDir.deleteRecursively()
         }
     }
+
+    @Test
+    fun prepareRestore_successWritesReadablePreparedMarker() = runTest {
+        val pendingDir = File(filesDir, "pending-restore")
+        val sourceDbFile = File(filesDir, "fixture-db.tmp").apply {
+            writeText("fake db content")
+        }
+        try {
+            val manager = PendingRestoreManager(
+                context = ApplicationProvider.getApplicationContext(),
+                moshi = moshi,
+                dbValidator = FakeBackupDatabaseValidator(),
+            )
+
+            val error = manager.prepareRestore(createBackupPreview(sourceDbFile))
+
+            assertTrue(error == null)
+            val marker = manager.readMarker()
+            assertNotNull(marker)
+            assertTrue(marker!!.status == RestoreStatus.PREPARED)
+            assertTrue(marker.databaseVersion == 9)
+            assertTrue(pendingDir.exists())
+        } finally {
+            sourceDbFile.delete()
+            if (pendingDir.exists()) pendingDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun handleExistingPending_failedMarkerPreservesQuarantineIncident() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val store = RealPendingRestoreFileStore(context, moshi)
+        val incident = store.createQuarantineIncidentDir()
+        val quarantinedDb = File(incident, "slevo.db").apply { writeText("quarantined") }
+        store.writeMarker(
+            PendingRestoreMarker(
+                status = RestoreStatus.FAILED,
+                createdAt = "2026-07-03T00:00:00Z",
+                includeCookies = false,
+                databaseVersion = 9,
+            ),
+        )
+
+        try {
+            val manager = PendingRestoreManager(
+                context = context,
+                moshi = moshi,
+                dbValidator = FakeBackupDatabaseValidator(),
+            )
+
+            assertTrue(manager.handleExistingPending() == null)
+            assertFalse(store.pendingDir.exists())
+            assertTrue(quarantinedDb.exists())
+            assertTrue(quarantinedDb.readText() == "quarantined")
+        } finally {
+            store.cleanupPending()
+            store.quarantineRootDir.deleteRecursively()
+        }
+    }
 }

@@ -16,10 +16,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * pending restore の staging と marker 管理を担当する。
+ * pending restore のstagingとatomic marker管理を担当する。
  *
  * 検証済みの DB / DataStore JSON を `filesDir/pending-restore/` へ保存し、
- * 最後に `restore.json` marker を作成して次回起動時の [PendingRestoreApplier] へ引き継ぐ。
+ * 最後にatomicに`restore.json` markerを作成して次回起動時の
+ * [PendingRestoreApplier]へ引き継ぐ。result fileのpublicationは別のlifecycleで管理する。
  *
  * **依存制約:** 起動時ではなく restore 準備時にのみ使われるため、
  * Hilt 経由 DataSource/Repository/DAO/AppDatabase に依存してよい。
@@ -37,6 +38,9 @@ class PendingRestoreManager @Inject constructor(
 ) {
     private val pendingDir: File get() = File(context.filesDir, PENDING_DIR_NAME)
     private val markerFile: File get() = File(pendingDir, MARKER_FILENAME)
+    private val markerStore by lazy {
+        AtomicPendingRestoreMarkerFile(markerFile, moshi.adapter<PendingRestoreMarker>())
+    }
     private val resultDir: File get() = File(context.filesDir, RESULT_DIR_NAME)
 
     // test-only hook: true にすると marker write が故意に失敗する
@@ -124,9 +128,7 @@ class PendingRestoreManager @Inject constructor(
         )
         logD("prepareRestore: writing marker includeCookies=${marker.includeCookies}")
         try {
-            markerFile.writeText(
-                moshi.adapter<PendingRestoreMarker>().toJson(marker),
-            )
+            markerStore.write(marker)
         } catch (e: Exception) {
             cleanupPendingDir()
             return "failed to write marker: ${e.message}"
@@ -141,19 +143,14 @@ class PendingRestoreManager @Inject constructor(
      * marker が存在しない場合は `null` を返す。
      */
     fun readMarker(): PendingRestoreMarker? {
-        if (!markerFile.exists()) return null
-        return try {
-            moshi.adapter<PendingRestoreMarker>().fromJson(markerFile.readText())
-        } catch (_: Exception) {
-            null
-        }
+        return markerStore.read()
     }
 
     /**
      * marker の状態を更新する。
      */
     fun updateMarker(marker: PendingRestoreMarker) {
-        markerFile.writeText(moshi.adapter<PendingRestoreMarker>().toJson(marker))
+        markerStore.write(marker)
     }
 
     /**
@@ -234,7 +231,7 @@ class PendingRestoreManager @Inject constructor(
             RestoreStatus.PREPARED -> {
                 "pending restore already prepared; restart to apply"
             }
-            RestoreStatus.APPLYING, RestoreStatus.DB_SWAPPED -> {
+            RestoreStatus.APPLYING, RestoreStatus.ROLLBACK_READY, RestoreStatus.DB_SWAPPED -> {
                 "pending restore in progress; restart to recover"
             }
             RestoreStatus.MIGRATION_PENDING -> {
@@ -307,5 +304,7 @@ class PendingRestoreManager @Inject constructor(
         internal const val ROLLBACK_DIR_NAME = "rollback"
         internal const val RESULT_DIR_NAME = "pending-restore-result"
         internal const val RESULT_FILENAME = "restore-result.json"
+        internal const val QUARANTINE_DIR_NAME = "pending-restore-quarantine"
+        internal const val DATASTORE_ROLLBACK_SNAPSHOT_FILENAME = "datastore-rollback.json"
     }
 }
