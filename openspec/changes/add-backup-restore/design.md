@@ -263,10 +263,192 @@ DataStore の物理ファイルをコピーせず、バックアップ JSON DTO 
 
 通常の repository-time validation や mapper は共有してよいが、startup restore の保存処理は DB 非依存の `PendingRestoreDataStoreWriter` 相当を使う。
 
+#### 7.1 DataStore instance は必ず一元管理する
+
+`PendingRestoreDataStoreWriter` が `PreferenceDataStoreFactory.create(...)` を直接呼び出して、通常実行時の `preferencesDataStore(name = ...)` とは別の DataStore instance を作ってはならない。同一 process 内で同じ `.preferences_pb` file に対して複数の DataStore instance が存在すると、DataStore の single-instance contract に反し、lock/error/更新競合を起こし得るためである。
+
+実装者は次の順序で修正すること:
+
+1. 新規 file `data/datasource/local/impl/SlevoPreferenceDataStores.kt` を作成する。
+2. `object SlevoPreferenceDataStores` を定義する。
+3. この object が settings/tabs/cookies の DataStore を返す唯一の provider になる。
+4. `SettingsLocalDataSourceImpl`、`TabsLocalDataSourceImpl`、`CookieLocalDataSourceImpl` の `preferencesDataStore(...)` delegate を削除し、`SlevoPreferenceDataStores.settings(context)` / `tabs(context)` / `cookies(context)` を使う。
+5. `PendingRestoreDataStoreWriter` も同じ `SlevoPreferenceDataStores` provider を使う。
+6. `PendingRestoreDataStoreWriter` 内で `PreferenceDataStoreFactory.create(...)` を直接呼ぶコードを残してはならない。
+
+推奨 provider 形:
+
+```kotlin
+object SlevoPreferenceDataStores {
+    fun settings(context: Context): DataStore<Preferences>
+    fun tabs(context: Context): DataStore<Preferences>
+    fun cookies(context: Context): DataStore<Preferences>
+}
+```
+
+実装は `preferencesDataStore(name = "settings")` 相当の lazy singleton でも、`PreferenceDataStoreFactory` を内部で一元管理する形でもよい。ただし public entry point は上記 provider に集約し、同じ process で同じ file 用 DataStore が複数生成されないことを test で確認する。
+
+`PreferenceDataStoreFactory` を内部で使う場合、初回取得 race で同一 file 用 DataStore が複数生成されないよう、`@Volatile` だけに依存してはならない。double-checked locking、`lazy`、または同等の同期機構で初期化を保護する。`Context` は `applicationContext` 相当を使い、Activity context を保持しない。
+
+#### 7.2 startup restore writer は DB 非依存だが shared DataStore provider を使う
+
+`PendingRestoreDataStoreWriter` は DB/Hilt 非依存を維持する。ただし「独自 DataStore instance を作る」という意味ではない。writer は以下だけに依存してよい:
+
+- `Context`
+- `Moshi`
+- `SlevoPreferenceDataStores` の static/object function
+- `BackupRestoreMapper`
+
+writer は以下に依存してはならない:
+
+- `AppDatabase`
+- DAO
+- Repository
+- Hilt `EntryPoint`
+- `SettingsLocalDataSource` / `TabsLocalDataSource` / `CookieLocalDataSource`
+
+#### 7.3 起動時復元の top-level 例外は通常起動を妨げない
+
+`SlevoApplication.onCreate()` の `runBlocking { PendingRestoreApplier(...).runIfNeeded() }` は `super.onCreate()` 直後に置く。位置は正しい。ただし、`runIfNeeded()` から想定外例外が漏れて app 起動を crash させてはならない。
+
+実装者は次のどちらかを必ず行う:
+
+1. 推奨: `PendingRestoreApplier.runIfNeeded()` の最外周で `try/catch` し、例外時に marker を `failed` へ更新し、result file に失敗を記録して return する。
+2. 補助: `SlevoApplication.onCreate()` 側でも `try/catch` し、少なくとも `android.util.Log.e(...)` へ記録して通常初期化を継続する。
+
+低性能実装者向けの明確な条件:
+
+- `PendingRestoreApplier.runIfNeeded()` は外へ例外を投げない。
+- pending marker がある状態で失敗した場合は `filesDir/pending-restore-result/restore-result.json` に失敗 result を書く。
+- result file 書き込みにも失敗した場合だけ log に残して通常起動を継続する。
+- `SlevoApplication.onCreate()` の crash handler 初期化前に restore 例外で process を落としてはならない。
+
+#### 7.4 重い I/O は `Dispatchers.IO` で実行する
+
+`SlevoApplication.onCreate()` で `runBlocking` するのは、`AppDatabase` 生成前に pending restore を同期完了させるために必要である。ただし、`runBlocking` の中で main thread 上に重い I/O を直接置いてはならない。
+
+`PendingRestoreApplier.runIfNeeded()` は以下を `withContext(Dispatchers.IO)` 内で行う:
+
+- marker/result file read/write
+- DB file copy/delete/rename
+- WAL/SHM copy/delete
+- SQLite open と `PRAGMA integrity_check`
+- DataStore JSON file read
+- DataStore `edit` の呼び出し
+
+実装者向けの形:
+
+```kotlin
+suspend fun runIfNeeded() {
+    withContext(Dispatchers.IO) {
+        try {
+            runIfNeededOnIo()
+        } catch (e: Exception) {
+            recordStartupRestoreFailureOnIo(e)
+        }
+    }
+}
+```
+
+`runIfNeededOnIo()` は private にし、DB/file/DataStore の実処理をここへ集約する。例外時に marker/result file を読む・書く処理も main thread で直接行わず、`withContext(Dispatchers.IO)` 内の `recordStartupRestoreFailureOnIo(...)` 相当に集約する。
+
+#### 7.5 rollback 失敗時に復旧材料を消さない
+
+rollback は「live DB を復元できたこと」を確認してから pending directory と rollback backup を cleanup する。rollback copy 自体が失敗した場合、`cleanup()` によって rollback backup を削除してはならない。ユーザー通知用 result には失敗を記録しつつ、可能な限り rollback directory と marker を残し、後続の起動や手動調査で復旧材料を参照できる状態にする。
+
+低性能実装者向けの明確な条件:
+
+- rollback backup から live DB へ main DB を戻す copy が失敗した場合、rollback backup directory は削除しない。
+- rollback copy に失敗した後に `failed` result file を書けない場合でも、通常起動は継続する。
+- rollback 成功時のみ、置換後に生成された可能性のある live DB の `-wal` / `-shm` を削除し、rollback backup 側の `-wal` / `-shm` を復元してから cleanup する。
+
+#### 7.6 fresh install で置換後検証に失敗した DB は残さない
+
+fresh install など live DB main file が存在しない状態では rollback source がない。この状態で pending DB を live DB path へ copy した後、置換後 DB validation または DataStore 反映に失敗した場合、rollback できないことを理由に壊れた live DB を残してはならない。
+
+fresh install 失敗時は、置換済み live DB main file と対応する `-wal` / `-shm` を best-effort で削除し、次回起動時に Room が空 DB を作成できる状態へ戻す。削除できない場合は failed result に記録し、通常起動は継続する。
+
+#### 7.7 PendingRestoreApplier は実動作 test で state machine を検証する
+
+`PendingRestoreApplier` は DB file 置換、rollback、DataStore 反映、marker/result file 更新を扱うため、reflection や source-level assertion だけで完了扱いにしてはならない。JVM unit test で Android framework SQLite を直接使えない分岐は fake validator / temporary directory / source-level 補助 test を組み合わせてよいが、少なくとも marker state transition と rollback 判断は実行して検証する。
+
+最低限検証する分岐:
+
+- marker なしは何もしない。
+- `prepared` は `applying`、DB 置換、`db-swapped`、DataStore 反映、成功 result、cleanup の順に進む。
+- `applying` / `db-swapped` は stale として自動再試行せず、rollback 可能なら rollback して failed result を残す。
+- `failed` は自動再試行しない。
+- rollback backup 作成失敗時は live DB を置換しない。
+- rollback copy 失敗時は rollback backup を cleanup しない。
+- fresh install で置換後 validation に失敗した場合は壊れた live DB を削除する。
+- `runIfNeeded()` は例外を外へ投げず、失敗 result file を可能な範囲で作成する。
+- DataStore 書き込み完了前に `runIfNeeded()` から戻らない。
+
+#### 7.8 PendingRestoreApplier は orchestration に集中させる
+
+Phase 3S 時点の実装は安全性を優先して `PendingRestoreApplier` に marker/result file、DB file 操作、rollback、fresh install cleanup、DataStore 反映、例外処理、test hook が集まりやすい。Phase 4 で repository/UI 層を重ねる前に、起動時 restore の責務を分割して、`PendingRestoreApplier` は state machine orchestration のみに近づける。
+
+責務分割の目標構造:
+
+```text
+PendingRestoreApplier
+├─ PendingRestoreFileStore
+│  ├─ marker read/write
+│  ├─ result write/read helper
+│  └─ pending/result cleanup
+├─ PendingRestoreDbSwapper
+│  ├─ live DB path resolution
+│  ├─ rollback backup creation
+│  ├─ DB replace / temp cleanup
+│  ├─ rollback restore
+│  └─ fresh install failure cleanup
+├─ BackupDatabaseValidator
+└─ PendingRestoreDataStoreReflector
+   └─ PendingRestoreDataStoreWriter
+```
+
+`PendingRestoreApplier` が保持してよい責務:
+
+- `runIfNeeded()` の top-level 例外制御と `Dispatchers.IO` 切り替え
+- marker status に基づく state machine 分岐
+- `PREPARED`、stale `APPLYING` / `DB_SWAPPED`、`FAILED` の orchestration
+- 各 collaborator の戻り値を `success` / `failed` result へ mapping する制御
+
+`PendingRestoreApplier` から切り出す責務:
+
+- marker/result file の JSON I/O
+- pending/result directory cleanup
+- live DB file path 判定
+- DB temp file 作成、copy、rename、rename 失敗時 temp cleanup
+- WAL/SHM cleanup と rollback backup restore
+- fresh install 失敗時の壊れた DB cleanup
+- JVM unit test のためだけの `rollbackRestorerOverride` のような個別 hook
+
+実装者向けの明確な条件:
+
+- `PendingRestoreFileStore` は `Context` または `filesDir` と `Moshi` だけで marker/result/pending cleanup を扱う。`AppDatabase`、DAO、Repository、Hilt EntryPoint に依存しない。
+- `PendingRestoreDbSwapper` は DB file path と file operation を扱う。`BackupDatabaseValidator` は引数として受け取り、Room singleton `AppDatabase` は生成・close しない。
+- `PendingRestoreDataStoreReflector` は DataStore JSON 反映だけを扱い、`PendingRestoreDataStoreWriter` と `SlevoPreferenceDataStores` を使う。
+- `PendingRestoreApplier` の public 生成 API は `Context` のみを必須にし、testability は file store / DB swapper / DataStore reflector の fake 差し替えで確保する。
+- 責務分割後も `SlevoApplication.onCreate()` の呼び出し位置、同期完了、通常起動を妨げない例外処理、`Dispatchers.IO` 上での I/O 実行を維持する。
+- Phase 3S で追加した rollback backup 保持、fresh install 失敗 cleanup、unknown gesture action 非永続化の振る舞いを維持する。
+
+責務分割にあわせて test も整理する。source-level 文字列検査だけで完了扱いにせず、以下を fake collaborator で検証する:
+
+- `PendingRestoreApplier` は marker state に応じて collaborator を正しい順序で呼ぶ。
+- `PendingRestoreFileStore` は marker/result JSON I/O と cleanup を検証する。
+- `PendingRestoreDbSwapper` は rollback backup 作成、DB replace、rename 失敗時 temp cleanup、rollback copy 失敗時 backup 保持、fresh install 失敗 cleanup を検証する。
+- `PendingRestoreDataStoreWriter.applySettingsToPreferences(...)` は `MutablePreferences` へ full overwrite、未知 gesture action 削除、`gesture_assignments_initialized = true` を検証する。
+- `SlevoPreferenceDataStores` は settings/tabs/cookies すべての concurrent first access で単一 instance を返すことを検証する。
+
 推奨追加 API:
 
 - `BackupRestoreMapper`: `BackupSettingsJson` / `BackupTabsJson` / `BackupCookiesJson` の validation と domain value 変換を担当する。DB/Hilt に依存しない。
-- `PendingRestoreDataStoreWriter`: `PreferenceDataStoreFactory.create(...)` など DB 非依存の経路で settings/tabs/cookies DataStore を開き、mapper 済み値を保存する。
+- `SlevoPreferenceDataStores`: settings/tabs/cookies DataStore instance を一元提供する。通常 DataSource と startup restore writer が必ず共有する。
+- `PendingRestoreFileStore`: pending marker/result file と cleanup を DB/Hilt 非依存で扱う。
+- `PendingRestoreDbSwapper`: live DB 置換、rollback backup、fresh install cleanup を DB/Hilt 非依存で扱う。
+- `PendingRestoreDataStoreReflector`: pending DataStore JSON を [PendingRestoreDataStoreWriter] へ委譲する薄い adapter。
+- `PendingRestoreDataStoreWriter`: DB/Hilt 非依存の経路で settings/tabs/cookies DataStore へ mapper 済み値を保存する。ただし DataStore instance は `SlevoPreferenceDataStores` から取得する。
 - 既存 `SettingsLocalDataSource.applyBackupSettings(...)` などを追加する場合でも、それは通常実行時 API とし、起動時 pending restore 適用では使用しない。
 
 startup restore writer が扱う DataStore path と key は以下に固定する。
@@ -284,7 +466,7 @@ v1 の DataStore restore は full overwrite として扱う。backup format が�
 `BackupDataMapper` または新規 `BackupRestoreMapper` へ逆変換を追加する。
 
 - `themeMode` は `light` / `dark` / `system` を既存 enum へ戻す。未知値は validation で無効扱いにするか、spec に従い `system` へ fallback する。初期実装は復元の予測可能性を優先し、未知値は無効なバックアップとして扱う。
-- gesture direction/action は kebab-case 文字列から既存 enum へ戻す。
+- gesture direction/action は kebab-case 文字列から既存 enum へ戻す。startup restore writer は action 文字列を単純な PascalCase 変換だけで DataStore に保存せず、`GestureAction` に存在する値だけを保存対象にする。未知 action は validation 済み backup reader 経由では到達しない想定だが、防御的に invalid または未割当として扱い、未知文字列を DataStore へ永続化してはならない。
 - `gestureSettings.actions` に存在しない方向は未割当として扱い、既存 setter が null/削除を表現できる場合は削除する。
 - Cookie は `BackupCookieItem` 9 field から `okhttp3.Cookie.Builder` で復元する。
 

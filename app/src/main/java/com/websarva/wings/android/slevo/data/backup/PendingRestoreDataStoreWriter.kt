@@ -1,22 +1,15 @@
 package com.websarva.wings.android.slevo.data.backup
 
 import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.MutablePreferences
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.floatPreferencesKey
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.squareup.moshi.Moshi
 import com.websarva.wings.android.slevo.data.backup.model.BackupCookiesJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupSettingsJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupTabsJson
+import com.websarva.wings.android.slevo.data.datasource.local.impl.SlevoPreferenceDataStores
+import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
-import java.io.File
 import java.util.Locale
 
 /**
@@ -29,8 +22,8 @@ import java.util.Locale
  * には一切依存しない。この writer は `SlevoApplication.onCreate()` の `super.onCreate()` 直後、
  * Hilt による `AppDatabase` 生成前に実行される。
  *
- * DataStore ファイルパスは既存の `preferencesDataStore(name = "settings")` 等と
- * 同一パス (`<filesDir>/datastore/<name>.preferences_pb`) を直接指定する。
+ * **DataStore instance:** 独自に DataStore を生成せず、[SlevoPreferenceDataStores] から取得する。
+ * これにより同一 process 内で DataStore が多重生成されないことを保証する。
  *
  * @param context アプリケーション Context。`filesDir` の取得にのみ使う。
  * @param moshi Cookie の JSON シリアライズに使う Moshi インスタンス。
@@ -39,20 +32,9 @@ class PendingRestoreDataStoreWriter(
     private val context: Context,
     private val moshi: Moshi,
 ) {
-    private val settingsDataStore: DataStore<Preferences> =
-        PreferenceDataStoreFactory.create {
-            File(context.filesDir, SETTINGS_PATH)
-        }
-
-    private val tabsDataStore: DataStore<Preferences> =
-        PreferenceDataStoreFactory.create {
-            File(context.filesDir, TABS_PATH)
-        }
-
-    private val cookiesDataStore: DataStore<Preferences> =
-        PreferenceDataStoreFactory.create {
-            File(context.filesDir, COOKIES_PATH)
-        }
+    private val settingsDataStore get() = SlevoPreferenceDataStores.settings(context)
+    private val tabsDataStore get() = SlevoPreferenceDataStores.tabs(context)
+    private val cookiesDataStore get() = SlevoPreferenceDataStores.cookies(context)
 
     /**
      * バックアップの settings JSON を DataStore へ反映する。
@@ -75,7 +57,7 @@ class PendingRestoreDataStoreWriter(
      */
     suspend fun writeTabs(tabs: BackupTabsJson) {
         tabsDataStore.edit { prefs ->
-            prefs[LAST_SELECTED_PAGE_KEY] = tabs.lastSelectedTabsPage
+            prefs[SlevoPreferenceDataStores.LAST_PAGE_KEY] = tabs.lastSelectedTabsPage
         }
     }
 
@@ -90,8 +72,6 @@ class PendingRestoreDataStoreWriter(
     suspend fun writeCookies(cookiesJson: BackupCookiesJson) {
         val cookieJsonSet = cookiesJson.cookies.mapNotNull { item ->
             try {
-                // CookieLocalDataSourceImpl と同じ Moshi adapter を使って
-                // OkHttp Cookie 互換 JSON を生成する。
                 val cookie = BackupRestoreMapper.toCookie(item) ?: return@mapNotNull null
                 moshi.adapter(okhttp3.Cookie::class.java).toJson(cookie)
             } catch (_: Exception) {
@@ -99,7 +79,7 @@ class PendingRestoreDataStoreWriter(
             }
         }.toSet()
         cookiesDataStore.edit { prefs ->
-            prefs[COOKIES_KEY] = cookieJsonSet
+            prefs[SlevoPreferenceDataStores.COOKIE_KEY] = cookieJsonSet
         }
     }
 
@@ -113,61 +93,37 @@ class PendingRestoreDataStoreWriter(
         prefs: MutablePreferences,
         settings: BackupSettingsJson,
     ) {
-        prefs[THEME_MODE_KEY] = settings.themeMode
-        prefs[TREE_SORT_KEY] = settings.isTreeSort
-        prefs[THREAD_MINIMAP_SCROLLBAR_KEY] = settings.isThreadMinimapScrollbarEnabled
-        prefs[TEXT_SCALE_KEY] = settings.textScale
-        prefs[INDIVIDUAL_TEXT_SCALE_KEY] = settings.isIndividualTextScale
-        prefs[HEADER_TEXT_SCALE_KEY] = settings.headerTextScale
-        prefs[BODY_TEXT_SCALE_KEY] = settings.bodyTextScale
-        prefs[LINE_HEIGHT_KEY] = settings.lineHeight
-        prefs[REDIRECT_KEY] = settings.isRedirect5chNetToIoEnabled
+        prefs[SlevoPreferenceDataStores.THEME_MODE_KEY] = settings.themeMode
+        prefs[SlevoPreferenceDataStores.TREE_SORT_KEY] = settings.isTreeSort
+        prefs[SlevoPreferenceDataStores.THREAD_MINIMAP_SCROLLBAR_KEY] = settings.isThreadMinimapScrollbarEnabled
+        prefs[SlevoPreferenceDataStores.TEXT_SCALE_KEY] = settings.textScale
+        prefs[SlevoPreferenceDataStores.INDIVIDUAL_TEXT_SCALE_KEY] = settings.isIndividualTextScale
+        prefs[SlevoPreferenceDataStores.HEADER_TEXT_SCALE_KEY] = settings.headerTextScale
+        prefs[SlevoPreferenceDataStores.BODY_TEXT_SCALE_KEY] = settings.bodyTextScale
+        prefs[SlevoPreferenceDataStores.LINE_HEIGHT_KEY] = settings.lineHeight
+        prefs[SlevoPreferenceDataStores.REDIRECT_5CH_NET_TO_IO_KEY] = settings.isRedirect5chNetToIoEnabled
 
-        prefs[GESTURE_ENABLED_KEY] = settings.gestureSettings.enabled
-        prefs[GESTURE_SHOW_HINT_KEY] = settings.gestureSettings.showActionHints
+        prefs[SlevoPreferenceDataStores.GESTURE_ENABLED_KEY] = settings.gestureSettings.enabled
+        prefs[SlevoPreferenceDataStores.GESTURE_SHOW_HINT_KEY] = settings.gestureSettings.showActionHints
 
-        // 既知 direction すべてについて、actions に存在すれば設定、存在しなければ削除する。
         GestureDirection.entries.forEach { direction ->
             val kebab = BackupRestoreMapper.kebabCaseFromPascalCase(direction.name)
-            val key = gestureActionKey(direction)
+            val key = SlevoPreferenceDataStores.GESTURE_ACTION_KEYS.getValue(direction)
             val actionValue = settings.gestureSettings.actions[kebab]
-            if (actionValue != null) {
-                // kebab-case action 文字列を PascalCase enum name へ変換して保存する。
-                // 既存 SettingsLocalDataSourceImpl は enum name を直接保存する。
-                prefs[key] = kebabToPascalCase(actionValue)
-            } else {
+            val actionName = actionValue?.let { toExistingGestureActionNameOrNull(it) }
+
+            // backup に存在しない方向、または未知 action は未割当として保存値を残さない。
+            if (actionName == null) {
                 prefs.remove(key)
+            } else {
+                prefs[key] = actionName
             }
         }
+
+        prefs[SlevoPreferenceDataStores.GESTURE_ASSIGNMENTS_INITIALIZED_KEY] = true
     }
 
     companion object {
-        internal const val SETTINGS_PATH = "datastore/settings.preferences_pb"
-        internal const val TABS_PATH = "datastore/tabs.preferences_pb"
-        internal const val COOKIES_PATH = "datastore/cookies.preferences_pb"
-
-        // --- Settings keys ---
-        internal val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
-        internal val TREE_SORT_KEY = booleanPreferencesKey("tree_sort")
-        internal val THREAD_MINIMAP_SCROLLBAR_KEY = booleanPreferencesKey("thread_minimap_scrollbar")
-        internal val TEXT_SCALE_KEY = floatPreferencesKey("text_scale")
-        internal val INDIVIDUAL_TEXT_SCALE_KEY = booleanPreferencesKey("individual_text_scale")
-        internal val HEADER_TEXT_SCALE_KEY = floatPreferencesKey("header_text_scale")
-        internal val BODY_TEXT_SCALE_KEY = floatPreferencesKey("body_text_scale")
-        internal val LINE_HEIGHT_KEY = floatPreferencesKey("line_height")
-        internal val REDIRECT_KEY = booleanPreferencesKey("redirect_5ch_net_to_io")
-        internal val GESTURE_ENABLED_KEY = booleanPreferencesKey("gesture_enabled")
-        internal val GESTURE_SHOW_HINT_KEY = booleanPreferencesKey("gesture_show_action_hint")
-
-        // --- Tabs keys ---
-        internal val LAST_SELECTED_PAGE_KEY = intPreferencesKey("last_selected_page")
-
-        // --- Cookies keys ---
-        internal val COOKIES_KEY = stringSetPreferencesKey("app_cookies")
-
-        internal fun gestureActionKey(direction: GestureDirection) =
-            stringPreferencesKey("gesture_action_${direction.name.lowercase(Locale.ROOT)}")
-
         /**
          * kebab-case 文字列を PascalCase へ変換する。
          *
@@ -177,5 +133,13 @@ class PendingRestoreDataStoreWriter(
             kebab.split("-").joinToString("") { part ->
                 part.replaceFirstChar { it.titlecase(Locale.ROOT) }
             }
+
+        /**
+         * 既存 [GestureAction] に存在する action 名のみ PascalCase で返す。
+         */
+        internal fun toExistingGestureActionNameOrNull(kebab: String): String? {
+            val pascal = kebabToPascalCase(kebab)
+            return GestureAction.entries.firstOrNull { it.name == pascal }?.name
+        }
     }
 }

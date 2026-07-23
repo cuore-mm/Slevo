@@ -201,6 +201,30 @@
 - **WHEN** アプリ起動時に pending restore marker が存在する
 - **THEN** システムは DB 置換判断と必要な pending restore 適用を完了するまで通常の `AppDatabase` 生成へ進まない
 
+#### Scenario: 起動時復元 applier は state machine orchestration に集中する
+- **WHEN** システムが起動時 pending restore を適用する
+- **THEN** `PendingRestoreApplier` は marker status に基づく分岐と collaborator 呼び出し順の制御を担当し、marker/result file I/O、DB file 操作、DataStore JSON 反映の詳細処理を専用 collaborator へ委譲する
+
+#### Scenario: 起動時復元 collaborator は DB/Hilt に依存しない
+- **WHEN** システムが marker/result file I/O、DB file swap、または DataStore JSON 反映を行う
+- **THEN** それぞれの collaborator は `AppDatabase`、DAO、Repository、Hilt EntryPoint に依存せず、`AppDatabase` を生成または close しない
+
+#### Scenario: DB swapper が temp file cleanup を担当する
+- **WHEN** DB file 置換で temp file 作成後に rename または replace が失敗する
+- **THEN** システムは DB swapper の責務として temp file を best-effort で削除し、pending restore を失敗として記録する
+
+#### Scenario: 起動時復元例外で通常起動を妨げない
+- **WHEN** `PendingRestoreApplier.runIfNeeded()` の実行中に想定外例外が発生する
+- **THEN** システムは例外を外へ投げず、可能な場合は pending restore を `failed` として記録し、通常のアプリ初期化を継続する
+
+#### Scenario: 起動時復元の重い I/O を IO dispatcher で実行する
+- **WHEN** システムが marker/result file、DB file、WAL/SHM、SQLite、DataStore JSON、または DataStore edit を扱う
+- **THEN** システムはそれらの処理を `Dispatchers.IO` 相当の I/O dispatcher 上で実行し、main thread 上で直接重い I/O を行わない
+
+#### Scenario: 起動時復元の例外記録 I/O も IO dispatcher で実行する
+- **WHEN** 起動時復元中に想定外例外が発生し、システムが marker または result file を更新する
+- **THEN** システムは例外記録の file I/O も `Dispatchers.IO` 相当の I/O dispatcher 上で実行し、main thread 上で直接 marker/result file を読み書きしない
+
 #### Scenario: DataStore 書き込み完了を待つ
 - **WHEN** アプリ起動時に pending restore の DataStore JSON を反映する
 - **THEN** システムは DataStore 書き込みが完了するまで `PendingRestoreApplier.runIfNeeded()` から戻らない
@@ -224,6 +248,14 @@
 #### Scenario: rollback 時に WAL と SHM を整合させる
 - **WHEN** システムが rollback backup から live DB を戻す
 - **THEN** システムは置換後に生成された可能性のある live DB の `-wal` / `-shm` を削除し、rollback backup に `-wal` / `-shm` が存在する場合のみそれらを復元する
+
+#### Scenario: rollback copy 失敗時に rollback backup を保持する
+- **WHEN** システムが rollback backup から live DB を戻そうとして main DB copy に失敗する
+- **THEN** システムは pending restore を失敗として記録し、復旧材料として rollback backup directory を削除しない
+
+#### Scenario: fresh install の置換後検証失敗で壊れた DB を残さない
+- **WHEN** live DB main file が存在しない状態で pending DB を live DB path へ copy した後、置換後 DB validation が失敗する
+- **THEN** システムは rollback source なしとして failed result を記録し、copy 済み live DB main file と対応する `-wal` / `-shm` を best-effort で削除する
 
 #### Scenario: 成功時に pending と rollback を cleanup する
 - **WHEN** pending restore の DB 置換と DataStore 反映が成功する
@@ -268,6 +300,18 @@
 - **WHEN** システムが起動時に pending restore の DataStore JSON を反映する
 - **THEN** システムは Hilt 経由の DataSource、Repository、DAO、または `AppDatabase` に依存しない
 
+#### Scenario: DataStore instance を一元管理する
+- **WHEN** 通常実行時 DataSource または startup restore writer が settings、tabs、cookies DataStore を取得する
+- **THEN** システムは共通 DataStore provider を経由し、同一 process 内で同じ `.preferences_pb` file 用 DataStore instance を複数生成しない
+
+#### Scenario: DataStore provider の初回取得 race で複数 instance を生成しない
+- **WHEN** 複数の呼び出し元が同じ process 内で同じ DataStore を初回取得する
+- **THEN** システムは同期された初期化により同じ `.preferences_pb` file 用 DataStore instance を 1 つだけ作成する
+
+#### Scenario: startup restore writer が DataStore を直接生成しない
+- **WHEN** startup restore writer が settings、tabs、cookies を保存する
+- **THEN** writer は `PreferenceDataStoreFactory.create(...)` を直接呼ばず、通常 DataSource と同じ共通 DataStore provider から DataStore を取得する
+
 #### Scenario: JSON に存在しない既知 gesture direction を未割当にする
 - **WHEN** 既知の gesture direction が `datastore/settings.json` の `gestureSettings.actions` に存在しない
 - **THEN** システムはその direction を未割当として扱い、既存値を保持しない
@@ -279,6 +323,10 @@
 #### Scenario: 未知 gesture direction key を拒否する
 - **WHEN** `datastore/settings.json` の `gestureSettings.actions` に未知の gesture direction key が存在する
 - **THEN** システムは pending restore を作成せず、無効なバックアップとして通知する
+
+#### Scenario: 未知 gesture action を永続化しない
+- **WHEN** `datastore/settings.json` の `gestureSettings.actions` に既存 `GestureAction` と一致しない action 値が存在する
+- **THEN** システムは未知 action 文字列を DataStore に保存せず、pending restore 作成前の validation で無効なバックアップとして扱う
 
 ### Requirement: 復元準備中の UI 状態
 システムは pending restore 作成中、同じ画面上のバックアップ作成と復元の重複実行を防ぎ、処理状態をユーザーに示さなければならない（MUST）。

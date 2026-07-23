@@ -4,8 +4,10 @@ import android.app.Application
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import com.websarva.wings.android.slevo.data.backup.PendingRestoreApplier
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressInterceptor
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
@@ -25,6 +27,18 @@ class SlevoApplication : Application() {
      */
     override fun onCreate() {
         super.onCreate()
+
+        // --- Pending restore (DB 置換 + DataStore 反映) ---
+        // Hilt AppDatabase 生成前に実行する。runBlocking で完了まで待つ。
+        // PendingRestoreApplier.runIfNeeded() は内部で top-level catch するが、
+        // 念のため SlevoApplication 側でも catch して通常起動を妨げない。
+        try {
+            runBlocking {
+                PendingRestoreApplier(this@SlevoApplication).runIfNeeded()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PendingRestore", "startup restore failed in SlevoApplication", e)
+        }
 
         // --- Image loader setup ---
         val imageProgressClient = OkHttpClient.Builder()

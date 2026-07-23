@@ -2,8 +2,6 @@ package com.websarva.wings.android.slevo.data.datasource.local.impl
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringSetPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.websarva.wings.android.slevo.data.datasource.local.CookieLocalDataSource
@@ -14,25 +12,27 @@ import okhttp3.Cookie
 import javax.inject.Inject
 import javax.inject.Singleton
 
-// DataStoreのインスタンスを定義
-private val Context.cookieDataStore by preferencesDataStore(name = "cookies")
-private val COOKIE_KEY = stringSetPreferencesKey("app_cookies")
-
+/**
+ * [CookieLocalDataSource] の DataStore 実装。
+ *
+ * DataStore instance は [SlevoPreferenceDataStores.cookies] から取得し、
+ * 同一 process 内で DataStore が多重生成されないことを保証する。
+ */
 @Singleton
 class CookieLocalDataSourceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val moshi: Moshi
 ) : CookieLocalDataSource {
 
-    // CookieオブジェクトをJSONに変換するためのアダプタ
+    private val dataStore get() = SlevoPreferenceDataStores.cookies(context)
+
     private val cookieListAdapter = moshi.adapter<List<Cookie>>(
         Types.newParameterizedType(List::class.java, Cookie::class.java)
     )
 
     override fun getCookies(): Flow<List<Cookie>> {
-        return context.cookieDataStore.data.map { preferences ->
-            preferences[COOKIE_KEY]?.mapNotNull { json ->
-                // JSONからCookieオブジェクトにデシリアライズ
+        return dataStore.data.map { preferences ->
+            preferences[SlevoPreferenceDataStores.COOKIE_KEY]?.mapNotNull { json ->
                 try {
                     moshi.adapter(Cookie::class.java).fromJson(json)
                 } catch (e: Exception) {
@@ -44,7 +44,6 @@ class CookieLocalDataSourceImpl @Inject constructor(
 
     override suspend fun saveCookies(cookies: List<Cookie>) {
         val cookieJsonSet = cookies.mapNotNull { cookie ->
-            // CookieオブジェクトをJSONにシリアライズ
             try {
                 moshi.adapter(Cookie::class.java).toJson(cookie)
             } catch (e: Exception) {
@@ -52,8 +51,8 @@ class CookieLocalDataSourceImpl @Inject constructor(
             }
         }.toSet()
 
-        context.cookieDataStore.edit { preferences ->
-            preferences[COOKIE_KEY] = cookieJsonSet
+        dataStore.edit { preferences ->
+            preferences[SlevoPreferenceDataStores.COOKIE_KEY] = cookieJsonSet
         }
     }
 }
