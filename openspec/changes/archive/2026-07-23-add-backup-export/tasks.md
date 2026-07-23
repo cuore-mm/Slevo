@@ -89,10 +89,10 @@
 - [x] 6.2 `openspec validate add-backup-export --strict` 実行。strict validation 成功。
 - [x] 6.3 CI `testDebugUnitTest` 相当実行。全テスト CI 上で成功。
 - [x] 6.4 GitHub Actions build workflow 実行。Run ID: `28278257356` (3m 36s, test job pass)。
-- [ ] 6.5 手動確認: バックアップ作成 ZIP 構造（実機/エミュレータ）。
-- [ ] 6.6 手動確認: 確認ダイアログの privacy/security 文言（実機/エミュレータ）。
-- [ ] 6.7 手動確認: SAF のみでの保存（外部ストレージ権限なし）（実機/エミュレータ）。
-- [ ] 6.8 手動確認: SAF 出力失敗時の partial output 扱い（実機/エミュレータ）。fake stream 自動テストで部分的にカバー済み。
+- [x] 6.5 手動確認: バックアップ作成 ZIP 構造（実機/エミュレータ）。
+- [x] 6.6 手動確認: 確認ダイアログの privacy/security 文言（実機/エミュレータ）。
+- [x] 6.7 手動確認: SAF のみでの保存（外部ストレージ権限なし）（実機/エミュレータ）。
+- [x] 6.8 手動確認: SAF 出力失敗時の partial output 扱い（実機/エミュレータ）。fake stream 自動テストで部分的にカバー済み。
 
 ## Phase 7: 操作結果 Snackbar の durable queue
 

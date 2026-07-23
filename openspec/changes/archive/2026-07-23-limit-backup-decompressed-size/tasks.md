@@ -52,5 +52,5 @@
 ## 7. 最終検証（未完了）
 
 - [x] 7.1 `openspec validate limit-backup-decompressed-size --strict`と`git diff --check`を実行する。
-- [ ] 7.2 6.1–6.10をcommit/push後、記録した`git rev-parse HEAD`と同じ`headSha`でAndroid CIを実行する。完了条件:対象security tests、全unit tests、CI APK buildが成功する。
+- [x] 7.2 6.1–6.10をcommit/push後、記録した`git rev-parse HEAD`と同じ`headSha`でAndroid CIを実行する。完了条件:対象security tests、全unit tests、CI APK buildが成功する。
 - [x] 7.3 最終diffを確認する。完了条件:shared policy、bounded restore/export、cleanup、関連testsだけであり、ZIP schema、Room/DataStore、UI、dependency、Codex P2 WAL修正を含まない。

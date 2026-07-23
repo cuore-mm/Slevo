@@ -21,4 +21,4 @@
 - [x] 4.1 `BackupDataMapperTest.kt` と既存 round-trip tests を確認し、JSON field 名、`Float` 型、backup format version、DataStore key の期待値を変更せず通す。完了条件: serialized schema の変更が diff に含まれない。
 - [x] 4.2 `rg '0\.7f\s*\.\.\s*1\.6f|1\.2f\s*\.\.\s*1\.8f|DEFAULT_THREAD_LINE_HEIGHT' app/src` を実行し、空白表記を含む range literal は `TextDisplaySettingsConstraints.kt` だけ、旧 line-height default symbol は 0 件であることを確認する。`rangeTo` など別表記も `rg '0\.7f|1\.6f|1\.2f|1\.8f' app/src` で確認し、canonical 定義以外に範囲を再定義していれば canonical 参照へ修正する。
 - [x] 4.3 `android-ci` workflow を `ci-build` 手順で起動し、`testCiUnitTest` と `assembleCi` が成功するまで修正する。完了条件: 対象 commit の GitHub Actions run が成功している。
-- [ ] 4.4 API 対応 emulator/device で `DisplaySettingsBottomSheetTest` を実行し、4 slider range と reset drift test が成功することを確認する。これは機械テストのみとし、user-waived post-implementation audit や追加の目視 UI audit は行わない。
+- [x] 4.4 API 対応 emulator/device で `DisplaySettingsBottomSheetTest` を実行し、4 slider range と reset drift test が成功することを確認する。これは機械テストのみとし、user-waived post-implementation audit や追加の目視 UI audit は行わない。

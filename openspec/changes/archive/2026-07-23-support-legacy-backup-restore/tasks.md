@@ -89,9 +89,9 @@
 
 - [x] 8.1 新規/変更 class/interface/object/data class/sealed class/enum の KDoc を確認する。完了条件: repository のコメント規則に違反しない。
 - [x] 8.2 `openspec validate support-legacy-backup-restore --strict` を実行する。完了条件: strict validation が成功する。
-- [ ] 8.3 GitHub Actions Android CI を実行する。完了条件: build と unit tests が成功し、Run ID を記録する。
-- [ ] 8.4 実機またはエミュレータで current DB version バックアップの export → restore を確認する。完了条件: current backup 復元が regression していない。
-- [ ] 8.5 実機またはエミュレータで old DB version バックアップの restore → 再起動 → migration 完了 → cleanup を確認する。完了条件: アプリ起動後にデータが表示され、pending/rollback が cleanup される。
-- [ ] 8.6 実機またはエミュレータで future DB version バックアップが拒否されることを確認する。完了条件: DB/DataStore が変更されず、invalid 通知が表示される。
-- [ ] 8.7 実機またはエミュレータで migration 失敗または completion 前クラッシュ相当の recovery を確認する。完了条件: 次回 cold start 時に rollback/failed result が記録され、通常起動を妨げない。
-- [ ] 8.8 実機またはエミュレータで post-migration validation 失敗相当の rollback-required recovery を確認する。完了条件: Room open 中には live DB file を置換せず、次回 cold start で rollback/failed result が記録される。
+- [x] 8.3 GitHub Actions Android CI を実行する。完了条件: build と unit tests が成功し、Run ID を記録する。
+- [x] 8.4 実機またはエミュレータで current DB version バックアップの export → restore を確認する。完了条件: current backup 復元が regression していない。
+- [x] 8.5 実機またはエミュレータで old DB version バックアップの restore → 再起動 → migration 完了 → cleanup を確認する。完了条件: アプリ起動後にデータが表示され、pending/rollback が cleanup される。
+- [x] 8.6 実機またはエミュレータで future DB version バックアップが拒否されることを確認する。完了条件: DB/DataStore が変更されず、invalid 通知が表示される。
+- [x] 8.7 実機またはエミュレータで migration 失敗または completion 前クラッシュ相当の recovery を確認する。完了条件: 次回 cold start 時に rollback/failed result が記録され、通常起動を妨げない。
+- [x] 8.8 実機またはエミュレータで post-migration validation 失敗相当の rollback-required recovery を確認する。完了条件: Room open 中には live DB file を置換せず、次回 cold start で rollback/failed result が記録される。

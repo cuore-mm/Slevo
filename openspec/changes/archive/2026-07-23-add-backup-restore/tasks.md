@@ -209,9 +209,9 @@ Codex P2 review で、commit 時の再検証後に `PendingRestoreManager.prepar
 - [x] 6.1 KDoc 確認を行う。完了条件: 新規 class/interface/object/data class/sealed interface/sealed class/enum に KDoc があり、Preview 関数には KDoc がない。
 - [x] 6.2 `openspec validate add-backup-restore --strict` を実行する。完了条件: strict validation が成功する。
 - [x] 6.3 GitHub Actions Android CI を実行する。完了条件: build と unit tests が成功し、Run ID を記録する。確認結果: Run ID `28704388749`。
-- [ ] 6.4 手動確認: 実機/エミュレータでバックアップ作成 → データ変更 → 復元準備 → アプリ再起動 → ブックマーク/履歴/タブ/設定が戻ることを確認する。
-- [ ] 6.5 手動確認: Cookie を含むバックアップで、Cookie 復元 OFF の場合は再起動後も Cookie が変更されず、ON の場合だけ再起動後に Cookie が復元されることを確認する。
-- [ ] 6.6 手動確認: manifest なし、DB version 不一致、Cookie manifest 不一致、壊れた ZIP が無効なバックアップとして通知されることを確認する。
-- [ ] 6.7 手動確認: 外部ストレージ権限なしで OpenDocument のみで復元できることを確認する。
-- [ ] 6.8 手動確認: 同じ画面にバックアップ作成 action と復元 action が表示され、復元準備中の進捗ダイアログ、操作抑制、準備完了/失敗 Snackbar、再起動説明、確認ダイアログ文言を確認する。
-- [ ] 6.9 実装完了後、`add-backup-restore` の未完了 task が実機確認以外に残っていないことを確認する。
+- [x] 6.4 手動確認: 実機/エミュレータでバックアップ作成 → データ変更 → 復元準備 → アプリ再起動 → ブックマーク/履歴/タブ/設定が戻ることを確認する。
+- [x] 6.5 手動確認: Cookie を含むバックアップで、Cookie 復元 OFF の場合は再起動後も Cookie が変更されず、ON の場合だけ再起動後に Cookie が復元されることを確認する。
+- [x] 6.6 手動確認: manifest なし、DB version 不一致、Cookie manifest 不一致、壊れた ZIP が無効なバックアップとして通知されることを確認する。
+- [x] 6.7 手動確認: 外部ストレージ権限なしで OpenDocument のみで復元できることを確認する。
+- [x] 6.8 手動確認: 同じ画面にバックアップ作成 action と復元 action が表示され、復元準備中の進捗ダイアログ、操作抑制、準備完了/失敗 Snackbar、再起動説明、確認ダイアログ文言を確認する。
+- [x] 6.9 実装完了後、`add-backup-restore` の未完了 task が実機確認以外に残っていないことを確認する。

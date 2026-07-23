@@ -33,4 +33,4 @@
 
 - [x] 5.1 `openspec validate harden-backup-prevalidation --strict` を実行する。完了条件: strict validation が成功する。
 - [x] 5.2 CI workflow を実行し、unit test と build が成功することを確認する。完了条件: GitHub Actions Android CI が pass する。
-- [ ] 5.3 Codex review を再実行し、Issue 1 が解消されていることを確認する。完了条件: `codex review --base origin/develop` で同じ DB pre-validation 指摘が再発しない。
+- [x] 5.3 Codex review を再実行し、Issue 1 が解消されていることを確認する。完了条件: `codex review --base origin/develop` で同じ DB pre-validation 指摘が再発しない。
