@@ -4,11 +4,13 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import com.websarva.wings.android.slevo.data.backup.BackupResourceLimitExceededException
 import com.websarva.wings.android.slevo.data.backup.BackupResourceLimits
+import com.websarva.wings.android.slevo.data.backup.export.BackupDataMapper
 import com.websarva.wings.android.slevo.data.backup.model.BackupCookiesJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupManifest
 import com.websarva.wings.android.slevo.data.backup.model.BackupSettingsJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupTabsJson
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
+import com.websarva.wings.android.slevo.data.model.GestureAction
 import kotlinx.coroutines.CancellationException
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -529,6 +531,7 @@ class BackupReader @Inject constructor(
      * - themeMode は既知の値 ("light", "dark", "system") のみ許容する。
      * - scale / lineHeight は正の有限値のみ許容する。
      * - gesture direction key は既知の kebab-case のみ許容する。
+     * - gesture action value は null または [GestureAction] の既知の kebab-case のみ許容する。
      *
      * @return 検証済みの [BackupSettingsJson]。エラー時は null。
      */
@@ -538,8 +541,12 @@ class BackupReader @Inject constructor(
         if (!json.headerTextScale.isFinite() || json.headerTextScale <= 0f) return null
         if (!json.bodyTextScale.isFinite() || json.bodyTextScale <= 0f) return null
         if (!json.lineHeight.isFinite() || json.lineHeight <= 0f) return null
-        for (key in json.gestureSettings.actions.keys) {
+        val knownGestureActions = GestureAction.entries
+            .map { BackupDataMapper.enumNameToKebabCase(it.name) }
+            .toSet()
+        for ((key, action) in json.gestureSettings.actions) {
             if (key !in KNOWN_GESTURE_DIRECTIONS) return null
+            if (action != null && action !in knownGestureActions) return null
         }
         return json
     }

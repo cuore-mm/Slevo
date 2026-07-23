@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.data.backup.restore
 
 import com.squareup.moshi.Moshi
 import com.websarva.wings.android.slevo.data.backup.BackupResourceLimits
+import com.websarva.wings.android.slevo.data.backup.export.BackupDataMapper
 import com.websarva.wings.android.slevo.data.backup.model.BackupCookiesJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupCookieItem
 import com.websarva.wings.android.slevo.data.backup.model.BackupGestureSettings
@@ -9,6 +10,7 @@ import com.websarva.wings.android.slevo.data.backup.model.BackupManifest
 import com.websarva.wings.android.slevo.data.backup.model.BackupSettingsJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupTabsJson
 import com.websarva.wings.android.slevo.data.backup.model.IncludedContents
+import com.websarva.wings.android.slevo.data.model.GestureAction
 import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -648,6 +650,52 @@ class BackupReaderTest {
         val zip = createValidZipBytes(settings = invalidSettings)
         val error = readError(zip)
         assertTrue(error is BackupRestoreResult.Invalid)
+    }
+
+    /** 未知の non-null gesture action を含む settings を拒否する。 */
+    @Test
+    fun readBackup_settingsUnknownGestureAction_returnsInvalid() {
+        val invalidSettings = createValidSettings().copy(
+            gestureSettings = BackupGestureSettings(
+                enabled = true,
+                showActionHints = true,
+                actions = mapOf("right" to "unknown-action"),
+            ),
+        )
+        val error = readError(createValidZipBytes(settings = invalidSettings))
+        assertTrue(error is BackupRestoreResult.Invalid)
+    }
+
+    /** null の gesture action を未割り当てとして受け入れる。 */
+    @Test
+    fun readBackup_settingsNullGestureAction_returnsSuccess() {
+        val settings = createValidSettings().copy(
+            gestureSettings = BackupGestureSettings(
+                enabled = true,
+                showActionHints = true,
+                actions = mapOf("right" to null),
+            ),
+        )
+        val preview = readSuccess(createValidZipBytes(settings = settings))
+        preview.dbFile.delete()
+    }
+
+    /** [GestureAction] の全 enum 値を対応する backup action として受け入れる。 */
+    @Test
+    fun readBackup_settingsEveryGestureAction_returnsSuccess() {
+        for (action in GestureAction.entries) {
+            val settings = createValidSettings().copy(
+                gestureSettings = BackupGestureSettings(
+                    enabled = true,
+                    showActionHints = true,
+                    actions = mapOf(
+                        "right" to BackupDataMapper.enumNameToKebabCase(action.name),
+                    ),
+                ),
+            )
+            val preview = readSuccess(createValidZipBytes(settings = settings))
+            preview.dbFile.delete()
+        }
     }
 
     // --- 1.10: 不正 JSON (tabs: 負数 page) ---

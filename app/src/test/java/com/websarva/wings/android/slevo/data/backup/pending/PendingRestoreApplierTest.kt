@@ -170,8 +170,9 @@ class PendingRestoreApplierTest {
 
         createApplier().runIfNeeded()
 
-        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
-        Assert.assertTrue(fileStore.lastWrittenMarker!!.failureReason!!.contains("quarantine"))
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+        Assert.assertNull(fileStore.lastWrittenMarker)
+        Assert.assertTrue(fileStore.events.any { it.contains("quarantine failed") })
         Assert.assertFalse(dbSwapper.restoreRollbackRequested)
     }
 
@@ -261,9 +262,10 @@ class PendingRestoreApplierTest {
 
         createApplier().runIfNeeded()
 
-        val reason = fileStore.lastWrittenMarker!!.failureReason!!
-        Assert.assertTrue(reason.contains("quarantine failed"))
-        Assert.assertFalse(reason.contains("quarantined to"))
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+        Assert.assertNull(fileStore.lastWrittenMarker)
+        Assert.assertTrue(fileStore.events.any { it.contains("quarantine failed") })
+        Assert.assertFalse(fileStore.events.any { it.contains("quarantined to") })
     }
 
     @Test
@@ -278,9 +280,10 @@ class PendingRestoreApplierTest {
         try {
             createApplier().runIfNeeded()
 
-            val reason = fileStore.lastWrittenMarker!!.failureReason!!
-            Assert.assertTrue(reason.contains("quarantine failed"))
-            Assert.assertFalse(reason.contains("quarantined to"))
+            Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+            Assert.assertNull(fileStore.lastWrittenMarker)
+            Assert.assertTrue(fileStore.events.any { it.contains("quarantine failed") })
+            Assert.assertFalse(fileStore.events.any { it.contains("quarantined to") })
         } finally {
             dbSwapper.liveDbPath.deleteRecursively()
         }
@@ -372,8 +375,9 @@ class PendingRestoreApplierTest {
 
         createApplier().runIfNeeded()
 
-        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
-        Assert.assertTrue(fileStore.lastWrittenMarker!!.failureReason!!.contains("quarantine"))
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+        Assert.assertNull(fileStore.lastWrittenMarker)
+        Assert.assertTrue(fileStore.events.any { it.contains("quarantine failed") })
         Assert.assertFalse(dbSwapper.restoreRollbackRequested)
     }
 
@@ -435,8 +439,9 @@ class PendingRestoreApplierTest {
 
         createApplier().runIfNeeded()
 
-        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
-        Assert.assertTrue(fileStore.lastWrittenMarker!!.failureReason!!.contains("quarantine"))
+        Assert.assertEquals(RestoreStatus.ROLLBACK_REQUIRED, fileStore.marker?.status)
+        Assert.assertNull(fileStore.lastWrittenMarker)
+        Assert.assertTrue(fileStore.events.any { it.contains("quarantine failed") })
     }
 
     // --- 4.5: COMPLETED (retry success result + cleanup) ---
@@ -573,8 +578,26 @@ class PendingRestoreApplierTest {
         Assert.assertTrue(fileStore.events.contains("writeResult:false:backup failed"))
     }
 
+    /** replace sidecar cleanup error が rollback と retryable state へ伝播することを検証する。 */
     @Test
-    fun rollbackCopyFailure_preservesPendingForManualRecovery() = runTest {
+    fun replaceSidecarCleanupFailure_entersRollbackAndPreservesRetryState() = runTest {
+        fileStore.marker = marker(RestoreStatus.PREPARED)
+        dbSwapper.liveDbExists = true
+        dbSwapper.replaceDbFileResult = "failed to delete slevo_database-wal: delete returned false"
+        dbSwapper.restoreRollbackBackupResult = false
+
+        createApplier().runIfNeeded()
+
+        Assert.assertTrue(dbSwapper.replaceRequested)
+        Assert.assertTrue(dbSwapper.restoreRollbackRequested)
+        Assert.assertEquals(RestoreStatus.ROLLBACK_REQUIRED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(reflector.rollbackSnapshotCalls > 0)
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+    }
+
+    /** rollback sidecar cleanup error が pending artifact を保持することを検証する。 */
+    @Test
+    fun rollbackSidecarCleanupFailure_preservesPendingForManualRecovery() = runTest {
         fileStore.marker = marker(RestoreStatus.APPLYING, hadExistingLiveDb = true)
         dbSwapper.hasRollbackBackup = true
         dbSwapper.restoreRollbackBackupResult = false
@@ -585,6 +608,26 @@ class PendingRestoreApplierTest {
         Assert.assertEquals(RestoreStatus.ROLLBACK_REQUIRED, fileStore.lastWrittenMarker?.status)
         Assert.assertTrue(reflector.rollbackSnapshotCalls > 0)
         Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+    }
+
+    /** rollback cleanup の一時失敗後、成功時だけ terminal cleanup へ進むことを検証する。 */
+    @Test
+    fun rollbackRequired_sidecarCleanupRetry_finishesOnlyAfterRollbackSucceeds() = runTest {
+        fileStore.marker = marker(RestoreStatus.ROLLBACK_REQUIRED, hadExistingLiveDb = true)
+        dbSwapper.hasRollbackBackup = true
+        dbSwapper.restoreRollbackBackupResult = false
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.ROLLBACK_REQUIRED, fileStore.lastWrittenMarker?.status)
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+
+        dbSwapper.restoreRollbackBackupResult = true
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(fileStore.events.contains("cleanupPending"))
+        Assert.assertEquals(2, reflector.rollbackSnapshotCalls)
     }
 
     @Test
@@ -705,13 +748,271 @@ class PendingRestoreApplierTest {
         Assert.assertEquals("writeResult:false:unexpected error: boom", fileStore.events.last())
     }
 
-    private fun createApplier(): PendingRestoreApplier {
+    // --- fix-quarantine-copy-integrity: postcondition and retry tests ---
+
+    @Test
+    fun quarantine_copySucceedsButSourceDeleteFails_preservesRetryState() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.liveDbExists = true
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        val operations = FakePendingRestoreFileOperations()
+        operations.renameOperation = { _, _ -> false }
+        operations.deleteOperation = { false }
+
+        createApplier(operations).runIfNeeded()
+
+        val incident = fileStore.quarantineRootDir.listFiles().orEmpty().single()
+        val source = dbSwapper.liveDbPath
+        val destination = File(incident, source.name)
+        Assert.assertTrue(destination.isFile)
+        Assert.assertEquals(source.readText(), destination.readText())
+        Assert.assertTrue(source.exists())
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+        Assert.assertNull(fileStore.lastWrittenMarker)
+        Assert.assertTrue(fileStore.events.any { it.startsWith("writeResult:false:") })
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+        Assert.assertFalse(fileStore.events.any { it.contains("quarantined to") })
+    }
+
+    @Test
+    fun quarantine_retryAfterDeleteFailure_finishesTerminally() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.liveDbExists = true
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        val operations = FakePendingRestoreFileOperations()
+        operations.renameOperation = { _, _ -> false }
+        var allowDelete = false
+        operations.deleteOperation = { file ->
+            if (!allowDelete) false else file.delete()
+        }
+
+        createApplier(operations).runIfNeeded()
+        allowDelete = true
+        createApplier(operations).runIfNeeded()
+
+        Assert.assertFalse(dbSwapper.liveDbPath.exists())
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(fileStore.events.any { it.contains("invalid DB quarantined to") })
+        Assert.assertTrue(fileStore.events.contains("cleanupPending"))
+    }
+
+    @Test
+    fun quarantine_sidecarFailure_rollsBackEarlierSidecarAndDoesNotTouchMainDb() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.liveDbExists = true
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        val source = dbSwapper.getLiveDbFile()
+        val wal = File(source.absolutePath + "-wal").apply { writeText("wal-content") }
+        File(source.absolutePath + "-shm").writeText("shm-content")
+        val operations = FakePendingRestoreFileOperations()
+        operations.renameOperation = { current, destination ->
+            if (current.name.endsWith("-shm")) false else current.renameTo(destination)
+        }
+        operations.copyOperation = { current, destination ->
+            if (current.name.endsWith("-shm")) throw IOException("sidecar copy unavailable")
+            current.copyTo(destination, overwrite = true)
+        }
+
+        createApplier(operations).runIfNeeded()
+
+        Assert.assertTrue(source.exists())
+        Assert.assertTrue(source.readText() == "live-db")
+        Assert.assertTrue(wal.isFile)
+        Assert.assertEquals("wal-content", wal.readText())
+        Assert.assertTrue(fileStore.quarantineRootDir.listFiles().orEmpty().single().isDirectory)
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+        Assert.assertTrue(operations.events.take(2).all { it.startsWith("rename:") })
+    }
+
+    @Test
+    fun quarantine_failureResultWriteFailure_preservesMarkerAndSkipsCleanup() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.liveDbExists = true
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        fileStore.resultWriteFailure = IOException("result unavailable")
+        val operations = FakePendingRestoreFileOperations().apply {
+            renameOperation = { _, _ -> false }
+            deleteOperation = { false }
+        }
+
+        createApplier(operations).runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+        Assert.assertTrue(fileStore.events.isEmpty())
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+    }
+
+    @Test
+    fun quarantine_renameAndCopyDeleteSuccess_bothRemoveSourceAndPreserveBytes() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.liveDbExists = true
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        val source = dbSwapper.getLiveDbFile()
+        val operations = FakePendingRestoreFileOperations().apply {
+            renameOperation = { _, _ -> false }
+        }
+
+        createApplier(operations).runIfNeeded()
+
+        val incident = fileStore.quarantineRootDir.listFiles().orEmpty().single()
+        Assert.assertFalse(source.exists())
+        Assert.assertEquals("live-db", File(incident, source.name).readText())
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(fileStore.events.contains("cleanupPending"))
+    }
+
+    @Test
+    fun quarantine_renameSuccess_removesSourceAndPreservesBytes() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.liveDbExists = true
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+
+        createApplier().runIfNeeded()
+
+        val incident = fileStore.quarantineRootDir.listFiles().orEmpty().single()
+        Assert.assertFalse(dbSwapper.liveDbPath.exists())
+        Assert.assertEquals("live-db", File(incident, dbSwapper.liveDbPath.name).readText())
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(fileStore.events.contains("cleanupPending"))
+    }
+
+    @Test
+    fun quarantine_copyDeleteSuccessWithSizeMismatch_restoresSourceAndKeepsState() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.liveDbExists = true
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        val operations = FakePendingRestoreFileOperations()
+        var destination: File? = null
+        operations.renameOperation = { _, _ -> false }
+        operations.copyOperation = { source, target ->
+            source.copyTo(target, overwrite = true)
+            destination = target
+        }
+        operations.lengthOverride = { file ->
+            if (file == destination) file.length() + 1 else file.length()
+        }
+
+        createApplier(operations).runIfNeeded()
+
+        Assert.assertTrue(dbSwapper.liveDbPath.exists())
+        Assert.assertTrue(destination?.exists() == true)
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+    }
+
+    @Test
+    fun quarantine_renamePostconditionDestinationMissing_keepsRetryState() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.liveDbExists = true
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        val operations = FakePendingRestoreFileOperations().apply {
+            renameOperation = { _, _ -> true }
+        }
+
+        createApplier(operations).runIfNeeded()
+
+        Assert.assertTrue(dbSwapper.liveDbPath.exists())
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+    }
+
+    @Test
+    fun quarantine_postconditionFailure_restoresCurrentSourceAndKeepsIncident() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.liveDbExists = true
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        val operations = FakePendingRestoreFileOperations()
+        var destination: File? = null
+        operations.renameOperation = { source, target ->
+            destination = target
+            source.renameTo(target)
+        }
+        operations.lengthOverride = { file ->
+            if (file == destination) file.length() + 1 else file.length()
+        }
+
+        createApplier(operations).runIfNeeded()
+
+        Assert.assertTrue(dbSwapper.liveDbPath.exists())
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+        Assert.assertTrue(fileStore.quarantineRootDir.listFiles().orEmpty().single().listFiles().orEmpty().isNotEmpty())
+    }
+
+    @Test
+    fun quarantine_currentSourceRollbackFailure_preservesIncidentAndRetries() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.liveDbExists = true
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        val operations = FakePendingRestoreFileOperations()
+        var destination: File? = null
+        operations.renameOperation = { source, target ->
+            destination = target
+            source.renameTo(target)
+        }
+        operations.copyOperation = { _, _ -> throw IOException("rollback unavailable") }
+        operations.lengthOverride = { file ->
+            if (file == destination) file.length() + 1 else file.length()
+        }
+
+        createApplier(operations).runIfNeeded()
+
+        Assert.assertFalse(dbSwapper.liveDbPath.exists())
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+        Assert.assertTrue(fileStore.quarantineRootDir.listFiles().orEmpty().single().listFiles().orEmpty().isNotEmpty())
+    }
+
+    @Test
+    fun quarantine_priorSourceRollbackFailure_preservesPartialState() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.liveDbExists = true
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        validator.nextValidateResult = "identity hash mismatch"
+        val source = dbSwapper.getLiveDbFile()
+        val wal = File(source.absolutePath + "-wal").apply { writeText("wal-content") }
+        File(source.absolutePath + "-shm").writeText("shm-content")
+        val operations = FakePendingRestoreFileOperations()
+        operations.renameOperation = { current, destination ->
+            if (current.name.endsWith("-shm")) false else current.renameTo(destination)
+        }
+        operations.copyOperation = { current, destination ->
+            if (current.name.endsWith("-shm")) current.copyTo(destination, overwrite = true)
+            else throw IOException("rollback unavailable")
+        }
+        operations.deleteOperation = { current ->
+            if (current.name.endsWith("-shm")) false else current.delete()
+        }
+
+        createApplier(operations).runIfNeeded()
+
+        Assert.assertFalse(wal.exists())
+        Assert.assertTrue(source.exists())
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+    }
+
+    private fun createApplier(
+        fileOperations: PendingRestoreFileOperations = RealPendingRestoreFileOperations(),
+    ): PendingRestoreApplier {
         return PendingRestoreApplier.createForTest(
             context = context,
             dbValidator = validator,
             dataStoreReflector = reflector,
             fileStore = fileStore,
             dbSwapper = dbSwapper,
+            fileOperations = fileOperations,
             nowProvider = { "2026-07-03T00:00:00Z" },
         )
     }
@@ -749,6 +1050,42 @@ class PendingRestoreApplierTest {
         }
 
         override fun getUserVersion(dbFile: File): Int? = userVersion
+    }
+
+    /** [PendingRestoreFileOperations]を実filesystemへ委譲し、各操作結果を注入するfake。 */
+    private class FakePendingRestoreFileOperations : PendingRestoreFileOperations {
+        val events = mutableListOf<String>()
+        var renameOperation: (File, File) -> Boolean = { source, destination ->
+            source.renameTo(destination)
+        }
+        var copyOperation: (File, File) -> Unit = { source, destination ->
+            source.copyTo(destination, overwrite = true)
+        }
+        var deleteOperation: (File) -> Boolean = { file -> file.delete() }
+        var existsOverride: ((File) -> Boolean)? = null
+        var isFileOverride: ((File) -> Boolean)? = null
+        var lengthOverride: ((File) -> Long)? = null
+
+        override fun rename(source: File, destination: File): Boolean {
+            events += "rename:${source.name}:${destination.name}"
+            return renameOperation(source, destination)
+        }
+
+        override fun copy(source: File, destination: File) {
+            events += "copy:${source.name}:${destination.name}"
+            copyOperation(source, destination)
+        }
+
+        override fun delete(file: File): Boolean {
+            events += "delete:${file.name}"
+            return deleteOperation(file)
+        }
+
+        override fun exists(file: File): Boolean = existsOverride?.invoke(file) ?: file.exists()
+
+        override fun isFile(file: File): Boolean = isFileOverride?.invoke(file) ?: file.isFile
+
+        override fun length(file: File): Long = lengthOverride?.invoke(file) ?: file.length()
     }
 
     /** [PendingRestoreFileStore] の fake 実装。 */

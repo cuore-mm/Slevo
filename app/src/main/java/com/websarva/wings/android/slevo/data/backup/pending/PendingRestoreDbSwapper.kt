@@ -101,6 +101,14 @@ internal class RealPendingRestoreDbSwapper(
         source.copyTo(destination, overwrite = true)
     }
 
+    /**
+     * Live DB sidecar delete seam。
+     *
+     * production では [File.delete] の Boolean を返し、test では WAL/SHM ごとの失敗を注入する。
+     */
+    internal var sidecarDelete: (File) -> Boolean = { file -> file.delete() }
+
+    /** debug/release configuration に対応する live DB file を返す。 */
     override fun getLiveDbFile(): File {
         val dbName = if (appContext.packageName.contains(".debug") ||
             appContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
@@ -112,6 +120,7 @@ internal class RealPendingRestoreDbSwapper(
         return appContext.getDatabasePath(dbName)
     }
 
+    /** live DB の main/WAL snapshot を rollback directory に公開する。 */
     override fun createRollbackBackup(liveDbFile: File, rollbackDir: File): String? {
         if (rollbackDir.exists() && !rollbackDir.isDirectory) {
             return "rollback path is not a directory"
@@ -179,13 +188,17 @@ internal class RealPendingRestoreDbSwapper(
         }
     }
 
+    /** sidecar cleanup 成功後に staged DB を live DB へ置換する。 */
     override fun replaceDbFile(stagedDbFile: File, liveDbFile: File): String? {
         if (!stagedDbFile.exists()) {
             return "staged DB file not found"
         }
 
         // --- Cleanup replace-era WAL/SHM ---
-        cleanWalShm(liveDbFile)
+        val cleanupError = cleanWalShm(liveDbFile)
+        if (cleanupError != null) {
+            return cleanupError
+        }
 
         // --- Temp copy / rename ---
         val tempFile = File(liveDbFile.parent, ".restore_tmp_${System.currentTimeMillis()}")
@@ -212,6 +225,7 @@ internal class RealPendingRestoreDbSwapper(
         return readValidManifest(rollbackDir) != null
     }
 
+    /** sidecar cleanup 成功後に完成済み rollback snapshot を live DB へ復元する。 */
     override fun restoreRollbackBackup(liveDbFile: File, rollbackDir: File): Boolean {
         val manifest = readValidManifest(rollbackDir)
         if (manifest == null) {
@@ -220,7 +234,11 @@ internal class RealPendingRestoreDbSwapper(
         }
 
         // --- Remove replace-era WAL/SHM ---
-        cleanWalShm(liveDbFile)
+        val cleanupError = cleanWalShm(liveDbFile)
+        if (cleanupError != null) {
+            logWarn("rollback sidecar cleanup failed: $cleanupError")
+            return false
+        }
 
         val rollbackMain = File(rollbackDir, manifest.mainDbFileName)
         if (!rollbackMain.exists()) {
@@ -260,6 +278,7 @@ internal class RealPendingRestoreDbSwapper(
         return true
     }
 
+    /** fresh-install failure の main DB/sidecar を従来どおり best-effort で削除する。 */
     override fun cleanupCorruptFreshInstallDb(liveDbFile: File) {
         try {
             if (liveDbFile.exists() && !liveDbFile.delete()) {
@@ -268,7 +287,8 @@ internal class RealPendingRestoreDbSwapper(
         } catch (e: Exception) {
             logWarn("failed to delete corrupt live DB: ${e.message}")
         }
-        cleanWalShm(liveDbFile)
+        // Fresh-install cleanup is intentionally best-effort and attempts both sidecars.
+        cleanWalShm(liveDbFile, continueAfterFailure = true)
     }
 
     /**
@@ -300,17 +320,40 @@ internal class RealPendingRestoreDbSwapper(
         return manifest
     }
 
-    private fun cleanWalShm(dbFile: File) {
+    /**
+     * live DB の存在する WAL/SHM を順に削除し、最初の削除失敗を呼び出し元へ返す。
+     *
+     * destructive restore paths stop at the first failure; fresh-install cleanup can continue
+     * attempting the remaining sidecar while still ignoring the returned error.
+     *
+     * @param continueAfterFailure fresh-install の best-effort cleanup で残りを試行するか。
+     * @return 成功時 null、削除 false または例外時は対象 sidecar を含む error message。
+     */
+    private fun cleanWalShm(dbFile: File, continueAfterFailure: Boolean = false): String? {
+        var firstError: String? = null
         for (suffix in listOf("-wal", "-shm")) {
             val sibling = File(dbFile.parent, dbFile.name + suffix)
-            if (sibling.exists()) {
-                try {
-                    sibling.delete()
-                } catch (e: Exception) {
-                    logWarn("failed to delete ${sibling.name}: ${e.message}")
-                }
+            if (!sibling.exists()) {
+                continue
+            }
+
+            val deleted = try {
+                sidecarDelete(sibling)
+            } catch (e: Exception) {
+                val error = "failed to delete ${sibling.name}: ${e.message}"
+                logWarn(error)
+                if (firstError == null) firstError = error
+                if (!continueAfterFailure) return error
+                continue
+            }
+            if (!deleted) {
+                val error = "failed to delete ${sibling.name}: delete returned false"
+                logWarn(error)
+                if (firstError == null) firstError = error
+                if (!continueAfterFailure) return error
             }
         }
+        return firstError
     }
 
     private fun logWarn(message: String) {

@@ -195,6 +195,90 @@ class PendingRestoreDbSwapperTest {
         assertFalse(File(dbDir, liveDb.name + "-wal").exists())
     }
 
+    /** WAL の delete false が DB 置換前に停止することを検証する。 */
+    @Test
+    fun replaceDbFile_walDeleteFalse_returnsErrorBeforeReplacing() {
+        val liveDb = swapper.getLiveDbFile().apply { writeText("old") }
+        val wal = File(dbDir, liveDb.name + "-wal").apply { writeText("old-wal") }
+        val shm = File(dbDir, liveDb.name + "-shm").apply { writeText("old-shm") }
+        val stagedDb = tempFolder.newFile("staged-wal-false.db").apply { writeText("new") }
+        swapper.sidecarDelete = { file -> if (file == wal) false else file.delete() }
+
+        val error = swapper.replaceDbFile(stagedDb, liveDb)
+
+        assertTrue(requireNotNull(error).contains("-wal"))
+        assertEquals("old", liveDb.readText())
+        assertEquals("new", stagedDb.readText())
+        assertTrue(wal.exists())
+        assertTrue(shm.exists())
+        assertTrue(restoreTempFiles().isEmpty())
+    }
+
+    /** WAL の delete 例外が DB 置換前に停止することを検証する。 */
+    @Test
+    fun replaceDbFile_walDeleteException_returnsErrorBeforeReplacing() {
+        val liveDb = swapper.getLiveDbFile().apply { writeText("old") }
+        val wal = File(dbDir, liveDb.name + "-wal").apply { writeText("old-wal") }
+        val shm = File(dbDir, liveDb.name + "-shm").apply { writeText("old-shm") }
+        val stagedDb = tempFolder.newFile("staged-wal-exception.db").apply { writeText("new") }
+        swapper.sidecarDelete = { file ->
+            if (file == wal) throw IllegalStateException("wal unavailable")
+            file.delete()
+        }
+
+        val error = swapper.replaceDbFile(stagedDb, liveDb)
+
+        assertTrue(requireNotNull(error).contains("-wal"))
+        assertTrue(requireNotNull(error).contains("wal unavailable"))
+        assertEquals("old", liveDb.readText())
+        assertEquals("new", stagedDb.readText())
+        assertTrue(wal.exists())
+        assertTrue(shm.exists())
+        assertTrue(restoreTempFiles().isEmpty())
+    }
+
+    /** WAL 後の SHM delete false が部分 cleanup のまま DB 置換を止めることを検証する。 */
+    @Test
+    fun replaceDbFile_shmDeleteFalse_afterWalDelete_preservesLiveDb() {
+        val liveDb = swapper.getLiveDbFile().apply { writeText("old") }
+        val wal = File(dbDir, liveDb.name + "-wal").apply { writeText("old-wal") }
+        val shm = File(dbDir, liveDb.name + "-shm").apply { writeText("old-shm") }
+        val stagedDb = tempFolder.newFile("staged-shm-false.db").apply { writeText("new") }
+        swapper.sidecarDelete = { file -> if (file == shm) false else file.delete() }
+
+        val error = swapper.replaceDbFile(stagedDb, liveDb)
+
+        assertTrue(requireNotNull(error).contains("-shm"))
+        assertEquals("old", liveDb.readText())
+        assertEquals("new", stagedDb.readText())
+        assertFalse(wal.exists())
+        assertTrue(shm.exists())
+        assertTrue(restoreTempFiles().isEmpty())
+    }
+
+    /** WAL 後の SHM delete 例外が DB 置換を止めることを検証する。 */
+    @Test
+    fun replaceDbFile_shmDeleteException_afterWalDelete_preservesLiveDb() {
+        val liveDb = swapper.getLiveDbFile().apply { writeText("old") }
+        val wal = File(dbDir, liveDb.name + "-wal").apply { writeText("old-wal") }
+        val shm = File(dbDir, liveDb.name + "-shm").apply { writeText("old-shm") }
+        val stagedDb = tempFolder.newFile("staged-shm-exception.db").apply { writeText("new") }
+        swapper.sidecarDelete = { file ->
+            if (file == shm) throw IllegalStateException("shm unavailable")
+            file.delete()
+        }
+
+        val error = swapper.replaceDbFile(stagedDb, liveDb)
+
+        assertTrue(requireNotNull(error).contains("-shm"))
+        assertTrue(requireNotNull(error).contains("shm unavailable"))
+        assertEquals("old", liveDb.readText())
+        assertEquals("new", stagedDb.readText())
+        assertFalse(wal.exists())
+        assertTrue(shm.exists())
+        assertTrue(restoreTempFiles().isEmpty())
+    }
+
     @Test
     fun replaceDbFile_returnsErrorWhenStagedMissing() {
         val liveDb = swapper.getLiveDbFile()
@@ -230,6 +314,132 @@ class PendingRestoreDbSwapperTest {
         assertTrue(restored)
         assertEquals("restored", liveDb.readText())
         assertEquals("wal", walFile(dbDir, liveDb).readText())
+    }
+
+    /** WAL の delete false が rollback の破壊的操作を止めることを検証する。 */
+    @Test
+    fun restoreRollbackBackup_walDeleteFalse_returnsFalseBeforeRestoring() {
+        val liveDb = swapper.getLiveDbFile().apply { writeText("broken") }
+        val liveWal = walFile(dbDir, liveDb).apply { writeText("live-wal") }
+        val liveShm = File(dbDir, liveDb.name + "-shm").apply { writeText("live-shm") }
+        val rollbackDir = tempFolder.newFolder("rollback-wal-false")
+        val rollbackMain = mainFile(rollbackDir, liveDb).apply { writeText("restored") }
+        val rollbackWal = walFile(rollbackDir, liveDb).apply { writeText("rollback-wal") }
+        writeManifest(rollbackDir, liveDb, walIncluded = true)
+        val manifestBefore = manifestFile(rollbackDir).readText()
+        var mainRestoreCalls = 0
+        var walRestoreCalls = 0
+        swapper.mainDbRestore = { _, _ -> mainRestoreCalls++ }
+        swapper.walRestore = { _, _ -> walRestoreCalls++ }
+        swapper.sidecarDelete = { file -> if (file == liveWal) false else file.delete() }
+
+        val restored = swapper.restoreRollbackBackup(liveDb, rollbackDir)
+
+        assertFalse(restored)
+        assertEquals("broken", liveDb.readText())
+        assertTrue(liveWal.exists())
+        assertTrue(liveShm.exists())
+        assertEquals("restored", rollbackMain.readText())
+        assertEquals("rollback-wal", rollbackWal.readText())
+        assertEquals(manifestBefore, manifestFile(rollbackDir).readText())
+        assertEquals(0, mainRestoreCalls)
+        assertEquals(0, walRestoreCalls)
+    }
+
+    /** WAL の delete 例外が rollback の破壊的操作を止めることを検証する。 */
+    @Test
+    fun restoreRollbackBackup_walDeleteException_returnsFalseBeforeRestoring() {
+        val liveDb = swapper.getLiveDbFile().apply { writeText("broken") }
+        val liveWal = walFile(dbDir, liveDb).apply { writeText("live-wal") }
+        val liveShm = File(dbDir, liveDb.name + "-shm").apply { writeText("live-shm") }
+        val rollbackDir = tempFolder.newFolder("rollback-wal-exception")
+        val rollbackMain = mainFile(rollbackDir, liveDb).apply { writeText("restored") }
+        val rollbackWal = walFile(rollbackDir, liveDb).apply { writeText("rollback-wal") }
+        writeManifest(rollbackDir, liveDb, walIncluded = true)
+        val manifestBefore = manifestFile(rollbackDir).readText()
+        var mainRestoreCalls = 0
+        var walRestoreCalls = 0
+        swapper.mainDbRestore = { _, _ -> mainRestoreCalls++ }
+        swapper.walRestore = { _, _ -> walRestoreCalls++ }
+        swapper.sidecarDelete = { file ->
+            if (file == liveWal) throw IllegalStateException("wal unavailable")
+            file.delete()
+        }
+
+        val restored = swapper.restoreRollbackBackup(liveDb, rollbackDir)
+
+        assertFalse(restored)
+        assertEquals("broken", liveDb.readText())
+        assertTrue(liveWal.exists())
+        assertTrue(liveShm.exists())
+        assertEquals("restored", rollbackMain.readText())
+        assertEquals("rollback-wal", rollbackWal.readText())
+        assertEquals(manifestBefore, manifestFile(rollbackDir).readText())
+        assertEquals(0, mainRestoreCalls)
+        assertEquals(0, walRestoreCalls)
+    }
+
+    /** WAL 後の SHM delete false が rollback の破壊的操作を止めることを検証する。 */
+    @Test
+    fun restoreRollbackBackup_shmDeleteFalse_afterWalDelete_returnsFalseBeforeRestoring() {
+        val liveDb = swapper.getLiveDbFile().apply { writeText("broken") }
+        val liveWal = walFile(dbDir, liveDb).apply { writeText("live-wal") }
+        val liveShm = File(dbDir, liveDb.name + "-shm").apply { writeText("live-shm") }
+        val rollbackDir = tempFolder.newFolder("rollback-shm-false")
+        val rollbackMain = mainFile(rollbackDir, liveDb).apply { writeText("restored") }
+        val rollbackWal = walFile(rollbackDir, liveDb).apply { writeText("rollback-wal") }
+        writeManifest(rollbackDir, liveDb, walIncluded = true)
+        val manifestBefore = manifestFile(rollbackDir).readText()
+        var mainRestoreCalls = 0
+        var walRestoreCalls = 0
+        swapper.mainDbRestore = { _, _ -> mainRestoreCalls++ }
+        swapper.walRestore = { _, _ -> walRestoreCalls++ }
+        swapper.sidecarDelete = { file -> if (file == liveShm) false else file.delete() }
+
+        val restored = swapper.restoreRollbackBackup(liveDb, rollbackDir)
+
+        assertFalse(restored)
+        assertEquals("broken", liveDb.readText())
+        assertFalse(liveWal.exists())
+        assertTrue(liveShm.exists())
+        assertEquals("restored", rollbackMain.readText())
+        assertEquals("rollback-wal", rollbackWal.readText())
+        assertEquals(manifestBefore, manifestFile(rollbackDir).readText())
+        assertEquals(0, mainRestoreCalls)
+        assertEquals(0, walRestoreCalls)
+    }
+
+    /** WAL 後の SHM delete 例外が rollback の破壊的操作を止めることを検証する。 */
+    @Test
+    fun restoreRollbackBackup_shmDeleteException_afterWalDelete_returnsFalseBeforeRestoring() {
+        val liveDb = swapper.getLiveDbFile().apply { writeText("broken") }
+        val liveWal = walFile(dbDir, liveDb).apply { writeText("live-wal") }
+        val liveShm = File(dbDir, liveDb.name + "-shm").apply { writeText("live-shm") }
+        val rollbackDir = tempFolder.newFolder("rollback-shm-exception")
+        val rollbackMain = mainFile(rollbackDir, liveDb).apply { writeText("restored") }
+        val rollbackWal = walFile(rollbackDir, liveDb).apply { writeText("rollback-wal") }
+        writeManifest(rollbackDir, liveDb, walIncluded = true)
+        val manifestBefore = manifestFile(rollbackDir).readText()
+        var mainRestoreCalls = 0
+        var walRestoreCalls = 0
+        swapper.mainDbRestore = { _, _ -> mainRestoreCalls++ }
+        swapper.walRestore = { _, _ -> walRestoreCalls++ }
+        swapper.sidecarDelete = { file ->
+            if (file == liveShm) throw IllegalStateException("shm unavailable")
+            file.delete()
+        }
+
+        val restored = swapper.restoreRollbackBackup(liveDb, rollbackDir)
+
+        assertFalse(restored)
+        assertEquals("broken", liveDb.readText())
+        assertFalse(liveWal.exists())
+        assertTrue(liveShm.exists())
+        assertEquals("restored", rollbackMain.readText())
+        assertEquals("rollback-wal", rollbackWal.readText())
+        assertEquals(manifestBefore, manifestFile(rollbackDir).readText())
+        assertEquals(0, mainRestoreCalls)
+        assertEquals(0, walRestoreCalls)
     }
 
     @Test
@@ -311,6 +521,21 @@ class PendingRestoreDbSwapperTest {
         assertFalse(File(dbDir, liveDb.name + "-wal").exists())
     }
 
+    /** fresh-install cleanup が sidecar failure を無視し、残りの sidecar を試行することを検証する。 */
+    @Test
+    fun cleanupCorruptFreshInstallDb_remainsBestEffortWhenWalDeleteFails() {
+        val liveDb = swapper.getLiveDbFile().apply { writeText("broken") }
+        val wal = File(dbDir, liveDb.name + "-wal").apply { writeText("wal") }
+        val shm = File(dbDir, liveDb.name + "-shm").apply { writeText("shm") }
+        swapper.sidecarDelete = { file -> if (file == wal) false else file.delete() }
+
+        swapper.cleanupCorruptFreshInstallDb(liveDb)
+
+        assertFalse(liveDb.exists())
+        assertTrue(wal.exists())
+        assertFalse(shm.exists())
+    }
+
     // --- Helpers ---
 
     private fun mainFile(rollbackDir: File, liveDb: File): File =
@@ -318,6 +543,9 @@ class PendingRestoreDbSwapperTest {
 
     private fun walFile(parentDir: File, liveDb: File): File =
         File(parentDir, liveDb.name + "-wal")
+
+    private fun restoreTempFiles(): List<File> =
+        dbDir.listFiles().orEmpty().filter { it.name.startsWith(".restore_tmp_") }
 
     private fun manifestFile(rollbackDir: File): File =
         File(rollbackDir, RollbackSnapshotManifest.ROLLBACK_READY_FILENAME)

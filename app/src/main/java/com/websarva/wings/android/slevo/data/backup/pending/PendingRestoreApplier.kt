@@ -36,6 +36,59 @@ internal interface PendingRestoreDataStoreReflector {
 }
 
 /**
+ * Quarantine処理が使用するfilesystem操作を表す。
+ *
+ * 実filesystemを直接呼び出す処理をこの契約へ集約し、JVM testでrename、copy、deleteおよび
+ * postconditionの結果を決定的に注入できるようにする。
+ */
+internal interface PendingRestoreFileOperations {
+    /** sourceをdestinationへrenameし、APIの成否を返す。 */
+    fun rename(source: File, destination: File): Boolean
+
+    /** sourceをdestinationへ上書きcopyする。失敗時は例外を送出する。 */
+    fun copy(source: File, destination: File)
+
+    /** fileを削除し、削除できたかを返す。 */
+    fun delete(file: File): Boolean
+
+    /** fileがfilesystem上に存在するかを返す。 */
+    fun exists(file: File): Boolean
+
+    /** fileがregular fileかを返す。 */
+    fun isFile(file: File): Boolean
+
+    /** fileの現在sizeをbyte単位で返す。 */
+    fun length(file: File): Long
+}
+
+/**
+ * [PendingRestoreFileOperations]の本番実装。
+ *
+ * Kotlin/JavaのFile APIへ直接委譲し、quarantineのpostcondition判定は呼び出し側へ残す。
+ */
+internal class RealPendingRestoreFileOperations : PendingRestoreFileOperations {
+    /** File.renameToの結果を返す。 */
+    override fun rename(source: File, destination: File): Boolean = source.renameTo(destination)
+
+    /** File.copyToでdestinationを上書きする。 */
+    override fun copy(source: File, destination: File) {
+        source.copyTo(destination, overwrite = true)
+    }
+
+    /** File.deleteの結果を返す。 */
+    override fun delete(file: File): Boolean = file.delete()
+
+    /** File.existsの結果を返す。 */
+    override fun exists(file: File): Boolean = file.exists()
+
+    /** File.isFileの結果を返す。 */
+    override fun isFile(file: File): Boolean = file.isFile
+
+    /** File.lengthの結果を返す。 */
+    override fun length(file: File): Long = file.length()
+}
+
+/**
  * [PendingRestoreDataStoreReflector] の本番実装。
  *
  * pending directory の JSON を読み取り、[PendingRestoreDataStoreWriter] で
@@ -170,15 +223,35 @@ class PendingRestoreApplier private constructor(
     private val dataStoreReflectorOverride: PendingRestoreDataStoreReflector?,
     private val fileStoreOverride: PendingRestoreFileStore?,
     private val dbSwapperOverride: PendingRestoreDbSwapper?,
+    private val fileOperationsOverride: PendingRestoreFileOperations?,
     private val nowProvider: () -> String,
     private val currentDbVersion: Int,
 ) {
+    /**
+     * 一つのquarantine file操作と、その後に観測したsource/destination状態を表す。
+     *
+     * [sourceSize]は操作開始時の不変値で、sourceが消えてdestinationが残る失敗はrollback対象になる。
+     */
+    private data class QuarantineFileResult(
+        val source: File,
+        val destination: File,
+        val sourceSize: Long,
+        val succeeded: Boolean,
+        val sourceExists: Boolean,
+        val sourceIsFile: Boolean,
+        val destinationExists: Boolean,
+        val destinationIsFile: Boolean,
+        val destinationSize: Long,
+        val sourceNeedsRestore: Boolean,
+    )
+
     constructor(context: Context) : this(
         context = context,
         dbValidator = RealBackupDatabaseValidator(),
         dataStoreReflectorOverride = null,
         fileStoreOverride = null,
         dbSwapperOverride = null,
+        fileOperationsOverride = null,
         nowProvider = { Instant.now().toString() },
         // Hilt / Room 非依存を保つため const val を直接参照（compile 時に inline される）
         currentDbVersion = DATABASE_VERSION,
@@ -188,6 +261,7 @@ class PendingRestoreApplier private constructor(
     private val moshi = BackupMoshiFactory.create()
     private val fileStore = fileStoreOverride ?: RealPendingRestoreFileStore(appContext, moshi)
     private val dbSwapper = dbSwapperOverride ?: RealPendingRestoreDbSwapper(appContext)
+    private val fileOperations = fileOperationsOverride ?: RealPendingRestoreFileOperations()
     private val dataStoreReflector =
         dataStoreReflectorOverride ?: RealPendingRestoreDataStoreReflector(appContext, moshi)
     private val completionFinalizer = PendingRestoreCompletionFinalizer(
@@ -524,10 +598,9 @@ class PendingRestoreApplier private constructor(
     }
 
     /**
-     * rollback backupがないinvalid DBをpending cleanupから独立したincidentへ保存して失敗を記録する。
+     * rollback backupがないinvalid DBをincidentへ保存し、全artifactが移動できた場合だけ終端する。
      *
-     * main DBを保存できた場合だけ実在するincident pathをfailure reasonへ含める。sidecarや
-     * cleanupの失敗があっても、作成済みのincident artifactは追加削除しない。
+     * sidecarを先に処理して最初の失敗で停止し、partial incidentとretryable stateを保持する。
      */
     private fun quarantineAndFail(
         marker: PendingRestoreMarker,
@@ -535,74 +608,140 @@ class PendingRestoreApplier private constructor(
         liveDbFile: File,
     ) {
         logError("quarantine: $reason")
-        var quarantineDir: File? = null
-        var mainDbSaved = false
-        var sidecarFailure = false
-
-        // --- Incident directory ---
-        try {
-            val incidentDir = fileStore.createQuarantineIncidentDir()
-            quarantineDir = incidentDir
-
-            // --- Database set preservation ---
-            for (suffix in listOf("", "-wal", "-shm")) {
-                val source = File(liveDbFile.absolutePath + suffix)
-                if (!source.exists()) continue
-
-                val destination = File(incidentDir, source.name)
-                val saved = preserveQuarantineFile(source, destination)
-                if (suffix.isEmpty()) {
-                    mainDbSaved = saved && destination.exists()
-                } else if (!saved) {
-                    sidecarFailure = true
-                }
-            }
+        // --- Incident preparation ---
+        val incidentDir = try {
+            fileStore.createQuarantineIncidentDir()
         } catch (e: Exception) {
             logError("quarantine setup failed: ${e.message}")
+            recordQuarantineFailureResult(marker, reason)
+            return
         }
 
-        // --- Failure reason ---
-        val finalReason = when {
-            mainDbSaved && !sidecarFailure -> {
-                "$reason (invalid DB quarantined to $quarantineDir)"
-            }
-            mainDbSaved -> {
-                "$reason (invalid DB quarantined to $quarantineDir; sidecar quarantine partially failed)"
-            }
-            else -> {
-                "$reason (quarantine failed: manual intervention required)"
-            }
+        // --- File preservation ---
+        val sources = listOf("-wal", "-shm", "")
+            .map { suffix -> File(liveDbFile.absolutePath + suffix) }
+            .filter(fileOperations::exists)
+        if (sources.isEmpty()) {
+            // 無効DBを保存できるsourceがない場合は、空のincidentを成功扱いにしない。
+            recordQuarantineFailureResult(marker, reason)
+            return
+        }
+        val preserved = mutableListOf<QuarantineFileResult>()
+        val failure = sources.firstOrNull { source ->
+            val result = preserveQuarantineFile(source, File(incidentDir, source.name))
+            preserved += result
+            !result.succeeded
         }
 
+        if (failure != null) {
+            rollbackQuarantineFiles(preserved)
+            recordQuarantineFailureResult(marker, reason)
+            return
+        }
+
+        // --- Terminal transition ---
+        val finalReason = "$reason (invalid DB quarantined to $incidentDir)"
         fileStore.writeMarker(marker.copy(status = RestoreStatus.FAILED, failureReason = finalReason))
-        fileStore.writeResult(
-            success = false,
-            message = finalReason,
-            timestamp = nowProvider(),
-            backupDatabaseVersion = marker.databaseVersion,
-            currentDatabaseVersion = currentDbVersion,
-            migrationRequired = marker.databaseVersion < currentDbVersion,
-            migrationCompleted = false,
-        )
+        writeFailureResult(finalReason, marker)
         fileStore.cleanupPending()
     }
 
     /**
-     * DB本体またはsidecarをincidentへ移動し、renameできないfilesystemではcopyへfallbackする。
+     * DB本体またはsidecarをincidentへ移動し、destinationとsourceのpostconditionを検証する。
      *
-     * copy後のsource削除は既存のquarantine semanticsに合わせてbest effortとし、保存先が
-     * 存在することを成功条件にする。
+     * renameが失敗した場合はcopy後にsourceを削除し、全postconditionが成立した時だけ成功を返す。
      */
-    private fun preserveQuarantineFile(source: File, destination: File): Boolean {
-        return try {
-            if (!source.renameTo(destination)) {
-                source.copyTo(destination, overwrite = true)
-                source.delete()
+    private fun preserveQuarantineFile(source: File, destination: File): QuarantineFileResult {
+        val sourceSize = fileOperations.length(source)
+        var operationError: Exception? = null
+
+        try {
+            if (!fileOperations.rename(source, destination)) {
+                fileOperations.copy(source, destination)
+                if (!fileOperations.delete(source)) {
+                    logError("quarantine source delete failed for ${source.name}")
+                }
             }
-            destination.exists()
         } catch (e: Exception) {
-            logError("quarantine failed for ${source.name}: ${e.message}")
-            false
+            operationError = e
+        }
+
+        val result = createQuarantineFileResult(source, destination, sourceSize, operationError)
+        if (!result.succeeded) {
+            logError(
+                "quarantine failed for ${source.name}: " +
+                    "sourceExists=${result.sourceExists}, destinationExists=${result.destinationExists}, " +
+                    "destinationIsFile=${result.destinationIsFile}, destinationSize=${result.destinationSize}, " +
+                    "expectedSize=${result.sourceSize}, error=${operationError?.message}",
+            )
+        }
+        return result
+    }
+
+    /**
+     * filesystem状態からquarantine fileのstructured outcomeを作成する。
+     *
+     * sourceが消失してdestinationが利用可能な失敗は、現在fileもrollback対象として返す。
+     */
+    private fun createQuarantineFileResult(
+        source: File,
+        destination: File,
+        sourceSize: Long,
+        operationError: Exception?,
+    ): QuarantineFileResult {
+        val sourceExists = fileOperations.exists(source)
+        val sourceIsFile = fileOperations.isFile(source)
+        val destinationExists = fileOperations.exists(destination)
+        val destinationIsFile = fileOperations.isFile(destination)
+        val destinationSize = if (destinationExists) fileOperations.length(destination) else -1L
+        val destinationMatches = destinationIsFile && destinationSize == sourceSize
+        return QuarantineFileResult(
+            source = source,
+            destination = destination,
+            sourceSize = sourceSize,
+            succeeded = operationError == null && destinationMatches && !sourceExists,
+            sourceExists = sourceExists,
+            sourceIsFile = sourceIsFile,
+            destinationExists = destinationExists,
+            destinationIsFile = destinationIsFile,
+            destinationSize = destinationSize,
+            sourceNeedsRestore = !sourceExists && destinationExists,
+        )
+    }
+
+    /**
+     * partial quarantine後に利用可能なdestination artifactをsourceへbest-effortで戻す。
+     *
+     * destinationとincidentは削除せず、復元後のregular-fileとsizeだけを確認する。
+     */
+    private fun rollbackQuarantineFiles(results: List<QuarantineFileResult>) {
+        // --- Current failure first, then successful files in reverse order ---
+        results.asReversed().filter { it.sourceNeedsRestore }.forEach { result ->
+            if (!fileOperations.exists(result.destination)) {
+                logWarn("quarantine rollback source missing for ${result.source.name}")
+                return@forEach
+            }
+
+            try {
+                fileOperations.copy(result.destination, result.source)
+                val restored = fileOperations.isFile(result.source) &&
+                    fileOperations.length(result.source) == result.sourceSize
+                if (!restored) {
+                    logWarn("quarantine rollback postcondition failed for ${result.source.name}")
+                }
+            } catch (e: Exception) {
+                logWarn("quarantine rollback failed for ${result.source.name}: ${e.message}")
+            }
+        }
+    }
+
+    /** 部分失敗時にretryable markerを変更せずfailure resultだけをbest-effortで記録する。 */
+    private fun recordQuarantineFailureResult(marker: PendingRestoreMarker, reason: String) {
+        val finalReason = "$reason (quarantine failed: manual intervention required)"
+        try {
+            writeFailureResult(finalReason, marker)
+        } catch (e: Exception) {
+            logWarn("quarantine failure result write failed: ${e.message}")
         }
     }
 
@@ -841,6 +980,7 @@ class PendingRestoreApplier private constructor(
             dataStoreReflector: PendingRestoreDataStoreReflector?,
             fileStore: PendingRestoreFileStore,
             dbSwapper: PendingRestoreDbSwapper,
+            fileOperations: PendingRestoreFileOperations = RealPendingRestoreFileOperations(),
             nowProvider: () -> String,
             currentDbVersion: Int = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION,
         ): PendingRestoreApplier {
@@ -850,6 +990,7 @@ class PendingRestoreApplier private constructor(
                 dataStoreReflectorOverride = dataStoreReflector,
                 fileStoreOverride = fileStore,
                 dbSwapperOverride = dbSwapper,
+                fileOperationsOverride = fileOperations,
                 nowProvider = nowProvider,
                 currentDbVersion = currentDbVersion,
             )
