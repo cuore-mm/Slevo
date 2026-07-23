@@ -208,5 +208,6 @@ class PendingRestoreCompletionCheckerTest {
         var nextValidateResult: String? = null
         override fun validate(dbFile: File): String? = nextValidateResult
         override fun preValidate(dbFile: File, manifestDatabaseVersion: Int): String? = null
+        override fun getUserVersion(dbFile: File): Int? = null
     }
 }

@@ -36,6 +36,9 @@ class BackupViewModel @Inject constructor(
     private val _events = MutableSharedFlow<BackupUiEvent>(extraBufferCapacity = 1)
     val events: SharedFlow<BackupUiEvent> = _events.asSharedFlow()
 
+    /** 復元ファイル選択で受け取った URI。画面回転で消えないよう ViewModel で保持する。 */
+    private var pendingRestoreUri: Uri? = null
+
     // --- バックアップ作成（既存） ---
 
     fun onBackupClick() {
@@ -86,6 +89,7 @@ class BackupViewModel @Inject constructor(
             // ユーザーがファイル選択をキャンセルした。
             return
         }
+        pendingRestoreUri = uri
         _uiState.update { it.copy(isPreviewLoading = true) }
         viewModelScope.launch {
             val result = backupRepository.previewBackup(uri)
@@ -119,11 +123,14 @@ class BackupViewModel @Inject constructor(
 
     /** 復元確認ダイアログのキャンセル。 */
     fun onRestoreConfirmCancel() {
+        pendingRestoreUri = null
         _uiState.update { it.copy(showRestoreConfirmDialog = false, restorePreview = null) }
     }
 
     /** 復元確認ダイアログの「復元」ボタン押下 → pending restore 作成開始。 */
-    fun onConfirmRestore(uri: Uri) {
+    fun onConfirmRestore() {
+        val uri = pendingRestoreUri ?: return
+        pendingRestoreUri = null
         _uiState.update { it.copy(showRestoreConfirmDialog = false, isRestoring = true) }
         // バックアップに Cookie が含まれていない場合は強制的に false にする
         val includeCookies = _uiState.value.previewContainsCookies && _uiState.value.restoreIncludeCookies

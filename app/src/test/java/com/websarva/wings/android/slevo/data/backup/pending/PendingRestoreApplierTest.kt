@@ -70,6 +70,7 @@ class PendingRestoreApplierTest {
         fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
         dbSwapper.hasRollbackBackup = true
         validator.nextValidateResult = null // strict validation OK
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
 
         createApplier().runIfNeeded()
 
@@ -84,12 +85,13 @@ class PendingRestoreApplierTest {
         fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
         dbSwapper.hasRollbackBackup = true
         validator.nextValidateResult = "identity hash mismatch"
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
 
         createApplier().runIfNeeded()
 
         Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
         Assert.assertTrue(dbSwapper.restoreRollbackRequested)
-        Assert.assertTrue(fileStore.events.contains("writeResult:false:stale MIGRATION_PENDING: identity hash mismatch"))
+        Assert.assertTrue(fileStore.events.contains("writeResult:false:stale MIGRATION_PENDING: identity hash mismatch (post-migration)"))
     }
 
     // --- 4.3: stale MIGRATION_PENDING (strict validation failed + no rollback backup) ---
@@ -99,12 +101,112 @@ class PendingRestoreApplierTest {
         fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
         dbSwapper.hasRollbackBackup = false
         validator.nextValidateResult = "identity hash mismatch"
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
 
         createApplier().runIfNeeded()
 
         Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
         Assert.assertTrue(fileStore.lastWrittenMarker!!.failureReason!!.contains("quarantine"))
         Assert.assertFalse(dbSwapper.restoreRollbackRequested)
+    }
+
+    // --- 4.3a: stale MIGRATION_PENDING (pre-migration: validation passes, waits) ---
+
+    @Test
+    fun migrationPending_roomNotMigratedYet_preValidatePasses_keepsMigrationPending() = runTest {
+        val oldVersion = 7
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING, databaseVersion = oldVersion)
+        dbSwapper.hasRollbackBackup = true
+        validator.userVersion = oldVersion // Room migration 前
+        validator.nextResult = null // preValidate success
+
+        createApplier().runIfNeeded()
+
+        // marker は再書き込みせず、MIGRATION_PENDING のまま保持する。
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+        Assert.assertNull("migration 前の待機では marker を書き直さない", fileStore.lastWrittenMarker)
+        // rollback は呼ばれない
+        Assert.assertFalse(dbSwapper.restoreRollbackRequested)
+        // writeResult:false は記録されない (failure path に入っていない)
+        Assert.assertFalse(fileStore.events.any { it.contains("writeResult:false") })
+        // cleanup も呼ばれない
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+    }
+
+    // --- 4.3a: stale MIGRATION_PENDING (pre-migration: validation fails + rollback exists) ---
+
+    @Test
+    fun migrationPending_roomNotMigratedYet_preValidateFails_rollsBackWhenBackupExists() = runTest {
+        val oldVersion = 7
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING, databaseVersion = oldVersion)
+        dbSwapper.hasRollbackBackup = true
+        validator.userVersion = oldVersion // Room migration 前
+        validator.nextResult = "integrity check failed" // preValidate failure
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(dbSwapper.restoreRollbackRequested)
+        Assert.assertTrue(
+            fileStore.events.any {
+                it.contains("writeResult:false:stale MIGRATION_PENDING (pre-migration failure): integrity check failed")
+            },
+        )
+    }
+
+    // --- 4.3a: stale MIGRATION_PENDING (pre-migration: validation fails + no rollback) ---
+
+    @Test
+    fun migrationPending_roomNotMigratedYet_preValidateFails_quarantinesWithoutRollback() = runTest {
+        val oldVersion = 7
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING, databaseVersion = oldVersion)
+        dbSwapper.hasRollbackBackup = false
+        validator.userVersion = oldVersion // Room migration 前
+        validator.nextResult = "integrity check failed" // preValidate failure
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(fileStore.lastWrittenMarker!!.failureReason!!.contains("quarantine"))
+        Assert.assertFalse(dbSwapper.restoreRollbackRequested)
+    }
+
+    // --- 4.3b: stale MIGRATION_PENDING (unreadable DB) ---
+
+    @Test
+    fun migrationPending_unreadableDb_rollsBackOrQuarantines() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        dbSwapper.hasRollbackBackup = true
+        validator.userVersion = null // 読み取り不可
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(
+            fileStore.lastWrittenMarker!!.failureReason!!.contains("userVersion=null"),
+        )
+        Assert.assertTrue(dbSwapper.restoreRollbackRequested)
+    }
+
+    // --- 4.3c: stale MIGRATION_PENDING (unexpected intermediate version) ---
+
+    @Test
+    fun migrationPending_unexpectedIntermediateVersion_rollsBackOrQuarantines() = runTest {
+        val oldVersion = 7
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING, databaseVersion = oldVersion)
+        dbSwapper.hasRollbackBackup = true
+        validator.userVersion = 8 // 中間 version (marker=7, current=EXPECTED, user=8)
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.FAILED, fileStore.lastWrittenMarker?.status)
+        Assert.assertTrue(
+            fileStore.lastWrittenMarker!!.failureReason!!.contains("unexpected intermediate version"),
+        )
+        Assert.assertTrue(
+            fileStore.lastWrittenMarker!!.failureReason!!.contains("userVersion=8"),
+        )
+        Assert.assertTrue(dbSwapper.restoreRollbackRequested)
     }
 
     // --- 4.4: ROLLBACK_REQUIRED ---
@@ -249,12 +351,16 @@ class PendingRestoreApplierTest {
         )
     }
 
-    private fun marker(status: RestoreStatus, includeCookies: Boolean = false): PendingRestoreMarker {
+    private fun marker(
+        status: RestoreStatus,
+        includeCookies: Boolean = false,
+        databaseVersion: Int = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION,
+    ): PendingRestoreMarker {
         return PendingRestoreMarker(
             status = status,
             createdAt = "2026-07-03T00:00:00Z",
             includeCookies = includeCookies,
-            databaseVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION,
+            databaseVersion = databaseVersion,
         )
     }
 
@@ -263,6 +369,7 @@ class PendingRestoreApplierTest {
         val validatedFiles = mutableListOf<File>()
         var nextResult: String? = null
         var nextValidateResult: String? = null
+        var userVersion: Int? = null
 
         override fun validate(dbFile: File): String? {
             validatedFiles += dbFile
@@ -273,6 +380,8 @@ class PendingRestoreApplierTest {
             validatedFiles += dbFile
             return nextResult
         }
+
+        override fun getUserVersion(dbFile: File): Int? = userVersion
     }
 
     /** [PendingRestoreFileStore] の fake 実装。 */

@@ -244,7 +244,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         assertTrue(viewModel.uiState.value.showRestoreConfirmDialog)
 
-        viewModel.onConfirmRestore(uri)
+        viewModel.onConfirmRestore()
         advanceUntilIdle()
 
         assertFalse(viewModel.uiState.value.isRestoring)
@@ -262,7 +262,7 @@ class BackupViewModelTest {
 
         viewModel.onRestoreUriReceived(uri)
         advanceUntilIdle()
-        viewModel.onConfirmRestore(uri)
+        viewModel.onConfirmRestore()
         advanceUntilIdle()
         assertTrue(viewModel.uiState.value.showRestorePreparedDialog)
 
@@ -286,7 +286,7 @@ class BackupViewModelTest {
         val eventDeferred = async { viewModel.events.first() }
         runCurrent()
 
-        viewModel.onConfirmRestore(uri)
+        viewModel.onConfirmRestore()
         advanceUntilIdle()
 
         assertFalse(viewModel.uiState.value.isRestoring)
@@ -304,7 +304,7 @@ class BackupViewModelTest {
 
         viewModel.onRestoreUriReceived(uri)
         advanceUntilIdle()
-        viewModel.onConfirmRestore(uri)
+        viewModel.onConfirmRestore()
         // onConfirmRestore は state を isRestoring=true にして非同期 task を起動する。
         // advance 前に onBackupClick を呼び、state guard で拒否されることを確認する。
         viewModel.onBackupClick()
@@ -361,7 +361,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         assertTrue(viewModel.uiState.value.restoreIncludeCookies)
 
-        viewModel.onConfirmRestore(uri)
+        viewModel.onConfirmRestore()
         advanceUntilIdle()
         assertTrue(viewModel.uiState.value.showRestorePreparedDialog)
         // mock は restoreBackup(uri, false) だけ設定しているので、true で呼ばれると unmockk 例外になる。

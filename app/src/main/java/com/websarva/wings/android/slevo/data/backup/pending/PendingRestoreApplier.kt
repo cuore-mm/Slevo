@@ -193,27 +193,92 @@ class PendingRestoreApplier private constructor(
         }
     }
 
-    /** MIGRATION_PENDING: Room open 成功確認待ち。strict validation を再実行して判定する。 */
+    /** MIGRATION_PENDING: Room migration 前後の状態を判定して復旧する。 */
     private fun recoverFromMigrationPending(marker: PendingRestoreMarker) {
         val liveDbFile = dbSwapper.getLiveDbFile()
         val hasRollback = dbSwapper.hasRollbackBackup(fileStore.rollbackDir, liveDbFile)
 
-        // rollback backup の有無を確認する前に strict validation を実行する
-        val strictError = dbValidator.validate(liveDbFile)
-        if (strictError == null) {
-            logInfo("MIGRATION_PENDING: strict validation passed, transitioning to COMPLETED")
-            fileStore.writeMarker(marker.copy(status = RestoreStatus.COMPLETED))
-            // marker を COMPLETED に更新後、success result と cleanup は
-            // recoverFromCompleted または completion checker に任せる
+        // --- Version classification ---
+        val userVersion = dbValidator.getUserVersion(liveDbFile)
+
+        // --- DB unreadable ---
+        if (userVersion == null) {
+            val reason = "stale MIGRATION_PENDING: db unreadable (userVersion=null)," +
+                " markerVersion=${marker.databaseVersion}, currentVersion=$currentDbVersion"
+            if (hasRollback) {
+                rollbackAndFail(marker, reason, liveDbFile, true)
+            } else {
+                quarantineAndFail(marker, reason, liveDbFile)
+            }
             return
         }
 
-        logWarn("MIGRATION_PENDING: strict validation failed: $strictError")
+        // --- Room migration 済み（user_version が current 以上） ---
+        if (userVersion >= currentDbVersion) {
+            val strictError = dbValidator.validate(liveDbFile)
+            if (strictError == null) {
+                logInfo("MIGRATION_PENDING: strict validation passed, transitioning to COMPLETED")
+                fileStore.writeMarker(marker.copy(status = RestoreStatus.COMPLETED))
+                return
+            }
+
+            logWarn("MIGRATION_PENDING: strict validation failed: $strictError")
+            if (hasRollback) {
+                rollbackAndFail(
+                    marker,
+                    "stale MIGRATION_PENDING: $strictError (post-migration)",
+                    liveDbFile,
+                    true,
+                )
+            } else {
+                quarantineAndFail(
+                    marker,
+                    "stale MIGRATION_PENDING (no rollback backup, post-migration): $strictError",
+                    liveDbFile,
+                )
+            }
+            return
+        }
+
+        // --- Room migration 前（user_version が marker.databaseVersion と一致） ---
+        if (userVersion == marker.databaseVersion) {
+            val preError = dbValidator.preValidate(liveDbFile, marker.databaseVersion)
+            if (preError == null) {
+                // migration 前 DB は健全。Room open 後の migration と completion checker に委ねる。
+                logInfo("MIGRATION_PENDING: pre-migration validation passed," +
+                    " awaiting Room migration (dbVersion=${userVersion}," +
+                    " markerVersion=${marker.databaseVersion}, currentVersion=$currentDbVersion)")
+                return
+            }
+
+            // pre-validation 失敗 → 破損または不整合な旧版 DB
+            logWarn("MIGRATION_PENDING: pre-migration validation failed: $preError")
+            if (hasRollback) {
+                rollbackAndFail(
+                    marker,
+                    "stale MIGRATION_PENDING (pre-migration failure): $preError",
+                    liveDbFile,
+                    true,
+                )
+            } else {
+                quarantineAndFail(
+                    marker,
+                    "stale MIGRATION_PENDING (no rollback backup, pre-migration failure): $preError",
+                    liveDbFile,
+                )
+            }
+            return
+        }
+
+        // --- 想定外の中間 version（marker でも current でもない） ---
+        val mismatchReason = "stale MIGRATION_PENDING: unexpected intermediate version" +
+            " (userVersion=$userVersion, markerVersion=${marker.databaseVersion}," +
+            " currentVersion=$currentDbVersion)"
+        logWarn(mismatchReason)
         if (hasRollback) {
-            rollbackAndFail(marker, "stale MIGRATION_PENDING: $strictError", liveDbFile, true)
+            rollbackAndFail(marker, mismatchReason, liveDbFile, true)
         } else {
-            // rollback backup がない → quarantine して fresh DB 起動を優先
-            quarantineAndFail(marker, "stale MIGRATION_PENDING (no rollback backup): $strictError", liveDbFile)
+            quarantineAndFail(marker, mismatchReason, liveDbFile)
         }
     }
 

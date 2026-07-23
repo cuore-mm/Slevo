@@ -19,9 +19,11 @@ import com.websarva.wings.android.slevo.data.datasource.local.CookieLocalDataSou
 import com.websarva.wings.android.slevo.data.datasource.local.SettingsLocalDataSource
 import com.websarva.wings.android.slevo.data.datasource.local.TabsLocalDataSource
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -36,6 +38,8 @@ import javax.inject.Singleton
  * バックアップの全ステップ（manifest作成、DBエクスポート、DataStore読取、ZIP書込）を
  * 順序通りに orchestrate し、success/failure を [com.websarva.wings.android.slevo.data.backup.export.BackupExportResult] で返す。
  * [backupMutex] で同時実行を 1 件ずつ直列化する。
+ * 全ブロッキング I/O（ZIP読取、SQLite操作、ファイルコピー）は [kotlinx.coroutines.Dispatchers.IO] 上で実行し、
+ * 呼び出し元 dispatcher（例: Main）をブロックしない。
  */
 @Singleton
 class BackupRepositoryImpl @Inject constructor(
@@ -58,7 +62,9 @@ class BackupRepositoryImpl @Inject constructor(
      */
     override suspend fun exportBackup(uri: Uri, includeCookies: Boolean): BackupExportResult {
         return backupMutex.withLock {
-            exportInternal(uri, includeCookies)
+            withContext(Dispatchers.IO) {
+                exportInternal(uri, includeCookies)
+            }
         }
     }
 
@@ -68,10 +74,16 @@ class BackupRepositoryImpl @Inject constructor(
      */
     override suspend fun previewBackup(uri: Uri): BackupRestoreResult {
         return backupMutex.withLock {
-            val input = openUri(uri) ?: return@withLock BackupRestoreResult.Failure("failed to open input")
-            when (val result = backupReader.readBackup(input)) {
-                is BackupReaderResult.Success -> BackupRestoreResult.Success(result.preview.containsCookies)
-                is BackupReaderResult.Error -> result.result
+            withContext(Dispatchers.IO) {
+                val input = openUri(uri) ?: return@withContext BackupRestoreResult.Failure("failed to open input")
+                when (val result = backupReader.readBackup(input)) {
+                    is BackupReaderResult.Success -> {
+                        // --- preview 表示後は DB temp file 不要のため削除 ---
+                        result.preview.dbFile.delete()
+                        BackupRestoreResult.Success(result.preview.containsCookies)
+                    }
+                    is BackupReaderResult.Error -> result.result
+                }
             }
         }
     }
@@ -82,26 +94,35 @@ class BackupRepositoryImpl @Inject constructor(
      */
     override suspend fun restoreBackup(uri: Uri, includeCookies: Boolean): BackupRestoreResult {
         return backupMutex.withLock {
-            // --- commit 時に ZIP を再読み込み・再検証 ---
-            val input = openUri(uri) ?: return@withLock BackupRestoreResult.Failure("failed to open input")
-            val preview = when (val result = backupReader.readBackup(input)) {
-                is BackupReaderResult.Success -> result.preview
-                is BackupReaderResult.Error -> return@withLock result.result
-            }
+            withContext(Dispatchers.IO) {
+                // --- commit 時に ZIP を再読み込み・再検証 ---
+                val input = openUri(uri) ?: return@withContext BackupRestoreResult.Failure("failed to open input")
+                val readerResult = backupReader.readBackup(input)
+                val preview = when (readerResult) {
+                    is BackupReaderResult.Success -> readerResult.preview
+                    is BackupReaderResult.Error -> return@withContext readerResult.result
+                }
 
-            // --- Cookie skip ---
-            val effectivePreview = if (!includeCookies) {
-                preview.copy(cookiesJson = null, containsCookies = false)
-            } else {
-                preview
-            }
+                try {
+                    // --- Cookie skip ---
+                    val effectivePreview = if (!includeCookies) {
+                        preview.copy(cookiesJson = null, containsCookies = false)
+                    } else {
+                        preview
+                    }
 
-            // --- pending restore 作成 ---
-            val error = pendingRestoreManager.prepareRestore(effectivePreview)
-            if (error != null) {
-                BackupRestoreResult.Failure(error)
-            } else {
-                BackupRestoreResult.Success(containsCookies = false)
+                    // --- pending restore 作成 ---
+                    val error = pendingRestoreManager.prepareRestore(effectivePreview)
+                    if (error != null) {
+                        BackupRestoreResult.Failure(error)
+                    } else {
+                        BackupRestoreResult.Success(containsCookies = false)
+                    }
+                } finally {
+                    // --- restore 後は DB temp file 不要のため best-effort 削除 ---
+                    // prepareRestore が move 済みの場合は no-op
+                    preview.dbFile.delete()
+                }
             }
         }
     }

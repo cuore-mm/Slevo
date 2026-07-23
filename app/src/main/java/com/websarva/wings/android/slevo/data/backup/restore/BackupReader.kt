@@ -44,6 +44,14 @@ class BackupReader @Inject constructor(
     private val cookiesAdapter = moshi.adapter<BackupCookiesJson>()
 
     /**
+     * Temp DB file の作成方法。production では platform temp directory を使う。
+     * test から差し替え可能にするため [internal] [var] として公開する。
+     */
+    internal var tempDbFileProvider: () -> File = {
+        File.createTempFile("backup_db_", ".db")
+    }
+
+    /**
      * ZIP [InputStream] からバックアップを読み取り、検証して [BackupPreview] を生成する。
      *
      * @param input ZIP ファイルの入力ストリーム。
@@ -52,30 +60,55 @@ class BackupReader @Inject constructor(
      */
     fun readBackup(input: InputStream): BackupReaderResult {
         // --- 1. ZIP entry の読み取りと path validation ---
-        val entries = mutableMapOf<String, ByteArray>()
+        val jsonEntries = mutableMapOf<String, ByteArray>()
+        var dbTempFile: File? = null
+        val seenEntries = mutableSetOf<String>()
         try {
             ZipInputStream(input).use { zip ->
                 var entry: ZipEntry? = zip.nextEntry
                 while (entry != null) {
                     val name = entry.name
-                    if (name !in entries) {
-                        val pathError = validatePath(name, entry.isDirectory)
-                        if (pathError != null) {
-                            return BackupReaderResult.Error(BackupRestoreResult.Invalid(pathError))
-                        }
-                        if (!entry.isDirectory) {
-                            entries[name] = zip.readBytes()
-                        }
-                    } else {
-                        return BackupReaderResult.Error(
+                    // --- duplicate check (file entry) ---
+                    if (name in seenEntries) {
+                        return cleanupAndError(
+                            dbTempFile,
                             BackupRestoreResult.Invalid("duplicate entry: $name"),
                         )
+                    }
+                    // --- path validation ---
+                    val pathError = validatePath(name, entry.isDirectory)
+                    if (pathError != null) {
+                        return cleanupAndError(
+                            dbTempFile,
+                            BackupRestoreResult.Invalid(pathError),
+                        )
+                    }
+                    if (!entry.isDirectory) {
+                        seenEntries.add(name)
+                        // DB entry → stream to temp file
+                        if (name == DB_PATH) {
+                            val tmp = tempDbFileProvider()
+                            try {
+                                tmp.outputStream().use { output -> zip.copyTo(output) }
+                            } catch (e: Exception) {
+                                tmp.delete()
+                                // re-wrap to keep cleanup scope clean
+                                throw RuntimeException(
+                                    "failed to stream DB entry: ${e.message}", e)
+                            }
+                            dbTempFile = tmp
+                        } else {
+                            // JSON entry → memory
+                            jsonEntries[name] = zip.readBytes()
+                        }
                     }
                     zip.closeEntry()
                     entry = zip.nextEntry
                 }
             }
         } catch (e: Exception) {
+            // --- stream/read failure cleanup ---
+            dbTempFile?.delete()
             return BackupReaderResult.Error(
                 BackupRestoreResult.Invalid("failed to read ZIP: ${e.message}"),
             )
@@ -83,24 +116,27 @@ class BackupReader @Inject constructor(
 
         // --- 2. 必須 entry の存在確認 ---
         for (required in REQUIRED_ENTRIES) {
-            if (required !in entries) {
-                return BackupReaderResult.Error(
+            if (required !in seenEntries) {
+                // guard: cleanupAndError handles dbTempFile cleanup
+                return cleanupAndError(
+                    dbTempFile,
                     BackupRestoreResult.Invalid("missing required entry: $required"),
                 )
             }
         }
 
         // --- 3. manifest の parse ---
-        val manifestBytes = entries[MANIFEST_PATH]!!
         val manifest = try {
-            manifestAdapter.fromJson(String(manifestBytes, Charsets.UTF_8))
+            manifestAdapter.fromJson(String(jsonEntries[MANIFEST_PATH]!!, Charsets.UTF_8))
         } catch (e: Exception) {
-            return BackupReaderResult.Error(
+            return cleanupAndError(
+                dbTempFile,
                 BackupRestoreResult.Invalid("invalid manifest JSON: ${e.message}"),
             )
         }
         if (manifest == null) {
-            return BackupReaderResult.Error(
+            return cleanupAndError(
+                dbTempFile,
                 BackupRestoreResult.Invalid("manifest JSON is null"),
             )
         }
@@ -108,13 +144,17 @@ class BackupReader @Inject constructor(
         // --- 4. manifest field validation ---
         val manifestError = validateManifest(manifest)
         if (manifestError != null) {
-            return BackupReaderResult.Error(BackupRestoreResult.Invalid(manifestError))
+            return cleanupAndError(
+                dbTempFile,
+                BackupRestoreResult.Invalid(manifestError),
+            )
         }
 
         // --- 5. Cookie 整合性 ---
-        val hasCookieEntry = COOKIES_PATH in entries
+        val hasCookieEntry = COOKIES_PATH in seenEntries
         if (manifest.included.cookies != hasCookieEntry) {
-            return BackupReaderResult.Error(
+            return cleanupAndError(
+                dbTempFile,
                 BackupRestoreResult.Invalid(
                     "cookie inconsistency: manifest.included.cookies=${manifest.included.cookies}," +
                         " entry exists=$hasCookieEntry",
@@ -123,29 +163,41 @@ class BackupReader @Inject constructor(
         }
 
         // --- 6. DB schema pre-migration validation ---
-        val dbBytes = entries[DB_PATH]!!
-        val dbFile = writeBytesToTempFile(dbBytes)
+        val validatedDbFile = dbTempFile
+            ?: return BackupReaderResult.Error(
+                BackupRestoreResult.Invalid("DB temp file missing"),
+            )
         try {
-            val dbError = dbValidator.preValidate(dbFile, manifest.databaseVersion)
+            val dbError = dbValidator.preValidate(validatedDbFile, manifest.databaseVersion)
             if (dbError != null) {
-                return BackupReaderResult.Error(BackupRestoreResult.Invalid("DB validation failed: $dbError"))
+                return cleanupAndError(
+                    dbTempFile,
+                    BackupRestoreResult.Invalid("DB validation failed: $dbError"),
+                )
             }
-        } finally {
-            dbFile.delete()
+        } catch (e: Exception) {
+            // DB validation threw unexpected exception
+            return cleanupAndError(
+                dbTempFile,
+                BackupRestoreResult.Invalid("DB validation failed: ${e.message}"),
+            )
         }
 
         // --- 7. DataStore JSON の parse と値 validation ---
-        val settingsJson = parseSettings(entries[SETTINGS_PATH]!!)
-            ?: return BackupReaderResult.Error(
+        val settingsJson = parseSettings(jsonEntries[SETTINGS_PATH]!!)
+            ?: return cleanupAndError(
+                dbTempFile,
                 BackupRestoreResult.Invalid("invalid settings JSON"),
             )
-        val tabsJson = parseTabs(entries[TABS_PATH]!!)
-            ?: return BackupReaderResult.Error(
+        val tabsJson = parseTabs(jsonEntries[TABS_PATH]!!)
+            ?: return cleanupAndError(
+                dbTempFile,
                 BackupRestoreResult.Invalid("invalid tabs JSON"),
             )
         val cookiesJson = if (manifest.included.cookies) {
-            parseCookies(entries[COOKIES_PATH]!!)
-                ?: return BackupReaderResult.Error(
+            parseCookies(jsonEntries[COOKIES_PATH]!!)
+                ?: return cleanupAndError(
+                    dbTempFile,
                     BackupRestoreResult.Invalid("invalid cookies JSON"),
                 )
         } else {
@@ -153,6 +205,9 @@ class BackupReader @Inject constructor(
         }
 
         // --- 8. BackupPreview の生成 ---
+        // Ownership transfer: null out dbTempFile so cleanup scope doesn't delete it.
+        val transferredDbFile = dbTempFile
+        dbTempFile = null
         return BackupReaderResult.Success(
             BackupPreview(
                 createdAt = manifest.createdAt,
@@ -160,12 +215,24 @@ class BackupReader @Inject constructor(
                 appVersionName = manifest.appVersionName,
                 databaseVersion = manifest.databaseVersion,
                 containsCookies = manifest.included.cookies,
-                dbBytes = dbBytes,
+                dbFile = transferredDbFile!!,
                 settingsJson = settingsJson,
                 tabsJson = tabsJson,
                 cookiesJson = cookiesJson,
             ),
         )
+    }
+
+    /**
+     * Failure path で DB temp file の best-effort cleanup を行い、
+     * [BackupReaderResult.Error] を返す helper。
+     */
+    private fun cleanupAndError(
+        dbTempFile: File?,
+        result: BackupRestoreResult,
+    ): BackupReaderResult.Error {
+        dbTempFile?.delete()
+        return BackupReaderResult.Error(result)
     }
 
     // --- Path validation ---
@@ -305,19 +372,7 @@ class BackupReader @Inject constructor(
         }
     }
 
-    // --- Temp file helper ---
-
-    /**
-     * バイト列を一時ファイルへ書き込む。
-     *
-     * DB schema 検証用に [BackupDatabaseValidator] へ渡すために使う。
-     */
-    private fun writeBytesToTempFile(bytes: ByteArray): File {
-        val tmp = File.createTempFile("backup_db_", ".db")
-        tmp.deleteOnExit()
-        tmp.writeBytes(bytes)
-        return tmp
-    }
+    // --- Cleanup helper ---
 
     /** 定数。 */
     companion object {

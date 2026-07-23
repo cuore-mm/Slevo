@@ -259,6 +259,7 @@ class BackupRestoreRepositoryTest {
     private class FakeBackupDatabaseValidator : BackupDatabaseValidator {
         override fun validate(dbFile: File): String? = null
         override fun preValidate(dbFile: File, manifestDatabaseVersion: Int): String? = null
+        override fun getUserVersion(dbFile: File): Int? = null
     }
 
     private class FakeSettingsDataSource : SettingsLocalDataSource {

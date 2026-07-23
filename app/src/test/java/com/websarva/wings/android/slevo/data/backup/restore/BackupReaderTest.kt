@@ -162,7 +162,8 @@ class BackupReaderTest {
         assertEquals(1L, preview.appVersionCode)
         assertEquals("1.0.0", preview.appVersionName)
         assertEquals(9, preview.databaseVersion)
-        assertTrue(preview.dbBytes.isNotEmpty())
+        assertTrue(preview.dbFile.exists())
+        assertTrue(preview.dbFile.length() > 0)
     }
 
     // --- 1.10: manifest なし ---
@@ -759,8 +760,49 @@ class BackupReaderTest {
     fun preview_containsDbBytes() {
         val zip = createValidZipBytes()
         val preview = readSuccess(zip)
-        assertTrue(preview.dbBytes.isNotEmpty())
-        assertEquals("fake db content", String(preview.dbBytes))
+        assertTrue(preview.dbFile.exists())
+        assertTrue(preview.dbFile.length() > 0)
+        // 内容確認: 一時ファイルから読み取り
+        val content = preview.dbFile.readText()
+        assertEquals("fake db content", content)
+        // cleanup: test 内でファイルが残らないよう削除
+        preview.dbFile.delete()
+    }
+
+    // --- temp DB cleanup on validation failure ---
+
+    /**
+     * DB temp file 作成後に DataStore JSON の validation が失敗した場合、
+     * temp DB file が cleanup されることを検証する。
+     */
+    @Test
+    fun readBackup_dbTempFileCreation_thenInvalidJson_cleansUpTempFile() {
+        // temp DB file を capture するための dir を用意
+        val tempDir = kotlin.io.path.createTempDirectory("backup-test-").toFile()
+        val reader = createReader().apply {
+            tempDbFileProvider = {
+                val f = File(tempDir, "db-${System.nanoTime()}.tmp")
+                f.createNewFile()
+                f
+            }
+        }
+
+        // settings JSON を不正にする (themeMode = "unknown")
+        val invalidSettings = createValidSettings().copy(themeMode = "unknown")
+        val zip = createValidZipBytes(settings = invalidSettings)
+
+        val result = reader.readBackup(zip.inputStream())
+        assertTrue("expected Error", result is BackupReaderResult.Error)
+
+        // temp dir にリークした temp DB file がないことを確認
+        val leftoverFiles = tempDir.listFiles()
+        assertTrue(
+            "temp DB file should be cleaned up, found ${leftoverFiles?.joinToString { it.name }}",
+            leftoverFiles == null || leftoverFiles.isEmpty(),
+        )
+
+        // cleanup test dir
+        tempDir.deleteRecursively()
     }
 
     // --- 空 ZIP ---
@@ -784,12 +826,15 @@ internal class FakeBackupDatabaseValidator(
     private val validationError: String? = null,
     private val preValidationError: String? = null,
     val capturedPreValidateDbVersion: CapturedInt = CapturedInt(),
+    /** `getUserVersion()` の戻り値。null は読み取り失敗を表す。 */
+    var userVersion: Int? = null,
 ) : BackupDatabaseValidator {
     override fun validate(dbFile: File): String? = validationError
     override fun preValidate(dbFile: File, manifestDatabaseVersion: Int): String? {
         capturedPreValidateDbVersion.value = manifestDatabaseVersion
         return preValidationError
     }
+    override fun getUserVersion(dbFile: File): Int? = userVersion
 }
 
 /** テストで repository/callable 経由での値 capture に使う mutable holder。 */

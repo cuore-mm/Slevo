@@ -45,6 +45,17 @@ interface BackupDatabaseValidator {
      * @return 検証成功時 null、失敗時エラーメッセージ。
      */
     fun preValidate(dbFile: File, manifestDatabaseVersion: Int): String?
+
+    /**
+     * [File] から `PRAGMA user_version` を読み取り専用で取得する。
+     *
+     * Room / DAO / Hilt に依存しないため、起動時 applier から安全に呼べる。
+     * 読み取りに失敗した場合は `null` を返す。
+     *
+     * @param dbFile 対象の SQLite DB ファイル。
+     * @return `PRAGMA user_version` の値、または読み取り失敗時 `null`。
+     */
+    fun getUserVersion(dbFile: File): Int?
 }
 
 /**
@@ -194,6 +205,28 @@ class RealBackupDatabaseValidator @Inject constructor() : BackupDatabaseValidato
         }
 
         return null
+    }
+
+    override fun getUserVersion(dbFile: File): Int? {
+        val db: SQLiteDatabase
+        try {
+            db = SQLiteDatabase.openDatabase(
+                dbFile.absolutePath,
+                null,
+                SQLiteDatabase.OPEN_READONLY,
+            )
+        } catch (_: Exception) {
+            return null
+        }
+        try {
+            return db.rawQuery("PRAGMA user_version", null).use { c ->
+                if (c.moveToFirst()) c.getInt(0) else null
+            }
+        } catch (_: Exception) {
+            return null
+        } finally {
+            db.close()
+        }
     }
 
     override fun validate(dbFile: File): String? {

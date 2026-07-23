@@ -18,9 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -82,14 +80,11 @@ fun BackupScreen(
     }
 
     // --- SAF launcher (復元用) ---
-    var restoreUri by remember { mutableStateOf<Uri?>(null) }
     val openLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri: Uri? ->
-        if (uri != null) {
-            restoreUri = uri
-            viewModel.onRestoreUriReceived(uri)
-        }
+        // URI の保持は ViewModel で行うため、ここでは ViewModel に渡すだけ。
+        viewModel.onRestoreUriReceived(uri)
     }
 
     // --- 委譲 ---
@@ -112,9 +107,7 @@ fun BackupScreen(
         },
         onRestoreConfirmCancel = viewModel::onRestoreConfirmCancel,
         onRestoreCookiesToggle = viewModel::onRestoreCookiesToggle,
-        onConfirmRestore = {
-            restoreUri?.let { viewModel.onConfirmRestore(it) }
-        },
+        onConfirmRestore = viewModel::onConfirmRestore,
         onRestorePreparedDismiss = viewModel::onRestorePreparedDismiss,
     )
 }

@@ -47,6 +47,15 @@ class BackupDatabaseValidatorTest {
         assertNotNull("ファイルがなくエラーになること", error)
     }
 
+    // --- getUserVersion ---
+
+    @Test
+    fun getUserVersion_fileDoesNotExist_returnsNull() {
+        val nonexistent = File("/tmp/nonexistent_db_${System.currentTimeMillis()}.db")
+        val version = validator.getUserVersion(nonexistent)
+        assertNull("存在しないファイルは null を返すこと", version)
+    }
+
     // --- validate: strict として使えること ---
 
     @Test
@@ -54,9 +63,11 @@ class BackupDatabaseValidatorTest {
         val fake = object : BackupDatabaseValidator {
             override fun validate(dbFile: File): String? = "test error"
             override fun preValidate(dbFile: File, manifestDatabaseVersion: Int): String? = null
+            override fun getUserVersion(dbFile: File): Int? = 42
         }
         assertEquals("test error", fake.validate(File(".")))
         assertNull(fake.preValidate(File("."), 9))
+        assertEquals(42, fake.getUserVersion(File(".")))
     }
 
     // --- Fake の preValidate が version を capture すること ---

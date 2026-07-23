@@ -50,11 +50,24 @@ class BackupZipWriter(
         writeEntry(name, json.toByteArray(Charsets.UTF_8))
     }
 
-    /** ファイルをエントリとして追加する。 */
+    /**
+     * ファイルを ZIP エントリとして streaming 追加する。
+     *
+     * [input.copyTo] によりファイル全体を ByteArray 化せずに
+     * デフォルト 8 KB バッファで [zip] へ直接転送する。
+     * 大規模 DB エクスポート時のヒープ消費を抑える。
+     */
     fun writeFileEntry(name: String, file: File) {
-        FileInputStream(file).use { input ->
-            val bytes = input.readBytes()
-            writeEntry(name, bytes)
+        if (closed || writeFailed) return
+        try {
+            FileInputStream(file).use { input ->
+                zip.putNextEntry(ZipEntry(name))
+                input.copyTo(zip)
+                zip.closeEntry()
+            }
+        } catch (e: Exception) {
+            writeFailed = true
+            throw e
         }
     }
 

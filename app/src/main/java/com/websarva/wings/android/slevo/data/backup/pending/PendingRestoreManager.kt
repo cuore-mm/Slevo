@@ -39,6 +39,9 @@ class PendingRestoreManager @Inject constructor(
     private val markerFile: File get() = File(pendingDir, MARKER_FILENAME)
     private val resultDir: File get() = File(context.filesDir, RESULT_DIR_NAME)
 
+    // test-only hook: true にすると marker write が故意に失敗する
+    internal var shouldFailMarkerWrite: Boolean = false
+
     /**
      * 検証済みのバックアップデータを pending restore として staging する。
      *
@@ -67,7 +70,16 @@ class PendingRestoreManager @Inject constructor(
         // --- DB staging ---
         val dbFile = File(dbStagingDir, "slevo.db")
         try {
-            dbFile.writeBytes(preview.dbBytes)
+            // 既存 staging file の削除（marker 未作成なので安全）
+            if (dbFile.exists()) {
+                dbFile.delete()
+            }
+            // move 優先 → fallback to copy
+            if (!preview.dbFile.renameTo(dbFile)) {
+                preview.dbFile.copyTo(dbFile, overwrite = true)
+                // copy 成功後に source temp file を best-effort 削除
+                preview.dbFile.delete()
+            }
         } catch (e: Exception) {
             cleanupPendingDir()
             return "failed to stage DB: ${e.message}"
@@ -100,6 +112,10 @@ class PendingRestoreManager @Inject constructor(
         }
 
         // --- marker 作成 (最後に書く) ---
+        if (shouldFailMarkerWrite) {
+            cleanupPendingDir()
+            return "failed to write marker: test-induced failure"
+        }
         val marker = PendingRestoreMarker(
             status = RestoreStatus.PREPARED,
             createdAt = Instant.now().toString(),

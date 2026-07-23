@@ -89,6 +89,82 @@ class BackupZipWriterTest {
         assertTrue(entries.contains("datastore/cookies.json"))
     }
 
+    // --- 3.3a: large file streaming ---
+
+    /**
+     * 約 1 MB のファイルを書き込み、ZIP entry の内容が元ファイルと一致する。
+     *
+     * 非 streaming 版 (readBytes) と異なり、
+     * ファイル全体をヒープに保持せずに ZIP へ転送できる経路であることを確認する。
+     */
+    @Test
+    fun writeFileEntry_largeFile_succeedsAndIsValidZip() {
+        val output = ByteArrayOutputStream()
+        val writer = BackupZipWriter(output)
+
+        // 1 MB の再現可能なパターンを作成。
+        val file = tmpDir.newFile("large.db")
+        val pattern = ByteArray(256) { (it % 256).toByte() }
+        file.outputStream().use { out ->
+            repeat(4096) { out.write(pattern) } // 256 * 4096 = 1 MB
+        }
+
+        writer.writeFileEntry("database/large.db", file)
+        writer.close()
+
+        assertTrue(writer.isSuccessful())
+        assertNull(writer.failureReason())
+
+        // ZIP を読み取って内容を比較。
+        val zipFile = ZipFile(byteArrayToTempFile(output.toByteArray()))
+        val entry = zipFile.getEntry("database/large.db")
+        assertNotNull("entry must exist", entry)
+
+        val actual = zipFile.getInputStream(entry).readBytes()
+        val expected = file.readBytes()
+        assertEquals(expected.size, actual.size)
+        // 全バイト比較。
+        for (i in expected.indices) {
+            assertEquals("byte mismatch at index $i", expected[i], actual[i])
+        }
+    }
+
+    // --- 3.3b: failure during file streaming ---
+
+    /**
+     * ファイル書き込み中に OutputStream が失敗した場合、
+     * writeFailed が true になり isSuccessful が false になる。
+     */
+    @Test
+    fun writeFileEntry_failureDuringStream_marksWriteFailed() {
+        // 512 バイト書き込み後に失敗するストリーム。
+        val failureAfter512 = object : OutputStream() {
+            private var count = 0
+            override fun write(b: Int) { }
+            override fun write(b: ByteArray, off: Int, len: Int) {
+                count += len
+                if (count >= 512) throw RuntimeException("write failed mid-stream")
+            }
+        }
+        val writer = BackupZipWriter(failureAfter512)
+
+        // 2 KB のランダムなファイル（圧縮されにくく、書き込み途中で buffer flush が発生する）。
+        val file = tmpDir.newFile("fail.db").apply {
+            val rng = java.util.Random(42)
+            val data = ByteArray(2048)
+            rng.nextBytes(data)
+            writeBytes(data)
+        }
+
+        try {
+            writer.writeFileEntry("database/fail.db", file)
+        } catch (_: RuntimeException) { }
+
+        writer.close()
+        assertFalse("mid-stream write failure should not be successful", writer.isSuccessful())
+        assertTrue(writer.failureReason()!!.contains("entry write failed"))
+    }
+
     // --- 3.4: partial write failure ---
 
     @Test
