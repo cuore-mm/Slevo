@@ -86,8 +86,11 @@ object BackupRestoreMapper {
      * OkHttp [Cookie.Builder] を使い、バックアップの 9 field を復元する。
      * [BackupReader] で name/domain/path の空チェック済みである前提。
      *
-     * `hostOnly=true` の場合は [Cookie.Builder.hostOnlyDomain] を、
-     * `hostOnly=false` の場合は [Cookie.Builder.domain] を呼び分ける。
+     * - `hostOnly=true` の場合は [Cookie.Builder.hostOnlyDomain] を、
+     *   `hostOnly=false` の場合は [Cookie.Builder.domain] を呼び分ける。
+     * - `persistent=true` の場合のみ [Cookie.Builder.expiresAt] を呼ぶ。
+     *   `persistent=false` の session cookie では `expiresAt()` を呼ばないことで、
+     *   OkHttp Builder の default (`persistent=false`) を維持する。
      *
      * @return 変換成功時は [Cookie]、builder が拒否する値の場合は `null`。
      */
@@ -98,7 +101,11 @@ object BackupRestoreMapper {
                 .name(item.name)
                 .value(item.value)
                 .path(item.path)
-                .expiresAt(item.expiresAt)
+
+            // --- Expiry: persistent == true の場合のみ expiresAt を設定 ---
+            if (item.persistent) {
+                builder.expiresAt(item.expiresAt)
+            }
 
             // --- Domain scope: hostOnly で分岐 ---
             if (item.hostOnly) {

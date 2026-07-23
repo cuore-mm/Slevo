@@ -378,4 +378,74 @@ class BackupRestoreMapperTest {
         assertNotNull(persistentRestored)
         assertEquals(persistentCookie.expiresAt, persistentRestored!!.expiresAt)
     }
+
+    // --- invalid Cookie items ---
+
+    @Test
+    fun toCookie_invalidPath_returnsNull() {
+        // path が "/" で始まらない場合 OkHttp が reject する。
+        val item = BackupCookieItem(
+            name = "s", value = "v", domain = "example.com", path = "no-slash",
+            expiresAt = 0, secure = false, httpOnly = false,
+            hostOnly = false, persistent = false,
+        )
+        assertNull(BackupRestoreMapper.toCookie(item))
+    }
+
+    @Test
+    fun toCookie_emptyDomainWithHostOnly_returnsNull() {
+        // hostOnly=true で domain が空の場合、OkHttp が reject する。
+        val item = BackupCookieItem(
+            name = "s", value = "v", domain = "", path = "/",
+            expiresAt = 0, secure = false, httpOnly = false,
+            hostOnly = true, persistent = false,
+        )
+        assertNull(BackupRestoreMapper.toCookie(item))
+    }
+
+    // --- session/persistent cookie ---
+
+    @Test
+    fun toCookie_sessionItem_remainsSessionCookie() {
+        // persistent=false の backup item を toCookie() すると
+        // 復元された Cookie の persistent が false であること。
+        val item = BackupCookieItem(
+            name = "s", value = "v", domain = "example.com", path = "/",
+            expiresAt = 0, secure = false, httpOnly = false,
+            hostOnly = false, persistent = false,
+        )
+        val cookie = BackupRestoreMapper.toCookie(item)
+        assertNotNull(cookie)
+        assertEquals(false, cookie!!.persistent)
+    }
+
+    @Test
+    fun toCookie_persistentItem_remainsPersistent() {
+        // persistent=true かつ finite expiresAt の backup item を toCookie() すると
+        // 復元された Cookie の persistent が true で expiresAt が維持されること。
+        val expiresAt = 9999999999L
+        val item = BackupCookieItem(
+            name = "s", value = "v", domain = "example.com", path = "/",
+            expiresAt = expiresAt, secure = true, httpOnly = true,
+            hostOnly = false, persistent = true,
+        )
+        val cookie = BackupRestoreMapper.toCookie(item)
+        assertNotNull(cookie)
+        assertEquals(true, cookie!!.persistent)
+        assertEquals(expiresAt, cookie.expiresAt)
+    }
+
+    @Test
+    fun toCookie_sessionItem_takesPrecedenceOverExpiresAt() {
+        // persistent=false かつ finite expiresAt の矛盾 item でも
+        // persistent が優先され、復元された Cookie は session cookie になること。
+        val item = BackupCookieItem(
+            name = "s", value = "v", domain = "example.com", path = "/",
+            expiresAt = 9999999999L, secure = false, httpOnly = false,
+            hostOnly = false, persistent = false,
+        )
+        val cookie = BackupRestoreMapper.toCookie(item)
+        assertNotNull(cookie)
+        assertEquals(false, cookie!!.persistent)
+    }
 }

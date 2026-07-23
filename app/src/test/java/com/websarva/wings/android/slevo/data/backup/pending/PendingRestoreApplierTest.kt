@@ -370,4 +370,48 @@ class PendingRestoreApplierTest {
             return result
         }
     }
+
+    // --- Cookie failure / ordering tests ---
+
+    @Test
+    fun prepared_cookieParseFailure_rollbackAndFail() = runTest {
+        fileStore.marker = marker(RestoreStatus.PREPARED, includeCookies = true)
+        dbSwapper.liveDbExists = true
+        reflector.result = "failed to parse cookies JSON"
+
+        createApplier().runIfNeeded()
+
+        Assert.assertTrue("rollback should be requested", dbSwapper.rollbackRequested)
+        Assert.assertTrue(
+            "cookie parse error should appear in events",
+            fileStore.events.any { it == "writeResult:false:failed to parse cookies JSON" },
+        )
+    }
+
+    @Test
+    fun prepared_cookieSerializeFailure_rollbackAndFail() = runTest {
+        fileStore.marker = marker(RestoreStatus.PREPARED, includeCookies = true)
+        dbSwapper.liveDbExists = true
+        reflector.result = "failed to serialize restored cookies: failed=1 total=1"
+
+        createApplier().runIfNeeded()
+
+        Assert.assertTrue("rollback should be requested", dbSwapper.rollbackRequested)
+        Assert.assertTrue(
+            fileStore.events.any { it.contains("failed to serialize restored cookies") },
+        )
+    }
+
+    @Test
+    fun prepared_includeCookiesFalse_doesNotRequestCookieReflection() = runTest {
+        fileStore.marker = marker(RestoreStatus.PREPARED, includeCookies = false)
+        dbSwapper.liveDbExists = true
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(listOf(fileStore.pendingDir to false), reflector.calls)
+        Assert.assertTrue(
+            fileStore.events.any { it == "writeMarker:MIGRATION_PENDING" },
+        )
+    }
 }

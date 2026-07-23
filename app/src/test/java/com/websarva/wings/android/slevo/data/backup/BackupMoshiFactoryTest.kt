@@ -39,7 +39,7 @@ class BackupMoshiFactoryTest {
         // JSON string literal であること、JSON object でないことを確認する
         val raw = bareMoshi.adapter(String::class.java).fromJson(json)!!
         val parts = raw.split("|")
-        assertEquals("expected 8 pipe-delimited parts, got: $raw", 8, parts.size)
+        assertEquals("expected 9 pipe-delimited parts, got: $raw", 9, parts.size)
         assertEquals("session", parts[0])
         assertEquals("abc123", parts[1])
         assertEquals("9999999999", parts[2])
@@ -48,6 +48,7 @@ class BackupMoshiFactoryTest {
         assertEquals("true", parts[5])
         assertEquals("true", parts[6])
         assertEquals("false", parts[7]) // hostOnly: .domain() を使っているため false
+        assertEquals("true", parts[8])  // persistent: .expiresAt() を呼んでいるため true
 
         // round-trip: CookieLocalDataSourceImpl と同じ経路で保存・復元できること
         val restored = adapter.fromJson(json)
@@ -60,6 +61,7 @@ class BackupMoshiFactoryTest {
         assertTrue(restored.secure)
         assertTrue(restored.httpOnly)
         assertEquals(false, restored.hostOnly)
+        assertEquals(true, restored.persistent)
     }
 
     @Test
@@ -99,16 +101,18 @@ class BackupMoshiFactoryTest {
         val adapter = moshi.adapter(Cookie::class.java)
         val json = adapter.toJson(cookie)
 
-        // 8 field であること
+        // 9 field であること
         val raw = bareMoshi.adapter(String::class.java).fromJson(json)!!
         val parts = raw.split("|")
-        assertEquals("expected 8 pipe-delimited parts, got: $raw", 8, parts.size)
-        assertEquals("true", parts[7]) // hostOnly
+        assertEquals("expected 9 pipe-delimited parts, got: $raw", 9, parts.size)
+        assertEquals("true", parts[7])  // hostOnly
+        assertEquals("false", parts[8]) // persistent (session cookie)
 
         val restored = adapter.fromJson(json)
         assertNotNull(restored)
         assertEquals("5ch.io", restored!!.domain)
         assertEquals(true, restored.hostOnly)
+        assertEquals(false, restored.persistent)
     }
 
     @Test
@@ -128,20 +132,22 @@ class BackupMoshiFactoryTest {
 
         val raw = bareMoshi.adapter(String::class.java).fromJson(json)!!
         val parts = raw.split("|")
-        assertEquals("false", parts[7]) // hostOnly
+        assertEquals("false", parts[7])  // hostOnly
+        assertEquals("false", parts[8])  // persistent (session cookie)
 
         val restored = adapter.fromJson(json)
         assertNotNull(restored)
         assertEquals(false, restored!!.hostOnly)
+        assertEquals(false, restored.persistent)
     }
 
     @Test
     fun adapter_legacySevenField_deserializedAsDomainScoped() {
-        // 旧 7 field 形式を読み込み、hostOnly == false として復元すること。
+        // 旧 7 field 形式を読み込み、hostOnly == false / persistent == true として復元すること。
         val moshi = BackupMoshiFactory.create()
         val adapter = moshi.adapter(Cookie::class.java)
 
-        // 旧形式: 7 field (hostOnly なし)
+        // 旧形式: 7 field (hostOnly / persistent なし)
         val legacyRaw = "session|abc123|9999999999|5ch.io|/|true|true"
         val legacyJson = bareMoshi.adapter(String::class.java).toJson(legacyRaw)
 
@@ -154,7 +160,8 @@ class BackupMoshiFactoryTest {
         assertEquals("/", restored.path)
         assertEquals(true, restored.secure)
         assertEquals(true, restored.httpOnly)
-        assertEquals(false, restored.hostOnly) // 旧形式では false
+        assertEquals(false, restored.hostOnly)   // 旧形式では false
+        assertEquals(true, restored.persistent)  // 旧形式では true
     }
 
     @Test
@@ -172,5 +179,78 @@ class BackupMoshiFactoryTest {
         val badExpiryRaw = "a|b|NOT_A_NUMBER|d|e|f|false|false"
         val badExpiryJson = bareMoshi.adapter(String::class.java).toJson(badExpiryRaw)
         assertEquals(null, adapter.fromJson(badExpiryJson))
+    }
+
+    // --- 9 field session/persistent round-trip ---
+
+    @Test
+    fun adapter_sessionCookieRoundTrip_persistentFalseMaintained() {
+        // session Cookie を 9 field format で round-trip し、
+        // persistent == false が維持されること。
+        val moshi = BackupMoshiFactory.create()
+        val cookie = Cookie.Builder()
+            .name("s")
+            .value("v")
+            .domain("example.com")
+            .path("/")
+            .build() // expiresAt() を呼ばない → session cookie (persistent=false)
+
+        val adapter = moshi.adapter(Cookie::class.java)
+        val json = adapter.toJson(cookie)
+
+        val raw = bareMoshi.adapter(String::class.java).fromJson(json)!!
+        val parts = raw.split("|")
+        assertEquals(9, parts.size)
+        assertEquals("false", parts[8]) // persistent explicit field
+
+        val restored = adapter.fromJson(json)
+        assertNotNull(restored)
+        assertEquals(false, restored!!.persistent)
+    }
+
+    @Test
+    fun adapter_persistentCookieRoundTrip_persistentTrueAndExpiresAtMaintained() {
+        // persistent Cookie を 9 field format で round-trip し、
+        // persistent == true と expiresAt が維持されること。
+        val moshi = BackupMoshiFactory.create()
+        val expiresAt = 9999999999L
+        val cookie = Cookie.Builder()
+            .name("p")
+            .value("x")
+            .domain("example.com")
+            .path("/")
+            .expiresAt(expiresAt)
+            .build()
+
+        val adapter = moshi.adapter(Cookie::class.java)
+        val json = adapter.toJson(cookie)
+
+        val raw = bareMoshi.adapter(String::class.java).fromJson(json)!!
+        val parts = raw.split("|")
+        assertEquals(9, parts.size)
+        assertEquals("true", parts[8]) // persistent explicit field
+        assertEquals(expiresAt.toString(), parts[2]) // expiresAt
+
+        val restored = adapter.fromJson(json)
+        assertNotNull(restored)
+        assertEquals(true, restored!!.persistent)
+        assertEquals(expiresAt, restored.expiresAt)
+    }
+
+    @Test
+    fun adapter_legacyEightField_deserializedWithHostOnlyAndPersistentTrue() {
+        // 旧 8 field 形式を読み込み、hostOnly は parts[7]、persistent == true として復元すること。
+        val moshi = BackupMoshiFactory.create()
+        val adapter = moshi.adapter(Cookie::class.java)
+
+        // 旧形式: 8 field (hostOnly あり、persistent なし)
+        val legacyRaw = "session|abc123|9999999999|5ch.io|/|true|true|true"
+        val legacyJson = bareMoshi.adapter(String::class.java).toJson(legacyRaw)
+
+        val restored = adapter.fromJson(legacyJson)
+        assertNotNull("legacy 8 field 形式も読み込めること", restored)
+        assertEquals("session", restored!!.name)
+        assertEquals(true, restored.hostOnly)     // hostOnly は維持
+        assertEquals(true, restored.persistent)   // 旧形式では true
     }
 }

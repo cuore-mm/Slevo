@@ -48,7 +48,7 @@ internal class RealPendingRestoreDataStoreReflector(
         return try {
             val writer = PendingRestoreDataStoreWriter(context, moshi)
 
-            // --- JSON read ---
+            // --- JSON read (all files before any write) ---
             val settingsFile = File(pendingDir, "datastore/settings.json")
             val tabsFile = File(pendingDir, "datastore/tabs.json")
             val cookiesFile = File(pendingDir, "datastore/cookies.json")
@@ -58,17 +58,53 @@ internal class RealPendingRestoreDataStoreReflector(
             val tabs = tabsAdapter.fromJson(tabsFile.readText())
                 ?: return "failed to parse tabs JSON"
 
-            // --- DataStore write ---
-            writer.writeSettings(settings)
-            writer.writeTabs(tabs)
+            var preparedCookies: PendingRestoreDataStoreWriter.PreparedCookies.Success? = null
 
             if (includeCookies && cookiesFile.exists()) {
                 val cookies = cookiesAdapter.fromJson(cookiesFile.readText())
                     ?: return "failed to parse cookies JSON"
-                val cookieError = writer.writeCookies(cookies)
-                if (cookieError != null) {
-                    return cookieError
+
+                // --- Cookie pre-validation ---
+                when (val result = writer.prepareCookies(cookies)) {
+                    is PendingRestoreDataStoreWriter.PreparedCookies.Success -> {
+                        preparedCookies = result
+                    }
+                    is PendingRestoreDataStoreWriter.PreparedCookies.Failure -> {
+                        return result.message
+                    }
                 }
+            }
+
+            // --- DataStore snapshot (before any write) ---
+            val snapshot = writer.snapshotDataStores(includeCookies = preparedCookies != null)
+            var settingsWritten = false
+            var tabsWritten = false
+            var cookiesWritten = false
+
+            try {
+                // --- DataStore write (only after all parse and pre-validation succeed) ---
+                writer.writeSettings(settings)
+                settingsWritten = true
+                writer.writeTabs(tabs)
+                tabsWritten = true
+
+                if (preparedCookies != null) {
+                    writer.writePreparedCookies(preparedCookies.cookieJsonSet)
+                    cookiesWritten = true
+                }
+            } catch (writeError: Exception) {
+                // --- Best-effort DataStore rollback ---
+                try {
+                    writer.restoreDataStores(
+                        snapshot = snapshot,
+                        restoreSettings = settingsWritten,
+                        restoreTabs = tabsWritten,
+                        restoreCookies = cookiesWritten,
+                    )
+                } catch (_: Exception) {
+                    // rollback failure は diagnostic 扱い。元 write failure を維持する。
+                }
+                throw writeError
             }
 
             null

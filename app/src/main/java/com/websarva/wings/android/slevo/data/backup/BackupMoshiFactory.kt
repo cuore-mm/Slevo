@@ -31,9 +31,12 @@ object BackupMoshiFactory {
 /**
  * OkHttp の [Cookie] と pipe-delimited 文字列を相互変換する Moshi adapter。
  *
- * 現在の形式: `"name|value|expiresAt|domain|path|secure|httpOnly|hostOnly"` (8 field)。
- * 旧形式 `"name|value|expiresAt|domain|path|secure|httpOnly"` (7 field) も読み込み可能。
- * 旧形式では [Cookie.hostOnly] は `false` として復元する。
+ * 現在の形式: `"name|value|expiresAt|domain|path|secure|httpOnly|hostOnly|persistent"` (9 field)。
+ * 旧形式 (8 field, hostOnly あり / 7 field, hostOnly なし) も読み込み可能。
+ *
+ * 旧形式では [Cookie.persistent] は `true` として復元し、既存挙動を維持する。
+ * 新形式では 9 番目の field で [Cookie.persistent] を明示保存し、
+ * `persistent == false` の場合は deserialize 時に `expiresAt()` を呼ばず session cookie を維持する。
  *
  * `CookieLocalDataSourceImpl` と [com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreDataStoreWriter] の
  * 両方で統一した形式で保存するために使う。
@@ -42,7 +45,7 @@ class CookieJsonAdapter {
     @ToJson
     fun toJson(cookie: Cookie): String {
         return "${cookie.name}|${cookie.value}|${cookie.expiresAt}|${cookie.domain}" +
-            "|${cookie.path}|${cookie.secure}|${cookie.httpOnly}|${cookie.hostOnly}"
+            "|${cookie.path}|${cookie.secure}|${cookie.httpOnly}|${cookie.hostOnly}|${cookie.persistent}"
     }
 
     @FromJson
@@ -59,11 +62,23 @@ class CookieJsonAdapter {
                 false
             }
 
+            // --- persistent: 9 field 以上なら parts[8]、それ未満の旧形式なら true ---
+            val persistent = if (parts.size >= 9) {
+                parts[8].toBoolean()
+            } else {
+                true
+            }
+
             // --- Builder 構築 ---
             Cookie.Builder()
                 .name(parts[0])
                 .value(parts[1])
-                .expiresAt(parts[2].toLong())
+                .apply {
+                    // --- Expiry: persistent cookie の場合のみ expiresAt を設定 ---
+                    if (persistent) {
+                        expiresAt(parts[2].toLong())
+                    }
+                }
                 .path(parts[4])
                 .apply {
                     // --- Domain scope: hostOnly で分岐 ---

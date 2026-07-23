@@ -9,21 +9,19 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Room DB 書き込みを直列化または停止する共通ゲート。
+ * Room DB 書き込みの排他制御を行う共通 gate。
  *
- * 役割:
- * - 通常の Room DB 書き込み経路を `withWritePermit { ... }` で囲み、停止区間中なら
- *   block 開始前まで待機させる。
- * - バックアップなどの排他処理が `withWritesSuspended { ... }` で新規書き込みを待機させ、
- *   進行中の `withWritePermit` が完了してから block を実行できるようにする。
+ * 単一 FIFO queue と active writer 予約により、writer 再開直後の race を防ぎつつ
+ * `withWritesSuspended` の排他性を保証する。
  *
- * 並行制御の方針:
- * - 通常時の `withWritePermit` 同士は gate 側で直列化しない。Room/SQLite 側の
- *   transaction や DAO レベルの待機はそちらに委ねる。
- * - `withWritesSuspended` は要求順に FIFO で実行する。同時並行はしない。
- * - 待機中の `withWritePermit` は、後続の `withWritesSuspended` に追い越されない。
- * - block の例外/キャンセル時も gate 状態（active writer 数、closed 状態、
- *   pending suspension、waiting writer）が必ず復旧する。
+ * - 通常 writer は `suspensionActive == false` かつ queue が空の場合に即時入場する。
+ * - `withWritesSuspended` は `activeWriters == 0 && !suspensionActive && queue.isEmpty()`
+ *   の場合に即時開始する。
+ * - writer / suspension は到着順で queue 管理し、古い writer group を後続 suspension が
+ *   追い越さない。
+ * - queue から writer を再開する前に `activeWriters` を予約し、後続 suspension の割り込みを防ぐ。
+ * - block の例外・cancellation 時に gate 状態が必ず復旧する。
+ * - block の戻り値・例外・cancellation は cleanup 後にそのまま呼び出し元へ伝播する。
  *
  * 複数 Repository/DataSource をまたぐ書き込みで二重 gate が発生しないよう、
  * 外側 orchestration だけが `withWritePermit` を取得し、内側で呼ばれる書き込みは
@@ -31,86 +29,142 @@ import javax.inject.Singleton
  */
 @Singleton
 class DatabaseWriteGate @Inject constructor() {
+
+    // --- Waiter types ---
+
+    /**
+     * gate 内の待機要素を表す sealed interface。
+     *
+     * [WriterWaiter] は `withWritePermit` の、[SuspensionWaiter] は `withWritesSuspended` の
+     * 待機を表現する。
+     */
+    private sealed interface Waiter {
+        val signal: CompletableDeferred<Unit>
+    }
+
+    /**
+     * `withWritePermit` の writer 待機状態。
+     *
+     * lifecycle: `QUEUED` → `RESERVED` → `RUNNING` → `RELEASED`
+     */
+    private enum class WriterWaiterState {
+        /** queue 内で待機中。 */
+        QUEUED,
+        /**
+         * queue から取り出され、[activeWriters] に予約済み。
+         * [signal.await] が成功する前の状態。
+         */
+        RESERVED,
+        /** [signal.await] が成功し、[block] を実行中。 */
+        RUNNING,
+        /** release 済み。[activeWriters] を減算済み。 */
+        RELEASED,
+    }
+
+    /**
+     * `withWritePermit` の waiter。
+     * [state] により lifecycle を管理する。
+     */
+    private data class WriterWaiter(
+        override val signal: CompletableDeferred<Unit>,
+        var state: WriterWaiterState = WriterWaiterState.QUEUED,
+    ) : Waiter
+
+    /**
+     * `withWritesSuspended` の suspension 待機状態。
+     *
+     * lifecycle: `QUEUED` → `ACTIVE` → `RELEASED`
+     */
+    private enum class SuspensionWaiterState {
+        /** queue 内で待機中。 */
+        QUEUED,
+        /** queue から取り出され、[suspensionActive] が true の状態。 */
+        ACTIVE,
+        /** release 済み。[suspensionActive] を戻し queue 前進済み。 */
+        RELEASED,
+    }
+
+    /**
+     * `withWritesSuspended` の waiter。
+     * [state] により lifecycle を管理する。
+     */
+    private data class SuspensionWaiter(
+        override val signal: CompletableDeferred<Unit>,
+        var state: SuspensionWaiterState = SuspensionWaiterState.QUEUED,
+    ) : Waiter
+
+    // --- State ---
+
     /**
      * gate の内部状態。
      *
-     * @property activeWriters 現在 `withWritePermit` block を実行中の writer 数。
-     * @property closed 停止要求が立っているか。`true` の間は新規 `withWritePermit` は待機する。
-     *   停止要求の段階から立つ（active writer 待機中の queued suspension を含む）。
-     * @property pendingSuspensions 待機中の `withWritesSuspended` の待機 Deferred (FIFO)。
-     * @property waitingWriters closed 期間中に待機している `withWritePermit` の待機 Deferred (FIFO)。
+     * @property activeWriters 現在 block を実行中または予約済みの writer 数。
+     * @property suspensionActive 現在 `withWritesSuspended` の block を実行中か。
+     * @property queue writer と suspension の待機 FIFO queue。
      */
     private data class State(
         val activeWriters: Int = 0,
-        val closed: Boolean = false,
-        val pendingSuspensions: List<CompletableDeferred<Unit>> = emptyList(),
-        val waitingWriters: List<CompletableDeferred<Unit>> = emptyList(),
+        val suspensionActive: Boolean = false,
+        val queue: List<Waiter> = emptyList(),
     )
 
     private val stateRef = java.util.concurrent.atomic.AtomicReference(State())
     private val stateLock = Mutex()
 
+    // --- Public API ---
+
     /**
      * 通常の Room DB 書き込みを実行する。
      *
-     * 振る舞い:
-     * - 停止要求がない場合は待機せず block を実行する。
-     * - 停止区間中、または停止要求後に到着した場合は、gate が再び開くまで待機する。
-     * - 待機中の `withWritePermit` は、後続の `withWritesSuspended` に追い越されない。
+     * `suspensionActive == false` かつ queue が空の場合は即時入場する。
+     * それ以外の場合は queue 末尾で待機し、再開時に予約された active writer として block を実行する。
      *
-     * block が例外を投げた場合でも active writer 数は必ず減算される。
+     * @param block 実行する書き込み処理。
+     * @return block の戻り値。例外/cancellation は cleanup 後にそのまま伝播する。
      */
-    suspend fun <T> withWritePermit(block: suspend () -> T): T = coroutineScope {
+    suspend fun <T> withWritePermit(block: suspend () -> T): T {
         // --- 入場 ---
-        val waitForClosed: CompletableDeferred<Unit>? = stateLock.withLock {
+        val runningWriter: WriterWaiter = stateLock.withLock {
             val current = stateRef.get()
-            if (!current.closed) {
-                // 入場可。active writer を増やしてそのまま block へ。
-                stateRef.set(current.copy(activeWriters = current.activeWriters + 1))
-                null
-            } else {
-                // 停止区間中。waitingWrites へ追加。
-                val waiter = CompletableDeferred<Unit>()
-                stateRef.set(
-                    current.copy(
-                        waitingWriters = current.waitingWriters + waiter
-                    )
+            if (!current.suspensionActive && current.queue.isEmpty()) {
+                // 即時入場。active token を作成して activeWriters を増やす。
+                val writer = WriterWaiter(
+                    signal = CompletableDeferred(),
+                    state = WriterWaiterState.RUNNING,
                 )
-                waiter
+                stateRef.set(current.copy(activeWriters = current.activeWriters + 1))
+                writer
+            } else {
+                // queue 末尾で待機。
+                val writer = WriterWaiter(signal = CompletableDeferred())
+                stateRef.set(current.copy(queue = current.queue + writer))
+                writer
             }
         }
-        if (waitForClosed != null) {
-            // キャンセル対応のため、await 中にキャンセルされたら
-            // waitingWriters から自分を取り除く。
+
+        if (runningWriter.state == WriterWaiterState.QUEUED) {
+            // queue 待機 → await
             try {
-                waitForClosed.await()
+                runningWriter.signal.await()
             } catch (ce: CancellationException) {
-                cleanupWriterWaiter(waitForClosed)
+                // --- cancellation cleanup ---
+                cleanupWriter(runningWriter)
                 throw ce
             }
-            // 待機解除後、active writer を 1 増やす。
+            // await 成功。block 開始前に state を RUNNING に更新する。
             stateLock.withLock {
-                val current = stateRef.get()
-                stateRef.set(current.copy(activeWriters = current.activeWriters + 1))
+                if (runningWriter.state == WriterWaiterState.RESERVED) {
+                    runningWriter.state = WriterWaiterState.RUNNING
+                }
             }
         }
-        try {
+
+        // --- block 実行 + release ---
+        return try {
             block()
         } finally {
-            // --- 退出 ---
-            // active writer を減らし、0 なら次の suspension を起こす。
             stateLock.withLock {
-                val current = stateRef.get()
-                val newActive = current.activeWriters - 1
-                if (newActive < 0) {
-                    // 不整合。安全のため 0 に戻す。
-                    stateRef.set(current.copy(activeWriters = 0))
-                } else {
-                    stateRef.set(current.copy(activeWriters = newActive))
-                }
-                if (newActive == 0) {
-                    advanceSuspensionQueueLocked()
-                }
+                releaseReservedWriterLocked(runningWriter)
             }
         }
     }
@@ -118,152 +172,202 @@ class DatabaseWriteGate @Inject constructor() {
     /**
      * バックアップなどの排他処理を実行する。
      *
-     * 振る舞い:
-     * - active writer が 0 で gate が開いている場合は即時 closed にして block を実行する。
-     * - そうでない場合は pending suspension キューへ FIFO で追加する。
-     *   停止要求は要求時点で立つため、closed はこの時点で true になる。
-     * - 待機中の `withWritePermit` は、停止要求後に到着したものも含めて停止解除まで待たされる。
-     * - block 完了後に次の suspension を起こすか、最後なら gate を開いて waiting writer を
-     *   順次再開する。
-     * - block が例外/キャンセルで終了しても gate 状態は復旧する。
+     * `activeWriters == 0 && !suspensionActive && queue.isEmpty()` の場合は即時開始する。
+     * それ以外の場合は queue 末尾で待機し、再開時に active suspension として block を実行する。
+     *
+     * @param block 実行する排他処理。
+     * @return block の戻り値。例外/cancellation は cleanup 後にそのまま伝播する。
      */
-    suspend fun <T> withWritesSuspended(block: suspend () -> T): T = coroutineScope {
+    suspend fun <T> withWritesSuspended(block: suspend () -> T): T {
         // --- 入場 ---
-        // 自分が gate を即時開始するかどうかを決める。
-        val (startedImmediately, pendingWaiter) = stateLock.withLock {
+        val activeSuspension: SuspensionWaiter = stateLock.withLock {
             val current = stateRef.get()
-            if (current.activeWriters == 0 && !current.closed) {
-                // 即時開始。closed = true にして block へ。
-                stateRef.set(current.copy(closed = true))
-                true to null
-            } else {
-                // 待機。pending suspension キューへ追加し、停止要求を立てる。
-                val waiter = CompletableDeferred<Unit>()
-                stateRef.set(
-                    current.copy(
-                        closed = true,
-                        pendingSuspensions = current.pendingSuspensions + waiter
-                    )
+            if (current.activeWriters == 0 && !current.suspensionActive && current.queue.isEmpty()) {
+                // 即時開始。active token を作成。
+                val suspension = SuspensionWaiter(
+                    signal = CompletableDeferred(),
+                    state = SuspensionWaiterState.ACTIVE,
                 )
-                false to waiter
+                stateRef.set(current.copy(suspensionActive = true))
+                suspension
+            } else {
+                // queue 末尾で待機。
+                val suspension = SuspensionWaiter(signal = CompletableDeferred())
+                stateRef.set(current.copy(queue = current.queue + suspension))
+                suspension
             }
         }
-        if (!startedImmediately) {
-            if (pendingWaiter == null) {
-                // 論理上到達しない。
-                error("DatabaseWriteGate: pendingWaiter must not be null when not started immediately")
-            }
+
+        if (activeSuspension.state == SuspensionWaiterState.QUEUED) {
+            // queue 待機 → await
             try {
-                pendingWaiter.await()
+                activeSuspension.signal.await()
             } catch (ce: CancellationException) {
-                cleanupSuspensionWaiter(pendingWaiter)
+                // --- cancellation cleanup ---
+                cleanupSuspension(activeSuspension)
                 throw ce
             }
         }
-        // block 実行。完了（成功/失敗/キャンセル）後、必ず gate を次の状態へ進める。
-        try {
+
+        // --- block 実行 + release ---
+        return try {
             block()
         } finally {
-            // --- 退出 ---
-            // 次の状態を決める。
             stateLock.withLock {
-                if (stateRef.get().pendingSuspensions.isNotEmpty()) {
-                    // 次の suspension を起こす。closed のまま。
-                    advanceSuspensionQueueLocked()
-                } else {
-                    // 全 suspension 完了。gate を開く。
-                    stateRef.set(stateRef.get().copy(closed = false))
-                    // 待機中の writer を順次再開する。
-                    resumeWaitingWritersLocked()
+                releaseActiveSuspensionLocked(activeSuspension)
+            }
+        }
+    }
+
+    // --- queue advancement ---
+
+    /**
+     * queue 先頭から次の実行対象を予約・開始する。
+     *
+     * `suspensionActive == true` または `activeWriters > 0` の場合は何もしない。
+     * queue が空の場合も何もしない。
+     *
+     * - queue 先頭が [SuspensionWaiter] の場合は 1 件だけ ACTIVE にして進める。
+     * - queue 先頭が [WriterWaiter] の場合は次の [SuspensionWaiter] までの連続 writer 群を
+     *   まとめて RESERVED にし、`activeWriters` を予約してから resume 可能にする。
+     *
+     * `stateLock` 内で呼び出すこと。
+     */
+    private fun advanceQueueLocked() {
+        val current = stateRef.get()
+        if (current.suspensionActive || current.activeWriters > 0) return
+        if (current.queue.isEmpty()) return
+
+        val first = current.queue.first()
+        when (first) {
+            is SuspensionWaiter -> {
+                // 1 件だけ開始。
+                first.state = SuspensionWaiterState.ACTIVE
+                stateRef.set(
+                    current.copy(
+                        suspensionActive = true,
+                        queue = current.queue.drop(1),
+                    ),
+                )
+                // reservation が完了したので signal を起こす。
+                // complete は lock 内でも良いし、本実装では lock 内で行う。
+                first.signal.complete(Unit)
+            }
+            is WriterWaiter -> {
+                // 次の suspension までの連続 writer をまとめて予約。
+                val writers = current.queue.takeWhile { it is WriterWaiter }
+                val remaining = current.queue.drop(writers.size)
+                writers.forEach { (it as WriterWaiter).state = WriterWaiterState.RESERVED }
+                val signals = writers.map { it.signal }
+                stateRef.set(
+                    current.copy(
+                        activeWriters = current.activeWriters + writers.size,
+                        queue = remaining,
+                    ),
+                )
+                // reservation 完了後に signal を起こす。
+                signals.forEach { it.complete(Unit) }
+            }
+        }
+    }
+
+    // --- release helpers ---
+
+    /**
+     * 予約済み writer の active writer 予約を解放する。
+     *
+     * `RESERVED` または `RUNNING` の writer を `RELEASED` に遷移させ、
+     * `activeWriters` を 1 減らす。すでに `RELEASED` の場合は何もしない。
+     *
+     * `activeWriters` が 0 になった場合は `advanceQueueLocked()` を呼び、
+     * 後続の suspension または writer 群を進める。
+     *
+     * `stateLock` 内で呼び出すこと。
+     */
+    private fun releaseReservedWriterLocked(writer: WriterWaiter) {
+        if (writer.state == WriterWaiterState.RELEASED) return
+        if (writer.state == WriterWaiterState.RESERVED || writer.state == WriterWaiterState.RUNNING) {
+            writer.state = WriterWaiterState.RELEASED
+            val current = stateRef.get()
+            val newActive = current.activeWriters - 1
+            stateRef.set(current.copy(activeWriters = newActive.coerceAtLeast(0)))
+            if (newActive <= 0) {
+                advanceQueueLocked()
+            }
+        }
+    }
+
+    /**
+     * active suspension の状態を解放する。
+     *
+     * `ACTIVE` の suspension を `RELEASED` に遷移させ、`suspensionActive = false` に戻し、
+     * queue 前進を行う。すでに `RELEASED` の場合は何もしない。
+     *
+     * `stateLock` 内で呼び出すこと。
+     */
+    private fun releaseActiveSuspensionLocked(suspension: SuspensionWaiter) {
+        if (suspension.state == SuspensionWaiterState.RELEASED) return
+        if (suspension.state == SuspensionWaiterState.ACTIVE) {
+            suspension.state = SuspensionWaiterState.RELEASED
+            stateRef.set(stateRef.get().copy(suspensionActive = false))
+            advanceQueueLocked()
+        }
+    }
+
+    // --- cancellation cleanup ---
+
+    /**
+     * 待機中または予約済みの writer の cancellation cleanup を行う。
+     *
+     * - queue に残っている writer は queue から取り除き、queue が idle なら前進させる。
+     * - queue から取り出され予約済み (RESERVED) の場合は [releaseReservedWriterLocked] で解放する。
+     *   queue 前進は release helper の責務とする。
+     *
+     * `stateLock` 内で呼び出すこと。
+     */
+    private suspend fun cleanupWriter(writer: WriterWaiter) {
+        stateLock.withLock {
+            if (writer.state == WriterWaiterState.QUEUED) {
+                // まだ queue 内 → 取り除く。
+                val current = stateRef.get()
+                val removed = current.queue.filterNot { it === writer }
+                stateRef.set(current.copy(queue = removed))
+                // gate が idle かつ queue に後続があれば前進。
+                if (!current.suspensionActive && current.activeWriters == 0) {
+                    advanceQueueLocked()
                 }
+            } else {
+                // 予約済み → release path へ。
+                releaseReservedWriterLocked(writer)
             }
         }
     }
 
     /**
-     * 待機中の writer を順次再開する。
+     * 待機中または active 化済みの suspension の cancellation cleanup を行う。
      *
-     * waitingWriters は到着順 FIFO で再開する。
-     */
-    private fun resumeWaitingWritersLocked() {
-        val current = stateRef.get()
-        val waiting = current.waitingWriters
-        if (waiting.isEmpty()) {
-            return
-        }
-        // 全員を待ち行列から外し、順次 resume する。
-        stateRef.set(current.copy(waitingWriters = emptyList()))
-        waiting.forEach { it.complete(Unit) }
-    }
-
-    /**
-     * 次の pending suspension を起こす。gate は閉じたまま。
-     */
-    private fun advanceSuspensionQueueLocked() {
-        val current = stateRef.get()
-        if (current.pendingSuspensions.isEmpty()) {
-            return
-        }
-        val next = current.pendingSuspensions.first()
-        val rest = current.pendingSuspensions.drop(1)
-        stateRef.set(current.copy(pendingSuspensions = rest))
-        next.complete(Unit)
-    }
-
-    /**
-     * writer の待機オブジェクトがキャンセルされた場合に waitingWriters から取り除く。
-     */
-    private suspend fun cleanupWriterWaiter(waiter: CompletableDeferred<Unit>) {
-        stateLock.withLock {
-            val current = stateRef.get()
-            if (current.waitingWriters.contains(waiter)) {
-                stateRef.set(
-                    current.copy(
-                        waitingWriters = current.waitingWriters.filterNot { it === waiter }
-                    )
-                )
-            }
-            // 待機 writer が居なくなった結果、suspension を進行できるケースがある。
-            tryAdvanceBecauseQueueChanged()
-        }
-    }
-
-    /**
-     * suspension の待機オブジェクトがキャンセルされた場合に pendingSuspensions から取り除く。
-     */
-    private suspend fun cleanupSuspensionWaiter(waiter: CompletableDeferred<Unit>) {
-        stateLock.withLock {
-            val current = stateRef.get()
-            if (current.pendingSuspensions.contains(waiter)) {
-                stateRef.set(
-                    current.copy(
-                        pendingSuspensions = current.pendingSuspensions.filterNot { it === waiter }
-                    )
-                )
-            }
-            tryAdvanceBecauseQueueChanged()
-        }
-    }
-
-    /**
-     * 待機列の変動によって gate 状態を前進させられるかを再評価する。
+     * - queue に残っている suspension は queue から取り除き、queue が idle なら前進させる。
+     * - ACTIVE 化済みの場合は [releaseActiveSuspensionLocked] で解放する。
+     *   queue 前進は release helper の責務とする。
      *
-     * トリガ:
-     * - waiting writer がキャンセルされ、active writer が 0 かつ closed のとき
-     *   次の suspension を進行できる。
-     * - pending suspension がキャンセルされ、active writer が 0 かつ closed のとき
-     *   gate を開放できる。
+     * `stateLock` 内で呼び出すこと。
      */
-    private fun tryAdvanceBecauseQueueChanged() {
-        val current = stateRef.get()
-        if (current.activeWriters != 0 || !current.closed) {
-            return
-        }
-        if (current.pendingSuspensions.isNotEmpty()) {
-            advanceSuspensionQueueLocked()
-        } else {
-            stateRef.set(current.copy(closed = false))
-            resumeWaitingWritersLocked()
+    private suspend fun cleanupSuspension(suspension: SuspensionWaiter) {
+        stateLock.withLock {
+            if (suspension.state == SuspensionWaiterState.QUEUED) {
+                // まだ queue 内 → 取り除く。
+                val current = stateRef.get()
+                val removed = current.queue.filterNot { it === suspension }
+                stateRef.set(current.copy(queue = removed))
+                // suspension が取り除かれた結果、queue に writer が残っている場合、
+                // activeWriters が 0 で suspensionActive でなければ前進させる。
+                if (!current.suspensionActive && current.activeWriters == 0) {
+                    advanceQueueLocked()
+                }
+            } else {
+                // ACTIVE 化済み → release path へ。
+                releaseActiveSuspensionLocked(suspension)
+            }
         }
     }
 }
