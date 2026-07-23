@@ -29,6 +29,7 @@ import com.websarva.wings.android.slevo.data.model.ThemeMode
 import io.mockk.every
 import io.mockk.coEvery
 import io.mockk.mockk
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -42,6 +43,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -62,6 +64,7 @@ class BackupRestoreRepositoryTest {
     private lateinit var context: Context
     private lateinit var pendingRestoreManager: PendingRestoreManager
     private lateinit var repository: BackupRepositoryImpl
+    private var readerTempDbFile: File? = null
 
     @Before
     fun setUp() {
@@ -75,6 +78,13 @@ class BackupRestoreRepositoryTest {
         val dbValidator = FakeBackupDatabaseValidator()
         pendingRestoreManager = PendingRestoreManager(context, moshi, dbValidator)
 
+        val backupReader = BackupReader(moshi, dbValidator, currentDbVersion = 9).also { reader ->
+            reader.tempDbFileProvider = {
+                tempFolder.newFile("reader-db-${System.nanoTime()}").also { file ->
+                    readerTempDbFile = file
+                }
+            }
+        }
         repository = BackupRepositoryImpl(
             context = context,
             settingsDataSource = FakeSettingsDataSource(),
@@ -82,7 +92,7 @@ class BackupRestoreRepositoryTest {
             cookieDataSource = FakeCookieDataSource(),
             dbExporter = mockk(relaxed = true),
             outputWriter = mockk(relaxed = true),
-            backupReader = BackupReader(moshi, dbValidator, currentDbVersion = 9),
+            backupReader = backupReader,
             pendingRestoreManager = pendingRestoreManager,
         )
     }
@@ -94,7 +104,12 @@ class BackupRestoreRepositoryTest {
 
         val result = repository.previewBackup(uri)
 
-        Assert.assertTrue(result is BackupRestoreResult.Success)
+        val success = result as BackupRestoreResult.Success
+        Assert.assertEquals("2026-07-03T00:00:00Z", success.metadata.createdAt)
+        Assert.assertEquals("1.0.0", success.metadata.appVersionName)
+        Assert.assertEquals(1L, success.metadata.appVersionCode)
+        Assert.assertFalse(success.metadata.containsCookies)
+        Assert.assertFalse(requireNotNull(readerTempDbFile).exists())
     }
 
     @Test
@@ -172,6 +187,43 @@ class BackupRestoreRepositoryTest {
         Assert.assertEquals(AppDatabase.CURRENT_DATABASE_VERSION, manifest?.databaseVersion)
     }
 
+    /** DB export が部分ファイルを残して失敗しても、ZIP 開始前に session 全体を削除する。 */
+    @Test
+    fun exportBackup_dbExportFailureCleansPartialSessionWithoutStartingZip() = runTest {
+        val dbExporter = mockk<DatabaseBackupExporter>()
+        val expected = IOException("partial database copy failed")
+        coEvery { dbExporter.exportDatabase(any()) } coAnswers {
+            val databaseDir = firstArg<File>()
+            File(databaseDir, "slevo.db").apply {
+                parentFile?.mkdirs()
+                writeBytes(byteArrayOf(1, 2))
+            }
+            throw expected
+        }
+        var zipStarted = false
+        val outputWriter = BackupOutputWriter.forTest { _, _ ->
+            zipStarted = true
+            ByteArrayOutputStream()
+        }
+        val exportRepository = BackupRepositoryImpl(
+            context = context,
+            settingsDataSource = FakeSettingsDataSource(),
+            tabsDataSource = FakeTabsDataSource(),
+            cookieDataSource = FakeCookieDataSource(),
+            dbExporter = dbExporter,
+            outputWriter = outputWriter,
+            backupReader = BackupReader(moshi, FakeBackupDatabaseValidator(), currentDbVersion = 9),
+            pendingRestoreManager = pendingRestoreManager,
+        )
+
+        val result = exportRepository.exportBackup(mockk(), includeCookies = false)
+
+        Assert.assertTrue(result is BackupExportResult.Failure)
+        Assert.assertFalse(zipStarted)
+        val backupRoot = File(context.cacheDir, "backups")
+        Assert.assertTrue(!backupRoot.exists() || backupRoot.listFiles().isNullOrEmpty())
+    }
+
     @Test
     fun restoreBackup_createsPendingRestoreForValidZip() = runTest {
         val uri = mockk<Uri>()
@@ -179,8 +231,13 @@ class BackupRestoreRepositoryTest {
 
         val result = repository.restoreBackup(uri, includeCookies = true)
 
-        Assert.assertTrue(result is BackupRestoreResult.Success)
+        val success = result as BackupRestoreResult.Success
+        Assert.assertEquals("2026-07-03T00:00:00Z", success.metadata.createdAt)
+        Assert.assertEquals("1.0.0", success.metadata.appVersionName)
+        Assert.assertEquals(1L, success.metadata.appVersionCode)
+        Assert.assertFalse(success.metadata.containsCookies)
         Assert.assertTrue(pendingRestoreManager.readMarker() != null)
+        Assert.assertFalse(requireNotNull(readerTempDbFile).exists())
     }
 
     @Test
@@ -190,7 +247,8 @@ class BackupRestoreRepositoryTest {
 
         val result = repository.restoreBackup(uri, includeCookies = false)
 
-        Assert.assertTrue(result is BackupRestoreResult.Success)
+        val success = result as BackupRestoreResult.Success
+        Assert.assertTrue(success.metadata.containsCookies)
         val marker = requireNotNull(pendingRestoreManager.readMarker())
         Assert.assertEquals(false, marker.includeCookies)
     }
@@ -219,6 +277,82 @@ class BackupRestoreRepositoryTest {
         val result = repository.restoreBackup(uri, includeCookies = true)
 
         Assert.assertTrue(result is BackupRestoreResult.Failure)
+    }
+
+    /** `prepareRestore()` の I/O 失敗を Failure に変換し、preview の temp DB を削除する。 */
+    @Test
+    fun restoreBackup_mapsPrepareRestoreIOExceptionToFailureAndCleansTempDb() = runTest {
+        val exception = IOException("disk full")
+        val manager = mockk<PendingRestoreManager> {
+            coEvery { prepareRestore(any()) } throws exception
+        }
+        repository = repositoryWith(manager)
+        val uri = mockk<Uri>()
+        every { context.contentResolver.openInputStream(uri) } returns createValidZipInputStream()
+
+        val result = repository.restoreBackup(uri, includeCookies = true)
+
+        Assert.assertTrue(result is BackupRestoreResult.Failure)
+        Assert.assertFalse(requireNotNull(readerTempDbFile).exists())
+    }
+
+    /** 権限例外を Failure に変換し、preview の temp DB を削除する。 */
+    @Test
+    fun restoreBackup_mapsPrepareRestoreSecurityExceptionToFailureAndCleansTempDb() = runTest {
+        val exception = SecurityException("permission denied")
+        val manager = mockk<PendingRestoreManager> {
+            coEvery { prepareRestore(any()) } throws exception
+        }
+        repository = repositoryWith(manager)
+        val uri = mockk<Uri>()
+        every { context.contentResolver.openInputStream(uri) } returns createValidZipInputStream()
+
+        val result = repository.restoreBackup(uri, includeCookies = true)
+
+        Assert.assertTrue(result is BackupRestoreResult.Failure)
+        Assert.assertFalse(requireNotNull(readerTempDbFile).exists())
+    }
+
+    /** cancellation は同一 instance のまま再送出し、preview の temp DB を削除する。 */
+    @Test
+    fun restoreBackup_rethrowsCancellationExceptionAndCleansTempDb() = runTest {
+        val exception = IdentityCancellationException(Any())
+        val manager = mockk<PendingRestoreManager> {
+            coEvery { prepareRestore(any()) } coAnswers { throw exception }
+        }
+        repository = repositoryWith(manager)
+        val uri = mockk<Uri>()
+        every { context.contentResolver.openInputStream(uri) } returns createValidZipInputStream()
+
+        var thrown: CancellationException? = null
+        try {
+            repository.restoreBackup(uri, includeCookies = true)
+        } catch (actual: CancellationException) {
+            thrown = actual
+        }
+        Assert.assertSame(exception, thrown)
+        Assert.assertFalse(requireNotNull(readerTempDbFile).exists())
+    }
+
+    /** programmer error は変換せず再送出し、preview の temp DB を削除する。 */
+    @Test
+    fun restoreBackup_rethrowsRuntimeExceptionAndCleansTempDb() = runTest {
+        val exception = IdentityRuntimeException(Any())
+        val manager = mockk<PendingRestoreManager> {
+            coEvery { prepareRestore(any()) } coAnswers { throw exception }
+        }
+        repository = repositoryWith(manager)
+        val uri = mockk<Uri>()
+        every { context.contentResolver.openInputStream(uri) } returns createValidZipInputStream()
+
+        var thrown: IllegalStateException? = null
+        try {
+            repository.restoreBackup(uri, includeCookies = true)
+        } catch (actual: IllegalStateException) {
+            thrown = actual
+        }
+        Assert.assertSame(exception, thrown)
+        Assert.assertFalse(requireNotNull(readerTempDbFile).exists())
     }
 
     @Test
@@ -318,6 +452,31 @@ class BackupRestoreRepositoryTest {
 
     /** テスト用ダミー DB バイト列。fake validator が常に成功するため実際の SQLite は不要。 */
     private fun createMinimalSqliteBytes(): ByteArray = byteArrayOf(0x00, 0x01, 0x02)
+
+    /** 指定した pending manager を使う repository を組み立てる。 */
+    private fun repositoryWith(manager: PendingRestoreManager): BackupRepositoryImpl =
+        BackupRepositoryImpl(
+            context = context,
+            settingsDataSource = FakeSettingsDataSource(),
+            tabsDataSource = FakeTabsDataSource(),
+            cookieDataSource = FakeCookieDataSource(),
+            dbExporter = mockk(relaxed = true),
+            outputWriter = mockk(relaxed = true),
+            backupReader = BackupReader(moshi, FakeBackupDatabaseValidator(), currentDbVersion = 9).also { reader ->
+                reader.tempDbFileProvider = {
+                    tempFolder.newFile("reader-db-${System.nanoTime()}").also { file ->
+                        readerTempDbFile = file
+                    }
+                }
+            },
+            pendingRestoreManager = manager,
+        )
+
+    /** coroutine stacktrace recovery がコピーできないコンストラクターを持つ cancellation exception。 */
+    private class IdentityCancellationException(private val token: Any) : CancellationException("cancelled")
+
+    /** coroutine stacktrace recovery がコピーできないコンストラクターを持つ runtime exception。 */
+    private class IdentityRuntimeException(private val token: Any) : IllegalStateException("programmer error")
 
     // --- Fakes ---
 

@@ -90,7 +90,14 @@
 
 #### Scenario: preview 情報を表示する
 - **WHEN** システムが復元前確認ダイアログを表示する
-- **THEN** システムはバックアップの作成日時、作成元アプリ version、DB version、Cookie 含有有無を表示する
+- **THEN** システムはバックアップの作成日時と作成元アプリ version を表示する
+- **AND** 作成日時は端末の現在の locale、time zone、12/24 時間設定に従って日付と時刻を表示する
+- **AND** 作成元アプリ version は versionName と versionCode を表示する
+- **AND** DB version は表示しない
+
+#### Scenario: preview 情報を読み上げる
+- **WHEN** accessibility service が復元前確認ダイアログを読み上げる
+- **THEN** 「作成日時」と「作成元アプリのバージョン」の各 label と値を、対応関係が分かる text として読み上げ可能にする
 
 #### Scenario: 上書き警告を表示する
 - **WHEN** システムが復元前確認ダイアログを表示する
@@ -362,6 +369,11 @@
 #### Scenario: 復元失敗を表示する
 - **WHEN** URI open、ZIP 読み込み、pending restore 作成、または起動時の pending restore 適用に失敗する
 - **THEN** システムは復元に失敗したことを Snackbar で表示する
+
+#### Scenario: pending restore 準備中の operational exception を失敗として完了する
+- **WHEN** commit 時の再検証後に pending restore を準備し、filesystem の `IOException` または `SecurityException` が発生する
+- **THEN** システムは復元準備中表示を終了し、既存の復元失敗 Snackbar を表示する
+- **AND** システムは coroutine cancellation、programmer error、または fatal error を復元失敗 result に変換しない
 
 #### Scenario: 起動時復元結果を一度だけ表示する
 - **WHEN** 起動時 pending restore 適用の結果が result file に記録されている

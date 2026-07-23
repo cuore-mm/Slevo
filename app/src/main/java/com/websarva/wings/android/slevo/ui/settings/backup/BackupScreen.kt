@@ -167,10 +167,12 @@ fun BackupScreenContent(
     }
 
     // 確認ダイアログ（復元）
-    if (uiState.showRestoreConfirmDialog) {
+    uiState.restorePreview?.let { restorePreview ->
         RestoreConfirmDialog(
             includeCookies = uiState.restoreIncludeCookies,
-            containsCookies = uiState.previewContainsCookies,
+            containsCookies = restorePreview.containsCookies,
+            createdAt = restorePreview.createdAt,
+            appVersionName = restorePreview.appVersionName,
             onCookiesToggle = onRestoreCookiesToggle,
             onCancel = onRestoreConfirmCancel,
             onRestore = onConfirmRestore,

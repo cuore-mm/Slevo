@@ -15,10 +15,9 @@ sealed class BackupRestoreResult {
     /**
      * 復元準備成功。次回アプリ起動で復元が適用される。
      *
-     * @property containsCookies 選択されたバックアップに Cookie が含まれているか。
-     *   preview では実際の値、restore では UI 側で既知のため参考値。
+     * @property metadata 復元確認に必要な、検証済みバックアップの metadata。
      */
-    data class Success(val containsCookies: Boolean) : BackupRestoreResult()
+    data class Success(val metadata: BackupConfirmationMetadata) : BackupRestoreResult()
 
     /**
      * 復元準備失敗（リトライ可能）。

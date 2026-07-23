@@ -155,7 +155,7 @@ Phase 3S で安全性は向上したが、`PendingRestoreApplier` に marker/res
 - [x] 5.6 `ui/settings/backup/BackupViewModel.kt` を拡張する。完了条件: 既存 export flow に加えて restore file select、URI null、preview success/failure、restore confirm cancel、restoreIncludeCookies toggle、confirm restore、pending restore 作成結果 mapping を扱う。
 - [x] 5.7 `ui/settings/backup/BackupScreen.kt` を「バックアップと復元」画面へ拡張する。完了条件: route wrapper が `CreateDocument` と `OpenDocument` launcher、Snackbar、ViewModel event collection を担当し、`BackupScreenContent` は stateless に描画する。
 - [x] 5.8 `BackupScreenContent` に「バックアップ作成」と「バックアップから復元」の 2 action を表示する。完了条件: 同じ画面から export と restore の両方を開始できる。
-- [x] 5.9 復元前確認ダイアログを実装する。完了条件: 上書き警告、未暗号化/個人データ注意、Cookie checkbox、キャンセル/復元ボタンを表示する。確認結果: 作成日時・app version・DB version・Cookie 含有有無の詳細表示は BackupRepository.previewBackup の実装に合わせて簡略化。BackupRestoreResult.Success が data object のため preview 詳細は minimium。5.9 相当の文言は strings に追加済み。
+- [x] 5.9 復元前確認ダイアログを実装する。完了条件: 上書き警告、未暗号化/個人データ注意、Cookie checkbox、キャンセル/復元ボタンを表示する。確認結果: 初期実装では preview metadata の詳細表示を簡略化した。作成日時と作成元 app version の表示は Phase 5M で補完し、DB version は表示対象にしない。
 - [x] 5.10 復元準備中ダイアログを実装する。完了条件: `isRestoring` 中に `CircularProgressIndicator` と説明文を表示し、閉じる操作を持たない。
 - [x] 5.11 Snackbar 文言を `strings_settings.xml` に追加する。完了条件: 復元準備完了、復元失敗、無効なバックアップの文字列 resource がある。
 - [x] 5.11a 起動時復元 result file の UI 通知を実装する。確認結果: Phase 5 では backup screen 内の restore flow に集中。`StartupRestoreSucceeded`/`StartupRestoreFailed` は app-level startup notification owner 側で扱う方針だが、app-level snackbar host の実装は Phase 6 または次 change に委ねる。
@@ -173,6 +173,16 @@ Phase 3S で安全性は向上したが、`PendingRestoreApplier` に marker/res
 - [x] 5.22 `RestoreConfirmDialog` の Cookie 復元 checkbox を、選択されたバックアップに Cookie が実際に含まれている場合のみ表示する。完了条件: `BackupUiState.previewContainsCookies` が true の場合のみ `CookieToggleCard` が表示される。
 - [x] 5.23 Cookie 不含時の ViewModel ガードを追加する。完了条件: `onConfirmRestore()` で `includeCookies = previewContainsCookies && restoreIncludeCookies` のように計算し、Cookie なしバックアップでは常に false になる。テスト追加。
 
+## Phase 5M: 復元確認 metadata の伝搬と表示
+
+- [x] 5M.1 data-layer の success contract を拡張する。対象: 新規 `data/backup/restore/BackupConfirmationMetadata.kt`、`BackupRestoreResult.kt`、`data/backup/BackupRepositoryImpl.kt`。完了条件: metadata 型が `createdAt`、`appVersionName`、`appVersionCode`、`containsCookies` のみを non-null で保持し、`BackupRestoreResult.Success(metadata)` を preview/restore preparation の共通 contract とする。両 path が検証済み `BackupPreview` から mapping し、`databaseVersion`、一時 DB file、settings/tabs/cookies JSON を result に含めず、preview 後の一時 DB file cleanup と restore 時の再検証を維持する。
+- [x] 5M.2 lifecycle-safe な restore preview UiState を実装する。対象: 新規 `ui/settings/backup/RestorePreviewUiState.kt`、`BackupUiState.kt`、`BackupViewModel.kt`。完了条件: UI model が raw `createdAt`、`appVersionName`、`appVersionCode`、`containsCookies` のみを保持し、nullable `BackupUiState.restorePreview` が dialog visibility の single source of truth になる。旧 `showRestoreConfirmDialog` / `previewContainsCookies` / data-layer `BackupPreview` import を除去する。preview 成功時に metadata と unchecked Cookie state を atomic に設定し、cancel、confirm、新規 file 選択、preview failure で stale metadata を clear する。configuration change では ViewModel state を維持し、process death persistence は追加しない。
+- [x] 5M.3 作成日時 formatter と文字列 resource を実装する。対象: `ui/settings/backup` 配下の formatter、`app/src/main/res/values/strings_settings.xml`。完了条件: `Instant` として解釈した ISO 8601 UTC 値を `DateFormat.getMediumDateFormat(context)` / `getTimeFormat(context)` で端末の現在の locale、time zone、12/24 時間設定に合わせ、`restore_backup_date` で `作成日時: <localized date> <localized time>` と表示する。parse failure は raw 値へ fallback して crash しない。既存 `restore_backup_version` は DB version placeholder を除去して `作成元アプリのバージョン: <versionName>（バージョンコード <versionCode>）` へ置換し、DB version を visible/accessibility text に残さない。
+- [x] 5M.4 既存の復元確認ダイアログへ metadata を追加する。対象: `ui/settings/backup/BackupConfirmDialogs.kt`、`BackupScreen.kt`、関連 Preview。完了条件: description と Cookie section の間に 2 行の non-interactive `Text` を既存 typography/spacing で表示し、各行の label と値が標準 Compose semantics で一緒に読み上げ可能である。上書き警告、Cookie indication/checkbox、confirm/cancel callback、layout style、restore semantics を変更せず、Preview 関数に KDoc を追加しない。
+- [x] 5M.5 repository と ViewModel の JVM unit test を更新する。完了条件: repository test が 4 metadata field の伝搬、一時 DB file cleanup、DB version 非伝搬を検証し、`BackupViewModelTest` が success 時の metadata/unchecked Cookie atomic state、rotation 相当の同一 ViewModel state retention、cancel/confirm/new selection/failure の clear、Cookie 有無 guard、既存 confirm/cancel/restore result を検証する。
+- [x] 5M.6 formatter と Compose dialog test を追加する。完了条件: formatter test が UTC から指定 time zone への変換、locale と 12/24 時間設定、parse failure fallback を検証し、Compose instrumented test が作成日時 label/value、source app versionName/versionCode、標準 semantics、DB version text 不在、Cookie 有無の既存表示条件、confirm/cancel callback を検証する。
+- [x] 5M.7 OpenSpec strict validation と GitHub Actions Android CI を実行する。完了条件: `openspec validate add-backup-restore --strict` が成功し、build と unit tests が成功した exact-HEAD CI Run ID を記録する。確認結果: strict validation 成功。Android CI Run ID `29691211083`（tested SHA `d6f7036557f074063349289c8133bd65c6732a2c`）。
+
 ## Phase 5R: Cookie 復元診断結果の反映
 
 手動確認ログで、preview / staging / marker / startup reflect までは Cookie 復元対象が正しく伝搬している一方、`PendingRestoreApplier` が bare Moshi (`Moshi.Builder().build()`) を使うため `okhttp3.Cookie` の serialize に失敗し、`writeCookies` が `success=0 failed=1 stringSetSize=0` として空の Cookie set を保存していることを確認した。Phase 6 の最終確認へ進む前に以下を完了する。
@@ -183,6 +193,16 @@ Phase 3S で安全性は向上したが、`PendingRestoreApplier` に marker/res
 - [x] 5R.4 Cookie 復元の regression test を追加する。完了条件: `BackupCookieItem -> writeCookies -> DataStore StringSet -> CookieJsonAdapter.fromJson` の round-trip、共通 Moshi factory が Cookie adapter を含むこと、serialize 失敗時に成功扱いしないことを JVM unit test で検証する。
 - [x] 5R.5 診断ログを整理する。完了条件: Cookie value を出さない方針を維持しつつ、恒久ログとして必要なものだけ残す。原因特定用の一時ログを残す場合は debug 限定または低ノイズにする。
 - [x] 5R.6 Phase 5R の CI を実行する。完了条件: GitHub Actions Android CI が成功し、Run ID をこのタスクへ追記する。確認結果: Run ID `28701901102`。
+
+## Phase 5P: 復元準備 exception の result mapping
+
+Codex P2 review で、commit 時の再検証後に `PendingRestoreManager.prepareRestore()` が filesystem exception を送出すると `BackupRestoreResult` を返さず、`BackupViewModel` の `isRestoring` が true のまま残ることを確認した。既存 UI と pending restore state machine を変更せず、repository boundary で operational exception のみを既存 failure flow へ戻す。
+
+- [x] 5P.1 `BackupRepositoryImpl.restoreBackup()` の `prepareRestore()` 呼び出しだけに exception mapping boundary を追加する。対象: `app/src/main/java/com/websarva/wings/android/slevo/data/backup/BackupRepositoryImpl.kt`。完了条件: `IOException` と `SecurityException` を詳細ログへ記録して `BackupRestoreResult.Failure` に変換し、`CancellationException`、その他の `RuntimeException`、`Error` は変換しない。`Throwable` を catch しない。
+- [x] 5P.2 cleanup と restore invariants を維持する。対象: `BackupRepositoryImpl.restoreBackup()`。完了条件: success、typed failure、mapped operational exception、再送出される cancellation/programmer exception の全 path で再検証用 `BackupPreview.dbFile` の既存 `finally` cleanup が実行される。repository から pending directory/marker を追加 cleanupせず、temporary URI handling、marker-last publication、既存 pending state、commit 時 ZIP 再読み込み・再検証、staging 後 integrity validationを変更しない。
+- [x] 5P.3 repository regression test を追加する。対象: `app/src/test/java/com/websarva/wings/android/slevo/data/backup/restore/BackupRestoreRepositoryTest.kt`。完了条件: `prepareRestore()` の `IOException` と `SecurityException` が `BackupRestoreResult.Failure` になり再検証用 temp DB が削除されること、`CancellationException` と代表的な非 operational `RuntimeException` は同じ instance のまま再送出され temp DB は削除されることを検証する。既存の manager typed failure test も維持する。
+- [x] 5P.4 terminal UI flow と UI 非変更を回帰確認する。対象: `app/src/test/java/com/websarva/wings/android/slevo/ui/settings/backup/BackupViewModelTest.kt` と `app/src/androidTest/java/com/websarva/wings/android/slevo/ui/settings/backup/BackupSnackbarEffectTest.kt`。完了条件: repository の `Failure` で `isRestoring = false`、`RestorePrepareFailed` queue、既存 Snackbar 表示・acknowledgement が維持される。新しい文字列、layout、interaction、ViewModel の broad exception catch を追加しない。既存 test が条件を十分に固定しているため test code は変更しない。
+- [x] 5P.5 OpenSpec strict validation、build、unit test、exact-HEAD CI を実行する。完了条件: `openspec validate add-backup-restore --strict`、build、unit test が成功し、GitHub Actions Android CI の Run ID と tested SHA を記録する。確認結果: strict validation 成功。Android CI Run ID `29694294111`（tested SHA `d21f9b90`）。build と unit tests 成功。
 
 ## Phase 6: 最終 verification と仕上げ
 

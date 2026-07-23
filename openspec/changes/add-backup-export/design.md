@@ -200,8 +200,8 @@ Cookie item の必須 field は `name`、`value`、`domain`、`path`、`expiresA
 7. checkpoint 未完了の場合は最大 3 回までリトライし、各リトライ前に 100ms 待機する。回数と待機時間は `DatabaseBackupExporter` 内の定数として定義し、テストで差し替え可能にする。
 8. リトライ後も `busy != 0` または `log != checkpointed` の場合は DB エクスポート失敗として詳細ログを残し、バックアップ全体を失敗させる。
 9. checkpoint 完了後に `BEGIN IMMEDIATE` を実行して、コピー中に新規 writer が入らない状態にする。
-10. `context.getDatabasePath(databaseName)` の main DB ファイルを `cacheDir/backups/<session>/database/slevo.db` へコピーする。
-11. コピーが成功したら `COMMIT`、失敗したら `ROLLBACK` を実行する。
+10. `context.getDatabasePath(databaseName)` の main DB ファイルを `cacheDir/backups/<session>/database/slevo.db` へコピーする。source size は channel open 後に 1 回だけ確定し、`position = 0` から `remaining = sourceSize - position` を指定して `FileChannel.transferTo` を繰り返す。各回の正の戻り値だけ position に加算し、`position == sourceSize` になるまで完了扱いにしない。`0` byte、負値、または remaining を超える戻り値は進捗不能または契約違反として `IOException` を送出し、無限ループや短い snapshot の受理を防ぐ。
+11. exact source size の転送が完了した場合だけコピー成功として `COMMIT` へ進み、未完了、I/O 例外、または cancellation では既存経路で `ROLLBACK` を実行する。コピー済み destination は後続の integrity check だけに依存せず、転送 byte 数の invariant を先に満たさなければならない。
 12. `DatabaseWriteGate` を解除する。
 13. コピーした `slevo.db` を読み取り専用で開き、`PRAGMA integrity_check` を実行する。
 14. `integrity_check` が `ok` を返した場合のみ、生成した `slevo.db` を ZIP の `database/slevo.db` に追加する。失敗または検証不能の場合は DB エクスポート失敗として詳細ログを残し、バックアップ全体を失敗させる。
@@ -209,6 +209,8 @@ Cookie item の必須 field は `name`、`value`、`domain`、`path`、`expiresA
 `backupMutex` はバックアップ同士の多重実行防止に限定し、アプリ内 DB 書き込み抑制には使わない。アプリ内 DB 書き込み抑制には、別変更 `add-database-write-gate` で導入済みの `DatabaseWriteGate` を利用する。バックアップ側は `DatabaseWriteGate.withWritesSuspended { ... }` の block 内で checkpoint と main DB コピーを実行する。
 
 `BEGIN IMMEDIATE` から main DB ファイルコピー完了までの source DB transaction は、例外・coroutine cancellation・コピー失敗のいずれでも DB lock と write suspension が残らないように実装する。`BEGIN IMMEDIATE` が成功した後、main DB ファイルコピーが成功した場合のみ `COMMIT` を試み、`COMMIT` 完了前の失敗では `ROLLBACK` を試みる。`COMMIT` 完了後のコピー済み DB integrity check 失敗はバックアップ失敗として扱い、一時ファイルを削除するが、source DB transaction への `ROLLBACK` は試みない。`ROLLBACK`、一時ファイル削除、stream close、`DatabaseWriteGate.withWritesSuspended` の解除は、必要に応じて cancellation の影響を受けにくい cleanup として扱う。cleanup 失敗も詳細ログへ記録し、ユーザー向けには共通失敗 Snackbar に統一する。
+
+短い転送を決定的に検証するため、`DatabaseBackupExporter` には `transferTo(position, count, target)` の戻り値を差し替えられる最小の internal test seam を設ける。production implementation は `FileChannel.transferTo` へそのまま委譲し、Hilt binding や公開 API は増やさない。seam は file copy 全体を隠さず、loop の position/count、stream/channel の `use` による close 順序、既存の例外伝播を production code で検証可能なままにする。新しい fsync、export format、integrity check 順序は追加せず、destination channel close 後に source channel、output stream、input stream を閉じる既存順序を維持する。
 
 `BackupRepository` は repository/data 層でもバックアップ作成の多重実行を防ぐ。UI の disabled 状態だけに依存せず、`exportBackup(uri, includeCookies)` 相当の API は内部の `backupMutex` で 1 件ずつ実行する。2 件目以降の同時要求は、先行要求の完了まで待機してから開始する。将来の要件で即時失敗に変える場合は spec を更新する。
 
@@ -297,6 +299,7 @@ Hilt binding は既存の `DataSourceModule.kt` に詰め込みすぎず、必�
 - [Risk] `add-database-write-gate` が未実装、または移行漏れがある状態でバックアップを実装すると、コピー中に WAL が再生成される。 → この変更は `add-database-write-gate` 完了後に実装し、バックアップ側では `withWritesSuspended` を必ず使う。
 - [Risk] checkpoint が busy または未完了のまま main DB をコピーすると、WAL 未反映分が欠落する。 → checkpoint 結果の `busy`、`log`、`checkpointed` を確認し、未完了ならリトライ後に失敗扱いにする。
 - [Risk] コピー処理自体は成功しても DB ファイルが読み取り不能な可能性がある。 → コピー後に読み取り専用 open と `PRAGMA integrity_check` を実行し、`ok` 以外なら失敗扱いにする。
+- [Risk] `FileChannel.transferTo` は要求 byte 数より短い値または `0` を返せるため、1 回の呼び出しを成功扱いすると snapshot が切り詰められる。 → source size まで正の進捗を累積し、zero progress または不正な戻り値は `IOException` として失敗させる。
 - [Risk] DB エクスポート中に UI が再押下される。 → `isExporting` 中は保存ボタン、確認ダイアログの作成ボタン、クッキー checkbox を無効化する。
 - [Risk] クッキーを含むバックアップはセンシティブ情報を含む。 → 確認ダイアログ内の checkbox はデフォルト OFF にし、同じダイアログ内で認証情報が含まれる可能性を明示する。
 - [Risk] DataStore の JSON モデルと既存設定キーがずれる。 → `BackupSettingsJson` 生成テストで既存設定を網羅し、設定追加時にモデル更新が必要なことを KDoc に記載する。
@@ -338,6 +341,7 @@ Hilt binding は既存の `DataSourceModule.kt` に詰め込みすぎず、必�
 - DB エクスポートで `VACUUM INTO` を使ってはならない。
 - `PRAGMA wal_checkpoint(TRUNCATE)` は `BEGIN IMMEDIATE` の前に実行し、checkpoint 結果を確認してから DB ファイルコピーへ進む。
 - `BEGIN IMMEDIATE` は checkpoint 完了後、main DB ファイルコピー直前に開始する。
+- main DB コピーは channel open 後に確定した source size を上限とし、`transferTo` の正の戻り値を position に累積して exact size に達した場合だけ成功扱いにする。zero progress、負値、remaining 超過、または exact size 未達を成功扱いにしてはならない。
 - コピー済み DB は ZIP へ追加する前に読み取り専用 open と `PRAGMA integrity_check` で検証する。
 - バックアップ中は `DatabaseWriteGate.withWritesSuspended` を使い、新規 DB 書き込みを待機させる。
 - DataStore のバックアップ内容は `.preferences_pb` コピーではなく JSON DTO から生成する。
@@ -370,6 +374,9 @@ Hilt binding は既存の `DataSourceModule.kt` に詰め込みすぎず、必�
   - `BackupRepository.exportBackup` を concurrent call した場合でも 1 件ずつ実行されることを fake writer で検証する。
   - コピー済み DB の読み取り専用 open と `PRAGMA integrity_check` が成功した場合だけ ZIP へ進むことを検証する。
   - DB コピー、integrity check、ZIP 書き込み、coroutine cancellation の失敗時に transaction rollback、gate release、一時ディレクトリ cleanup が行われることを fake で検証する。
+  - transfer seam から複数の短い正値を返し、各呼び出しの position が累積値、count が source size までの remaining となり、合計が exact source size に達した場合だけ commit へ進むことを決定的に検証する。
+  - transfer seam が途中で `0` を返す場合、追加呼び出しで loop し続けず `IOException` が伝播し、commit せず rollback、gate release、channel/stream close、repository の session directory cleanup が行われることを検証する。
+  - transfer seam が `IOException` または `CancellationException` を送出する場合も既存の rollback、cleanup、例外伝播を維持し、integrity check や ZIP 書き込みへ進まないことを検証する。
   - ZIP stream close、flush、underlying output stream close の失敗を fake stream で検証し、成功扱いにならないことを確認する。
 - UI/navigation:
   - Compose UI または instrumented test で、設定画面の「バックアップ作成」項目からバックアップ作成画面へ遷移できることを検証する。

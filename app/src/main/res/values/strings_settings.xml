@@ -100,7 +100,8 @@
     <string name="restore_prepared_description">アプリを終了して、もう一度起動すると復元が適用されます。</string>
     <string name="restore_prepared_later">あとで</string>
     <string name="restore_prepared_exit">アプリを終了</string>
-    <string name="restore_backup_date">作成日時: %s</string>
-    <string name="restore_backup_version">バージョン: %s (db v%d)</string>
+    <string name="restore_backup_information">バックアップ情報</string>
+    <string name="restore_backup_date">作成日時</string>
+    <string name="restore_backup_version">作成元バージョン</string>
     <string name="restore_backup_cookies_contained">クッキーを含む</string>
 </resources>

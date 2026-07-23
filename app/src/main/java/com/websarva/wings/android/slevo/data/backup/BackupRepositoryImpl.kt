@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.data.backup
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import com.websarva.wings.android.slevo.BuildConfig
 import com.websarva.wings.android.slevo.data.backup.export.BackupDataMapper
 import com.websarva.wings.android.slevo.data.backup.export.BackupExportResult
@@ -12,8 +13,10 @@ import com.websarva.wings.android.slevo.data.backup.export.DatabaseBackupExporte
 import com.websarva.wings.android.slevo.data.backup.model.BackupManifest
 import com.websarva.wings.android.slevo.data.backup.model.IncludedContents
 import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreManager
+import com.websarva.wings.android.slevo.data.backup.restore.BackupPreview
 import com.websarva.wings.android.slevo.data.backup.restore.BackupReader
 import com.websarva.wings.android.slevo.data.backup.restore.BackupReaderResult
+import com.websarva.wings.android.slevo.data.backup.restore.BackupConfirmationMetadata
 import com.websarva.wings.android.slevo.data.backup.restore.BackupRestoreResult
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.datasource.local.CookieLocalDataSource
@@ -26,6 +29,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -81,8 +85,9 @@ class BackupRepositoryImpl @Inject constructor(
                 when (val result = backupReader.readBackup(input)) {
                     is BackupReaderResult.Success -> {
                         // --- preview 表示後は DB temp file 不要のため削除 ---
+                        val metadata = result.preview.toConfirmationMetadata()
                         result.preview.dbFile.delete()
-                        BackupRestoreResult.Success(result.preview.containsCookies)
+                        BackupRestoreResult.Success(metadata)
                     }
                     is BackupReaderResult.Error -> result.result
                 }
@@ -114,11 +119,33 @@ class BackupRepositoryImpl @Inject constructor(
                     }
 
                     // --- pending restore 作成 ---
-                    val error = pendingRestoreManager.prepareRestore(effectivePreview)
+                    val error = try {
+                        pendingRestoreManager.prepareRestore(effectivePreview)
+                    } catch (e: IOException) {
+                        // filesystem の operational failure だけを既存 Failure flow へ変換する。
+                        Log.e(
+                            "BackupRepository",
+                            "Pending restore preparation failed: ${e.message}",
+                            e,
+                        )
+                        return@withContext BackupRestoreResult.Failure(
+                            "failed to prepare pending restore: ${e.message}",
+                        )
+                    } catch (e: SecurityException) {
+                        // 権限不足も operational failure として UI の失敗通知へ戻す。
+                        Log.e(
+                            "BackupRepository",
+                            "Pending restore preparation failed: ${e.message}",
+                            e,
+                        )
+                        return@withContext BackupRestoreResult.Failure(
+                            "failed to prepare pending restore: ${e.message}",
+                        )
+                    }
                     if (error != null) {
                         BackupRestoreResult.Failure(error)
                     } else {
-                        BackupRestoreResult.Success(containsCookies = false)
+                        BackupRestoreResult.Success(preview.toConfirmationMetadata())
                     }
                 } finally {
                     // --- restore 後は DB temp file 不要のため best-effort 削除 ---
@@ -259,4 +286,12 @@ class BackupRepositoryImpl @Inject constructor(
             included = IncludedContents(cookies = includeCookies),
         )
     }
+
+    /** 検証済み preview から UI に公開してよい metadata だけを抽出する。 */
+    private fun BackupPreview.toConfirmationMetadata(): BackupConfirmationMetadata = BackupConfirmationMetadata(
+        createdAt = createdAt,
+        appVersionName = appVersionName,
+        appVersionCode = appVersionCode,
+        containsCookies = containsCookies,
+    )
 }

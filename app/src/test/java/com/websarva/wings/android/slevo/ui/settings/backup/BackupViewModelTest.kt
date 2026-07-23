@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.settings.backup
 import android.net.Uri
 import com.websarva.wings.android.slevo.data.backup.export.BackupExportResult
 import com.websarva.wings.android.slevo.data.backup.BackupRepository
+import com.websarva.wings.android.slevo.data.backup.restore.BackupConfirmationMetadata
 import com.websarva.wings.android.slevo.data.backup.restore.BackupRestoreResult
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import io.mockk.coEvery
@@ -155,14 +156,14 @@ class BackupViewModelTest {
         advanceUntilIdle()
 
         assertFalse(viewModel.uiState.value.isPreviewLoading)
-        assertFalse(viewModel.uiState.value.showRestoreConfirmDialog)
+        assertFalse(viewModel.uiState.value.restorePreview != null)
     }
 
     @Test
     fun onRestoreUriReceived_previewSuccess_showsRestoreConfirmDialog() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
-            coEvery { previewBackup(uri) } returns BackupRestoreResult.Success(containsCookies = false)
+            coEvery { previewBackup(uri) } returns success(containsCookies = false)
         }
         val viewModel = BackupViewModel(repository)
 
@@ -170,8 +171,31 @@ class BackupViewModelTest {
         advanceUntilIdle()
 
         assertFalse(viewModel.uiState.value.isPreviewLoading)
-        assertTrue(viewModel.uiState.value.showRestoreConfirmDialog)
+        assertTrue(viewModel.uiState.value.restorePreview != null)
         assertFalse(viewModel.uiState.value.restoreIncludeCookies)
+    }
+
+    /** preview success は raw metadata を保持し、同一 ViewModel の再作成中も失わない。 */
+    @Test
+    fun onRestoreUriReceived_previewSuccess_retainsMetadataInUiState() = runTest(testDispatcher) {
+        val uri = mockk<Uri>()
+        val repository: BackupRepository = mockk {
+            coEvery { previewBackup(uri) } returns success(containsCookies = true)
+        }
+        val viewModel = BackupViewModel(repository)
+
+        viewModel.onRestoreUriReceived(uri)
+        advanceUntilIdle()
+
+        assertEquals(
+            RestorePreviewUiState(
+                createdAt = "2026-07-03T00:00:00Z",
+                appVersionName = "1.0.0",
+                appVersionCode = 1,
+                containsCookies = true,
+            ),
+            viewModel.uiState.value.restorePreview,
+        )
     }
 
     @Test
@@ -196,13 +220,13 @@ class BackupViewModelTest {
     fun onRestoreCookiesToggle_updatesRestoreIncludeCookies() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
-            coEvery { previewBackup(uri) } returns BackupRestoreResult.Success(containsCookies = true)
+            coEvery { previewBackup(uri) } returns success(containsCookies = true)
         }
         val viewModel = BackupViewModel(repository)
 
         viewModel.onRestoreUriReceived(uri)
         advanceUntilIdle()
-        assertTrue(viewModel.uiState.value.showRestoreConfirmDialog)
+        assertTrue(viewModel.uiState.value.restorePreview != null)
 
         viewModel.onRestoreCookiesToggle(true)
         advanceUntilIdle()
@@ -217,31 +241,75 @@ class BackupViewModelTest {
     fun onRestoreConfirmCancel_hidesDialog() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
-            coEvery { previewBackup(uri) } returns BackupRestoreResult.Success(containsCookies = false)
+            coEvery { previewBackup(uri) } returns success(containsCookies = false)
         }
         val viewModel = BackupViewModel(repository)
 
         viewModel.onRestoreUriReceived(uri)
         advanceUntilIdle()
-        assertTrue(viewModel.uiState.value.showRestoreConfirmDialog)
+        assertTrue(viewModel.uiState.value.restorePreview != null)
 
         viewModel.onRestoreConfirmCancel()
         advanceUntilIdle()
-        assertFalse(viewModel.uiState.value.showRestoreConfirmDialog)
+        assertFalse(viewModel.uiState.value.restorePreview != null)
+        assertFalse(viewModel.uiState.value.restoreIncludeCookies)
+    }
+
+    /** 新しい file 選択を開始すると、以前の preview metadata を先に破棄する。 */
+    @Test
+    fun onRestoreClick_clearsPreviousPreview() = runTest(testDispatcher) {
+        val uri = mockk<Uri>()
+        val repository: BackupRepository = mockk {
+            coEvery { previewBackup(uri) } returns success(containsCookies = true)
+        }
+        val viewModel = BackupViewModel(repository)
+
+        viewModel.onRestoreUriReceived(uri)
+        advanceUntilIdle()
+        viewModel.onRestoreCookiesToggle(true)
+        viewModel.onRestoreClick()
+
+        assertFalse(viewModel.uiState.value.restorePreview != null)
+        assertFalse(viewModel.uiState.value.restoreIncludeCookies)
+    }
+
+    /** preview failure は stale metadata と Cookie 選択を結果通知と同時に破棄する。 */
+    @Test
+    fun onRestoreUriReceived_previewFailure_clearsPreviousPreview() = runTest(testDispatcher) {
+        val firstUri = mockk<Uri>()
+        val secondUri = mockk<Uri>()
+        val secondResult = CompletableDeferred<BackupRestoreResult>()
+        val repository: BackupRepository = mockk {
+            coEvery { previewBackup(firstUri) } returns success(containsCookies = true)
+            coEvery { previewBackup(secondUri) } coAnswers { secondResult.await() }
+        }
+        val viewModel = BackupViewModel(repository)
+
+        viewModel.onRestoreUriReceived(firstUri)
+        advanceUntilIdle()
+        viewModel.onRestoreCookiesToggle(true)
+        viewModel.onRestoreUriReceived(secondUri)
+        assertFalse(viewModel.uiState.value.restorePreview != null)
+        assertFalse(viewModel.uiState.value.restoreIncludeCookies)
+
+        secondResult.complete(BackupRestoreResult.Invalid("bad"))
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.restorePreview != null)
+        assertFalse(viewModel.uiState.value.restoreIncludeCookies)
     }
 
     @Test
     fun onConfirmRestore_success_showsRestorePreparedDialog() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
-            coEvery { previewBackup(uri) } returns BackupRestoreResult.Success(containsCookies = false)
-            coEvery { restoreBackup(uri, false) } returns BackupRestoreResult.Success(containsCookies = false)
+            coEvery { previewBackup(uri) } returns success(containsCookies = false)
+            coEvery { restoreBackup(uri, false) } returns success(containsCookies = false)
         }
         val viewModel = BackupViewModel(repository)
 
         viewModel.onRestoreUriReceived(uri)
         advanceUntilIdle()
-        assertTrue(viewModel.uiState.value.showRestoreConfirmDialog)
+        assertTrue(viewModel.uiState.value.restorePreview != null)
 
         viewModel.onConfirmRestore()
         advanceUntilIdle()
@@ -254,8 +322,8 @@ class BackupViewModelTest {
     fun onRestorePreparedDismiss_hidesPreparedDialog() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
-            coEvery { previewBackup(uri) } returns BackupRestoreResult.Success(containsCookies = false)
-            coEvery { restoreBackup(uri, false) } returns BackupRestoreResult.Success(containsCookies = false)
+            coEvery { previewBackup(uri) } returns success(containsCookies = false)
+            coEvery { restoreBackup(uri, false) } returns success(containsCookies = false)
         }
         val viewModel = BackupViewModel(repository)
 
@@ -274,7 +342,7 @@ class BackupViewModelTest {
     fun onConfirmRestore_failure_queuesRestorePrepareFailedAndCompletesRestore() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
-            coEvery { previewBackup(uri) } returns BackupRestoreResult.Success(containsCookies = false)
+            coEvery { previewBackup(uri) } returns success(containsCookies = false)
             coEvery { restoreBackup(uri, false) } returns BackupRestoreResult.Failure("err")
         }
         val viewModel = BackupViewModel(repository)
@@ -296,7 +364,7 @@ class BackupViewModelTest {
     fun onConfirmRestore_invalidBackup_queuesInvalidBackupAndCompletesRestore() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
-            coEvery { previewBackup(uri) } returns BackupRestoreResult.Success(containsCookies = false)
+            coEvery { previewBackup(uri) } returns success(containsCookies = false)
             coEvery { restoreBackup(uri, false) } returns BackupRestoreResult.Invalid("bad")
         }
         val viewModel = BackupViewModel(repository)
@@ -394,8 +462,8 @@ class BackupViewModelTest {
     fun onBackupClick_whileRestoring_doesNothing() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
-            coEvery { previewBackup(uri) } returns BackupRestoreResult.Success(containsCookies = false)
-            coEvery { restoreBackup(uri, false) } returns BackupRestoreResult.Success(containsCookies = false)
+            coEvery { previewBackup(uri) } returns success(containsCookies = false)
+            coEvery { restoreBackup(uri, false) } returns success(containsCookies = false)
         }
         val viewModel = BackupViewModel(repository)
 
@@ -412,42 +480,42 @@ class BackupViewModelTest {
     // --- Cookie 条件表示 ---
 
     @Test
-    fun onRestoreUriReceived_previewWithoutCookies_setsPreviewContainsCookiesFalse() = runTest(testDispatcher) {
+    fun onRestoreUriReceived_previewWithoutCookies_setsCookiePresenceFalse() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
-            coEvery { previewBackup(uri) } returns BackupRestoreResult.Success(containsCookies = false)
+            coEvery { previewBackup(uri) } returns success(containsCookies = false)
         }
         val viewModel = BackupViewModel(repository)
 
         viewModel.onRestoreUriReceived(uri)
         advanceUntilIdle()
 
-        assertFalse(viewModel.uiState.value.previewContainsCookies)
-        assertTrue(viewModel.uiState.value.showRestoreConfirmDialog)
+        assertFalse(viewModel.uiState.value.restorePreview?.containsCookies == true)
+        assertTrue(viewModel.uiState.value.restorePreview != null)
     }
 
     @Test
-    fun onRestoreUriReceived_previewWithCookies_setsPreviewContainsCookiesTrue() = runTest(testDispatcher) {
+    fun onRestoreUriReceived_previewWithCookies_setsCookiePresenceTrue() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
-            coEvery { previewBackup(uri) } returns BackupRestoreResult.Success(containsCookies = true)
+            coEvery { previewBackup(uri) } returns success(containsCookies = true)
         }
         val viewModel = BackupViewModel(repository)
 
         viewModel.onRestoreUriReceived(uri)
         advanceUntilIdle()
 
-        assertTrue(viewModel.uiState.value.previewContainsCookies)
-        assertTrue(viewModel.uiState.value.showRestoreConfirmDialog)
+        assertTrue(viewModel.uiState.value.restorePreview?.containsCookies == true)
+        assertTrue(viewModel.uiState.value.restorePreview != null)
     }
 
     @Test
     fun onConfirmRestore_withoutCookies_alwaysFalse() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
-            coEvery { previewBackup(uri) } returns BackupRestoreResult.Success(containsCookies = false)
-            // previewContainsCookies=false なので、restoreIncludeCookies が true でも false で呼ばれる
-            coEvery { restoreBackup(uri, false) } returns BackupRestoreResult.Success(containsCookies = false)
+            coEvery { previewBackup(uri) } returns success(containsCookies = false)
+            // preview に Cookie がないため、restoreIncludeCookies が true でも false で呼ばれる
+            coEvery { restoreBackup(uri, false) } returns success(containsCookies = false)
         }
         val viewModel = BackupViewModel(repository)
 
@@ -471,4 +539,15 @@ class BackupViewModelTest {
         val repository: BackupRepository = mockk()
         return BackupViewModel(repository)
     }
+
+    /** ViewModel test 用の、4 field を満たす metadata success result を生成する。 */
+    private fun success(containsCookies: Boolean): BackupRestoreResult.Success =
+        BackupRestoreResult.Success(
+            metadata = BackupConfirmationMetadata(
+                createdAt = "2026-07-03T00:00:00Z",
+                appVersionName = "1.0.0",
+                appVersionCode = 1,
+                containsCookies = containsCookies,
+            ),
+        )
 }

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.backup.export.BackupExportResult
 import com.websarva.wings.android.slevo.data.backup.BackupRepository
+import com.websarva.wings.android.slevo.data.backup.restore.BackupConfirmationMetadata
 import com.websarva.wings.android.slevo.data.backup.restore.BackupRestoreResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.sync.Mutex
@@ -87,6 +88,14 @@ class BackupViewModel @Inject constructor(
         if (_uiState.value.isExporting || _uiState.value.isRestoring) return
         // ファイル選択は Compose 側の launcher で起動する。
         // ViewModel は後続の uri 受信を待つだけ。
+        pendingRestoreUri = null
+        _uiState.update {
+            it.copy(
+                isPreviewLoading = false,
+                restorePreview = null,
+                restoreIncludeCookies = false,
+            )
+        }
     }
 
     /** SAF launcher が復元 ZIP の URI を返した → preview 読取開始。 */
@@ -96,30 +105,49 @@ class BackupViewModel @Inject constructor(
             return
         }
         pendingRestoreUri = uri
-        _uiState.update { it.copy(isPreviewLoading = true) }
+        _uiState.update {
+            it.copy(
+                isPreviewLoading = true,
+                restorePreview = null,
+                restoreIncludeCookies = false,
+            )
+        }
         viewModelScope.launch {
             val result = backupRepository.previewBackup(uri)
+            // 新しい選択やキャンセルで URI が変わった場合、古い preview は state を上書きしない。
+            if (pendingRestoreUri != uri) return@launch
             when (result) {
                 is BackupRestoreResult.Success -> {
                     _uiState.update {
                         it.copy(
                             isPreviewLoading = false,
-                            showRestoreConfirmDialog = true,
+                            restorePreview = result.metadata.toUiState(),
                             restoreIncludeCookies = false,
-                            previewContainsCookies = result.containsCookies,
                         )
                     }
                 }
                 is BackupRestoreResult.Invalid -> {
                     completeOperation(
                         createResult = ::invalidBackup,
-                        stateUpdate = { it.copy(isPreviewLoading = false) },
+                        stateUpdate = {
+                            it.copy(
+                                isPreviewLoading = false,
+                                restorePreview = null,
+                                restoreIncludeCookies = false,
+                            )
+                        },
                     )
                 }
                 is BackupRestoreResult.Failure -> {
                     completeOperation(
                         createResult = ::restorePrepareFailed,
-                        stateUpdate = { it.copy(isPreviewLoading = false) },
+                        stateUpdate = {
+                            it.copy(
+                                isPreviewLoading = false,
+                                restorePreview = null,
+                                restoreIncludeCookies = false,
+                            )
+                        },
                     )
                 }
             }
@@ -134,18 +162,25 @@ class BackupViewModel @Inject constructor(
     /** 復元確認ダイアログのキャンセル。 */
     fun onRestoreConfirmCancel() {
         pendingRestoreUri = null
-        _uiState.update { it.copy(showRestoreConfirmDialog = false, restorePreview = null) }
+        _uiState.update { it.copy(restorePreview = null, restoreIncludeCookies = false) }
     }
 
     /** 復元確認ダイアログの「復元」ボタン押下 → pending restore 作成開始。 */
     fun onConfirmRestore() {
         val uri = pendingRestoreUri ?: return
+        val preview = _uiState.value.restorePreview ?: return
+        val includeCookies = preview.containsCookies && _uiState.value.restoreIncludeCookies
         pendingRestoreUri = null
-        _uiState.update { it.copy(showRestoreConfirmDialog = false, isRestoring = true) }
-        // バックアップに Cookie が含まれていない場合は強制的に false にする
-        val includeCookies = _uiState.value.previewContainsCookies && _uiState.value.restoreIncludeCookies
-        logD("onConfirmRestore: previewContainsCookies=${_uiState.value.previewContainsCookies}" +
-            " restoreIncludeCookies=${_uiState.value.restoreIncludeCookies}" +
+        _uiState.update {
+            it.copy(
+                restorePreview = null,
+                restoreIncludeCookies = false,
+                isRestoring = true,
+            )
+        }
+        // バックアップに Cookie が含まれていない場合は強制的に false にする。
+        logD("onConfirmRestore: containsCookies=${preview.containsCookies}" +
+            " restoreIncludeCookies=$includeCookies" +
             " effective=$includeCookies")
         viewModelScope.launch {
             val result = backupRepository.restoreBackup(uri, includeCookies)
@@ -220,6 +255,14 @@ class BackupViewModel @Inject constructor(
 
     private fun restorePrepareFailed(id: Long): BackupUiEvent =
         BackupUiEvent.RestorePrepareFailed(id)
+
+    /** data 層の success metadata を、dialog が保持する raw UI state へ変換する。 */
+    private fun BackupConfirmationMetadata.toUiState(): RestorePreviewUiState = RestorePreviewUiState(
+        createdAt = createdAt,
+        appVersionName = appVersionName,
+        appVersionCode = appVersionCode,
+        containsCookies = containsCookies,
+    )
 
     /** 定数。 */
     private companion object {

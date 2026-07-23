@@ -47,7 +47,7 @@ backup.zip
 
 - 設定画面から既存のバックアップ画面へ遷移し、その画面上でバックアップ作成と復元を選択できる。
 - `ActivityResultContracts.OpenDocument` により、ユーザーがバックアップ ZIP を選択できる。
-- 選択した ZIP から `manifest.json` を読み取り、復元前に作成日時、アプリ version、DB version、Cookie 含有有無を確認ダイアログへ表示できる。
+- 選択した ZIP から `manifest.json` を読み取り、復元前に作成日時、作成元アプリ version、Cookie 含有有無を確認ダイアログへ表示できる。DB version は compatibility 検証だけに使い、表示しない。
 - `backupFormatVersion = 1`、`backupMode = "full"`、`databaseVersion = 現在の Room DB version` のバックアップだけを復元可能にする。
 - ZIP 内部パス、manifest の `included.*`、必須 JSON/DB の整合性を検証する。
 - 復元は全上書きとし、Room DB、通常設定 DataStore、タブ選択 DataStore をバックアップ内容へ置き換える。
@@ -118,7 +118,7 @@ ZIP directory entry は `database/` と `datastore/` のみ許容し、内容を
 Repository API は preview と commit を分ける。
 
 ```kotlin
-suspend fun previewBackup(uri: Uri): BackupPreviewResult
+suspend fun previewBackup(uri: Uri): BackupRestoreResult
 suspend fun restoreBackup(uri: Uri, includeCookies: Boolean): BackupRestoreResult
 ```
 
@@ -126,9 +126,22 @@ suspend fun restoreBackup(uri: Uri, includeCookies: Boolean): BackupRestoreResul
 
 - `createdAt`
 - `appVersionName` / `appVersionCode`
-- `databaseVersion`
 - Cookie がバックアップに含まれているか
 - 現在のデータが上書きされる警告
+
+`databaseVersion` は restore compatibility の検証には引き続き使用するが、復元前確認ダイアログには表示しない。確認 UI へ data-layer の `BackupPreview` をそのまま渡してはならない。`BackupPreview` は cleanup 済み一時 DB file と検証済み JSON を所有するため、`BackupConfirmationMetadata` を追加し、確認に必要な `createdAt: String`、`appVersionName: String`、`appVersionCode: Long`、`containsCookies: Boolean` だけを保持させる。現在 preview と restore preparation が共有する `BackupRestoreResult.Success` は `metadata: BackupConfirmationMetadata` を必須 property とし、`previewBackup()` と `restoreBackup()` の両方が検証済み `BackupPreview` から同じ metadata を mapping する。optional metadata や default 値による不完全な success state は作らない。
+
+ViewModel は repository result を UI 専用の immutable `RestorePreviewUiState` へ mapping し、nullable な `BackupUiState.restorePreview` 自体を確認ダイアログ表示の single source of truth とする。`RestorePreviewUiState` は同じ 4 つの raw 値だけを保持する。旧 `showRestoreConfirmDialog`、`previewContainsCookies`、data-layer の `BackupPreview` import を除去する。preview 成功時は metadata と Cookie 初期値 false を同一 `StateFlow.update` で設定し、キャンセル、復元確定、新しい file 選択開始、preview failure の各 path では stale metadata を clear する。confirm 時の Cookie guard は preview state の `containsCookies` を使い、既存の pending URI、再検証、pending restore semantics は変更しない。
+
+この state は `BackupViewModel` の `StateFlow` に raw `createdAt` と version 値を保持するため、configuration change 中も確認内容を維持する。process death 後に URI や preview を復元する新しい persistence は導入せず、既存どおり stale な確認ダイアログを再表示しない。locale、time zone、12/24 時間設定の configuration change 後に再 format できるよう、format 済み文字列は UiState に保持しない。
+
+表示 text は次の contract とする。
+
+- 作成日時: `作成日時: <localized date> <localized time>`。manifest の ISO 8601 UTC `createdAt` を `Instant` として解釈し、`android.text.format.DateFormat.getMediumDateFormat(context)` と `getTimeFormat(context)` を使って現在の time zone、locale、12/24 時間設定へ変換する。予期しない parse failure では dialog を crash させず、検証済み manifest の raw `createdAt` を値として表示する。
+- 作成元アプリ version: `作成元アプリのバージョン: <versionName>（バージョンコード <versionCode>）`。
+- DB version の visible text や accessibility text は追加しない。
+
+2 行は既存 `GenericConfirmDialog` content の description と Cookie section の間に、既存 typography と spacing に合わせた non-interactive `Text` として表示する。各行に明示 label を含め、Compose `Text` の標準 semantics で label と値を一緒に読み上げられるようにする。重複する `contentDescription` や dialog open 時の手動 announcement は追加しない。上書き警告、Cookie 表示条件、checkbox 初期値、confirm/cancel action、layout style は維持する。
 
 `restoreBackup` は preview 済みであっても再度 ZIP を読み込み検証する。SAF URI の内容が preview 後に変わる可能性があるため、commit 時の再検証を省略しない。
 
@@ -137,6 +150,10 @@ suspend fun restoreBackup(uri: Uri, includeCookies: Boolean): BackupRestoreResul
 UI は `ActivityResultContracts.OpenDocument` で `Uri` を取得し、既存 `BackupViewModel` へ渡す。`BackupViewModel` は `BackupRepository` のみに依存し、`ContentResolver` を直接扱わない。
 
 `BackupRepositoryImpl` は `ContentResolver.openInputStream(uri)` を呼び出すための `BackupInputReader` 相当を持つ。`openInputStream(uri)` が `null` を返す、または読み込み中に失敗する場合は `BackupRestoreResult.Failure` に変換する。
+
+`restoreBackup()` が commit 時の再検証を完了した後、`PendingRestoreManager.prepareRestore()` から filesystem の operational exception が送出された場合も repository の result contract を維持する。exception boundary は `prepareRestore()` 呼び出しだけに置き、`IOException` と `SecurityException` を詳細ログへ記録して `BackupRestoreResult.Failure` に変換する。`CancellationException`、その他の programmer error、`Error` を変換対象にせず、そのまま送出する。これにより `BackupViewModel` は既存の `Failure` branch で `isRestoring = false` と `RestorePrepareFailed` event を同一 terminal update として処理できる。
+
+exception 変換の有無にかかわらず、再検証で生成した `BackupPreview.dbFile` は既存の `finally` で best-effort 削除する。repository は pending directory や marker を追加で cleanup せず、`PendingRestoreManager` が所有する marker-last publication、既存 pending の拒否・保持、内部 staging failure cleanup を変更しない。preview 後の URI 保持・clear、confirm 時の ZIP 再読み込み・再検証、staging 後の DB integrity validation も変更しない。
 
 OpenDocument の MIME type は `arrayOf("application/zip", "application/octet-stream", "*/*")` を候補にする。provider 側の MIME 判定が不安定な場合に備え、表示名や拡張子だけで成功/失敗を決めない。
 

@@ -68,6 +68,14 @@
 - **WHEN** システムが main DB ファイルをバックアップ用一時ファイルへコピーする
 - **THEN** システムはコピー済み DB を読み取り専用で開き、`PRAGMA integrity_check` が `ok` を返すことを確認してから ZIP に含める
 
+#### Scenario: 短い DB file transfer を完了まで継続する
+- **WHEN** main DB の file transfer が要求した残り byte 数より小さい正の byte 数を返す
+- **THEN** システムは転送済み position と残り byte 数を更新して transfer を繰り返し、channel open 後に確定した source size と転送済み byte 数が完全一致した場合だけコピー成功として扱う
+
+#### Scenario: DB file transfer が進捗しない
+- **WHEN** 転送済み byte 数が source size に達する前に file transfer が `0`、負値、または要求した残り byte 数を超える値を返す
+- **THEN** システムは無限に再試行せず I/O failure として扱い、source transaction の `ROLLBACK` を試行し、DB 書き込み停止を解除し、一時出力を cleanup して integrity check または ZIP 書き込みへ進まない
+
 #### Scenario: コピー済み DB の整合性検証に失敗する
 - **WHEN** コピー済み DB を開けない、または `PRAGMA integrity_check` が `ok` 以外を返す
 - **THEN** システムはコピー済み DB を ZIP に含めず、バックアップ作成を失敗扱いにする

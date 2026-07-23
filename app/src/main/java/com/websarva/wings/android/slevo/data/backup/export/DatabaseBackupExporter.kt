@@ -10,6 +10,8 @@ import kotlinx.coroutines.delay
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.IOException
+import java.nio.channels.FileChannel
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,6 +27,9 @@ class DatabaseBackupExporter @Inject constructor(
     internal var maxRetries: Int = MAX_CHECKPOINT_RETRIES
     internal var retryDelayMs: Long = CHECKPOINT_RETRY_DELAY_MS
     internal var sqliteOpsProvider: SqliteOpsProvider = dbConn
+    /** File transfer operation; production delegates directly to [FileChannel.transferTo]. */
+    internal var transferTo: (FileChannel, Long, Long, FileChannel) -> Long =
+        { source, position, count, target -> source.transferTo(position, count, target) }
 
     suspend fun exportDatabase(sessionDir: File): File {
         sessionDir.mkdirs()
@@ -79,12 +84,32 @@ class DatabaseBackupExporter @Inject constructor(
         } finally { tmpDb.close() }
     }
 
+    /**
+     * Copies the fixed-size source snapshot while rejecting incomplete or invalid progress.
+     *
+     * The source size is captured once after opening the channel, and every transfer uses the
+     * explicit accumulated position plus the remaining byte count.
+     */
     private fun copyFile(src: File, dst: File) {
         FileInputStream(src).use { input ->
             FileOutputStream(dst).use { output ->
                 input.channel.use { inChannel ->
                     output.channel.use { outChannel ->
-                        inChannel.transferTo(0, inChannel.size(), outChannel)
+                        val sourceSize = inChannel.size()
+                        var position = 0L
+                        while (position < sourceSize) {
+                            val remaining = sourceSize - position
+                            val transferred = transferTo(inChannel, position, remaining, outChannel)
+                            if (transferred <= 0L) {
+                                throw IOException("DB file transfer made no progress: $transferred")
+                            }
+                            if (transferred > remaining) {
+                                throw IOException(
+                                    "DB file transfer exceeded remaining bytes: $transferred > $remaining",
+                                )
+                            }
+                            position += transferred
+                        }
                     }
                 }
             }
