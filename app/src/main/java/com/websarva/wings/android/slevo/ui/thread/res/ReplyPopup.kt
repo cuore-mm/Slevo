@@ -55,8 +55,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -871,7 +871,7 @@ fun ReplyPopupPreview() {
                 myPostNumbers = emptySet(),
                 headerTextScale = 0.85f,
                 bodyTextScale = 1f,
-                lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
+                lineHeight = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
                 onUrlClick = {},
                 onThreadUrlClick = {},
                 onImageClick = { _, _, _, _ -> },

@@ -11,6 +11,8 @@ import com.websarva.wings.android.slevo.data.backup.model.BackupSettingsJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupTabsJson
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.model.GestureAction
+import com.websarva.wings.android.slevo.data.model.TabPage
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import kotlinx.coroutines.CancellationException
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -529,7 +531,7 @@ class BackupReader @Inject constructor(
      * settings の field 値を検証する。
      *
      * - themeMode は既知の値 ("light", "dark", "system") のみ許容する。
-     * - scale / lineHeight は正の有限値のみ許容する。
+     * - scale / lineHeight は canonical range 内の有限値のみ許容する。
      * - gesture direction key は既知の kebab-case のみ許容する。
      * - gesture action value は null または [GestureAction] の既知の kebab-case のみ許容する。
      *
@@ -537,10 +539,10 @@ class BackupReader @Inject constructor(
      */
     private fun validateSettings(json: BackupSettingsJson): BackupSettingsJson? {
         if (json.themeMode !in KNOWN_THEME_MODES) return null
-        if (!json.textScale.isFinite() || json.textScale <= 0f) return null
-        if (!json.headerTextScale.isFinite() || json.headerTextScale <= 0f) return null
-        if (!json.bodyTextScale.isFinite() || json.bodyTextScale <= 0f) return null
-        if (!json.lineHeight.isFinite() || json.lineHeight <= 0f) return null
+        if (!TextDisplaySettingsConstraints.isValidTextScale(json.textScale)) return null
+        if (!TextDisplaySettingsConstraints.isValidTextScale(json.headerTextScale)) return null
+        if (!TextDisplaySettingsConstraints.isValidTextScale(json.bodyTextScale)) return null
+        if (!TextDisplaySettingsConstraints.isValidLineHeight(json.lineHeight)) return null
         val knownGestureActions = GestureAction.entries
             .map { BackupDataMapper.enumNameToKebabCase(it.name) }
             .toSet()
@@ -559,7 +561,7 @@ class BackupReader @Inject constructor(
     private fun parseTabs(bytes: ByteArray): BackupTabsJson? {
         return try {
             val json = tabsAdapter.fromJson(String(bytes, Charsets.UTF_8)) ?: return null
-            if (json.lastSelectedTabsPage < 0) return null
+            if (!TabPage.isValidIndex(json.lastSelectedTabsPage)) return null
             json
         } catch (_: Exception) {
             null

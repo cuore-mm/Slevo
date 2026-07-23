@@ -11,6 +11,8 @@ import com.websarva.wings.android.slevo.data.backup.model.BackupSettingsJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupTabsJson
 import com.websarva.wings.android.slevo.data.backup.model.IncludedContents
 import com.websarva.wings.android.slevo.data.model.GestureAction
+import com.websarva.wings.android.slevo.data.model.TabPage
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -26,6 +28,14 @@ import java.io.OutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.collections.iterator
+
+private typealias SettingsFieldUpdate = (BackupSettingsJson, Float) -> BackupSettingsJson
+
+/** Returns the adjacent representable Float below this value. */
+private fun Float.nextDown(): Float = Math.nextAfter(this, Double.NEGATIVE_INFINITY)
+
+/** Returns the adjacent representable Float above this value. */
+private fun Float.nextUp(): Float = Math.nextAfter(this, Double.POSITIVE_INFINITY)
 
 /**
  * [BackupReader] の ZIP 読み込み、path validation、manifest validation、
@@ -58,11 +68,11 @@ class BackupReaderTest {
         themeMode = "system",
         isTreeSort = false,
         isThreadMinimapScrollbarEnabled = true,
-        textScale = 1.0f,
+        textScale = TextDisplaySettingsConstraints.DEFAULT_TEXT_SCALE,
         isIndividualTextScale = false,
-        headerTextScale = 1.0f,
-        bodyTextScale = 1.0f,
-        lineHeight = 1.5f,
+        headerTextScale = TextDisplaySettingsConstraints.DEFAULT_HEADER_TEXT_SCALE,
+        bodyTextScale = TextDisplaySettingsConstraints.DEFAULT_BODY_TEXT_SCALE,
+        lineHeight = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
         isRedirect5chNetToIoEnabled = false,
         gestureSettings = BackupGestureSettings(
             enabled = false,
@@ -133,6 +143,68 @@ class BackupReaderTest {
                 zip.write(bytes)
                 zip.closeEntry()
             }
+        }
+        return output.toByteArray()
+    }
+
+    /** 指定した settings field だけを手書き raw token に差し替えた ZIP を生成する。 */
+    private fun createZipWithRawSettingsValue(fieldName: String, rawToken: String): ByteArray {
+        val textScale = if (fieldName == "textScale") {
+            rawToken
+        } else {
+            TextDisplaySettingsConstraints.DEFAULT_TEXT_SCALE.toString()
+        }
+        val headerTextScale = if (fieldName == "headerTextScale") {
+            rawToken
+        } else {
+            TextDisplaySettingsConstraints.DEFAULT_HEADER_TEXT_SCALE.toString()
+        }
+        val bodyTextScale = if (fieldName == "bodyTextScale") {
+            rawToken
+        } else {
+            TextDisplaySettingsConstraints.DEFAULT_BODY_TEXT_SCALE.toString()
+        }
+        val lineHeight = if (fieldName == "lineHeight") {
+            rawToken
+        } else {
+            TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT.toString()
+        }
+
+        // --- Raw settings JSON ---
+        val settingsJson = """
+            {
+                "themeMode":"system",
+                "isTreeSort":false,
+                "isThreadMinimapScrollbarEnabled":true,
+                "textScale":$textScale,
+                "isIndividualTextScale":false,
+                "headerTextScale":$headerTextScale,
+                "bodyTextScale":$bodyTextScale,
+                "lineHeight":$lineHeight,
+                "isRedirect5chNetToIoEnabled":false,
+                "gestureSettings":{"enabled":false,"showActionHints":true,"actions":{}}
+            }
+        """.trimIndent().toByteArray()
+
+        // --- ZIP entries ---
+        val output = ByteArrayOutputStream()
+        ZipOutputStream(output).use { zipOut ->
+            zipOut.putNextEntry(ZipEntry("manifest.json"))
+            zipOut.write(
+                moshi.adapter(BackupManifest::class.java).toJson(createValidManifest()).toByteArray(),
+            )
+            zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("database/slevo.db"))
+            zipOut.write("fake db content".toByteArray())
+            zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("datastore/settings.json"))
+            zipOut.write(settingsJson)
+            zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("datastore/tabs.json"))
+            zipOut.write(
+                moshi.adapter(BackupTabsJson::class.java).toJson(createValidTabs()).toByteArray(),
+            )
+            zipOut.closeEntry()
         }
         return output.toByteArray()
     }
@@ -626,6 +698,71 @@ class BackupReaderTest {
         assertTrue(error is BackupRestoreResult.Invalid)
     }
 
+    /** 4 field の canonical range endpoint は inclusive に受理される。 */
+    @Test
+    fun readBackup_settingsCanonicalEndpoints_returnsSuccess() {
+        val fields: List<Pair<ClosedFloatingPointRange<Float>, SettingsFieldUpdate>> = listOf(
+            TextDisplaySettingsConstraints.TEXT_SCALE_RANGE to
+                { settings: BackupSettingsJson, value: Float -> settings.copy(textScale = value) },
+            TextDisplaySettingsConstraints.TEXT_SCALE_RANGE to
+                { settings: BackupSettingsJson, value: Float -> settings.copy(headerTextScale = value) },
+            TextDisplaySettingsConstraints.TEXT_SCALE_RANGE to
+                { settings: BackupSettingsJson, value: Float -> settings.copy(bodyTextScale = value) },
+            TextDisplaySettingsConstraints.LINE_HEIGHT_RANGE to
+                { settings: BackupSettingsJson, value: Float -> settings.copy(lineHeight = value) },
+        )
+
+        for ((range, update) in fields) {
+            for (endpoint in listOf(range.start, range.endInclusive)) {
+                val preview = readSuccess(createValidZipBytes(settings = update(createValidSettings(), endpoint)))
+                preview.dbFile.delete()
+            }
+        }
+    }
+
+    /** 4 field の canonical range 直外にある隣接 Float を invalid-backup 経路で拒否する。 */
+    @Test
+    fun readBackup_settingsAdjacentToCanonicalRanges_returnsInvalid() {
+        val fields: List<Pair<ClosedFloatingPointRange<Float>, SettingsFieldUpdate>> = listOf(
+            TextDisplaySettingsConstraints.TEXT_SCALE_RANGE to
+                { settings: BackupSettingsJson, value: Float -> settings.copy(textScale = value) },
+            TextDisplaySettingsConstraints.TEXT_SCALE_RANGE to
+                { settings: BackupSettingsJson, value: Float -> settings.copy(headerTextScale = value) },
+            TextDisplaySettingsConstraints.TEXT_SCALE_RANGE to
+                { settings: BackupSettingsJson, value: Float -> settings.copy(bodyTextScale = value) },
+            TextDisplaySettingsConstraints.LINE_HEIGHT_RANGE to
+                { settings: BackupSettingsJson, value: Float -> settings.copy(lineHeight = value) },
+        )
+
+        for ((range, update) in fields) {
+            for (outsideValue in listOf(range.start.nextDown(), range.endInclusive.nextUp())) {
+                val error = readError(
+                    createValidZipBytes(settings = update(createValidSettings(), outsideValue)),
+                )
+                assertTrue(error is BackupRestoreResult.Invalid)
+            }
+        }
+    }
+
+    /** 手書き settings JSON の指定 field に非有限 raw token を入れ、12 通りを拒否する。 */
+    @Test
+    fun readBackup_settingsNonFiniteValues_returnsInvalid() {
+        val fields = listOf(
+            "textScale",
+            "headerTextScale",
+            "bodyTextScale",
+            "lineHeight",
+        )
+        val tokens = listOf("\"NaN\"", "\"Infinity\"", "\"-Infinity\"")
+
+        for (field in fields) {
+            for (token in tokens) {
+                val error = readError(createZipWithRawSettingsValue(field, token))
+                assertTrue(error is BackupRestoreResult.Invalid)
+            }
+        }
+    }
+
     // --- 1.10: 不正 JSON (settings: 未知 themeMode) ---
 
     @Test
@@ -706,6 +843,27 @@ class BackupReaderTest {
         val zip = createValidZipBytes(tabs = invalidTabs)
         val error = readError(zip)
         assertTrue(error is BackupRestoreResult.Invalid)
+    }
+
+    /** canonical page 定義の最大 index を、serialized integer のまま受け入れる。 */
+    @Test
+    fun readBackup_tabsMaximumValidPage_returnsSuccess() {
+        val tabs = BackupTabsJson(lastSelectedTabsPage = TabPage.count - 1)
+        val preview = readSuccess(createValidZipBytes(tabs = tabs))
+
+        assertEquals(TabPage.count - 1, preview.tabsJson.lastSelectedTabsPage)
+        preview.dbFile.delete()
+    }
+
+    /** canonical page count 以上の index を既存の invalid tabs JSON 経路で拒否する。 */
+    @Test
+    fun readBackup_tabsPageCountOrAbove_returnsInvalid() {
+        for (invalidPage in listOf(TabPage.count, TabPage.count + 1)) {
+            val tabs = BackupTabsJson(lastSelectedTabsPage = invalidPage)
+            val error = readError(createValidZipBytes(tabs = tabs))
+
+            assertTrue(error is BackupRestoreResult.Invalid)
+        }
     }
 
     // --- 1.10: 不正 JSON (cookies: 空 name) ---
@@ -797,17 +955,20 @@ class BackupReaderTest {
 
     @Test
     fun preview_containsSettingsAndTabsJson() {
+        val previewScale = TextDisplaySettingsConstraints.TEXT_SCALE_RANGE.start +
+            (TextDisplaySettingsConstraints.TEXT_SCALE_RANGE.endInclusive -
+                TextDisplaySettingsConstraints.TEXT_SCALE_RANGE.start) / 2f
         val settings = createValidSettings().copy(
             themeMode = "dark",
-            textScale = 2.0f,
+            textScale = previewScale,
         )
-        val tabs = BackupTabsJson(lastSelectedTabsPage = 3)
+        val tabs = BackupTabsJson(lastSelectedTabsPage = TabPage.THREAD.index)
         val zip = createValidZipBytes(settings = settings, tabs = tabs)
         val preview = readSuccess(zip)
 
         assertEquals("dark", preview.settingsJson.themeMode)
-        assertEquals(2.0f, preview.settingsJson.textScale)
-        assertEquals(3, preview.tabsJson.lastSelectedTabsPage)
+        assertEquals(previewScale, preview.settingsJson.textScale)
+        assertEquals(TabPage.THREAD.index, preview.tabsJson.lastSelectedTabsPage)
     }
 
     @Test

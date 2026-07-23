@@ -7,6 +7,7 @@ import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThemeMode
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import okhttp3.Cookie
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -281,7 +282,7 @@ class BackupRestoreMapperTest {
             isIndividualTextScale = false,
             headerTextScale = 0.85f,
             bodyTextScale = 1.2f,
-            lineHeight = 1.0f,
+            lineHeight = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
             isRedirect5chNetToIoEnabled = true,
             gestureSettings = original,
         )

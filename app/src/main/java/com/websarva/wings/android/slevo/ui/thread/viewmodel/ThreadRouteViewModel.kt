@@ -9,9 +9,9 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
@@ -540,7 +540,7 @@ class ThreadRouteViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.setIndividualTextScale(enabled)
             if (!enabled) {
-                settingsRepository.setLineHeight(DEFAULT_THREAD_LINE_HEIGHT)
+                settingsRepository.setLineHeight(TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT)
             }
         }
     }

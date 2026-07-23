@@ -10,6 +10,7 @@ import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThemeMode
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import okhttp3.Cookie
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -46,7 +47,7 @@ class BackupDataMapperTest {
             isIndividualTextScale = false,
             headerTextScale = 0.85f,
             bodyTextScale = 1.2f,
-            lineHeight = 1.0f,
+            lineHeight = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
             isRedirect5chNetToIoEnabled = true,
             gestureSettings = gesture,
         )
@@ -60,7 +61,9 @@ class BackupDataMapperTest {
         assertTrue(jsonStr.contains("\"isThreadMinimapScrollbarEnabled\":true"))
         assertTrue(jsonStr.contains("\"textScale\":1.5"))
         assertTrue(jsonStr.contains("\"isIndividualTextScale\":false"))
-        assertTrue(jsonStr.contains("\"lineHeight\":1.0"))
+        assertTrue(
+            jsonStr.contains("\"lineHeight\":${TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT}"),
+        )
         assertTrue(jsonStr.contains("\"isRedirect5chNetToIoEnabled\":true"))
 
         // gesture
@@ -101,7 +104,7 @@ class BackupDataMapperTest {
             isIndividualTextScale = false,
             headerTextScale = 1.0f,
             bodyTextScale = 1.0f,
-            lineHeight = 1.0f,
+            lineHeight = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
             isRedirect5chNetToIoEnabled = false,
             gestureSettings = gesture,
         )
@@ -133,7 +136,7 @@ class BackupDataMapperTest {
             isIndividualTextScale = false,
             headerTextScale = 1.0f,
             bodyTextScale = 1.0f,
-            lineHeight = 1.0f,
+            lineHeight = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
             isRedirect5chNetToIoEnabled = false,
             gestureSettings = gesture,
         )

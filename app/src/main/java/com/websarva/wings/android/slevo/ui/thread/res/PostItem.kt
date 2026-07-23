@@ -12,9 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 
@@ -188,7 +188,7 @@ private fun ReplyCardPreview() {
                 idTotal = 1,
                 headerTextScale = 0.85f,
                 bodyTextScale = 1f,
-                lineHeight = DEFAULT_THREAD_LINE_HEIGHT,
+                lineHeight = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
                 searchQuery = "",
                 isMyPost = true,
                 sharedTransitionScope = this@SharedTransitionLayout,

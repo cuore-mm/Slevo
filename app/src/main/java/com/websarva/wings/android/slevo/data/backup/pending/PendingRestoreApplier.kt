@@ -126,7 +126,13 @@ internal class RealPendingRestoreDataStoreReflector(
         val tabs = tabsAdapter.fromJson(tabsFile.readText())
             ?: throw IllegalStateException("failed to parse tabs JSON")
 
-        val preparedCookies = if (includeCookies && cookiesFile.exists()) {
+        val preparedCookies = if (!includeCookies) {
+            null
+        } else {
+            if (!cookiesFile.isFile) {
+                throw IllegalStateException("staged cookies file is missing or not a regular file")
+            }
+
             val cookies = cookiesAdapter.fromJson(cookiesFile.readText())
                 ?: throw IllegalStateException("failed to parse cookies JSON")
             when (val result = writer.prepareCookies(cookies)) {
@@ -135,8 +141,6 @@ internal class RealPendingRestoreDataStoreReflector(
                     throw IllegalStateException(result.message)
                 }
             }
-        } else {
-            null
         }
 
         return PreparedRestoreData(settings, tabs, preparedCookies)

@@ -15,8 +15,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.HorizontalDivider
-import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.thread.components.NewArrivalBar
 import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
 import com.websarva.wings.android.slevo.ui.thread.res.PostItem
@@ -133,7 +133,7 @@ fun LazyListScope.threadPostListContent(
                 lineHeight = if (uiState.isIndividualTextScale) {
                     uiState.lineHeight
                 } else {
-                    DEFAULT_THREAD_LINE_HEIGHT
+                    TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT
                 },
                 indentWidth = indent,
                 replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),

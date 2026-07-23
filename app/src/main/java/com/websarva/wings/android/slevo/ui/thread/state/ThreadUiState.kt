@@ -2,8 +2,8 @@ package com.websarva.wings.android.slevo.ui.thread.state
 
 import androidx.compose.ui.text.input.TextFieldValue
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.GestureSettings
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.bbsroute.BaseUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
@@ -68,11 +68,11 @@ data class ThreadUiState(
     val showMinimapScrollbar: Boolean = true,
     /** 未表示のToastメッセージリソースID。表示後は consumeToast() で null に戻す。 */
     val pendingToastResId: Int? = null,
-    val textScale: Float = 1f,
+    val textScale: Float = TextDisplaySettingsConstraints.DEFAULT_TEXT_SCALE,
     val isIndividualTextScale: Boolean = false,
-    val headerTextScale: Float = 0.85f,
-    val bodyTextScale: Float = 1f,
-    val lineHeight: Float = DEFAULT_THREAD_LINE_HEIGHT,
+    val headerTextScale: Float = TextDisplaySettingsConstraints.DEFAULT_HEADER_TEXT_SCALE,
+    val bodyTextScale: Float = TextDisplaySettingsConstraints.DEFAULT_BODY_TEXT_SCALE,
+    val lineHeight: Float = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
     val visiblePostRows: List<ThreadListItem.PostRow> = emptyList(),
     val replyCounts: List<Int> = emptyList(),
     val firstAfterIndex: Int = -1,

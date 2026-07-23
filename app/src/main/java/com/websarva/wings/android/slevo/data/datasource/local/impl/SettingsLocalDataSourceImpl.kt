@@ -3,11 +3,11 @@ package com.websarva.wings.android.slevo.data.datasource.local.impl
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import com.websarva.wings.android.slevo.data.datasource.local.SettingsLocalDataSource
-import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureDirection
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThemeMode
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -61,7 +61,10 @@ class SettingsLocalDataSourceImpl @Inject constructor(
 
     override fun observeTextScale(): Flow<Float> =
         dataStore.data
-            .map { prefs -> prefs[SlevoPreferenceDataStores.TEXT_SCALE_KEY] ?: 1f }
+            .map {
+                prefs -> prefs[SlevoPreferenceDataStores.TEXT_SCALE_KEY]
+                    ?: TextDisplaySettingsConstraints.DEFAULT_TEXT_SCALE
+            }
 
     override suspend fun setTextScale(scale: Float) {
         dataStore.edit { prefs ->
@@ -81,7 +84,10 @@ class SettingsLocalDataSourceImpl @Inject constructor(
 
     override fun observeHeaderTextScale(): Flow<Float> =
         dataStore.data
-            .map { prefs -> prefs[SlevoPreferenceDataStores.HEADER_TEXT_SCALE_KEY] ?: 0.85f }
+            .map {
+                prefs -> prefs[SlevoPreferenceDataStores.HEADER_TEXT_SCALE_KEY]
+                    ?: TextDisplaySettingsConstraints.DEFAULT_HEADER_TEXT_SCALE
+            }
 
     override suspend fun setHeaderTextScale(scale: Float) {
         dataStore.edit { prefs ->
@@ -91,7 +97,10 @@ class SettingsLocalDataSourceImpl @Inject constructor(
 
     override fun observeBodyTextScale(): Flow<Float> =
         dataStore.data
-            .map { prefs -> prefs[SlevoPreferenceDataStores.BODY_TEXT_SCALE_KEY] ?: 1f }
+            .map {
+                prefs -> prefs[SlevoPreferenceDataStores.BODY_TEXT_SCALE_KEY]
+                    ?: TextDisplaySettingsConstraints.DEFAULT_BODY_TEXT_SCALE
+            }
 
     override suspend fun setBodyTextScale(scale: Float) {
         dataStore.edit { prefs ->
@@ -101,7 +110,10 @@ class SettingsLocalDataSourceImpl @Inject constructor(
 
     override fun observeLineHeight(): Flow<Float> =
         dataStore.data
-            .map { prefs -> prefs[SlevoPreferenceDataStores.LINE_HEIGHT_KEY] ?: DEFAULT_THREAD_LINE_HEIGHT }
+            .map {
+                prefs -> prefs[SlevoPreferenceDataStores.LINE_HEIGHT_KEY]
+                    ?: TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT
+            }
 
     override suspend fun setLineHeight(height: Float) {
         dataStore.edit { prefs ->
