@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.data.backup
 
+import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -7,10 +8,14 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 /**
- * バックアップ export 関連の Hilt bindings。
+ * バックアップ export/restore 関連の Hilt bindings。
  *
- * `BackupRepositoryImpl`、`DatabaseBackupExporter`、`BackupOutputWriter` は
- * `@Singleton @Inject constructor()` により自動検出されるため個別の bind は不要。
+ * `BackupRepositoryImpl`、`DatabaseBackupExporter`、`BackupOutputWriter`、
+ * `RealBackupDatabaseValidator` は `@Singleton @Inject constructor()` により自動検出されるため
+ * 個別の bind は不要。
+ *
+ * `Moshi` は [com.websarva.wings.android.slevo.di.NetworkModule] で提供されるため
+ * ここでは重複定義しない。
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -42,4 +47,22 @@ object BackupModule {
     fun provideDatabasePathResolver(
         impl: ContextDatabasePathResolver,
     ): DatabasePathResolver = impl
+
+    /**
+     * [BackupDatabaseValidator] を [RealBackupDatabaseValidator] で提供する。
+     */
+    @Provides
+    @Singleton
+    fun provideBackupDatabaseValidator(
+        impl: RealBackupDatabaseValidator,
+    ): BackupDatabaseValidator = impl
+
+    /**
+     * 現在の Room DB version を提供する。
+     *
+     * [BackupReader] が manifest の databaseVersion と比較するために使う。
+     */
+    @Provides
+    @CurrentDatabaseVersion
+    fun provideCurrentDatabaseVersion(): Int = AppDatabase.CURRENT_DATABASE_VERSION
 }

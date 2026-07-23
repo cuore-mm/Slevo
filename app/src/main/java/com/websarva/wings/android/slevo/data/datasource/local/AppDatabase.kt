@@ -45,6 +45,9 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.history.Pos
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostLastIdentityEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.state.ThreadStateEntity
 
+/** Room DB schema version。`@Database` annotation と companion object から参照する。 */
+private const val DATABASE_VERSION = 9
+
 @TypeConverters(NgTypeConverter::class)
 @Database(
     entities = [
@@ -69,7 +72,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.state.Threa
         PostLastIdentityEntity::class,
         ThreadStateEntity::class
     ],
-    version = 9,
+    version = DATABASE_VERSION,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -94,6 +97,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun threadStateDao(): ThreadStateDao
 
     companion object {
+        /** 現在の Room DB schema version。外部からの DB version 参照に使う。 */
+        const val CURRENT_DATABASE_VERSION = DATABASE_VERSION
+
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(

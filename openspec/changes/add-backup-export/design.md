@@ -14,7 +14,7 @@
   - `TabsLocalDataSource` / `TabsLocalDataSourceImpl`: タブ画面の最終選択ページ。
   - `CookieLocalDataSource` / `CookieLocalDataSourceImpl`: OkHttp Cookie の永続化。
 
-既存 UI は `AppNavGraph.kt` の `AppRoute.Settings*` と設定系 navigation、`SettingsScreen.kt` の設定リストで構成されている。バックアップ機能は設定画面配下に「バックアップ作成」として追加するのが最も自然である。復元は非対応のため、初期実装では「バックアップと復元」という画面名・設定項目名を使わない。
+既存 UI は `AppNavGraph.kt` の `AppRoute.Settings*` と設定系 navigation、`SettingsScreen.kt` の設定リストで構成されている。バックアップ機能は設定画面配下に「バックアップ作成」として追加する。復元はこの変更の初期実装では非対応だが、後続の `add-backup-restore` で既存 `BackupScreen` を「バックアップと復元」画面へ拡張し、同じ画面からバックアップ作成と復元を実行できるようにする。
 
 外部ファイル出力は Android Storage Access Framework を使う。ユーザーが保存先を選ぶため、`WRITE_EXTERNAL_STORAGE`、`MANAGE_EXTERNAL_STORAGE`、`FileProvider` の追加は不要である。
 
@@ -285,7 +285,7 @@ Hilt binding は既存の `DataSourceModule.kt` に詰め込みすぎず、必�
 - [Risk] ZIP 作成途中に失敗した場合、一時ファイルが残る。 → `cacheDir/backups/<session>` は `try/finally` で削除する。
 - [Risk] cancellation や close/flush failure により DB lock、write suspension、stream、一時ファイルが残る。 → DB transaction、gate、stream、一時ディレクトリは `try/finally` を前提に cleanup し、close/flush failure も失敗扱いにする。
 - [Risk] 通常バックアップにも履歴や投稿履歴など個人データが含まれ、ZIP は未暗号化である。 → 確認ダイアログで標準バックアップのセンシティブ性と未暗号化であることを明示し、安全な保管を促す。
-- [Risk] 復元未実装のためユーザーが期待を誤解する。 → 画面文言は「バックアップを作成」に限定し、復元ボタンは初期実装では表示しない。
+- [Risk] 復元未実装の段階でユーザーが期待を誤解する。 → この変更の初期実装では画面文言を「バックアップを作成」に限定する。後続の `add-backup-restore` 実装時に同じ画面を「バックアップと復元」へ変更する。
 
 ## Migration Plan
 
@@ -309,7 +309,7 @@ Hilt binding は既存の `DataSourceModule.kt` に詰め込みすぎず、必�
 - ZIP 書き込みの成功判定は、全 entry の書き込み、ZIP stream の close、output stream の close が完了した後にだけ行う。
 - ZIP 書き込み途中、ZIP stream close、flush、または output stream close で失敗した場合は success Snackbar を表示せず、出力先ファイルが不完全な可能性をログへ記録する。削除または truncate は provider が安全に実行可能な場合だけ best-effort で行う。
 - DB エクスポート中の例外・coroutine cancellation では、`BEGIN IMMEDIATE` 後かつ `COMMIT` 完了前であれば source DB transaction を `ROLLBACK` し、`DatabaseWriteGate.withWritesSuspended` を解除し、一時ディレクトリを cleanup する。`COMMIT` 完了後の integrity check 失敗では source DB rollback を試みず、バックアップ失敗として一時ディレクトリを cleanup する。cleanup は `finally` で行い、cleanup 失敗は詳細ログへ記録する。
-- 設定項目名と画面タイトルは「バックアップ作成」とし、復元 UI を表示してはならない。
+- この変更単体の実装完了時点では、設定項目名と画面タイトルは「バックアップ作成」とし、復元 UI を表示しない。後続の `add-backup-restore` では既存 `BackupScreen` を「バックアップと復元」へ拡張してよい。
 - DB エクスポートで `VACUUM INTO` を使ってはならない。
 - `PRAGMA wal_checkpoint(TRUNCATE)` は `BEGIN IMMEDIATE` の前に実行し、checkpoint 結果を確認してから DB ファイルコピーへ進む。
 - `BEGIN IMMEDIATE` は checkpoint 完了後、main DB ファイルコピー直前に開始する。
