@@ -9,6 +9,17 @@ import java.io.IOException
 import java.util.UUID
 
 /**
+ * Result fileをprocess内で直列化するmonitor。
+ *
+ * 起動時applier、Room completion checker、UI consumerは別のstore instanceを使うため、全instanceが
+ * 同じmonitorを共有してresultのwrite/read/conditional delete競合を防ぐ。
+ */
+internal object PendingRestoreResultFileLock {
+    /** result file操作を保護するmonitor。 */
+    val monitor = Any()
+}
+
+/**
  * pending restore のatomic marker/result file とcleanupを扱う抽象。
  *
  * [PendingRestoreApplier] から file I/O の詳細を分離し、
@@ -114,6 +125,7 @@ internal class RealPendingRestoreFileStore(
 
     override fun writeMarker(marker: PendingRestoreMarker) = markerStore.write(marker)
 
+    /** result JSONを共有monitor下で保存し、別instanceのreaderと競合しないようにする。 */
     override fun writeResult(
         success: Boolean,
         message: String,
@@ -126,23 +138,25 @@ internal class RealPendingRestoreFileStore(
         rollbackRequiredAt: String?,
         finalFailureReason: String?,
     ) {
-        resultDir.mkdirs()
-        resultFile.writeText(
-            resultAdapter.toJson(
-                PendingRestoreResultFile(
-                    success = success,
-                    message = message,
-                    timestamp = timestamp,
-                    backupDatabaseVersion = backupDatabaseVersion,
-                    currentDatabaseVersion = currentDatabaseVersion,
-                    migrationRequired = migrationRequired,
-                    migrationCompleted = migrationCompleted,
-                    previousStatus = previousStatus,
-                    rollbackRequiredAt = rollbackRequiredAt,
-                    finalFailureReason = finalFailureReason,
+        synchronized(PendingRestoreResultFileLock.monitor) {
+            resultDir.mkdirs()
+            resultFile.writeText(
+                resultAdapter.toJson(
+                    PendingRestoreResultFile(
+                        success = success,
+                        message = message,
+                        timestamp = timestamp,
+                        backupDatabaseVersion = backupDatabaseVersion,
+                        currentDatabaseVersion = currentDatabaseVersion,
+                        migrationRequired = migrationRequired,
+                        migrationCompleted = migrationCompleted,
+                        previousStatus = previousStatus,
+                        rollbackRequiredAt = rollbackRequiredAt,
+                        finalFailureReason = finalFailureReason,
+                    ),
                 ),
-            ),
-        )
+            )
+        }
     }
 
     override fun cleanupPending() {
@@ -153,13 +167,16 @@ internal class RealPendingRestoreFileStore(
         }
     }
 
+    /** result directoryを共有monitor下で削除する。 */
     override fun cleanupResult() {
-        try {
-            if (resultDir.exists()) {
-                resultDir.deleteRecursively()
+        synchronized(PendingRestoreResultFileLock.monitor) {
+            try {
+                if (resultDir.exists()) {
+                    resultDir.deleteRecursively()
+                }
+            } catch (e: Exception) {
+                logWarn("cleanup result failed: ${e.message}")
             }
-        } catch (e: Exception) {
-            logWarn("cleanup result failed: ${e.message}")
         }
     }
 

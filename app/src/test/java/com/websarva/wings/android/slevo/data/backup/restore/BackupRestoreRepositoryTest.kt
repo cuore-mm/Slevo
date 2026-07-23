@@ -18,6 +18,7 @@ import com.websarva.wings.android.slevo.data.backup.model.IncludedContents
 import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreManager
 import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreMarker
 import com.websarva.wings.android.slevo.data.backup.pending.RestoreStatus
+import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.datasource.local.CookieLocalDataSource
 import com.websarva.wings.android.slevo.data.datasource.local.SettingsLocalDataSource
 import com.websarva.wings.android.slevo.data.datasource.local.TabsLocalDataSource
@@ -43,6 +44,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
 import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 /**
@@ -136,6 +138,38 @@ class BackupRestoreRepositoryTest {
         val result = resourceLimitedRepository.exportBackup(mockk(), includeCookies = false)
 
         Assert.assertTrue(result is BackupExportResult.Failure)
+    }
+
+    /** 実際の export orchestration が生成する manifest の DB version を canonical value と比較する。 */
+    @Test
+    fun exportBackup_manifestUsesCurrentDatabaseVersion() = runTest {
+        val dbFile = tempFolder.newFile("export.db").apply { writeBytes(byteArrayOf(1)) }
+        val dbExporter = mockk<DatabaseBackupExporter>()
+        coEvery { dbExporter.exportDatabase(any()) } returns dbFile
+        val output = ByteArrayOutputStream()
+        val outputWriter = BackupOutputWriter.forTest { _, _ -> output }
+        val exportRepository = BackupRepositoryImpl(
+            context = context,
+            settingsDataSource = FakeSettingsDataSource(),
+            tabsDataSource = FakeTabsDataSource(),
+            cookieDataSource = FakeCookieDataSource(),
+            dbExporter = dbExporter,
+            outputWriter = outputWriter,
+            backupReader = BackupReader(moshi, FakeBackupDatabaseValidator(), currentDbVersion = 9),
+            pendingRestoreManager = pendingRestoreManager,
+        )
+
+        val result = exportRepository.exportBackup(mockk(), includeCookies = false)
+
+        Assert.assertTrue(result is BackupExportResult.Success)
+        val manifestJson = ZipInputStream(output.toByteArray().inputStream()).use { zipInput ->
+            generateSequence { zipInput.nextEntry }
+                .first { it.name == "manifest.json" }
+                .let { zipInput.readBytes().toString(Charsets.UTF_8) }
+        }
+        val manifest = moshi.adapter(BackupManifest::class.java).fromJson(manifestJson)
+
+        Assert.assertEquals(AppDatabase.CURRENT_DATABASE_VERSION, manifest?.databaseVersion)
     }
 
     @Test

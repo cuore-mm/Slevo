@@ -184,6 +184,41 @@
 - **WHEN** DB エクスポート、JSON 変換、保存先 open、または ZIP 書き込みに失敗する
 - **THEN** システムは詳細エラーをログへ記録し、詳細エラー文言を画面に表示しない
 
+### Requirement: 操作結果 Snackbar の durable queue
+システムはバックアップ作成成功、バックアップ作成失敗、無効または未対応のバックアップ、復元準備失敗の各操作結果を、`UiState` 上の識別可能な FIFO queue に完了順で保持し、Snackbar の表示完了が確認されるまで失ってはならない（MUST）。各結果 ID は ViewModel instance 内で厳密に単調増加しなければならない（MUST）。
+
+#### Scenario: 操作結果を完了順に保持する
+- **WHEN** Snackbar が未表示または表示中の間に複数の対象操作が完了する
+- **THEN** システムは各 completion を直列化された単一 state transition として処理し、その transition 内で operation state を完了状態へ更新して各結果へ厳密に単調増加する ID を付け、transition 順を保って queue 末尾へ追加する
+
+#### Scenario: 並行する操作完了を取りこぼさない
+- **WHEN** 複数の対象 operation completion が並行して ViewModel へ到着する
+- **THEN** システムは completion transition を直列化し、ID 順と queue 順を一致させ、いずれの結果も競合する state update で失わない
+
+#### Scenario: queue の先頭だけを表示する
+- **WHEN** pending result queue に 1 件以上の結果がある
+- **THEN** システムは queue 先頭の結果だけを、その result ID を key とする effect で Snackbar に表示する
+
+#### Scenario: Snackbar 表示完了後に先頭を acknowledge する
+- **WHEN** queue 先頭に対応する Snackbar が timeout または dismiss により表示を完了する
+- **THEN** システムは表示した result ID を acknowledge し、ID が現在の先頭と一致する場合だけ先頭 1 件を削除する
+
+#### Scenario: Snackbar effect が中断される
+- **WHEN** Snackbar 表示中に lifecycle change または画面 recreation により表示 effect が cancellation される
+- **THEN** システムはその result を acknowledge または削除せず、recreation 後に同じ queue 先頭を再表示する
+
+#### Scenario: stale または wrong ID を acknowledge する
+- **WHEN** システムが空 queue、古い result ID、未知の result ID、または queue の後続 result ID を acknowledge する
+- **THEN** システムは queue のどの result も削除せず、順序と内容を維持する
+
+#### Scenario: queued results を順次表示する
+- **WHEN** queue 先頭の正しい result ID が acknowledge され、後続 result が残っている
+- **THEN** システムは削除した先頭だけを除き、次の先頭を次の Snackbar として表示する
+
+#### Scenario: 既存の Snackbar 表示契約を維持する
+- **WHEN** システムが queue 内の対象操作結果を Snackbar に表示する
+- **THEN** システムは `ExportSucceeded` に `backup_snackbar_success`、`ExportFailed` に `backup_snackbar_failure`、`RestorePrepareFailed` に `restore_snackbar_failed`、`InvalidBackup` に `restore_snackbar_invalid` を対応させ、既存の各文言、`SnackbarDuration.Short`、style、host、layout を変更しない
+
 ### Requirement: 権限不要のファイル出力
 システムはバックアップ出力に Storage Access Framework を使用し、追加の外部ストレージ権限を要求してはならない（MUST）。
 

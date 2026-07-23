@@ -15,6 +15,7 @@ import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreManage
 import com.websarva.wings.android.slevo.data.backup.restore.BackupReader
 import com.websarva.wings.android.slevo.data.backup.restore.BackupReaderResult
 import com.websarva.wings.android.slevo.data.backup.restore.BackupRestoreResult
+import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.datasource.local.CookieLocalDataSource
 import com.websarva.wings.android.slevo.data.datasource.local.SettingsLocalDataSource
 import com.websarva.wings.android.slevo.data.datasource.local.TabsLocalDataSource
@@ -254,7 +255,7 @@ class BackupRepositoryImpl @Inject constructor(
             createdAt = df.format(Date()),
             appVersionCode = BuildConfig.VERSION_CODE.toLong(),
             appVersionName = BuildConfig.VERSION_NAME,
-            databaseVersion = 9,
+            databaseVersion = AppDatabase.CURRENT_DATABASE_VERSION,
             included = IncludedContents(cookies = includeCookies),
         )
     }

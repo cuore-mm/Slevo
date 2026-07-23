@@ -8,8 +8,7 @@ import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -106,45 +105,45 @@ class BackupViewModelTest {
     }
 
     @Test
-    fun onUriReceived_success_emitsExportSucceeded() = runTest(testDispatcher) {
+    fun onUriReceived_success_queuesExportSucceededAndCompletesExport() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
             coEvery { exportBackup(uri, false) } returns BackupExportResult.Success
         }
         val viewModel = BackupViewModel(repository)
 
-        val eventDeferred = async { viewModel.events.first() }
-        runCurrent()
-
         viewModel.onConfirmCreate()
         assertTrue(viewModel.uiState.value.isExporting)
 
         viewModel.onUriReceived(uri)
         advanceUntilIdle()
 
-        assertFalse(viewModel.uiState.value.isExporting)
-        assertEquals(BackupUiEvent.ExportSucceeded, eventDeferred.await())
+        val state = viewModel.uiState.value
+        assertFalse(state.isExporting)
+        assertEquals(1, state.pendingResults.size)
+        assertEquals(1L, state.pendingResults.single().id)
+        assertTrue(state.pendingResults.single() is BackupUiEvent.ExportSucceeded)
     }
 
     @Test
-    fun onUriReceived_failure_emitsExportFailed() = runTest(testDispatcher) {
+    fun onUriReceived_failure_queuesExportFailedAndCompletesExport() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
             coEvery { exportBackup(uri, false) } returns BackupExportResult.Failure("failed")
         }
         val viewModel = BackupViewModel(repository)
 
-        val eventDeferred = async { viewModel.events.first() }
-        runCurrent()
-
         viewModel.onConfirmCreate()
         assertTrue(viewModel.uiState.value.isExporting)
 
         viewModel.onUriReceived(uri)
         advanceUntilIdle()
 
-        assertFalse(viewModel.uiState.value.isExporting)
-        assertEquals(BackupUiEvent.ExportFailed, eventDeferred.await())
+        val state = viewModel.uiState.value
+        assertFalse(state.isExporting)
+        assertEquals(1, state.pendingResults.size)
+        assertEquals(1L, state.pendingResults.single().id)
+        assertTrue(state.pendingResults.single() is BackupUiEvent.ExportFailed)
     }
 
     // --- 復元 ---
@@ -176,21 +175,21 @@ class BackupViewModelTest {
     }
 
     @Test
-    fun onRestoreUriReceived_invalidBackup_emitsInvalidBackup() = runTest(testDispatcher) {
+    fun onRestoreUriReceived_invalidBackup_queuesInvalidBackupAndCompletesPreview() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
             coEvery { previewBackup(uri) } returns BackupRestoreResult.Invalid("bad")
         }
         val viewModel = BackupViewModel(repository)
 
-        val eventDeferred = async { viewModel.events.first() }
-        runCurrent()
-
         viewModel.onRestoreUriReceived(uri)
         advanceUntilIdle()
 
-        assertFalse(viewModel.uiState.value.isPreviewLoading)
-        assertEquals(BackupUiEvent.InvalidBackup, eventDeferred.await())
+        val state = viewModel.uiState.value
+        assertFalse(state.isPreviewLoading)
+        assertEquals(1, state.pendingResults.size)
+        assertEquals(1L, state.pendingResults.single().id)
+        assertTrue(state.pendingResults.single() is BackupUiEvent.InvalidBackup)
     }
 
     @Test
@@ -272,7 +271,7 @@ class BackupViewModelTest {
     }
 
     @Test
-    fun onConfirmRestore_failure_emitsRestorePrepareFailed() = runTest(testDispatcher) {
+    fun onConfirmRestore_failure_queuesRestorePrepareFailedAndCompletesRestore() = runTest(testDispatcher) {
         val uri = mockk<Uri>()
         val repository: BackupRepository = mockk {
             coEvery { previewBackup(uri) } returns BackupRestoreResult.Success(containsCookies = false)
@@ -283,14 +282,112 @@ class BackupViewModelTest {
         viewModel.onRestoreUriReceived(uri)
         advanceUntilIdle()
 
-        val eventDeferred = async { viewModel.events.first() }
-        runCurrent()
-
         viewModel.onConfirmRestore()
         advanceUntilIdle()
 
-        assertFalse(viewModel.uiState.value.isRestoring)
-        assertEquals(BackupUiEvent.RestorePrepareFailed, eventDeferred.await())
+        val state = viewModel.uiState.value
+        assertFalse(state.isRestoring)
+        assertEquals(1, state.pendingResults.size)
+        assertEquals(1L, state.pendingResults.single().id)
+        assertTrue(state.pendingResults.single() is BackupUiEvent.RestorePrepareFailed)
+    }
+
+    @Test
+    fun onConfirmRestore_invalidBackup_queuesInvalidBackupAndCompletesRestore() = runTest(testDispatcher) {
+        val uri = mockk<Uri>()
+        val repository: BackupRepository = mockk {
+            coEvery { previewBackup(uri) } returns BackupRestoreResult.Success(containsCookies = false)
+            coEvery { restoreBackup(uri, false) } returns BackupRestoreResult.Invalid("bad")
+        }
+        val viewModel = BackupViewModel(repository)
+
+        viewModel.onRestoreUriReceived(uri)
+        advanceUntilIdle()
+        viewModel.onConfirmRestore()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isRestoring)
+        assertEquals(1, state.pendingResults.size)
+        assertTrue(state.pendingResults.single() is BackupUiEvent.InvalidBackup)
+    }
+
+    @Test
+    fun completionResults_useMonotonicIdsAndAcknowledgeOnlyCurrentHead() = runTest(testDispatcher) {
+        val exportUri = mockk<Uri>()
+        val restoreUri = mockk<Uri>()
+        val repository: BackupRepository = mockk {
+            coEvery { exportBackup(exportUri, false) } returns BackupExportResult.Success
+            coEvery { previewBackup(restoreUri) } returns BackupRestoreResult.Invalid("bad")
+        }
+        val viewModel = BackupViewModel(repository)
+
+        viewModel.onConfirmCreate()
+        viewModel.onUriReceived(exportUri)
+        advanceUntilIdle()
+        viewModel.onRestoreUriReceived(restoreUri)
+        advanceUntilIdle()
+
+        val results = viewModel.uiState.value.pendingResults
+        assertEquals(listOf(1L, 2L), results.map { it.id })
+        assertTrue(results[0] is BackupUiEvent.ExportSucceeded)
+        assertTrue(results[1] is BackupUiEvent.InvalidBackup)
+
+        viewModel.acknowledgeResult(999L)
+        viewModel.acknowledgeResult(results[1].id)
+        assertEquals(listOf(1L, 2L), viewModel.uiState.value.pendingResults.map { it.id })
+
+        viewModel.acknowledgeResult(results[0].id)
+        assertEquals(listOf(2L), viewModel.uiState.value.pendingResults.map { it.id })
+        viewModel.acknowledgeResult(results[0].id)
+        assertEquals(listOf(2L), viewModel.uiState.value.pendingResults.map { it.id })
+
+        viewModel.acknowledgeResult(results[1].id)
+        assertTrue(viewModel.uiState.value.pendingResults.isEmpty())
+        viewModel.acknowledgeResult(results[1].id)
+        assertTrue(viewModel.uiState.value.pendingResults.isEmpty())
+    }
+
+    @Test
+    fun concurrentCompletions_areQueuedInCompletionOrderWithoutLoss() = runTest(testDispatcher) {
+        val firstUri = mockk<Uri>()
+        val secondUri = mockk<Uri>()
+        val firstCompletion = CompletableDeferred<BackupExportResult>()
+        val secondCompletion = CompletableDeferred<BackupExportResult>()
+        val repository: BackupRepository = mockk {
+            coEvery { exportBackup(firstUri, false) } coAnswers { firstCompletion.await() }
+            coEvery { exportBackup(secondUri, false) } coAnswers { secondCompletion.await() }
+        }
+        val viewModel = BackupViewModel(repository)
+
+        viewModel.onConfirmCreate()
+        viewModel.onUriReceived(firstUri)
+        viewModel.onConfirmCreate()
+        viewModel.onUriReceived(secondUri)
+        runCurrent()
+
+        secondCompletion.complete(BackupExportResult.Failure("second"))
+        advanceUntilIdle()
+        firstCompletion.complete(BackupExportResult.Success)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isExporting)
+        assertEquals(listOf(1L, 2L), state.pendingResults.map { it.id })
+        assertTrue(state.pendingResults[0] is BackupUiEvent.ExportFailed)
+        assertTrue(state.pendingResults[1] is BackupUiEvent.ExportSucceeded)
+    }
+
+    @Test
+    fun cancellationPaths_doNotAddPendingResults() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+
+        viewModel.onConfirmCreate()
+        viewModel.onUriReceived(null)
+        viewModel.onRestoreUriReceived(null)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.pendingResults.isEmpty())
     }
 
     @Test

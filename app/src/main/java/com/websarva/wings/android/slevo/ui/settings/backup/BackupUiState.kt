@@ -15,6 +15,8 @@ import com.websarva.wings.android.slevo.data.backup.restore.BackupPreview
  * @property showRestorePreparedDialog 復元準備完了ダイアログの表示有無。
  * @property restorePreview 検証済みの復元 preview。preview 成功時のみ設定される。
  * @property previewContainsCookies 選択されたバックアップに Cookie が含まれているか。
+ * @property pendingResults Snackbar 表示待ちの操作結果。先頭だけが表示対象で、表示完了後に
+ *   acknowledge されるまで後続結果とともに FIFO 順を維持する。
  */
 data class BackupUiState(
     val includeCookies: Boolean = false,
@@ -27,4 +29,5 @@ data class BackupUiState(
     val showRestorePreparedDialog: Boolean = false,
     val restorePreview: BackupPreview? = null,
     val previewContainsCookies: Boolean = false,
+    val pendingResults: List<BackupUiEvent> = emptyList(),
 )

@@ -8,11 +8,10 @@ import com.websarva.wings.android.slevo.data.backup.export.BackupExportResult
 import com.websarva.wings.android.slevo.data.backup.BackupRepository
 import com.websarva.wings.android.slevo.data.backup.restore.BackupRestoreResult
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -23,7 +22,8 @@ import javax.inject.Inject
  *
  * バックアップ作成の確認ダイアログ・export 実行と、
  * 復元のファイル選択・preview 読取・確認ダイアログ・restore 実行を管理する。
- * Snackbar 表示は [BackupUiEvent] で通知し、文言解決は Compose 側で行う。
+ * 操作結果は [BackupUiState.pendingResults] に保持し、Snackbar 表示完了後の acknowledge
+ * まで失われないようにする。
  */
 @HiltViewModel
 class BackupViewModel @Inject constructor(
@@ -33,8 +33,9 @@ class BackupViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(BackupUiState())
     val uiState: StateFlow<BackupUiState> = _uiState.asStateFlow()
 
-    private val _events = MutableSharedFlow<BackupUiEvent>(extraBufferCapacity = 1)
-    val events: SharedFlow<BackupUiEvent> = _events.asSharedFlow()
+    /** completion の ID 採番と operation state 更新を一つの state transition に直列化する。 */
+    private val completionMutex = Mutex()
+    private var nextResultId = 0L
 
     /** 復元ファイル選択で受け取った URI。画面回転で消えないよう ViewModel で保持する。 */
     private var pendingRestoreUri: Uri? = null
@@ -66,10 +67,15 @@ class BackupViewModel @Inject constructor(
         val includeCookies = _uiState.value.includeCookies
         viewModelScope.launch {
             val result = backupRepository.exportBackup(uri, includeCookies)
-            _uiState.update { it.copy(isExporting = false) }
             when (result) {
-                is BackupExportResult.Success -> _events.emit(BackupUiEvent.ExportSucceeded)
-                is BackupExportResult.Failure -> _events.emit(BackupUiEvent.ExportFailed)
+                is BackupExportResult.Success -> completeOperation(
+                    createResult = ::exportSucceeded,
+                    stateUpdate = { it.copy(isExporting = false) },
+                )
+                is BackupExportResult.Failure -> completeOperation(
+                    createResult = ::exportFailed,
+                    stateUpdate = { it.copy(isExporting = false) },
+                )
             }
         }
     }
@@ -105,12 +111,16 @@ class BackupViewModel @Inject constructor(
                     }
                 }
                 is BackupRestoreResult.Invalid -> {
-                    _uiState.update { it.copy(isPreviewLoading = false) }
-                    _events.emit(BackupUiEvent.InvalidBackup)
+                    completeOperation(
+                        createResult = ::invalidBackup,
+                        stateUpdate = { it.copy(isPreviewLoading = false) },
+                    )
                 }
                 is BackupRestoreResult.Failure -> {
-                    _uiState.update { it.copy(isPreviewLoading = false) }
-                    _events.emit(BackupUiEvent.RestorePrepareFailed)
+                    completeOperation(
+                        createResult = ::restorePrepareFailed,
+                        stateUpdate = { it.copy(isPreviewLoading = false) },
+                    )
                 }
             }
         }
@@ -145,12 +155,16 @@ class BackupViewModel @Inject constructor(
                     _uiState.update { it.copy(isRestoring = false, showRestorePreparedDialog = true) }
                 }
                 is BackupRestoreResult.Invalid -> {
-                    _uiState.update { it.copy(isRestoring = false) }
-                    _events.emit(BackupUiEvent.InvalidBackup)
+                    completeOperation(
+                        createResult = ::invalidBackup,
+                        stateUpdate = { it.copy(isRestoring = false) },
+                    )
                 }
                 is BackupRestoreResult.Failure -> {
-                    _uiState.update { it.copy(isRestoring = false) }
-                    _events.emit(BackupUiEvent.RestorePrepareFailed)
+                    completeOperation(
+                        createResult = ::restorePrepareFailed,
+                        stateUpdate = { it.copy(isRestoring = false) },
+                    )
                 }
             }
         }
@@ -159,6 +173,17 @@ class BackupViewModel @Inject constructor(
     /** 復元準備完了ダイアログを閉じる（「あとで」押下時）。 */
     fun onRestorePreparedDismiss() {
         _uiState.update { it.copy(showRestorePreparedDialog = false) }
+    }
+
+    /** 表示済み結果の ID が現在の queue 先頭と一致する場合だけ先頭を削除する。 */
+    fun acknowledgeResult(resultId: Long) {
+        _uiState.update { state ->
+            if (state.pendingResults.firstOrNull()?.id != resultId) {
+                state
+            } else {
+                state.copy(pendingResults = state.pendingResults.drop(1))
+            }
+        }
     }
 
     /** 処理中の操作抑制判定。 */
@@ -171,6 +196,30 @@ class BackupViewModel @Inject constructor(
             // JVM unit test の Log stub では例外になるため握りつぶす。
         }
     }
+
+    /** 完了結果へ ID を付け、対応 state と FIFO queue を同じ atomic transition で更新する。 */
+    private suspend fun completeOperation(
+        createResult: (Long) -> BackupUiEvent,
+        stateUpdate: (BackupUiState) -> BackupUiState,
+    ) {
+        completionMutex.withLock {
+            val resultId = nextResultId + 1
+            nextResultId = resultId
+            val result = createResult(resultId)
+            _uiState.update { state ->
+                stateUpdate(state).copy(pendingResults = state.pendingResults + result)
+            }
+        }
+    }
+
+    private fun exportSucceeded(id: Long): BackupUiEvent = BackupUiEvent.ExportSucceeded(id)
+
+    private fun exportFailed(id: Long): BackupUiEvent = BackupUiEvent.ExportFailed(id)
+
+    private fun invalidBackup(id: Long): BackupUiEvent = BackupUiEvent.InvalidBackup(id)
+
+    private fun restorePrepareFailed(id: Long): BackupUiEvent =
+        BackupUiEvent.RestorePrepareFailed(id)
 
     /** 定数。 */
     private companion object {

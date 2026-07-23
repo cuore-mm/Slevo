@@ -225,14 +225,32 @@ ViewModel は `StateFlow<BackupUiState>` を公開する。状態例:
 - `includeCookies: Boolean`
 - `showConfirmDialog: Boolean`
 - `isExporting: Boolean`
-- `lastResult: BackupResultMessage?`
-- `errorMessage: String?`
+- `pendingResults: List<BackupUiEvent>`
 
 Composable は状態を描画し、ビジネスロジック、ZIP 書き込み、DB 操作を持たない。
 
 処理中表示は `isExporting == true` の間、モーダルの進捗ダイアログとして表示する。ダイアログにはタイトル「バックアップを作成中」、本文「データを書き出しています。しばらくお待ちください。」、`CircularProgressIndicator` を表示する。処理中はユーザーが重複実行できないように、バックアップ作成ボタン、確認ダイアログの作成ボタン、クッキー checkbox を無効化する。
 
-成功/失敗は Snackbar で短く通知する。成功時は「バックアップファイルを作成しました」、失敗時は「バックアップファイルの作成に失敗しました」を表示する。詳細エラーはユーザー向け UI には表示せず、既存の logging 方針に合わせてログへ出力する。保存先選択キャンセルはエラー扱いにせず、Snackbar も表示しない。
+成功/失敗は Snackbar で短く通知する。既存の result と文字列 resource の対応は次のまま維持する。
+
+| result | string resource | 表示文言 |
+|---|---|---|
+| `ExportSucceeded` | `backup_snackbar_success` | 「バックアップファイルを作成しました」 |
+| `ExportFailed` | `backup_snackbar_failure` | 「バックアップファイルの作成に失敗しました」 |
+| `RestorePrepareFailed` | `restore_snackbar_failed` | 「復元の準備に失敗しました」 |
+| `InvalidBackup` | `restore_snackbar_invalid` | 「無効または未対応のバックアップファイルです」 |
+
+詳細エラーはユーザー向け UI には表示せず、既存の logging 方針に合わせてログへ出力する。保存先選択キャンセルはエラー扱いにせず、Snackbar も表示しない。
+
+`BackupViewModel` の操作結果通知には collector 不在時に失われる `SharedFlow` を使わず、`BackupUiState.pendingResults` に FIFO queue として保持する。対象はバックアップ作成成功、バックアップ作成失敗、無効または未対応のバックアップ、復元準備失敗の 4 種類とする。各 result は ViewModel instance 内で厳密に単調増加する `Long` ID を持ち、操作が完了した順に queue 末尾へ追加する。queue の先頭だけが表示対象であり、後続 result は先頭の処理完了まで保持する。
+
+各 operation completion は ViewModel 上で直列化された 1 回の state transition として扱い、その transition を「完了順」の ordering point とする。同じ transition 内で次 ID を確定し、対応する operation state（例: `isExporting` または restore preparation state）を完了状態へ更新し、result を queue 末尾へ追加する。並行して completion callback が到着しても、ID 順と queue 順を一致させ、競合する `UiState.copy` による result 消失や progress state との不整合を許容しない。
+
+既存の result classification は変更しない。6 個の completion path は、`onUriReceived` の `BackupExportResult.Success` を `ExportSucceeded`、同 `Failure` を `ExportFailed`、`onRestoreUriReceived` の `BackupRestoreResult.Invalid` を `InvalidBackup`、同 `Failure` を `RestorePrepareFailed`、`onConfirmRestore` の `BackupRestoreResult.Invalid` を `InvalidBackup`、同 `Failure` を `RestorePrepareFailed` へ mapping する。
+
+`BackupScreen` は queue 先頭の result ID だけを key とする effect で既存の `SnackbarHostState.showSnackbar` を呼び、同 API の既定値である `SnackbarDuration.Short`、既存文言、既存 Snackbar host、style、layout を変更しない。`showSnackbar` が timeout または dismiss により正常に返った後に限り、その ID を `BackupViewModel.acknowledgeResult(resultId)` へ渡す。effect が cancellation された場合は acknowledge せず、画面 recreation 後も同じ先頭 result を再表示できる状態を保つ。
+
+`acknowledgeResult` は渡された ID がその時点の queue 先頭 ID と一致するときだけ先頭 1 件を削除する。古い ID、未知の ID、後続 result の ID、空 queue に対する acknowledge は何も変更しない。先頭削除後は次の result が新しい effect key となるため、複数の完了結果を生成順に 1 件ずつ表示する。この変更では process death を越える永続化、通知文言、表示時間、画面構成の変更は行わない。
 
 ### 6. 依存注入と配置
 
@@ -286,6 +304,8 @@ Hilt binding は既存の `DataSourceModule.kt` に詰め込みすぎず、必�
 - [Risk] cancellation や close/flush failure により DB lock、write suspension、stream、一時ファイルが残る。 → DB transaction、gate、stream、一時ディレクトリは `try/finally` を前提に cleanup し、close/flush failure も失敗扱いにする。
 - [Risk] 通常バックアップにも履歴や投稿履歴など個人データが含まれ、ZIP は未暗号化である。 → 確認ダイアログで標準バックアップのセンシティブ性と未暗号化であることを明示し、安全な保管を促す。
 - [Risk] 復元未実装の段階でユーザーが期待を誤解する。 → この変更の初期実装では画面文言を「バックアップを作成」に限定する。後続の `add-backup-restore` 実装時に同じ画面を「バックアップと復元」へ変更する。
+- [Risk] `SharedFlow` の collector が lifecycle により停止している間に操作が完了すると、Snackbar 通知が失われる。 → ID 付き result を `BackupUiState` の FIFO queue に保持し、Snackbar 表示完了後の先頭一致 acknowledge まで削除しない。
+- [Risk] 古い effect の完了 callback が新しい先頭 result を削除すると通知順序が崩れる。 → acknowledge は ID が現在の先頭と一致する場合だけ先頭 1 件を削除し、不一致は no-op とする。
 
 ## Migration Plan
 
@@ -301,6 +321,11 @@ Hilt binding は既存の `DataSourceModule.kt` に詰め込みすぎず、必�
 - `BackupScreen` は描画、確認ダイアログ表示、launcher 起動のみを担当し、ZIP/DB/DataStore 処理を持たない。
 - `BackupScreen` は `isExporting == true` の間、閉じる操作を持たないモーダル進捗ダイアログを表示する。
 - `BackupScreen` は成功/失敗を Snackbar で表示し、詳細エラー文言や例外 stack trace を画面に表示しない。
+- `BackupViewModel` はバックアップ作成成功/失敗、無効バックアップ、復元準備失敗を、ViewModel instance 内で厳密に単調増加する ID を持つ result として `BackupUiState` の FIFO queue へ完了順に追加し、これらの通知に `SharedFlow` を使用しない。
+- result の ID 採番、対応する operation state の完了更新、queue 末尾への追加は、ViewModel 上で直列化された同一 completion transition として行い、その transition 順を ID 順および queue 順にする。
+- `BackupScreen` は pending result の先頭だけを result ID keyed effect で表示し、既存の文言、`SnackbarDuration.Short`、Snackbar style、host、layout を維持する。
+- `BackupScreen` は `showSnackbar` が正常に返った後だけ表示した先頭 ID を acknowledge し、effect cancellation 時は acknowledge しない。
+- `BackupViewModel.acknowledgeResult` は指定 ID が現在の queue 先頭 ID と一致する場合だけ先頭 1 件を削除し、空 queue、古い ID、未知の ID、後続 ID では state を変更しない。
 - `BackupViewModel` は `BackupRepository` のみに依存し、`ContentResolver` 直接操作を持たない。
 - `BackupRepository` は `Uri` への出力を repository/data 層へ委譲し、処理結果を sealed class または Result 型で返す。
 - この変更は `add-database-write-gate` の実装完了を前提にし、`DatabaseWriteGate` 自体や既存 Repository の gate 移行を含めない。
@@ -333,7 +358,10 @@ Hilt binding は既存の `DataSourceModule.kt` に詰め込みすぎず、必�
 - Robolectric または AndroidX test:
   - `ContentResolver.openOutputStream(uri)` 相当を使った保存処理の成功/失敗。
   - `BackupViewModel` の確認ダイアログ表示/非表示、`includeCookies`、`isExporting`、成功、失敗状態遷移。
-  - 成功時に成功 Snackbar 用イベント、失敗時に共通失敗 Snackbar 用イベント、保存先選択キャンセル時にイベントなしとなること。
+  - バックアップ作成成功/失敗、無効バックアップ、復元準備失敗が単調増加 ID 付きで完了順に queue へ追加されること。
+  - 並行する completion を制御して、ID 採番、対応 operation state の完了更新、queue 追加が単一の直列化 transition となり、ID 順と queue 順が一致して result を失わないこと。
+  - 先頭一致 acknowledge が先頭 1 件だけを削除し、古い ID、未知の ID、後続 ID、空 queue への acknowledge が no-op となること。
+  - 保存先選択キャンセル時に pending result が追加されないこと。
 - Room 関連:
   - `DatabaseBackupExporter` の checkpoint 結果処理、最大 3 回リトライ、待機処理の差し替え、checkpoint 未完了時に main DB コピーへ進まないこと、integrity check 成功/失敗分岐は fake/抽象化を使って必ず自動テストする。
   - 可能であれば追加で in-memory ではなく一時ファイル DB を使い、`PRAGMA wal_checkpoint(TRUNCATE)` の結果確認と main DB ファイルコピーを検証する。
@@ -346,6 +374,7 @@ Hilt binding は既存の `DataSourceModule.kt` に詰め込みすぎず、必�
 - UI/navigation:
   - Compose UI または instrumented test で、設定画面の「バックアップ作成」項目からバックアップ作成画面へ遷移できることを検証する。
   - Compose UI または ViewModel + UI state test で、確認ダイアログ、クッキー checkbox の初期未選択かつ処理中でなければ選択可能な状態、進捗ダイアログ、成功/失敗 Snackbar を検証する。
+  - Snackbar は queue 先頭だけを `SnackbarDuration.Short` で表示し、表示完了後に正しい ID を acknowledge することを検証する。effect cancellation では acknowledge せず、recreation 後に同じ先頭を再表示し、acknowledge 後は後続 result を順次表示することを検証する。
 - 実装後の確認コマンド:
   - CI で既存の build/test workflow を実行する。ローカル Gradle 実行は明示指示がある場合のみ行う。
 

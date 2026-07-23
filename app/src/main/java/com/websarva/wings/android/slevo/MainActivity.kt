@@ -11,15 +11,21 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.websarva.wings.android.slevo.ui.AppScaffold
+import com.websarva.wings.android.slevo.ui.PendingRestoreResultViewModel
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
@@ -30,9 +36,11 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val settingsViewModel: SettingsViewModel by viewModels()
+    private val pendingRestoreResultViewModel: PendingRestoreResultViewModel by viewModels()
     @Inject lateinit var tabSessionStore: TabSessionStore
     private val deepLinkUrlState = MutableStateFlow<String?>(null)
 
+    /** window、lifecycle通知再評価、Compose root UIを初期化する。 */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // --- Window setup ---
@@ -43,9 +51,19 @@ class MainActivity : ComponentActivity() {
         // --- Deep link initialization ---
         updateDeepLinkIntent(intent)
 
+        lifecycleScope.launch {
+            observePendingRestoreResultLifecycle(
+                lifecycle = lifecycle,
+                onStarted = pendingRestoreResultViewModel::startObservation,
+                onStopped = pendingRestoreResultViewModel::stopObservation,
+            )
+        }
+
         // --- Compose content ---
         setContent {
-            val uiState by settingsViewModel.uiState.collectAsState()
+            val uiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+            val pendingRestoreResultUiState by pendingRestoreResultViewModel.uiState
+                .collectAsStateWithLifecycle()
             val isSystemDark = isSystemInDarkTheme()
             val isDarkTheme = uiState.themeMode.resolveDarkTheme(isSystemDark)
 
@@ -64,6 +82,8 @@ class MainActivity : ComponentActivity() {
                 AppScaffold(
                     settingsViewModel = settingsViewModel,
                     tabSessionStore = tabSessionStore,
+                    pendingRestoreResultUiState = pendingRestoreResultUiState,
+                    onPendingRestoreResultDisplayed = pendingRestoreResultViewModel::acknowledgeResult,
                     deepLinkUrlFlow = deepLinkUrlState.asStateFlow(),
                     onDeepLinkConsumed = { deepLinkUrlState.value = null },
                     onExitApp = {
@@ -87,5 +107,25 @@ class MainActivity : ComponentActivity() {
     private fun updateDeepLinkIntent(intent: Intent?) {
         val url = intent?.dataString ?: return // Deep Linkが無い場合は更新しない。
         deepLinkUrlState.value = url
+    }
+}
+
+/**
+ * ActivityのSTARTED境界をpending result観察の開始・停止へ変換する。
+ *
+ * blockのcancelを含むすべての終了経路で停止callbackを呼び、STOP中の再読を許可しない。
+ */
+internal suspend fun observePendingRestoreResultLifecycle(
+    lifecycle: Lifecycle,
+    onStarted: () -> Unit,
+    onStopped: () -> Unit,
+) {
+    lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+        onStarted()
+        try {
+            awaitCancellation()
+        } finally {
+            onStopped()
+        }
     }
 }

@@ -51,26 +51,12 @@ fun BackupScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // --- Snackbar イベント収集 ---
-    val successMessage = stringResource(id = R.string.backup_snackbar_success)
-    val failureMessage = stringResource(id = R.string.backup_snackbar_failure)
-    val restoreFailedMessage = stringResource(id = R.string.restore_snackbar_failed)
-    val invalidBackupMessage = stringResource(id = R.string.restore_snackbar_invalid)
-    LaunchedEffect(
-        viewModel.events, snackbarHostState,
-        successMessage, failureMessage, restoreFailedMessage, invalidBackupMessage,
-    ) {
-        viewModel.events.collect { event ->
-            snackbarHostState.showSnackbar(
-                when (event) {
-                    BackupUiEvent.ExportSucceeded -> successMessage
-                    BackupUiEvent.ExportFailed -> failureMessage
-                    BackupUiEvent.RestorePrepareFailed -> restoreFailedMessage
-                    BackupUiEvent.InvalidBackup -> invalidBackupMessage
-                },
-            )
-        }
-    }
+    // --- Snackbar 結果 queue の先頭を表示 ---
+    BackupResultSnackbarEffect(
+        pendingResult = uiState.pendingResults.firstOrNull(),
+        snackbarHostState = snackbarHostState,
+        onDisplayed = viewModel::acknowledgeResult,
+    )
 
     // --- SAF launcher (バックアップ作成用) ---
     val createLauncher = rememberLauncherForActivityResult(
@@ -110,6 +96,38 @@ fun BackupScreen(
         onConfirmRestore = viewModel::onConfirmRestore,
         onRestorePreparedDismiss = viewModel::onRestorePreparedDismiss,
     )
+}
+
+/**
+ * pending result の先頭だけを既存の Snackbar host に表示する effect。
+ *
+ * result ID を effect key にすることで、表示中の lifecycle cancellation では acknowledge
+ * せず、再作成後も同じ先頭結果を再表示できる。Snackbar が正常に完了した場合だけ callback
+ * を呼び出す。
+ */
+@Composable
+fun BackupResultSnackbarEffect(
+    pendingResult: BackupUiEvent?,
+    snackbarHostState: SnackbarHostState,
+    onDisplayed: (Long) -> Unit,
+) {
+    val successMessage = stringResource(id = R.string.backup_snackbar_success)
+    val failureMessage = stringResource(id = R.string.backup_snackbar_failure)
+    val restoreFailedMessage = stringResource(id = R.string.restore_snackbar_failed)
+    val invalidBackupMessage = stringResource(id = R.string.restore_snackbar_invalid)
+
+    LaunchedEffect(pendingResult?.id) {
+        val result = pendingResult ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(
+            when (result) {
+                is BackupUiEvent.ExportSucceeded -> successMessage
+                is BackupUiEvent.ExportFailed -> failureMessage
+                is BackupUiEvent.RestorePrepareFailed -> restoreFailedMessage
+                is BackupUiEvent.InvalidBackup -> invalidBackupMessage
+            },
+        )
+        onDisplayed(result.id)
+    }
 }
 
 /**

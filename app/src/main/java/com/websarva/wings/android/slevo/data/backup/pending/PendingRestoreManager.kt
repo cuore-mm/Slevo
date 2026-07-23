@@ -159,27 +159,31 @@ class PendingRestoreManager @Inject constructor(
      * UI が 1 回表示後に削除する。
      */
     fun writeResultFile(success: Boolean, message: String) {
-        resultDir.mkdirs()
-        val result = PendingRestoreResultFile(
-            success = success,
-            message = message,
-            timestamp = Instant.now().toString(),
-        )
-        File(resultDir, RESULT_FILENAME).writeText(
-            moshi.adapter<PendingRestoreResultFile>().toJson(result),
-        )
+        synchronized(PendingRestoreResultFileLock.monitor) {
+            resultDir.mkdirs()
+            val result = PendingRestoreResultFile(
+                success = success,
+                message = message,
+                timestamp = Instant.now().toString(),
+            )
+            File(resultDir, RESULT_FILENAME).writeText(
+                moshi.adapter<PendingRestoreResultFile>().toJson(result),
+            )
+        }
     }
 
     /**
      * result file を読み取る。
      */
     fun readResultFile(): PendingRestoreResultFile? {
-        val file = File(resultDir, RESULT_FILENAME)
-        if (!file.exists()) return null
-        return try {
-            moshi.adapter<PendingRestoreResultFile>().fromJson(file.readText())
-        } catch (_: Exception) {
-            null
+        synchronized(PendingRestoreResultFileLock.monitor) {
+            val file = File(resultDir, RESULT_FILENAME)
+            if (!file.exists()) return null
+            return try {
+                moshi.adapter<PendingRestoreResultFile>().fromJson(file.readText())
+            } catch (_: Exception) {
+                null
+            }
         }
     }
 
@@ -187,7 +191,9 @@ class PendingRestoreManager @Inject constructor(
      * result file を削除する。
      */
     fun deleteResultFile() {
-        File(resultDir, RESULT_FILENAME).delete()
+        synchronized(PendingRestoreResultFileLock.monitor) {
+            File(resultDir, RESULT_FILENAME).delete()
+        }
     }
 
     /**
