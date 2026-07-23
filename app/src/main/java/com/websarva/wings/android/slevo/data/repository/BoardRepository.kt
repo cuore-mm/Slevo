@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.data.repository
 
 import androidx.core.net.toUri
 import androidx.room.withTransaction
+import com.websarva.wings.android.slevo.data.database.DatabaseWriteGate
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.BbsServiceDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bbs.BoardDao
@@ -39,6 +40,7 @@ class BoardRepository @Inject constructor(
     private val boardVisitDao: BoardVisitDao,
     private val fetchMetaDao: BoardFetchMetaDao,
     private val threadStateRepository: ThreadStateRepository,
+    private val gate: DatabaseWriteGate,
     private val db: AppDatabase,
 ) {
     private companion object {
@@ -88,7 +90,9 @@ class BoardRepository @Inject constructor(
      * @param baselineAt 新しい基準時刻
      */
     suspend fun updateBaseline(boardId: Long, baselineAt: Long) {
-        boardVisitDao.upsert(BoardVisitEntity(boardId, baselineAt))
+        gate.withWritePermit {
+            boardVisitDao.upsert(BoardVisitEntity(boardId, baselineAt))
+        }
     }
 
     /**
@@ -108,84 +112,89 @@ class BoardRepository @Inject constructor(
         isManual: Boolean,
         onProgress: (Float) -> Unit = {},
     ): Boolean = withContext(Dispatchers.IO) {
+        // --- fetch meta / remote (gate 外) ---
         val meta = fetchMetaDao.get(boardId)
         val result = remote.fetchSubjectTxt(subjectUrl, meta?.etag, meta?.lastModified, onProgress)
             ?: return@withContext false
         val now = System.currentTimeMillis()
         when (result.statusCode) {
             304 -> {
-                db.withTransaction {
-                    fetchMetaDao.upsert(
-                        BoardFetchMetaEntity(
-                            boardId,
-                            result.etag ?: meta?.etag,
-                            result.lastModified ?: meta?.lastModified,
-                            now
+                gate.withWritePermit {
+                    db.withTransaction {
+                        fetchMetaDao.upsert(
+                            BoardFetchMetaEntity(
+                                boardId,
+                                result.etag ?: meta?.etag,
+                                result.lastModified ?: meta?.lastModified,
+                                now
+                            )
                         )
-                    )
-                    if (isManual) {
-                        boardVisitDao.upsert(BoardVisitEntity(boardId, refreshStartAt))
+                        if (isManual) {
+                            boardVisitDao.upsert(BoardVisitEntity(boardId, refreshStartAt))
+                        }
                     }
                 }
                 true
             }
 
             200 -> {
+                // --- parse (gate 外) ---
                 val threads = parseSubjectTxt(result.body ?: return@withContext false)
-                db.withTransaction {
-                    val boardEntity = boardDao.findBoardById(boardId)
-                    val boardKey = boardEntity?.url?.let { parseBoardUrl(it) }
-                    val existingIds = threadSummaryDao.getAllThreadIds(boardId).toHashSet()
-                    val newIds = mutableListOf<String>()
-                    val inserts = mutableListOf<ThreadSummaryEntity>()
-                    threads.forEachIndexed { index, t ->
-                        newIds.add(t.key)
-                        if (t.key in existingIds) {
-                            threadSummaryDao.updateExisting(
-                                boardId,
-                                t.key,
-                                t.title,
-                                t.resCount,
-                                index
-                            )
-                        } else {
-                            inserts.add(
-                                ThreadSummaryEntity(
-                                    boardId = boardId,
-                                    threadId = t.key,
-                                    title = t.title,
-                                    resCount = t.resCount,
-                                    firstSeenAt = now,
-                                    subjectRank = index
+                gate.withWritePermit {
+                    db.withTransaction {
+                        val boardEntity = boardDao.findBoardById(boardId)
+                        val boardKey = boardEntity?.url?.let { parseBoardUrl(it) }
+                        val existingIds = threadSummaryDao.getAllThreadIds(boardId).toHashSet()
+                        val newIds = mutableListOf<String>()
+                        val inserts = mutableListOf<ThreadSummaryEntity>()
+                        threads.forEachIndexed { index, t ->
+                            newIds.add(t.key)
+                            if (t.key in existingIds) {
+                                threadSummaryDao.updateExisting(
+                                    boardId,
+                                    t.key,
+                                    t.title,
+                                    t.resCount,
+                                    index
                                 )
-                            )
-                        }
-                    }
-                    if (inserts.isNotEmpty()) threadSummaryDao.insertAll(inserts)
-                    if (boardEntity != null && boardKey != null) {
-                        // subject.txt 由来の一覧を、板キャッシュと同じ順序で共通客観状態へ反映する。
-                        threadStateRepository.saveThreadStates(
-                            threads.map { thread ->
-                                ThreadStateRepository.ThreadStateUpdate(
-                                    threadId = ThreadId.of(boardKey.first, boardKey.second, thread.key),
-                                    boardId = boardId,
-                                    boardUrl = boardEntity.url,
-                                    boardName = boardEntity.name,
-                                    title = thread.title,
-                                    latestResCount = thread.resCount,
-                                    updatedAt = now,
+                            } else {
+                                inserts.add(
+                                    ThreadSummaryEntity(
+                                        boardId = boardId,
+                                        threadId = t.key,
+                                        title = t.title,
+                                        resCount = t.resCount,
+                                        firstSeenAt = now,
+                                        subjectRank = index
+                                    )
                                 )
                             }
+                        }
+                        if (inserts.isNotEmpty()) threadSummaryDao.insertAll(inserts)
+                        if (boardEntity != null && boardKey != null) {
+                            threadStateRepository.saveThreadStatesUngated(
+                                threads.map { thread ->
+                                    ThreadStateRepository.ThreadStateUpdate(
+                                        threadId = ThreadId.of(boardKey.first, boardKey.second, thread.key),
+                                        boardId = boardId,
+                                        boardUrl = boardEntity.url,
+                                        boardName = boardEntity.name,
+                                        title = thread.title,
+                                        latestResCount = thread.resCount,
+                                        updatedAt = now,
+                                    )
+                                }
+                            )
+                        }
+                        val removed = calculateRemovedThreadIds(existingIds.toList(), newIds)
+                        deleteThreadSummariesInChunks(boardId, removed)
+                        if (removed.isNotEmpty()) threadStateRepository.collectGarbageUngated()
+                        fetchMetaDao.upsert(
+                            BoardFetchMetaEntity(boardId, result.etag, result.lastModified, now)
                         )
-                    }
-                    val removed = calculateRemovedThreadIds(existingIds.toList(), newIds)
-                    deleteThreadSummariesInChunks(boardId, removed)
-                    if (removed.isNotEmpty()) threadStateRepository.collectGarbage()
-                    fetchMetaDao.upsert(
-                        BoardFetchMetaEntity(boardId, result.etag, result.lastModified, now)
-                    )
-                    if (isManual) {
-                        boardVisitDao.upsert(BoardVisitEntity(boardId, refreshStartAt))
+                        if (isManual) {
+                            boardVisitDao.upsert(BoardVisitEntity(boardId, refreshStartAt))
+                        }
                     }
                 }
                 true
@@ -264,10 +273,18 @@ class BoardRepository @Inject constructor(
     /**
      * 指定した板情報をDBに登録し、そのIDを返す。
      * 既存の場合はIDのみ返す。
+     *
      * @param boardInfo 板情報
      * @return 板ID
      */
-    suspend fun ensureBoard(boardInfo: BoardInfo): Long = withContext(Dispatchers.IO) {
+    suspend fun ensureBoard(boardInfo: BoardInfo): Long =
+        gate.withWritePermit { ensureBoardUngated(boardInfo) }
+
+    /**
+     * `ensureBoard` の内側実装。gate を取得せずに DB 書き込みを行う。
+     * 他 Repository から `withWritePermit` 内で呼ばれる場合に使用する。
+     */
+    internal suspend fun ensureBoardUngated(boardInfo: BoardInfo): Long = withContext(Dispatchers.IO) {
         // --- Guard ---
         if (boardInfo.boardId != 0L) {
             // 既に登録済みのため、そのまま返す。

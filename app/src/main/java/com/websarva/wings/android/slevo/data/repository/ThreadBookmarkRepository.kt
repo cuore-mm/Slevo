@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.data.repository
 
+import com.websarva.wings.android.slevo.data.database.DatabaseWriteGate
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.BookmarkThreadDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.bookmark.ThreadBookmarkGroupDao
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.BookmarkThreadEntity
@@ -13,20 +14,24 @@ import javax.inject.Singleton
 @Singleton
 class ThreadBookmarkRepository @Inject constructor(
     private val bookmarkThreadDao: BookmarkThreadDao,
-    private val threadGroupDao: ThreadBookmarkGroupDao
+    private val threadGroupDao: ThreadBookmarkGroupDao,
+    private val gate: DatabaseWriteGate,
 ) {
 
-    // ブックマークの追加または更新
+    /** ブックマークの追加または更新 */
     suspend fun insertBookmark(bookmark: BookmarkThreadEntity) {
-        bookmarkThreadDao.insertBookmark(bookmark)
+        gate.withWritePermit {
+            bookmarkThreadDao.insertBookmark(bookmark)
+        }
     }
 
-    // ブックマークの削除 (複合キー版)
+    /** ブックマークの削除 (複合キー版) */
     suspend fun deleteBookmark(threadKey: String, boardUrl: String) {
-        bookmarkThreadDao.deleteBookmark(threadKey, boardUrl)
+        gate.withWritePermit {
+            bookmarkThreadDao.deleteBookmark(threadKey, boardUrl)
+        }
     }
 
-    // 指定したスレッドのブックマーク情報をグループ付きで取得
     fun getBookmarkWithGroup(threadKey: String, boardUrl: String): Flow<ThreadBookmarkWithGroup?> {
         return bookmarkThreadDao.getBookmarkWithGroup(threadKey, boardUrl)
     }
@@ -36,33 +41,39 @@ class ThreadBookmarkRepository @Inject constructor(
     }
 
     suspend fun addGroupAtEnd(name: String, colorName: String) {
-        if (threadGroupDao.findByName(name) == null) {
-            val nextOrder = threadGroupDao.getMaxSortOrder() + 1
-            val newGroup = ThreadBookmarkGroupEntity(
-                name = name,
-                colorName = colorName,
-                sortOrder = nextOrder
-            )
-            threadGroupDao.insertGroup(newGroup)
+        gate.withWritePermit {
+            if (threadGroupDao.findByName(name) == null) {
+                val nextOrder = threadGroupDao.getMaxSortOrder() + 1
+                val newGroup = ThreadBookmarkGroupEntity(
+                    name = name,
+                    colorName = colorName,
+                    sortOrder = nextOrder
+                )
+                threadGroupDao.insertGroup(newGroup)
+            }
         }
     }
 
     suspend fun updateGroup(groupId: Long, name: String, colorName: String) {
-        val existing = threadGroupDao.findByName(name)
-        if (existing == null || existing.groupId == groupId) {
-            threadGroupDao.updateGroupInfo(groupId, name, colorName)
+        gate.withWritePermit {
+            val existing = threadGroupDao.findByName(name)
+            if (existing == null || existing.groupId == groupId) {
+                threadGroupDao.updateGroupInfo(groupId, name, colorName)
+            }
         }
     }
 
     suspend fun deleteGroup(groupId: Long) {
-        threadGroupDao.deleteGroupById(groupId)
+        gate.withWritePermit {
+            threadGroupDao.deleteGroupById(groupId)
+        }
     }
 
     suspend fun updateGroupsOrder(groups: List<ThreadBookmarkGroupEntity>) {
-        threadGroupDao.updateGroups(groups) // DAOに一括更新メソッドがある前提
+        gate.withWritePermit {
+            threadGroupDao.updateGroups(groups)
+        }
     }
-
-    // 必要に応じてグループの名前変更や色変更、削除などのメソッドを追加
 
     // --- UI表示用の結合済みデータの取得 ---
 
