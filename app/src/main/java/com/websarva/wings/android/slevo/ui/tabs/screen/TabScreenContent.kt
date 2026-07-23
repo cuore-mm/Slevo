@@ -41,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
 import com.websarva.wings.android.slevo.ui.board.screen.BoardInfoBottomSheet
@@ -83,7 +84,7 @@ fun TabScreenContent(
     tabListViewModel: TabListViewModel,
     navController: NavHostController,
     closeDrawer: () -> Unit,
-    initialPage: Int = 0,
+    initialPage: Int = TabPage.BOARD.index,
     onPageChanged: (Int) -> Unit = {},
     currentScreenRoute: AppRoute? = null,
 ) {
@@ -103,7 +104,7 @@ fun TabScreenContent(
     val hazeState = rememberHazeState()
 
     // --- Pager state ---
-    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 2 })
+    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { TabPage.count })
     val boardNormalListState = rememberLazyListState()
     val boardSearchListState = rememberLazyListState()
     val threadNormalListState = rememberLazyListState()
@@ -156,18 +157,20 @@ fun TabScreenContent(
             return@LaunchedEffect
         }
 
-        when (request.page) {
-            0 -> {
+        when (TabPage.fromIndex(request.page)) {
+            TabPage.BOARD -> {
                 if (filteredBoardTabs.isNotEmpty()) {
                     boardSearchListState.requestScrollToItem(0)
                 }
             }
 
-            else -> {
+            TabPage.THREAD -> {
                 if (filteredThreadTabs.isNotEmpty()) {
                     threadSearchListState.requestScrollToItem(0)
                 }
             }
+
+            null -> Unit
         }
 
         tabListViewModel.consumePendingScrollToTopRequest()

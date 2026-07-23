@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.data.repository
 
+import com.websarva.wings.android.slevo.data.database.DatabaseWriteGate
 import com.websarva.wings.android.slevo.data.datasource.local.TabsLocalDataSource
 import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenBoardTabDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.OpenThreadTabDao
@@ -11,10 +12,8 @@ import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.util.ThreadNewResCalculator
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 import androidx.room.withTransaction
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -29,6 +28,7 @@ class TabsRepository @Inject constructor(
     private val threadDao: OpenThreadTabDao,
     private val tabsLocalDataSource: TabsLocalDataSource,
     private val threadStateRepository: ThreadStateRepository,
+    private val gate: DatabaseWriteGate,
     private val db: AppDatabase,
 ) {
     fun observeOpenBoardTabs(): Flow<List<BoardTabInfo>> =
@@ -46,34 +46,36 @@ class TabsRepository @Inject constructor(
             }
         }
 
-    suspend fun saveOpenBoardTabs(tabs: List<BoardTabInfo>) = withContext(Dispatchers.IO) {
-        db.withTransaction {
-            val existing = boardDao.getAll().associateBy { it.boardUrl }
-            val upserts = mutableListOf<OpenBoardTabEntity>()
-            val ids = mutableListOf<String>()
-            tabs.forEachIndexed { index, info ->
-                val entity = OpenBoardTabEntity(
-                    boardUrl = info.boardUrl,
-                    boardId = info.boardId,
-                    boardName = info.boardName,
-                    serviceName = info.serviceName,
-                    sortOrder = index,
-                    isPinned = info.isPinned,
-                    firstVisibleItemIndex = info.firstVisibleItemIndex,
-                    firstVisibleItemScrollOffset = info.firstVisibleItemScrollOffset
-                )
-                ids.add(info.boardUrl)
-                if (existing[info.boardUrl] != entity) {
-                    upserts.add(entity)
+    suspend fun saveOpenBoardTabs(tabs: List<BoardTabInfo>) {
+        gate.withWritePermit {
+            db.withTransaction {
+                val existing = boardDao.getAll().associateBy { it.boardUrl }
+                val upserts = mutableListOf<OpenBoardTabEntity>()
+                val ids = mutableListOf<String>()
+                tabs.forEachIndexed { index, info ->
+                    val entity = OpenBoardTabEntity(
+                        boardUrl = info.boardUrl,
+                        boardId = info.boardId,
+                        boardName = info.boardName,
+                        serviceName = info.serviceName,
+                        sortOrder = index,
+                        isPinned = info.isPinned,
+                        firstVisibleItemIndex = info.firstVisibleItemIndex,
+                        firstVisibleItemScrollOffset = info.firstVisibleItemScrollOffset
+                    )
+                    ids.add(info.boardUrl)
+                    if (existing[info.boardUrl] != entity) {
+                        upserts.add(entity)
+                    }
                 }
-            }
-            if (upserts.isNotEmpty()) {
-                boardDao.upsertAll(upserts)
-            }
-            if (ids.isEmpty()) {
-                boardDao.deleteAll()
-            } else {
-                boardDao.deleteNotIn(ids)
+                if (upserts.isNotEmpty()) {
+                    boardDao.upsertAll(upserts)
+                }
+                if (ids.isEmpty()) {
+                    boardDao.deleteAll()
+                } else {
+                    boardDao.deleteNotIn(ids)
+                }
             }
         }
     }
@@ -120,46 +122,48 @@ class TabsRepository @Inject constructor(
      * 開いているスレッドタブの並び順とスクロール位置を保存する。
      * タイトル・レス数などの客観状態は `thread_states` へ保存し、タブテーブルには書き込まない。
      */
-    suspend fun saveOpenThreadTabs(tabs: List<ThreadTabInfo>) = withContext(Dispatchers.IO) {
-        db.withTransaction {
-            val existing = threadDao.getAll().associateBy { it.threadId.value }
-            threadStateRepository.saveThreadStates(
-                tabs.map { info ->
-                    ThreadStateRepository.ThreadStateUpdate(
-                        threadId = info.id,
-                        boardId = info.boardId,
-                        boardUrl = info.boardUrl,
-                        boardName = info.boardName,
-                        title = info.title,
-                        latestResCount = info.resCount,
-                    )
-                }
-            )
-            val upserts = mutableListOf<OpenThreadTabEntity>()
-            val ids = mutableListOf<String>()
-            tabs.forEachIndexed { index, info ->
-                val entity = OpenThreadTabEntity(
-                    threadId = info.id,
-                    sortOrder = index,
-                    isPinned = info.isPinned,
-                    firstVisibleItemIndex = info.firstVisibleItemIndex,
-                    firstVisibleItemScrollOffset = info.firstVisibleItemScrollOffset
+    suspend fun saveOpenThreadTabs(tabs: List<ThreadTabInfo>) {
+        gate.withWritePermit {
+            db.withTransaction {
+                val existing = threadDao.getAll().associateBy { it.threadId.value }
+                threadStateRepository.saveThreadStatesUngated(
+                    tabs.map { info ->
+                        ThreadStateRepository.ThreadStateUpdate(
+                            threadId = info.id,
+                            boardId = info.boardId,
+                            boardUrl = info.boardUrl,
+                            boardName = info.boardName,
+                            title = info.title,
+                            latestResCount = info.resCount,
+                        )
+                    }
                 )
-                val id = info.id.value
-                ids.add(id)
-                if (existing[id] != entity) {
-                    upserts.add(entity)
+                val upserts = mutableListOf<OpenThreadTabEntity>()
+                val ids = mutableListOf<String>()
+                tabs.forEachIndexed { index, info ->
+                    val entity = OpenThreadTabEntity(
+                        threadId = info.id,
+                        sortOrder = index,
+                        isPinned = info.isPinned,
+                        firstVisibleItemIndex = info.firstVisibleItemIndex,
+                        firstVisibleItemScrollOffset = info.firstVisibleItemScrollOffset
+                    )
+                    val id = info.id.value
+                    ids.add(id)
+                    if (existing[id] != entity) {
+                        upserts.add(entity)
+                    }
                 }
+                if (upserts.isNotEmpty()) {
+                    threadDao.upsertAll(upserts)
+                }
+                if (ids.isEmpty()) {
+                    threadDao.deleteAll()
+                } else {
+                    threadDao.deleteNotIn(ids)
+                }
+                threadStateRepository.collectGarbageUngated()
             }
-            if (upserts.isNotEmpty()) {
-                threadDao.upsertAll(upserts)
-            }
-            if (ids.isEmpty()) {
-                threadDao.deleteAll()
-            } else {
-                threadDao.deleteNotIn(ids)
-            }
-            threadStateRepository.collectGarbage()
         }
     }
 
@@ -172,12 +176,14 @@ class TabsRepository @Inject constructor(
         threadId: ThreadId,
         firstVisibleItemIndex: Int,
         firstVisibleItemScrollOffset: Int,
-    ) = withContext(Dispatchers.IO) {
-        threadDao.updateThreadScrollPosition(
-            threadId = threadId,
-            firstVisibleItemIndex = firstVisibleItemIndex,
-            firstVisibleItemScrollOffset = firstVisibleItemScrollOffset,
-        )
+    ) {
+        gate.withWritePermit {
+            threadDao.updateThreadScrollPosition(
+                threadId = threadId,
+                firstVisibleItemIndex = firstVisibleItemIndex,
+                firstVisibleItemScrollOffset = firstVisibleItemScrollOffset,
+            )
+        }
     }
 
     fun observeLastSelectedTabsPage(): Flow<Int> =

@@ -23,6 +23,10 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostId
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostLastIdentityDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.state.ThreadStateDao
+import com.squareup.moshi.Moshi
+import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreMigrationAttemptRecorder
+import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreMigrationWrapper
+import com.websarva.wings.android.slevo.data.backup.pending.RealPendingRestoreFileStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -50,7 +54,8 @@ object DatabaseModule {
     @Singleton
     fun provideAppDatabase(
         @ApplicationContext context: Context,
-        callback: DatabaseCallback
+        callback: DatabaseCallback,
+        migrationAttemptRecorder: PendingRestoreMigrationAttemptRecorder,
     ): AppDatabase {
         val name = if (BuildConfig.DEBUG) "slevo_dev_database" else "slevo_database"
         return Room.databaseBuilder(
@@ -59,14 +64,11 @@ object DatabaseModule {
             name
         )
             .addMigrations(
-                AppDatabase.MIGRATION_1_2, // v.1.1.0 で追加
-                AppDatabase.MIGRATION_2_3, // v.1.1.3 で追加
-                AppDatabase.MIGRATION_3_4, // v.?.?.? で追加
-                AppDatabase.MIGRATION_4_5,
-                AppDatabase.MIGRATION_5_6,
-                AppDatabase.MIGRATION_6_7,
-                AppDatabase.MIGRATION_7_8,
-                AppDatabase.MIGRATION_8_9
+                *AppDatabase.ALL_REGISTERED_MIGRATIONS
+                    .map { migration ->
+                        PendingRestoreMigrationWrapper(migration, migrationAttemptRecorder)
+                    }
+                    .toTypedArray(),
             )
             .addCallback(callback)
             .apply {
@@ -76,6 +78,17 @@ object DatabaseModule {
             }
             .build()
     }
+
+    /**
+     * pre-Hilt pending restore marker を Room migration provider から共有する recorder を作る。
+     */
+    @Provides
+    @Singleton
+    fun providePendingRestoreMigrationAttemptRecorder(
+        @ApplicationContext context: Context,
+        moshi: Moshi,
+    ): PendingRestoreMigrationAttemptRecorder =
+        PendingRestoreMigrationAttemptRecorder(RealPendingRestoreFileStore(context, moshi))
 
     /**
      * BookmarkThreadDao を提供

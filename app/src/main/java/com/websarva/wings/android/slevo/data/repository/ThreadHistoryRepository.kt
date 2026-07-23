@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.data.repository
 
+import com.websarva.wings.android.slevo.data.database.DatabaseWriteGate
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryAccessEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryEntity
@@ -18,6 +19,7 @@ import javax.inject.Singleton
 class ThreadHistoryRepository @Inject constructor(
     private val dao: ThreadHistoryDao,
     private val threadStateRepository: ThreadStateRepository,
+    private val gate: DatabaseWriteGate,
 ) {
     fun observeHistories(): Flow<List<ThreadHistoryDao.HistoryWithLastAccess>> =
         dao.observeHistories()
@@ -41,18 +43,20 @@ class ThreadHistoryRepository @Inject constructor(
     }
 
     suspend fun deleteHistories(threadIds: Collection<ThreadId>) {
-        threadIds.forEach { dao.delete(it) }
-        threadStateRepository.collectGarbage()
+        gate.withWritePermit {
+            threadIds.forEach { dao.delete(it) }
+            threadStateRepository.collectGarbageUngated()
+        }
     }
 
     suspend fun recordHistory(
         boardInfo: BoardInfo,
         threadInfo: ThreadInfo,
         resCount: Int
-    ): Long {
-        val (host, board) = parseBoardUrl(boardInfo.url) ?: return 0
+    ): Long = gate.withWritePermit {
+        val (host, board) = parseBoardUrl(boardInfo.url) ?: return@withWritePermit 0
         val threadId = ThreadId.of(host, board, threadInfo.key)
-        threadStateRepository.saveThreadState(
+        threadStateRepository.saveThreadStateUngated(
             ThreadStateRepository.ThreadStateUpdate(
                 threadId = threadId,
                 boardId = boardInfo.boardId,
@@ -101,6 +105,6 @@ class ThreadHistoryRepository @Inject constructor(
                 )
             )
         }
-        return id
+        id
     }
 }

@@ -28,6 +28,7 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunner
@@ -306,7 +307,11 @@ fun ThreadScaffold(
                 myPostNumbers = uiState.myPostNumbers,
                 headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
                 bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
-                lineHeight = if (uiState.isIndividualTextScale) uiState.lineHeight else com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT,
+                lineHeight = if (uiState.isIndividualTextScale) {
+                    uiState.lineHeight
+                } else {
+                    TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT
+                },
                 searchQuery = uiState.searchQuery,
                 onUrlClick = { url -> uriHandler.openUri(url) },
                 onThreadUrlClick = { route ->

@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.data.repository
 
+import com.websarva.wings.android.slevo.data.database.DatabaseWriteGate
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostIdentityHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostLastIdentityDao
@@ -16,7 +17,8 @@ import javax.inject.Singleton
 class PostHistoryRepository @Inject constructor(
     private val dao: PostHistoryDao,
     private val identityDao: PostIdentityHistoryDao,
-    private val lastIdentityDao: PostLastIdentityDao
+    private val lastIdentityDao: PostLastIdentityDao,
+    private val gate: DatabaseWriteGate,
 ) {
     suspend fun recordPost(
         content: String,
@@ -27,7 +29,7 @@ class PostHistoryRepository @Inject constructor(
         name: String,
         email: String,
         postId: String
-    ) {
+    ) = gate.withWritePermit {
         dao.insert(
             PostHistoryEntity(
                 content = content,
@@ -63,19 +65,21 @@ class PostHistoryRepository @Inject constructor(
         identityDao.observeValues(boardId, type.name)
 
     suspend fun recordIdentity(boardId: Long, name: String?, email: String?) {
-        val now = System.currentTimeMillis()
-        if (boardId != 0L) {
-            lastIdentityDao.upsert(
-                PostLastIdentityEntity(
-                    boardId = boardId,
-                    name = name ?: "",
-                    email = email ?: "",
-                    updatedAt = now
+        gate.withWritePermit {
+            val now = System.currentTimeMillis()
+            if (boardId != 0L) {
+                lastIdentityDao.upsert(
+                    PostLastIdentityEntity(
+                        boardId = boardId,
+                        name = name ?: "",
+                        email = email ?: "",
+                        updatedAt = now
+                    )
                 )
-            )
+            }
+            recordIdentityIfNeeded(boardId, PostIdentityType.NAME, name, now)
+            recordIdentityIfNeeded(boardId, PostIdentityType.EMAIL, email, now)
         }
-        recordIdentityIfNeeded(boardId, PostIdentityType.NAME, name, now)
-        recordIdentityIfNeeded(boardId, PostIdentityType.EMAIL, email, now)
     }
 
     suspend fun getLastIdentity(boardId: Long): PostLastIdentity? {
@@ -113,32 +117,34 @@ class PostHistoryRepository @Inject constructor(
     }
 
     suspend fun deleteIdentity(boardId: Long, type: PostIdentityType, value: String) {
-        if (boardId == 0L) return
-        val normalized = value.trim()
-        if (normalized.isEmpty()) return
-        identityDao.deleteByValue(boardId, type.name, normalized)
-        val lastIdentity = lastIdentityDao.findByBoardId(boardId) ?: return
-        when (type) {
-            PostIdentityType.NAME -> {
-                if (lastIdentity.name == normalized) {
-                    if (lastIdentity.email.isEmpty()) {
-                        lastIdentityDao.deleteByBoardId(boardId)
-                    } else {
-                        lastIdentityDao.upsert(
-                            lastIdentity.copy(name = "", updatedAt = System.currentTimeMillis())
-                        )
+        gate.withWritePermit {
+            if (boardId == 0L) return@withWritePermit
+            val normalized = value.trim()
+            if (normalized.isEmpty()) return@withWritePermit
+            identityDao.deleteByValue(boardId, type.name, normalized)
+            val lastIdentity = lastIdentityDao.findByBoardId(boardId) ?: return@withWritePermit
+            when (type) {
+                PostIdentityType.NAME -> {
+                    if (lastIdentity.name == normalized) {
+                        if (lastIdentity.email.isEmpty()) {
+                            lastIdentityDao.deleteByBoardId(boardId)
+                        } else {
+                            lastIdentityDao.upsert(
+                                lastIdentity.copy(name = "", updatedAt = System.currentTimeMillis())
+                            )
+                        }
                     }
                 }
-            }
 
-            PostIdentityType.EMAIL -> {
-                if (lastIdentity.email == normalized) {
-                    if (lastIdentity.name.isEmpty()) {
-                        lastIdentityDao.deleteByBoardId(boardId)
-                    } else {
-                        lastIdentityDao.upsert(
-                            lastIdentity.copy(email = "", updatedAt = System.currentTimeMillis())
-                        )
+                PostIdentityType.EMAIL -> {
+                    if (lastIdentity.email == normalized) {
+                        if (lastIdentity.name.isEmpty()) {
+                            lastIdentityDao.deleteByBoardId(boardId)
+                        } else {
+                            lastIdentityDao.upsert(
+                                lastIdentity.copy(email = "", updatedAt = System.currentTimeMillis())
+                            )
+                        }
                     }
                 }
             }

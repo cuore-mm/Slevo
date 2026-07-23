@@ -1,10 +1,8 @@
 package com.websarva.wings.android.slevo.di
 
-import com.websarva.wings.android.slevo.data.datasource.local.BbsLocalDataSource
 import com.websarva.wings.android.slevo.data.datasource.local.CookieLocalDataSource
 import com.websarva.wings.android.slevo.data.datasource.local.SettingsLocalDataSource
 import com.websarva.wings.android.slevo.data.datasource.local.TabsLocalDataSource
-import com.websarva.wings.android.slevo.data.datasource.local.impl.BbsLocalDataSourceImpl
 import com.websarva.wings.android.slevo.data.datasource.local.impl.CookieLocalDataSourceImpl
 import com.websarva.wings.android.slevo.data.datasource.local.impl.SettingsLocalDataSourceImpl
 import com.websarva.wings.android.slevo.data.datasource.local.impl.TabsLocalDataSourceImpl
@@ -39,13 +37,6 @@ abstract class DataSourceModule {
     abstract fun bindBbsMenuDataSource(
         impl: BbsMenuDataSourceImpl,
     ): BbsMenuDataSource
-
-    /** ローカル DB 操作用 */
-    @Binds
-    @Singleton
-    abstract fun bindBbsLocalDataSource(
-        impl: BbsLocalDataSourceImpl,
-    ): BbsLocalDataSource
 
     /** 設定保存用 */
     @Binds

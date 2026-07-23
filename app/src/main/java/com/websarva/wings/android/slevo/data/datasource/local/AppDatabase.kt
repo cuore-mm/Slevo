@@ -45,6 +45,9 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.history.Pos
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostLastIdentityEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.state.ThreadStateEntity
 
+/** Room DB schema version。`@Database` annotation、[BackupDatabaseValidator]、[PendingRestoreApplier] などから参照する。 */
+internal const val DATABASE_VERSION = 9
+
 @TypeConverters(NgTypeConverter::class)
 @Database(
     entities = [
@@ -69,7 +72,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.state.Threa
         PostLastIdentityEntity::class,
         ThreadStateEntity::class
     ],
-    version = 9,
+    version = DATABASE_VERSION,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -94,6 +97,18 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun threadStateDao(): ThreadStateDao
 
     companion object {
+        /** 現在の Room DB schema version。外部からの DB version 参照に使う。 */
+        const val CURRENT_DATABASE_VERSION = DATABASE_VERSION
+
+        /**
+         * バックアップ復元で受け付ける最小 Room DB schema version。
+         * この version から現在 version まで migration path が連続している。
+         * source inspection で migration chain の連続性を確認済み (v2 → v9)。
+         * v1 は exported Room schema が存在せず、事前 schema sanity check の
+         * source of truth を用意できないため、復元対象外とする。
+         */
+        const val MINIMUM_RESTORABLE_DATABASE_VERSION = 2
+
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -327,6 +342,49 @@ abstract class AppDatabase : RoomDatabase() {
                     "ALTER TABLE open_thread_tabs ADD COLUMN isPinned INTEGER NOT NULL DEFAULT 0"
                 )
             }
+        }
+
+        /**
+         * Room に登録する全 migration の共有リスト。
+         * `DatabaseModule.provideAppDatabase()` はこのリストを使って `.addMigrations(...)` する。
+         * backup restore の migration path 判定も同じリストを参照する。
+         */
+        val ALL_REGISTERED_MIGRATIONS: List<Migration> = listOf(
+            MIGRATION_1_2,
+            MIGRATION_2_3,
+            MIGRATION_3_4,
+            MIGRATION_4_5,
+            MIGRATION_5_6,
+            MIGRATION_6_7,
+            MIGRATION_7_8,
+            MIGRATION_8_9,
+        )
+
+        /**
+         * 指定 version から現在 version まで連続した migration path が存在するかを返す。
+         * `ALL_REGISTERED_MIGRATIONS` の各 [Migration] が持つ (from, to) を edge として使い、
+         * `fromVersion` から [CURRENT_DATABASE_VERSION] まで到達可能かを DFS で判定する。
+         */
+        fun hasMigrationPathForRestore(fromVersion: Int): Boolean {
+            if (fromVersion < MINIMUM_RESTORABLE_DATABASE_VERSION) return false
+            if (fromVersion > CURRENT_DATABASE_VERSION) return false
+            if (fromVersion == CURRENT_DATABASE_VERSION) return true
+
+            val edges: Map<Int, List<Int>> = ALL_REGISTERED_MIGRATIONS
+                .groupBy { it.startVersion }
+                .mapValues { (_, migrations) -> migrations.map { it.endVersion } }
+
+            val visited = mutableSetOf<Int>()
+            val stack = ArrayDeque<Int>()
+            stack.addLast(fromVersion)
+
+            while (stack.isNotEmpty()) {
+                val current = stack.removeLast()
+                if (current == CURRENT_DATABASE_VERSION) return true
+                if (!visited.add(current)) continue
+                edges[current]?.forEach { next -> stack.addLast(next) }
+            }
+            return false
         }
 
         /**

@@ -34,14 +34,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.data.model.DEFAULT_THREAD_LINE_HEIGHT
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 import java.util.Locale
 import kotlin.math.roundToInt
-
-private const val DEFAULT_TEXT_SCALE = 1f
-private const val DEFAULT_HEADER_TEXT_SCALE = 0.85f
-private const val DEFAULT_BODY_TEXT_SCALE = 1f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -103,7 +99,7 @@ fun DisplaySettingsContent(
         LabeledSlider(
             labelRes = R.string.text_size,
             value = textScale,
-            valueRange = 0.7f..1.6f,
+            valueRange = TextDisplaySettingsConstraints.TEXT_SCALE_RANGE,
             snapFactor = 20,
             steps = 0,
             enabled = !isIndividual,
@@ -140,7 +136,7 @@ fun DisplaySettingsContent(
                         LabeledSlider(
                             labelRes = R.string.header_text_size,
                             value = headerTextScale,
-                            valueRange = 0.7f..1.6f,
+                            valueRange = TextDisplaySettingsConstraints.TEXT_SCALE_RANGE,
                             snapFactor = 20,
                             steps = 0,
                             valueFormatter = { v ->
@@ -159,7 +155,7 @@ fun DisplaySettingsContent(
                         LabeledSlider(
                             labelRes = R.string.body_text_size,
                             value = bodyTextScale,
-                            valueRange = 0.7f..1.6f,
+                            valueRange = TextDisplaySettingsConstraints.TEXT_SCALE_RANGE,
                             snapFactor = 20,
                             steps = 0,
                             valueFormatter = { v ->
@@ -179,7 +175,7 @@ fun DisplaySettingsContent(
                         LabeledSlider(
                             labelRes = R.string.line_spacing,
                             value = lineHeight,
-                            valueRange = 1.2f..1.8f,
+                            valueRange = TextDisplaySettingsConstraints.LINE_HEIGHT_RANGE,
                             snapFactor = 10,
                             steps = 5,
                             valueFormatter = { v ->
@@ -198,10 +194,10 @@ fun DisplaySettingsContent(
         Spacer(modifier = Modifier.height(24.dp))
         TextButton(
             onClick = {
-                onTextScaleChange(DEFAULT_TEXT_SCALE)
-                onHeaderTextScaleChange(DEFAULT_HEADER_TEXT_SCALE)
-                onBodyTextScaleChange(DEFAULT_BODY_TEXT_SCALE)
-                onLineHeightChange(DEFAULT_THREAD_LINE_HEIGHT)
+                onTextScaleChange(TextDisplaySettingsConstraints.DEFAULT_TEXT_SCALE)
+                onHeaderTextScaleChange(TextDisplaySettingsConstraints.DEFAULT_HEADER_TEXT_SCALE)
+                onBodyTextScaleChange(TextDisplaySettingsConstraints.DEFAULT_BODY_TEXT_SCALE)
+                onLineHeightChange(TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT)
             },
             modifier = Modifier.align(Alignment.End)
         ) {
@@ -260,11 +256,19 @@ fun LabeledSlider(
 @Preview(showBackground = true)
 @Composable
 fun DisplaySettingsContentPreview() {
-    val textScaleState = remember { mutableFloatStateOf(DEFAULT_TEXT_SCALE) }
+    val textScaleState = remember {
+        mutableFloatStateOf(TextDisplaySettingsConstraints.DEFAULT_TEXT_SCALE)
+    }
     val individualState = remember { mutableStateOf(true) }
-    val headerScaleState = remember { mutableFloatStateOf(DEFAULT_HEADER_TEXT_SCALE) }
-    val bodyScaleState = remember { mutableFloatStateOf(DEFAULT_BODY_TEXT_SCALE) }
-    val lineHeightState = remember { mutableFloatStateOf(DEFAULT_THREAD_LINE_HEIGHT) }
+    val headerScaleState = remember {
+        mutableFloatStateOf(TextDisplaySettingsConstraints.DEFAULT_HEADER_TEXT_SCALE)
+    }
+    val bodyScaleState = remember {
+        mutableFloatStateOf(TextDisplaySettingsConstraints.DEFAULT_BODY_TEXT_SCALE)
+    }
+    val lineHeightState = remember {
+        mutableFloatStateOf(TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT)
+    }
 
     DisplaySettingsContent(
         textScale = textScaleState.floatValue,

@@ -48,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
 import dev.chrisbanes.haze.HazeProgressive
 import dev.chrisbanes.haze.HazeState
@@ -74,7 +75,7 @@ internal fun TabListBottomControls(
     onCancelRefreshClick: () -> Unit,
 ) {
     // --- State ---
-    val isBoardPage = pagerState.currentPage == 0
+    val isBoardPage = pagerState.currentPage == TabPage.BOARD.index
     val coroutineScope = rememberCoroutineScope()
     val indicatorProgress = refreshProgress?.progress ?: 0f
 
@@ -255,9 +256,13 @@ private fun TabListSwitchSection(
         ) {
             // --- Sliding indicator ---
             val segmentSpacing = TabListLayoutDefaults.bottomSectionSpacing
-            val segmentWidth = (maxWidth - segmentSpacing) / 2
+            val segmentWidth = (maxWidth - segmentSpacing) / TabPage.count
             val indicatorOffsetX by animateDpAsState(
-                targetValue = if (selectedIndex == 0) 0.dp else (segmentWidth + segmentSpacing),
+                targetValue = if (selectedIndex == TabPage.BOARD.index) {
+                    0.dp
+                } else {
+                    segmentWidth + segmentSpacing
+                },
                 animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS + 20),
                 label = "tabSwitchIndicatorOffset",
             )
@@ -313,7 +318,10 @@ private fun TabListSwitchSection(
 @Preview(showBackground = true)
 @Composable
 private fun TabListBottomControlsBoardPreview() {
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
+    val pagerState = rememberPagerState(
+        initialPage = TabPage.BOARD.index,
+        pageCount = { TabPage.count },
+    )
     val hazeState = rememberHazeState()
     TabListBottomControls(
         modifier = Modifier
@@ -333,7 +341,10 @@ private fun TabListBottomControlsBoardPreview() {
 @Preview(showBackground = true)
 @Composable
 private fun TabListBottomControlsThreadPreview() {
-    val pagerState = rememberPagerState(initialPage = 1, pageCount = { 2 })
+    val pagerState = rememberPagerState(
+        initialPage = TabPage.THREAD.index,
+        pageCount = { TabPage.count },
+    )
     val hazeState = rememberHazeState()
     TabListBottomControls(
         modifier = Modifier
@@ -353,7 +364,10 @@ private fun TabListBottomControlsThreadPreview() {
 @Preview(showBackground = true)
 @Composable
 private fun TabListBottomControlsRefreshingPreview() {
-    val pagerState = rememberPagerState(initialPage = 1, pageCount = { 2 })
+    val pagerState = rememberPagerState(
+        initialPage = TabPage.THREAD.index,
+        pageCount = { TabPage.count },
+    )
     val hazeState = rememberHazeState()
     TabListBottomControls(
         modifier = Modifier

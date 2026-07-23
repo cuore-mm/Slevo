@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Slevo</string>
+    <string name="restore_result_snackbar_success">バックアップを復元しました</string>
+    <string name="restore_result_snackbar_failure">バックアップの復元に失敗しました</string>
 </resources>

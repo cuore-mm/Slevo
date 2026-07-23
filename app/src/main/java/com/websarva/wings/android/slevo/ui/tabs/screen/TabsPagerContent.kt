@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListAnimationDefaults
@@ -83,8 +84,8 @@ fun TabsPagerContent(
         modifier = modifier.fillMaxSize(),
         userScrollEnabled = false,
     ) { page ->
-        when (page) {
-            0 -> AnimatedListContent(
+        when (TabPage.fromIndex(page)) {
+            TabPage.BOARD -> AnimatedListContent(
                 displayState = when {
                     !isShowingSearchResults -> TabListDisplayState.Normal
                     filteredBoardTabs.isEmpty() -> TabListDisplayState.SearchEmpty
@@ -128,7 +129,7 @@ fun TabsPagerContent(
                 },
             )
 
-            else -> AnimatedListContent(
+            TabPage.THREAD -> AnimatedListContent(
                 displayState = when {
                     !isShowingSearchResults -> TabListDisplayState.Normal
                     filteredThreadTabs.isEmpty() -> TabListDisplayState.SearchEmpty
@@ -175,6 +176,8 @@ fun TabsPagerContent(
                     SearchResultEmptyState(contentPadding = listContentPadding)
                 },
             )
+
+            null -> Unit
         }
     }
 }

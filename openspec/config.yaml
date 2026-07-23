@@ -1,23 +1,24 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
 context: |
-  言語：日本語
-  すべての成果物は日本語で作成してください。
+  Language: Japanese.
+  All generated artifacts, including proposal.md, design.md, tasks.md, and spec.md, must be written in Japanese.
+  The implementation may be performed by a weaker coding model, so design.md and tasks.md must be concrete, procedural, and verifiable.
+  Avoid vague instructions. Mention existing file names, function names, modules, and commands whenever possible.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  design:
+    - design.md must be written in Japanese.
+    - design.md must include concrete affected files, functions, modules, and data flow.
+    - design.md must describe current behavior before proposed behavior.
+    - design.md must include an "Implementation Contract" section for coding agents.
+    - design.md must include error cases, compatibility concerns, and testing strategy.
+    - design.md must not end with vague instructions such as "fix appropriately", "handle as needed", or "improve the logic" without concrete steps.
+    - If file names or function names are unknown, do not invent them. Add an investigation step that requires inspecting the existing code.
+
+  tasks:
+    - tasks.md must be written in Japanese.
+    - tasks.md must split work into small, ordered, verifiable steps.
+    - Each task should mention the target file, module, function, or command whenever possible.
+    - Do not combine multiple large changes into a single task.
+    - Each task must include a completion condition or verification method.

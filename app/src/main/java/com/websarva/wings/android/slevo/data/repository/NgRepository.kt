@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.data.repository
 
+import com.websarva.wings.android.slevo.data.database.DatabaseWriteGate
 import com.websarva.wings.android.slevo.data.datasource.local.dao.NgDao
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.model.NgType
@@ -9,7 +10,8 @@ import kotlinx.coroutines.flow.Flow
 
 @Singleton
 class NgRepository @Inject constructor(
-    private val dao: NgDao
+    private val dao: NgDao,
+    private val gate: DatabaseWriteGate,
 ) {
     suspend fun addNg(
         pattern: String,
@@ -17,7 +19,7 @@ class NgRepository @Inject constructor(
         type: NgType,
         boardId: Long?,
         id: Long? = null,
-    ) {
+    ) = gate.withWritePermit {
         dao.insert(
             NgEntity(
                 id = id ?: 0L,
@@ -31,5 +33,7 @@ class NgRepository @Inject constructor(
 
     fun observeNgs(): Flow<List<NgEntity>> = dao.getAll()
 
-    suspend fun remove(ids: List<Long>) = dao.deleteByIds(ids)
+    suspend fun remove(ids: List<Long>) = gate.withWritePermit {
+        dao.deleteByIds(ids)
+    }
 }
