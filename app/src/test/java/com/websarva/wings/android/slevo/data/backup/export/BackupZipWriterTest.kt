@@ -1,10 +1,17 @@
 package com.websarva.wings.android.slevo.data.backup.export
 
+import com.websarva.wings.android.slevo.data.backup.BackupResourceLimitExceededException
+import com.websarva.wings.android.slevo.data.backup.BackupResourceLimits
 import com.websarva.wings.android.slevo.data.backup.model.BackupCookiesJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupCookieItem
 import com.websarva.wings.android.slevo.data.backup.model.BackupManifest
+import com.websarva.wings.android.slevo.data.backup.model.BackupGestureSettings
+import com.websarva.wings.android.slevo.data.backup.model.BackupSettingsJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupTabsJson
 import com.websarva.wings.android.slevo.data.backup.model.IncludedContents
+import com.websarva.wings.android.slevo.data.backup.restore.BackupReader
+import com.websarva.wings.android.slevo.data.backup.restore.BackupReaderResult
+import com.websarva.wings.android.slevo.data.backup.restore.FakeBackupDatabaseValidator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -14,6 +21,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.ByteArrayOutputStream
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.OutputStream
 import java.util.zip.ZipFile
@@ -35,6 +43,23 @@ class BackupZipWriterTest {
     )
 
     private fun createTabs() = BackupTabsJson(lastSelectedTabsPage = 0)
+
+    private fun createSettings() = BackupSettingsJson(
+        themeMode = "system",
+        isTreeSort = false,
+        isThreadMinimapScrollbarEnabled = true,
+        textScale = 1.0f,
+        isIndividualTextScale = false,
+        headerTextScale = 1.0f,
+        bodyTextScale = 1.0f,
+        lineHeight = 1.5f,
+        isRedirect5chNetToIoEnabled = false,
+        gestureSettings = BackupGestureSettings(
+            enabled = false,
+            showActionHints = true,
+            actions = emptyMap(),
+        ),
+    )
 
     private fun createCookies() = BackupCookiesJson(
         cookies = listOf(
@@ -246,5 +271,161 @@ class BackupZipWriterTest {
         val file = tmpDir.newFile("test.zip")
         file.writeBytes(bytes)
         return file
+    }
+
+    // --- Export resource limits ---
+
+    @Test
+    fun writeEntry_atExactLimit_isSuccessful() {
+        val output = ByteArrayOutputStream()
+        val writer = BackupZipWriter(output, resourceLimits = BackupResourceLimits(manifestBytes = 5))
+        writer.writeEntry("manifest.json", ByteArray(5))
+        writer.close()
+        assertTrue(writer.isSuccessful())
+    }
+
+    @Test
+    fun writeEntry_overLimit_writerNotSuccessful() {
+        val output = ByteArrayOutputStream()
+        val writer = BackupZipWriter(output, resourceLimits = BackupResourceLimits(manifestBytes = 5))
+        try {
+            writer.writeEntry("manifest.json", ByteArray(6))
+        } catch (_: BackupResourceLimitExceededException) { }
+        writer.close()
+        assertFalse(writer.isSuccessful())
+    }
+
+    @Test
+    fun writeFileEntry_atExactLimit_isSuccessful() {
+        val output = ByteArrayOutputStream()
+        val limits = BackupResourceLimits(databaseBytes = 10)
+        val writer = BackupZipWriter(output, resourceLimits = limits)
+        val file = tmpDir.newFile("at_limit.db").apply { writeBytes(ByteArray(10)) }
+        writer.writeFileEntry("database/slevo.db", file)
+        writer.close()
+        assertTrue(writer.isSuccessful())
+    }
+
+    @Test
+    fun writeFileEntry_overLimitFileLength_throwsBeforeStreaming() {
+        val output = ByteArrayOutputStream()
+        val limits = BackupResourceLimits(databaseBytes = 10)
+        val writer = BackupZipWriter(output, resourceLimits = limits)
+        val file = tmpDir.newFile("over_limit.db").apply { writeBytes(ByteArray(11)) }
+        try {
+            writer.writeFileEntry("database/slevo.db", file)
+        } catch (_: BackupResourceLimitExceededException) { }
+        writer.close()
+        assertFalse(writer.isSuccessful())
+    }
+
+    @Test
+    fun writeJsonEntry_totalOverLimit_throws() {
+        val output = ByteArrayOutputStream()
+        val limits = BackupResourceLimits(
+            manifestBytes = 100, databaseBytes = 100, settingsBytes = 100,
+            tabsBytes = 100, totalBytes = 10, // total=10
+        )
+        val writer = BackupZipWriter(output, resourceLimits = limits)
+        try {
+            // 最初のエントリでtotalを超える
+            writer.writeEntry("manifest.json", ByteArray(20))
+        } catch (_: BackupResourceLimitExceededException) { }
+        writer.close()
+        assertFalse(writer.isSuccessful())
+    }
+
+    @Test
+    fun writeEntry_entryCountOverLimit_throws() {
+        val output = ByteArrayOutputStream()
+        val limits = BackupResourceLimits(
+            manifestBytes = 100, databaseBytes = 100, settingsBytes = 100,
+            tabsBytes = 100, cookiesBytes = 100, totalBytes = 500, entryCount = 1,
+        )
+        val writer = BackupZipWriter(output, resourceLimits = limits)
+        writer.writeEntry("manifest.json", ByteArray(5))
+        try {
+            writer.writeEntry("datastore/settings.json", ByteArray(5))
+        } catch (_: BackupResourceLimitExceededException) { }
+        writer.close()
+        assertFalse(writer.isSuccessful())
+    }
+
+    @Test
+    fun writeEntry_atCountLimit_isSuccessful() {
+        val output = ByteArrayOutputStream()
+        val limits = BackupResourceLimits(
+            manifestBytes = 100, databaseBytes = 100, settingsBytes = 100,
+            tabsBytes = 100, totalBytes = 500, entryCount = 2,
+        )
+        val writer = BackupZipWriter(output, resourceLimits = limits)
+        writer.writeEntry("manifest.json", ByteArray(5))
+        writer.writeEntry("database/slevo.db", ByteArray(5))
+        writer.close()
+        assertTrue(writer.isSuccessful())
+    }
+
+    @Test
+    fun writeFileEntry_actualStreamOverFileLength_isRejected() {
+        val output = ByteArrayOutputStream()
+        val limits = BackupResourceLimits(databaseBytes = 10, totalBytes = 100)
+        val writer = BackupZipWriter(output, resourceLimits = limits)
+        val file = tmpDir.newFile("growing.db").apply { writeBytes(ByteArray(4)) }
+        // PreflightのFile.length()は4 byteだが、実streamは11 byteを返す。
+        writer.fileInputProvider = { ByteArrayInputStream(ByteArray(11)) }
+
+        try {
+            writer.writeFileEntry("database/slevo.db", file)
+            org.junit.Assert.fail("expected BackupResourceLimitExceededException")
+        } catch (_: BackupResourceLimitExceededException) {
+            // expected
+        }
+        writer.close()
+        assertFalse(writer.isSuccessful())
+    }
+
+    // --- Interop test ---
+
+    @Test
+    fun exportWithSmallLimits_thenReadWithSameLimits_succeeds() {
+        val moshi = com.squareup.moshi.Moshi.Builder().build()
+        val manifest = createManifest()
+        val settings = createSettings()
+        val tabs = createTabs()
+        val database = byteArrayOf(1, 2, 3, 4)
+        val manifestBytes = moshi.adapter(BackupManifest::class.java).toJson(manifest).toByteArray()
+        val settingsBytes = moshi.adapter(BackupSettingsJson::class.java).toJson(settings).toByteArray()
+        val tabsBytes = moshi.adapter(BackupTabsJson::class.java).toJson(tabs).toByteArray()
+        val limits = BackupResourceLimits(
+            manifestBytes = manifestBytes.size.toLong(),
+            databaseBytes = database.size.toLong(),
+            settingsBytes = settingsBytes.size.toLong(),
+            tabsBytes = tabsBytes.size.toLong(),
+            cookiesBytes = 1,
+            totalBytes = (manifestBytes.size + database.size + settingsBytes.size + tabsBytes.size).toLong(),
+            entryCount = 4,
+        )
+        // --- Export ---
+        val output = ByteArrayOutputStream()
+        val writer = BackupZipWriter(output, moshi, limits)
+        val dbFile = tmpDir.newFile("interop.db").apply { writeBytes(database) }
+        writer.writeJsonEntry("manifest.json", manifest)
+        writer.writeFileEntry("database/slevo.db", dbFile)
+        writer.writeJsonEntry("datastore/settings.json", settings)
+        writer.writeJsonEntry("datastore/tabs.json", tabs)
+        writer.close()
+        assertTrue(writer.isSuccessful())
+
+        // --- Read back with same limits ---
+        val zipBytes = output.toByteArray()
+        val reader = BackupReader(
+            moshi,
+            FakeBackupDatabaseValidator(),
+            currentDbVersion = 9,
+            resourceLimits = limits,
+        )
+        val result = reader.readBackup(zipBytes.inputStream())
+        assertTrue("expected Success but got $result", result is BackupReaderResult.Success)
+        (result as BackupReaderResult.Success).preview.dbFile.delete()
     }
 }

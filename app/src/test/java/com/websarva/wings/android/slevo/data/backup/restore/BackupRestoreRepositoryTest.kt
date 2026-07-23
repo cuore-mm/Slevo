@@ -5,6 +5,10 @@ import android.content.Context
 import android.net.Uri
 import com.squareup.moshi.Moshi
 import com.websarva.wings.android.slevo.data.backup.BackupRepositoryImpl
+import com.websarva.wings.android.slevo.data.backup.BackupResourceLimits
+import com.websarva.wings.android.slevo.data.backup.export.BackupOutputWriter
+import com.websarva.wings.android.slevo.data.backup.export.BackupExportResult
+import com.websarva.wings.android.slevo.data.backup.export.DatabaseBackupExporter
 import com.websarva.wings.android.slevo.data.backup.model.BackupCookiesJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupGestureSettings
 import com.websarva.wings.android.slevo.data.backup.model.BackupManifest
@@ -22,6 +26,7 @@ import com.websarva.wings.android.slevo.data.model.GestureDirection
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.ThemeMode
 import io.mockk.every
+import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -105,6 +110,29 @@ class BackupRestoreRepositoryTest {
         val result = repository.previewBackup(uri)
 
         Assert.assertTrue(result is BackupRestoreResult.Failure)
+    }
+
+    @Test
+    fun exportBackup_resourceLimitFailure_returnsFailure() = runTest {
+        val dbFile = tempFolder.newFile("resource-limit.db").apply { writeBytes(byteArrayOf(1)) }
+        val dbExporter = mockk<DatabaseBackupExporter>()
+        coEvery { dbExporter.exportDatabase(any()) } returns dbFile
+        val outputWriter = BackupOutputWriter.forTest { _, _ -> ByteArrayOutputStream() }
+        val resourceLimitedRepository = BackupRepositoryImpl(
+            context = context,
+            settingsDataSource = FakeSettingsDataSource(),
+            tabsDataSource = FakeTabsDataSource(),
+            cookieDataSource = FakeCookieDataSource(),
+            dbExporter = dbExporter,
+            outputWriter = outputWriter,
+            backupReader = BackupReader(moshi, FakeBackupDatabaseValidator(), currentDbVersion = 9),
+            pendingRestoreManager = pendingRestoreManager,
+            resourceLimits = BackupResourceLimits(manifestBytes = 1, totalBytes = 10_000),
+        )
+
+        val result = resourceLimitedRepository.exportBackup(mockk(), includeCookies = false)
+
+        Assert.assertTrue(result is BackupExportResult.Failure)
     }
 
     @Test

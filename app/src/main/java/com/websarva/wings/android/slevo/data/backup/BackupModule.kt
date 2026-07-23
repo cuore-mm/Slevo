@@ -72,4 +72,11 @@ object BackupModule {
     @Provides
     @CurrentDatabaseVersion
     fun provideCurrentDatabaseVersion(): Int = AppDatabase.CURRENT_DATABASE_VERSION
+
+    /**
+     * バックアップ展開サイズ上限ポリシーを default instance で提供する。
+     */
+    @Provides
+    @Singleton
+    fun provideBackupResourceLimits(): BackupResourceLimits = BackupResourceLimits()
 }

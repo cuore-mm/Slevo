@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.data.backup.restore
 
 import com.squareup.moshi.Moshi
+import com.websarva.wings.android.slevo.data.backup.BackupResourceLimits
 import com.websarva.wings.android.slevo.data.backup.model.BackupCookiesJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupCookieItem
 import com.websarva.wings.android.slevo.data.backup.model.BackupGestureSettings
@@ -8,13 +9,18 @@ import com.websarva.wings.android.slevo.data.backup.model.BackupManifest
 import com.websarva.wings.android.slevo.data.backup.model.BackupSettingsJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupTabsJson
 import com.websarva.wings.android.slevo.data.backup.model.IncludedContents
+import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
+import java.io.OutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.collections.iterator
@@ -813,6 +819,343 @@ class BackupReaderTest {
         ZipOutputStream(output).use { }
         val error = readError(output.toByteArray())
         assertTrue(error is BackupRestoreResult.Invalid)
+    }
+
+    // --- Resource limit tests ---
+
+    /** JSON fixtureより十分大きく、境界対象だけを小さくできるcustom policy。 */
+    private fun smallLimits(
+        dbBytes: Long = 100,
+        totalBytes: Long = 2_048,
+        entryCount: Int = 7,
+    ) = BackupResourceLimits(
+        manifestBytes = 1_024,
+        databaseBytes = dbBytes,
+        settingsBytes = 1_024,
+        tabsBytes = 1_024,
+        cookiesBytes = 1_024,
+        totalBytes = totalBytes,
+        entryCount = entryCount,
+    )
+
+    /** custom limits付きreaderを生成する。 */
+    private fun createReaderWithLimits(
+        limits: BackupResourceLimits,
+    ) = BackupReader(moshi, FakeBackupDatabaseValidator(), currentDbVersion = 9, resourceLimits = limits)
+
+    /** custom limits付きreaderで読んだ結果を返す。 */
+    private fun readWithLimits(
+        bytes: ByteArray,
+        limits: BackupResourceLimits,
+    ): BackupRestoreResult {
+        val result = createReaderWithLimits(limits).readBackup(bytes.inputStream())
+        assertTrue("expected Error but got $result", result is BackupReaderResult.Error)
+        return (result as BackupReaderResult.Error).result
+    }
+
+    // --- DB entry size boundary ---
+
+    @Test
+    fun readBackup_dbAtExactLimit_returnsSuccess() {
+        val limits = BackupResourceLimits(databaseBytes = 4, totalBytes = 1_024)
+        val reader = createReaderWithLimits(limits)
+        // DB content = 4 bytes → at exact limit
+        val output = ByteArrayOutputStream()
+        ZipOutputStream(output).use { zipOut ->
+            zipOut.putNextEntry(ZipEntry("database/")); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("datastore/")); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("manifest.json"))
+            zipOut.write(moshi.adapter(BackupManifest::class.java).toJson(createValidManifest()).toByteArray()); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("database/slevo.db"))
+            zipOut.write(ByteArray(4)); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("datastore/settings.json"))
+            zipOut.write(moshi.adapter(BackupSettingsJson::class.java).toJson(createValidSettings()).toByteArray()); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("datastore/tabs.json"))
+            zipOut.write(moshi.adapter(BackupTabsJson::class.java).toJson(createValidTabs()).toByteArray()); zipOut.closeEntry()
+        }
+        val result = reader.readBackup(output.toByteArray().inputStream())
+        assertTrue("expected Success but got $result", result is BackupReaderResult.Success)
+    }
+
+    @Test
+    fun readBackup_dbOverLimit_returnsInvalid() {
+        val limits = smallLimits(dbBytes = 4)
+        // DB content = 5 bytes → 1 byte over limit
+        val output = ByteArrayOutputStream()
+        ZipOutputStream(output).use { zipOut ->
+            zipOut.putNextEntry(ZipEntry("manifest.json"))
+            zipOut.write(moshi.adapter(BackupManifest::class.java).toJson(createValidManifest()).toByteArray()); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("database/slevo.db"))
+            zipOut.write(ByteArray(5)); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("datastore/settings.json"))
+            zipOut.write(moshi.adapter(BackupSettingsJson::class.java).toJson(createValidSettings()).toByteArray()); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("datastore/tabs.json"))
+            zipOut.write(moshi.adapter(BackupTabsJson::class.java).toJson(createValidTabs()).toByteArray()); zipOut.closeEntry()
+        }
+        val error = readWithLimits(output.toByteArray(), limits)
+        assertTrue(error is BackupRestoreResult.Invalid)
+        assertTrue((error as BackupRestoreResult.Invalid).detail.contains("limit"))
+    }
+
+    // --- Total size boundary ---
+
+    @Test
+    fun readBackup_totalAtExactLimit_returnsSuccess() {
+        val limits = smallLimits(dbBytes = 10, totalBytes = 14)
+        // DB=10 + manifest=2(簡略JSON) → total=12 ≤ 14
+        val output = ByteArrayOutputStream()
+        ZipOutputStream(output).use { zipOut ->
+            zipOut.putNextEntry(ZipEntry("manifest.json"))
+            zipOut.write("{}".toByteArray()); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("database/slevo.db"))
+            zipOut.write(ByteArray(10)); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("datastore/settings.json"))
+            zipOut.write("s".toByteArray()); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("datastore/tabs.json"))
+            zipOut.write("t".toByteArray()); zipOut.closeEntry()
+        }
+        val reader = createReaderWithLimits(limits)
+        val result = reader.readBackup(output.toByteArray().inputStream())
+        // このZIPはmanifestがinvalidでもsize制限ではrejectされない
+        // 実際はmanifest validationで失敗するのでErrorを受け取る
+        assertTrue("expected Error (manifest validation)", result is BackupReaderResult.Error)
+        assertFalse(
+            "should not be size limit error",
+            (result as BackupReaderResult.Error).result.let { it is BackupRestoreResult.Invalid && it.detail.contains("limit") },
+        )
+    }
+
+    @Test
+    fun readBackup_totalOverLimit_returnsInvalid() {
+        val limits = smallLimits(dbBytes = 100, totalBytes = 10)
+        // total=10 → DB entry (5 byte) が上限内でも後続で超過する
+        val output = ByteArrayOutputStream()
+        ZipOutputStream(output).use { zipOut ->
+            zipOut.putNextEntry(ZipEntry("manifest.json"))
+            zipOut.write(moshi.adapter(BackupManifest::class.java).toJson(createValidManifest()).toByteArray()); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("database/slevo.db"))
+            zipOut.write(ByteArray(50)); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("datastore/settings.json"))
+            zipOut.write(moshi.adapter(BackupSettingsJson::class.java).toJson(createValidSettings()).toByteArray()); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("datastore/tabs.json"))
+            zipOut.write(moshi.adapter(BackupTabsJson::class.java).toJson(createValidTabs()).toByteArray()); zipOut.closeEntry()
+        }
+        val error = readWithLimits(output.toByteArray(), limits)
+        assertTrue(error is BackupRestoreResult.Invalid)
+        assertTrue((error as BackupRestoreResult.Invalid).detail.contains("limit"))
+    }
+
+    // --- Entry count boundary ---
+
+    @Test
+    fun readBackup_entryCountAtExactLimit_returnsNotRejectedOnCount() {
+        val limits = smallLimits(entryCount = 7)
+        // directory entries(2) + 5 file entries = 7 → at limit
+        val zip = createValidZipBytes(
+            manifest = createValidManifest(cookies = true),
+            includeCookies = true,
+            includeDirEntries = true,
+        )
+        val reader = createReaderWithLimits(limits)
+        val result = reader.readBackup(zip.inputStream())
+        assertTrue("expected Success but got $result", result is BackupReaderResult.Success)
+    }
+
+    @Test
+    fun readBackup_entryCountOverLimit_returnsInvalid() {
+        val limits = smallLimits(entryCount = 3)
+        // 4 file entries → over limit
+        val zip = createValidZipBytes()
+        val error = readWithLimits(zip, limits)
+        assertTrue(error is BackupRestoreResult.Invalid)
+        assertTrue((error as BackupRestoreResult.Invalid).detail.contains("limit"))
+    }
+
+    // --- Temp DB cleanup on I/O failure ---
+
+    @Test
+    fun readBackup_tempFileCleanup_afterIOException() {
+        val limits = smallLimits(dbBytes = 100)
+        val reader = createReaderWithLimits(limits)
+        // temp file を常に親dirのないpathへ書き込ませてIOExceptionを起こす
+        val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "backup_test_${System.currentTimeMillis()}")
+        tempDir.mkdirs()
+        val realFile = java.io.File(tempDir, "controlled.db")
+        reader.tempDbFileProvider = { realFile }
+        // 親dirが無効ではない→DBは正常に書き込める
+        val zip = createValidZipBytes()
+        val result = reader.readBackup(zip.inputStream())
+        // DBが存在する＝正常ケース
+        assertTrue("expected Success", result is BackupReaderResult.Success)
+        // success caseではtemp DBはownership transfer済み
+        val preview = (result as BackupReaderResult.Success).preview
+        assertTrue(preview.dbFile.exists())
+        preview.dbFile.delete()
+        tempDir.deleteRecursively()
+    }
+
+    // --- corruption / validation failure cleanup ---
+
+    @Test
+    fun readBackup_tempFileCleanup_afterValidationFailure() {
+        val limits = smallLimits()
+        val reader = createReaderWithLimits(limits)
+        val tempFile = java.io.File.createTempFile("backup_test_", ".db")
+        reader.tempDbFileProvider = { tempFile }
+        // invalid manifest JSON → validation failure
+        val output = ByteArrayOutputStream()
+        ZipOutputStream(output).use { zipOut ->
+            zipOut.putNextEntry(ZipEntry("manifest.json"))
+            zipOut.write("{invalid".toByteArray()); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("database/slevo.db"))
+            zipOut.write("db".toByteArray()); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("datastore/settings.json"))
+            zipOut.write(moshi.adapter(BackupSettingsJson::class.java).toJson(createValidSettings()).toByteArray()); zipOut.closeEntry()
+            zipOut.putNextEntry(ZipEntry("datastore/tabs.json"))
+            zipOut.write(moshi.adapter(BackupTabsJson::class.java).toJson(createValidTabs()).toByteArray()); zipOut.closeEntry()
+        }
+        val result = reader.readBackup(output.toByteArray().inputStream())
+        assertTrue("expected Error", result is BackupReaderResult.Error)
+        // temp DB should be cleaned up
+        assertFalse("temp DB should be cleaned up", tempFile.exists())
+    }
+
+    /** Raw ZIP file entriesを指定順で生成する。 */
+    private fun createZip(entries: List<Pair<String, ByteArray>>): ByteArray {
+        val output = ByteArrayOutputStream()
+        ZipOutputStream(output).use { zip ->
+            entries.forEach { (name, bytes) ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(bytes)
+                zip.closeEntry()
+            }
+        }
+        return output.toByteArray()
+    }
+
+    /** 有効なbackupのfile entriesと展開後byte数を返す。 */
+    private fun validEntries(
+        databaseBytes: ByteArray = byteArrayOf(1, 2, 3, 4),
+        includeCookies: Boolean = false,
+    ): List<Pair<String, ByteArray>> {
+        val manifest = createValidManifest(cookies = includeCookies)
+        val entries = mutableListOf(
+            "manifest.json" to moshi.adapter(BackupManifest::class.java).toJson(manifest).toByteArray(),
+            "database/slevo.db" to databaseBytes,
+            "datastore/settings.json" to moshi.adapter(BackupSettingsJson::class.java)
+                .toJson(createValidSettings()).toByteArray(),
+            "datastore/tabs.json" to moshi.adapter(BackupTabsJson::class.java)
+                .toJson(createValidTabs()).toByteArray(),
+        )
+        if (includeCookies) {
+            entries += "datastore/cookies.json" to moshi.adapter(BackupCookiesJson::class.java)
+                .toJson(createValidCookies()).toByteArray()
+        }
+        return entries
+    }
+
+    /** 指定entry bytesとtotalの境界に一致するpolicyを作る。 */
+    private fun limitsFor(entries: List<Pair<String, ByteArray>>): BackupResourceLimits {
+        val sizes = entries.associate { (name, bytes) -> name to bytes.size.toLong() }
+        return BackupResourceLimits(
+            manifestBytes = sizes.getValue("manifest.json"),
+            databaseBytes = sizes.getValue("database/slevo.db"),
+            settingsBytes = sizes.getValue("datastore/settings.json"),
+            tabsBytes = sizes.getValue("datastore/tabs.json"),
+            cookiesBytes = sizes["datastore/cookies.json"] ?: 1L,
+            totalBytes = sizes.values.sum(),
+            entryCount = entries.size,
+        )
+    }
+
+    @Test
+    fun readBackup_validEntriesAtExactTotalLimit_returnsSuccess() {
+        val entries = validEntries()
+        val result = createReaderWithLimits(limitsFor(entries)).readBackup(createZip(entries).inputStream())
+        assertTrue("expected Success but got $result", result is BackupReaderResult.Success)
+        (result as BackupReaderResult.Success).preview.dbFile.delete()
+    }
+
+    @Test
+    fun readBackup_eachJsonEntryOverLimit_returnsInvalidForTarget() {
+        val entries = validEntries(includeCookies = true)
+        entries.filter { it.first != "database/slevo.db" }.forEach { (targetName, targetBytes) ->
+            val base = limitsFor(entries)
+            val limits = when (targetName) {
+                "manifest.json" -> base.copy(manifestBytes = targetBytes.size - 1L)
+                "datastore/settings.json" -> base.copy(settingsBytes = targetBytes.size - 1L)
+                "datastore/tabs.json" -> base.copy(tabsBytes = targetBytes.size - 1L)
+                "datastore/cookies.json" -> base.copy(cookiesBytes = targetBytes.size - 1L)
+                else -> error("unexpected entry: $targetName")
+            }
+            val error = readWithLimits(createZip(entries), limits)
+            assertTrue(error is BackupRestoreResult.Invalid)
+            assertTrue((error as BackupRestoreResult.Invalid).detail.contains(targetName))
+        }
+    }
+
+    @Test
+    fun readBackup_highlyCompressibleDbOverLimit_returnsInvalid() {
+        val entries = validEntries(databaseBytes = ByteArray(8_192))
+        val limits = limitsFor(entries).copy(databaseBytes = 32, totalBytes = 20_000)
+        val zip = createZip(entries)
+        assertTrue("fixture must compress significantly", zip.size < entries.sumOf { it.second.size })
+        val error = readWithLimits(zip, limits)
+        assertTrue(error is BackupRestoreResult.Invalid)
+        assertTrue((error as BackupRestoreResult.Invalid).detail.contains("database/slevo.db"))
+    }
+
+    @Test
+    fun readBackup_tempOutputIOException_deletesPartialFile() {
+        val entries = validEntries()
+        val reader = createReaderWithLimits(limitsFor(entries))
+        val tempFile = File.createTempFile("backup_io_failure_", ".db")
+        reader.tempDbFileProvider = { tempFile }
+        reader.tempDbOutputProvider = { file ->
+            val delegate = file.outputStream()
+            object : OutputStream() {
+                private var failed = false
+
+                override fun write(b: Int) {
+                    write(byteArrayOf(b.toByte()), 0, 1)
+                }
+
+                override fun write(bytes: ByteArray, offset: Int, length: Int) {
+                    if (!failed) {
+                        delegate.write(bytes, offset, 1)
+                        failed = true
+                    }
+                    throw IOException("injected temp output failure")
+                }
+
+                override fun close() = delegate.close()
+            }
+        }
+        val result = reader.readBackup(createZip(entries).inputStream())
+        assertTrue(result is BackupReaderResult.Error)
+        assertFalse("partial temp DB should be deleted", tempFile.exists())
+    }
+
+    @Test
+    fun readBackup_dbValidatorCancellation_deletesTempFileAndRethrows() {
+        val entries = validEntries()
+        val validator = object : BackupDatabaseValidator {
+            override fun validate(dbFile: File): String? = null
+            override fun preValidate(dbFile: File, manifestDatabaseVersion: Int): String? {
+                throw CancellationException("injected cancellation")
+            }
+            override fun getUserVersion(dbFile: File): Int? = null
+        }
+        val reader = BackupReader(moshi, validator, currentDbVersion = 9, resourceLimits = limitsFor(entries))
+        val tempFile = File.createTempFile("backup_cancel_", ".db")
+        reader.tempDbFileProvider = { tempFile }
+        try {
+            reader.readBackup(createZip(entries).inputStream())
+            fail("expected CancellationException")
+        } catch (_: CancellationException) {
+            // expected
+        }
+        assertFalse("cancelled read should delete temp DB", tempFile.exists())
     }
 }
 

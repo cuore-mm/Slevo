@@ -2,13 +2,18 @@ package com.websarva.wings.android.slevo.data.backup.restore
 
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
+import com.websarva.wings.android.slevo.data.backup.BackupResourceLimitExceededException
+import com.websarva.wings.android.slevo.data.backup.BackupResourceLimits
 import com.websarva.wings.android.slevo.data.backup.model.BackupCookiesJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupManifest
 import com.websarva.wings.android.slevo.data.backup.model.BackupSettingsJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupTabsJson
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
+import kotlinx.coroutines.CancellationException
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
+import java.io.OutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import javax.inject.Inject
@@ -27,9 +32,13 @@ import javax.inject.Singleton
  * 6. DB schema compatibility ([BackupDatabaseValidator] 経由)
  * 7. DataStore JSON の parse と値 validation
  *
+ * すべての展開entryは [resourceLimits] に従ってバイト数制限され、
+ * 一時DBは成功previewへの引き渡し以外では必ず削除される。
+ *
  * @param moshi JSON のデシリアライズに使う Moshi インスタンス。
  * @param dbValidator DB schema 検証に使う validator。テスト時に fake で置き換え可能。
  * @param currentDbVersion 現在の Room DB version（DI 目的で保持。validateManifest は代わりに AppDatabase の static helper を使う）。
+ * @param resourceLimits 展開サイズ上限policy。テストでは小さい値を注入できる。
  */
 @Singleton
 @OptIn(ExperimentalStdlibApi::class)
@@ -37,6 +46,7 @@ class BackupReader @Inject constructor(
     private val moshi: Moshi,
     private val dbValidator: BackupDatabaseValidator,
     @CurrentDatabaseVersion private val currentDbVersion: Int,
+    private val resourceLimits: BackupResourceLimits = BackupResourceLimits(),
 ) {
     private val manifestAdapter = moshi.adapter<BackupManifest>()
     private val settingsAdapter = moshi.adapter<BackupSettingsJson>()
@@ -52,6 +62,18 @@ class BackupReader @Inject constructor(
     }
 
     /**
+     * Temp DB output stream の作成方法。
+     *
+     * productionでは [File.outputStream] を使い、testではwrite failureを注入できる。
+     */
+    internal var tempDbOutputProvider: (File) -> OutputStream = { file ->
+        file.outputStream()
+    }
+
+    /** bounded copyで使う固定バッファサイズ (8 KiB)。 */
+    private val copyBuffer = ByteArray(8192)
+
+    /**
      * ZIP [InputStream] からバックアップを読み取り、検証して [BackupPreview] を生成する。
      *
      * @param input ZIP ファイルの入力ストリーム。
@@ -63,11 +85,26 @@ class BackupReader @Inject constructor(
         val jsonEntries = mutableMapOf<String, ByteArray>()
         var dbTempFile: File? = null
         val seenEntries = mutableSetOf<String>()
+        var totalDecompressed: Long = 0
+        var entryCount = 0
+        // 成功previewへのownership transfer以外ではfinallyがtemp DBを削除する。
         try {
-            ZipInputStream(input).use { zip ->
+            try {
+                ZipInputStream(input).use { zip ->
                 var entry: ZipEntry? = zip.nextEntry
                 while (entry != null) {
                     val name = entry.name
+                    // --- entry count limit ---
+                    entryCount++
+                    if (entryCount > resourceLimits.entryCount) {
+                        val ex = BackupResourceLimitExceededException(
+                            entryName = name,
+                            actual = entryCount.toLong(),
+                            limit = resourceLimits.entryCount.toLong(),
+                            target = "entry-count",
+                        )
+                        return handleLimitException(dbTempFile, ex)
+                    }
                     // --- duplicate check (file entry) ---
                     if (name in seenEntries) {
                         return cleanupAndError(
@@ -85,39 +122,82 @@ class BackupReader @Inject constructor(
                     }
                     if (!entry.isDirectory) {
                         seenEntries.add(name)
-                        // DB entry → stream to temp file
+                        // DB entry → bounded stream to temp file
                         if (name == DB_PATH) {
                             val tmp = tempDbFileProvider()
                             try {
-                                tmp.outputStream().use { output -> zip.copyTo(output) }
+                                val entryLimit = resourceLimits.limitForEntry(DB_PATH)
+                                    ?: 0L // known entry; must be present
+                                val written = tempDbOutputProvider(tmp).use { output ->
+                                    copyWithLimit(
+                                        input = zip,
+                                        output = output,
+                                        entryLimit = entryLimit,
+                                        totalDecompressed = totalDecompressed,
+                                        totalLimit = resourceLimits.totalBytes,
+                                        entryName = name,
+                                    )
+                                }
+                                totalDecompressed += written
+                            } catch (e: CancellationException) {
+                                // cancellationでも部分temp DBを残さず、構造化並行性を維持する。
+                                tmp.delete()
+                                throw e
                             } catch (e: Exception) {
                                 tmp.delete()
-                                // re-wrap to keep cleanup scope clean
+                                // BackupResourceLimitExceededException はここで catch して展開後の専用扱い
+                                if (e is BackupResourceLimitExceededException) {
+                                    return handleLimitException(dbTempFile, e)
+                                }
+                                // その他のI/O失敗
                                 throw RuntimeException(
                                     "failed to stream DB entry: ${e.message}", e)
                             }
                             dbTempFile = tmp
                         } else {
-                            // JSON entry → memory
-                            jsonEntries[name] = zip.readBytes()
+                            // JSON entry → bounded memory read
+                            val entryLimit = resourceLimits.limitForEntry(name)
+                            val bytes = if (entryLimit != null) {
+                                readBytesWithLimit(
+                                    input = zip,
+                                    entryLimit = entryLimit,
+                                    totalDecompressed = totalDecompressed,
+                                    totalLimit = resourceLimits.totalBytes,
+                                    entryName = name,
+                                )
+                            } else {
+                                // unknown file entry — should have been caught by path validation
+                                return cleanupAndError(
+                                    dbTempFile,
+                                    BackupRestoreResult.Invalid("unknown entry: $name"),
+                                )
+                            }
+                            totalDecompressed += bytes.size.toLong()
+                            jsonEntries[name] = bytes
                         }
                     }
                     zip.closeEntry()
                     entry = zip.nextEntry
                 }
-            }
-        } catch (e: Exception) {
+                }
+            } catch (e: BackupResourceLimitExceededException) {
+            // limit超過はInvalidとして扱う
+                return handleLimitException(dbTempFile, e)
+            } catch (e: CancellationException) {
+            // CancellationExceptionを結果型へ変換せず、cleanup後に再throwする。
+                dbTempFile?.delete()
+                throw e
+            } catch (e: Exception) {
             // --- stream/read failure cleanup ---
-            dbTempFile?.delete()
-            return BackupReaderResult.Error(
-                BackupRestoreResult.Invalid("failed to read ZIP: ${e.message}"),
-            )
-        }
+                dbTempFile?.delete()
+                return BackupReaderResult.Error(
+                    BackupRestoreResult.Invalid("failed to read ZIP: ${e.message}"),
+                )
+            }
 
         // --- 2. 必須 entry の存在確認 ---
         for (required in REQUIRED_ENTRIES) {
             if (required !in seenEntries) {
-                // guard: cleanupAndError handles dbTempFile cleanup
                 return cleanupAndError(
                     dbTempFile,
                     BackupRestoreResult.Invalid("missing required entry: $required"),
@@ -175,6 +255,10 @@ class BackupReader @Inject constructor(
                     BackupRestoreResult.Invalid("DB validation failed: $dbError"),
                 )
             }
+        } catch (e: CancellationException) {
+            // DB validator内でcancelされた場合もpartial temp DBを残さない。
+            dbTempFile?.delete()
+            throw e
         } catch (e: Exception) {
             // DB validation threw unexpected exception
             return cleanupAndError(
@@ -221,6 +305,130 @@ class BackupReader @Inject constructor(
                 cookiesJson = cookiesJson,
             ),
         )
+        } finally {
+            // dbTempFile=null is the only ownership transfer to the preview caller.
+            dbTempFile?.delete()
+        }
+    }
+
+    // --- Resource limit helpers ---
+
+    /**
+     * [InputStream] から固定バッファでbyteを読み取り [OutputStream] へ書き込む。
+     *
+     * entry上限とtotal上限の両方を1回の書き込みごとにチェックし、
+     * 上限を1 byteでも超える場合は [BackupResourceLimitExceededException] を投げる。
+     * 上限超過検出用の余分なbyteはoutputへ書き込まない。
+     *
+     * @param input 読み取り元ストリーム。
+     * @param output 書き込み先ストリーム（呼び出し側でcloseすること）。
+     * @param entryLimit 個別エントリ上限（バイト）。
+     * @param totalDecompressed 現在の合計展開byte数。
+     * @param totalLimit 合計上限（バイト）。
+     * @param entryName エントリ名（超過例外用）。
+     * @return このエントリで書き込んだbyte数。
+     * @throws BackupResourceLimitExceededException 上限超過時。
+     */
+    private fun copyWithLimit(
+        input: InputStream,
+        output: OutputStream,
+        entryLimit: Long,
+        totalDecompressed: Long,
+        totalLimit: Long,
+        entryName: String,
+    ): Long {
+        var entryWritten: Long = 0
+        while (true) {
+            // --- Remaining capacity ---
+            val entryRemaining = entryLimit - entryWritten
+            val totalRemaining = totalLimit - totalDecompressed - entryWritten
+            if (entryRemaining < 0) {
+                throw BackupResourceLimitExceededException(
+                    entryName = entryName,
+                    actual = entryWritten,
+                    limit = entryLimit,
+                    target = "entry",
+                )
+            }
+            if (totalRemaining < 0) {
+                throw BackupResourceLimitExceededException(
+                    entryName = null,
+                    actual = totalDecompressed + entryWritten,
+                    limit = totalLimit,
+                    target = "total",
+                )
+            }
+            // 余剰1 byteだけを読み、上限超過を検出する。
+            val bytesRead = input.read(copyBuffer, 0, requestLength(minOf(entryRemaining, totalRemaining)))
+            if (bytesRead == -1) break
+            if (bytesRead > entryRemaining) {
+                throw BackupResourceLimitExceededException(
+                    entryName = entryName,
+                    actual = entryWritten + bytesRead,
+                    limit = entryLimit,
+                    target = "entry",
+                )
+            }
+            if (bytesRead > totalRemaining) {
+                throw BackupResourceLimitExceededException(
+                    entryName = null,
+                    actual = totalDecompressed + entryWritten + bytesRead,
+                    limit = totalLimit,
+                    target = "total",
+                )
+            }
+            output.write(copyBuffer, 0, bytesRead)
+            entryWritten += bytesRead
+        }
+        return entryWritten
+    }
+
+    /** remaining上限と超過検出用1 byteを超えないread長を返す。 */
+    private fun requestLength(remaining: Long): Int {
+        val maxWithProbe = if (remaining >= copyBuffer.size.toLong()) {
+            copyBuffer.size.toLong()
+        } else {
+            remaining + 1
+        }
+        return maxWithProbe.toInt()
+    }
+
+    /**
+     * [InputStream] から上限付きで全byteを読み取り、[ByteArray] を返す。
+     *
+     * entry上限とtotal上限をチェックし、上限超過時は [BackupResourceLimitExceededException] を投げる。
+     *
+     * @param input 読み取り元ストリーム。
+     * @param entryLimit 個別エントリ上限（バイト）。
+     * @param totalDecompressed 現在の合計展開byte数。
+     * @param totalLimit 合計上限（バイト）。
+     * @param entryName エントリ名（超過例外用）。
+     * @return 読み取ったbyte配列。
+     * @throws BackupResourceLimitExceededException 上限超過時。
+     */
+    private fun readBytesWithLimit(
+        input: InputStream,
+        entryLimit: Long,
+        totalDecompressed: Long,
+        totalLimit: Long,
+        entryName: String,
+    ): ByteArray {
+        val buffer = ByteArrayOutputStream()
+        copyWithLimit(input, buffer, entryLimit, totalDecompressed, totalLimit, entryName)
+        return buffer.toByteArray()
+    }
+
+    /**
+     * [BackupResourceLimitExceededException] を処理し、
+     * temp DBを削除して [BackupRestoreResult.Invalid] を返す。
+     */
+    private fun handleLimitException(
+        dbTempFile: File?,
+        e: BackupResourceLimitExceededException,
+    ): BackupReaderResult.Error {
+        dbTempFile?.delete()
+        val detail = e.message ?: "backup exceeds resource limits"
+        return BackupReaderResult.Error(BackupRestoreResult.Invalid("size limit exceeded: $detail"))
     }
 
     /**

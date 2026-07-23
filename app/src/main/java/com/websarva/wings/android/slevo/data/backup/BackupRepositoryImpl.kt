@@ -51,6 +51,7 @@ class BackupRepositoryImpl @Inject constructor(
     private val outputWriter: BackupOutputWriter,
     private val backupReader: BackupReader,
     private val pendingRestoreManager: PendingRestoreManager,
+    private val resourceLimits: BackupResourceLimits = BackupResourceLimits(),
 ) : BackupRepository {
 
     private val backupMutex = Mutex()
@@ -196,7 +197,7 @@ class BackupRepositoryImpl @Inject constructor(
     ): BackupExportResult {
         try {
             outputWriter.writeToUri(uri) { outputStream ->
-                val writer = BackupZipWriter(outputStream)
+                val writer = BackupZipWriter(outputStream, resourceLimits = resourceLimits)
                 try {
                     writer.writeJsonEntry("manifest.json", manifest)
                     writer.writeFileEntry("database/slevo.db", dbFile)
