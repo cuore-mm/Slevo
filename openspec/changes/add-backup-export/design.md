@@ -131,7 +131,7 @@ DataStore の物理ファイル `.preferences_pb` はバックアップに含め
 
 JSON モデルは Entity や UI State と分け、`data/backup/model/` などにバックアップ専用 DTO として置く。
 
-DataStore JSON は各 DataStore から順に取得した最新値を保存する。初期実装では `settings`、`tabs`、`cookies` を横断した原子的スナップショット整合性は保証しない。各 JSON は取得時点の値として扱い、Room DB の checkpoint/copy の整合性制御とは独立させる。
+DataStore JSON は各 DataStore から順に取得した最新値を保存する。初期実装では `settings`、`tabs`、`cookies` を横断した原子的スナップショット整合性は保証しない。各 JSON は取得時点の値として扱い、Room DB の checkpoint/copy の整合性制御とは独立させる。この非原子的 DataStore snapshot は意図した仕様であり、実装では DataStore 間の同時更新をロックしない。
 
 JSON serialization は既存方針に合わせて Moshi の codegen adapter を使う。バックアップ DTO は `@JsonClass(generateAdapter = true)` を付け、field 名は DTO property 名をそのまま使う。出力の安定性は、配列の並び順と object key の生成元をテストで固定する。Moshi 以外の serializer を使う場合は、この design と tasks を更新してから実装する。
 
@@ -208,13 +208,15 @@ Cookie item の必須 field は `name`、`value`、`domain`、`path`、`expiresA
 
 `backupMutex` はバックアップ同士の多重実行防止に限定し、アプリ内 DB 書き込み抑制には使わない。アプリ内 DB 書き込み抑制には、別変更 `add-database-write-gate` で導入済みの `DatabaseWriteGate` を利用する。バックアップ側は `DatabaseWriteGate.withWritesSuspended { ... }` の block 内で checkpoint と main DB コピーを実行する。
 
+`BEGIN IMMEDIATE` から main DB ファイルコピー完了までの source DB transaction は、例外・coroutine cancellation・コピー失敗のいずれでも DB lock と write suspension が残らないように実装する。`BEGIN IMMEDIATE` が成功した後、main DB ファイルコピーが成功した場合のみ `COMMIT` を試み、`COMMIT` 完了前の失敗では `ROLLBACK` を試みる。`COMMIT` 完了後のコピー済み DB integrity check 失敗はバックアップ失敗として扱い、一時ファイルを削除するが、source DB transaction への `ROLLBACK` は試みない。`ROLLBACK`、一時ファイル削除、stream close、`DatabaseWriteGate.withWritesSuspended` の解除は、必要に応じて cancellation の影響を受けにくい cleanup として扱う。cleanup 失敗も詳細ログへ記録し、ユーザー向けには共通失敗 Snackbar に統一する。
+
 `BackupRepository` は repository/data 層でもバックアップ作成の多重実行を防ぐ。UI の disabled 状態だけに依存せず、`exportBackup(uri, includeCookies)` 相当の API は内部の `backupMutex` で 1 件ずつ実行する。2 件目以降の同時要求は、先行要求の完了まで待機してから開始する。将来の要件で即時失敗に変える場合は spec を更新する。
 
 `add-backup-export` の実装前提として、Room DB への既存書き込み経路は `add-database-write-gate` により `DatabaseWriteGate.withWritePermit { ... }` 経由へ移行済みであること。未実装の場合はこの変更の実装を開始しない。
 
 ### 5. UI は確認ダイアログを挟んでから SAF launcher を起動する
 
-`BackupScreen` で `rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip"))` を使う。保存ボタン押下時はすぐに launcher を起動せず、確認ダイアログを表示する。確認ダイアログには、バックアップに含まれる通常データの説明、クッキーがセンシティブ情報を含む可能性の説明、「クッキーを含める」チェックボックス、キャンセルボタン、作成ボタンを配置する。
+`BackupScreen` で `rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip"))` を使う。保存ボタン押下時はすぐに launcher を起動せず、確認ダイアログを表示する。確認ダイアログには、標準バックアップに閲覧履歴・ブックマーク・投稿履歴・タブ状態・設定など個人に紐づく利用データが含まれること、ZIP が暗号化・パスワード保護されないこと、クッキーがセンシティブ情報や認証情報を含む可能性があること、「クッキーを含める」チェックボックス、キャンセルボタン、作成ボタンを配置する。
 
 確認ダイアログの作成ボタン押下時に、現在の `includeCookies` を ViewModel に保持した上で推奨ファイル名を生成して launcher を起動する。launcher から `Uri` が返ったら、その `Uri` と保持済みの `includeCookies` を `BackupViewModel` に渡す。ユーザーがダイアログをキャンセルした場合、SAF launcher は起動しない。
 
@@ -256,6 +258,8 @@ app/src/main/java/com/websarva/wings/android/slevo/ui/settings/backup/
 
 Hilt binding は既存の `DataSourceModule.kt` に詰め込みすぎず、必要に応じて `BackupModule.kt` を新規作成する。
 
+`DataStoreBackupExporter.kt` は推奨配置の例であり、必須ファイルではない。DataStore JSON 生成は専用 exporter、mapper、または `BackupRepositoryImpl` から呼ばれる小さな変換クラスのいずれで実装してもよい。ただし、settings/tabs/cookies の取得、DTO 変換、並び順安定化、非原子的 snapshot の扱いがテスト可能に分離されていること。
+
 ### 7. エラー処理
 
 最低限、以下を区別して ViewModel へ返す。ユーザー向け UI では失敗 Snackbar を共通文言にし、詳細はログへ出力する。
@@ -266,7 +270,7 @@ Hilt binding は既存の `DataSourceModule.kt` に詰め込みすぎず、必�
 - コピー済み DB の integrity check 失敗: 詳細ログへ「バックアップ DB の整合性検証に失敗しました」を記録する。
 - JSON 変換失敗: 詳細ログへ「設定データの変換に失敗しました」を記録する。
 - ZIP 書き込み失敗: 詳細ログへ「バックアップファイルの作成に失敗しました」を記録する。
-- SAF `Uri` への ZIP 書き込み途中で失敗した場合: success Snackbar を表示せず、出力先ファイルが不完全な可能性を詳細ログへ記録する。可能であれば stream を close し、provider が削除または truncate をサポートする場合だけ best-effort cleanup を行う。cleanup 不能時もユーザー向け表示は共通失敗 Snackbar に統一する。
+- SAF `Uri` への ZIP 書き込み途中、ZIP stream close、flush、または underlying output stream close で失敗した場合: success Snackbar を表示せず、出力先ファイルが不完全な可能性を詳細ログへ記録する。可能であれば stream を close し、provider が削除または truncate をサポートする場合だけ best-effort cleanup を行う。cleanup 不能時もユーザー向け表示は共通失敗 Snackbar に統一する。
 
 例外を握りつぶさずログへ出力し、ViewModel では失敗種別を共通のユーザー向け失敗メッセージへ変換する。
 
@@ -279,6 +283,8 @@ Hilt binding は既存の `DataSourceModule.kt` に詰め込みすぎず、必�
 - [Risk] クッキーを含むバックアップはセンシティブ情報を含む。 → 確認ダイアログ内の checkbox はデフォルト OFF にし、同じダイアログ内で認証情報が含まれる可能性を明示する。
 - [Risk] DataStore の JSON モデルと既存設定キーがずれる。 → `BackupSettingsJson` 生成テストで既存設定を網羅し、設定追加時にモデル更新が必要なことを KDoc に記載する。
 - [Risk] ZIP 作成途中に失敗した場合、一時ファイルが残る。 → `cacheDir/backups/<session>` は `try/finally` で削除する。
+- [Risk] cancellation や close/flush failure により DB lock、write suspension、stream、一時ファイルが残る。 → DB transaction、gate、stream、一時ディレクトリは `try/finally` を前提に cleanup し、close/flush failure も失敗扱いにする。
+- [Risk] 通常バックアップにも履歴や投稿履歴など個人データが含まれ、ZIP は未暗号化である。 → 確認ダイアログで標準バックアップのセンシティブ性と未暗号化であることを明示し、安全な保管を促す。
 - [Risk] 復元未実装のためユーザーが期待を誤解する。 → 画面文言は「バックアップを作成」に限定し、復元ボタンは初期実装では表示しない。
 
 ## Migration Plan
@@ -301,7 +307,8 @@ Hilt binding は既存の `DataSourceModule.kt` に詰め込みすぎず、必�
 - `BackupRepository.exportBackup` は repository/data 層の `backupMutex` で多重実行を防ぎ、直接 concurrent call されても 1 件ずつ実行する。
 - バックアップ ZIP は `CreateDocument("application/zip")` で作成し、推奨ファイル名として `slevo-backup-YYYYMMDD-HHmmss.zip` を渡す。返却後の provider 側表示名が `.zip` で終わることは前提にしない。
 - ZIP 書き込みの成功判定は、全 entry の書き込み、ZIP stream の close、output stream の close が完了した後にだけ行う。
-- ZIP 書き込み途中で失敗した場合は success Snackbar を表示せず、出力先ファイルが不完全な可能性をログへ記録する。削除または truncate は provider が安全に実行可能な場合だけ best-effort で行う。
+- ZIP 書き込み途中、ZIP stream close、flush、または output stream close で失敗した場合は success Snackbar を表示せず、出力先ファイルが不完全な可能性をログへ記録する。削除または truncate は provider が安全に実行可能な場合だけ best-effort で行う。
+- DB エクスポート中の例外・coroutine cancellation では、`BEGIN IMMEDIATE` 後かつ `COMMIT` 完了前であれば source DB transaction を `ROLLBACK` し、`DatabaseWriteGate.withWritesSuspended` を解除し、一時ディレクトリを cleanup する。`COMMIT` 完了後の integrity check 失敗では source DB rollback を試みず、バックアップ失敗として一時ディレクトリを cleanup する。cleanup は `finally` で行い、cleanup 失敗は詳細ログへ記録する。
 - 設定項目名と画面タイトルは「バックアップ作成」とし、復元 UI を表示してはならない。
 - DB エクスポートで `VACUUM INTO` を使ってはならない。
 - `PRAGMA wal_checkpoint(TRUNCATE)` は `BEGIN IMMEDIATE` の前に実行し、checkpoint 結果を確認してから DB ファイルコピーへ進む。
@@ -334,6 +341,8 @@ Hilt binding は既存の `DataSourceModule.kt` に詰め込みすぎず、必�
   - `DatabaseWriteGate.withWritesSuspended` が呼ばれることを fake gate で検証する。
   - `BackupRepository.exportBackup` を concurrent call した場合でも 1 件ずつ実行されることを fake writer で検証する。
   - コピー済み DB の読み取り専用 open と `PRAGMA integrity_check` が成功した場合だけ ZIP へ進むことを検証する。
+  - DB コピー、integrity check、ZIP 書き込み、coroutine cancellation の失敗時に transaction rollback、gate release、一時ディレクトリ cleanup が行われることを fake で検証する。
+  - ZIP stream close、flush、underlying output stream close の失敗を fake stream で検証し、成功扱いにならないことを確認する。
 - UI/navigation:
   - Compose UI または instrumented test で、設定画面の「バックアップ作成」項目からバックアップ作成画面へ遷移できることを検証する。
   - Compose UI または ViewModel + UI state test で、確認ダイアログ、クッキー checkbox の初期未選択かつ処理中でなければ選択可能な状態、進捗ダイアログ、成功/失敗 Snackbar を検証する。

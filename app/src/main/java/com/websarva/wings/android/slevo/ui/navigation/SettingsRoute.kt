@@ -13,10 +13,11 @@ import com.websarva.wings.android.slevo.ui.settings.SettingsNgScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsThreadScreen
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
+import com.websarva.wings.android.slevo.ui.settings.backup.BackupScreen
 
 fun NavGraphBuilder.addSettingsRoute(
     navController: NavHostController,
-    viewModel: SettingsViewModel
+    viewModel: SettingsViewModel,
 ) {
     navigation<AppRoute.Settings>(
         startDestination = AppRoute.SettingsHome,
@@ -32,6 +33,7 @@ fun NavGraphBuilder.addSettingsRoute(
                 onThreadClick = { navController.navigate(AppRoute.SettingsThread) },
                 onNgClick = { navController.navigate(AppRoute.SettingsNg) },
                 onCookieClick = { navController.navigate(AppRoute.SettingsCookie) },
+                onBackupClick = { navController.navigate(AppRoute.SettingsBackup) },
                 onNavigateUp = { navController.navigateUp() }
             )
         }
@@ -65,6 +67,11 @@ fun NavGraphBuilder.addSettingsRoute(
         composable<AppRoute.SettingsGesture> {
             SettingsGestureScreen(
                 onNavigateUp = { navController.navigateUp() }
+            )
+        }
+        composable<AppRoute.SettingsBackup> {
+            BackupScreen(
+                onNavigateUp = { navController.navigateUp() },
             )
         }
     }

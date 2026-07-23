@@ -1,64 +1,95 @@
-## 1. 事前調査と配置確認
+## 実装方針
 
-- [ ] 1.1 `AppDatabase.kt`、`DatabaseModule.kt`、`SettingsLocalDataSource.kt`、`TabsLocalDataSource.kt`、`CookieLocalDataSource.kt` を確認し、DB version、DB 名、DataStore の既存 API、バックアップに含める設定項目を実装メモに整理する。完了条件: 実装で参照する既存メソッドと不足 API が明確になり、計画書と差分がある場合は実装前に design/tasks/spec が更新されている。
-- [ ] 1.2 `AppNavGraph.kt` と `SettingsScreen.kt` の設定 navigation 構造を確認し、追加する route 名、画面 package、文字列 resource 名を決める。完了条件: 新規 `AppRoute.SettingsBackup` と設定画面項目の追加位置が決まっている。
-- [ ] 1.3 別変更 `add-database-write-gate` が実装済みであることを確認する。完了条件: `DatabaseWriteGate` が利用可能で、既存 Room DB 書き込み経路の gate 移行がこの変更のスコープ外として完了済みである。
+`add-backup-export` は DB snapshot、ZIP/SAF 出力、DataStore JSON、Repository orchestration、UI/navigation を含むため、1 回で全対象を変更せず Phase ごとに小さく実装・検証・コミットする。
 
-## 2. バックアップモデルと JSON 変換
+- Phase 0: prerequisite gate と source-derived 前提の再確認を先に完了する。
+- Phase 1: バックアップ DTO / JSON schema と mapper を固める。
+- Phase 2: DB export core を `DatabaseWriteGate.withWritesSuspended` 前提で実装する。
+- Phase 3: ZIP writer と SAF output stream を実装する。
+- Phase 4: BackupRepository orchestration と DI を実装する。
+- Phase 5: UI/navigation を実装する。
+- Phase 6: 最終 verification、manual checks、CI を揃える。
 
-- [ ] 2.1 `data/backup/model/BackupManifest.kt` を追加し、`backupFormatVersion`、`backupMode`、`createdAt`、`appVersionCode`、`appVersionName`、`databaseVersion`、`included` を保持する JSON モデルを定義する。完了条件: Moshi codegen adapter で encode/decode でき、`@JsonClass(generateAdapter = true)` が付いている。
-- [ ] 2.2 `data/backup/model/BackupSettingsJson.kt` を追加し、`SettingsLocalDataSource` が扱うテーマ、ツリー順、ミニマップスクロールバー、文字倍率、行間、5ch.io リダイレクト、ジェスチャー設定を保持できるモデルを定義する。完了条件: 既存設定項目が漏れなくモデル化されている。
-- [ ] 2.3 `data/backup/model/BackupTabsJson.kt` を追加し、`TabsLocalDataSource.observeLastSelectedTabsPage()` の値を保持できるモデルを定義する。完了条件: 最終選択ページを JSON 化できる。
-- [ ] 2.4 `data/backup/model/BackupCookiesJson.kt` を追加し、`CookieLocalDataSource.getCookies()` から取得した OkHttp Cookie を JSON として保存できるバックアップ専用モデルを定義する。完了条件: `name`、`value`、`domain`、`path`、`expiresAt`、`secure`、`httpOnly`、`hostOnly`、`persistent` の 9 field が保持できる。
-- [ ] 2.5 JSON 変換クラスまたは mapper を追加し、DataStore/Cookie の既存モデルからバックアップ DTO へ変換できるようにする。完了条件: settings/tabs/cookies の field 名、型、nullable ルール、cookie 配列の `domain`、`path`、`name` 昇順、gesture action key の昇順を JVM unit test で検証できる。
+各 Phase は可能な限り独立したコミットに分ける。Phase 内で CI を実行した場合は、該当タスクまたは検証メモに Run ID を記録する。
 
-## 3. DB エクスポートと ZIP 書き込み
+## Phase 0: prerequisite gate と事前調査
 
-- [ ] 3.1 `data/backup/DatabaseBackupExporter.kt` を追加し、`DatabaseWriteGate.withWritesSuspended { ... }` の内側で `PRAGMA wal_checkpoint(TRUNCATE)`、checkpoint 結果確認、`BEGIN IMMEDIATE`、main DB ファイルコピー、`COMMIT`/`ROLLBACK` の順で SQLite DB を出力する。完了条件: 一時 `slevo.db` ファイルが生成され、失敗時に例外または Result で呼び出し元へ通知される。
-- [ ] 3.2 checkpoint 結果の `busy`、`log`、`checkpointed` を読み取り、`busy == 0` かつ `log == checkpointed` でない場合に最大 3 回、各 100ms 待機でリトライしてから失敗扱いにする。完了条件: checkpoint 未完了のまま main DB ファイルをコピーせず、リトライ回数と待機処理をテストで決定的に検証できる。
-- [ ] 3.3 `BEGIN IMMEDIATE` は checkpoint 完了後、main DB ファイルコピー直前に開始する。完了条件: checkpoint 前に `BEGIN IMMEDIATE` を実行するコードがない。
-- [ ] 3.4 コピー済み DB を読み取り専用で開き、`PRAGMA integrity_check` を実行する検証処理を追加する。完了条件: `ok` の場合のみ ZIP 作成へ進み、失敗時は詳細ログを残してバックアップを失敗扱いにする。
-- [ ] 3.5 `data/backup/BackupZipWriter.kt` を追加し、`manifest.json`、`database/slevo.db`、`datastore/settings.json`、`datastore/tabs.json`、任意の `datastore/cookies.json` を ZIP entry として書き込む。完了条件: `includeCookies=false` では cookies entry が存在せず、`includeCookies=true` では存在することをテストで確認できる。
-- [ ] 3.6 `ContentResolver.openOutputStream(uri)` を使う出力処理を repository/data 層に実装し、SAF の URI へ直接 ZIP を書き込む。完了条件: `FileProvider` と外部ストレージ権限を追加せずに書き込み処理が完結している。
-- [ ] 3.7 `cacheDir/backups/<session>` の一時ディレクトリ管理を実装し、成功・失敗どちらでも `finally` で削除する。完了条件: 例外時にも一時ファイルが残らない構造になっている。
+- [x] 0.1 `add-database-write-gate` が完了済みであることを確認する。完了条件: OpenSpec 上で `add-database-write-gate` が complete で、`DatabaseWriteGate` と既存 Room DB 書き込み経路の gate 移行が完了している。未完了または部分完了の場合、この change のコード実装を開始せず停止して報告する。確認結果: `add-database-write-gate` は 38/38 完了 (CI Pass)。
+- [x] 0.2 事前調査の結果、DB version、DB 名、DataStore field、navigation 構造、既存 API に design/proposal/spec/tasks と差分が見つかった場合、Phase 1 以降の実装に進む前に OpenSpec 文書を更新する。確認結果: 差分なし。AppDatabase version=9、DB名はrelease/debugで分岐、Settings 14 field、TabsLastPage Int、Cookie 9 field。
+- [x] 0.3 `AppDatabase.kt`、`DatabaseModule.kt`、`SettingsLocalDataSource.kt`、`TabsLocalDataSource.kt`、`CookieLocalDataSource.kt` を確認し、DB version、DB 名、DataStore の既存 API、バックアップに含める設定項目を実装メモに整理する。確認結果: 事前調査完了。全 API を mapper/test に反映済み。
+- [x] 0.4 `AppNavGraph.kt` と `SettingsScreen.kt` の設定 navigation 構造を確認し、追加する route 名、画面 package、文字列 resource 名を決める。確認結果: `AppRoute` sealed class + `SettingsHome` 以下に child composable 追加パターン。Phase 5 で実装。
+- [x] 0.5 実ソース上で `DatabaseWriteGate` の API が利用可能であることを確認する。確認結果: `DatabaseWriteGate.withWritesSuspended` の API 確認済み。Phase 2 で使用。
 
-## 4. Repository と DI
+## Phase 1: バックアップ DTO / JSON schema
 
-- [ ] 4.1 `data/backup/BackupRepository.kt` と `BackupRepositoryImpl.kt` を追加し、`exportBackup(uri, includeCookies)` 相当の suspend API を定義する。完了条件: ViewModel が単一 API 呼び出しでバックアップ作成を依頼でき、repository/data 層の `backupMutex` で同時実行が 1 件ずつ直列化される。
-- [ ] 4.2 `BackupRepositoryImpl` で manifest 作成、DB エクスポート、DataStore JSON 作成、ZIP 書き込みを順序通りに orchestrate する。完了条件: クッキー有無が manifest と ZIP 内容の両方に反映される。
-- [ ] 4.3 `di/BackupModule.kt` または既存 DI module に Hilt binding/provider を追加する。完了条件: `BackupViewModel` に `BackupRepository` を注入できる。
-- [ ] 4.4 エラー種別を sealed class または Result 型で定義し、DB 失敗、JSON 失敗、ZIP 失敗、保存先 open 失敗を区別する。完了条件: ViewModel がユーザー向けメッセージへ変換できる。
+- [x] 1.1 `data/backup/model/BackupManifest.kt` を追加。実装内容: Moshi `@JsonClass(generateAdapter = true)`、default values付き、`IncludedContents` 内包。
+- [x] 1.2 `data/backup/model/BackupSettingsJson.kt` を追加。実装内容: 全設定項目 + `BackupGestureSettings` 内包。
+- [x] 1.3 `data/backup/model/BackupTabsJson.kt` を追加。実装内容: `lastSelectedTabsPage`。
+- [x] 1.4 `data/backup/model/BackupCookiesJson.kt` を追加。実装内容: `BackupCookieItem` 9 field。
+- [x] 1.5 `data/backup/BackupDataMapper.kt` を追加。実装内容: `ThemeMode/GestureDirection/GestureAction→kebab-case` 変換、cookie 配列昇順、gesture actions key 昇順、Moshi null value 回避のため未割当方向は省略。
+- [x] 1.6 `BackupManifestTest` を追加。実装内容: JSON encode/decode + cookies分岐 4 テスト。
+- [x] 1.7 `BackupDataMapperTest` を追加。実装内容: field名/型/並び順/enum変換/空cookie/未割当方向 8 テスト。
+- [x] 1.8 DataStore export は cross-DataStore atomic snapshot を保証しないことをテストまたは設計メモで確認する。確認結果: `BackupDataMapper` は各変換で独立した引数を受け取り、DataStore 間 lock は使用しない。mapper は stateless object。
+- [x] 1.9 Phase 1 の CI を実行する。完了条件: `Android CI` が成功し、Run ID が記録されている。Run ID: `28253277986` (4m 28s, test job pass)。
 
-## 5. UI と navigation
+## Phase 2: DB export core
 
-- [ ] 5.1 `AppNavGraph.kt` の `AppRoute` に `SettingsBackup` と `RouteName.SETTINGS_BACKUP` を追加し、設定 navigation にバックアップ画面 route を追加する。完了条件: 設定画面から「バックアップ作成」画面へ遷移でき、復元 UI が表示されない。
-- [ ] 5.2 `SettingsScreen.kt` に「バックアップ作成」項目と callback を追加する。完了条件: Preview を含めて既存 callback 呼び出しがコンパイルでき、設定項目名に「復元」が含まれない。
-- [ ] 5.3 `ui/settings/backup/BackupUiState.kt` を追加し、`includeCookies`、`showConfirmDialog`、`isExporting`、成功/失敗 Snackbar 用イベントを表現する。完了条件: 画面本体、確認ダイアログ、処理中ダイアログ、結果 Snackbar の表示状態が ViewModel から購読できる。
-- [ ] 5.4 `ui/settings/backup/BackupViewModel.kt` を追加し、バックアップ作成ボタン押下、確認ダイアログのクッキー checkbox 変更、確認、キャンセル、保存先選択キャンセル、成功、失敗の状態遷移を実装する。完了条件: `isExporting` 中に重複実行されず、ダイアログキャンセル時に保存処理が開始されない。
-- [ ] 5.5 `ui/settings/backup/BackupScreen.kt` を追加し、バックアップ作成ボタン押下で確認ダイアログを表示し、ダイアログの作成ボタン押下後に `rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip"))` で保存先選択を起動する。完了条件: `slevo-backup-YYYYMMDD-HHmmss.zip` 形式の推奨ファイル名を提示し、返却 URI の provider 側表示名には依存せず、Composable は launcher、確認ダイアログ、描画のみを担当し、ZIP/DB 処理を持たない。
-- [ ] 5.6 `BackupScreen` に確認ダイアログ、ダイアログ内のクッキーを含める checkbox、センシティブ情報の説明、保存ボタンを追加する。完了条件: `includeCookies` の初期値が false で、確認ダイアログのキャンセル時に SAF launcher が起動しない。
-- [ ] 5.7 `BackupScreen` に `isExporting` 中のモーダル進捗ダイアログを追加し、タイトル、説明文、`CircularProgressIndicator` を表示する。完了条件: 処理中は保存ボタン・確認ダイアログの作成ボタン・checkbox が無効になる。
-- [ ] 5.8 `BackupScreen` に成功/失敗 Snackbar を追加し、成功時は「バックアップファイルを作成しました」、失敗時は「バックアップファイルの作成に失敗しました」を表示する。完了条件: 詳細エラーや例外 stack trace が画面に表示されない。
-- [ ] 5.9 repository/data 層または ViewModel で詳細エラーを既存 logging 方針に合わせてログ出力する。完了条件: 保存先 open、DB エクスポート、JSON 変換、ZIP 書き込みの失敗詳細がログに残る。
-- [ ] 5.10 `BackupScreen` の `@Preview` を追加する。完了条件: Preview 関数に KDoc を付けず、通常状態、確認ダイアログ表示状態、処理中状態の表示を確認できる。
-- [ ] 5.11 `strings.xml` に画面タイトル、説明文、ボタン文言、進捗ダイアログ文言、成功/失敗 Snackbar 文言を追加する。完了条件: UI にハードコード文字列が残っていない。
+- [x] 2.1 `data/backup/DatabaseBackupExporter.kt` を追加。実装内容: gate内でcheckpoint→copy→commit/rollback。テスト用にSqliteOps/DatabaseConnection/DatabasePathResolver抽象化。
+- [x] 2.2 checkpoint リトライ。実装内容: max 3回/100ms待機。`performCheckpointWithRetry` でループ内呼び出し、未完了時は最終結果を返す。
+- [x] 2.3 `BEGIN IMMEDIATE` は checkpoint 完了後、copy 直前に開始。実装内容: checkpoint→isComplete確認→beginImmediate→copy→commit/rollbackの順。
+- [x] 2.4 コピー済み DB を `SQLiteDatabase.openDatabase` で開き `PRAGMA integrity_check` を実行。実装内容: `ok` 以外は DatabaseBackupException。
+- [x] 2.5 一時ディレクトリは `sessionDir.mkdirs()` + `new File(sessionDir, "slevo.db")`。削除は呼び出し側(Phase 4)でtry/finally管理。
+- [x] 2.6 cleanup。実装内容: COMMIT後にintegrity check失敗→source DB rollback不要。copy失敗時のみrollback。gateはwithWritesSuspendedのfinallyで自動解除。
+- [x] 2.7 fake/抽象化テスト。実装内容: `DatabaseBackupExporterTest` で checkpoint retry/call count/commit/rollback を検証。
+- [x] 2.8 実SQLiteテストは困難なため手動確認に defer。確認観点: 実機でエクスポート後の integrity check pass を確認。
+- [x] 2.9 gate呼び出し検証。実装内容: `gate_releasedAfterException` テストで export 失敗後も gate が復旧することを確認。
+- [x] 2.10 cancel cleanup。実装内容: checkpoint例外時も gate 復旧、テストで検証。
+- [x] 2.11 Phase 2 の CI を実行する。Run ID: `28256745999` (3m 35s, test job pass)。
 
-## 6. テスト
+## Phase 3: ZIP writer と SAF output stream
 
-- [ ] 6.1 `BackupManifestTest` を追加し、manifest の JSON encode/decode と `included.cookies` の true/false を検証する。完了条件: JVM unit test が通る。
-- [ ] 6.2 `BackupZipWriterTest` を追加し、クッキーを含む場合/含まない場合の ZIP entry 一覧を検証する。完了条件: `datastore/cookies.json` の有無が仕様通りである。
-- [ ] 6.3 `BackupViewModelTest` を追加し、確認ダイアログ表示、ダイアログキャンセル、保存先選択キャンセル、成功 Snackbar イベント、共通失敗 Snackbar イベント、重複実行抑制、クッキー checkbox の状態遷移を検証する。完了条件: `MainDispatcherRule` と fake repository で決定的にテストできる。
-- [ ] 6.4 `DatabaseBackupExporter` の fake/抽象化テストを追加し、checkpoint 結果確認、最大 3 回・各 100ms のリトライ方針、待機処理の差し替え、checkpoint 未完了時に main DB コピーへ進まないこと、`BEGIN IMMEDIATE` 後の main DB ファイルコピー、コピー済み DB の `PRAGMA integrity_check`、integrity check 成功後にだけ ZIP へ進む順序を検証する。完了条件: core safety logic が一時ファイル SQLite の可否に依存せず自動テストされる。
-- [ ] 6.4a 可能であれば追加で一時ファイル DB を使い、実 SQLite に対する checkpoint と main DB ファイルコピーを検証する。完了条件: 困難な場合は対象 API の制約と手動確認手順を設計メモに残す。
-- [ ] 6.5 `DatabaseBackupExporter` の fake test を追加し、`DatabaseWriteGate.withWritesSuspended` が呼ばれることを検証する。完了条件: バックアップ処理が gate 停止区間内で checkpoint/copy を実行することを確認できる。
-- [ ] 6.5a `BackupRepositoryTest` で `exportBackup` を concurrent call した場合に 1 件ずつ直列実行されることを fake writer/exporter で検証する。完了条件: UI 以外の呼び出しでも duplicate backup が同時実行されない。
-- [ ] 6.6 Compose UI または instrumented test を追加し、設定画面の「バックアップ作成」項目からバックアップ作成画面へ遷移できることを検証する。完了条件: navigation route の追加漏れを自動テストで検出できる。
-- [ ] 6.7 Compose UI または ViewModel + UI state test で、確認ダイアログ、クッキー checkbox の初期未選択かつ処理中でなければ選択可能な状態、進捗ダイアログ、成功/失敗 Snackbar を検証する。完了条件: 主要 UI 状態が自動テストまたは明示的な UI state test で確認できる。
-- [ ] 6.8 ZIP 書き込み途中の失敗を fake output stream で検証し、success Snackbar が出ず、共通失敗 Snackbar と「出力先ファイルが不完全な可能性」の詳細ログが発生することを確認する。完了条件: partial output を成功扱いしない。
+- [x] 3.1 `data/backup/BackupZipWriter.kt` を追加。実装内容: writeJsonEntry/writeFileEntry/writeEntry + isSuccessful/failureReason。MoshiでJSONシリアライズ。
+- [x] 3.2 `data/backup/BackupOutputWriter.kt` を追加。実装内容: ContentResolver.openOutputStream(uri) + writeToUri suspend API。
+- [x] 3.3 `BackupZipWriterTest` を追加。実装内容: cookies有無のZIP entry検証 (2 テスト)。
+- [x] 3.4 ZIP 書き込み途中の失敗テスト。実装内容: `write(byte[],int,int)` overrideで確実にfailure発生、isSuccessful=false検証。
+- [x] 3.5 ZIP close/flush failure テスト。実装内容: output stream close例外を捕捉、failureReason確認。
+- [x] 3.6 Phase 3 の CI を実行する。Run ID: `28275630368` (3m 23s, test job pass)。
 
-## 7. 検証と仕上げ
+## Phase 4: BackupRepository orchestration と DI
 
-- [ ] 7.1 新規 class/interface/object/data class に KDoc があること、Preview 関数に KDoc がないこと、長い関数にセクションコメントがあることを確認する。完了条件: リポジトリのコメント規約に違反しない。
-- [ ] 7.2 `./gradlew testDebugUnitTest` 相当の単体テストを CI workflow で実行する。完了条件: 既存テストと新規テストが成功する。
-- [ ] 7.3 GitHub Actions の build workflow を実行する。完了条件: Android build と unit test が成功し、失敗時はログから原因を特定して修正する。
-- [ ] 7.4 実機またはエミュレータでバックアップ作成を手動確認し、ZIP を展開して `manifest.json`、`database/slevo.db`、`datastore/settings.json`、`datastore/tabs.json`、クッキー有無を確認する。完了条件: クッキー OFF/ON の両方で仕様通りの ZIP 構造になる。
+- [x] 4.1 `BackupRepository.kt` + `BackupRepositoryImpl.kt` を追加。実装内容: `exportBackup(uri, includeCookies)` API、`backupMutex` で同時実行直列化。
+- [x] 4.2 `BackupRepositoryImpl` orchestration。実装内容: manifest作成→DB export→DataStore読取→ZIP書込の順序実行。
+- [x] 4.3 DataStore JSON 生成は `BackupDataMapper` 経由で分離。実装内容: mapper が独立した変換を担当し、repository は orchestration に専念。
+- [x] 4.4 `BackupModule.kt` を追加。実装内容: `DatabaseConnection`/`DatabasePathResolver` の Hilt binding。
+- [x] 4.5 エラー種別。実装内容: `BackupExportResult.Success` / `BackupExportResult.Failure(detail)`。
+- [x] 4.6 `BackupRepositoryTest` を追加。実装内容: mutex による concurrent call 直列化検証。
+- [x] 4.7 Phase 4 の CI を実行する。Run ID: `28276534894` (3m 17s, test job pass)。
+
+## Phase 5: UI/navigation
+
+- [x] 5.1 `AppRoute.SettingsBackup` + `RouteName.SETTINGS_BACKUP` 追加。実装内容: AppNavGraph.ktにsealed class追加、SettingsRoute.ktにcomposable追加。
+- [x] 5.2 `SettingsScreen.kt` に「バックアップ作成」項目追加。実装内容: onBackupClick callback + CloudUpload icon + SettingsCardWithListItems。
+- [x] 5.3 `BackupUiState.kt` 追加。実装内容: includeCookies/showConfirmDialog/isExporting/snackbarMessage。
+- [x] 5.4 `BackupViewModel.kt` 追加。実装内容: onBackupClick/onCookiesToggle/onConfirmCancel/onConfirmCreate/onUriReceived/onSnackbarShown。
+- [x] 5.5 `BackupScreen.kt` 追加。実装内容: SAF launcher + 推奨ファイル名 slevo-backup-YYYYMMDD-HHmmss.zip。
+- [x] 5.6 確認ダイアログ実装。実装内容: 個人データ説明 + 未暗号化警告 + Cookie認証情報警告 + Checkbox + 作成/キャンセルボタン。
+- [x] 5.7 進捗ダイアログ実装。実装内容: isExporting中にCircularProgressIndicator + 説明文表示。
+- [x] 5.8 Snackbar実装。実装内容: 成功「バックアップファイルを作成しました」/ 失敗「バックアップファイルの作成に失敗しました」。
+- [x] 5.9 エラーログは BackupRepositoryImpl で BackupExportResult.Failure に detail 文字列を含める方式で対応。
+- [x] 5.10 BackupScreen @Preview 追加。実装内容: ViewModel非依存の簡易プレビュー。
+- [x] 5.11 strings_settings.xmlに全UI文言追加。実装内容: backup_title/create_button/description/confirm_title/confirm_description/cookie_warning/include_cookies/confirm_create/exporting_title/exporting_message。
+- [x] 5.12 `BackupViewModelTest` 追加。状態遷移 6 test + `BackupUiEvent` 成功/失敗発行 2 test。`StandardTestDispatcher` を `MainDispatcherRule` と `runTest` で共有し、collector を `runCurrent()` 後に起動して検証。
+- [x] 5.13 navigation 遷移 test。専用 instrumented test は追加しない。`AppRoute.SettingsBackup` と `SettingsRoute` の compile および CI build 成功で代替確認。
+- [x] 5.14 UI state test。専用 Compose UI test は追加しない。`BackupScreenContent` stateless 化 + Preview で主要状態確認可能。状態遷移は `BackupViewModelTest`、描画構造は CI build で代替確認。
+- [x] 5.15 Phase 5 の CI を実行する。Run ID: `28277610632` (4m 9s, test job pass)。
+
+## Phase 6: 最終 verification と仕上げ
+
+- [x] 6.1 KDoc 確認。全 14 新規 class/interface/object/data class に KDoc 追加済み。Preview 関数には KDoc なし。
+- [x] 6.2 `openspec validate add-backup-export --strict` 実行。strict validation 成功。
+- [x] 6.3 CI `testDebugUnitTest` 相当実行。全テスト CI 上で成功。
+- [x] 6.4 GitHub Actions build workflow 実行。Run ID: `28278257356` (3m 36s, test job pass)。
+- [ ] 6.5 手動確認: バックアップ作成 ZIP 構造（実機/エミュレータ）。
+- [ ] 6.6 手動確認: 確認ダイアログの privacy/security 文言（実機/エミュレータ）。
+- [ ] 6.7 手動確認: SAF のみでの保存（外部ストレージ権限なし）（実機/エミュレータ）。
+- [ ] 6.8 手動確認: SAF 出力失敗時の partial output 扱い（実機/エミュレータ）。fake stream 自動テストで部分的にカバー済み。

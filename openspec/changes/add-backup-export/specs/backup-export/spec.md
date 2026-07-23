@@ -38,6 +38,14 @@
 - **WHEN** システムが `BackupRepository` に対して複数のバックアップ作成要求を同時に受け取る
 - **THEN** システムはバックアップ作成処理を 1 件ずつ直列に実行する
 
+#### Scenario: 確認ダイアログで標準バックアップの注意を表示する
+- **WHEN** システムがバックアップ作成確認ダイアログを表示する
+- **THEN** システムは標準バックアップに閲覧履歴、ブックマーク、投稿履歴、タブ状態、設定など個人に紐づく利用データが含まれることを表示する
+
+#### Scenario: 確認ダイアログで未暗号化であることを表示する
+- **WHEN** システムがバックアップ作成確認ダイアログを表示する
+- **THEN** システムはバックアップ ZIP が暗号化またはパスワード保護されないため安全に保管する必要があることを表示する
+
 ### Requirement: バックアップ内容
 システムはバックアップ ZIP に Room DB、通常設定、タブ選択状態、バックアップメタデータを含めなければならない（MUST）。
 
@@ -71,6 +79,14 @@
 #### Scenario: バックアップ中の DB 書き込みを待機させる
 - **WHEN** バックアップ処理が Room DB を checkpoint してコピーしている
 - **THEN** システムはアプリ内の新規 Room DB 書き込みを待機させる
+
+#### Scenario: DB コピー中断時に source transaction を rollback する
+- **WHEN** `BEGIN IMMEDIATE` 後かつ `COMMIT` 完了前に DB コピー失敗または coroutine cancellation により DB エクスポートが中断される
+- **THEN** システムは source DB transaction の `ROLLBACK` を試行し、DB 書き込み停止を解除し、一時ファイルを削除する
+
+#### Scenario: commit 後の integrity check 失敗では rollback しない
+- **WHEN** main DB ファイルコピーが成功して `COMMIT` が完了した後、コピー済み DB の integrity check が失敗する
+- **THEN** システムは source DB transaction の rollback を試みず、バックアップ作成を失敗扱いにして一時ファイルを削除する
 
 #### Scenario: VACUUM INTO を使わない
 - **WHEN** システムが Room DB をエクスポートする
@@ -110,12 +126,24 @@
 - **WHEN** システムが `datastore/cookies.json` を保存する
 - **THEN** システムは各 Cookie に `name`、`value`、`domain`、`path`、`expiresAt`、`secure`、`httpOnly`、`hostOnly`、`persistent` を含める
 
+#### Scenario: DataStore 間の原子的 snapshot を要求しない
+- **WHEN** システムが settings、tabs、cookies の DataStore JSON を作成する
+- **THEN** システムは各 DataStore を取得時点の値として保存し、複数 DataStore を横断する原子的 snapshot を保証しない
+
+#### Scenario: JSON schema の安定性を保つ
+- **WHEN** システムが `datastore/settings.json`、`datastore/tabs.json`、または `datastore/cookies.json` を作成する
+- **THEN** システムは backup format version 1 の必須 field、enum 文字列表現、配列/キーの安定した並び順を保つ
+
 ### Requirement: manifest の記録
 システムはバックアップ ZIP に、バックアップ形式と含有データを判定できる manifest を含めなければならない（MUST）。
 
 #### Scenario: manifest に形式情報を記録する
 - **WHEN** システムがバックアップファイルを作成する
 - **THEN** システムは `backupFormatVersion`、`backupMode`、`createdAt`、`appVersionCode`、`appVersionName`、`databaseVersion`、`included` を含む `manifest.json` を ZIP に含める
+
+#### Scenario: manifest の version 1 固定値を記録する
+- **WHEN** システムが `manifest.json` を作成する
+- **THEN** システムは `backupFormatVersion = 1`、`backupMode = "full"`、`included.database/settings/tabs = true`、`included.cookies` にユーザー選択値を記録する
 
 #### Scenario: manifest にクッキー未含有を記録する
 - **WHEN** ユーザーが確認ダイアログでクッキーを含めずにバックアップを作成する
@@ -148,6 +176,10 @@
 - **WHEN** システムが選択された URI へ ZIP を書き込んでいる途中で失敗する
 - **THEN** システムは成功 Snackbar を表示せず、出力先ファイルが不完全な可能性をログへ記録する
 
+#### Scenario: ZIP close または output close で失敗する
+- **WHEN** ZIP stream close、flush、または underlying output stream close が失敗する
+- **THEN** システムはバックアップ作成を成功扱いせず、失敗 Snackbar を表示し、出力先ファイルが不完全な可能性をログへ記録する
+
 #### Scenario: 詳細エラーをログに記録する
 - **WHEN** DB エクスポート、JSON 変換、保存先 open、または ZIP 書き込みに失敗する
 - **THEN** システムは詳細エラーをログへ記録し、詳細エラー文言を画面に表示しない
@@ -158,3 +190,7 @@
 #### Scenario: バックアップ作成で権限ダイアログを出さない
 - **WHEN** ユーザーがバックアップファイルの保存先を選択する
 - **THEN** システムは Android の保存先選択 UI を使用し、外部ストレージ権限要求を表示しない
+
+#### Scenario: 外部ストレージ権限と FileProvider を追加しない
+- **WHEN** システムがバックアップファイルを作成する
+- **THEN** システムは `WRITE_EXTERNAL_STORAGE`、`MANAGE_EXTERNAL_STORAGE`、または `FileProvider` をバックアップ出力のために追加または使用しない

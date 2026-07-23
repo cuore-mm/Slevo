@@ -5,11 +5,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ViewList
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Cookie
-import androidx.compose.material.icons.filled.Gesture
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.automirrored.outlined.ViewList
+import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.Cookie
+import androidx.compose.material.icons.outlined.Gesture
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +31,7 @@ fun SettingsScreen(
     onThreadClick: () -> Unit,
     onNgClick: () -> Unit,
     onCookieClick: () -> Unit,
+    onBackupClick: () -> Unit,
     onNavigateUp: (() -> Unit),
 ) {
     Scaffold(
@@ -54,7 +56,7 @@ fun SettingsScreen(
                         headlineText = stringResource(id = R.string.settings_general),
                         leadingContent = {
                             Icon(
-                                imageVector = Icons.Default.Tune,
+                                imageVector = Icons.Outlined.Tune,
                                 contentDescription = stringResource(id = R.string.settings_general),
                             )
                         },
@@ -70,7 +72,7 @@ fun SettingsScreen(
                         headlineText = stringResource(id = R.string.settings_thread),
                         leadingContent = {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ViewList,
+                                imageVector = Icons.AutoMirrored.Outlined.ViewList,
                                 contentDescription = stringResource(id = R.string.settings_thread),
                             )
                         },
@@ -80,7 +82,7 @@ fun SettingsScreen(
                         headlineText = stringResource(id = R.string.ng_label),
                         leadingContent = {
                             Icon(
-                                imageVector = Icons.Default.Block,
+                                imageVector = Icons.Outlined.Block,
                                 contentDescription = stringResource(id = R.string.ng_label),
                             )
                         },
@@ -90,7 +92,7 @@ fun SettingsScreen(
                         headlineText = stringResource(id = R.string.gesture_settings),
                         leadingContent = {
                             Icon(
-                                imageVector = Icons.Default.Gesture,
+                                imageVector = Icons.Outlined.Gesture,
                                 contentDescription = stringResource(id = R.string.gesture_settings),
                             )
                         },
@@ -106,12 +108,22 @@ fun SettingsScreen(
                         headlineText = stringResource(id = R.string.cookie_management),
                         leadingContent = {
                             Icon(
-                                imageVector = Icons.Default.Cookie,
+                                imageVector = Icons.Outlined.Cookie,
                                 contentDescription = stringResource(id = R.string.cookie_management),
                             )
                         },
                         onClick = onCookieClick,
-                    )
+                    ),
+                    listItemSpecOfBasic(
+                        headlineText = stringResource(id = R.string.backup_title),
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Outlined.CloudUpload,
+                                contentDescription = stringResource(id = R.string.backup_title),
+                            )
+                        },
+                        onClick = onBackupClick,
+                    ),
                 )
                 SettingsCardWithListItems(items = otherGroup)
             }
@@ -129,6 +141,7 @@ private fun SettingsScreenPreview() {
             onThreadClick = {},
             onNgClick = {},
             onCookieClick = {},
+            onBackupClick = {},
             onNavigateUp = {}
         )
     }

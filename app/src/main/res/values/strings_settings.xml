@@ -69,4 +69,18 @@
     <string name="cookie_expires">Expires / Max-Age: %1$s</string>
     <string name="cookie_size">Size: %1$d</string>
     <string name="cookie_value_preview">Value: %1$s</string>
+
+    <!-- Backup -->
+    <string name="backup_title">バックアップ作成</string>
+    <string name="backup_create_button">バックアップを作成</string>
+    <string name="backup_description">アプリのデータをZIPファイルに保存します</string>
+    <string name="backup_confirm_title">バックアップを作成しますか？</string>
+    <string name="backup_confirm_description">バックアップには閲覧履歴、ブックマーク、投稿履歴、タブ状態、設定などの利用データが含まれます。このファイルは暗号化されません。安全な場所に保存してください。</string>
+    <string name="backup_confirm_cookie_warning">クッキーには認証情報が含まれる可能性があります。</string>
+    <string name="backup_include_cookies">クッキーを含める</string>
+    <string name="backup_confirm_create">作成</string>
+    <string name="backup_exporting_title">バックアップを作成中</string>
+    <string name="backup_exporting_message">データを書き出しています。しばらくお待ちください。</string>
+    <string name="backup_snackbar_success">バックアップファイルを作成しました</string>
+    <string name="backup_snackbar_failure">バックアップファイルの作成に失敗しました</string>
 </resources>
