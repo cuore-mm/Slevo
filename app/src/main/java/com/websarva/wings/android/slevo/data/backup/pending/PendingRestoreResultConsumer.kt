@@ -30,6 +30,7 @@ class PendingRestoreResultConsumer @Inject constructor(
         File(appContext.filesDir, PendingRestoreManager.RESULT_DIR_NAME),
         PendingRestoreManager.RESULT_FILENAME,
     )
+    private val resultStore = AtomicPendingRestoreResultFile(resultFile, resultAdapter)
     private val markerFile = File(
         File(appContext.filesDir, PendingRestoreManager.PENDING_DIR_NAME),
         PendingRestoreManager.MARKER_FILENAME,
@@ -42,12 +43,10 @@ class PendingRestoreResultConsumer @Inject constructor(
      */
     fun read(): PendingRestoreResultRead {
         synchronized(PendingRestoreResultFileLock.monitor) {
-            if (!resultFile.exists()) return PendingRestoreResultRead.Absent
+            if (!resultStore.exists()) return PendingRestoreResultRead.Absent
 
-            val raw = try {
-                resultFile.readText()
-            } catch (exception: Exception) {
-                logError("failed to read restore result", exception)
+            val raw = resultStore.readRaw() ?: run {
+                logError("failed to read restore result")
                 return PendingRestoreResultRead.Unreadable
             }
 
@@ -83,18 +82,16 @@ class PendingRestoreResultConsumer @Inject constructor(
      */
     fun acknowledge(token: String): Boolean {
         synchronized(PendingRestoreResultFileLock.monitor) {
-            if (!resultFile.exists()) return true
+            if (!resultStore.exists()) return true
 
-            val raw = try {
-                resultFile.readText()
-            } catch (exception: Exception) {
-                logError("failed to read restore result for acknowledge", exception)
+            val raw = resultStore.readRaw() ?: run {
+                logError("failed to read restore result for acknowledge")
                 return false
             }
 
             if (fingerprint(raw) != token) return false
             return try {
-                resultFile.delete() || !resultFile.exists()
+                resultStore.delete()
             } catch (exception: Exception) {
                 logError("failed to delete restore result", exception)
                 false
@@ -176,8 +173,8 @@ class PendingRestoreResultConsumer @Inject constructor(
     /** parse不能または不整合resultを、読み取り後に内容照合してbest-effort削除する。 */
     private fun removeUnreadableResult(raw: String) {
         try {
-            if (resultFile.exists() && resultFile.readText() == raw) {
-                if (!resultFile.delete() && resultFile.exists()) {
+            if (resultStore.exists() && resultStore.readRaw() == raw) {
+                if (!resultStore.delete()) {
                     logError("failed to remove unreadable restore result")
                 }
             }

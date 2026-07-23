@@ -5,6 +5,9 @@ import com.squareup.moshi.Moshi
 import com.websarva.wings.android.slevo.data.backup.restore.BackupDatabaseValidator
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -131,24 +134,165 @@ class PendingRestoreCompletionCheckerTest {
         )
     }
 
-    // --- 5.9: COMPLETED marker write 失敗でも後続処理は実行される ---
+    // --- 5.9: COMPLETED marker write failure は後続処理を停止する ---
 
     @Test
-    fun migrationPending_completedMarkerWriteFailure_stillWritesResultAndCleansUp() {
+    fun migrationPending_completedMarkerWriteFailure_stopsBeforeResultAndCleanup() {
         fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
         validator.nextValidateResult = null
         fileStore.markerWriteFailsAfter = 0 // first marker write fails
 
         checker.runIfNeeded()
 
-        // marker 書き込み失敗でも result と cleanup は続行
+        assertTrue(fileStore.events.isEmpty())
+        assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+    }
+
+    @Test
+    fun migrationPending_successResultWriteFailure_stopsBeforeCleanup() {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        validator.nextValidateResult = null
+        fileStore.resultWriteFailure = IllegalStateException("secret result detail")
+
+        checker.runIfNeeded()
+
+        assertEquals(listOf("writeMarker:COMPLETED"), fileStore.events)
+        assertEquals(RestoreStatus.COMPLETED, fileStore.marker?.status)
+    }
+
+    @Test
+    fun migrationPending_successResultWriteFailure_recoveryRetriesBeforeCleanup() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        validator.nextValidateResult = null
+        fileStore.resultWriteFailure = IllegalStateException("secret result detail")
+
+        checker.runIfNeeded()
+
+        fileStore.resultWriteFailure = null
+        val dbSwapper = mockk<PendingRestoreDbSwapper>(relaxed = true)
+        every { dbSwapper.getLiveDbFile() } returns liveDbFile
+        val reflector = mockk<PendingRestoreDataStoreReflector>(relaxed = true)
+        createApplierForRecovery(dbSwapper, reflector).runIfNeeded()
+
         assertEquals(
-            listOf(
-                "writeResult:true:restore completed successfully (migration confirmed)",
-                "cleanupPending",
-            ),
-            fileStore.events,
+            "writeResult:true:restore completed successfully",
+            fileStore.events[fileStore.events.lastIndex - 1],
         )
+        assertEquals("cleanupPending", fileStore.events.last())
+        assertEquals(null, fileStore.marker)
+    }
+
+    @Test
+    fun migrationPending_validationResultWriteFailure_keepsMigrationPending() {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        validator.nextValidateResult = "identity hash mismatch"
+        fileStore.resultWriteFailure = IllegalStateException("secret result detail")
+
+        checker.runIfNeeded()
+
+        assertTrue(fileStore.events.isEmpty())
+        assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+    }
+
+    @Test
+    fun migrationPending_validationResultWriteFailure_recoveryUsesMigrationPendingMarker() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        validator.nextValidateResult = "identity hash mismatch"
+        fileStore.resultWriteFailure = IllegalStateException("secret result detail")
+
+        checker.runIfNeeded()
+
+        fileStore.resultWriteFailure = null
+        validator.nextValidateResult = null
+        validator.userVersion = 9
+        val dbSwapper = mockk<PendingRestoreDbSwapper>(relaxed = true)
+        every { dbSwapper.getLiveDbFile() } returns liveDbFile
+        every { dbSwapper.hasRollbackBackup(any(), any()) } returns true
+        val reflector = mockk<PendingRestoreDataStoreReflector>(relaxed = true)
+        createApplierForRecovery(dbSwapper, reflector).runIfNeeded()
+        createApplierForRecovery(dbSwapper, reflector).runIfNeeded()
+
+        verify(exactly = 0) { dbSwapper.restoreRollbackBackup(any(), any()) }
+        assertTrue(fileStore.events.contains("cleanupPending"))
+        assertEquals(null, fileStore.marker)
+    }
+
+    @Test
+    fun migrationPending_operationalValidationException_isSwallowedAndKeepsMarker() {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        validator.validationFailure = IllegalStateException("secret validation detail")
+
+        checker.runIfNeeded()
+
+        assertTrue(fileStore.events.isEmpty())
+        assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+    }
+
+    @Test
+    fun migrationPending_operationalMarkerReadException_isSwallowedWithoutWrites() {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        fileStore.markerReadFailure = IllegalStateException("secret marker detail")
+
+        checker.runIfNeeded()
+
+        assertTrue(fileStore.events.isEmpty())
+        assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+    }
+
+    @Test
+    fun migrationPending_cancellationException_isRethrown() {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        val cancellation = CancellationException("cancelled")
+        validator.validationFailure = cancellation
+
+        val thrown = try {
+            checker.runIfNeeded()
+            null
+        } catch (error: CancellationException) {
+            error
+        }
+
+        assertSame(cancellation, thrown)
+        assertTrue(fileStore.events.isEmpty())
+    }
+
+    @Test
+    fun migrationPending_fatalThrowable_isNotCaught() {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        val fatal = AssertionError("fatal")
+        validator.validationFailure = fatal
+
+        val thrown = try {
+            checker.runIfNeeded()
+            null
+        } catch (error: AssertionError) {
+            error
+        }
+
+        assertSame(fatal, thrown)
+        assertTrue(fileStore.events.isEmpty())
+    }
+
+    @Test
+    fun migrationPending_markerWriteFailure_recoveryUsesMarkerAndCleansUpWithoutRollback() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        validator.nextValidateResult = null
+        fileStore.markerWriteFailsAfter = 0
+
+        checker.runIfNeeded()
+
+        fileStore.markerWriteFailsAfter = null
+        validator.userVersion = 9
+        val dbSwapper = mockk<PendingRestoreDbSwapper>(relaxed = true)
+        every { dbSwapper.getLiveDbFile() } returns liveDbFile
+        every { dbSwapper.hasRollbackBackup(any(), any()) } returns true
+        val reflector = mockk<PendingRestoreDataStoreReflector>(relaxed = true)
+        createApplierForRecovery(dbSwapper, reflector).runIfNeeded()
+        createApplierForRecovery(dbSwapper, reflector).runIfNeeded()
+
+        verify(exactly = 0) { dbSwapper.restoreRollbackBackup(any(), any()) }
+        assertTrue(fileStore.events.contains("cleanupPending"))
+        assertEquals(null, fileStore.marker)
     }
 
     // --- Helper ---
@@ -171,6 +315,8 @@ class PendingRestoreCompletionCheckerTest {
         var marker: PendingRestoreMarker? = null
         val events = mutableListOf<String>()
         var markerWriteFailsAfter: Int? = null
+        var markerReadFailure: Exception? = null
+        var resultWriteFailure: Exception? = null
         private var writeCount = 0
 
         override fun createQuarantineIncidentDir(): File {
@@ -179,10 +325,15 @@ class PendingRestoreCompletionCheckerTest {
             return incidentDir
         }
 
-        override fun readMarker(): PendingRestoreMarker? = marker
+        override fun readMarker(): PendingRestoreMarker? {
+            markerReadFailure?.let { throw it }
+            return marker
+        }
 
         override fun writeMarker(marker: PendingRestoreMarker) {
-            if (markerWriteFailsAfter != null && writeCount >= markerWriteFailsAfter!!) return
+            if (markerWriteFailsAfter != null && writeCount >= markerWriteFailsAfter!!) {
+                throw IllegalStateException("marker write failed")
+            }
             this.marker = marker
             events += "writeMarker:${marker.status}"
             writeCount++
@@ -200,12 +351,14 @@ class PendingRestoreCompletionCheckerTest {
             rollbackRequiredAt: String?,
             finalFailureReason: String?,
         ) {
+            resultWriteFailure?.let { throw it }
             events += "writeResult:$success:$message"
         }
 
-        override fun cleanupPending() {
+        override fun cleanupPending(): Boolean {
             events += "cleanupPending"
             marker = null
+            return true
         }
 
         override fun cleanupResult() {
@@ -216,8 +369,29 @@ class PendingRestoreCompletionCheckerTest {
     /** [BackupDatabaseValidator] の fake。 */
     private class FakeBackupDatabaseValidator : BackupDatabaseValidator {
         var nextValidateResult: String? = null
-        override fun validate(dbFile: File): String? = nextValidateResult
+        var validationFailure: Throwable? = null
+        var userVersion: Int? = null
+
         override fun preValidate(dbFile: File, manifestDatabaseVersion: Int): String? = null
-        override fun getUserVersion(dbFile: File): Int? = null
+        override fun getUserVersion(dbFile: File): Int? = userVersion
+
+        override fun validate(dbFile: File): String? {
+            validationFailure?.let { throw it }
+            return nextValidateResult
+        }
+    }
+
+    private fun createApplierForRecovery(
+        dbSwapper: PendingRestoreDbSwapper,
+        reflector: PendingRestoreDataStoreReflector,
+    ): PendingRestoreApplier {
+        return PendingRestoreApplier.createForTest(
+            context = context,
+            dbValidator = validator,
+            dataStoreReflector = reflector,
+            fileStore = fileStore,
+            dbSwapper = dbSwapper,
+            nowProvider = { "2026-07-06T00:00:00Z" },
+        )
     }
 }

@@ -210,4 +210,39 @@ class PendingRestoreManagerPrepareTest {
             store.quarantineRootDir.deleteRecursively()
         }
     }
+
+    /** active COMPLETED marker は result がある間も block し、marker-last cleanup 後だけ解除する。 */
+    @Test
+    fun handleExistingPending_completedMarkerBlocksUntilCleanupSucceeds() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val store = RealPendingRestoreFileStore(context, moshi)
+        store.writeMarker(
+            PendingRestoreMarker(
+                status = RestoreStatus.COMPLETED,
+                createdAt = "2026-07-15T00:00:00Z",
+                includeCookies = false,
+                databaseVersion = 9,
+            ),
+        )
+        store.writeResult(
+            success = true,
+            message = "restore completed successfully",
+            timestamp = "2026-07-15T00:00:00Z",
+            migrationCompleted = true,
+        )
+
+        try {
+            val manager = PendingRestoreManager(
+                context = context,
+                moshi = moshi,
+                dbValidator = FakeBackupDatabaseValidator(),
+            )
+
+            assertNotNull(manager.handleExistingPending())
+            assertTrue(store.cleanupPending())
+            assertTrue(manager.handleExistingPending() == null)
+        } finally {
+            store.cleanupPending()
+        }
+    }
 }

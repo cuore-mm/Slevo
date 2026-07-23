@@ -6,6 +6,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.spyk
 import java.io.File
 import java.io.IOException
 import org.junit.Assert.assertEquals
@@ -71,6 +72,55 @@ class PendingRestoreFileStoreTest {
         interruptedWrite.close()
 
         assertEquals(previous, store.readMarker())
+    }
+
+    /** marker の pre-commit failure 注入時に既存の marker を保持する。 */
+    @Test
+    fun marker_startWriteFailure_preservesPreviouslyCommittedMarker() {
+        val store = createStore()
+        val previous = marker(RestoreStatus.PREPARED)
+        val markerFile = File(store.pendingDir, PendingRestoreManager.MARKER_FILENAME)
+        store.writeMarker(previous)
+
+        val failingAtomicFile = spyk(AtomicFile(markerFile))
+        every { failingAtomicFile.startWrite() } throws IOException("start write failed")
+        val writer = AtomicPendingRestoreMarkerFile(
+            markerFile = markerFile,
+            adapter = moshi.adapter<PendingRestoreMarker>(),
+            atomicFile = failingAtomicFile,
+        )
+
+        try {
+            writer.write(marker(RestoreStatus.COMPLETED))
+            throw AssertionError("marker write should fail before publication")
+        } catch (_: IOException) {
+            assertEquals(previous, store.readMarker())
+        }
+    }
+
+    /** marker の atomic replace failure 注入時に最後の valid JSON を保持する。 */
+    @Test
+    fun marker_finishWriteFailure_preservesPreviouslyCommittedMarker() {
+        val store = createStore()
+        val previous = marker(RestoreStatus.PREPARED)
+        val markerFile = File(store.pendingDir, PendingRestoreManager.MARKER_FILENAME)
+        store.writeMarker(previous)
+
+        val failingAtomicFile = spyk(AtomicFile(markerFile))
+        every { failingAtomicFile.finishWrite(any()) } throws IOException("finish write failed")
+        val writer = AtomicPendingRestoreMarkerFile(
+            markerFile = markerFile,
+            adapter = moshi.adapter<PendingRestoreMarker>(),
+            atomicFile = failingAtomicFile,
+        )
+
+        try {
+            writer.write(marker(RestoreStatus.COMPLETED))
+            throw AssertionError("marker replace should fail")
+        } catch (_: IOException) {
+            assertEquals(previous, store.readMarker())
+            assertNotEquals(RestoreStatus.COMPLETED, store.readMarker()?.status)
+        }
     }
 
     @Test
@@ -140,6 +190,103 @@ class PendingRestoreFileStoreTest {
         assertNotNull(result)
         assertEquals(false, result!!.success)
         assertEquals("ng", result.message)
+    }
+
+    /** result write が中断しても reader は直前の完全な JSON を読む。 */
+    @Test
+    fun interruptedResultUpdate_recoversPreviouslyCommittedResult() {
+        val store = createStore()
+        val resultFile = File(
+            tempFolder.root,
+            "files/${PendingRestoreManager.RESULT_DIR_NAME}/${PendingRestoreManager.RESULT_FILENAME}",
+        )
+        val previous = PendingRestoreResultFile(
+            success = true,
+            message = "previous",
+            timestamp = "2026-07-03T00:00:00Z",
+            migrationCompleted = true,
+        )
+        store.writeResult(
+            success = previous.success,
+            message = previous.message,
+            timestamp = previous.timestamp,
+            migrationCompleted = previous.migrationCompleted,
+        )
+
+        val interruptedWrite = AtomicFile(resultFile).startWrite()
+        interruptedWrite.write("{\"success\":true,\"message\":\"partial".toByteArray())
+        interruptedWrite.close()
+
+        val reader = AtomicPendingRestoreResultFile(resultFile, resultAdapter)
+        assertEquals(previous, resultAdapter.fromJson(reader.readRaw()!!))
+    }
+
+    /** result の pre-commit failure 注入時に既存の result を保持する。 */
+    @Test
+    fun result_startWriteFailure_preservesPreviouslyCommittedResult() {
+        val store = createStore()
+        val previous = PendingRestoreResultFile(
+            success = true,
+            message = "previous",
+            timestamp = "2026-07-03T00:00:00Z",
+            migrationCompleted = true,
+        )
+        store.writeResult(
+            success = previous.success,
+            message = previous.message,
+            timestamp = previous.timestamp,
+            migrationCompleted = previous.migrationCompleted,
+        )
+        val resultFile = File(
+            tempFolder.root,
+            "files/${PendingRestoreManager.RESULT_DIR_NAME}/${PendingRestoreManager.RESULT_FILENAME}",
+        )
+
+        val failingAtomicFile = spyk(AtomicFile(resultFile))
+        every { failingAtomicFile.startWrite() } throws IOException("start write failed")
+        val writer = AtomicPendingRestoreResultFile(resultFile, resultAdapter, failingAtomicFile)
+
+        try {
+            writer.write(previous.copy(message = "replacement"))
+            throw AssertionError("result write should fail before publication")
+        } catch (_: IOException) {
+            assertEquals(previous, resultAdapter.fromJson(writer.readRaw()!!))
+        }
+    }
+
+    /** result の atomic replace failure 注入時に最後の valid JSON を保持する。 */
+    @Test
+    fun result_finishWriteFailure_preservesPreviouslyCommittedResult() {
+        val store = createStore()
+        val previous = PendingRestoreResultFile(
+            success = true,
+            message = "previous",
+            timestamp = "2026-07-03T00:00:00Z",
+            migrationCompleted = true,
+        )
+        store.writeResult(
+            success = previous.success,
+            message = previous.message,
+            timestamp = previous.timestamp,
+            migrationCompleted = previous.migrationCompleted,
+        )
+        val resultFile = File(
+            tempFolder.root,
+            "files/${PendingRestoreManager.RESULT_DIR_NAME}/${PendingRestoreManager.RESULT_FILENAME}",
+        )
+
+        val failingAtomicFile = spyk(AtomicFile(resultFile))
+        every { failingAtomicFile.finishWrite(any()) } throws IOException("finish write failed")
+        val writer = AtomicPendingRestoreResultFile(resultFile, resultAdapter, failingAtomicFile)
+
+        try {
+            writer.write(previous.copy(message = "replacement"))
+            throw AssertionError("result replace should fail")
+        } catch (_: IOException) {
+            val restored = resultAdapter.fromJson(writer.readRaw()!!)
+            assertEquals(previous, restored)
+            assertNotEquals("replacement", restored?.message)
+        }
     }
 
     @Test
@@ -222,6 +369,37 @@ class PendingRestoreFileStoreTest {
         assertTrue(wal.exists())
         assertTrue(shm.exists())
         assertEquals("database", database.readText())
+    }
+
+    /** pending payload だけを削除し、success result は UI consumer 用に保持する。 */
+    @Test
+    fun cleanupPending_removesOwnedPayloadsAndPreservesResult() {
+        val store = createStore()
+        store.writeMarker(marker(RestoreStatus.COMPLETED))
+        store.writeResult(
+            success = true,
+            message = "ok",
+            timestamp = "2026-07-03T00:00:00Z",
+            migrationCompleted = true,
+        )
+        listOf(
+            File(store.pendingDir, "database/slevo.db"),
+            File(store.pendingDir, "datastore/settings.json"),
+            File(store.rollbackDir, "slevo.db"),
+            File(store.pendingDir, PendingRestoreManager.DATASTORE_ROLLBACK_SNAPSHOT_FILENAME),
+        ).forEach { file ->
+            file.parentFile?.mkdirs()
+            file.writeText("owned")
+        }
+
+        assertTrue(store.cleanupPending())
+        assertFalse(store.pendingDir.exists())
+        assertTrue(
+            File(
+                tempFolder.root,
+                "files/${PendingRestoreManager.RESULT_DIR_NAME}/${PendingRestoreManager.RESULT_FILENAME}",
+            ).exists(),
+        )
     }
 
     @Test

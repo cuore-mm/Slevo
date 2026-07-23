@@ -77,10 +77,10 @@ class PendingRestoreApplierTest {
         Assert.assertEquals(true, fileStore.lastWrittenMarker?.hadExistingLiveDb)
     }
 
-    // --- 4.3: stale MIGRATION_PENDING (strict validation success) ---
+    // --- 8.1: same-startup migration finalization ordering ---
 
     @Test
-    fun migrationPending_strictValidationPasses_transitionsToCompleted() = runTest {
+    fun migrationPending_strictValidationPasses_finalizesInDurableOrder() = runTest {
         fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
         dbSwapper.hasRollbackBackup = true
         validator.nextValidateResult = null // strict validation OK
@@ -89,7 +89,58 @@ class PendingRestoreApplierTest {
         createApplier().runIfNeeded()
 
         Assert.assertEquals(RestoreStatus.COMPLETED, fileStore.lastWrittenMarker?.status)
-        Assert.assertFalse(fileStore.events.contains("writeResult:false"))
+        Assert.assertEquals(
+            listOf(
+                "writeMarker:COMPLETED",
+                "writeResult:true:restore completed successfully",
+                "cleanupPending",
+            ),
+            fileStore.events,
+        )
+        Assert.assertTrue(fileStore.results.single().migrationCompleted)
+    }
+
+    @Test
+    fun migrationPending_completedMarkerWriteFailure_keepsRetryableState() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        fileStore.markerWriteFailure = IOException("marker unavailable")
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.MIGRATION_PENDING, fileStore.marker?.status)
+        Assert.assertTrue(fileStore.events.isEmpty())
+        Assert.assertTrue(fileStore.results.isEmpty())
+    }
+
+    @Test
+    fun migrationPending_successResultWriteFailure_keepsCompletedMarkerAndSkipsCleanup() = runTest {
+        fileStore.marker = marker(RestoreStatus.MIGRATION_PENDING)
+        validator.userVersion = RealBackupDatabaseValidator.Companion.EXPECTED_USER_VERSION
+        fileStore.resultWriteFailure = IOException("result unavailable")
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.COMPLETED, fileStore.marker?.status)
+        Assert.assertEquals(listOf("writeMarker:COMPLETED"), fileStore.events)
+        Assert.assertFalse(fileStore.events.contains("cleanupPending"))
+    }
+
+    @Test
+    fun completed_cleanupFailure_keepsMarkerForRetry() = runTest {
+        fileStore.marker = marker(RestoreStatus.COMPLETED)
+        fileStore.cleanupReturnsFalse = true
+
+        createApplier().runIfNeeded()
+
+        Assert.assertEquals(RestoreStatus.COMPLETED, fileStore.marker?.status)
+        Assert.assertEquals(
+            listOf(
+                "writeResult:true:restore completed successfully",
+                "cleanupPending",
+            ),
+            fileStore.events,
+        )
     }
 
     // --- 4.3: stale MIGRATION_PENDING (strict validation failed + rollback backup exists) ---
@@ -711,11 +762,14 @@ class PendingRestoreApplierTest {
         var marker: PendingRestoreMarker? = null
         var lastWrittenMarker: PendingRestoreMarker? = null
         val writtenMarkers = mutableListOf<PendingRestoreMarker>()
+        val results = mutableListOf<PendingRestoreResultFile>()
         val events = mutableListOf<String>()
         var quarantineCreationFailure: IOException? = null
         var quarantineIncidentIsFile = false
         var cleanupFailure: IOException? = null
+        var cleanupReturnsFalse = false
         var resultWriteFailure: IOException? = null
+        var markerWriteFailure: IOException? = null
 
         override fun createQuarantineIncidentDir(): File {
             quarantineCreationFailure?.let { throw it }
@@ -732,6 +786,7 @@ class PendingRestoreApplierTest {
         override fun readMarker(): PendingRestoreMarker? = marker
 
         override fun writeMarker(marker: PendingRestoreMarker) {
+            markerWriteFailure?.let { throw it }
             lastWrittenMarker = marker
             this.marker = marker
             writtenMarkers += marker
@@ -751,13 +806,27 @@ class PendingRestoreApplierTest {
             finalFailureReason: String?,
         ) {
             resultWriteFailure?.let { throw it }
+            results += PendingRestoreResultFile(
+                success = success,
+                message = message,
+                timestamp = timestamp,
+                backupDatabaseVersion = backupDatabaseVersion,
+                currentDatabaseVersion = currentDatabaseVersion,
+                migrationRequired = migrationRequired,
+                migrationCompleted = migrationCompleted,
+                previousStatus = previousStatus,
+                rollbackRequiredAt = rollbackRequiredAt,
+                finalFailureReason = finalFailureReason,
+            )
             events += "writeResult:$success:$message"
         }
 
-        override fun cleanupPending() {
+        override fun cleanupPending(): Boolean {
             events += "cleanupPending"
-            marker = null
             cleanupFailure?.let { throw it }
+            if (cleanupReturnsFalse) return false
+            marker = null
+            return true
         }
 
         override fun cleanupResult() {

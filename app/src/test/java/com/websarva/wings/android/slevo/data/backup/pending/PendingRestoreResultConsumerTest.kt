@@ -102,6 +102,26 @@ class PendingRestoreResultConsumerTest {
         assertTrue(fixture.consumer.read() is PendingRestoreResultRead.Pending)
     }
 
+    /** cleanup 後の markerless migration completion result は既存 success Snackbar へ渡す。 */
+    @Test
+    fun markerlessMigrationCompletedSuccess_isReadyAsSuccess() {
+        val fixture = createFixture()
+        fixture.store.writeResult(
+            success = true,
+            message = "internal completion detail",
+            timestamp = "2026-07-15T00:00:00Z",
+            migrationCompleted = true,
+        )
+
+        val result = fixture.consumer.read()
+
+        assertTrue(result is PendingRestoreResultRead.Ready)
+        assertTrue(
+            (result as PendingRestoreResultRead.Ready).notification.type ==
+                PendingRestoreNotificationType.SUCCESS,
+        )
+    }
+
     /** terminal markerとresultの不整合を通知せず破棄する。 */
     @Test
     fun markerAndResultMismatch_isUnreadableAndRemoved() {

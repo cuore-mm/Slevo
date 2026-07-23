@@ -160,12 +160,16 @@ staging DB を一時 Room instance で事前 migration する案は採用しな�
   - post-migration validation 失敗時は live DB file を即時置換せず、marker を `rollback-required` に更新し、rollback backup を保持する。
 - `DatabaseCallback`
   - constructor に `Provider<PendingRestoreCompletionChecker>` を追加する。既存 repository provider と同様に `Provider` を使い、`AppDatabase` 作成中の循環依存を避ける。
-  - `onOpen()` 内で `applicationScope.launch { pendingRestoreCompletionCheckerProvider.get().runIfNeeded() }` を呼ぶ。
+  - `onOpen()` 内で `applicationScope.launch` し、その coroutine 内のローカルな防御境界から `pendingRestoreCompletionCheckerProvider.get().runIfNeeded()` を呼ぶ。`CancellationException` は再 throw し、それ以外の `Exception` はログへ残して swallow する。
   - 既存 `collectStartupGarbage()` と同じく非同期に実行し、DB open 自体を長時間 block しない。
 
 completion checker は重い I/O を main thread で直接実行しない。`applicationScope` は `Dispatchers.IO` 相当を使い、DB validation や file cleanup をその上で実行する。`runIfNeeded()` は idempotent にし、marker がない場合または対象 status でない場合は即 return する。
 
-`PendingRestoreCompletionChecker.runIfNeeded()` は外へ例外を投げない。post-migration validation 失敗後に `rollback-required` marker または result file の書き込みに失敗した場合、completion checker は live DB file を置換・削除せず、既存の `migration-pending` marker と rollback backup を残す。次回 cold start の `PendingRestoreApplier` が stale `migration-pending` として strict validation → completed cleanup または rollback/quarantine を判定できるようにする。書き込み失敗は best-effort でログへ残すが、ログだけを唯一の復旧状態にしてはならない。
+`PendingRestoreCompletionChecker.runIfNeeded()` は coroutine cancellation を除く operational `Exception` を外へ投げない。`CancellationException` は再 throw する。post-migration validation、marker/result I/O、cleanup でそれ以外の `Exception` が発生した場合は best-effort でログへ残して return し、失敗した操作より後の write/cleanup を実行しない。成功経路は `completed` marker → success result → cleanup、validation 失敗経路は rollback-required result → `rollback-required` marker の順序を維持する。
+
+成功経路で `completed` marker 書き込みが失敗した場合は success result と cleanup を実行せず、`migration-pending` marker と rollback backup を残す。`completed` marker 成功後に success result 書き込みが失敗した場合は cleanup を実行せず、durable な `completed` marker、rollback backup、staging file を残す。validation 失敗経路で rollback-required result 書き込みが失敗した場合は marker 更新を実行せず、`migration-pending` marker と rollback backup を残す。result 成功後の `rollback-required` marker atomic replace が失敗した場合も、既存の `migration-pending` marker と rollback backup を recovery authority として残す。次回 cold start の `PendingRestoreApplier` は marker を source of truth として strict validation → completed cleanup または rollback/quarantine を判定する。
+
+`DatabaseCallback` の境界は checker の非 throw contract に依存し切らないための局所的な防御である。provider 取得または将来の checker regression から operational `Exception` が漏れても DB open 後の coroutine failure として伝播させず、ログへ残して次回 cold start recovery に委ねる。一方、structured cancellation を妨げないよう `CancellationException` は必ず再 throw する。
 
 `rollback-required` の durable state は marker を source of truth とする。completion checker は rollback-required result を先に書き、その後で marker を `rollback-required` へ atomic replace する。result 書き込みが失敗した場合は marker を変更しない。marker replace が失敗した場合も既存 `migration-pending` marker と rollback backup を残し、次回 cold start recovery に委ねる。この場合、best-effort で書けた result file が rollback-required を示していても、recovery 判定は marker を優先し、次回処理で result file を最新状態へ上書きする。
 
@@ -193,7 +197,7 @@ completion checker は重い I/O を main thread で直接実行しない。`app
 | `applying` | DB swap 前後で失敗 | `failed` | rollback できる場合は live DB を元に戻す。 |
 | `db-swapped` | DataStore 反映成功 | `migration-pending` | rollback backup と marker を保持して通常初期化へ進む。 |
 | `db-swapped` | DataStore 反映失敗 | `failed` | rollback できる場合は live DB を元に戻す。 |
-| `migration-pending` | Room open + post validation 成功 | `completed` | success result を記録し、marker を completed に更新する。current DB version の場合もこの経路で完了する。 |
+| `migration-pending` | Room open + post validation 成功 | `completed` | marker を atomic に completed へ更新してから success result と cleanup を実行し、marker を最後に削除する。current DB version の場合もこの経路で完了する。 |
 | `migration-pending` | Room open 後の post validation 失敗 | `rollback-required` | completion checker は live DB を即時置換せず、rollback-required result を記録する。 |
 | `migration-pending` | migration 成功確認前の次回 cold start + live DB post validation 成功 | `completed` | 前回 cleanup 前に中断された可能性として rollback せず completed cleanup へ進む。 |
 | `migration-pending` | migration 成功確認前の次回 cold start + live DB post validation 失敗 | `failed` | 前回 migration 途中で落ちた可能性として rollback を試行し、failed result を残す。 |
@@ -273,7 +277,7 @@ preview-only の invalid 判定では、まだ pending restore/result file を�
 - [Risk] terminal failed marker が残ることで、以後の復元準備が永久に拒否される可能性がある。
   - Mitigation: failed marker は自動再試行には使わない。新規 restore 準備時は failed result を保持したまま active failed marker/staging/rollback を cleanup できた場合に限り、新しい restore を準備できる。
 - [Risk] completion checker が rollback-required marker/result の書き込みに失敗し、Room open 中に不完全な recovery を試みる可能性がある。
-  - Mitigation: completion checker は例外を外へ投げず、live DB file を変更せず、migration-pending と rollback backup を残して次回 cold start recovery に委ねる。
+  - Mitigation: completion checker は operational `Exception` を外へ投げず、失敗した write より後の処理を止め、live DB file を変更せず、marker と rollback backup が示す直近の durable state から次回 cold start recovery を行う。`DatabaseCallback` にも `CancellationException` だけを再 throw する局所的な防御境界を置く。
 - [Risk] post-migration validation 成功後の cleanup が部分的に失敗すると、次回 cold start で stale `migration-pending` を migration 未完了と誤認して rollback する可能性がある。
   - Mitigation: `completed` marker を cleanup より先に書き、marker 削除を cleanup の最後に行う。stale `migration-pending` では rollback backup の有無を見る前に live DB strict validation を再実行し、成功していれば completed cleanup へ進む。
 
@@ -313,7 +317,8 @@ Rollback strategy:
 - pre-migration validation では現在 Room identity hash と現在 table list を要求しない。
 - post-migration validation は Room が DB を open して migration した後にだけ行う。
 - completion checker は `DatabaseCallback.onOpen()` から `Provider<PendingRestoreCompletionChecker>` 経由で起動する。`MainActivity.onCreate()` 本体や `SlevoApplication.onCreate()` には置かない。
-- `PendingRestoreCompletionChecker.runIfNeeded()` は外へ例外を投げない。失敗時も Room open 中の live DB file を変更せず、retry 可能な marker/rollback 状態を残す。
+- `PendingRestoreCompletionChecker.runIfNeeded()` は `CancellationException` を再 throw し、それ以外の operational `Exception` を外へ投げない。marker/result write が失敗した場合は後続 write/cleanup を止め、Room open 中の live DB file を変更せず、retry 可能な marker/rollback 状態を残す。
+- `DatabaseCallback.onOpen()` の checker coroutine は局所的な防御境界を持ち、`CancellationException` を再 throw し、それ以外の `Exception` をログへ残して swallow する。
 - completion checker は post-migration validation 失敗時に live DB file を即時 rollback しない。`rollback-required` を記録し、次回 cold start の `PendingRestoreApplier` が Room open 前に rollback する。
 - current DB version の restore も DB swap + DataStore 反映後は `migration-pending` に入り、`DatabaseCallback.onOpen()` の completion checker で cleanup する。
 - completion checker は post-migration validation 成功後、`completed` marker を cleanup より先に書く。success result 書き込みや cleanup の途中失敗時に残った `completed` marker は rollback 禁止の durable signal として扱う。

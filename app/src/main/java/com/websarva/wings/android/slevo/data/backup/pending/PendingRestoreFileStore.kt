@@ -59,8 +59,12 @@ internal interface PendingRestoreFileStore {
         finalFailureReason: String? = null,
     )
 
-    /** pending directory を cleanup する。 */
-    fun cleanupPending()
+    /**
+     * owned payload を削除してから marker を最後に除去し、cleanup 完了の成否を返す。
+     *
+     * success result と quarantine incident は削除せず、payload または marker が残れば false。
+     */
+    fun cleanupPending(): Boolean
 
     /** result directory を cleanup する。 */
     fun cleanupResult()
@@ -92,6 +96,7 @@ internal class RealPendingRestoreFileStore(
     private val markerStore = AtomicPendingRestoreMarkerFile(markerFile, markerAdapter)
     private val resultDir = File(appContext.filesDir, PendingRestoreManager.RESULT_DIR_NAME)
     private val resultFile = File(resultDir, PendingRestoreManager.RESULT_FILENAME)
+    private val resultStore = AtomicPendingRestoreResultFile(resultFile, resultAdapter)
 
     /**
      * 既存artifactを上書きしないquarantine incident directoryを作成する。
@@ -139,32 +144,63 @@ internal class RealPendingRestoreFileStore(
         finalFailureReason: String?,
     ) {
         synchronized(PendingRestoreResultFileLock.monitor) {
-            resultDir.mkdirs()
-            resultFile.writeText(
-                resultAdapter.toJson(
-                    PendingRestoreResultFile(
-                        success = success,
-                        message = message,
-                        timestamp = timestamp,
-                        backupDatabaseVersion = backupDatabaseVersion,
-                        currentDatabaseVersion = currentDatabaseVersion,
-                        migrationRequired = migrationRequired,
-                        migrationCompleted = migrationCompleted,
-                        previousStatus = previousStatus,
-                        rollbackRequiredAt = rollbackRequiredAt,
-                        finalFailureReason = finalFailureReason,
-                    ),
+            resultStore.write(
+                PendingRestoreResultFile(
+                    success = success,
+                    message = message,
+                    timestamp = timestamp,
+                    backupDatabaseVersion = backupDatabaseVersion,
+                    currentDatabaseVersion = currentDatabaseVersion,
+                    migrationRequired = migrationRequired,
+                    migrationCompleted = migrationCompleted,
+                    previousStatus = previousStatus,
+                    rollbackRequiredAt = rollbackRequiredAt,
+                    finalFailureReason = finalFailureReason,
                 ),
             )
         }
     }
 
-    override fun cleanupPending() {
-        try {
-            pendingDir.deleteRecursively()
+    /**
+     * staged payload を先に削除し、active marker を最後に除去する。
+     *
+     * success result と quarantine incident は別 lifecycle のため触らない。既にない payload
+     * は成功扱いにし、残存 payload または marker の削除失敗だけを retryable failure とする。
+     */
+    override fun cleanupPending(): Boolean {
+        return try {
+            // --- Owned pending payload ---
+            val payloads = listOf(
+                File(pendingDir, "database"),
+                File(pendingDir, "datastore"),
+                rollbackDir,
+                File(pendingDir, PendingRestoreManager.DATASTORE_ROLLBACK_SNAPSHOT_FILENAME),
+            )
+            if (payloads.any { !deletePayload(it) }) {
+                logWarn("cleanup pending payload failed")
+                return false
+            }
+
+            // --- Marker removal commit point ---
+            if (!markerStore.delete()) {
+                logWarn("cleanup pending marker failed")
+                return false
+            }
+            // 空 directory の削除は best effort。payload と marker が消えていれば成功扱いにする。
+            if (pendingDir.exists() && pendingDir.listFiles().orEmpty().isEmpty()) {
+                pendingDir.delete()
+            }
+            true
         } catch (e: Exception) {
             logWarn("cleanup pending failed: ${e.message}")
+            false
         }
+    }
+
+    /** payload が残っていないことまで確認して削除する。 */
+    private fun deletePayload(payload: File): Boolean {
+        if (!payload.exists()) return true
+        return payload.deleteRecursively() && !payload.exists()
     }
 
     /** result directoryを共有monitor下で削除する。 */

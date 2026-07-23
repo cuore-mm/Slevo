@@ -190,6 +190,14 @@ class PendingRestoreApplier private constructor(
     private val dbSwapper = dbSwapperOverride ?: RealPendingRestoreDbSwapper(appContext)
     private val dataStoreReflector =
         dataStoreReflectorOverride ?: RealPendingRestoreDataStoreReflector(appContext, moshi)
+    private val completionFinalizer = PendingRestoreCompletionFinalizer(
+        fileStore = fileStore,
+        nowProvider = nowProvider,
+        currentDbVersion = currentDbVersion,
+        logWarning = { message, error ->
+            logWarn(if (error == null) message else "$message: ${error.message}")
+        },
+    )
 
     /**
      * pending restore が存在する場合、DB 置換と DataStore 反映を同期的に完了する。
@@ -247,7 +255,16 @@ class PendingRestoreApplier private constructor(
             val strictError = dbValidator.validate(liveDbFile)
             if (strictError == null) {
                 logInfo("MIGRATION_PENDING: strict validation passed, transitioning to COMPLETED")
-                fileStore.writeMarker(marker.copy(status = RestoreStatus.COMPLETED))
+                val completedMarker = marker.copy(status = RestoreStatus.COMPLETED)
+                try {
+                    // marker が migration finalization の最初の durable commit point。
+                    fileStore.writeMarker(completedMarker)
+                } catch (error: Exception) {
+                    // 失敗時は元の MIGRATION_PENDING と artifact を保持して retry する。
+                    logWarn("MIGRATION_PENDING: COMPLETED marker write failed: ${error.message}")
+                    return
+                }
+                recoverFromCompleted(completedMarker)
                 return
             }
 
@@ -347,18 +364,7 @@ class PendingRestoreApplier private constructor(
     /** COMPLETED: post-validation 成功済み。success result と cleanup を再試行する。 */
     private fun recoverFromCompleted(marker: PendingRestoreMarker) {
         logInfo("COMPLETED: retrying success result write and cleanup")
-        // success result を再試行
-        fileStore.writeResult(
-            success = true,
-            message = "restore completed successfully",
-            timestamp = nowProvider(),
-            backupDatabaseVersion = marker.databaseVersion,
-            currentDatabaseVersion = currentDbVersion,
-            migrationRequired = marker.databaseVersion < currentDbVersion,
-            migrationCompleted = true,
-        )
-        // rollback backup と staging の cleanup、marker 削除は cleanupPending に含まれる
-        fileStore.cleanupPending()
+        completionFinalizer.complete(marker, "restore completed successfully")
     }
 
     /** stale APPLYING または DB_SWAPPED を復旧する。 */

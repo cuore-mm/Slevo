@@ -21,6 +21,9 @@
 - live DB の `PRAGMA user_version` を読み、migration 前・migration 済み・不明/異常を明確に分岐する。
 - migration 前の DB は `BackupDatabaseValidator.preValidate(liveDbFile, marker.databaseVersion)` 相当で integrity / backup schema compatibility を確認し、成功時は marker を維持する。
 - migration 済みの DB は従来通り `BackupDatabaseValidator.validate(liveDbFile)` で strict validation し、成功時は `COMPLETED` へ進める。
+- migration 済み DB の strict validation 成功後は、同じ起動内で `COMPLETED` marker、`migrationCompleted=true` の success result、pending cleanup の順に finalization を完了し、追加 restart を要求しない。
+- finalization の各段階が失敗した場合は、後続処理を止め、次回起動で再試行できる durable state と残存 artifact を保持する。
+- cleanup が成功した後は、アプリを終了せず同じ session から次の restore prepare を許可する。
 - unreadable DB、想定外 version、pre-validation failure、strict validation failure では既存の rollback/quarantine 方針を維持する。
 - JVM unit test で crash window 相当の state を再現できるよう validator fake を拡張する。
 
@@ -31,6 +34,8 @@
 - 新しい marker status を追加しない。
 - pending restore の DB swap、rollback backup、DataStore reflection の順序を変更しない。
 - ユーザー向け UI 文言や backup ZIP format は変更しない。
+- restore 成功 Snackbar の文言、表示 layout、既存の result consumption contract は変更しない。
+- quarantine copy の作成・保持方法を変更しない。queued quarantine-copy P2 はこの change の対象外とする。
 
 ## Decisions
 
@@ -57,7 +62,7 @@
 2. `val userVersion = dbValidator.getUserVersion(liveDbFile)` を取得する。
 3. `userVersion == null` の場合は DB unreadable とみなし、rollback backup があれば `rollbackAndFail(...)`、なければ `quarantineAndFail(...)` を使う。
 4. `userVersion >= currentDbVersion` の場合は Room migration 済みとして `dbValidator.validate(liveDbFile)` を実行する。
-   - 成功: `recoverFromCompleted(...)` と同等の success result / cleanup path、または既存の completed transition helper を使って `COMPLETED` へ進める。
+   - 成功: `COMPLETED` marker を durable に書いた後、failure-resilient な `recoverFromCompleted(...)` を同じ起動内で呼び、success result と cleanup まで進める。
    - 失敗: 既存の stale `MIGRATION_PENDING` failure path と同じ rollback/quarantine。
 5. `userVersion == marker.databaseVersion` の場合は Room migration 前として `dbValidator.preValidate(liveDbFile, marker.databaseVersion)` を実行する。
    - 成功: marker を `MIGRATION_PENDING` のまま残し、何も cleanup せず return する。次に Room が DB を open したときに migration と `PendingRestoreCompletionChecker` が進める。
@@ -98,6 +103,42 @@
 - `userVersion == null`: unreadable DB として rollback/quarantine する。
 - `userVersion` が marker/current のどちらでもない: rollback/quarantine する。
 
+### Decision 5: migration 完了 finalization は同じ起動内で durable order を守る
+
+Room migration 済み DB の strict validation が成功した場合、`recoverFromMigrationPending()` は次の順序を崩さない。
+
+1. `COMPLETED` marker を durable に書く。
+2. `recoverFromCompleted()` を呼び、`success=true` かつ `migrationCompleted=true` の result を durable に書く。
+3. result 書き込み成功後にだけ pending cleanup を実行する。
+
+marker 書き込みに失敗した場合は success result と cleanup を実行しない。result 書き込みに失敗した場合は cleanup を実行しない。marker は既存の `AtomicPendingRestoreMarkerFile` / `AtomicFile` の pre-commit、sync、atomic replace、rollback contract を再利用し、失敗時は最後に読めた `MIGRATION_PENDING` を維持する。result write も同等の temporary write、sync、atomic replace、failure rollback を使い、既存 result を truncate した partial JSON を公開しない。いずれの例外も startup 全体の failure handler へ伝播させて `FAILED` に変換せず、再試行可能な `MIGRATION_PENDING` または `COMPLETED` state と pending artifact を保持する。これにより、required restore restart の同じ startup で finalization と既存 success Snackbar まで到達し、finalization のための追加 restart は不要になる。
+
+理由:
+
+- `COMPLETED` を先に durable にすることで、result 書き込み前に process が停止しても `recoverFromCompleted()` を再実行できる。
+- result を cleanup より先に durable にすることで、marker を削除した後に success result が欠落する window を作らない。
+- `recoverFromCompleted()` に success result / cleanup を集約すると、stale `COMPLETED` recovery と same-startup completion の順序・失敗 semantics を一致させられる。
+- marker/result の publish を atomic commit point にすると、process interruption や I/O failure でも reader が旧版または新版の完全な JSON だけを観測できる。
+
+### Decision 6: cleanup の完了を明示し、active marker は最後に除去する
+
+`PendingRestoreFileStore.cleanupPending()` は cleanup 成否を呼び出し元が判定できる contract にする。cleanup が所有するのは `pending-restore/` 配下の staged DB、staged DataStore JSON、rollback backup、DataStore rollback snapshot、marker である。`pending-restore-result/` の consumable success result と `pending-restore-quarantine/` の incident は cleanup 対象外とする。
+
+real implementation は active `COMPLETED` marker を cleanup の commit point として最後まで保持し、marker 以外の pending payload を削除してその成否を確認した後に marker を除去する。既にない payload は retry 時の成功として扱う。payload の一部を削除できない場合は failure を返すか例外を送出し、marker と残存 artifact を保持する。marker 除去に失敗した場合も cleanup failure として再試行する。marker 除去後に空 `pending-restore/` directory の削除だけが失敗した場合は、active state と payload が除去済みであるため cleanup 成功として扱い、次 prepare 時の orphan-directory cleanup に任せる。
+
+`recoverFromCompleted()` は result write または cleanup failure を局所的に記録して return し、outer startup failure handler に渡さない。cleanup failure 時には durable な `COMPLETED` marker が残るため、`PendingRestoreManager.handleExistingPending()` は同じ session の次 restore prepare を拒否し、次回 recovery が cleanup を再試行する。cleanup 成功時だけ marker が消えるため、アプリを起動したまま次の prepare が可能になる。
+
+代替案:
+
+- `File.deleteRecursively()` の返り値を無視したまま例外だけ catch する案は採用しない。silent partial deletion で marker だけ消えると、cleanup 未完了なのに same-session prepare を許可し得るため。
+- finalization の完了にもう一度 restart を要求する案は採用しない。required restore restart の startup 内で既存 success result consumption まで完了できるため。
+
+### Decision 7: success result は startup 後半の既存 observer が消費する
+
+`SlevoApplication.onCreate()` は `PendingRestoreApplier.runIfNeeded()` の完了を待ってから application setup を続ける。same-startup finalization はこの同期区間で result を durable にして cleanup を完了する。その後 `MainActivity` が STARTED になると、既存 `PendingRestoreResultViewModel` / result consumer が result file を読み、markerless `success=true, migrationCompleted=true` を既存 success notification として publish する。Compose は既存 Snackbar component をそのまま表示する。
+
+この sequencing を acceptance test で applier から result observation、既存 Snackbar 表示まで一つの startup として検証する。result consumption は cleanup 成否を prepare 許可条件に使わず、prepare gating は active marker の有無だけで決める。したがって cleanup failure 後に success Snackbar を表示できても、`COMPLETED` marker が残る限り次 prepare は拒否される。
+
 ## Implementation Contract
 
 実装 agent は以下を守ること。
@@ -111,6 +152,13 @@
 7. failure reason には、可能な範囲で `MIGRATION_PENDING`、`user_version`、`marker.databaseVersion`、`currentDbVersion` の関係が分かる文言を含める。
 8. production code に Room migration を手動実行する処理を追加しない。migration 実行は Room open に任せる。
 9. 追加/変更する class・interface・非自明 function は repository の KDoc/comment rules に従う。
+10. strict validation success 後は `COMPLETED marker -> migrationCompleted=true success result -> cleanup` の順序を守り、`recoverFromCompleted()` を再利用する。
+11. marker/result/cleanup failure は `FAILED` result へ上書きせず、各 commit point より前の retryable state と残存 artifact を保持する。
+12. cleanup の成否を無視しない。active marker を最後に除去し、cleanup 成功時だけ same-session prepare を unblock する。
+13. required restore restart の startup を追加 restart の要求なしで継続し、既存 success Snackbar の text/layout を変更しない。
+14. quarantine-copy behavior は変更しない。
+15. marker/result JSON の durable write は atomic publish と failure rollback を持ち、pre-commit/commit failure 後も最後の valid JSON を読めるようにする。
+16. pending cleanup は staged DB、staged DataStore、rollback backup、DataStore rollback snapshot、marker だけを所有し、success result と quarantine incident を削除しない。
 
 ## Risks / Trade-offs
 
@@ -122,13 +170,20 @@
   → Mitigation: 起動時 recovery で DB が読めない状態は restore 継続不能とみなし、既存 rollback/quarantine 方針に合わせる。
 - [Risk] `userVersion` が marker と current の間の値になる場合、Room migration が一部だけ完了した可能性がある。
   → Mitigation: Room migration は transaction 的に適用される想定だが、想定外状態として rollback/quarantine し、破損/中途半端な DB を live に残さない。
+- [Risk] recursive cleanup が一部だけ成功すると marker が先に消え、未削除 payload があるのに次 restore を開始できる。
+  → Mitigation: cleanup を marker-last にし、payload cleanup の成否を明示的に返す。marker が残る failure state では prepare を block して次回 recovery で再試行する。
+- [Risk] `recoverFromCompleted()` の I/O failure が outer startup failure handler に到達すると、retryable な `COMPLETED` が `FAILED` に変換される。
+  → Mitigation: result/cleanup failure を helper 内で処理し、marker と result の durable commit point を維持する。
+- [Risk] non-atomic result overwrite が中断されると、consumer が partial JSON を読み success notification を失う。
+  → Mitigation: marker と同様の atomic temporary-write / sync / replace / rollback contract を result に適用し、pre-commit と commit failure を注入して最後の valid result を確認する。
 
 ## Migration Plan
 
 - Runtime data migration は不要。
 - Marker format、backup ZIP format、Room schema version は変更しない。
 - 実装後に `openspec validate fix-migration-pending-recovery --strict` を実行する。
-- Android CI を current branch に対して実行し、`PendingRestoreApplierTest` と validator tests を含む unit tests が通ることを確認する。
+- clean pushed HEAD に対して現在の Android CI scope（`testCiUnitTest assembleCi`）を実行し、unit tests と CI APK build が通ることを確認する。HEAD `19b472a69c73b869da4cf08d3b317531d757934b` は Android CI run `29628392853` で成功したため、この結果を本 finding の十分な完了 evidence とする。
+- instrumented acceptance test は source に保持するが現在の Android CI では実行されない。この change では新しい instrumentation workflow の追加または実行を要求しない。
 - rollback strategy: この change は `MIGRATION_PENDING` recovery branch に限定されるため、問題があれば該当 branch の分岐と `getUserVersion()` 追加を revert して従来挙動へ戻せる。
 
 ## Testing Strategy
@@ -139,6 +194,21 @@
   - 既存の strict validation success/failure tests は `getUserVersion() = currentDbVersion` を明示する。
   - `migrationPending_unreadableDb_rollsBackOrQuarantines` を追加する。完了条件: `getUserVersion() = null` で restore 継続しない。
   - `migrationPending_unexpectedIntermediateVersion_rollsBackOrQuarantines` を追加する。完了条件: marker/current のどちらでもない version で failure path に入る。
+  - migration 済み strict validation success で、同じ `runIfNeeded()` 内の event が `writeMarker:COMPLETED`、`writeResult(success=true, migrationCompleted=true)`、`cleanupPending` の順になることを確認する。
+  - marker write failure を注入し、result/cleanup が呼ばれず `MIGRATION_PENDING` と pending artifact が再試行可能なまま残ることを確認する。
+  - result write failure を注入し、cleanup が呼ばれず `COMPLETED` marker と pending artifact が残り、次回 `recoverFromCompleted()` で再試行できることを確認する。
+  - cleanup failure と partial cleanup failure を注入し、`COMPLETED` marker と残存 artifact が保たれ、成功まで cleanup を再試行できることを確認する。
+- marker/result durable write tests
+  - pre-commit failure と atomic replace/commit failure を注入し、reader が最後の valid marker/result を読み、partial JSON を観測しないことを確認する。
+- `PendingRestoreManagerPrepareTest`
+  - marker write、result write、cleanup throw、partial cleanup の各 failure 後に同じ process で prepare を試し、`MIGRATION_PENDING` または `COMPLETED` marker が残る間は拒否されることを確認する。
+  - cleanup の marker-removal commit point 成功後は app restart なしで次 prepare を許可し、result consumption の有無だけでは prepare を unblock しないことを確認する。
+- `PendingRestoreResultConsumerTest` / UI regression tests
+  - cleanup 後の markerless `success=true, migrationCompleted=true` result が既存 success Snackbar path に分類されることを確認する。
+  - success Snackbar の text/layout に変更がないこと、および failure/intermediate result が success として表示されないことを既存 regression tests で確認する。
+- same-startup instrumented acceptance test（source に保持し、現在の Android CI scope では未実行）
+  - 将来の instrumented 実行では、1 回の startup で strict validation success、ordered finalization、result observation、既存 success Snackbar 表示まで到達し、process termination や追加 restart がないことを確認する。
+  - 将来の instrumented 実行では、cleanup failure case で Snackbar を表示できても active `COMPLETED` marker により次 prepare が拒否されることを確認する。
 - `BackupDatabaseValidatorTest`
   - 実 DB file の `PRAGMA user_version` を設定し、`getUserVersion()` が値を返すことを確認する。
   - 読めない file / 存在しない file で `null` を返すことを確認する。

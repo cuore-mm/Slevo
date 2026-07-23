@@ -2,11 +2,13 @@ package com.websarva.wings.android.slevo.data.backup.pending
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.util.Log
 import com.squareup.moshi.Moshi
 import com.websarva.wings.android.slevo.data.backup.restore.BackupDatabaseValidator
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -45,18 +47,26 @@ class PendingRestoreCompletionChecker @Inject constructor(
      *
      * このメソッドは idempotent。marker がない、または status が MIGRATION_PENDING でなければ
      * 即 return する。I/O を含むため [kotlinx.coroutines.Dispatchers.IO] 上で呼ぶこと。
+     * cancellation は呼び出し元へ伝播し、それ以外の operational exception はログへ記録して
+     * return する。失敗した操作より後の write/cleanup は実行しない。
      */
     fun runIfNeeded() {
-        val marker = fileStore.readMarker() ?: return
-        if (marker.status != RestoreStatus.MIGRATION_PENDING) return
+        try {
+            val marker = fileStore.readMarker() ?: return
+            if (marker.status != RestoreStatus.MIGRATION_PENDING) return
 
-        val liveDbFile = getLiveDbFile()
-        val validationError = dbValidator.validate(liveDbFile)
+            val liveDbFile = getLiveDbFile()
+            val validationError = dbValidator.validate(liveDbFile)
 
-        if (validationError == null) {
-            onSuccess(marker)
-        } else {
-            onFailure(marker, validationError)
+            if (validationError == null) {
+                onSuccess(marker)
+            } else {
+                onFailure(marker, validationError)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logOperationalException("completion checker", e)
         }
     }
 
@@ -66,21 +76,18 @@ class PendingRestoreCompletionChecker @Inject constructor(
         val completedMarker = marker.copy(status = RestoreStatus.COMPLETED)
         fileStore.writeMarker(completedMarker)
 
-        // --- success result 書き込み ---
-        // result 書き込みが失敗しても cleanup は続行できる。
-        // COMPLETED marker が残っていれば次回 cold start で retry する。
-        fileStore.writeResult(
-            success = true,
-            message = "restore completed successfully (migration confirmed)",
-            timestamp = System.currentTimeMillis().toString(),
-            backupDatabaseVersion = marker.databaseVersion,
-            currentDatabaseVersion = AppDatabase.Companion.CURRENT_DATABASE_VERSION,
-            migrationRequired = marker.databaseVersion < AppDatabase.Companion.CURRENT_DATABASE_VERSION,
-            migrationCompleted = true,
-        )
-
-        // --- cleanup: staging + rollback の削除 ---
-        fileStore.cleanupPending()
+        // success result と marker-last cleanup は applier の stale COMPLETED recovery と共有する。
+        PendingRestoreCompletionFinalizer(
+            fileStore = fileStore,
+            nowProvider = { System.currentTimeMillis().toString() },
+            currentDbVersion = AppDatabase.Companion.CURRENT_DATABASE_VERSION,
+            logWarning = { message, error ->
+                logOperationalException(
+                    message,
+                    error as? Exception ?: IllegalStateException(message),
+                )
+            },
+        ).complete(completedMarker, "restore completed successfully (migration confirmed)")
     }
 
     /** post-migration validation 失敗時の処理。 */
@@ -122,5 +129,21 @@ class PendingRestoreCompletionChecker @Inject constructor(
     /** テスト用に file store を差し替える。 */
     internal fun setFileStoreForTest(store: PendingRestoreFileStore) {
         fileStoreOverride = store
+    }
+
+    /** operational exception を機密情報を含めずログへ記録する。 */
+    private fun logOperationalException(operation: String, error: Exception) {
+        val exceptionType = error::class.java.simpleName
+            .filter { it.isLetterOrDigit() || it == '_' }
+            .ifBlank { "Exception" }
+        try {
+            Log.e(TAG, "$operation failed: $exceptionType")
+        } catch (_: RuntimeException) {
+            // JVM unit test の android.util.Log stub では例外になるため握りつぶす。
+        }
+    }
+
+    private companion object {
+        private const val TAG = "PendingRestoreCompletionChecker"
     }
 }

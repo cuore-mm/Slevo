@@ -47,3 +47,32 @@
 - [x] 6.2 Android CI を current branch に対して実行する（例: `gh workflow run "Android CI" --ref <current-branch> --repo cuore-mm/Slevo`）。完了条件: unit tests と CI APK build が成功する。
 - [x] 6.3 CI が利用できない場合のみ repository-standard test command で `PendingRestoreApplierTest`、`BackupDatabaseValidatorTest`、関連 pending restore tests を実行する。完了条件: 変更対象 tests が成功する。
 - [x] 6.4 実装後に `git diff` を確認し、P2-5（SAF truncate mode）や別 issue の修正をこの change に混ぜていないことを確認する。完了条件: diff scope が P2-4 の migration pending recovery に限定されている。
+
+## 7. Same-startup migration finalization
+
+- [x] 7.1 marker の既存 `AtomicPendingRestoreMarkerFile` contract を finalization の commit point として確認し、result write に同等の temporary write、sync、atomic replace、failure rollback を追加する。完了条件: pre-commit/commit failure 後も reader は最後の valid marker/result JSON を読み、partial JSON は公開されない。
+- [x] 7.2 `PendingRestoreFileStore.cleanupPending()` の contract を cleanup 成否が判定できる形にし、real/fake implementations を marker-last cleanup に揃える。完了条件: cleanup 対象は `pending-restore/` 内の staged DB、staged DataStore、rollback backup、DataStore rollback snapshot、marker に限定され、success result と quarantine incident は保持される。
+- [x] 7.3 cleanup を partial deletion から idempotent に再開できるようにする。完了条件: 既にない payload は成功扱い、残存 payload または marker の削除失敗は failure 扱い、payload の全削除を確認するまで active marker を除去せず、marker 除去後の空 directory だけの残存は成功扱いになる。
+- [x] 7.4 `recoverFromCompleted()` に result write と cleanup failure の局所処理を追加する。完了条件: exception/failure を outer startup failure handler へ伝播せず、`COMPLETED` を `FAILED` に変更せず、result failure 時は cleanup を呼ばず、cleanup failure 時は durable result、active marker、残存 artifact を次回 retry に保つ。
+- [x] 7.5 `recoverFromMigrationPending()` の migration 済み strict validation success branch で、durable な `COMPLETED` marker を書いた直後に hardened `recoverFromCompleted()` を呼ぶ。完了条件: required restore restart の同じ startup 内で `COMPLETED marker -> migrationCompleted=true success result -> cleanup` が完了し、追加 restart を要求しない。
+- [x] 7.6 active `MIGRATION_PENDING` / `COMPLETED` marker がある全 failure state では同じ session の次 prepare を block し、cleanup の marker-removal commit point 成功後だけ unblock する。完了条件: result consumption または success Snackbar 表示だけでは prepare を許可しない。
+- [x] 7.7 same-startup finalization では application recovery 後に開始する既存 result observer、ViewModel、success Snackbar path を再利用する。完了条件: success result は `migrationCompleted=true` であり、Snackbar の text/layout と app lifecycle behavior に変更がない。
+
+## 8. Finalization acceptance tests
+
+- [x] 8.1 `PendingRestoreApplierTest` に migration 済み strict validation success の full-order test を追加する。完了条件: 1 回の `runIfNeeded()` の event が `writeMarker:COMPLETED`、`writeResult(success=true, migrationCompleted=true)`、`cleanupPending` の順で、app termination/restart request を発生させない。
+- [x] 8.2 marker/result atomic write の pre-commit と replace/commit failure injection tests を追加する。完了条件: 最後の valid JSON が読み取り可能で partial JSON は公開されず、marker failure 後は `MIGRATION_PENDING`、result failure 後は `COMPLETED` が維持される。
+- [x] 8.3 marker write failure の recovery/prepare test を追加する。完了条件: result/cleanup は未実行、pending artifact は保持、同じ session の prepare は拒否、次回 invocation で再試行できる。
+- [x] 8.4 result write failure injection と retry/prepare test を追加する。完了条件: cleanup は未実行、marker は `COMPLETED`、outer failure handler の `FAILED` result はなく、同じ session の prepare は拒否、次回 invocation が result write と cleanup を成功させる。
+- [x] 8.5 cleanup throw、payload partial deletion、marker deletion failure の tests を追加する。完了条件: success result は cleanup 対象外で保持され、active marker と残存 payload がある間は prepare が拒否され、既にない payload を許容して次回 invocation が cleanup を完了する。
+- [x] 8.6 cleanup success と same-session next restore test を `PendingRestoreManagerPrepareTest` または同等の manager test に追加する。完了条件: marker-removal commit point 前は prepare を拒否し、成功後は同じ process/session で次 prepare を許可する。result consumption だけでは unblock しない。
+- [x] 8.7 `PendingRestoreResultConsumerTest` に markerless `success=true, migrationCompleted=true` の regression test を追加する。完了条件: existing success Snackbar classification になり、intermediate/failure result は success 扱いされない。
+- [x] 8.8 instrumented acceptance test を source に追加する。受け入れ観点: 1 回の startup で strict validation、ordered finalization、result observation、既存 text/layout の success Snackbar 表示まで到達し、process termination/追加 restart がない。Snackbar 表示後も cleanup failure marker があれば prepare は拒否される。追加した test は現在の Android CI scope では実行されず、将来の instrumented 実行に備えて保持する。
+- [x] 8.9 completion checker と既存 pending recovery regression tests を更新する。完了条件: completion checker の `COMPLETED -> success result -> cleanup` 順序、pre-migration wait、rollback/quarantine、non-migration restore の既存 semantics が維持される。
+
+## 9. Scope and validation
+
+- [x] 9.1 変更した atomic result writer、cleanup interface/implementation/helper、非自明 function の KDoc・section comments を repository rules に合わせる。完了条件: durable commit、cleanup artifact ownership、marker-last commit point、failure return、retry behavior が source 上で判別できる。
+- [x] 9.2 `openspec validate fix-migration-pending-recovery --strict` を実行する。完了条件: OpenSpec validation が成功する。
+- [x] 9.3 clean pushed HEAD に対して現在の Android CI scope（`testCiUnitTest assembleCi`）を実行する。完了条件: unit tests と CI APK build が exact HEAD で成功する。instrumented acceptance test は source に保持するが現在の CI では実行されず、この change では新しい instrumentation workflow の追加または実行を完了条件にしない。検証記録: HEAD `19b472a69c73b869da4cf08d3b317531d757934b`、Android CI run `29628392853` が成功した。
+- [x] 9.4 implementation diff を確認する。完了条件: UI text/layout、追加 restart、backup/marker/result format、Room schema、queued quarantine-copy P2 を変更していない。

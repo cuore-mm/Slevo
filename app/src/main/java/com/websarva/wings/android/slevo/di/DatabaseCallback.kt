@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.di
 
 import android.content.Context
+import android.util.Log
 import androidx.room.RoomDatabase
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreCompletionChecker
@@ -10,6 +11,7 @@ import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -58,7 +60,7 @@ class DatabaseCallback @Inject constructor(
             threadStateRepositoryProvider.get().collectStartupGarbage()
         }
         applicationScope.launch {
-            pendingRestoreCompletionCheckerProvider.get().runIfNeeded()
+            runPendingRestoreCompletionCheckerWithBoundary(pendingRestoreCompletionCheckerProvider)
         }
     }
 
@@ -83,5 +85,37 @@ class DatabaseCallback @Inject constructor(
             name = threadBookmarkGroupName,
             colorName = BookmarkColor.YELLOW.value
         )
+    }
+}
+
+/**
+ * completion checker の起動境界を担当する。
+ *
+ * checker の non-throwing contract が将来崩れても DB open 後の coroutine を失敗させず、
+ * marker を recovery authority とした次回 cold start に処理を委ねる。structured cancellation
+ * を維持するため [CancellationException] だけは再 throw する。
+ */
+internal suspend fun runPendingRestoreCompletionCheckerWithBoundary(
+    provider: Provider<PendingRestoreCompletionChecker>,
+    logException: (String) -> Unit = ::logPendingRestoreCompletionCheckerException,
+) {
+    try {
+        provider.get().runIfNeeded()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        val exceptionType = e::class.java.simpleName
+            .filter { it.isLetterOrDigit() || it == '_' }
+            .ifBlank { "Exception" }
+        logException("pending restore completion checker failed: $exceptionType")
+    }
+}
+
+/** operational exception を機密情報を含めずログへ記録する。 */
+private fun logPendingRestoreCompletionCheckerException(message: String) {
+    try {
+        Log.e("DatabaseCallback", message)
+    } catch (_: RuntimeException) {
+        // JVM unit test の android.util.Log stub では例外になるため握りつぶす。
     }
 }

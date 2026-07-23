@@ -96,6 +96,14 @@
 - **WHEN** Room が restored DB を open し、必要な migration が完了して `DatabaseCallback.onOpen()` が呼ばれる
 - **THEN** システムは post-DB-open startup task として completion checker を I/O dispatcher 上で起動する
 
+#### Scenario: DatabaseCallback は checker の operational exception を局所的に隔離する
+- **WHEN** `DatabaseCallback.onOpen()` が起動した coroutine で provider 取得または completion checker から `CancellationException` 以外の `Exception` が送出される
+- **THEN** システムはその例外をログへ記録して swallow し、marker に基づく次回 cold start recovery を妨げない
+
+#### Scenario: DatabaseCallback は checker coroutine の cancellation を伝播する
+- **WHEN** `DatabaseCallback.onOpen()` が起動した completion checker coroutine で `CancellationException` が発生する
+- **THEN** システムは `CancellationException` を swallow せず再 throw する
+
 #### Scenario: Application や Activity 本体から completion checker を起動しない
 - **WHEN** システムが migration 成功確認の呼び出し位置を構成する
 - **THEN** システムは `SlevoApplication.onCreate()` または `MainActivity.onCreate()` 本体ではなく、Room migration 後に呼ばれる `DatabaseCallback.onOpen()` を使用する
@@ -108,9 +116,13 @@
 - **WHEN** Room open 後の post-migration validation が成功する
 - **THEN** システムは completed marker を記録してから success result、staging file、rollback backup を処理し、pending marker の削除は cleanup の最後に行う
 
+#### Scenario: completed marker 書き込み失敗時は成功処理を停止する
+- **WHEN** post-migration validation が成功したが completed marker の書き込みで `Exception` が発生する
+- **THEN** completion checker は例外を外へ投げず、success result 書き込みと cleanup を実行せず、migration-pending marker と rollback backup を次回 cold start recovery 用に保持する
+
 #### Scenario: success result 書き込み失敗でも rollback しない
 - **WHEN** post-migration validation が成功して completed marker が記録された後に success result の書き込みが失敗する
-- **THEN** システムは rollback を実行せず、rollback backup と staging file を削除せず、completed marker を保持して次回 cold start で success result 書き込みと cleanup を再試行する
+- **THEN** completion checker は例外を外へ投げず、後続 cleanup を実行せず、rollback backup と staging file を削除せず、completed marker を保持して次回 cold start で success result 書き込みと cleanup を再試行する
 
 #### Scenario: completed marker が残る場合は rollback しない
 - **WHEN** completed marker が残っている状態でアプリが cold start する
@@ -140,9 +152,17 @@
 - **WHEN** completion checker が rollback-required marker と result file の記録に成功する
 - **THEN** システムは同じ session では live DB file の置換、rollback、quarantine、process restart を行わず、次回 cold start の recovery に委ねる
 
-#### Scenario: rollback-required の記録失敗時は migration-pending を残す
-- **WHEN** Room open 後の post-migration validation が失敗したが、rollback-required marker または result file の書き込みに失敗する
-- **THEN** システムは live DB file を変更せず、migration-pending marker と rollback backup を残し、completion checker から例外を外へ投げない
+#### Scenario: rollback-required result 書き込み失敗時は marker 更新を停止する
+- **WHEN** Room open 後の post-migration validation が失敗し、rollback-required result の書き込みで `Exception` が発生する
+- **THEN** completion checker は例外を外へ投げず、rollback-required marker を書き込まず、migration-pending marker と rollback backup を recovery authority として保持する
+
+#### Scenario: rollback-required marker 書き込み失敗時は migration-pending を保持する
+- **WHEN** rollback-required result の書き込みは成功したが、marker の rollback-required への atomic replace で `Exception` が発生する
+- **THEN** completion checker は例外を外へ投げず、live DB file と rollback backup を変更せず、既存の migration-pending marker を recovery authority として保持する
+
+#### Scenario: completion checker の operational exception は recovery state を保持する
+- **WHEN** marker 読み取りまたは post-migration validation を含む completion checker の operational 処理で `CancellationException` 以外の `Exception` が発生する
+- **THEN** completion checker は例外を外へ投げず、失敗した操作より後の write/cleanup を実行せず、直近の durable marker と rollback backup を次回 cold start recovery 用に保持する
 
 #### Scenario: rollback-required は次回 cold start で rollback する
 - **WHEN** アプリ起動時に rollback-required marker が存在する

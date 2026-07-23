@@ -16,9 +16,10 @@ import java.nio.charset.StandardCharsets
 internal class AtomicPendingRestoreMarkerFile(
     private val markerFile: File,
     private val adapter: JsonAdapter<PendingRestoreMarker>,
+    private val atomicFile: AtomicFile = AtomicFile(markerFile),
 ) {
-    private val atomicFile = AtomicFile(markerFile)
     private val backupFile = File("${markerFile.path}.bak")
+    private val temporaryFile = File("${markerFile.path}.new")
 
     /**
      * 確定済みmarkerを読み取る。
@@ -65,6 +66,7 @@ internal class AtomicPendingRestoreMarkerFile(
         val output: FileOutputStream = atomicFile.startWrite()
         try {
             output.write(adapter.toJson(marker).toByteArray(StandardCharsets.UTF_8))
+            output.fd.sync()
             atomicFile.finishWrite(output)
         } catch (error: Exception) {
             try {
@@ -74,5 +76,16 @@ internal class AtomicPendingRestoreMarkerFile(
             }
             throw error
         }
+    }
+
+    /** marker と interrupted write の backup を削除し、marker removal の成否を返す。 */
+    fun delete(): Boolean {
+        var deleted = true
+        // temp file を先に除去し、失敗時に authoritative marker を残す。
+        if (temporaryFile.exists() && !temporaryFile.delete()) deleted = false
+        if (!deleted) return false
+        if (markerFile.exists() && !markerFile.delete()) deleted = false
+        if (backupFile.exists() && !backupFile.delete()) deleted = false
+        return deleted && !markerFile.exists() && !backupFile.exists() && !temporaryFile.exists()
     }
 }

@@ -42,6 +42,12 @@ class PendingRestoreManager @Inject constructor(
         AtomicPendingRestoreMarkerFile(markerFile, moshi.adapter<PendingRestoreMarker>())
     }
     private val resultDir: File get() = File(context.filesDir, RESULT_DIR_NAME)
+    private val resultStore by lazy {
+        AtomicPendingRestoreResultFile(
+            File(resultDir, RESULT_FILENAME),
+            moshi.adapter<PendingRestoreResultFile>(),
+        )
+    }
 
     // test-only hook: true にすると marker write が故意に失敗する
     internal var shouldFailMarkerWrite: Boolean = false
@@ -160,14 +166,12 @@ class PendingRestoreManager @Inject constructor(
      */
     fun writeResultFile(success: Boolean, message: String) {
         synchronized(PendingRestoreResultFileLock.monitor) {
-            resultDir.mkdirs()
-            val result = PendingRestoreResultFile(
-                success = success,
-                message = message,
-                timestamp = Instant.now().toString(),
-            )
-            File(resultDir, RESULT_FILENAME).writeText(
-                moshi.adapter<PendingRestoreResultFile>().toJson(result),
+            resultStore.write(
+                PendingRestoreResultFile(
+                    success = success,
+                    message = message,
+                    timestamp = Instant.now().toString(),
+                ),
             )
         }
     }
@@ -177,10 +181,9 @@ class PendingRestoreManager @Inject constructor(
      */
     fun readResultFile(): PendingRestoreResultFile? {
         synchronized(PendingRestoreResultFileLock.monitor) {
-            val file = File(resultDir, RESULT_FILENAME)
-            if (!file.exists()) return null
+            val raw = resultStore.readRaw() ?: return null
             return try {
-                moshi.adapter<PendingRestoreResultFile>().fromJson(file.readText())
+                moshi.adapter<PendingRestoreResultFile>().fromJson(raw)
             } catch (_: Exception) {
                 null
             }
@@ -192,15 +195,17 @@ class PendingRestoreManager @Inject constructor(
      */
     fun deleteResultFile() {
         synchronized(PendingRestoreResultFileLock.monitor) {
-            File(resultDir, RESULT_FILENAME).delete()
+            resultStore.delete()
         }
     }
 
     /**
      * pending directory と rollback directory を cleanup する。
+     *
+     * @return directory が存在しない、または削除完了した場合は true。
      */
-    fun cleanupPendingDir() {
-        pendingDir.deleteRecursively()
+    fun cleanupPendingDir(): Boolean {
+        return !pendingDir.exists() || pendingDir.deleteRecursively() && !pendingDir.exists()
     }
 
     /**
@@ -226,7 +231,9 @@ class PendingRestoreManager @Inject constructor(
         if (marker == null) {
             // marker なしで staging directory が存在する場合は不完全 staging として cleanup
             if (pendingDir.exists()) {
-                cleanupPendingDir()
+                if (!cleanupPendingDir()) {
+                    return "incomplete pending restore cleanup failed; retry before preparing"
+                }
             }
             // result file のみ存在する場合は削除
             deleteResultFile()
@@ -252,8 +259,11 @@ class PendingRestoreManager @Inject constructor(
             RestoreStatus.FAILED -> {
                 // failed の場合は pending だけ cleanup し、result file は診断用に保持。
                 // cleanup 成功時のみ新規復元準備可。
-                cleanupPendingDir()
-                null
+                if (cleanupPendingDir()) {
+                    null
+                } else {
+                    "previous pending restore cleanup failed; retry recovery before preparing"
+                }
             }
         }
     }

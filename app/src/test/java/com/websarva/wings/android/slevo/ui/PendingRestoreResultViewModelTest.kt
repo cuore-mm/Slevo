@@ -9,10 +9,15 @@ import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.Dispatchers
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.advanceTimeBy
@@ -177,78 +182,57 @@ class PendingRestoreResultViewModelTest {
     /** generationを跨ぐ遅延readは新しい観察の結果とstateを上書きしない。 */
     @Test
     fun staleNonCooperativeRead_cannotPublishAfterRestart() = runTest {
-        val consumer = mockk<PendingRestoreResultConsumer>()
-        val readStarted = CountDownLatch(1)
-        val currentReadCompleted = CountDownLatch(1)
-        val staleReadCompleted = CountDownLatch(1)
-        val releaseRead = CountDownLatch(1)
         val stale = notification("stale", PendingRestoreNotificationType.FAILURE)
         val current = notification("current", PendingRestoreNotificationType.SUCCESS)
-        every { consumer.read() } answers {
-            if (readStarted.count == 1L) {
-                readStarted.countDown()
-                releaseRead.await(1, TimeUnit.SECONDS)
-                staleReadCompleted.countDown()
-                PendingRestoreResultRead.Ready(stale)
-            } else {
-                currentReadCompleted.countDown()
-                PendingRestoreResultRead.Ready(current)
-            }
-        }
-        val viewModel = createViewModel(consumer, testScheduler, Dispatchers.IO)
+        val fixture = NonCooperativeReadFixture(stale, current)
+        val viewModel = createViewModel(fixture.consumer, testScheduler, fixture.dispatcher)
 
         try {
             viewModel.startObservation()
-            assertTrue(readStarted.await(1, TimeUnit.SECONDS))
+            assertTrue(fixture.firstReadStarted.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
             viewModel.stopObservation()
             viewModel.startObservation()
-            assertTrue(currentReadCompleted.await(1, TimeUnit.SECONDS))
-            advanceUntilIdle()
+            assertTrue(fixture.awaitDispatcherTaskCompleted(1))
+            runCurrent()
             assertEquals("current", viewModel.uiState.value.notification?.token)
 
-            releaseRead.countDown()
-            assertTrue(staleReadCompleted.await(1, TimeUnit.SECONDS))
-            advanceUntilIdle()
+            fixture.releaseFirstRead()
+            assertTrue(fixture.awaitDispatcherTaskCompleted(0))
+            runCurrent()
 
             assertEquals("current", viewModel.uiState.value.notification?.token)
-            verify(exactly = 2) { consumer.read() }
+            verify(exactly = 2) { fixture.consumer.read() }
         } finally {
-            releaseRead.countDown()
+            fixture.releaseFirstRead()
             viewModel.stopObservation()
+            fixture.close()
         }
     }
 
     /** ViewModel clear後に完了した遅延readはstateや後続readへ作用しない。 */
     @Test
     fun viewModelClear_invalidatesObservationGeneration() = runTest {
-        val consumer = mockk<PendingRestoreResultConsumer>()
-        val readStarted = CountDownLatch(1)
-        val readCompleted = CountDownLatch(1)
-        val releaseRead = CountDownLatch(1)
         val stale = notification("stale", PendingRestoreNotificationType.FAILURE)
-        every { consumer.read() } answers {
-            readStarted.countDown()
-            releaseRead.await(1, TimeUnit.SECONDS)
-            readCompleted.countDown()
-            PendingRestoreResultRead.Ready(stale)
-        }
-        val viewModel = createViewModel(consumer, testScheduler, Dispatchers.IO)
+        val fixture = NonCooperativeReadFixture(stale)
+        val viewModel = createViewModel(fixture.consumer, testScheduler, fixture.dispatcher)
 
         try {
             viewModel.startObservation()
-            assertTrue(readStarted.await(1, TimeUnit.SECONDS))
+            assertTrue(fixture.firstReadStarted.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
             ViewModelStore().apply {
                 put("pendingRestore", viewModel)
                 clear()
             }
-            releaseRead.countDown()
-            assertTrue(readCompleted.await(1, TimeUnit.SECONDS))
-            advanceUntilIdle()
+            fixture.releaseFirstRead()
+            assertTrue(fixture.awaitDispatcherTaskCompleted(0))
+            runCurrent()
 
             assertEquals(null, viewModel.uiState.value.notification)
-            verify(exactly = 1) { consumer.read() }
+            verify(exactly = 1) { fixture.consumer.read() }
         } finally {
-            releaseRead.countDown()
+            fixture.releaseFirstRead()
+            viewModel.stopObservation()
+            fixture.close()
         }
     }
 
@@ -305,4 +289,74 @@ class PendingRestoreResultViewModelTest {
         token: String,
         type: PendingRestoreNotificationType,
     ): PendingRestoreNotification = PendingRestoreNotification(token, type)
+
+    /** 2本のexecutor thread上でreadを停止させ、dispatcher task完了を観測するtest fixture。 */
+    private class NonCooperativeReadFixture(
+        private val firstResult: PendingRestoreNotification,
+        private val secondResult: PendingRestoreNotification? = null,
+    ) : AutoCloseable {
+        private val executor = Executors.newFixedThreadPool(2)
+        private val executorDispatcher = executor.asCoroutineDispatcher()
+        private val nextTaskId = AtomicInteger(0)
+        private val taskCompletions = ConcurrentHashMap<Int, CountDownLatch>()
+        private val releaseFirstReadLatch = CountDownLatch(1)
+        val firstReadStarted = CountDownLatch(1)
+        val consumer = mockk<PendingRestoreResultConsumer>()
+        val dispatcher: CoroutineDispatcher = object : CoroutineDispatcher() {
+            override fun isDispatchNeeded(context: CoroutineContext): Boolean = true
+
+            /** 各dispatcher taskをexecutorへ送り、完了時に対応するlatchを通知する。 */
+            override fun dispatch(context: CoroutineContext, block: Runnable) {
+                val taskId = nextTaskId.getAndIncrement()
+                val completion = CountDownLatch(1)
+                taskCompletions[taskId] = completion
+                executorDispatcher.dispatch(context) {
+                    try {
+                        block.run()
+                    } finally {
+                        completion.countDown()
+                    }
+                }
+            }
+        }
+
+        private val readNumber = AtomicInteger(0)
+
+        init {
+            every { consumer.read() } answers {
+                if (readNumber.getAndIncrement() == 0) {
+                    firstReadStarted.countDown()
+                    releaseFirstReadLatch.await()
+                    PendingRestoreResultRead.Ready(firstResult)
+                } else {
+                    PendingRestoreResultRead.Ready(
+                        secondResult ?: firstResult,
+                    )
+                }
+            }
+        }
+
+        /** 指定したreadのdispatcher task全体が終了するまで待機する。 */
+        fun awaitDispatcherTaskCompleted(taskId: Int): Boolean =
+            taskCompletions.computeIfAbsent(taskId) { CountDownLatch(1) }
+                .await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+
+        /** 最初のreadを解放し、non-cooperative taskが復帰できるようにする。 */
+        fun releaseFirstRead() {
+            releaseFirstReadLatch.countDown()
+        }
+
+        /** dispatcherと所有executorを閉じ、全taskの終了を待機する。 */
+        override fun close() {
+            executorDispatcher.close()
+            executor.shutdown()
+            check(executor.awaitTermination(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                "read fixture executor did not terminate"
+            }
+        }
+    }
+
+    private companion object {
+        private const val AWAIT_TIMEOUT_SECONDS = 5L
+    }
 }
