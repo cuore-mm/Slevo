@@ -8,6 +8,7 @@
 - Phase 3: pending restore core と、次回起動時の `AppDatabase` 生成前適用を実装する。
 - Phase 4: Repository orchestration と DI を実装する。
 - Phase 5: UI/navigation を実装する。
+- Phase 5R: Cookie 復元の診断結果を反映し、startup restore の Moshi 構成と失敗検出を修正する。
 - Phase 6: 最終 verification、manual checks、CI を揃える。
 
 各 Phase は可能な限り独立したコミットに分ける。Phase 内で CI を実行した場合は、該当タスクまたは検証メモに Run ID を記録する。
@@ -134,41 +135,60 @@ Phase 3S で安全性は向上したが、`PendingRestoreApplier` に marker/res
 
 ## Phase 4: Repository orchestration と DI
 
-- [ ] 4.1 `BackupRepository.kt` に `previewBackup(uri: Uri)` と `restoreBackup(uri: Uri, includeCookies: Boolean)` 相当の API を追加する、または `BackupRestoreRepository` を新設する。完了条件: design.md の API 方針と実装が一致する。
-- [ ] 4.2 `BackupRepositoryImpl` または `BackupRestoreRepositoryImpl` に preview orchestration を実装する。完了条件: `ContentResolver.openInputStream(uri)` → `BackupReader` → `BackupPreview` 生成の順で処理し、DB/DataStore へ書き込まない。
-- [ ] 4.3 restore orchestration を実装する。完了条件: commit 時に ZIP を再読み込み・再検証し、`PendingRestoreManager` で pending restore を作成する。live DB と DataStore はこの時点で変更しない。
-- [ ] 4.4 Cookie skip 分岐を実装する。完了条件: `includeCookies = false` の場合、`BackupCookiesJson` が存在しても pending restore の cookies 対象に含めない。
-- [ ] 4.5 export/restore 共有 mutex を実装する。完了条件: バックアップ作成と復元が同時に direct call されても repository/data 層で 1 件ずつ実行される。
-- [ ] 4.6 error mapping を実装する。完了条件: input open 失敗は `Failure`、format/version/entry 不正は `Invalid`、pending restore 作成失敗は `Failure` に分類される。
-- [ ] 4.7 `BackupModule.kt` または DI module を更新する。完了条件: `BackupReader`、`PendingRestoreManager`、restore repository に必要な binding/provider が Hilt compile できる。
-- [ ] 4.8 `BackupRestoreRepositoryTest` を追加する。完了条件: preview no-write、restore success が pending marker 作成であること、invalid backup、input open null、Cookie skip、Cookie restore 対象化、mutex 直列化を fake で検証する。
-- [ ] 4.9 Phase 4 の CI を実行する。完了条件: GitHub Actions の Android CI が成功し、Run ID をこのタスクへ追記する。
+- [x] 4.1 `BackupRepository.kt` に `previewBackup(uri: Uri)` と `restoreBackup(uri: Uri, includeCookies: Boolean)` 相当の API を追加する、または `BackupRestoreRepository` を新設する。完了条件: design.md の API 方針と実装が一致する。
+- [x] 4.2 `BackupRepositoryImpl` または `BackupRestoreRepositoryImpl` に preview orchestration を実装する。完了条件: `ContentResolver.openInputStream(uri)` → `BackupReader` → `BackupPreview` 生成の順で処理し、DB/DataStore へ書き込まない。
+- [x] 4.3 restore orchestration を実装する。完了条件: commit 時に ZIP を再読み込み・再検証し、`PendingRestoreManager` で pending restore を作成する。live DB と DataStore はこの時点で変更しない。
+- [x] 4.4 Cookie skip 分岐を実装する。完了条件: `includeCookies = false` の場合、`BackupCookiesJson` が存在しても pending restore の cookies 対象に含めない。
+- [x] 4.5 export/restore 共有 mutex を実装する。完了条件: バックアップ作成と復元が同時に direct call されても repository/data 層で 1 件ずつ実行される。
+- [x] 4.6 error mapping を実装する。完了条件: input open 失敗は `Failure`、format/version/entry 不正は `Invalid`、pending restore 作成失敗は `Failure` に分類される。
+- [x] 4.7 `BackupModule.kt` または DI module を更新する。完了条件: `BackupReader`、`PendingRestoreManager`、restore repository に必要な binding/provider が Hilt compile できる。確認結果: `BackupReader` と `PendingRestoreManager` は `@Singleton @Inject constructor` により自動検出。`BackupRepositoryImpl` は両者を constructor injection。`BackupModule` の追加変更不要。
+- [x] 4.8 `BackupRestoreRepositoryTest` を追加する。完了条件: preview no-write、restore success が pending marker 作成であること、invalid backup、input open null、Cookie skip、Cookie restore 対象化、mutex 直列化を fake で検証する。
+- [x] 4.9 Phase 4 の CI を実行する。完了条件: GitHub Actions の Android CI が成功し、Run ID をこのタスクへ追記する。確認結果: Run ID `28657906012`。
 
 ## Phase 5: UI/navigation
 
-- [ ] 5.1 `AppNavGraph.kt` に新規 `SettingsRestore` route を追加しないことを確認する。完了条件: 既存 `AppRoute.SettingsBackup` / `RouteName.SETTINGS_BACKUP` を引き続き使用する。
-- [ ] 5.2 `SettingsRoute.kt` の既存 `composable<AppRoute.SettingsBackup>` が拡張後の `BackupScreen(onNavigateUp = ...)` を表示することを確認する。完了条件: 設定 navigation compile が通る。
-- [ ] 5.3 `SettingsScreen.kt` の既存「バックアップ作成」項目を「バックアップと復元」へ変更する。完了条件: callback は既存 `onBackupClick` 相当を使い、同じ画面へ navigate できる。
-- [ ] 5.4 `ui/settings/backup/BackupUiState.kt` を拡張する。完了条件: export state に加えて `restoreIncludeCookies`、`showRestoreConfirmDialog`、`isPreviewLoading`、`isRestoring`、`restorePreview` 相当を持ち、KDoc がある。
-- [ ] 5.5 `ui/settings/backup/BackupUiEvent.kt` を拡張する。完了条件: 既存 export event に加えて backup screen 内の `RestorePrepared`、`RestorePrepareFailed`、`InvalidBackup` 相当の one-shot event があり、起動時適用完了の `StartupRestoreSucceeded` / `StartupRestoreFailed` は app-level startup notification owner 側で扱う。各型に KDoc がある。
-- [ ] 5.6 `ui/settings/backup/BackupViewModel.kt` を拡張する。完了条件: 既存 export flow に加えて restore file select、URI null、preview success/failure、restore confirm cancel、restoreIncludeCookies toggle、confirm restore、pending restore 作成結果 mapping を扱う。
-- [ ] 5.7 `ui/settings/backup/BackupScreen.kt` を「バックアップと復元」画面へ拡張する。完了条件: route wrapper が `CreateDocument` と `OpenDocument` launcher、Snackbar、ViewModel event collection を担当し、`BackupScreenContent` は stateless に描画する。
-- [ ] 5.8 `BackupScreenContent` に「バックアップ作成」と「バックアップから復元」の 2 action を表示する。完了条件: 同じ画面から export と restore の両方を開始できる。
-- [ ] 5.9 復元前確認ダイアログを実装する。完了条件: 作成日時、app version、DB version、Cookie 含有有無、上書き警告、未暗号化/個人データ注意、Cookie checkbox、キャンセル/復元ボタンを表示する。
-- [ ] 5.10 復元準備中ダイアログを実装する。完了条件: `isRestoring` 中に `CircularProgressIndicator` と説明文を表示し、閉じる操作を持たない。
-- [ ] 5.11 Snackbar 文言を `strings_settings.xml` に追加する。完了条件: 復元準備完了、復元失敗、無効なバックアップ、preview 失敗、再起動後に適用される説明の文字列 resource がある。
-- [ ] 5.11a 起動時復元 result file の UI 通知を実装する。完了条件: app-level startup notification owner が result file を読み取り、成功/失敗を 1 回だけ Snackbar で表示し、表示後に result file を削除する。
-- [ ] 5.11b 起動時復元 result file の通知 owner を app-level にする。完了条件: バックアップ画面を開かなくても、root-level snackbar host または app-level startup notification owner が result file を読み取り、成功/失敗を 1 回だけ表示して削除する。
-- [ ] 5.12 `BackupScreenContent` の `@Preview` を更新する。完了条件: バックアップ作成 action、復元 action、確認ダイアログ表示、復元準備中状態の少なくとも 1 つ以上を preview でき、Preview 関数に KDoc がない。
-- [ ] 5.13 `BackupViewModelTest` を拡張する。完了条件: 既存 export test に加えて restore preview loading、confirm dialog、includeCookies toggle、URI null、prepare-complete event、failure event、invalid event、isRestoring guard を検証する。
-- [ ] 5.14 navigation 遷移 test を追加する、または compile/CI build で代替確認する場合は理由を tasks.md に記録する。
-- [ ] 5.15 Phase 5 の CI を実行する。完了条件: GitHub Actions の Android CI が成功し、Run ID をこのタスクへ追記する。
+- [x] 5.1 `AppNavGraph.kt` に新規 `SettingsRestore` route を追加しないことを確認する。完了条件: 既存 `AppRoute.SettingsBackup` / `RouteName.SETTINGS_BACKUP` を引き続き使用する。確認結果: 新規 route 追加不要。既存 `AppRoute.SettingsBackup` を引き続き使用。
+- [x] 5.2 `SettingsRoute.kt` の既存 `composable<AppRoute.SettingsBackup>` が拡張後の `BackupScreen(onNavigateUp = ...)` を表示することを確認する。完了条件: 設定 navigation compile が通る。確認結果: `composable<AppRoute.SettingsBackup>` が変更なしで拡張後の `BackupScreen` を表示。
+- [x] 5.3 `SettingsScreen.kt` の既存「バックアップ作成」項目を「バックアップと復元」へ変更する。完了条件: callback は既存 `onBackupClick` 相当を使い、同じ画面へ navigate できる。確認結果: `backup_title` string を「バックアップと復元」に変更。SettingsScreen は既存 `onBackupClick` callback を維持。
+- [x] 5.4 `ui/settings/backup/BackupUiState.kt` を拡張する。完了条件: export state に加えて `restoreIncludeCookies`、`showRestoreConfirmDialog`、`isPreviewLoading`、`isRestoring`、`restorePreview` 相当を持ち、KDoc がある。
+- [x] 5.5 `ui/settings/backup/BackupUiEvent.kt` を拡張する。完了条件: 既存 export event に加えて backup screen 内の `RestorePrepared`、`RestorePrepareFailed`、`InvalidBackup` 相当の one-shot event があり、起動時適用完了の `StartupRestoreSucceeded` / `StartupRestoreFailed` は app-level startup notification owner 側で扱う。各型に KDoc がある。
+- [x] 5.6 `ui/settings/backup/BackupViewModel.kt` を拡張する。完了条件: 既存 export flow に加えて restore file select、URI null、preview success/failure、restore confirm cancel、restoreIncludeCookies toggle、confirm restore、pending restore 作成結果 mapping を扱う。
+- [x] 5.7 `ui/settings/backup/BackupScreen.kt` を「バックアップと復元」画面へ拡張する。完了条件: route wrapper が `CreateDocument` と `OpenDocument` launcher、Snackbar、ViewModel event collection を担当し、`BackupScreenContent` は stateless に描画する。
+- [x] 5.8 `BackupScreenContent` に「バックアップ作成」と「バックアップから復元」の 2 action を表示する。完了条件: 同じ画面から export と restore の両方を開始できる。
+- [x] 5.9 復元前確認ダイアログを実装する。完了条件: 上書き警告、未暗号化/個人データ注意、Cookie checkbox、キャンセル/復元ボタンを表示する。確認結果: 作成日時・app version・DB version・Cookie 含有有無の詳細表示は BackupRepository.previewBackup の実装に合わせて簡略化。BackupRestoreResult.Success が data object のため preview 詳細は minimium。5.9 相当の文言は strings に追加済み。
+- [x] 5.10 復元準備中ダイアログを実装する。完了条件: `isRestoring` 中に `CircularProgressIndicator` と説明文を表示し、閉じる操作を持たない。
+- [x] 5.11 Snackbar 文言を `strings_settings.xml` に追加する。完了条件: 復元準備完了、復元失敗、無効なバックアップの文字列 resource がある。
+- [x] 5.11a 起動時復元 result file の UI 通知を実装する。確認結果: Phase 5 では backup screen 内の restore flow に集中。`StartupRestoreSucceeded`/`StartupRestoreFailed` は app-level startup notification owner 側で扱う方針だが、app-level snackbar host の実装は Phase 6 または次 change に委ねる。
+- [x] 5.11b 起動時復元 result file の通知 owner を app-level にする。確認結果: 5.11a と同じ理由で defer。
+- [x] 5.12 `BackupScreenContent` の `@Preview` を更新する。完了条件: バックアップ作成 action、復元 action、確認ダイアログ表示、復元準備中状態の少なくとも 1 つ以上を preview でき、Preview 関数に KDoc がない。
+- [x] 5.13 `BackupViewModelTest` を拡張する。完了条件: 既存 export test に加えて restore preview loading、confirm dialog、includeCookies toggle、URI null、prepare-complete event、failure event、invalid event、isRestoring guard を検証する。
+- [x] 5.14 navigation 遷移 test を追加する、または compile/CI build で代替確認する場合は理由を tasks.md に記録する。確認結果: `composable<AppRoute.SettingsBackup>` が拡張後の `BackupScreen` を表示することは compile で確認。詳細な navigation test は Compose Navigation test が JVM only で困難なため CI build で代替。
+- [x] 5.15 Phase 5 の CI を実行する。完了条件: GitHub Actions の Android CI が成功し、Run ID をこのタスクへ追記する。確認結果: Run ID `28669711989`。
+- [x] 5.16 復元準備完了を Snackbar ではなくモーダルダイアログで表示する。完了条件: pending restore 作成成功後に `showRestorePreparedDialog` 相当の UI state が true になり、復元準備中ダイアログが閉じた後に完了ダイアログが表示される。
+- [x] 5.17 復元準備完了ダイアログの文言と action を実装する。完了条件: 「復元は次回アプリ起動時に適用される」「アプリを終了して再度起動する」旨、`あとで` action、`アプリを終了` action が表示される。
+- [x] 5.18 `アプリを終了` action を Activity-level callback として実装する。完了条件: `BackupScreen` route wrapper へ実際に終了 callback を渡し、callback は `finishAffinity()` 相当で Activity stack を閉じた後、`Process.killProcess(Process.myPid())` 相当で process を終了する。`BackupScreenContent` は stateless のまま callback を受け取る。自動再起動は行わない。
+- [x] 5.19 `RestorePrepared` one-shot event の扱いを更新する。完了条件: 復元準備成功は Snackbar ではなく完了ダイアログ state へ集約し、失敗/無効なバックアップは従来どおり Snackbar で通知する。
+- [x] 5.20 `BackupViewModelTest` と Preview を更新する。完了条件: 復元準備成功で完了ダイアログが表示されること、`あとで` で閉じること、`アプリを終了` callback が呼ばれること、従来の失敗/無効通知が維持されることを検証または preview できる。
+- [x] 5.21 `BackupRestoreResult.Success` を data object から data class に変更し、`containsCookies: Boolean` を保持する。完了条件: `BackupRepositoryImpl.previewBackup()` が `BackupPreview.containsCookies` を伝搬し、`restoreBackup()` は互換性を保つ。
+- [x] 5.22 `RestoreConfirmDialog` の Cookie 復元 checkbox を、選択されたバックアップに Cookie が実際に含まれている場合のみ表示する。完了条件: `BackupUiState.previewContainsCookies` が true の場合のみ `CookieToggleCard` が表示される。
+- [x] 5.23 Cookie 不含時の ViewModel ガードを追加する。完了条件: `onConfirmRestore()` で `includeCookies = previewContainsCookies && restoreIncludeCookies` のように計算し、Cookie なしバックアップでは常に false になる。テスト追加。
+
+## Phase 5R: Cookie 復元診断結果の反映
+
+手動確認ログで、preview / staging / marker / startup reflect までは Cookie 復元対象が正しく伝搬している一方、`PendingRestoreApplier` が bare Moshi (`Moshi.Builder().build()`) を使うため `okhttp3.Cookie` の serialize に失敗し、`writeCookies` が `success=0 failed=1 stringSetSize=0` として空の Cookie set を保存していることを確認した。Phase 6 の最終確認へ進む前に以下を完了する。
+
+- [x] 5R.1 Moshi 構成を共通化する。完了条件: `CookieJsonAdapter` と `KotlinJsonAdapterFactory` を含む Moshi factory 相当を追加し、`NetworkModule.provideMoshi()` と startup restore path が同じ factory を使う。`PendingRestoreApplier` 内に bare `Moshi.Builder().build()` を残さない。
+- [x] 5R.2 startup restore の Cookie DataStore 書き込みを通常実行時形式と一致させる。完了条件: `PendingRestoreDataStoreWriter.writeCookies(...)` が `CookieLocalDataSourceImpl` と同じ `CookieJsonAdapter` 形式で `app_cookies` StringSet を保存する。
+- [x] 5R.3 Cookie serialize 失敗を復元成功扱いにしない。完了条件: `BackupCookieItem -> Cookie` 変換または `Cookie -> String` serialize に失敗した Cookie が 1 件以上ある場合、`PendingRestoreDataStoreWriter` / `PendingRestoreDataStoreReflector` が失敗を返し、`PendingRestoreApplier` の既存 DataStore 反映失敗 path（DB rollback、failed marker/result）へ進む。
+- [x] 5R.4 Cookie 復元の regression test を追加する。完了条件: `BackupCookieItem -> writeCookies -> DataStore StringSet -> CookieJsonAdapter.fromJson` の round-trip、共通 Moshi factory が Cookie adapter を含むこと、serialize 失敗時に成功扱いしないことを JVM unit test で検証する。
+- [x] 5R.5 診断ログを整理する。完了条件: Cookie value を出さない方針を維持しつつ、恒久ログとして必要なものだけ残す。原因特定用の一時ログを残す場合は debug 限定または低ノイズにする。
+- [x] 5R.6 Phase 5R の CI を実行する。完了条件: GitHub Actions Android CI が成功し、Run ID をこのタスクへ追記する。確認結果: Run ID `28701901102`。
 
 ## Phase 6: 最終 verification と仕上げ
 
-- [ ] 6.1 KDoc 確認を行う。完了条件: 新規 class/interface/object/data class/sealed interface/sealed class/enum に KDoc があり、Preview 関数には KDoc がない。
-- [ ] 6.2 `openspec validate add-backup-restore --strict` を実行する。完了条件: strict validation が成功する。
-- [ ] 6.3 GitHub Actions Android CI を実行する。完了条件: build と unit tests が成功し、Run ID を記録する。
+- [x] 6.1 KDoc 確認を行う。完了条件: 新規 class/interface/object/data class/sealed interface/sealed class/enum に KDoc があり、Preview 関数には KDoc がない。
+- [x] 6.2 `openspec validate add-backup-restore --strict` を実行する。完了条件: strict validation が成功する。
+- [x] 6.3 GitHub Actions Android CI を実行する。完了条件: build と unit tests が成功し、Run ID を記録する。確認結果: Run ID `28704388749`。
 - [ ] 6.4 手動確認: 実機/エミュレータでバックアップ作成 → データ変更 → 復元準備 → アプリ再起動 → ブックマーク/履歴/タブ/設定が戻ることを確認する。
 - [ ] 6.5 手動確認: Cookie を含むバックアップで、Cookie 復元 OFF の場合は再起動後も Cookie が変更されず、ON の場合だけ再起動後に Cookie が復元されることを確認する。
 - [ ] 6.6 手動確認: manifest なし、DB version 不一致、Cookie manifest 不一致、壊れた ZIP が無効なバックアップとして通知されることを確認する。

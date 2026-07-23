@@ -47,6 +47,10 @@ class PendingRestoreManager @Inject constructor(
      * @return 成功時 `null`、失敗時エラーメッセージ。
      */
     suspend fun prepareRestore(preview: BackupPreview): String? {
+        logD("prepareRestore: preview.containsCookies=${preview.containsCookies}" +
+            " cookiesJson=${preview.cookiesJson != null}" +
+            " cookieCount=${preview.cookiesJson?.cookies?.size ?: 0}")
+
         // --- 既存 pending の確認 ---
         val existingError = handleExistingPending()
         if (existingError != null) return existingError
@@ -84,6 +88,9 @@ class PendingRestoreManager @Inject constructor(
             if (preview.cookiesJson != null) {
                 File(datastoreStagingDir, "cookies.json")
                     .writeText(moshi.adapter<BackupCookiesJson>().toJson(preview.cookiesJson))
+                logD("prepareRestore: staged cookies.json count=${preview.cookiesJson.cookies.size}")
+            } else {
+                logD("prepareRestore: preview.cookiesJson is null, skipping cookies.json staging")
             }
         } catch (e: Exception) {
             cleanupPendingDir()
@@ -97,6 +104,7 @@ class PendingRestoreManager @Inject constructor(
             includeCookies = preview.containsCookies,
             databaseVersion = preview.databaseVersion,
         )
+        logD("prepareRestore: writing marker includeCookies=${marker.includeCookies}")
         try {
             markerFile.writeText(
                 moshi.adapter<PendingRestoreMarker>().toJson(marker),
@@ -254,6 +262,15 @@ class PendingRestoreManager @Inject constructor(
      */
     fun getRollbackDir(): File = File(pendingDir, ROLLBACK_DIR_NAME)
 
+    private fun logD(message: String) {
+        try {
+            Log.d(TAG, message)
+        } catch (_: RuntimeException) {
+            // JVM unit test の Log stub では例外になるため握りつぶす。
+        }
+    }
+
+    /** 定数。 */
     companion object {
         private const val TAG = "PendingRestoreManager"
         internal const val PENDING_DIR_NAME = "pending-restore"

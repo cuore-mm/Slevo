@@ -20,7 +20,7 @@ import org.junit.Test
 class PendingRestoreDataStoreWriterTest {
     private val writer = PendingRestoreDataStoreWriter(
         context = io.mockk.mockk(relaxed = true),
-        moshi = com.squareup.moshi.Moshi.Builder().build(),
+        moshi = BackupMoshiFactory.create(),
     )
 
     // --- kebabToPascalCase ---

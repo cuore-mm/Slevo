@@ -89,6 +89,7 @@ class RealBackupDatabaseValidator @Inject constructor() : BackupDatabaseValidato
         }
     }
 
+    /** 定数。 */
     companion object {
         /** Room DB の期待する `PRAGMA user_version`。 */
         const val EXPECTED_USER_VERSION = 9

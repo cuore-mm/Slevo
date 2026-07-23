@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.data.backup
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.edit
 import com.squareup.moshi.Moshi
@@ -66,21 +67,40 @@ class PendingRestoreDataStoreWriter(
      *
      * 既存 CookieLocalDataSourceImpl と同じ形式 (各 Cookie を個別 JSON 文字列として
      * StringSet に保存) で書き込む。
+     * serialize に失敗した Cookie が 1 件以上ある場合はエラーメッセージを返す。
      *
      * @param cookiesJson 検証済みの cookies JSON。
+     * @return 成功時 `null`、失敗時エラーメッセージ。
      */
-    suspend fun writeCookies(cookiesJson: BackupCookiesJson) {
+    suspend fun writeCookies(cookiesJson: BackupCookiesJson): String? {
+        val totalCount = cookiesJson.cookies.size
+        var serializeFailed = 0
+
         val cookieJsonSet = cookiesJson.cookies.mapNotNull { item ->
             try {
-                val cookie = BackupRestoreMapper.toCookie(item) ?: return@mapNotNull null
-                moshi.adapter(okhttp3.Cookie::class.java).toJson(cookie)
-            } catch (_: Exception) {
+                val cookie = BackupRestoreMapper.toCookie(item) ?: run {
+                    serializeFailed++
+                    return@mapNotNull null
+                }
+                val json = moshi.adapter(okhttp3.Cookie::class.java).toJson(cookie)
+                json
+            } catch (e: Exception) {
+                serializeFailed++
+                logD("writeCookies serialize failed: domain=${item.domain}, name=${item.name}, reason=${e.message}")
                 null
             }
         }.toSet()
+
+        if (serializeFailed > 0) {
+            return "failed to serialize restored cookies: failed=$serializeFailed total=$totalCount"
+        }
+
         cookiesDataStore.edit { prefs ->
             prefs[SlevoPreferenceDataStores.COOKIE_KEY] = cookieJsonSet
         }
+
+        logD("writeCookies datastore written: stringSetSize=${cookieJsonSet.size}")
+        return null
     }
 
     /**
@@ -124,6 +144,19 @@ class PendingRestoreDataStoreWriter(
     }
 
     companion object {
+        private const val TAG = "PendRestDataStrWrtr"
+
+        /**
+         * テストで android.util.Log が使えない場合を考慮した安全ログ。
+         */
+        private fun logD(message: String) {
+            try {
+                Log.d(TAG, message)
+            } catch (_: RuntimeException) {
+                // JVM unit test の Log stub では例外になるため握りつぶす。
+            }
+        }
+
         /**
          * kebab-case 文字列を PascalCase へ変換する。
          *

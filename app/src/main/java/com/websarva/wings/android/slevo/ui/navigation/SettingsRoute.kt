@@ -18,6 +18,7 @@ import com.websarva.wings.android.slevo.ui.settings.backup.BackupScreen
 fun NavGraphBuilder.addSettingsRoute(
     navController: NavHostController,
     viewModel: SettingsViewModel,
+    onExitApp: () -> Unit = {},
 ) {
     navigation<AppRoute.Settings>(
         startDestination = AppRoute.SettingsHome,
@@ -72,6 +73,7 @@ fun NavGraphBuilder.addSettingsRoute(
         composable<AppRoute.SettingsBackup> {
             BackupScreen(
                 onNavigateUp = { navController.navigateUp() },
+                onFinishActivity = onExitApp,
             )
         }
     }

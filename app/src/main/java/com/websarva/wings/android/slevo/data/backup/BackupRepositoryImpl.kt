@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.data.backup
 
+import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import com.websarva.wings.android.slevo.BuildConfig
@@ -35,6 +36,8 @@ class BackupRepositoryImpl @Inject constructor(
     private val cookieDataSource: CookieLocalDataSource,
     private val dbExporter: DatabaseBackupExporter,
     private val outputWriter: BackupOutputWriter,
+    private val backupReader: BackupReader,
+    private val pendingRestoreManager: PendingRestoreManager,
 ) : BackupRepository {
 
     private val backupMutex = Mutex()
@@ -47,6 +50,50 @@ class BackupRepositoryImpl @Inject constructor(
     override suspend fun exportBackup(uri: Uri, includeCookies: Boolean): BackupExportResult {
         return backupMutex.withLock {
             exportInternal(uri, includeCookies)
+        }
+    }
+
+    /**
+     * SAF の [uri] からバックアップ ZIP を読み取り、検証して preview を返す。
+     * DB/DataStore へ書き込まない。
+     */
+    override suspend fun previewBackup(uri: Uri): BackupRestoreResult {
+        return backupMutex.withLock {
+            val input = openUri(uri) ?: return@withLock BackupRestoreResult.Failure("failed to open input")
+            when (val result = backupReader.readBackup(input)) {
+                is BackupReaderResult.Success -> BackupRestoreResult.Success(result.preview.containsCookies)
+                is BackupReaderResult.Error -> result.result
+            }
+        }
+    }
+
+    /**
+     * SAF の [uri] からバックアップ ZIP を再読み込み・再検証し、pending restore を作成する。
+     * live DB と DataStore はこの時点で変更しない。
+     */
+    override suspend fun restoreBackup(uri: Uri, includeCookies: Boolean): BackupRestoreResult {
+        return backupMutex.withLock {
+            // --- commit 時に ZIP を再読み込み・再検証 ---
+            val input = openUri(uri) ?: return@withLock BackupRestoreResult.Failure("failed to open input")
+            val preview = when (val result = backupReader.readBackup(input)) {
+                is BackupReaderResult.Success -> result.preview
+                is BackupReaderResult.Error -> return@withLock result.result
+            }
+
+            // --- Cookie skip ---
+            val effectivePreview = if (!includeCookies) {
+                preview.copy(cookiesJson = null, containsCookies = false)
+            } else {
+                preview
+            }
+
+            // --- pending restore 作成 ---
+            val error = pendingRestoreManager.prepareRestore(effectivePreview)
+            if (error != null) {
+                BackupRestoreResult.Failure(error)
+            } else {
+                BackupRestoreResult.Success(containsCookies = false)
+            }
         }
     }
 
@@ -146,6 +193,14 @@ class BackupRepositoryImpl @Inject constructor(
     }
 
     // --- helpers ---
+
+    private fun openUri(uri: Uri): java.io.InputStream? {
+        return try {
+            context.contentResolver.openInputStream(uri)
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     private fun createSessionDir(): File {
         val dir = File(context.cacheDir, "backups/${System.currentTimeMillis()}")

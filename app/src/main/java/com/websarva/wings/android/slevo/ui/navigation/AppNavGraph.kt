@@ -39,6 +39,7 @@ fun AppNavGraph(
     openDrawer: () -> Unit,
     tabSessionStore: TabSessionStore,
     sharedTransitionScope: SharedTransitionScope,
+    onExitApp: () -> Unit = {},
 ) {
     NavHost(
         navController = navController,
@@ -233,7 +234,8 @@ fun AppNavGraph(
         //設定画面
         addSettingsRoute(
             viewModel = settingsViewModel,
-            navController = navController
+            navController = navController,
+            onExitApp = onExitApp,
         )
         //このアプリについて
         composable<AppRoute.About>(

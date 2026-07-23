@@ -7,9 +7,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.outlined.Block
-import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Cookie
 import androidx.compose.material.icons.outlined.Gesture
+import androidx.compose.material.icons.outlined.SettingsBackupRestore
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -118,7 +118,7 @@ fun SettingsScreen(
                         headlineText = stringResource(id = R.string.backup_title),
                         leadingContent = {
                             Icon(
-                                imageVector = Icons.Outlined.CloudUpload,
+                                imageVector = Icons.Outlined.SettingsBackupRestore,
                                 contentDescription = stringResource(id = R.string.backup_title),
                             )
                         },

@@ -113,6 +113,7 @@ internal class RealPendingRestoreFileStore(
         }
     }
 
+    /** 定数。 */
     private companion object {
         private const val TAG = "PendingRestoreFileStore"
     }

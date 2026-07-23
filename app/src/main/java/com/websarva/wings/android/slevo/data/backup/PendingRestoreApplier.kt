@@ -61,7 +61,10 @@ internal class RealPendingRestoreDataStoreReflector(
             if (includeCookies && cookiesFile.exists()) {
                 val cookies = cookiesAdapter.fromJson(cookiesFile.readText())
                     ?: return "failed to parse cookies JSON"
-                writer.writeCookies(cookies)
+                val cookieError = writer.writeCookies(cookies)
+                if (cookieError != null) {
+                    return cookieError
+                }
             }
 
             null
@@ -100,7 +103,7 @@ class PendingRestoreApplier private constructor(
     )
 
     private val appContext = context.applicationContext ?: context
-    private val moshi = Moshi.Builder().build()
+    private val moshi = BackupMoshiFactory.create()
     private val fileStore = fileStoreOverride ?: RealPendingRestoreFileStore(appContext, moshi)
     private val dbSwapper = dbSwapperOverride ?: RealPendingRestoreDbSwapper(appContext)
     private val dataStoreReflector =
@@ -285,6 +288,7 @@ class PendingRestoreApplier private constructor(
         }
     }
 
+    /** 定数とテスト用 factory。 */
     companion object {
         private const val TAG = "PendingRestoreApplier"
 

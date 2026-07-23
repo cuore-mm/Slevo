@@ -309,6 +309,7 @@ class BackupReader @Inject constructor(
         return tmp
     }
 
+    /** 定数。 */
     companion object {
         const val MANIFEST_PATH = "manifest.json"
         const val DB_PATH = "database/slevo.db"

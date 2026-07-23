@@ -189,6 +189,7 @@ internal class RealPendingRestoreDbSwapper(
         }
     }
 
+    /** 定数。 */
     private companion object {
         private const val TAG = "PendingRestoreDbSwapper"
     }

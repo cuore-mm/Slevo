@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.os.Process
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -65,6 +66,10 @@ class MainActivity : ComponentActivity() {
                     tabSessionStore = tabSessionStore,
                     deepLinkUrlFlow = deepLinkUrlState.asStateFlow(),
                     onDeepLinkConsumed = { deepLinkUrlState.value = null },
+                    onExitApp = {
+                        finishAffinity()
+                        Process.killProcess(Process.myPid())
+                    },
                 )
             }
         }

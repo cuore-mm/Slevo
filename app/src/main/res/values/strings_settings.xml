@@ -70,17 +70,37 @@
     <string name="cookie_size">Size: %1$d</string>
     <string name="cookie_value_preview">Value: %1$s</string>
 
-    <!-- Backup -->
-    <string name="backup_title">バックアップ作成</string>
+    <!-- Backup & Restore -->
+    <string name="backup_title">バックアップと復元</string>
     <string name="backup_create_button">バックアップを作成</string>
+    <string name="backup_restore_button">バックアップから復元</string>
     <string name="backup_description">アプリのデータをZIPファイルに保存します</string>
+    <string name="backup_restore_description">バックアップファイルを選択してデータを復元します</string>
     <string name="backup_confirm_title">バックアップを作成しますか？</string>
     <string name="backup_confirm_description">バックアップには閲覧履歴、ブックマーク、投稿履歴、タブ状態、設定などの利用データが含まれます。このファイルは暗号化されません。安全な場所に保存してください。</string>
     <string name="backup_confirm_cookie_warning">クッキーには認証情報が含まれる可能性があります。</string>
     <string name="backup_include_cookies">クッキーを含める</string>
     <string name="backup_confirm_create">作成</string>
-    <string name="backup_exporting_title">バックアップを作成中</string>
+    <string name="backup_exporting_title">バックアップを作成しています</string>
     <string name="backup_exporting_message">データを書き出しています。しばらくお待ちください。</string>
     <string name="backup_snackbar_success">バックアップファイルを作成しました</string>
     <string name="backup_snackbar_failure">バックアップファイルの作成に失敗しました</string>
+
+    <!-- Restore -->
+    <string name="restore_confirm_title">バックアップから復元しますか？</string>
+    <string name="restore_confirm_description">現在のすべてのデータは、バックアップ作成時の内容で上書きされます。この操作は元に戻せません。\n復元は次回アプリ起動時に適用されます。</string>
+    <string name="restore_include_cookies">クッキーを復元する</string>
+    <string name="restore_confirm_restore">復元</string>
+    <string name="restore_preparing_title">復元を準備しています</string>
+    <string name="restore_preparing_message">バックアップを検証し、復元に必要なデータを準備しています。しばらくお待ちください。</string>
+    <string name="restore_snackbar_prepared">復元の準備が完了しました。アプリを再起動してください。</string>
+    <string name="restore_snackbar_failed">復元の準備に失敗しました</string>
+    <string name="restore_snackbar_invalid">無効または未対応のバックアップファイルです</string>
+    <string name="restore_prepared_title">復元の準備が完了しました</string>
+    <string name="restore_prepared_description">アプリを終了して、もう一度起動すると復元が適用されます。</string>
+    <string name="restore_prepared_later">あとで</string>
+    <string name="restore_prepared_exit">アプリを終了</string>
+    <string name="restore_backup_date">作成日時: %s</string>
+    <string name="restore_backup_version">バージョン: %s (db v%d)</string>
+    <string name="restore_backup_cookies_contained">クッキーを含む</string>
 </resources>

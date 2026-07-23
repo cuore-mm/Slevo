@@ -54,7 +54,8 @@ backup.zip
 - Cookie はバックアップに含まれていて、かつユーザーが確認ダイアログで「クッキーを復元する」を有効にした場合のみ復元する。
 - Room DB 置換時は次回アプリ起動時に `AppDatabase` 生成前へ適用し、実行中の Hilt singleton `AppDatabase` を close または再利用しない。
 - 復元対象 DB は置換前に読み取り専用 open と `PRAGMA integrity_check` で検証する。
-- 復元準備中は重複実行を防ぎ、進捗ダイアログ、準備完了/失敗/無効なバックアップの Snackbar を表示する。
+- 復元準備中は重複実行を防ぎ、進捗ダイアログ、準備完了ダイアログ、失敗/無効なバックアップの Snackbar を表示する。
+- 復元準備完了ダイアログの「アプリを終了」は Activity stack を閉じた後に process を終了し、次回ユーザー起動を cold start にする。
 - 外部ストレージ権限、`MANAGE_EXTERNAL_STORAGE`、FileProvider を追加しない。
 
 **Non-Goals:**
@@ -63,6 +64,7 @@ backup.zip
 - 既存データとのマージ復元は実装しない。
 - `databaseVersion` が現在 version と異なるバックアップの migration/downgrade 復元は実装しない。
 - 暗号化、パスワード保護、クラウド同期、自動復元は実装しない。
+- 復元準備完了後にアプリを自動再起動する機能は実装しない。
 - バックアップ ZIP format version 2 以降の読み込みは実装しない。
 - Room schema version や既存 entity 構造は変更しない。
 - Android Auto Backup の `backup_rules.xml` / `data_extraction_rules.xml` は変更しない。
@@ -199,7 +201,8 @@ filesDir/pending-restore/
 3. staging DB を読み取り専用で開き、`PRAGMA integrity_check` が `ok` を返すことを確認する。
 4. `settings.json`、`tabs.json`、復元対象の場合のみ `cookies.json` を pending restore directory へ保存する。
 5. `restore.json` を `status = "prepared"` として最後に書き込む。marker は最後に作ることで、不完全な staging を pending と誤認しない。
-6. UI は「復元の準備が完了しました。アプリを再起動すると復元が適用されます。」相当を通知する。
+6. UI は復元準備完了ダイアログを表示し、「復元は次回アプリ起動時に適用される」ことと、現在の画面を閉じても予約済み復元は保持されることを通知する。
+   「アプリを終了」action は `Activity.finishAffinity()` 相当で Activity stack を閉じた後、`Process.killProcess(Process.myPid())` 相当で process を終了する。`finishAffinity()` 単独では process が残り、`SlevoApplication.onCreate()` が再実行されず pending restore が適用されない可能性があるため採用しない。自動再起動は行わず、ユーザーが次回起動した cold start で `PendingRestoreApplier` を実行する。
 7. 次回アプリ起動時、`PendingRestoreApplier` が `AppDatabase` 生成前に `restore.json` を確認する。
 8. `status = "prepared"` の場合、live DB path の `-wal` / `-shm` sibling を best-effort で削除し、staging DB を live DB path へ置換する。
 9. 置換後 DB を読み取り専用で開き、`PRAGMA integrity_check` が `ok` を返すことを確認する。
@@ -450,6 +453,43 @@ PendingRestoreApplier
 - `PendingRestoreDataStoreReflector`: pending DataStore JSON を [PendingRestoreDataStoreWriter] へ委譲する薄い adapter。
 - `PendingRestoreDataStoreWriter`: DB/Hilt 非依存の経路で settings/tabs/cookies DataStore へ mapper 済み値を保存する。ただし DataStore instance は `SlevoPreferenceDataStores` から取得する。
 - 既存 `SettingsLocalDataSource.applyBackupSettings(...)` などを追加する場合でも、それは通常実行時 API とし、起動時 pending restore 適用では使用しない。
+
+#### 7.9 startup restore の Moshi は通常実行時の Cookie serializer と一致させる
+
+Cookie は `CookieLocalDataSourceImpl` が Moshi の `CookieJsonAdapter` を使って Preferences DataStore の `app_cookies` StringSet に保存している。startup restore で `BackupCookiesJson` を DataStore へ反映する `PendingRestoreDataStoreWriter` も同じ保存形式を書き込む必要があるため、`PendingRestoreApplier` / `PendingRestoreDataStoreReflector` が使う Moshi は通常実行時の Moshi と同じ Cookie adapter 構成でなければならない。
+
+`PendingRestoreApplier` 内で `Moshi.Builder().build()` のような bare Moshi を作ってはならない。bare Moshi は `okhttp3.Cookie` を `CookieJsonAdapter` 形式へ serialize できず、Cookie 復元が `success=0 failed=N` となって空の StringSet を保存し得る。
+
+推奨構造:
+
+```text
+SlevoMoshiFactory / AppMoshiFactory
+└─ create()
+   └─ Moshi.Builder()
+      ├─ KotlinJsonAdapterFactory
+      └─ CookieJsonAdapter
+
+NetworkModule.provideMoshi()
+└─ factory.create()
+
+PendingRestoreApplier / PendingRestoreFileStore / PendingRestoreDataStoreReflector
+└─ factory.create()
+```
+
+実装者向けの明確な条件:
+
+- `CookieJsonAdapter` を含む Moshi 構成を 1 箇所に集約し、通常実行時と startup restore で共有する。
+- `NetworkModule.provideMoshi()` と `PendingRestoreApplier` が別々に adapter list を手書きしない。
+- startup restore path で `Cookie::class.java` の serialize が失敗した場合、その Cookie だけを黙って落として成功扱いにしてはならない。
+- `PendingRestoreDataStoreWriter.writeCookies(...)` は backup cookie 件数、変換成功件数、失敗件数を把握できる構造にし、失敗が 1 件以上ある場合は `PendingRestoreDataStoreReflector` へ失敗を返す。
+- `PendingRestoreDataStoreReflector` は Cookie 書き込み失敗を DataStore 反映失敗として扱い、`PendingRestoreApplier` が既存の DataStore 反映失敗 path（DB rollback、failed marker/result）へ進めるようにする。
+- Cookie の value はログへ出力しない。診断ログが必要な場合も domain/name/count/error message 程度に留める。
+
+追加テスト方針:
+
+- 共通 Moshi factory が `CookieJsonAdapter` を含むことを検証する。
+- `PendingRestoreDataStoreWriter.writeCookies(...)` が `BackupCookieItem -> Cookie -> DataStore StringSet` を通常 `CookieLocalDataSourceImpl` と同じ形式で保存することを検証する。
+- Cookie serialize 失敗時に `writeCookies(...)` / `reflect(...)` が失敗を返し、復元成功扱いにしないことを検証する。
 
 startup restore writer が扱う DataStore path と key は以下に固定する。
 

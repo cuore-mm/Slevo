@@ -3,45 +3,27 @@ package com.websarva.wings.android.slevo.ui.settings.backup
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CloudUpload
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.outlined.Restore
+import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
@@ -53,15 +35,19 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * バックアップ作成画面の Route ラッパー。
+ * バックアップ作成と復元画面の Route ラッパー。
  *
  * ViewModel、SAF launcher、Snackbar イベント収集を保持し、
  * 純粋な UI 描画は [BackupScreenContent] へ委譲する。
+ *
+ * @param onFinishActivity 復元準備完了後、ユーザーがアプリ終了を選択したときに
+ *   現在の Activity stack を閉じる callback。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BackupScreen(
     onNavigateUp: () -> Unit,
+    onFinishActivity: () -> Unit = {},
     viewModel: BackupViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -70,22 +56,40 @@ fun BackupScreen(
     // --- Snackbar イベント収集 ---
     val successMessage = stringResource(id = R.string.backup_snackbar_success)
     val failureMessage = stringResource(id = R.string.backup_snackbar_failure)
-    LaunchedEffect(viewModel.events, snackbarHostState, successMessage, failureMessage) {
+    val restoreFailedMessage = stringResource(id = R.string.restore_snackbar_failed)
+    val invalidBackupMessage = stringResource(id = R.string.restore_snackbar_invalid)
+    LaunchedEffect(
+        viewModel.events, snackbarHostState,
+        successMessage, failureMessage, restoreFailedMessage, invalidBackupMessage,
+    ) {
         viewModel.events.collect { event ->
             snackbarHostState.showSnackbar(
                 when (event) {
                     BackupUiEvent.ExportSucceeded -> successMessage
                     BackupUiEvent.ExportFailed -> failureMessage
+                    BackupUiEvent.RestorePrepareFailed -> restoreFailedMessage
+                    BackupUiEvent.InvalidBackup -> invalidBackupMessage
                 },
             )
         }
     }
 
-    // --- SAF launcher ---
-    val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/zip")
+    // --- SAF launcher (バックアップ作成用) ---
+    val createLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"),
     ) { uri: Uri? ->
         viewModel.onUriReceived(uri)
+    }
+
+    // --- SAF launcher (復元用) ---
+    var restoreUri by remember { mutableStateOf<Uri?>(null) }
+    val openLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            restoreUri = uri
+            viewModel.onRestoreUriReceived(uri)
+        }
     }
 
     // --- 委譲 ---
@@ -93,20 +97,30 @@ fun BackupScreen(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
         onNavigateUp = onNavigateUp,
+        onFinishActivity = onFinishActivity,
         onBackupClick = viewModel::onBackupClick,
         onConfirmCancel = viewModel::onConfirmCancel,
-        // ViewModel の状態更新後、SAF 保存先選択を起動する。
         onConfirmCreate = {
             viewModel.onConfirmCreate()
             val filename = buildBackupFilename()
-            launcher.launch(filename)
+            createLauncher.launch(filename)
         },
         onCookiesToggle = viewModel::onCookiesToggle,
+        onRestoreClick = {
+            viewModel.onRestoreClick()
+            openLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
+        },
+        onRestoreConfirmCancel = viewModel::onRestoreConfirmCancel,
+        onRestoreCookiesToggle = viewModel::onRestoreCookiesToggle,
+        onConfirmRestore = {
+            restoreUri?.let { viewModel.onConfirmRestore(it) }
+        },
+        onRestorePreparedDismiss = viewModel::onRestorePreparedDismiss,
     )
 }
 
 /**
- * バックアップ作成画面の UI 本体。
+ * バックアップ作成・復元画面の UI 本体。
  *
  * ViewModel にも SAF launcher にも依存せず、
  * [BackupUiState] とコールバックだけで動作する。
@@ -118,12 +132,20 @@ fun BackupScreenContent(
     uiState: BackupUiState,
     snackbarHostState: SnackbarHostState,
     onNavigateUp: () -> Unit,
+    onFinishActivity: () -> Unit,
     onBackupClick: () -> Unit,
     onConfirmCancel: () -> Unit,
     onConfirmCreate: () -> Unit,
     onCookiesToggle: (Boolean) -> Unit,
+    onRestoreClick: () -> Unit,
+    onRestoreConfirmCancel: () -> Unit,
+    onRestoreCookiesToggle: (Boolean) -> Unit,
+    onConfirmRestore: () -> Unit,
+    onRestorePreparedDismiss: () -> Unit,
 ) {
-    // 確認ダイアログ
+    val isBusy = uiState.isExporting || uiState.isPreviewLoading || uiState.isRestoring
+
+    // 確認ダイアログ（バックアップ作成）
     if (uiState.showConfirmDialog) {
         BackupConfirmDialog(
             includeCookies = uiState.includeCookies,
@@ -133,9 +155,33 @@ fun BackupScreenContent(
         )
     }
 
-    // 処理中ダイアログ
+    // 確認ダイアログ（復元）
+    if (uiState.showRestoreConfirmDialog) {
+        RestoreConfirmDialog(
+            includeCookies = uiState.restoreIncludeCookies,
+            containsCookies = uiState.previewContainsCookies,
+            onCookiesToggle = onRestoreCookiesToggle,
+            onCancel = onRestoreConfirmCancel,
+            onRestore = onConfirmRestore,
+        )
+    }
+
+    // 処理中ダイアログ（バックアップ作成）
     if (uiState.isExporting) {
         ExportingDialog()
+    }
+
+    // 処理中ダイアログ（復元準備）
+    if (uiState.isRestoring) {
+        RestoringDialog()
+    }
+
+    // 復元準備完了ダイアログ
+    if (uiState.showRestorePreparedDialog) {
+        RestorePreparedDialog(
+            onDismiss = onRestorePreparedDismiss,
+            onFinishActivity = onFinishActivity,
+        )
     }
 
     Scaffold(
@@ -161,122 +207,32 @@ fun BackupScreenContent(
                         supportingText = stringResource(id = R.string.backup_description),
                         leadingContent = {
                             Icon(
-                                imageVector = Icons.Outlined.CloudUpload,
+                                imageVector = Icons.Outlined.UploadFile,
                                 contentDescription = stringResource(id = R.string.backup_create_button),
                             )
                         },
-                        onClick = {
-                            if (!uiState.isExporting) onBackupClick()
+                        onClick = { if (!isBusy) onBackupClick() },
+                    ),
+                    listItemSpecOfBasic(
+                        headlineText = stringResource(id = R.string.backup_restore_button),
+                        supportingText = stringResource(id = R.string.backup_restore_description),
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Outlined.Restore,
+                                contentDescription = stringResource(id = R.string.backup_restore_button),
+                            )
                         },
-                    )
+                        onClick = { if (!isBusy) onRestoreClick() },
+                    ),
                 ),
-                cardEnabled = !uiState.isExporting,
+                cardEnabled = !isBusy,
             )
         }
     }
 }
 
-/**
- * 確認ダイアログ。
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun BackupConfirmDialog(
-    includeCookies: Boolean,
-    onCookiesToggle: (Boolean) -> Unit,
-    onCancel: () -> Unit,
-    onCreate: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onCancel,
-        title = { Text(stringResource(id = R.string.backup_confirm_title)) },
-        text = {
-            Column {
-                Text(
-                    text = stringResource(id = R.string.backup_confirm_description),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Spacer(modifier = Modifier.height(24.dp))
+// --- helpers ---
 
-                val shape = MaterialTheme.shapes.largeIncreased
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(shape)
-                        .toggleable(
-                            value = includeCookies,
-                            enabled = true,
-                            role = Role.Checkbox,
-                            onValueChange = onCookiesToggle,
-                        ),
-                    shape = shape,
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Box(
-                                modifier = Modifier.size(24.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Checkbox(
-                                    checked = includeCookies,
-                                    onCheckedChange = null,
-                                    enabled = true,
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = stringResource(id = R.string.backup_include_cookies),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = stringResource(id = R.string.backup_confirm_cookie_warning),
-                            modifier = Modifier.padding(start = 32.dp),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = onCreate) {
-                Text(stringResource(id = R.string.backup_confirm_create))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onCancel) {
-                Text(stringResource(id = android.R.string.cancel))
-            }
-        },
-    )
-}
-
-/**
- * 処理中ダイアログ。
- */
-@Composable
-private fun ExportingDialog() {
-    AlertDialog(
-        onDismissRequest = { /* 処理中は閉じられない */ },
-        title = { Text(stringResource(id = R.string.backup_exporting_title)) },
-        text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(stringResource(id = R.string.backup_exporting_message))
-                Spacer(modifier = Modifier.height(16.dp))
-                CircularProgressIndicator()
-            }
-        },
-        confirmButton = { /* 処理中はボタンなし */ },
-    )
-}
-
-/**
- * 推奨ファイル名を生成する。
- */
 private fun buildBackupFilename(): String {
     val df = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)
     return "slevo-backup-${df.format(Date())}.zip"
@@ -293,27 +249,16 @@ private fun BackupScreenContentPreview() {
             uiState = BackupUiState(),
             snackbarHostState = remember { SnackbarHostState() },
             onNavigateUp = {},
+            onFinishActivity = {},
             onBackupClick = {},
             onConfirmCancel = {},
             onConfirmCreate = {},
             onCookiesToggle = {},
+            onRestoreClick = {},
+            onRestoreConfirmCancel = {},
+            onRestoreCookiesToggle = {},
+            onConfirmRestore = {},
+            onRestorePreparedDismiss = {},
         )
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun BackupConfirmDialogPreview() {
-    BackupConfirmDialog(
-        includeCookies = false,
-        onCookiesToggle = {},
-        onCancel = {},
-        onCreate = {},
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun ExportingDialogPreview() {
-    ExportingDialog()
 }

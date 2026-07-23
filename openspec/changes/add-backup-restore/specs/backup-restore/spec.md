@@ -168,7 +168,7 @@
 
 #### Scenario: 復元準備完了を通知する
 - **WHEN** pending restore の作成が完了する
-- **THEN** システムはアプリ再起動後に復元が適用されることをユーザーへ通知する
+- **THEN** システムは復元準備完了ダイアログで、アプリ再起動後に復元が適用されることをユーザーへ通知する
 
 ### Requirement: 起動時の pending restore 適用
 システムは pending restore が存在する場合、Hilt による `AppDatabase` 生成前に DB ファイルをバックアップ DB で全上書きしなければならない（MUST）。
@@ -345,7 +345,19 @@
 
 #### Scenario: 復元準備完了を表示する
 - **WHEN** pending restore の作成が完了する
-- **THEN** システムは復元準備が完了し、アプリ再起動後に復元が適用されることを Snackbar またはダイアログで表示する
+- **THEN** システムは復元準備が完了し、アプリ再起動後に復元が適用されることをモーダルの完了ダイアログで表示する
+
+#### Scenario: 復元準備完了ダイアログからあとで再起動を選択する
+- **WHEN** pending restore 作成完了後のダイアログでユーザーがあとで再起動する選択をする
+- **THEN** システムはダイアログを閉じ、prepared 状態の pending restore を保持する
+
+#### Scenario: 復元準備完了ダイアログからアプリ終了を選択する
+- **WHEN** pending restore 作成完了後のダイアログでユーザーがアプリ終了を選択する
+- **THEN** システムは現在の Activity stack を終了した後に process を終了し、次回ユーザー起動時の cold start で pending restore が適用される状態を保持する
+
+#### Scenario: 復元準備完了後に自動再起動しない
+- **WHEN** pending restore 作成完了後のダイアログでユーザーがアプリ終了を選択する
+- **THEN** システムは自動で MainActivity を再起動せず、ユーザーによる次回起動を待つ
 
 #### Scenario: 復元失敗を表示する
 - **WHEN** URI open、ZIP 読み込み、pending restore 作成、または起動時の pending restore 適用に失敗する
