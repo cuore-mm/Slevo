@@ -1,5 +1,12 @@
 package com.websarva.wings.android.slevo.data.backup
 
+import com.websarva.wings.android.slevo.data.backup.export.AppDatabaseConnection
+import com.websarva.wings.android.slevo.data.backup.export.ContextDatabasePathResolver
+import com.websarva.wings.android.slevo.data.backup.export.DatabaseConnection
+import com.websarva.wings.android.slevo.data.backup.export.DatabasePathResolver
+import com.websarva.wings.android.slevo.data.backup.restore.BackupDatabaseValidator
+import com.websarva.wings.android.slevo.data.backup.restore.CurrentDatabaseVersion
+import com.websarva.wings.android.slevo.data.backup.restore.RealBackupDatabaseValidator
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import dagger.Module
 import dagger.Provides
@@ -31,7 +38,7 @@ object BackupModule {
     ): BackupRepository = impl
 
     /**
-     * [DatabaseConnection] を Room の [com.websarva.wings.android.slevo.data.datasource.local.AppDatabase] 経由で提供する。
+     * [com.websarva.wings.android.slevo.data.backup.export.DatabaseConnection] を Room の [com.websarva.wings.android.slevo.data.datasource.local.AppDatabase] 経由で提供する。
      */
     @Provides
     @Singleton
@@ -40,7 +47,7 @@ object BackupModule {
     ): DatabaseConnection = impl
 
     /**
-     * [DatabasePathResolver] を Context 経由で提供する。
+     * [com.websarva.wings.android.slevo.data.backup.export.DatabasePathResolver] を Context 経由で提供する。
      */
     @Provides
     @Singleton
@@ -49,7 +56,7 @@ object BackupModule {
     ): DatabasePathResolver = impl
 
     /**
-     * [BackupDatabaseValidator] を [RealBackupDatabaseValidator] で提供する。
+     * [com.websarva.wings.android.slevo.data.backup.restore.BackupDatabaseValidator] を [com.websarva.wings.android.slevo.data.backup.restore.RealBackupDatabaseValidator] で提供する。
      */
     @Provides
     @Singleton
@@ -60,7 +67,7 @@ object BackupModule {
     /**
      * 現在の Room DB version を提供する。
      *
-     * [BackupReader] が manifest の databaseVersion と比較するために使う。
+     * [com.websarva.wings.android.slevo.data.backup.restore.BackupReader] が manifest の databaseVersion と比較するために使う。
      */
     @Provides
     @CurrentDatabaseVersion

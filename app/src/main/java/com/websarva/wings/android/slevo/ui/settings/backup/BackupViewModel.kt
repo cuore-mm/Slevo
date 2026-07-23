@@ -4,9 +4,9 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.websarva.wings.android.slevo.data.backup.BackupExportResult
+import com.websarva.wings.android.slevo.data.backup.export.BackupExportResult
 import com.websarva.wings.android.slevo.data.backup.BackupRepository
-import com.websarva.wings.android.slevo.data.backup.BackupRestoreResult
+import com.websarva.wings.android.slevo.data.backup.restore.BackupRestoreResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow

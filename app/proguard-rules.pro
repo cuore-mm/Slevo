@@ -19,3 +19,14 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# --- Moshi ---
+# Moshi generated adapters
+-keep class **JsonAdapter { *; }
+-keep class **JsonAdapter_* { *; }
+
+# Moshi enum support (keep field names for EnumJsonAdapter)
+-keepclassmembers @com.squareup.moshi.JsonClass class * extends java.lang.Enum {
+    <fields>;
+    **[] values();
+}

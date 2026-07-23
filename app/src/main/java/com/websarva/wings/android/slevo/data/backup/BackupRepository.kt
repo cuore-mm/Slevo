@@ -1,7 +1,8 @@
 package com.websarva.wings.android.slevo.data.backup
 
-import android.content.ContentResolver
 import android.net.Uri
+import com.websarva.wings.android.slevo.data.backup.export.BackupExportResult
+import com.websarva.wings.android.slevo.data.backup.restore.BackupRestoreResult
 
 /**
  * バックアップ作成と復元の repository インターフェース。
@@ -16,7 +17,7 @@ interface BackupRepository {
      *
      * @param uri SAF の `CreateDocument` が返した保存先 URI。
      * @param includeCookies クッキー JSON を含めるか。
-     * @return [BackupExportResult.Success] または [BackupExportResult.Failure]。
+     * @return [com.websarva.wings.android.slevo.data.backup.export.BackupExportResult.Success] または [com.websarva.wings.android.slevo.data.backup.export.BackupExportResult.Failure]。
      */
     suspend fun exportBackup(uri: Uri, includeCookies: Boolean): BackupExportResult
 
@@ -26,15 +27,15 @@ interface BackupRepository {
      * DB/DataStore へ書き込まない。UI での確認ダイアログ表示に使う。
      *
      * @param uri SAF の `OpenDocument` が返したバックアップ URI。
-     * @return 検証成功時は [BackupRestoreResult.Success]、失敗時は [BackupRestoreResult.Invalid] または
-     *   [BackupRestoreResult.Failure]。
+     * @return 検証成功時は [com.websarva.wings.android.slevo.data.backup.restore.BackupRestoreResult.Success]、失敗時は [com.websarva.wings.android.slevo.data.backup.restore.BackupRestoreResult.Invalid] または
+     *   [com.websarva.wings.android.slevo.data.backup.restore.BackupRestoreResult.Failure]。
      */
     suspend fun previewBackup(uri: Uri): BackupRestoreResult
 
     /**
      * SAF の [uri] からバックアップ ZIP を再読み込み・再検証し、pending restore を作成する。
      *
-     * live DB と DataStore はこの時点で変更しない。次回起動時に [PendingRestoreApplier] が適用する。
+     * live DB と DataStore はこの時点で変更しない。次回起動時に [com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreApplier] が適用する。
      *
      * @param uri SAF の `OpenDocument` が返したバックアップ URI。
      * @param includeCookies Cookie を復元対象に含めるか。

@@ -1,11 +1,20 @@
 package com.websarva.wings.android.slevo.data.backup
 
-import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import com.websarva.wings.android.slevo.BuildConfig
+import com.websarva.wings.android.slevo.data.backup.export.BackupDataMapper
+import com.websarva.wings.android.slevo.data.backup.export.BackupExportResult
+import com.websarva.wings.android.slevo.data.backup.export.BackupOutputException
+import com.websarva.wings.android.slevo.data.backup.export.BackupOutputWriter
+import com.websarva.wings.android.slevo.data.backup.export.BackupZipWriter
+import com.websarva.wings.android.slevo.data.backup.export.DatabaseBackupExporter
 import com.websarva.wings.android.slevo.data.backup.model.BackupManifest
 import com.websarva.wings.android.slevo.data.backup.model.IncludedContents
+import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreManager
+import com.websarva.wings.android.slevo.data.backup.restore.BackupReader
+import com.websarva.wings.android.slevo.data.backup.restore.BackupReaderResult
+import com.websarva.wings.android.slevo.data.backup.restore.BackupRestoreResult
 import com.websarva.wings.android.slevo.data.datasource.local.CookieLocalDataSource
 import com.websarva.wings.android.slevo.data.datasource.local.SettingsLocalDataSource
 import com.websarva.wings.android.slevo.data.datasource.local.TabsLocalDataSource
@@ -25,7 +34,7 @@ import javax.inject.Singleton
  * [BackupRepository] の実装。
  *
  * バックアップの全ステップ（manifest作成、DBエクスポート、DataStore読取、ZIP書込）を
- * 順序通りに orchestrate し、success/failure を [BackupExportResult] で返す。
+ * 順序通りに orchestrate し、success/failure を [com.websarva.wings.android.slevo.data.backup.export.BackupExportResult] で返す。
  * [backupMutex] で同時実行を 1 件ずつ直列化する。
  */
 @Singleton

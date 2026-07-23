@@ -4,7 +4,7 @@ import android.app.Application
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
-import com.websarva.wings.android.slevo.data.backup.PendingRestoreApplier
+import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreApplier
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressInterceptor
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.runBlocking
@@ -36,8 +36,8 @@ class SlevoApplication : Application() {
             runBlocking {
                 PendingRestoreApplier(this@SlevoApplication).runIfNeeded()
             }
-        } catch (e: Exception) {
-            android.util.Log.e("PendingRestore", "startup restore failed in SlevoApplication", e)
+        } catch (t: Throwable) {
+            android.util.Log.e("PendingRestore", "startup restore failed in SlevoApplication", t)
         }
 
         // --- Image loader setup ---

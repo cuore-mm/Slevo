@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.di
 import android.content.Context
 import androidx.room.RoomDatabase
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreCompletionChecker
 import com.websarva.wings.android.slevo.data.repository.BbsServiceRepository
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
@@ -27,6 +28,7 @@ class DatabaseCallback @Inject constructor(
     private val bookmarkBoardRepositoryProvider: Provider<BookmarkBoardRepository>,
     private val bookmarkThreadRepositoryProvider: Provider<ThreadBookmarkRepository>,
     private val threadStateRepositoryProvider: Provider<ThreadStateRepository>,
+    private val pendingRestoreCompletionCheckerProvider: Provider<PendingRestoreCompletionChecker>,
 ) : RoomDatabase.Callback() {
 
     // データベース操作用のコルーチンスコープ
@@ -54,6 +56,9 @@ class DatabaseCallback @Inject constructor(
         super.onOpen(db)
         applicationScope.launch {
             threadStateRepositoryProvider.get().collectStartupGarbage()
+        }
+        applicationScope.launch {
+            pendingRestoreCompletionCheckerProvider.get().runIfNeeded()
         }
     }
 

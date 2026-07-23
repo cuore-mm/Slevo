@@ -1,9 +1,9 @@
 package com.websarva.wings.android.slevo.ui.settings.backup
 
 import android.net.Uri
-import com.websarva.wings.android.slevo.data.backup.BackupExportResult
+import com.websarva.wings.android.slevo.data.backup.export.BackupExportResult
 import com.websarva.wings.android.slevo.data.backup.BackupRepository
-import com.websarva.wings.android.slevo.data.backup.BackupRestoreResult
+import com.websarva.wings.android.slevo.data.backup.restore.BackupRestoreResult
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import io.mockk.coEvery
 import io.mockk.mockk

@@ -1,6 +1,6 @@
 package com.websarva.wings.android.slevo.ui.settings.backup
 
-import com.websarva.wings.android.slevo.data.backup.BackupPreview
+import com.websarva.wings.android.slevo.data.backup.restore.BackupPreview
 
 /**
  * バックアップ作成と復元画面の UI 状態。

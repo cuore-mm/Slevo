@@ -73,6 +73,14 @@ android {
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
         }
+        create("releaseLocal") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            applicationIdSuffix = ".local"
+            versionNameSuffix = "-local"
+            matchingFallbacks += listOf("release")
+            resValue("string", "app_name", "Slevo (Local Release)")
+        }
         create("ci") {
             initWith(getByName("debug"))
             applicationIdSuffix = ".ci"
