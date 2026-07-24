@@ -453,6 +453,46 @@ class ThreadTabsCoordinatorTest {
         assertEquals(7, result.first().firstVisibleItemIndex)
     }
 
+    /** placeholder metadata is merged identically for pending projections and canonical rows. */
+    @Test
+    fun projection_placeholderEnsurePreservesResolvedMetadataAndTabFields() {
+        val current = testTab("resolved", 3, isPinned = true, scrollIndex = 7).copy(
+            title = "Resolved title",
+            boardName = "Resolved board",
+            boardUrl = "https://host/board/",
+            boardId = 42L,
+            resCount = 120,
+            firstVisibleItemScrollOffset = 30,
+        )
+        val unrelated = testTab("unrelated", 4, isPinned = false, scrollIndex = 2)
+        val placeholder = current.copy(
+            title = "https://host/test/read.cgi/board/resolved/",
+            boardName = "https://other.example/wrong/",
+            boardUrl = "https://other.example/wrong/",
+            boardId = 0L,
+            resCount = 80,
+            isPinned = false,
+            firstVisibleItemIndex = 0,
+            firstVisibleItemScrollOffset = 0,
+        )
+
+        val result = projectThreadTabs(
+            canonicalTabs = listOf(current, unrelated),
+            pendingOperations = listOf(ThreadTabPendingOperation.Ensure(placeholder)),
+        )
+
+        val projected = result.single { it.id == current.id }
+        assertEquals("Resolved title", projected.title)
+        assertEquals("Resolved board", projected.boardName)
+        assertEquals("https://host/board/", projected.boardUrl)
+        assertEquals(42L, projected.boardId)
+        assertEquals(120, projected.resCount)
+        assertEquals(3, projected.firstVisibleItemIndex)
+        assertEquals(30, projected.firstVisibleItemScrollOffset)
+        assertEquals(true, projected.isPinned)
+        assertEquals(listOf(current.id, unrelated.id), result.map { it.id })
+    }
+
     /** DB failure で pending projection を戻しても、同じ worker は後続 intent を停止しない。 */
     @Test
     fun failedMutation_restoresCanonicalStateAndContinuesQueue() = runTest {

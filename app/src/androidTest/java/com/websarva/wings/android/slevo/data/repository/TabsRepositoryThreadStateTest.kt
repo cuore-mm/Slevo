@@ -321,6 +321,108 @@ class TabsRepositoryThreadStateTest {
         assertEquals(initialTabs.map { it.id }.toSet(), afterDelete.map { it.id }.toSet())
     }
 
+    /** 既存の解決済み metadata へ placeholder を再 ensure しても canonical 値を保持する。 */
+    @Test
+    fun ensureExistingTab_placeholderMetadataPreservesCanonicalStateAndTabFields() = runBlocking {
+        val targetId = ThreadId.of("example.com", "test", "target")
+        val otherId = ThreadId.of("example.com", "test", "other")
+        insertOpenThreadTab(
+            threadId = targetId,
+            scrollIndex = 7,
+            scrollOffset = 30,
+            sortOrder = 1,
+            isPinned = true,
+        )
+        insertOpenThreadTab(threadId = otherId, scrollIndex = 2, scrollOffset = 4, sortOrder = 0)
+        val stateRepository = ThreadStateRepository(db.threadStateDao())
+        stateRepository.saveThreadState(
+            ThreadStateRepository.ThreadStateUpdate(
+                threadId = targetId,
+                boardId = 42L,
+                boardUrl = "https://example.com/test/",
+                boardName = "Resolved board",
+                title = "Resolved title",
+                latestResCount = 120,
+            )
+        )
+        stateRepository.saveThreadState(
+            ThreadStateRepository.ThreadStateUpdate(
+                threadId = otherId,
+                boardId = 7L,
+                boardUrl = "https://example.com/test/",
+                boardName = "Other board",
+                title = "Other title",
+                latestResCount = 15,
+            )
+        )
+        db.threadHistoryDao().insert(
+            ThreadHistoryEntity(
+                threadId = targetId,
+                boardUrl = "https://example.com/test/",
+                boardId = 42L,
+                boardName = "Resolved board",
+                title = "Resolved title",
+                resCount = 120,
+                readState = ThreadReadState(
+                    prevResCount = 100,
+                    lastReadResNo = 105,
+                    firstNewResNo = null,
+                ),
+            )
+        )
+
+        val placeholderRequest = ThreadTabInfo(
+            id = targetId,
+            title = "https://example.com/test/read.cgi/test/target/",
+            boardName = "https://other.example/wrong/",
+            boardUrl = "https://other.example/wrong/",
+            boardId = 0L,
+            resCount = 80,
+        )
+        repository.ensureOpenThreadTab(placeholderRequest)
+
+        val afterPlaceholder = repository.observeOpenThreadTabs().first()
+        assertEquals(listOf(otherId, targetId), afterPlaceholder.map { it.id })
+        val preserved = afterPlaceholder.single { it.id == targetId }
+        assertEquals(42L, preserved.boardId)
+        assertEquals("Resolved board", preserved.boardName)
+        assertEquals("https://example.com/test/", preserved.boardUrl)
+        assertEquals("Resolved title", preserved.title)
+        assertEquals(120, preserved.resCount)
+        assertEquals(100, preserved.prevResCount)
+        assertEquals(105, preserved.lastReadResNo)
+        assertEquals(null, preserved.firstNewResNo)
+        assertEquals(7, preserved.firstVisibleItemIndex)
+        assertEquals(30, preserved.firstVisibleItemScrollOffset)
+        assertEquals(true, preserved.isPinned)
+        assertEquals("Other title", afterPlaceholder.single { it.id == otherId }.title)
+
+        repository.ensureOpenThreadTab(
+            placeholderRequest.copy(
+                title = "Updated title",
+                boardName = "Updated board",
+                boardUrl = "https://example.com/test/",
+                boardId = 43L,
+                resCount = 130,
+            )
+        )
+
+        val afterResolvedUpdate = repository.observeOpenThreadTabs().first()
+        val updated = afterResolvedUpdate.single { it.id == targetId }
+        assertEquals(43L, updated.boardId)
+        assertEquals("Updated board", updated.boardName)
+        assertEquals("https://example.com/test/", updated.boardUrl)
+        assertEquals("Updated title", updated.title)
+        assertEquals(130, updated.resCount)
+        assertEquals(7, updated.firstVisibleItemIndex)
+        assertEquals(30, updated.firstVisibleItemScrollOffset)
+        assertEquals(true, updated.isPinned)
+        assertEquals(
+            afterPlaceholder.single { it.id == otherId },
+            afterResolvedUpdate.single { it.id == otherId },
+        )
+    }
+
     /**
      * テスト用の開いているスレッドタブを保存する。
      * Phase 3 ではタブ固有状態だけを保存し、タイトルやレス数は `thread_states` 側で用意する。
@@ -329,12 +431,15 @@ class TabsRepositoryThreadStateTest {
         threadId: ThreadId,
         scrollIndex: Int,
         scrollOffset: Int,
+        sortOrder: Int = 0,
+        isPinned: Boolean = false,
     ) {
         db.openThreadTabDao().upsertAll(
             listOf(
                 OpenThreadTabEntity(
                     threadId = threadId,
-                    sortOrder = 0,
+                    sortOrder = sortOrder,
+                    isPinned = isPinned,
                     firstVisibleItemIndex = scrollIndex,
                     firstVisibleItemScrollOffset = scrollOffset,
                 )

@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.tabs.coordinator
 
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
 
 /**
  * A pending tab operation that is applied on top of the latest Room snapshot.
@@ -84,24 +85,12 @@ internal fun isThreadTabOperationConfirmed(
     }
 }
 
-/** Merges fields owned by ThreadState while preserving tab-row values from the canonical snapshot. */
-private fun mergeThreadTabMetadata(current: ThreadTabInfo, update: ThreadTabInfo): ThreadTabInfo =
-    current.copy(
-        title = update.title,
-        boardName = update.boardName,
-        boardUrl = update.boardUrl,
-        boardId = if (update.boardId != 0L) update.boardId else current.boardId,
-        resCount = if (update.resCount != 0) update.resCount else current.resCount,
-        prevResCount = current.prevResCount,
-        lastReadResNo = current.lastReadResNo,
-        firstNewResNo = current.firstNewResNo,
-        newResCount = current.newResCount,
-    )
-
 /** Compares only the fields that are confirmed through the joined ThreadState Flow. */
-private fun ThreadTabInfo.matchesThreadMetadata(expected: ThreadTabInfo): Boolean =
-    title == expected.title &&
-        boardName == expected.boardName &&
-        boardUrl == expected.boardUrl &&
-        (expected.boardId == 0L || boardId == expected.boardId) &&
-        (expected.resCount == 0 || resCount == expected.resCount)
+private fun ThreadTabInfo.matchesThreadMetadata(expected: ThreadTabInfo): Boolean {
+    val merged = mergeThreadTabMetadata(this, expected)
+    return title == merged.title &&
+        boardName == merged.boardName &&
+        boardUrl == merged.boardUrl &&
+        boardId == merged.boardId &&
+        resCount == merged.resCount
+}

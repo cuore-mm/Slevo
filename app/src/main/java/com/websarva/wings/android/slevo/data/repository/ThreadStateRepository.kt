@@ -40,6 +40,9 @@ class ThreadStateRepository @Inject constructor(
     fun observeThreadStateMapByBoard(boardId: Long): Flow<Map<String, ThreadStateEntity>> =
         dao.observeByBoard(boardId).map { states -> states.associateBy { it.threadKey } }
 
+    /** Reads the canonical state used by an enclosing repository transaction. */
+    suspend fun getThreadState(threadId: ThreadId): ThreadStateEntity? = dao.find(threadId)
+
     /**
      * 1件のスレッド客観状態を保存する。
      * `threadKey` は必ず `threadId` から導出し、冗長カラムと主キー内のキーを一致させる。

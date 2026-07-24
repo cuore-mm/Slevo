@@ -8,6 +8,7 @@ import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
+import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionRuntimeState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
@@ -709,13 +710,7 @@ class ThreadTabsCoordinator @Inject constructor(
                 targetIndex = index
                 tabs.toMutableList().apply {
                     val existing = this[index]
-                    this[index] = existing.copy(
-                        title = tabInfo.title,
-                        boardName = tabInfo.boardName,
-                        boardUrl = tabInfo.boardUrl,
-                        boardId = if (tabInfo.boardId != 0L) tabInfo.boardId else existing.boardId,
-                        resCount = if (tabInfo.resCount != 0) tabInfo.resCount else existing.resCount,
-                    )
+                    this[index] = mergeThreadTabMetadata(existing, tabInfo)
                 }
             } else {
                 targetIndex = tabs.size

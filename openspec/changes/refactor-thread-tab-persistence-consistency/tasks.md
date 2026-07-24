@@ -14,10 +14,10 @@
 - [x] 2.3 `TabsRepository.kt` に対象行 delete と pin mutation を実装する。delete は他行を触らず、pin は対象列だけを更新して確定値/no-op を返し、どちらも既存 gate と transaction を一度だけ通ることを確認する。
 - [x] 2.4 `app/src/androidTest/java/com/websarva/wings/android/slevo/data/repository/TabsRepositoryThreadStateTest.kt` に 1,252 件を保存した Room in-memory DB の targeted add/delete/pin test を追加し、対象外 1,252/1,251 件の ID、sort、pin、scroll と ThreadState が不変で `deleteNotIn` 相当の消失がないことを確認する。
 - [x] 2.5 `TabsRepository.kt` の全件 API を通常操作向け `saveOpenThreadTabs` から bulk 専用の名前/可視性へ整理し、初回 load 後かつ exclusive orchestration からだけ使う契約を KDoc と API 境界に記述する。production 検索で通常 add/delete/pin/info/scroll call site が full replacement を参照しないことを確認する。
-- [ ] 2.6 `TabsRepository.ensureOpenThreadTab` で既存タブの DB canonical ThreadState を transaction 内で読み、design のフィールド単位規則で incoming metadata をマージしてから対象 ThreadState だけを保存する。新規タブ追加、sort/pin/scroll、bulk API、pin toggle、cancellation 経路は変更しない。
-- [ ] 2.7 repository、`ThreadTabsProjection.kt`、scope 未 bind の coordinator test seam が同じ placeholder 判定を使用するよう純粋な metadata merge 規則を共有し、pending 表示と Room canonical confirmation の値を一致させる。
-- [ ] 2.8 `app/src/androidTest/java/com/websarva/wings/android/slevo/data/repository/TabsRepositoryThreadStateTest.kt` に既存タブ再 ensure の決定的 Room テストを追加する。解決済み `boardId`、title、boardName、boardUrl と高い resCount を seed し、placeholder request 後も全 field、sort、pin、scroll、対象外行が不変であること、および非 placeholder request では有効 field と増加 resCount だけが更新されることを DB Flow から確認する。
-- [ ] 2.9 `app/src/test/java/com/websarva/wings/android/slevo/ui/tabs/ThreadTabsCoordinatorTest.kt` または projection の対応 test に、同じ placeholder request を pending projection へ適用して resolved metadata、順序、pin、scroll を保持する field-level assertion を追加する。
+- [x] 2.6 `TabsRepository.ensureOpenThreadTab` で既存タブの DB canonical ThreadState を transaction 内で読み、design のフィールド単位規則で incoming metadata をマージしてから対象 ThreadState だけを保存する。新規タブ追加、sort/pin/scroll、bulk API、pin toggle、cancellation 経路は変更しない。
+- [x] 2.7 repository、`ThreadTabsProjection.kt`、scope 未 bind の coordinator test seam が同じ placeholder 判定を使用するよう純粋な metadata merge 規則を共有し、pending 表示と Room canonical confirmation の値を一致させる。
+- [x] 2.8 `app/src/androidTest/java/com/websarva/wings/android/slevo/data/repository/TabsRepositoryThreadStateTest.kt` に既存タブ再 ensure の決定的 Room テストを追加する。解決済み `boardId`、title、boardName、boardUrl と高い resCount を seed し、placeholder request 後も全 field、sort、pin、scroll、対象外行が不変であること、および非 placeholder request では有効 field と増加 resCount だけが更新されることを DB Flow から確認する。
+- [x] 2.9 `app/src/test/java/com/websarva/wings/android/slevo/ui/tabs/ThreadTabsCoordinatorTest.kt` または projection の対応 test に、同じ placeholder request を pending projection へ適用して resolved metadata、順序、pin、scroll を保持する field-level assertion を追加する。
 
 ## 3. coordinator の canonical state と intent queue
 

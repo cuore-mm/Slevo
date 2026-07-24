@@ -12,6 +12,7 @@ import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.util.ThreadNewResCalculator
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import androidx.room.withTransaction
@@ -100,7 +101,25 @@ class TabsRepository @Inject constructor(
     suspend fun ensureOpenThreadTab(tabInfo: ThreadTabInfo): Boolean = gate.withWritePermit {
         db.withTransaction {
             val existing = threadDao.getByThreadId(tabInfo.id)
-            threadStateRepository.saveThreadStateUngated(tabInfo.toThreadStateUpdate())
+            val canonicalState = threadStateRepository.getThreadState(tabInfo.id)
+            val stateToSave = canonicalState?.let { state ->
+                mergeThreadTabMetadata(
+                    current = ThreadTabInfo(
+                        id = tabInfo.id,
+                        title = state.title,
+                        boardName = state.boardName,
+                        boardUrl = state.boardUrl,
+                        boardId = state.boardId,
+                        resCount = state.latestResCount,
+                        isPinned = existing?.isPinned ?: false,
+                        firstVisibleItemIndex = existing?.firstVisibleItemIndex ?: 0,
+                        firstVisibleItemScrollOffset = existing?.firstVisibleItemScrollOffset ?: 0,
+                    ),
+                    incoming = tabInfo,
+                )
+            } ?: tabInfo
+            // Merge against the row read in this transaction before updating only its ThreadState.
+            threadStateRepository.saveThreadStateUngated(stateToSave.toThreadStateUpdate())
             if (existing == null) {
                 val nextSortOrder = (threadDao.getMaxSortOrder() ?: -1) + 1
                 threadDao.upsert(
