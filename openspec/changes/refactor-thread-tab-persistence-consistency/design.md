@@ -88,6 +88,8 @@ pin toggle intent は enqueue 前に要求値を確定せず、`threadId` と co
 
 cancellation と DB write の境界は repository の `DatabaseWriteGate.withWritePermit` 内で Room transaction block を開始した時点とする。境界前の cancellation は transaction を開始させない。境界後も operation cancellation を Room へ伝播し、cancellation が transaction の成功完了より先に観測された場合は `withTransaction` の契約どおり rollback する。transaction の成功完了が cancellation より先なら、その commit は既完了 mutation として扱う。どちらの順序でも部分 write、補償 write、自動再試行は行わない。caller には cancellation を維持し、selection/navigation など caller 固有の後続 side effect を実行しない。coordinator は repository invocation が終了するまで次 intent を開始せず、最終 Room Flow snapshot を canonical state として pending projection を除去する。
 
+pin mutation では、cancellable な repository 呼出しが成功を返した時点を coordinator が観測可能な commit 完了境界とする。それ以前は caller cancellation が intent operation と repository 待機へ伝播し、既存の rollback 契約に従って pending を除去できる。成功を返した後は intent operation の責務を caller-owned write phase から worker-owned reconciliation phase へ遷移させる。後者は caller completion の cancellation を確認条件に使用せず、`Pin` pending projection を保持したまま baseline より新しく期待 pin 値と一致する canonical Flow を待ち、その確認後にだけ pending を除去して FIFO を進める。caller completion が既に cancel 済みなら成功を再通知せず、caller 固有の後続処理も再開しない。この phase 遷移により、commit 後かつ Flow 前の cancellation で古い canonical 値から次 toggle を導出せず、補償 write も行わない。
+
 **代替案:** 各 mutation を独立 `scope.launch` する方式は完了を報告できず、受付順も保証しないため廃止する。単純な coordinator `Mutex` より、FIFO と completion ownership が明示される intent queue を採用する。
 
 ### 4. 公開一覧は canonical snapshot に pending operation を再適用して導出する
@@ -170,6 +172,7 @@ Room Flow ──▶ canonical snapshot ──▶ operation confirmation
   - rapid add/delete/pin を enqueue し、repository call と completion が FIFO、最終 projection が一意で正しいこと。
   - worker を進める前に同一タブへ 2 回および 3 回の pin toggle を enqueue し、repository の要求値が初期値から交互になり、2 回では元の値、3 回では反転値へ収束すること。
   - repository failure/cancellation 後に canonical state を維持し、次 intent が進むこと。
+  - pin repository が成功を返した後、matching Flow 前に caller を cancel しても pending pin が古い canonical snapshot に再適用され、後続 toggle の write が開始しないこと。matching Flow 後に後続 toggle が確定済み pin 値を反転し、2 回の toggle で元の値へ戻ること。
   - caller を `awaitLoadedState()` 中に cancel してから初回 snapshot を emit し、repository mutation が一度も呼ばれず、pending projection が残らず、後続 intent が進むこと。
   - repository の cancellable barrier で `DatabaseWriteGate` 待機相当を再現し、caller cancellation が in-flight operation へ届いて write body を開始せず、worker 自体は継続すること。
   - transaction 開始済み相当の cancellable barrier では cancellation が repository invocation へ届き、rollback 相当の終了と cleanup を worker が待つこと。成功完了が cancellation より先の fixture では既完了結果を二重処理せず、どちらも最終 canonical emission へ収束してから後続 intent が進むこと。
@@ -195,12 +198,14 @@ Room Flow ──▶ canonical snapshot ──▶ operation confirmation
 10. Room transaction 開始前の cancellation は write を防ぐ。開始後は cancellation を Room へ伝播し、成功完了との順序に応じた rollback または既完了 commit の原子性を維持して、補償 write、retry、caller 固有の selection/navigation を追加しない。
 11. 既存タブ ensure の ThreadState 保存前に DB canonical metadata とフィールド単位でマージし、repository、pending projection、scope 未 bind seam の placeholder 判定を一致させる。この metadata 補正では pin toggle と cancellation の処理経路を変更しない。ただし pin toggle の要求値は別の FIFO 整合性補正として worker 内で先行 intent の結果から導出する。
 12. pin toggle intent に enqueue 時点の `isPinned` または事前生成した `Pin` pending operation を保持させない。worker が先行 intent の cleanup 後に対象の投影状態を読み、反転値と pending operation を一度だけ生成する。既存の cancellation ownership、DB-canonical confirmation、metadata merge は変更しない。
+13. pin repository 呼出しが成功を返す前の cancellation は従来どおり intent operation へ伝播する。成功を返した後の Flow reconciliation は worker-owned non-cancellable cleanup とし、cancel 済み caller へ continuation を返さず、pending `Pin` を matching canonical confirmation 前に除去せず、後続 intent を開始しない。変更は pin path に限定し、ensure metadata、delete の last-tab 補正、repository/DAO/schema を変更しない。
 
 ## Risks / Trade-offs
 
 - [Flow confirmation が来ないと suspend が長期化する] → cancellation を伝播し、テストでは barrier で確認する。DB success だけで completion を返さず canonical confirmation を契約とする。
 - [caller と独立した worker が cancellation 後も write を開始する] → readiness 後の再確認と intent 単位 operation coroutine への cancellation link を用い、gate/repository の suspend 待機まで伝播する。worker は operation cleanup を await して FIFO を維持する。
 - [transaction 開始後の cancellation 結果を coordinator が推測する] → cancellation を Room へ伝播し、成功完了との順序に応じた rollback または既完了 commit を transaction の原子性へ委ねる。補償 write を禁止し、最終 Flow snapshot だけを canonical とする。
+- [pin commit 後の caller cancellation で reconciliation まで cancel される] → repository 成功後だけ reconciliation lifetime を worker 所有へ移し、matching canonical revision まで pending projection と FIFO barrier を保持する。Flow が停止すれば後続 intent も待つが、DB 正本と toggle 順序を優先し、coordinator scope teardown では既存どおり worker と pending を破棄する。
 - [pending projection と canonical model の二層化で複雑になる] → operation ごとの pure projection と確認 predicate を分離し、1 intent ずつ直列化する。
 - [1,252 件で projection cost が増える] → correctness を優先し、threadId index/map を使って不要な全件 copy を抑える。性能最適化で DB 正本契約を崩さない。
 - [source API 変更が広い] → compile error を利用して全 call site を列挙し、fire-and-forget wrapper を残さない。

@@ -102,6 +102,13 @@
 - **WHEN** 対象行 mutation の Room transaction が開始した後に caller がキャンセルされる
 - **THEN** システムは cancellation を transaction の実行 context へ伝播し、cancellation が transaction の成功完了より先なら Room に rollback させ、成功完了が先ならその commit を既完了として扱い、部分 write、補償 write、再試行、caller 固有の後続 side effect を開始せず、Room Flow の最終 snapshot を canonical state として pending operation を整理する
 
+#### Scenario: pin commit 後かつ Flow confirmation 前に caller がキャンセルされる
+- **GIVEN** 同一タブへの 2 件の pin toggle intent が FIFO 順に待機している
+- **WHEN** 先頭 intent の pin repository mutation が成功を返した後、期待値を含む canonical Room Flow が届く前に先頭 caller がキャンセルされる
+- **THEN** システムは先頭 caller の continuation を再開せず、先頭の pending pin projection を matching canonical Flow まで保持する
+- **AND** matching canonical Flow を確認するまで後続 intent の repository write を開始せず、確認後の後続 toggle は確定した pin 値を反転して 2 件全体で元の値へ収束する
+- **AND** 補償 write、再試行、metadata merge の変更、caller 固有の後続 side effect を行わない
+
 ### Requirement: 既存 DB write coordination を維持する
 システムはすべての新しい Room write を既存 `DatabaseWriteGate.withWritePermit` と必要な Room transaction の内側で実行しなければならないMUST。mutation intent queue は `DatabaseWriteGate` を置換してはならずMUST NOT、同じ write を二重に gate してはならないMUST NOT。
 
