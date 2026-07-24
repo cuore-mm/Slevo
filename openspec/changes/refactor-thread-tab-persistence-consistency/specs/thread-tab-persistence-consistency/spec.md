@@ -45,6 +45,18 @@
 - **WHEN** 既に開いている `threadId` を再度 ensure する
 - **THEN** システムはそのタブの sort order、pin、scroll position を保持し、重複行を作成しない
 
+#### Scenario: placeholder metadata で既存タブを ensure する
+- **GIVEN** 既存タブの DB canonical ThreadState に非 `0` の board ID、有効な板名、板 URL、thread title、レス数が保存されている
+- **WHEN** 同じ `threadId` を `boardId = 0`、空または板 URL と同値の板名、空または初期 thread URL の title、既存値以下のレス数で ensure する
+- **THEN** システムは既存の board ID、板名、板 URL、thread title、レス数を保持する
+- **AND** sort order、pin、scroll position、履歴由来の既読・新着状態、他のタブ、cancellation 処理を変更しない
+
+#### Scenario: 有効な metadata で既存タブを ensure する
+- **GIVEN** 同じ `threadId` のタブと ThreadState が既に保存されている
+- **WHEN** 非 `0` の board ID、非 placeholder の板名または thread title、より大きいレス数を含む ensure を実行する
+- **THEN** システムは各 incoming field が有効な場合だけ対象 ThreadState へ採用し、レス数は単調増加させる
+- **AND** `threadId`、`threadKey`、既存 tab 行の sort order、pin、scroll position を保持する
+
 #### Scenario: タブを削除する
 - **WHEN** 対象 `threadId` のタブを閉じる
 - **THEN** システムは対象の open-thread-tab 行だけを削除し、他のタブと共通 ThreadState の遅延 GC 契約を維持する

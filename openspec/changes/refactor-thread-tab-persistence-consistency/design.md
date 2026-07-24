@@ -54,6 +54,19 @@ Room collector だけが canonical snapshot を更新する。`bind()` の初回
 
 各 repository mutation は `DatabaseWriteGate.withWritePermit { db.withTransaction { ... } }` を一度だけ使用し、成功、対象なし/no-op、失敗を呼出元が判定できる結果を返す。DAO の SQL 追加だけで実現し、schema migration は行わない。
 
+既存タブの ensure は、同じ transaction で既存の DB canonical `ThreadState` を取得してから、次のフィールド単位規則で incoming `ThreadTabInfo` をマージする。pending projection と scope 未 bind の test seam も同じ規則を使用し、DB confirmation 前後で placeholder 値を表示しない。
+
+- `threadId` / `threadKey`: 対象行の identity として変更しない。
+- `boardId`: incoming が `0L` なら未解決 placeholder として既存値を保持し、非 `0L` の場合だけ incoming を採用する。
+- `title`: 空文字、または対象 `threadId` の host/board/threadKey から `buildInitialThreadTitle` と同じ形式で生成される thread URL は初期 placeholder とする。incoming が placeholder かつ既存 title が非 placeholder の場合だけ既存値を保持し、それ以外は incoming を採用する。
+- `boardName`: 空文字、または `boardUrl` と同値の表示名は placeholder とする。incoming が placeholder かつ既存 boardName が非 placeholder の場合だけ既存値を保持し、それ以外は incoming を採用する。
+- `boardUrl`: `threadId` を構成する host/board と一致する既存の非空値を canonical として保持する。既存値が空の場合だけ、同じ identity を表す incoming 値で補完する。
+- `latestResCount`: 既存 DAO の単調増加契約を維持し、`max(existing, incoming)` とする。incoming `0` で減少させない。
+- `sortOrder`、`isPinned`、`firstVisibleItemIndex`、`firstVisibleItemScrollOffset`: `open_thread_tabs` の既存行を更新せず、そのまま保持する。
+- 履歴由来の `prevResCount`、`lastReadResNo`、`firstNewResNo`、`newResCount` と bookmark 色は ensure の永続化対象へ追加しない。
+
+新規タブでは既存 canonical metadata がないため incoming metadata を保存し、`latestResCount` の単調増加契約だけを通常どおり適用する。この補正は ensure 専用であり、明示的な解決済み板情報更新 API や thread info 更新 API の契約を狭めない。
+
 **代替案:** repository に `Mutex` を一つ追加して `saveOpenThreadTabs` を直列化しても、初回未読込の一覧、メモリ先行更新、Flow 上書き、選択との順序を解決しないため採用しない。
 
 ### 3. mutation intent は coordinator の単一キューで直列化する
@@ -158,6 +171,8 @@ Room Flow ──▶ canonical snapshot ──▶ operation confirmation
   - repository の cancellable barrier で `DatabaseWriteGate` 待機相当を再現し、caller cancellation が in-flight operation へ届いて write body を開始せず、worker 自体は継続すること。
   - transaction 開始済み相当の cancellable barrier では cancellation が repository invocation へ届き、rollback 相当の終了と cleanup を worker が待つこと。成功完了が cancellation より先の fixture では既完了結果を二重処理せず、どちらも最終 canonical emission へ収束してから後続 intent が進むこと。
 - `TabsRepositoryThreadStateTest.kt` の Room in-memory DB で single-row add/delete/pin/info/scroll が他の 1,252 行を変更せず、sort/pin/scroll/thread state invariant を維持することを確認する。
+  - 解決済み metadata を持つ既存タブへ `boardId = 0L`、初期 thread URL title、`boardUrl` 表示名を再 ensure し、DB Flow の canonical 結果が既存 `boardId`、title、boardName、boardUrl、sort、pin、scroll を保持し、resCount を減少させないこと。
+  - 同じ既存タブへ非 placeholder の boardId、title、boardName を ensure し、有効な incoming field だけが更新され、対象外タブが byte-for-field 不変であること。
 - `ThreadTabCoordinatorTest.kt` で thread info update が `saveOpenThreadTabs` / `deleteNotIn` を呼ばず対象 ThreadState だけを更新することを確認する。
 - `TabSessionStoreTest.kt` で readiness と mutation completion/result の delegation を確認する。
 - 既存 `DatabaseWriteGateTest.kt` を維持し、新しい repository write が gate と transaction を一度だけ通ることを repository test で確認する。
@@ -175,6 +190,7 @@ Room Flow ──▶ canonical snapshot ──▶ operation confirmation
 8. 1,252/1,253 件、blocked initial Flow、loaded-empty、rapid mutation の決定的テストを先に失敗させ、実装後に通す。
 9. dequeue 後の caller cancellation は readiness 後に再確認し、intent ごとの operation coroutine へ伝播する。caller cancellation で long-lived worker を cancel せず、operation cleanup 完了前に後続 intent を開始しない。
 10. Room transaction 開始前の cancellation は write を防ぐ。開始後は cancellation を Room へ伝播し、成功完了との順序に応じた rollback または既完了 commit の原子性を維持して、補償 write、retry、caller 固有の selection/navigation を追加しない。
+11. 既存タブ ensure の ThreadState 保存前に DB canonical metadata とフィールド単位でマージし、repository、pending projection、scope 未 bind seam の placeholder 判定を一致させる。pin toggle と cancellation の処理経路は変更しない。
 
 ## Risks / Trade-offs
 
@@ -185,6 +201,7 @@ Room Flow ──▶ canonical snapshot ──▶ operation confirmation
 - [1,252 件で projection cost が増える] → correctness を優先し、threadId index/map を使って不要な全件 copy を抑える。性能最適化で DB 正本契約を崩さない。
 - [source API 変更が広い] → compile error を利用して全 call site を列挙し、fire-and-forget wrapper を残さない。
 - [bulk replacement の誤用] → API 名、可視性、call-site test で通常経路から隔離する。
+- [repository と pending projection の metadata merge が不一致になる] → placeholder 判定を一つの純粋な規則へ集約し、同一入力に対する repository canonical Flow と projection の field-level assertion を追加する。
 
 ## Migration Plan
 
