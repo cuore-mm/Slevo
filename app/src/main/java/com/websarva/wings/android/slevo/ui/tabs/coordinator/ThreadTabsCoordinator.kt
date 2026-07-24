@@ -95,7 +95,7 @@ class ThreadTabsCoordinator @Inject constructor(
 
     private var scope: CoroutineScope? = null
 
-    /** Room が最後に通知した一覧だけを canonical snapshot として保持する。 */
+    /** Room が最後に通知した一覧だけを正規スナップショットとして保持する。 */
     private val canonicalTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
     private val pendingOperations = mutableListOf<ThreadTabPendingOperation>()
     private var canonicalRevision = 0L
@@ -158,7 +158,7 @@ class ThreadTabsCoordinator @Inject constructor(
             boardId = route.boardId ?: 0L,
             resCount = route.resCount,
         )
-        // Tests can use the coordinator without binding a lifecycle scope; production always binds first.
+        // テストではライフサイクルスコープを bind せずに coordinator を使用できる。本番では常に先に bind する。
         if (scope == null) return ensureThreadTabWithoutPersistence(tabInfo)
         val operation = ThreadTabPendingOperation.Ensure(tabInfo)
         val completion = CompletableDeferred<Int>()
@@ -209,8 +209,8 @@ class ThreadTabsCoordinator @Inject constructor(
      * 選択中のスレッドタブ key を更新する。
      */
     /**
-     * Selects a currently visible canonical tab and reports whether the target existed.
-     * A missing non-null target leaves the previous selection untouched.
+     * 現在表示中の正規タブを選択し、対象が存在したかを返す。
+     * null でない対象が存在しない場合は、直前の選択をそのまま維持する。
      */
     fun selectThreadTab(threadId: ThreadId?): Boolean {
         if (threadId == null) {
@@ -225,7 +225,7 @@ class ThreadTabsCoordinator @Inject constructor(
         return true
     }
 
-    /** Returns whether Room has confirmed the requested thread tab. */
+    /** Room が要求されたスレッドタブを確認済みかどうかを返す。 */
     fun isCanonicalThreadTab(threadId: ThreadId): Boolean =
         canonicalTabs.value.any { it.id == threadId }
 
@@ -437,31 +437,31 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
-    /** One queued mutation and the completion owned by its caller. */
+    /** キューに入った 1 件の更新操作と、それを呼び出した側が所有する完了通知。 */
     private sealed interface ThreadTabMutationIntent {
         val completion: CompletableDeferred<*>
 
-        /** Adds or ensures one thread tab. */
+        /** スレッドタブの存在を 1 件追加または保証する。 */
         data class Ensure(
             val tab: ThreadTabInfo,
             val operation: ThreadTabPendingOperation.Ensure,
             override val completion: CompletableDeferred<Int>,
         ) : ThreadTabMutationIntent
 
-        /** Deletes one thread tab. */
+        /** スレッドタブを 1 件削除する。 */
         data class Delete(
             val threadId: ThreadId,
             val operation: ThreadTabPendingOperation.Delete,
             override val completion: CompletableDeferred<Unit>,
         ) : ThreadTabMutationIntent
 
-        /** Changes one pin column. */
+        /** 1 件の固定列を変更する。 */
         data class Pin(
             val threadId: ThreadId,
             override val completion: CompletableDeferred<Unit>,
         ) : ThreadTabMutationIntent
 
-        /** Updates one joined ThreadState projection. */
+        /** JOIN 済みの ThreadState 投影を 1 件更新する。 */
         data class Info(
             val tab: ThreadTabInfo,
             val operation: ThreadTabPendingOperation.Info,
@@ -470,20 +470,20 @@ class ThreadTabsCoordinator @Inject constructor(
     }
 
     /**
-     * Processes every mutation in FIFO order and keeps pending projection cleanup local to the worker.
-     * Room remains the only writer of the canonical snapshot.
+     * すべての更新操作を FIFO 順に処理し、保留中の投影の後始末をワーカー内に限定する。
+     * 正規スナップショットの書き手は Room だけに保つ。
      */
     private suspend fun processMutationIntents() {
         try {
             for (intent in mutationIntents) {
                 if (isIntentCancelled(intent)) continue
                 awaitLoadedState()
-                // Readiness may have released concurrently with caller cancellation.
+                // 呼び出し元のキャンセルと同時に準備が完了している可能性がある。
                 if (isIntentCancelled(intent)) continue
                 processIntentInCancellableOperation(intent)
             }
         } finally {
-            // Teardown must not leave callers suspended on completions that can no longer finish.
+            // 破棄後に完了できない通知を待つ呼び出し元を残さない。
             while (true) {
                 val intent = mutationIntents.tryReceive().getOrNull() ?: break
                 cancelIntentCompletion(intent)
@@ -493,7 +493,7 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
-    /** Runs one intent in an independently cancellable child while the FIFO worker remains alive. */
+    /** FIFO ワーカーを存続させたまま、1 件の要求を個別にキャンセル可能な子で実行する。 */
     private suspend fun processIntentInCancellableOperation(intent: ThreadTabMutationIntent) {
         coroutineScope {
             val operation = launch(start = CoroutineStart.LAZY) {
@@ -506,7 +506,7 @@ class ThreadTabsCoordinator @Inject constructor(
             }
             val cancellationLink = intent.completion.invokeOnCompletion { cause ->
                 if (cause is CancellationException) {
-                    // Only this intent is cancelled; the long-lived FIFO worker continues.
+                    // この要求だけをキャンセルし、長寿命の FIFO ワーカーは継続する。
                     operation.cancel(cause)
                 }
             }
@@ -519,18 +519,18 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
-    /** Waits for the first canonical Room snapshot instead of treating an empty startup list as loaded. */
+    /** 起動時の空一覧を読み込み済みとみなさず、最初の正規 Room スナップショットを待つ。 */
     private suspend fun awaitLoadedState() {
         _threadTabState.filter { it is ThreadTabsLoadState.Loaded }.first()
     }
 
-    /** Updates the explicit load state and its legacy boolean projection together. */
+    /** 明示的な読み込み状態と、互換用 boolean 投影を同時に更新する。 */
     private fun setThreadTabState(state: ThreadTabsLoadState) {
         _threadTabState.value = state
         _threadLoaded.value = state is ThreadTabsLoadState.Loaded
     }
 
-    /** Runs an ensure operation through DB write, Flow confirmation, and projection cleanup. */
+    /** DB 書き込み、Flow による確認、投影の後始末を通して存在保証操作を実行する。 */
     private suspend fun processEnsure(intent: ThreadTabMutationIntent.Ensure) {
         val baselineRevision = registerPending(intent.operation)
         try {
@@ -550,7 +550,7 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
-    /** Runs a delete operation and adjusts selection only after canonical deletion is confirmed. */
+    /** delete 操作を実行し、正規状態での削除確認後にだけ選択を補正する。 */
     private suspend fun processDelete(intent: ThreadTabMutationIntent.Delete) {
         val selectedKeyBeforeRemoval = _selectedThreadTabKey.value
         val removedIndex = canonicalTabs.value.indexOfFirst { it.id == intent.threadId }
@@ -579,10 +579,10 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
-    /** Runs a pin toggle using the projected state left by all preceding intents. */
+    /** 先行するすべての要求が残した投影状態を使って固定状態の切り替えを実行する。 */
     private suspend fun processPin(intent: ThreadTabMutationIntent.Pin) {
         val current = _openThreadTabs.value.firstOrNull { it.id == intent.threadId }
-        // A deleted or otherwise missing target is a successful no-op for a toggle intent.
+        // 削除済みなどで対象がない場合、切り替え要求は成功扱いの no-op とする。
         if (current == null) {
             intent.completion.complete(Unit)
             return
@@ -604,7 +604,7 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
-    /** Runs a ThreadState update and waits for the joined tab Flow to expose its values. */
+    /** ThreadState を更新し、JOIN されたタブ Flow に値が反映されるまで待つ。 */
     private suspend fun processInfo(intent: ThreadTabMutationIntent.Info) {
         val baselineRevision = registerPending(intent.operation)
         try {
@@ -622,20 +622,20 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
-    /** Adds one pending operation and republishes the projected list. */
+    /** 保留中の操作を 1 件追加し、投影した一覧を再発行する。 */
     private fun registerPending(operation: ThreadTabPendingOperation): Long {
         pendingOperations += operation
         publishProjectedTabs()
         return canonicalRevision
     }
 
-    /** Removes one completed or failed operation and republishes the canonical projection. */
+    /** 完了または失敗した操作を 1 件削除し、正規状態の投影を再発行する。 */
     private fun removePending(operation: ThreadTabPendingOperation) {
         pendingOperations.remove(operation)
         publishProjectedTabs()
     }
 
-    /** Waits for a newer Room emission that satisfies the operation-specific predicate. */
+    /** 操作固有の条件を満たす新しい Room 通知を待つ。 */
     private suspend fun awaitConfirmation(
         operation: ThreadTabPendingOperation,
         baselineRevision: Long,
@@ -650,7 +650,7 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
-    /** Publishes only the pending projection while keeping canonicalTabs untouched. */
+    /** canonicalTabs を変更せず、保留中の投影だけを発行する。 */
     private fun publishProjectedTabs() {
         val projected = projectThreadTabs(canonicalTabs.value, pendingOperations)
         _openThreadTabs.value = projected
@@ -660,7 +660,7 @@ class ThreadTabsCoordinator @Inject constructor(
             .associate { tab -> tab.id.value to tab.newResCount }
     }
 
-    /** Converts projected metadata to the repository's common ThreadState update input. */
+    /** 投影したメタデータを Repository 共通の ThreadState 更新入力へ変換する。 */
     private fun ThreadTabInfo.toThreadStateUpdate(): ThreadStateRepository.ThreadStateUpdate =
         ThreadStateRepository.ThreadStateUpdate(
             threadId = id,
@@ -671,7 +671,7 @@ class ThreadTabsCoordinator @Inject constructor(
             latestResCount = resCount,
         )
 
-    /** Completes queued callers when coordinator scope teardown prevents execution. */
+    /** coordinator scope の破棄で実行できなくなったキュー内の呼び出し元へ完了を通知する。 */
     private fun cancelIntentCompletion(intent: ThreadTabMutationIntent) {
         val exception = CancellationException("Thread tab coordinator was cancelled")
         when (intent) {
@@ -682,7 +682,7 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
-    /** Checks completion ownership before starting a queued mutation. */
+    /** キュー内の更新操作を開始する前に完了通知の所有状態を確認する。 */
     private fun isIntentCancelled(intent: ThreadTabMutationIntent): Boolean = when (intent) {
         is ThreadTabMutationIntent.Ensure -> intent.completion.isCancelled
         is ThreadTabMutationIntent.Delete -> intent.completion.isCancelled
@@ -702,7 +702,7 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
-    /** Provides a small non-bound seam for unit tests that exercise pure coordinator state handling. */
+    /** coordinator の純粋な状態処理を検証する単体テスト向けに、未 bind の小さな接続点を提供する。 */
     private fun ensureThreadTabWithoutPersistence(tabInfo: ThreadTabInfo): Int {
         var targetIndex = -1
         _openThreadTabs.update { tabs ->
@@ -721,7 +721,7 @@ class ThreadTabsCoordinator @Inject constructor(
         return targetIndex
     }
 
-    /** Removes one tab in the unbound unit-test seam while preserving selection cleanup behavior. */
+    /** 未 bind の単体テスト用接続点でタブを 1 件削除し、選択の後始末を維持する。 */
     private fun closeThreadTabWithoutPersistence(tab: ThreadTabInfo) {
         val key = tab.id.value
         val selectedKey = _selectedThreadTabKey.value

@@ -3,13 +3,13 @@ package com.websarva.wings.android.slevo.ui.tabs.coordinator
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 
 /**
- * Loading state for the persisted thread-tab snapshot.
- * `Loaded(emptyList())` is a valid database state and is distinct from [Loading].
+ * 永続化されたスレッドタブのスナップショット読み込み状態。
+ * `Loaded(emptyList())` は有効な DB 状態であり、[Loading] とは区別される。
  */
 sealed interface ThreadTabsLoadState {
-    /** No initial Room snapshot has been received yet. */
+    /** 初回の Room スナップショットをまだ受信していない。 */
     data object Loading : ThreadTabsLoadState
 
-    /** The canonical Room snapshot has been received. */
+    /** 正規の Room スナップショットを受信済みである。 */
     data class Loaded(val tabs: List<ThreadTabInfo>) : ThreadTabsLoadState
 }

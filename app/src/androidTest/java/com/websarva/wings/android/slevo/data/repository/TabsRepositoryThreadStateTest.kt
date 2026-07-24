@@ -276,7 +276,7 @@ class TabsRepositoryThreadStateTest {
         assertEquals(0, existingTab.firstVisibleItemScrollOffset)
     }
 
-    /** 1,252 件の既存行に対する targeted add/delete/pin が対象外行を変更しない。 */
+    /** 1,252 件の既存行に対する対象行単位の追加・削除・固定操作が、対象外行を変更しない。 */
     @Test
     fun targetedMutations_preserveOtherRowsAndThreadState() = runBlocking {
         val initialTabs = (0 until 1_252).map { index ->
@@ -321,7 +321,7 @@ class TabsRepositoryThreadStateTest {
         assertEquals(initialTabs.map { it.id }.toSet(), afterDelete.map { it.id }.toSet())
     }
 
-    /** 既存の解決済み metadata へ placeholder を再 ensure しても canonical 値を保持する。 */
+    /** 既存の解決済みメタデータへプレースホルダーを再 ensure しても、正規値を保持する。 */
     @Test
     fun ensureExistingTab_placeholderMetadataPreservesCanonicalStateAndTabFields() = runBlocking {
         val targetId = ThreadId.of("example.com", "test", "target")

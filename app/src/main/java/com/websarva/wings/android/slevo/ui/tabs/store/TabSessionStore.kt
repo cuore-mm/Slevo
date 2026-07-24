@@ -162,7 +162,7 @@ class TabSessionStore @Inject constructor(
         return threadTabsCoordinator.ensureThreadTab(route)
     }
 
-    /** 初回 Room snapshot が canonical state になるまで待機する。 */
+    /** 初回 Room スナップショットが正規状態になるまで待機する。 */
     suspend fun awaitThreadTabsReady(): ThreadTabsLoadState.Loaded =
         threadTabsCoordinator.threadTabState.filterIsInstance<ThreadTabsLoadState.Loaded>().first()
 
@@ -184,7 +184,7 @@ class TabSessionStore @Inject constructor(
      */
     suspend fun registerAndSelectThreadRoute(route: AppRoute.Thread): Int = ensureAndSelectThreadTab(route)
 
-    /** 正規化済みスレッド route を canonical confirmation 後まで登録し、選択は行わない。 */
+    /** 正規化済みスレッド route を正規状態で確認できるまで登録し、選択は行わない。 */
     suspend fun registerThreadRoute(route: AppRoute.Thread): Int = ensureThreadTab(route)
 
     /**
@@ -192,7 +192,7 @@ class TabSessionStore @Inject constructor(
      */
     fun selectThreadTab(threadId: ThreadId?): Boolean = threadTabsCoordinator.selectThreadTab(threadId)
 
-    /** Returns whether a thread ID is present in the latest canonical Room snapshot. */
+    /** 最新の正規 Room スナップショットに thread ID が存在するかどうかを返す。 */
     fun isCanonicalThreadTab(threadId: ThreadId): Boolean =
         threadTabsCoordinator.isCanonicalThreadTab(threadId)
 

@@ -40,7 +40,7 @@ class BbsRouteScaffoldSelectionTest {
         assertEquals(0, result)
     }
 
-    /** thread-only preserve policy returns no programmatic target for a transient missing key. */
+    /** スレッド専用の保持ポリシーでは、一時的に存在しない key に対するページ移動先を返さない。 */
     @Test
     fun deriveSelectedPageIndex_preservesCurrentPageWhenThreadSelectionIsMissing() {
         val result = deriveSelectedPageIndex(
@@ -53,7 +53,7 @@ class BbsRouteScaffoldSelectionTest {
         assertEquals(-1, result)
     }
 
-    /** A null thread selection is also unresolved and must not issue a first-page target. */
+    /** null のスレッド選択も未解決として扱い、先頭ページへの移動先を発行しない。 */
     @Test
     fun deriveSelectedPageIndex_preservesCurrentPageWhenThreadSelectionIsNull() {
         val result = deriveSelectedPageIndex(

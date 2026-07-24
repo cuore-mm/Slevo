@@ -90,13 +90,13 @@ class TabsRepository @Inject constructor(
             list.sortedBy { it.sortOrder }.map(::toThreadTabInfo)
         }
 
-    /** 対象タブの表示用 snapshot を取得する。通常 mutation の read-before-write に使用する。 */
+    /** 対象タブの表示用スナップショットを取得する。通常の更新処理で書き込み前の読み取りに使用する。 */
     suspend fun getOpenThreadTab(threadId: ThreadId): ThreadTabInfo? =
         threadDao.getOpenThreadTabWithState(threadId)?.let(::toThreadTabInfo)
 
     /**
-     * スレッドタブを対象行だけで ensure し、必要な ThreadState を同じ transaction で保存する。
-     * 既存行の sort、pin、scroll は読み出した値をそのまま維持する。
+     * スレッドタブの存在を対象行だけで保証し、必要な ThreadState を同じトランザクションで保存する。
+     * 既存行の並び順、固定状態、スクロール位置は読み出した値をそのまま維持する。
      */
     suspend fun ensureOpenThreadTab(tabInfo: ThreadTabInfo): Boolean = gate.withWritePermit {
         db.withTransaction {
@@ -118,7 +118,7 @@ class TabsRepository @Inject constructor(
                     incoming = tabInfo,
                 )
             } ?: tabInfo
-            // Merge against the row read in this transaction before updating only its ThreadState.
+            // このトランザクションで読み出した行とマージしてから、その ThreadState だけを更新する。
             threadStateRepository.saveThreadStateUngated(stateToSave.toThreadStateUpdate())
             if (existing == null) {
                 val nextSortOrder = (threadDao.getMaxSortOrder() ?: -1) + 1
@@ -166,8 +166,8 @@ class TabsRepository @Inject constructor(
     }
 
     /**
-     * 初回読込後の専用 bulk orchestration からだけ呼び出す全件置換 API。
-     * 通常の add/delete/pin/info/scroll 経路では targeted mutation API を使用する。
+     * 初回読込後の専用一括処理からだけ呼び出す全件置換 API。
+     * 通常の追加・削除・固定・情報・スクロール処理では対象行単位の更新 API を使用する。
      */
     suspend fun replaceOpenThreadTabsForBulkOperation(tabs: List<ThreadTabInfo>) {
         gate.withWritePermit {

@@ -50,14 +50,14 @@ import com.websarva.wings.android.slevo.R
 import kotlin.math.abs
 
 /**
- * Defines how a shared pager handles a selected key that is temporarily absent.
- * Board screens retain the historical first-page fallback; thread screens can preserve the page.
+ * 一時的に存在しない選択キーを共通 pager が処理する方法を定義する。
+ * 板画面では従来どおり先頭ページへフォールバックし、スレッド画面ではページを保持できる。
  */
 enum class MissingSelectionPolicy {
-    /** Use the first tab when no selected key can be resolved. */
+    /** 選択キーを解決できない場合は先頭タブを使用する。 */
     UseFirst,
 
-    /** Return no programmatic page target while the selected key is unresolved. */
+    /** 選択キーを解決できない間は、プログラムによるページ移動先を返さない。 */
     PreserveCurrentPage,
 }
 

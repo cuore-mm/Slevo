@@ -7,7 +7,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadT
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import kotlinx.coroutines.flow.Flow
 
-/** Room queries for the tab-specific rows in `open_thread_tabs`. */
+/** `open_thread_tabs` のタブ固有行を取得する Room クエリ。 */
 @Dao
 interface OpenThreadTabDao {
     /**

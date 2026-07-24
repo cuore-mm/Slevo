@@ -18,12 +18,12 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 /**
- * Verifies the suspend ordering and failure boundaries of thread deep-link handling.
- * Deferred barriers make readiness, registration, and canonical confirmation independently controllable.
+ * スレッドのディープリンク処理における suspend の順序と失敗境界を検証する。
+ * Deferred barrier により、準備完了、登録、正規状態の確認を個別に制御できる。
  */
 class DeepLinkHandlerTest {
 
-    /** Readiness blocks every later side effect. */
+    /** 準備が完了するまで、後続の副作用をすべてブロックする。 */
     @Test
     fun threadDeepLink_waitsForReadinessBeforeRegistering() = runTest {
         val readiness = CompletableDeferred<ThreadTabsLoadState.Loaded>()
@@ -52,7 +52,7 @@ class DeepLinkHandlerTest {
         job.cancelAndJoin()
     }
 
-    /** Registration completion alone is insufficient; canonical confirmation precedes selection and navigation. */
+    /** 登録の完了だけでは不十分であり、正規状態の確認後に選択と遷移を行う。 */
     @Test
     fun threadDeepLink_ordersRegistrationConfirmationSelectionAndNavigation() = runTest {
         val registration = CompletableDeferred<Unit>()
@@ -88,7 +88,7 @@ class DeepLinkHandlerTest {
         )
     }
 
-    /** A selection failure preserves the existing screen by suppressing navigation. */
+    /** 選択に失敗した場合は遷移を抑止し、表示中の画面を維持する。 */
     @Test
     fun threadDeepLink_selectionFailureDoesNotNavigate() = runTest {
         val store = mockStore()
@@ -102,7 +102,7 @@ class DeepLinkHandlerTest {
         assertFalse(navigated)
     }
 
-    /** A registration that cannot be confirmed canonically suppresses selection and navigation. */
+    /** 登録を正規状態として確認できない場合は、選択と遷移を抑止する。 */
     @Test
     fun threadDeepLink_missingCanonicalTargetDoesNotNavigate() = runTest {
         val store = mockStore()
@@ -115,7 +115,7 @@ class DeepLinkHandlerTest {
         assertFalse(navigated)
     }
 
-    /** Registration failure is propagated to the existing handler error boundary without navigation. */
+    /** 登録失敗は遷移せず、既存の handler のエラー境界へ伝播する。 */
     @Test
     fun threadDeepLink_registrationFailureDoesNotNavigate() = runTest {
         val store = mockStore()
@@ -132,7 +132,7 @@ class DeepLinkHandlerTest {
         assertFalse(navigated)
     }
 
-    /** Cancellation does not produce an old target navigation side effect. */
+    /** cancellation により古い対象への遷移副作用を発生させない。 */
     @Test
     fun threadDeepLink_cancellationStopsBeforeSelection() = runTest {
         val readiness = CompletableDeferred<ThreadTabsLoadState.Loaded>()
@@ -148,14 +148,14 @@ class DeepLinkHandlerTest {
         assertEquals(emptyList<String>(), events)
     }
 
-    /** Creates a store fixture with a deterministic initial readiness state. */
+    /** 初期の準備状態を固定した store のテスト用データを作成する。 */
     private fun mockStore(): TabSessionStore {
         val store = mockk<TabSessionStore>(relaxed = true)
         every { store.threadTabState } returns MutableStateFlow(ThreadTabsLoadState.Loading)
         return store
     }
 
-    /** Builds a stable thread route for orchestration tests. */
+    /** 処理連携テスト用に安定したスレッド route を組み立てる。 */
     private fun testRoute(): AppRoute.Thread = AppRoute.Thread(
         threadKey = "123",
         boardUrl = "https://example.com/test/",

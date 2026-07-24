@@ -4,9 +4,9 @@ import com.websarva.wings.android.slevo.data.model.ThreadId
 import java.net.URI
 
 /**
- * Merges route-derived metadata into a canonical tab without changing tab-row or history fields.
- * Placeholder values never replace resolved metadata, response counts only move upward, and a
- * board URL is accepted as a fallback only when the canonical value is empty and identities match.
+ * タブ行や履歴のフィールドを変更せず、route 由来のメタデータを正規タブにマージする。
+ * プレースホルダー値で解決済みメタデータを置き換えず、レス数は増加する場合だけ更新する。
+ * board URL は正規値が空で識別情報が一致する場合だけフォールバックとして受け入れる。
  */
 internal fun mergeThreadTabMetadata(
     current: ThreadTabInfo,
@@ -45,15 +45,15 @@ internal fun mergeThreadTabMetadata(
     )
 }
 
-/** Returns whether [title] is empty or the deterministic title generated from [threadId]. */
+/** [title] が空、または [threadId] から決定的に生成されたタイトルかどうかを返す。 */
 private fun String.isPlaceholderThreadTitle(threadId: ThreadId): Boolean =
     isBlank() || this == threadId.initialThreadTitle()
 
-/** Returns whether [boardName] is empty or merely repeats the route board URL. */
+/** [boardName] が空、または route の board URL をそのまま繰り返しているかどうかを返す。 */
 private fun String.isPlaceholderBoardName(boardUrl: String): Boolean =
     isBlank() || this == boardUrl
 
-/** Returns whether [boardUrl] identifies the board encoded by [threadId]. */
+/** [boardUrl] が [threadId] に含まれる board を識別しているかどうかを返す。 */
 private fun String.matchesBoardIdentity(threadId: ThreadId): Boolean {
     val identity = threadId.value.split('/', limit = 3)
     if (identity.size != 3) return false
@@ -63,7 +63,7 @@ private fun String.matchesBoardIdentity(threadId: ThreadId): Boolean {
     return host == identity[0] && board == identity[1]
 }
 
-/** Builds the same initial thread URL title used for route-created tabs. */
+/** route から作成するタブで使用する初期スレッド URL タイトルを組み立てる。 */
 private fun ThreadId.initialThreadTitle(): String? {
     val identity = value.split('/', limit = 3)
     if (identity.size != 3) return null

@@ -33,7 +33,7 @@ fun DeepLinkHandler(
         }
 
         try {
-            // --- Routing ---
+            // --- ルーティング ---
             val handled = handleDeepLinkUrl(
                 url = deepLinkUrl,
                 navController = navController,
@@ -57,10 +57,10 @@ private suspend fun handleDeepLinkUrl(
     navController: NavHostController,
     tabSessionStore: TabSessionStore
 ): Boolean {
-    // --- Target resolution ---
+    // --- 対象の解決 ---
     val target = resolveDeepLinkUrl(url) ?: return false // 対象外URLは処理しない。
 
-    // --- Navigation ---
+    // --- 遷移 ---
     return when (target) {
         is ResolvedUrl.ItestBoard -> {
             val host = tabSessionStore.resolveBoardHost(
@@ -117,15 +117,15 @@ private suspend fun handleDeepLinkUrl(
 }
 
 /**
- * Completes thread deep-link registration before changing selection or navigation.
- * The callback is invoked only after readiness, canonical existence, and selection succeed.
+ * スレッドのディープリンク登録を選択や遷移より先に完了させる。
+ * callback は準備完了、正規状態の存在確認、選択がすべて成功した後にだけ呼び出す。
  */
 internal suspend fun handleThreadDeepLinkRoute(
     route: AppRoute.Thread,
     tabSessionStore: TabSessionStore,
     navigate: () -> Unit,
 ): Boolean {
-    // --- Readiness and registration ---
+    // --- 準備完了と登録 ---
     tabSessionStore.awaitThreadTabsReady()
     val threadId = parseBoardUrl(route.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, route.threadKey)
@@ -133,7 +133,7 @@ internal suspend fun handleThreadDeepLinkRoute(
     val registrationIndex = tabSessionStore.registerThreadRoute(route)
     if (registrationIndex < 0 || !tabSessionStore.isCanonicalThreadTab(threadId)) return false
 
-    // --- Selection and navigation ---
+    // --- 選択と遷移 ---
     if (!tabSessionStore.selectThreadTab(threadId)) return false
     navigate()
     return true

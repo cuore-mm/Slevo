@@ -155,7 +155,7 @@ class ThreadTabsCoordinatorTest {
         assertEquals(threadId.value, coordinator.selectedThreadTabKey.value)
     }
 
-    /** Missing target selection fails without clearing the existing selected key. */
+    /** 存在しない対象の選択は失敗するが、既存の選択キーは消去しない。 */
     @Test
     fun selectThreadTab_missingTargetPreservesExistingSelection() = runTest {
         val coordinator = createCoordinator(mockk(relaxed = true))
@@ -348,7 +348,7 @@ class ThreadTabsCoordinatorTest {
         assertEquals(true, actual.isPinned)
     }
 
-    /** 初回 Room emission が届くまで、1,252 件の canonical 状態を空一覧で上書きしない。 */
+    /** 初回 Room 通知が届くまで、1,252 件の正規状態を空一覧で上書きしない。 */
     @Test
     fun ensureThreadTab_waitsForInitialSnapshotBeforeDatabaseWrite() = runTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 0, extraBufferCapacity = 1)
@@ -393,7 +393,7 @@ class ThreadTabsCoordinatorTest {
         assertEquals(1_253, coordinator.openThreadTabs.value.map { it.id }.toSet().size)
     }
 
-    /** stale 1,252 件 emission 中も pending add を再投影し、confirmation 前の completion を返さない。 */
+    /** 古い 1,252 件の通知中も保留中の追加を再投影し、確認前に完了を返さない。 */
     @Test
     fun pendingAdd_survivesStaleSnapshotUntilCanonicalConfirmation() = runTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
@@ -423,7 +423,7 @@ class ThreadTabsCoordinatorTest {
         assertEquals(initialTabs.map { it.id }.toSet() + addedTab.id, coordinator.openThreadTabs.value.map { it.id }.toSet())
     }
 
-    /** loaded-empty は有効状態として扱い、空 snapshot 後の add を実行できる。 */
+    /** 空の読み込み済み状態を有効な状態として扱い、空のスナップショット後に追加を実行できる。 */
     @Test
     fun loadedEmpty_allowsMutationAfterInitialEmptyEmission() = runTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
@@ -447,7 +447,7 @@ class ThreadTabsCoordinatorTest {
         assertEquals(0, ensureJob.await())
     }
 
-    /** projection は add/delete/pin を FIFO で適用し、対象外の tab 固有値を変更しない。 */
+    /** 投影処理は追加・削除・固定を FIFO 順に適用し、対象外タブの固有値を変更しない。 */
     @Test
     fun projection_appliesRapidMutationIntentsInOrder() {
         val first = testTab("first", 0, isPinned = false, scrollIndex = 7)
@@ -467,7 +467,7 @@ class ThreadTabsCoordinatorTest {
         assertEquals(7, result.first().firstVisibleItemIndex)
     }
 
-    /** placeholder metadata is merged identically for pending projections and canonical rows. */
+    /** プレースホルダーメタデータを、保留中の投影と正規行で同じようにマージする。 */
     @Test
     fun projection_placeholderEnsurePreservesResolvedMetadataAndTabFields() {
         val current = testTab("resolved", 3, isPinned = true, scrollIndex = 7).copy(
@@ -507,7 +507,7 @@ class ThreadTabsCoordinatorTest {
         assertEquals(listOf(current.id, unrelated.id), result.map { it.id })
     }
 
-    /** DB failure で pending projection を戻しても、同じ worker は後続 intent を停止しない。 */
+    /** DB 失敗で保留中の投影を戻しても、同じ worker は後続の要求を停止しない。 */
     @Test
     fun failedMutation_restoresCanonicalStateAndContinuesQueue() = runTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
@@ -538,7 +538,7 @@ class ThreadTabsCoordinatorTest {
         assertEquals(1, nextJob.await())
     }
 
-    /** Cancellation while readiness is blocked must not start the cancelled repository mutation. */
+    /** 準備がブロック中にキャンセルされた場合、キャンセル済みの Repository 更新を開始しない。 */
     @Test
     fun cancelledDuringReadiness_doesNotWriteAndWorkerProcessesNextIntent() = runTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
@@ -574,7 +574,7 @@ class ThreadTabsCoordinatorTest {
         assertEquals(2, coordinator.openThreadTabs.value.size)
     }
 
-    /** Cancellation while the repository waits for a write permit must reach that suspension. */
+    /** Repository が書き込み許可を待機中にキャンセルされた場合、その停止点まで到達する。 */
     @Test
     fun cancelledDuringRepositoryWait_stopsWriteAndWorkerProcessesNextIntent() = runTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
@@ -625,7 +625,7 @@ class ThreadTabsCoordinatorTest {
         assertEquals(2, invocationCount)
     }
 
-    /** Cancellation after transaction entry must finish repository cleanup before FIFO advances. */
+    /** トランザクション開始後のキャンセルでは、FIFO を進める前に Repository の後始末を完了する。 */
     @Test
     fun cancelledAfterTransactionStart_rollsBackAndWorkerProcessesNextIntent() = runTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
@@ -676,7 +676,7 @@ class ThreadTabsCoordinatorTest {
         assertEquals(2, invocationCount)
     }
 
-    /** A repository result that wins before caller cancellation must not trigger compensation or a duplicate write. */
+    /** 呼び出し元のキャンセルより先に Repository の結果が確定した場合、補償処理や重複書き込みを発生させない。 */
     @Test
     fun repositorySuccessBeforeCancellation_doesNotCompensateAndWorkerProcessesNextIntent() = runTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
@@ -720,17 +720,17 @@ class ThreadTabsCoordinatorTest {
     }
 
     /**
-     * Controls canonical emissions and repository completions to verify toggle FIFO semantics.
+     * 正規状態の通知と Repository の完了を制御し、切り替えの FIFO 動作を検証する。
      *
-     * The intents use undispatched callers so every toggle is queued before the worker receives
-     * its first intent. Each repository barrier is released before its matching Room emission,
-     * making a premature subsequent write observable.
+     * undispatched caller を使うことで、worker が最初の要求を受け取る前にすべての切り替え操作
+     * をキューへ追加する。後続の書き込みが早すぎる場合に検出できるよう、各 Repository barrier
+     * は対応する Room 通知より先に解放する。
      */
     private suspend fun TestScope.assertRapidPinToggles(
         initialPinned: Boolean,
         toggleCount: Int,
     ) {
-        // --- Controlled dependencies ---
+        // --- 依存関係の制御 ---
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
@@ -746,7 +746,7 @@ class ThreadTabsCoordinatorTest {
             true
         }
 
-        // --- Initial canonical state and queued intents ---
+        // --- 初期の正規状態とキュー内の intent ---
         val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
         val workerDispatcher = StandardTestDispatcher(testScheduler)
         databaseFlow.emit(listOf(initialTab))
@@ -760,7 +760,7 @@ class ThreadTabsCoordinatorTest {
         }
         runCurrent()
 
-        // --- Sequential write and confirmation ---
+        // --- 順次書き込みと確認 ---
         val expectedPins = (1..toggleCount).map { step ->
             if (step % 2 == 1) !initialPinned else initialPinned
         }
@@ -799,7 +799,7 @@ class ThreadTabsCoordinatorTest {
         )
     }
 
-    /** Builds a stable test tab whose identifier is unique within a fixture. */
+    /** テストデータ内で識別子が一意になる安定したテストタブを組み立てる。 */
     private fun testTab(
         key: String,
         sortOrder: Int,
@@ -815,7 +815,7 @@ class ThreadTabsCoordinatorTest {
         isPinned = isPinned,
     )
 
-    /** Builds the route corresponding to [testTab]'s identifier. */
+    /** [testTab] の識別子に対応する route を組み立てる。 */
     private fun testRoute(key: String): AppRoute.Thread = AppRoute.Thread(
         threadKey = key,
         boardUrl = "https://host/board/",

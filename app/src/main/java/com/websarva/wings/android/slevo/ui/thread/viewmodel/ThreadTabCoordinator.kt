@@ -10,8 +10,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * Persists thread metadata and read state without replacing the open-tab collection.
- * Each update reads and writes only the requested thread's state rows.
+ * 開いているタブ一覧を置き換えずに、スレッドのメタデータと既読状態を永続化する。
+ * 各更新では指定されたスレッドの状態行だけを読み書きする。
  */
 class ThreadTabCoordinator(
     private val scope: CoroutineScope,

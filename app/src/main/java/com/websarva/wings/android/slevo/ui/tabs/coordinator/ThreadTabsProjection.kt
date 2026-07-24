@@ -5,26 +5,26 @@ import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
 
 /**
- * A pending tab operation that is applied on top of the latest Room snapshot.
- * Operations are ordered by their position in the coordinator FIFO queue.
+ * 最新の Room スナップショットに重ねて適用する保留中のタブ操作。
+ * 操作は coordinator の FIFO キュー内の位置順に並ぶ。
  */
 internal sealed interface ThreadTabPendingOperation {
-    /** Ensures a tab exists and carries the latest route metadata for projection. */
+    /** タブの存在を保証し、投影用に最新の route メタデータを保持する。 */
     data class Ensure(val tab: ThreadTabInfo) : ThreadTabPendingOperation
 
-    /** Hides a tab until Room confirms its deletion. */
+    /** Room が削除を確認するまでタブを非表示にする。 */
     data class Delete(val threadId: ThreadId) : ThreadTabPendingOperation
 
-    /** Projects the requested pin value until Room confirms it. */
+    /** Room が確認するまで要求された pin 値を投影する。 */
     data class Pin(val threadId: ThreadId, val isPinned: Boolean) : ThreadTabPendingOperation
 
-    /** Projects a common ThreadState update until the joined Room query reflects it. */
+    /** JOIN された Room query に反映されるまで共通 ThreadState 更新を投影する。 */
     data class Info(val tab: ThreadTabInfo) : ThreadTabPendingOperation
 }
 
 /**
- * Reapplies pending operations to a canonical Room snapshot.
- * The returned list has unique thread IDs and preserves canonical order, appending new tabs.
+ * 正規の Room スナップショットに保留中の操作を再適用する。
+ * 返す一覧は thread ID が一意で、正規状態の順序を維持しつつ新規タブを末尾に追加する。
  */
 internal fun projectThreadTabs(
     canonicalTabs: List<ThreadTabInfo>,
@@ -64,7 +64,7 @@ internal fun projectThreadTabs(
     return projected.distinctBy { it.id }
 }
 
-/** Returns whether the canonical snapshot satisfies this operation's confirmation contract. */
+/** 正規スナップショットがこの操作の確認条件を満たすかどうかを返す。 */
 internal fun isThreadTabOperationConfirmed(
     canonicalTabs: List<ThreadTabInfo>,
     operation: ThreadTabPendingOperation,
@@ -85,7 +85,7 @@ internal fun isThreadTabOperationConfirmed(
     }
 }
 
-/** Compares only the fields that are confirmed through the joined ThreadState Flow. */
+/** JOIN された ThreadState Flow を通して確認されるフィールドだけを比較する。 */
 private fun ThreadTabInfo.matchesThreadMetadata(expected: ThreadTabInfo): Boolean {
     val merged = mergeThreadTabMetadata(this, expected)
     return title == merged.title &&
