@@ -15,6 +15,6 @@
 
 ## 4. 検証
 
-- [ ] 4.1 `./gradlew testDebugUnitTest` を実行し、新規 callback test、既存 retained caller-cancellation test、store lifetime cancellation test を含む unit test がすべて成功することを確認する。
-- [ ] 4.2 `./gradlew assembleDebug` を実行し、Debug build が成功することを確認する。
+- [x] 4.1 `./gradlew testDebugUnitTest` を実行し、新規 callback test、既存 retained caller-cancellation test、store lifetime cancellation test を含む unit test がすべて成功することを確認する。
+- [x] 4.2 `./gradlew assembleDebug` を実行し、Debug build が成功することを確認する。
 - [x] 4.3 最終 diff を確認し、削除アニメーション、ナビゲーション、表示文言、アクセシビリティ、FIFO、メタデータ、DB schema、他 finding に変更がないことを確認する。
