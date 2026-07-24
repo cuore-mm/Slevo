@@ -442,18 +442,20 @@ class ThreadTabsCoordinator @Inject constructor(
 
     /** One queued mutation and the completion owned by its caller. */
     private sealed interface ThreadTabMutationIntent {
+        val completion: CompletableDeferred<*>
+
         /** Adds or ensures one thread tab. */
         data class Ensure(
             val tab: ThreadTabInfo,
             val operation: ThreadTabPendingOperation.Ensure,
-            val completion: CompletableDeferred<Int>,
+            override val completion: CompletableDeferred<Int>,
         ) : ThreadTabMutationIntent
 
         /** Deletes one thread tab. */
         data class Delete(
             val threadId: ThreadId,
             val operation: ThreadTabPendingOperation.Delete,
-            val completion: CompletableDeferred<Unit>,
+            override val completion: CompletableDeferred<Unit>,
         ) : ThreadTabMutationIntent
 
         /** Changes one pin column. */
@@ -461,14 +463,14 @@ class ThreadTabsCoordinator @Inject constructor(
             val threadId: ThreadId,
             val isPinned: Boolean,
             val operation: ThreadTabPendingOperation.Pin,
-            val completion: CompletableDeferred<Unit>,
+            override val completion: CompletableDeferred<Unit>,
         ) : ThreadTabMutationIntent
 
         /** Updates one joined ThreadState projection. */
         data class Info(
             val tab: ThreadTabInfo,
             val operation: ThreadTabPendingOperation.Info,
-            val completion: CompletableDeferred<Unit>,
+            override val completion: CompletableDeferred<Unit>,
         ) : ThreadTabMutationIntent
     }
 
