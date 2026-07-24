@@ -10,6 +10,7 @@ import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import io.mockk.mockk
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.verify
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -275,7 +276,7 @@ class TabListViewModelTest {
      * 選択中のスレッドタブ固定切替時に [TabSessionStore.togglePinThreadTab] が呼ばれることを確認する。
      */
     @Test
-    fun toggleSelectedTabPin_forThread_delegatesToSessionStore() {
+    fun toggleSelectedTabPin_forThread_delegatesToSessionStore() = runTest {
         val tab = ThreadTabInfo(
             id = com.websarva.wings.android.slevo.data.model.ThreadId.of("medaka.5ch.io", "test", "1234567890"),
             title = "Test Thread",
@@ -288,7 +289,7 @@ class TabListViewModelTest {
 
         viewModel.toggleSelectedTabPin()
 
-        verify { tabSessionStore.togglePinThreadTab(tab.id) }
+        coVerify { tabSessionStore.togglePinThreadTab(tab.id) }
     }
 
     // --- Search ---

@@ -4,11 +4,15 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadS
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+/**
+ * Persists thread metadata and read state without replacing the open-tab collection.
+ * Each update reads and writes only the requested thread's state rows.
+ */
 class ThreadTabCoordinator(
     private val scope: CoroutineScope,
     private val tabsRepository: TabsRepository,
@@ -17,41 +21,39 @@ class ThreadTabCoordinator(
 
     fun updateThreadTabInfo(threadId: ThreadId, title: String, resCount: Int) {
         scope.launch {
-            val current = tabsRepository.observeOpenThreadTabs().first()
-            var target: ThreadTabInfo? = null
-            val updated = current.map { tab ->
-                if (tab.id == threadId) {
-                    val candidate = if (tab.lastReadResNo == 0) {
-                        null
-                    } else if (tab.firstNewResNo == null || tab.firstNewResNo <= tab.lastReadResNo) {
-                        tab.lastReadResNo + 1
-                    } else {
-                        tab.firstNewResNo
-                    }
-                    val newFirst = candidate?.let { if (it > resCount) null else candidate }
-                    val newTab = tab.copy(
-                        title = title,
-                        resCount = resCount,
-                        prevResCount = tab.resCount,
-                        firstNewResNo = newFirst,
-                    )
-                    target = newTab
-                    newTab
-                } else {
-                    tab
-                }
+            val current = tabsRepository.getOpenThreadTab(threadId) ?: return@launch
+            val candidate = if (current.lastReadResNo == 0) {
+                null
+            } else if (current.firstNewResNo == null || current.firstNewResNo <= current.lastReadResNo) {
+                current.lastReadResNo + 1
+            } else {
+                current.firstNewResNo
             }
-            tabsRepository.saveOpenThreadTabs(updated)
-            target?.let {
-                readStateRepository.saveReadState(
-                    threadId,
-                    ThreadReadState(
-                        prevResCount = it.prevResCount,
-                        lastReadResNo = it.lastReadResNo,
-                        firstNewResNo = it.firstNewResNo,
-                    )
+            val newFirst = candidate?.let { if (it > resCount) null else candidate }
+            val updated = current.copy(
+                title = title,
+                resCount = resCount,
+                prevResCount = current.resCount,
+                firstNewResNo = newFirst,
+            )
+            tabsRepository.updateThreadState(
+                ThreadStateRepository.ThreadStateUpdate(
+                    threadId = updated.id,
+                    boardId = updated.boardId,
+                    boardUrl = updated.boardUrl,
+                    boardName = updated.boardName,
+                    title = updated.title,
+                    latestResCount = updated.resCount,
                 )
-            }
+            )
+            readStateRepository.saveReadState(
+                threadId,
+                ThreadReadState(
+                    prevResCount = updated.prevResCount,
+                    lastReadResNo = updated.lastReadResNo,
+                    firstNewResNo = updated.firstNewResNo,
+                )
+            )
         }
     }
 
@@ -75,15 +77,15 @@ class ThreadTabCoordinator(
 
     fun updateThreadLastRead(threadId: ThreadId, lastReadResNo: Int) {
         scope.launch {
-            val current = tabsRepository.observeOpenThreadTabs().first()
-            val tab = current.find { it.id == threadId } ?: return@launch
-            if (lastReadResNo > tab.lastReadResNo) {
+            val current = tabsRepository.getOpenThreadTab(threadId)
+                ?: return@launch
+            if (lastReadResNo > current.lastReadResNo) {
                 readStateRepository.saveReadState(
                     threadId,
                     ThreadReadState(
-                        prevResCount = tab.prevResCount,
+                        prevResCount = current.prevResCount,
                         lastReadResNo = lastReadResNo,
-                        firstNewResNo = tab.firstNewResNo,
+                        firstNewResNo = current.firstNewResNo,
                     )
                 )
             }

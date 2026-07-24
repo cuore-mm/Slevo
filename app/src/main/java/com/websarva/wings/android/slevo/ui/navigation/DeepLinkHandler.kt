@@ -7,9 +7,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.resolveDeepLinkUrl
+import kotlinx.coroutines.CancellationException
 
 /**
  * Deep Linkを受け取り、板/スレ画面へ遷移する。
@@ -85,9 +88,17 @@ private suspend fun handleDeepLinkUrl(
                     threadTitle = null
                 )
             )
-            tabSessionStore.registerAndSelectThreadRoute(route)
-            navController.navigateToThreadScreen(route)
-            true
+            try {
+                handleThreadDeepLinkRoute(
+                    route = route,
+                    tabSessionStore = tabSessionStore,
+                    navigate = { navController.navigateToThreadScreen(route) },
+                )
+            } catch (cancellationException: CancellationException) {
+                throw cancellationException
+            } catch (_: Throwable) {
+                false
+            }
         }
         is ResolvedUrl.Board -> {
             val boardUrl = "https://${target.host}/${target.boardKey}/"
@@ -103,4 +114,27 @@ private suspend fun handleDeepLinkUrl(
         }
         is ResolvedUrl.Unknown -> false
     }
+}
+
+/**
+ * Completes thread deep-link registration before changing selection or navigation.
+ * The callback is invoked only after readiness, canonical existence, and selection succeed.
+ */
+internal suspend fun handleThreadDeepLinkRoute(
+    route: AppRoute.Thread,
+    tabSessionStore: TabSessionStore,
+    navigate: () -> Unit,
+): Boolean {
+    // --- Readiness and registration ---
+    tabSessionStore.awaitThreadTabsReady()
+    val threadId = parseBoardUrl(route.boardUrl)?.let { (host, board) ->
+        ThreadId.of(host, board, route.threadKey)
+    } ?: return false
+    val registrationIndex = tabSessionStore.registerThreadRoute(route)
+    if (registrationIndex < 0 || !tabSessionStore.isCanonicalThreadTab(threadId)) return false
+
+    // --- Selection and navigation ---
+    if (!tabSessionStore.selectThreadTab(threadId)) return false
+    navigate()
+    return true
 }

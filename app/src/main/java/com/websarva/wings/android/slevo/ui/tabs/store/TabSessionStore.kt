@@ -9,6 +9,7 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsLoadState
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
@@ -29,6 +30,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.Closeable
 import javax.inject.Inject
@@ -63,6 +66,7 @@ class TabSessionStore @Inject constructor(
     val openThreadTabs: StateFlow<List<ThreadTabInfo>> = threadTabsCoordinator.openThreadTabs
     val boardLoaded: StateFlow<Boolean> = boardTabsCoordinator.boardLoaded
     val threadLoaded: StateFlow<Boolean> = threadTabsCoordinator.threadLoaded
+    val threadTabState: StateFlow<ThreadTabsLoadState> = threadTabsCoordinator.threadTabState
     val isRefreshing: StateFlow<Boolean> = threadTabsCoordinator.isRefreshing
     val refreshProgress: StateFlow<ThreadTabRefreshProgress?> = threadTabsCoordinator.refreshProgress
     val newResCounts: StateFlow<Map<String, Int>> = threadTabsCoordinator.newResCounts
@@ -154,41 +158,50 @@ class TabSessionStore @Inject constructor(
         boardTabsCoordinator.updateBoardResolvedInfo(boardUrl, boardId, boardName)
     }
 
-    fun ensureThreadTab(route: AppRoute.Thread): Int {
+    suspend fun ensureThreadTab(route: AppRoute.Thread): Int {
         return threadTabsCoordinator.ensureThreadTab(route)
     }
+
+    /** 初回 Room snapshot が canonical state になるまで待機する。 */
+    suspend fun awaitThreadTabsReady(): ThreadTabsLoadState.Loaded =
+        threadTabsCoordinator.threadTabState.filterIsInstance<ThreadTabsLoadState.Loaded>().first()
 
     /**
      * スレッドタブを保証したうえで、対象タブを選択状態へ更新する。
      */
-    fun ensureAndSelectThreadTab(route: AppRoute.Thread): Int {
-        return ensureThreadTab(route).also { index ->
-            if (index >= 0) {
-                val threadId = com.websarva.wings.android.slevo.ui.util.parseBoardUrl(route.boardUrl)
-                    ?.let { (host, board) -> ThreadId.of(host, board, route.threadKey) }
-                selectThreadTab(threadId)
-            }
-        }
+    suspend fun ensureAndSelectThreadTab(route: AppRoute.Thread): Int {
+        val index = ensureThreadTab(route)
+        if (index < 0) return -1
+        val threadId = com.websarva.wings.android.slevo.ui.util.parseBoardUrl(route.boardUrl)
+            ?.let { (host, board) -> ThreadId.of(host, board, route.threadKey) }
+            ?: return -1
+        if (!isCanonicalThreadTab(threadId) || !threadTabsCoordinator.selectThreadTab(threadId)) return -1
+        return index
     }
 
     /**
      * 正規化済みスレッド route からスレッドタブを登録し、選択状態へ更新する。
      */
-    fun registerAndSelectThreadRoute(route: AppRoute.Thread): Int = ensureAndSelectThreadTab(route)
+    suspend fun registerAndSelectThreadRoute(route: AppRoute.Thread): Int = ensureAndSelectThreadTab(route)
+
+    /** 正規化済みスレッド route を canonical confirmation 後まで登録し、選択は行わない。 */
+    suspend fun registerThreadRoute(route: AppRoute.Thread): Int = ensureThreadTab(route)
 
     /**
      * 選択中のスレッドタブ key を更新する。
      */
-    fun selectThreadTab(threadId: ThreadId?) {
-        threadTabsCoordinator.selectThreadTab(threadId)
-    }
+    fun selectThreadTab(threadId: ThreadId?): Boolean = threadTabsCoordinator.selectThreadTab(threadId)
 
-    fun closeThreadTab(tab: ThreadTabInfo) {
+    /** Returns whether a thread ID is present in the latest canonical Room snapshot. */
+    fun isCanonicalThreadTab(threadId: ThreadId): Boolean =
+        threadTabsCoordinator.isCanonicalThreadTab(threadId)
+
+    suspend fun closeThreadTab(tab: ThreadTabInfo) {
         threadSessionHolders.remove(tab.id.value)?.dispose()
         threadTabsCoordinator.closeThreadTab(tab)
     }
 
-    fun closeThreadTab(threadKey: String, boardUrl: String) {
+    suspend fun closeThreadTab(threadKey: String, boardUrl: String) {
         parseBoardUrl(boardUrl)?.let { (host, board) ->
             val threadId = ThreadId.of(host, board, threadKey)
             threadSessionHolders.remove(threadId.value)?.dispose()
@@ -235,7 +248,7 @@ class TabSessionStore @Inject constructor(
     }
 
     /** 解決済みの boardId と名称を既存スレッドタブへ反映する。 */
-    fun updateThreadResolvedBoardInfo(
+    suspend fun updateThreadResolvedBoardInfo(
         threadId: ThreadId,
         boardId: Long,
         boardName: String? = null,
@@ -259,7 +272,7 @@ class TabSessionStore @Inject constructor(
         boardTabsCoordinator.togglePinBoardTab(boardUrl)
     }
 
-    fun togglePinThreadTab(threadId: com.websarva.wings.android.slevo.data.model.ThreadId) {
+    suspend fun togglePinThreadTab(threadId: com.websarva.wings.android.slevo.data.model.ThreadId) {
         threadTabsCoordinator.togglePinThreadTab(threadId)
     }
 

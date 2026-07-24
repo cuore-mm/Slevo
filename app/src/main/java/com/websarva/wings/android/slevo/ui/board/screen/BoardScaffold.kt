@@ -207,8 +207,8 @@ fun BoardScaffold(
                                 resCount = threadInfo.resCount
                             )
                         )
-                        tabSessionStore.registerAndSelectThreadRoute(route)
-                        navController.navigateToThreadScreen(route)
+                        val index = tabSessionStore.registerAndSelectThreadRoute(route)
+                        if (index >= 0) navController.navigateToThreadScreen(route)
                     }
                 },
                 onLongClick = { threadInfo ->

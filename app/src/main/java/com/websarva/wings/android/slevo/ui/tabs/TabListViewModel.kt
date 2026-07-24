@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -210,7 +212,7 @@ class TabListViewModel @Inject constructor(
             tabSessionStore.togglePinBoardTab(tab.boardUrl)
         }
         uiState.value.selectedThreadTab?.let { tab ->
-            tabSessionStore.togglePinThreadTab(tab.id)
+            viewModelScope.launch { tabSessionStore.togglePinThreadTab(tab.id) }
         }
         cancelTabSelection()
     }

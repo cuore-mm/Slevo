@@ -40,6 +40,32 @@ class BbsRouteScaffoldSelectionTest {
         assertEquals(0, result)
     }
 
+    /** thread-only preserve policy returns no programmatic target for a transient missing key. */
+    @Test
+    fun deriveSelectedPageIndex_preservesCurrentPageWhenThreadSelectionIsMissing() {
+        val result = deriveSelectedPageIndex(
+            tabs = listOf("a", "b", "c"),
+            selectedKey = "missing",
+            getKey = { it },
+            missingSelectionPolicy = MissingSelectionPolicy.PreserveCurrentPage,
+        )
+
+        assertEquals(-1, result)
+    }
+
+    /** A null thread selection is also unresolved and must not issue a first-page target. */
+    @Test
+    fun deriveSelectedPageIndex_preservesCurrentPageWhenThreadSelectionIsNull() {
+        val result = deriveSelectedPageIndex(
+            tabs = listOf("a", "b"),
+            selectedKey = null,
+            getKey = { it },
+            missingSelectionPolicy = MissingSelectionPolicy.PreserveCurrentPage,
+        )
+
+        assertEquals(-1, result)
+    }
+
     /**
      * タブが空の場合は -1 を返すことを確認する。
      */

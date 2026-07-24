@@ -22,7 +22,7 @@ import javax.inject.Singleton
 @Singleton
 class ThreadStateRepository @Inject constructor(
     private val dao: ThreadStateDao,
-    private val gate: DatabaseWriteGate,
+    private val gate: DatabaseWriteGate = DatabaseWriteGate(),
 ) {
     /**
      * GC の保持期間と削除件数上限をまとめる定数置き場。

@@ -50,6 +50,18 @@ import com.websarva.wings.android.slevo.R
 import kotlin.math.abs
 
 /**
+ * Defines how a shared pager handles a selected key that is temporarily absent.
+ * Board screens retain the historical first-page fallback; thread screens can preserve the page.
+ */
+enum class MissingSelectionPolicy {
+    /** Use the first tab when no selected key can be resolved. */
+    UseFirst,
+
+    /** Return no programmatic page target while the selected key is unresolved. */
+    PreserveCurrentPage,
+}
+
+/**
  * 板/スレ共通のタブUIと画面内シートを提供する。
  *
  * URL入力ダイアログは検証失敗時にエラー表示し、閉じずに再入力させる。
@@ -89,6 +101,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
     ) -> Unit,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     bottomBarActionVisibilityEnabled: Boolean = true,
+    missingSelectionPolicy: MissingSelectionPolicy = MissingSelectionPolicy.UseFirst,
     optionalSheetContent: @Composable (tabInfo: TabInfo, uiState: UiState) -> Unit = { _, _ -> }
 ) {
     // このComposableはタブベースの画面レイアウトを提供します。
@@ -115,14 +128,22 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         emptyList()
     }
     val selectedPage = remember(selectedTabKey, tabs) {
-        deriveSelectedPageIndex(tabs = tabs, selectedKey = selectedTabKey, getKey = getKey)
+        deriveSelectedPageIndex(
+            tabs = tabs,
+            selectedKey = selectedTabKey,
+            getKey = getKey,
+            missingSelectionPolicy = missingSelectionPolicy,
+        )
     }
     val currentTabInfo = tabs.getOrNull(selectedPage)
 
     if (tabs.isNotEmpty()) {
         // Pagerの状態。ページ数はタブ数に応じて動的に提供される。
         val pagerState =
-            rememberPagerState(initialPage = selectedPage, pageCount = { tabs.size })
+            rememberPagerState(
+                initialPage = selectedPage.takeIf { it in tabs.indices } ?: 0,
+                pageCount = { tabs.size },
+            )
 
         // selected key とタブ一覧から導出したページにのみ同期する。
         LaunchedEffect(selectedPage, tabs.size) {
@@ -131,7 +152,8 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
             }
         }
 
-        LaunchedEffect(pagerState.currentPage, tabs) {
+        LaunchedEffect(pagerState.currentPage, tabs, selectedPage) {
+            if (selectedPage < 0) return@LaunchedEffect
             val page = pagerState.currentPage
             val currentTab = tabs.getOrNull(page) ?: return@LaunchedEffect
             if (getKey(currentTab) != selectedTabKey) {
@@ -332,7 +354,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                                     threadTitle = null
                                 )
                             )
-                            tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
+                            val index = tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
+                            if (index < 0) {
+                                urlError = invalidUrlMessage
+                                isValidating = false
+                                return@launch
+                            }
                             navController.showThreadScreenForTabSelection(
                                 currentScreenRoute = route,
                                 route = normalizedRoute,
@@ -386,12 +413,21 @@ internal fun <TabInfo : Any> deriveSelectedPageIndex(
     tabs: List<TabInfo>,
     selectedKey: Any?,
     getKey: (TabInfo) -> Any,
+    missingSelectionPolicy: MissingSelectionPolicy = MissingSelectionPolicy.UseFirst,
 ): Int {
     if (tabs.isEmpty()) return -1
-    if (selectedKey == null) return 0
+    if (selectedKey == null) {
+        return when (missingSelectionPolicy) {
+            MissingSelectionPolicy.UseFirst -> 0
+            MissingSelectionPolicy.PreserveCurrentPage -> -1
+        }
+    }
     return tabs.indexOfFirst { getKey(it) == selectedKey }
         .takeIf { it >= 0 }
-        ?: 0
+        ?: when (missingSelectionPolicy) {
+            MissingSelectionPolicy.UseFirst -> 0
+            MissingSelectionPolicy.PreserveCurrentPage -> -1
+        }
 }
 
 /**

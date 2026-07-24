@@ -31,6 +31,7 @@ import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
+import com.websarva.wings.android.slevo.ui.bbsroute.MissingSelectionPolicy
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunner
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
 import com.websarva.wings.android.slevo.ui.common.PostDialog
@@ -58,6 +59,7 @@ import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadRouteViewModel
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /**
@@ -80,6 +82,7 @@ fun ThreadScaffold(
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsState()
     val selectedThreadTabKey by tabSessionStore.selectedThreadTabKey.collectAsState()
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var isPopupVisible by remember { mutableStateOf(false) }
     val popupDialogState = rememberPostItemDialogState()
     var popupMenuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
@@ -107,13 +110,19 @@ fun ThreadScaffold(
             navController.navigateUp()
             return@LaunchedEffect
         }
-        val index = tabSessionStore.ensureThreadTab(
-            threadRoute.copy(
-                boardId = info.boardId,
-                boardName = info.name
+        val index = try {
+            tabSessionStore.ensureThreadTab(
+                threadRoute.copy(
+                    boardId = info.boardId,
+                    boardName = info.name
+                )
             )
-        )
-        if (index >= 0) {
+        } catch (cancellationException: CancellationException) {
+            throw cancellationException
+        } catch (_: Throwable) {
+            return@LaunchedEffect
+        }
+        if (index >= 0 && tabSessionStore.isCanonicalThreadTab(routeThreadId)) {
             tabSessionStore.selectThreadTab(routeThreadId)
         }
     }
@@ -126,6 +135,7 @@ fun ThreadScaffold(
         onEmptyTabs = { navController.navigateUp() },
         openTabs = openThreadTabs,
         selectedTabKey = selectedThreadTabKey,
+        missingSelectionPolicy = MissingSelectionPolicy.PreserveCurrentPage,
         getUiState = { tab -> routeViewModel.uiStateFor(tab.id.value) },
         getBookmarkSheetHolder = { tab -> routeViewModel.bookmarkSheetHolderFor(tab.id.value) },
         getKey = { it.id.value },
@@ -249,10 +259,12 @@ fun ThreadScaffold(
                             onSwitchToPreviousTab = { tabSessionStore.animateThreadPage(-1) },
                             onCloseTab = {
                                 if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
-                                    tabSessionStore.closeThreadTab(
-                                        uiState.threadInfo.key,
-                                        uiState.boardInfo.url,
-                                    )
+                                     coroutineScope.launch {
+                                         tabSessionStore.closeThreadTab(
+                                             uiState.threadInfo.key,
+                                             uiState.boardInfo.url,
+                                         )
+                                     }
                                 }
                             },
                         ),
@@ -317,8 +329,8 @@ fun ThreadScaffold(
                 onThreadUrlClick = { route ->
                     coroutineScope.launch {
                         val normalizedRoute = tabSessionStore.normalizeThreadRouteForNavigation(route)
-                        tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
-                        navController.navigateToThreadScreen(normalizedRoute)
+                        val index = tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
+                        if (index >= 0) navController.navigateToThreadScreen(normalizedRoute)
                     }
                 },
                 onImageClick = { _, imageUrls, tappedIndex, transitionNamespace ->

@@ -8,6 +8,7 @@ import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsLoadState
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -18,9 +19,11 @@ import com.websarva.wings.android.slevo.ui.tabs.session.holder.ThreadTabSessionH
 import io.mockk.mockk
 import io.mockk.every
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.verify
 import io.mockk.slot
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -40,6 +43,12 @@ class TabSessionStoreTest {
     private val threadHolderFactory = mockk<ThreadTabSessionHolderFactory>(relaxed = true)
     private val boardHolderFactory = mockk<BoardTabSessionHolderFactory>(relaxed = true)
     private val settingsRepository = mockk<SettingsRepository>(relaxed = true)
+
+    init {
+        every { threadCoordinator.threadTabState } returns MutableStateFlow(ThreadTabsLoadState.Loading)
+        every { threadCoordinator.isCanonicalThreadTab(any()) } returns true
+        every { threadCoordinator.selectThreadTab(any()) } returns true
+    }
 
     private fun createStore(): TabSessionStore {
         return TabSessionStore(
@@ -80,7 +89,7 @@ class TabSessionStoreTest {
      * スレッドタブ削除時に対象 holder だけが破棄されることを確認する。
      */
     @Test
-    fun closeThreadTab_disposesTargetHolderOnly() {
+    fun closeThreadTab_disposesTargetHolderOnly() = runTest {
         val holder1 = mockThreadHolder()
         val holder2 = mockThreadHolder()
         every { threadHolderFactory.create("example.com/test/123", any()) } returns holder1
@@ -208,18 +217,18 @@ class TabSessionStoreTest {
      * 正規化済みスレ route 登録 API が coordinator の ensure と select を順に呼ぶことを確認する。
      */
     @Test
-    fun registerAndSelectThreadRoute_delegatesToCoordinator() {
+    fun registerAndSelectThreadRoute_delegatesToCoordinator() = runTest {
         val route = AppRoute.Thread(
             threadKey = "123",
             boardUrl = "https://example.com/test/",
             boardName = "board",
             threadTitle = "title",
         )
-        every { threadCoordinator.ensureThreadTab(route) } returns 0
+        coEvery { threadCoordinator.ensureThreadTab(route) } returns 0
 
         store.registerAndSelectThreadRoute(route)
 
-        verify { threadCoordinator.ensureThreadTab(route) }
+        coVerify { threadCoordinator.ensureThreadTab(route) }
         verify { threadCoordinator.selectThreadTab(any()) }
     }
 

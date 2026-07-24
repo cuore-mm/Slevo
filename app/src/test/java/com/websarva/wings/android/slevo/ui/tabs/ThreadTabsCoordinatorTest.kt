@@ -6,9 +6,21 @@ import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.projectThreadTabs
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabPendingOperation
 import com.websarva.wings.android.slevo.ui.tabs.session.PendingThreadPostState
+import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -27,7 +39,7 @@ class ThreadTabsCoordinatorTest {
      * 正規化後 boardUrl と threadKey から構築したURLをタイトルとして保存することを確認する。
      */
     @Test
-    fun ensureThreadTab_savesThreadUrlWhenThreadTitleIsNull() {
+    fun ensureThreadTab_savesThreadUrlWhenThreadTitleIsNull() = runTest {
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val coordinator = createCoordinator(tabsRepository)
 
@@ -46,14 +58,14 @@ class ThreadTabsCoordinatorTest {
             "https://medaka.5ch.io/test/read.cgi/mmominor/1723111700/",
             coordinator.openThreadTabs.value.first().title
         )
-        coVerify(exactly = 0) { tabsRepository.saveOpenThreadTabs(any()) }
+         coVerify(exactly = 0) { tabsRepository.replaceOpenThreadTabsForBulkOperation(any()) }
     }
 
     /**
      * host が異なる同一 board/thread は別タブとして保存されることを確認する。
      */
     @Test
-    fun ensureThreadTab_createsSeparateTabsForNetAndIoHosts() {
+    fun ensureThreadTab_createsSeparateTabsForNetAndIoHosts() = runTest {
         val coordinator = createCoordinator(mockk(relaxed = true))
 
         coordinator.ensureThreadTab(
@@ -83,7 +95,7 @@ class ThreadTabsCoordinatorTest {
      * `togglePinThreadTab` で対象スレッドタブの固定状態を切り替えることを確認する。
      */
     @Test
-    fun togglePinThreadTab_togglesPinnedState() {
+    fun togglePinThreadTab_togglesPinnedState() = runTest {
         val coordinator = createCoordinator(mockk(relaxed = true))
         coordinator.ensureThreadTab(
             AppRoute.Thread(
@@ -110,7 +122,7 @@ class ThreadTabsCoordinatorTest {
      * スレッドタブ選択時に selected key が ThreadId で更新されることを確認する。
      */
     @Test
-    fun selectThreadTab_updatesSelectedThreadTabKey() {
+    fun selectThreadTab_updatesSelectedThreadTabKey() = runTest {
         val coordinator = createCoordinator(mockk(relaxed = true))
         coordinator.ensureThreadTab(
             AppRoute.Thread(
@@ -127,11 +139,35 @@ class ThreadTabsCoordinatorTest {
         assertEquals(threadId.value, coordinator.selectedThreadTabKey.value)
     }
 
+    /** Missing target selection fails without clearing the existing selected key. */
+    @Test
+    fun selectThreadTab_missingTargetPreservesExistingSelection() = runTest {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        coordinator.ensureThreadTab(
+            AppRoute.Thread(
+                threadKey = "existing",
+                boardUrl = "https://medaka.5ch.io/mmominor/",
+                boardName = "mmominor",
+                threadTitle = "existing",
+            )
+        )
+        val selected = coordinator.openThreadTabs.value.single().id
+        assertTrue(coordinator.selectThreadTab(selected))
+
+        val missing = com.websarva.wings.android.slevo.data.model.ThreadId.of(
+            "medaka.5ch.io",
+            "mmominor",
+            "missing",
+        )
+        assertFalse(coordinator.selectThreadTab(missing))
+        assertEquals(selected.value, coordinator.selectedThreadTabKey.value)
+    }
+
     /**
      * 選択中スレッドタブを閉じた場合、selected key が隣接タブへ補正されることを確認する。
      */
     @Test
-    fun closeThreadTab_updatesSelectedKeyToAdjacentTab() {
+    fun closeThreadTab_updatesSelectedKeyToAdjacentTab() = runTest {
         val coordinator = createCoordinator(mockk(relaxed = true))
         coordinator.ensureThreadTab(
             AppRoute.Thread(
@@ -162,7 +198,7 @@ class ThreadTabsCoordinatorTest {
      * 最後のスレッドタブを閉じた場合、selected key が null になることを確認する。
      */
     @Test
-    fun closeLastThreadTab_clearsSelectedThreadTabKey() {
+    fun closeLastThreadTab_clearsSelectedThreadTabKey() = runTest {
         val coordinator = createCoordinator(mockk(relaxed = true))
         coordinator.ensureThreadTab(
             AppRoute.Thread(
@@ -184,7 +220,7 @@ class ThreadTabsCoordinatorTest {
      * タブを閉じたときに対象タブのセッション状態だけが削除されることを確認する。
      */
     @Test
-    fun closeThreadTab_removesOnlyTargetSessionState() {
+    fun closeThreadTab_removesOnlyTargetSessionState() = runTest {
         val coordinator = createCoordinator(mockk(relaxed = true))
         coordinator.ensureThreadTab(
             AppRoute.Thread(
@@ -221,7 +257,7 @@ class ThreadTabsCoordinatorTest {
      * セッション状態更新が永続タブ保存を呼ばないことを確認する。
      */
     @Test
-    fun updateThreadSessionState_doesNotPersistTabs() {
+    fun updateThreadSessionState_doesNotPersistTabs() = runTest {
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val coordinator = createCoordinator(tabsRepository)
         coordinator.ensureThreadTab(
@@ -239,11 +275,11 @@ class ThreadTabsCoordinatorTest {
         }
 
         assertEquals("query", coordinator.getThreadSessionState(tab.id).searchQuery)
-        coVerify(exactly = 0) { tabsRepository.saveOpenThreadTabs(any()) }
+         coVerify(exactly = 0) { tabsRepository.replaceOpenThreadTabsForBulkOperation(any()) }
     }
 
     @Test
-    fun closeThreadTab_removesTargetRuntimeState() {
+    fun closeThreadTab_removesTargetRuntimeState() = runTest {
         val coordinator = createCoordinator(mockk(relaxed = true))
         coordinator.ensureThreadTab(
             AppRoute.Thread(
@@ -267,7 +303,7 @@ class ThreadTabsCoordinatorTest {
      * 解決済み boardId を反映しても、既存の表示メタ情報とスクロール位置を保持することを確認する。
      */
     @Test
-    fun updateThreadResolvedBoardInfo_updatesBoardIdAndPreservesThreadTabFields() {
+    fun updateThreadResolvedBoardInfo_updatesBoardIdAndPreservesThreadTabFields() = runTest {
         val coordinator = createCoordinator(mockk(relaxed = true))
         coordinator.ensureThreadTab(
             AppRoute.Thread(
@@ -296,15 +332,193 @@ class ThreadTabsCoordinatorTest {
         assertEquals(true, actual.isPinned)
     }
 
+    /** 初回 Room emission が届くまで、1,252 件の canonical 状態を空一覧で上書きしない。 */
+    @Test
+    fun ensureThreadTab_waitsForInitialSnapshotBeforeDatabaseWrite() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 0, extraBufferCapacity = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val writeStarted = CompletableDeferred<Unit>()
+        val writeRelease = CompletableDeferred<Unit>()
+        val initialTabs = (0 until 1_252).map { index -> testTab("existing-$index", index) }
+        val route = testRoute("new-thread")
+        val addedTab = testTab("new-thread", 1_252)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.ensureOpenThreadTab(any()) } coAnswers {
+            writeStarted.complete(Unit)
+            writeRelease.await()
+            true
+        }
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + dispatcher))
+
+        val ensureJob = backgroundScope.async { coordinator.ensureThreadTab(route) }
+        runCurrent()
+        assertFalse(writeStarted.isCompleted)
+        assertEquals(0, coordinator.openThreadTabs.value.size)
+
+        databaseFlow.emit(initialTabs)
+        runCurrent()
+        assertTrue(writeStarted.isCompleted)
+        assertEquals(1_253, coordinator.openThreadTabs.value.size)
+        writeRelease.complete(Unit)
+        runCurrent()
+        assertFalse(ensureJob.isCompleted)
+
+        databaseFlow.emit(initialTabs)
+        runCurrent()
+        assertEquals(1_253, coordinator.openThreadTabs.value.size)
+        databaseFlow.emit(initialTabs + addedTab)
+        runCurrent()
+        assertEquals(1_252, ensureJob.await())
+        assertEquals(1_253, coordinator.openThreadTabs.value.size)
+        assertEquals(1_253, coordinator.openThreadTabs.value.map { it.id }.toSet().size)
+    }
+
+    /** stale 1,252 件 emission 中も pending add を再投影し、confirmation 前の completion を返さない。 */
+    @Test
+    fun pendingAdd_survivesStaleSnapshotUntilCanonicalConfirmation() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val initialTabs = (0 until 1_252).map { index -> testTab("existing-$index", index) }
+        val route = testRoute("added")
+        val addedTab = testTab("added", 1_252)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.ensureOpenThreadTab(any()) } returns true
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        databaseFlow.emit(initialTabs)
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        val ensureJob = backgroundScope.async { coordinator.ensureThreadTab(route) }
+        runCurrent()
+        databaseFlow.emit(initialTabs)
+        runCurrent()
+        assertEquals(1_253, coordinator.openThreadTabs.value.size)
+        assertFalse(ensureJob.isCompleted)
+        databaseFlow.emit(initialTabs + addedTab)
+        runCurrent()
+
+        assertEquals(1_253, ensureJob.await())
+        assertEquals(initialTabs.map { it.id }.toSet() + addedTab.id, coordinator.openThreadTabs.value.map { it.id }.toSet())
+    }
+
+    /** loaded-empty は有効状態として扱い、空 snapshot 後の add を実行できる。 */
+    @Test
+    fun loadedEmpty_allowsMutationAfterInitialEmptyEmission() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val route = testRoute("first")
+        val tab = testTab("first", 0)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.ensureOpenThreadTab(any()) } returns true
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        databaseFlow.emit(emptyList())
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        val ensureJob = backgroundScope.async { coordinator.ensureThreadTab(route) }
+        runCurrent()
+        assertTrue(ensureJob.isActive)
+        databaseFlow.emit(listOf(tab))
+        runCurrent()
+        assertEquals(0, ensureJob.await())
+    }
+
+    /** projection は add/delete/pin を FIFO で適用し、対象外の tab 固有値を変更しない。 */
+    @Test
+    fun projection_appliesRapidMutationIntentsInOrder() {
+        val first = testTab("first", 0, isPinned = false, scrollIndex = 7)
+        val second = testTab("second", 1, isPinned = true, scrollIndex = 9)
+        val third = testTab("third", 2)
+        val result = projectThreadTabs(
+            canonicalTabs = listOf(first, second),
+            pendingOperations = listOf(
+                ThreadTabPendingOperation.Pin(first.id, true),
+                ThreadTabPendingOperation.Delete(second.id),
+                ThreadTabPendingOperation.Ensure(third),
+            ),
+        )
+
+        assertEquals(listOf(first.id, third.id), result.map { it.id })
+        assertTrue(result.first().isPinned)
+        assertEquals(7, result.first().firstVisibleItemIndex)
+    }
+
+    /** DB failure で pending projection を戻しても、同じ worker は後続 intent を停止しない。 */
+    @Test
+    fun failedMutation_restoresCanonicalStateAndContinuesQueue() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val existing = testTab("existing", 0)
+        val failedRoute = testRoute("failed")
+        val nextRoute = testRoute("next")
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.ensureOpenThreadTab(match { it.id.value.endsWith("failed") }) } throws IllegalStateException("write failed")
+        coEvery { tabsRepository.ensureOpenThreadTab(match { it.id.value.endsWith("next") }) } returns true
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        databaseFlow.emit(listOf(existing))
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        val failedJob = backgroundScope.async { runCatching { coordinator.ensureThreadTab(failedRoute) } }
+        runCurrent()
+        assertTrue(failedJob.await().isFailure)
+        assertEquals(listOf(existing.id), coordinator.openThreadTabs.value.map { it.id })
+
+        val nextJob = backgroundScope.async { coordinator.ensureThreadTab(nextRoute) }
+        runCurrent()
+        val nextTab = testTab("next", 1)
+        databaseFlow.emit(listOf(existing, nextTab))
+        runCurrent()
+        assertEquals(1, nextJob.await())
+    }
+
     /**
      * テスト用に依存を差し替えた `ThreadTabsCoordinator` を生成する。
      */
-    private fun createCoordinator(tabsRepository: TabsRepository): ThreadTabsCoordinator {
+    private fun createCoordinator(
+        tabsRepository: TabsRepository,
+        bookmarkRepository: ThreadBookmarkRepository = mockk(relaxed = true),
+    ): ThreadTabsCoordinator {
         return ThreadTabsCoordinator(
             tabsRepository = tabsRepository,
-            threadBookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true),
+            threadBookmarkRepository = bookmarkRepository,
             datRepository = mockk<DatRepository>(relaxed = true),
             threadStateRepository = mockk<ThreadStateRepository>(relaxed = true),
         )
     }
+
+    /** Builds a stable test tab whose identifier is unique within a fixture. */
+    private fun testTab(
+        key: String,
+        sortOrder: Int,
+        isPinned: Boolean = false,
+        scrollIndex: Int = 0,
+    ): ThreadTabInfo = ThreadTabInfo(
+        id = com.websarva.wings.android.slevo.data.model.ThreadId.of("host", "board", key),
+        title = key,
+        boardName = "Board",
+        boardUrl = "https://host/board/",
+        boardId = 1L,
+        firstVisibleItemIndex = scrollIndex,
+        isPinned = isPinned,
+    )
+
+    /** Builds the route corresponding to [testTab]'s identifier. */
+    private fun testRoute(key: String): AppRoute.Thread = AppRoute.Thread(
+        threadKey = key,
+        boardUrl = "https://host/board/",
+        boardName = "Board",
+        threadTitle = key,
+        boardId = 1L,
+    )
 }
