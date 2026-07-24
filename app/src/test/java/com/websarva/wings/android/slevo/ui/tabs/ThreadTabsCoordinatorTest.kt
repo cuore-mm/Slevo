@@ -14,15 +14,18 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.secondArg
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -118,6 +121,18 @@ class ThreadTabsCoordinatorTest {
         coordinator.togglePinThreadTab(threadId)
 
         assertEquals(false, coordinator.openThreadTabs.value.first().isPinned)
+    }
+
+    /** 連続 2 回の pin toggle が元の値へ戻り、各確認後だけ次の write を開始する。 */
+    @Test
+    fun togglePinThreadTab_twoRapidTogglesAlternateAfterEachConfirmation() = runTest {
+        assertRapidPinToggles(initialPinned = false, toggleCount = 2)
+    }
+
+    /** 連続 3 回の pin toggle が初期値を反転し、要求値を交互に確定する。 */
+    @Test
+    fun togglePinThreadTab_threeRapidTogglesAlternateAfterEachConfirmation() = runTest {
+        assertRapidPinToggles(initialPinned = true, toggleCount = 3)
     }
 
     /**
@@ -703,6 +718,71 @@ class ThreadTabsCoordinatorTest {
         runCurrent()
         assertEquals(1, nextJob.await())
         assertEquals(2, invocationCount)
+    }
+
+    /**
+     * Controls canonical emissions and repository completions to verify toggle FIFO semantics.
+     *
+     * The intents use undispatched callers so every toggle is queued before the worker receives
+     * its first intent. Each repository barrier is released before its matching Room emission,
+     * making a premature subsequent write observable.
+     */
+    private suspend fun TestScope.assertRapidPinToggles(
+        initialPinned: Boolean,
+        toggleCount: Int,
+    ) {
+        // --- Controlled dependencies ---
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val initialTab = testTab("pin-sequence", 0, isPinned = initialPinned)
+        val requestedPins = mutableListOf<Boolean>()
+        val writeReleases = List(toggleCount) { CompletableDeferred<Unit>() }
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.setThreadTabPinned(initialTab.id, any()) } coAnswers {
+            val writeIndex = requestedPins.size
+            requestedPins += secondArg<Boolean>()
+            writeReleases[writeIndex].await()
+            true
+        }
+
+        // --- Initial canonical state and queued intents ---
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        val workerDispatcher = StandardTestDispatcher(testScheduler)
+        databaseFlow.emit(listOf(initialTab))
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + workerDispatcher))
+        runCurrent()
+        val threadId = initialTab.id
+        val toggleJobs = (0 until toggleCount).map {
+            backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+                coordinator.togglePinThreadTab(threadId)
+            }
+        }
+        runCurrent()
+
+        // --- Sequential write and confirmation ---
+        val expectedPins = (1..toggleCount).map { step ->
+            if (step % 2 == 1) !initialPinned else initialPinned
+        }
+        assertEquals(listOf(expectedPins.first()), requestedPins)
+        expectedPins.forEachIndexed { index, expectedPin ->
+            writeReleases[index].complete(Unit)
+            runCurrent()
+            assertEquals(index + 1, requestedPins.size)
+            assertFalse(toggleJobs[index].isCompleted)
+
+            databaseFlow.emit(listOf(initialTab.copy(isPinned = expectedPin)))
+            runCurrent()
+            assertTrue(toggleJobs[index].isCompleted)
+            if (index + 1 < toggleCount) {
+                assertEquals(expectedPins[index + 1], requestedPins[index + 1])
+            }
+        }
+
+        toggleJobs.forEach { it.await() }
+        assertEquals(expectedPins, requestedPins)
+        assertEquals(expectedPins.last(), coordinator.openThreadTabs.value.single().isPinned)
     }
 
     /**

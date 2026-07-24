@@ -341,18 +341,14 @@ class ThreadTabsCoordinator @Inject constructor(
      * 指定した ThreadId のスレッドタブの固定状態を切り替えて保存する。
      */
     suspend fun togglePinThreadTab(threadId: ThreadId) {
-        val current = _openThreadTabs.value.firstOrNull { it.id == threadId } ?: return
         if (scope == null) {
             _openThreadTabs.update { tabs ->
                 tabs.map { tab -> if (tab.id == threadId) tab.copy(isPinned = !tab.isPinned) else tab }
             }
             return
         }
-        val operation = ThreadTabPendingOperation.Pin(threadId, !current.isPinned)
         val completion = CompletableDeferred<Unit>()
-        mutationIntents.send(
-            ThreadTabMutationIntent.Pin(threadId, !current.isPinned, operation, completion)
-        )
+        mutationIntents.send(ThreadTabMutationIntent.Pin(threadId, completion))
         try {
             completion.await()
         } catch (cancellationException: CancellationException) {
@@ -462,8 +458,6 @@ class ThreadTabsCoordinator @Inject constructor(
         /** Changes one pin column. */
         data class Pin(
             val threadId: ThreadId,
-            val isPinned: Boolean,
-            val operation: ThreadTabPendingOperation.Pin,
             override val completion: CompletableDeferred<Unit>,
         ) : ThreadTabMutationIntent
 
@@ -585,20 +579,27 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
-    /** Runs a pin operation and waits for the requested value in the canonical snapshot. */
+    /** Runs a pin toggle using the projected state left by all preceding intents. */
     private suspend fun processPin(intent: ThreadTabMutationIntent.Pin) {
-        val baselineRevision = registerPending(intent.operation)
+        val current = _openThreadTabs.value.firstOrNull { it.id == intent.threadId }
+        // A deleted or otherwise missing target is a successful no-op for a toggle intent.
+        if (current == null) {
+            intent.completion.complete(Unit)
+            return
+        }
+        val operation = ThreadTabPendingOperation.Pin(intent.threadId, !current.isPinned)
+        val baselineRevision = registerPending(operation)
         try {
-            val changed = tabsRepository.setThreadTabPinned(intent.threadId, intent.isPinned)
+            val changed = tabsRepository.setThreadTabPinned(intent.threadId, operation.isPinned)
             if (intent.completion.isCancelled) {
-                removePending(intent.operation)
+                removePending(operation)
                 return
             }
-            if (changed) awaitConfirmation(intent.operation, baselineRevision, intent.completion)
-            removePending(intent.operation)
+            if (changed) awaitConfirmation(operation, baselineRevision, intent.completion)
+            removePending(operation)
             intent.completion.complete(Unit)
         } catch (exception: Throwable) {
-            removePending(intent.operation)
+            removePending(operation)
             intent.completion.completeExceptionally(exception)
         }
     }
