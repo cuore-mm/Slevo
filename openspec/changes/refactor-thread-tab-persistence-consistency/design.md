@@ -198,7 +198,7 @@ Room Flow ──▶ canonical snapshot ──▶ operation confirmation
 10. Room transaction 開始前の cancellation は write を防ぐ。開始後は cancellation を Room へ伝播し、成功完了との順序に応じた rollback または既完了 commit の原子性を維持して、補償 write、retry、caller 固有の selection/navigation を追加しない。
 11. 既存タブ ensure の ThreadState 保存前に DB canonical metadata とフィールド単位でマージし、repository、pending projection、scope 未 bind seam の placeholder 判定を一致させる。この metadata 補正では pin toggle と cancellation の処理経路を変更しない。ただし pin toggle の要求値は別の FIFO 整合性補正として worker 内で先行 intent の結果から導出する。
 12. pin toggle intent に enqueue 時点の `isPinned` または事前生成した `Pin` pending operation を保持させない。worker が先行 intent の cleanup 後に対象の投影状態を読み、反転値と pending operation を一度だけ生成する。既存の cancellation ownership、DB-canonical confirmation、metadata merge は変更しない。
-13. pin repository 呼出しが成功を返す前の cancellation は従来どおり intent operation へ伝播する。成功を返した後の Flow reconciliation は worker-owned non-cancellable cleanup とし、cancel 済み caller へ continuation を返さず、pending `Pin` を matching canonical confirmation 前に除去せず、後続 intent を開始しない。変更は pin path に限定し、ensure metadata、delete の last-tab 補正、repository/DAO/schema を変更しない。
+13. pin repository 呼出しが成功を返す前の cancellation は従来どおり caller-owned write phase へ伝播する。成功を返した後の Flow reconciliation は caller cancellation link から分離して worker が所有し、coordinator scope の cancellation には引き続き従う。cancel 済み caller へ continuation を返さず、pending `Pin` を matching canonical confirmation 前に除去せず、後続 intent を開始しない。変更は pin path に限定し、ensure metadata、delete の last-tab 補正、repository/DAO/schema を変更しない。
 
 ## Risks / Trade-offs
 
