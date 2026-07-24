@@ -14,7 +14,6 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.secondArg
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -742,7 +741,7 @@ class ThreadTabsCoordinatorTest {
         every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
         coEvery { tabsRepository.setThreadTabPinned(initialTab.id, any()) } coAnswers {
             val writeIndex = requestedPins.size
-            requestedPins += secondArg<Boolean>()
+            requestedPins += (invocation.args[1] as Boolean)
             writeReleases[writeIndex].await()
             true
         }
