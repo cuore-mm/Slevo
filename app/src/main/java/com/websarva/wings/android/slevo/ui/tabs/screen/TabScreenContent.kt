@@ -239,9 +239,7 @@ fun TabScreenContent(
                         selectedBoardTab = listUiState.selectedBoardTab,
                         selectedThreadTab = listUiState.selectedThreadTab,
                         onCloseBoardTab = { tabSessionStore.closeBoardTab(it) },
-                         onCloseThreadTab = { tab ->
-                             coroutineScope.launch { tabSessionStore.closeThreadTab(tab) }
-                         },
+                         onCloseThreadTab = createThreadTabCloseHandler(tabSessionStore),
                         onBoardTabLongPressed = { tab, bounds ->
                             tabListViewModel.onBoardTabLongPressed(tab, bounds)
                         },
