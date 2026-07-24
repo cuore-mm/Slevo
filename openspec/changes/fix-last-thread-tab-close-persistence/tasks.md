@@ -11,7 +11,7 @@
 
 ## 3. 回帰確認
 
-- [ ] 3.1 `./gradlew testDebugUnitTest --tests '*TabSessionStoreTest' --tests '*ThreadTabsCoordinatorTest' --tests '*DeepLinkHandlerTest'` を実行し、新規 delayed-write ケース、FIFO/cancellation ケース、deep link caller cancellation がすべて成功することを確認する。
-- [ ] 3.2 `./gradlew testDebugUnitTest` を実行し、全 unit test が成功することを確認する。
-- [ ] 3.3 `./gradlew assembleDebug` を実行し、debug build が成功することを確認する。
+- [x] 3.1 `./gradlew testDebugUnitTest --tests '*TabSessionStoreTest' --tests '*ThreadTabsCoordinatorTest' --tests '*DeepLinkHandlerTest'` を実行し、新規 delayed-write ケース、FIFO/cancellation ケース、deep link caller cancellation がすべて成功することを確認する。
+- [x] 3.2 `./gradlew testDebugUnitTest` を実行し、全 unit test が成功することを確認する。
+- [x] 3.3 `./gradlew assembleDebug` を実行し、debug build が成功することを確認する。
 - [x] 3.4 `git diff` で変更が `TabSessionStore.kt`、`ThreadScaffold.kt`、`TabSessionStoreTest.kt` とこの OpenSpec の範囲に限定され、`ThreadTabsCoordinator.kt`、deep link、repository/DAO、projection、他 UI、他 finding に差分がないことを確認する。
