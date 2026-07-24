@@ -15,9 +15,11 @@ import dagger.hilt.android.scopes.ActivityRetainedScoped
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -479,12 +481,9 @@ class ThreadTabsCoordinator @Inject constructor(
             for (intent in mutationIntents) {
                 if (isIntentCancelled(intent)) continue
                 awaitLoadedState()
-                when (intent) {
-                    is ThreadTabMutationIntent.Ensure -> processEnsure(intent)
-                    is ThreadTabMutationIntent.Delete -> processDelete(intent)
-                    is ThreadTabMutationIntent.Pin -> processPin(intent)
-                    is ThreadTabMutationIntent.Info -> processInfo(intent)
-                }
+                // Readiness may have released concurrently with caller cancellation.
+                if (isIntentCancelled(intent)) continue
+                processIntentInCancellableOperation(intent)
             }
         } finally {
             // Teardown must not leave callers suspended on completions that can no longer finish.
@@ -494,6 +493,32 @@ class ThreadTabsCoordinator @Inject constructor(
             }
             pendingOperations.clear()
             publishProjectedTabs()
+        }
+    }
+
+    /** Runs one intent in an independently cancellable child while the FIFO worker remains alive. */
+    private suspend fun processIntentInCancellableOperation(intent: ThreadTabMutationIntent) {
+        coroutineScope {
+            val operation = launch(start = CoroutineStart.LAZY) {
+                when (intent) {
+                    is ThreadTabMutationIntent.Ensure -> processEnsure(intent)
+                    is ThreadTabMutationIntent.Delete -> processDelete(intent)
+                    is ThreadTabMutationIntent.Pin -> processPin(intent)
+                    is ThreadTabMutationIntent.Info -> processInfo(intent)
+                }
+            }
+            val cancellationLink = intent.completion.invokeOnCompletion { cause ->
+                if (cause is CancellationException) {
+                    // Only this intent is cancelled; the long-lived FIFO worker continues.
+                    operation.cancel(cause)
+                }
+            }
+            try {
+                operation.start()
+                operation.join()
+            } finally {
+                cancellationLink.dispose()
+            }
         }
     }
 

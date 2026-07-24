@@ -14,6 +14,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
@@ -481,6 +482,187 @@ class ThreadTabsCoordinatorTest {
         databaseFlow.emit(listOf(existing, nextTab))
         runCurrent()
         assertEquals(1, nextJob.await())
+    }
+
+    /** Cancellation while readiness is blocked must not start the cancelled repository mutation. */
+    @Test
+    fun cancelledDuringReadiness_doesNotWriteAndWorkerProcessesNextIntent() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val existing = testTab("existing", 0)
+        val cancelledRoute = testRoute("cancelled")
+        val nextRoute = testRoute("next")
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.ensureOpenThreadTab(any()) } returns true
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        val cancelledJob = backgroundScope.async { coordinator.ensureThreadTab(cancelledRoute) }
+        runCurrent()
+        cancelledJob.cancel()
+        runCurrent()
+
+        databaseFlow.emit(listOf(existing))
+        runCurrent()
+        coVerify(exactly = 0) {
+            tabsRepository.ensureOpenThreadTab(match { it.id == testTab("cancelled", 0).id })
+        }
+        assertEquals(listOf(existing.id), coordinator.openThreadTabs.value.map { it.id })
+
+        val nextJob = backgroundScope.async { coordinator.ensureThreadTab(nextRoute) }
+        runCurrent()
+        databaseFlow.emit(listOf(existing, testTab("next", 1)))
+        runCurrent()
+        assertEquals(1, nextJob.await())
+        assertEquals(2, coordinator.openThreadTabs.value.size)
+    }
+
+    /** Cancellation while the repository waits for a write permit must reach that suspension. */
+    @Test
+    fun cancelledDuringRepositoryWait_stopsWriteAndWorkerProcessesNextIntent() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val permitWait = CompletableDeferred<Unit>()
+        val repositoryEntered = CompletableDeferred<Unit>()
+        val repositoryCancelled = CompletableDeferred<Unit>()
+        val existing = testTab("existing", 0)
+        val cancelledRoute = testRoute("cancelled")
+        val nextRoute = testRoute("next")
+        var invocationCount = 0
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.ensureOpenThreadTab(any()) } coAnswers {
+            invocationCount += 1
+            if (invocationCount == 1) {
+                repositoryEntered.complete(Unit)
+                try {
+                    permitWait.await()
+                } catch (cancellationException: CancellationException) {
+                    repositoryCancelled.complete(Unit)
+                    throw cancellationException
+                }
+            }
+            true
+        }
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        databaseFlow.emit(listOf(existing))
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        val cancelledJob = backgroundScope.async { coordinator.ensureThreadTab(cancelledRoute) }
+        runCurrent()
+        assertTrue(repositoryEntered.isCompleted)
+        cancelledJob.cancel()
+        runCurrent()
+
+        assertTrue(repositoryCancelled.isCompleted)
+        assertEquals(1, invocationCount)
+        assertEquals(listOf(existing.id), coordinator.openThreadTabs.value.map { it.id })
+
+        val nextJob = backgroundScope.async { coordinator.ensureThreadTab(nextRoute) }
+        runCurrent()
+        databaseFlow.emit(listOf(existing, testTab("next", 1)))
+        runCurrent()
+        assertEquals(1, nextJob.await())
+        assertEquals(2, invocationCount)
+    }
+
+    /** Cancellation after transaction entry must finish repository cleanup before FIFO advances. */
+    @Test
+    fun cancelledAfterTransactionStart_rollsBackAndWorkerProcessesNextIntent() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val transactionBarrier = CompletableDeferred<Unit>()
+        val transactionStarted = CompletableDeferred<Unit>()
+        val rollbackCompleted = CompletableDeferred<Unit>()
+        val existing = testTab("existing", 0)
+        val cancelledRoute = testRoute("cancelled")
+        val nextRoute = testRoute("next")
+        var invocationCount = 0
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.ensureOpenThreadTab(any()) } coAnswers {
+            invocationCount += 1
+            if (invocationCount == 1) {
+                transactionStarted.complete(Unit)
+                try {
+                    transactionBarrier.await()
+                } catch (cancellationException: CancellationException) {
+                    rollbackCompleted.complete(Unit)
+                    throw cancellationException
+                }
+            }
+            true
+        }
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        databaseFlow.emit(listOf(existing))
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        val cancelledJob = backgroundScope.async { coordinator.ensureThreadTab(cancelledRoute) }
+        runCurrent()
+        assertTrue(transactionStarted.isCompleted)
+        cancelledJob.cancel()
+        runCurrent()
+
+        assertTrue(rollbackCompleted.isCompleted)
+        assertEquals(1, invocationCount)
+        assertEquals(listOf(existing.id), coordinator.openThreadTabs.value.map { it.id })
+
+        val nextJob = backgroundScope.async { coordinator.ensureThreadTab(nextRoute) }
+        runCurrent()
+        databaseFlow.emit(listOf(existing, testTab("next", 1)))
+        runCurrent()
+        assertEquals(1, nextJob.await())
+        assertEquals(2, invocationCount)
+    }
+
+    /** A repository result that wins before caller cancellation must not trigger compensation or a duplicate write. */
+    @Test
+    fun repositorySuccessBeforeCancellation_doesNotCompensateAndWorkerProcessesNextIntent() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val repositoryReturned = CompletableDeferred<Unit>()
+        val existing = testTab("existing", 0)
+        val cancelledRoute = testRoute("cancelled")
+        val nextRoute = testRoute("next")
+        var invocationCount = 0
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.ensureOpenThreadTab(any()) } coAnswers {
+            invocationCount += 1
+            if (invocationCount == 1) repositoryReturned.complete(Unit)
+            true
+        }
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        databaseFlow.emit(listOf(existing))
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        val cancelledJob = backgroundScope.async { coordinator.ensureThreadTab(cancelledRoute) }
+        runCurrent()
+        assertTrue(repositoryReturned.isCompleted)
+        cancelledJob.cancel()
+        runCurrent()
+
+        assertEquals(1, invocationCount)
+        coVerify(exactly = 1) {
+            tabsRepository.ensureOpenThreadTab(match { it.id == testTab("cancelled", 0).id })
+        }
+        assertEquals(listOf(existing.id), coordinator.openThreadTabs.value.map { it.id })
+
+        val nextJob = backgroundScope.async { coordinator.ensureThreadTab(nextRoute) }
+        runCurrent()
+        databaseFlow.emit(listOf(existing, testTab("next", 1)))
+        runCurrent()
+        assertEquals(1, nextJob.await())
+        assertEquals(2, invocationCount)
     }
 
     /**
