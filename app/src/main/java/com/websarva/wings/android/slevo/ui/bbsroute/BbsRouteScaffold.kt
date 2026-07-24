@@ -357,7 +357,7 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                             val index = tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
                             if (index < 0) {
                                 urlError = invalidUrlMessage
-                                isValidating = false
+                                isUrlValidating = false
                                 return@launch
                             }
                             navController.showThreadScreenForTabSelection(

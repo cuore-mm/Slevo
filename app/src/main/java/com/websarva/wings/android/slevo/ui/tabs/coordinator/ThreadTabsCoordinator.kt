@@ -225,7 +225,6 @@ class ThreadTabsCoordinator @Inject constructor(
     /** Returns whether Room has confirmed the requested thread tab. */
     fun isCanonicalThreadTab(threadId: ThreadId): Boolean =
         canonicalTabs.value.any { it.id == threadId }
-    }
 
     /**
      * threadKey と boardUrl からタブを特定して閉じる（存在しない場合は何もしない）。
