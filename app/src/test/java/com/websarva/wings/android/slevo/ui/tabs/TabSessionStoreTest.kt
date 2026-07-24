@@ -1,8 +1,12 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
+import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
+import com.websarva.wings.android.slevo.data.repository.TabsRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
@@ -24,8 +28,16 @@ import io.mockk.verify
 import io.mockk.slot
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -50,13 +62,16 @@ class TabSessionStoreTest {
         every { threadCoordinator.selectThreadTab(any()) } returns true
     }
 
-    private fun createStore(): TabSessionStore {
+    private fun createStore(
+        threadCoordinatorOverride: ThreadTabsCoordinator = threadCoordinator,
+        tabsRepositoryOverride: TabsRepository = mockk(relaxed = true),
+    ): TabSessionStore {
         return TabSessionStore(
             boardTabsCoordinator = boardCoordinator,
-            threadTabsCoordinator = threadCoordinator,
+            threadTabsCoordinator = threadCoordinatorOverride,
             threadTabSessionHolderFactory = threadHolderFactory,
             boardTabSessionHolderFactory = boardHolderFactory,
-            tabsRepository = mockk(relaxed = true),
+            tabsRepository = tabsRepositoryOverride,
             boardRepository = mockk(relaxed = true),
             bbsServiceRepository = mockk(relaxed = true),
             settingsRepository = settingsRepository,
@@ -153,6 +168,26 @@ class TabSessionStoreTest {
         return holder
     }
 
+    /** 実 coordinator を retained close 回帰テストへ接続する。 */
+    private fun realThreadCoordinator(
+        tabsRepository: TabsRepository,
+        bookmarkRepository: ThreadBookmarkRepository,
+    ): ThreadTabsCoordinator = ThreadTabsCoordinator(
+        tabsRepository = tabsRepository,
+        threadBookmarkRepository = bookmarkRepository,
+        datRepository = mockk<DatRepository>(relaxed = true),
+        threadStateRepository = mockk<ThreadStateRepository>(relaxed = true),
+    )
+
+    /** 正規 snapshot と close 要求が同じ識別子を共有するテストタブを作る。 */
+    private fun retainedCloseTestTab(): ThreadTabInfo = ThreadTabInfo(
+        id = ThreadId.of("host", "board", "last-thread"),
+        title = "Last thread",
+        boardName = "Board",
+        boardUrl = "https://host/board/",
+        boardId = 1L,
+    )
+
     /**
      * 板タブ削除操作が [BoardTabsCoordinator] へ委譲されることを確認する。
      */
@@ -184,6 +219,93 @@ class TabSessionStoreTest {
     fun cancelRefreshOpenThreads_delegatesToThreadCoordinator() {
         store.cancelRefreshOpenThreads()
         verify { threadCoordinator.cancelRefreshOpenThreads() }
+    }
+
+    /**
+     * 最後のタブの close が Composition 相当の要求元 Job のキャンセル後も retained scope で完了することを確認する。
+     */
+    @Test
+    fun requestCloseThreadTab_survivesCallerCancellationAndConfirmsCanonicalDeletion() = runTest {
+        // --- 制御可能な正規 Flow と Repository 書き込み ---
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val writeStarted = CompletableDeferred<Unit>()
+        val writeRelease = CompletableDeferred<Unit>()
+        val tab = retainedCloseTestTab()
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenThreadTab(tab.id) } coAnswers {
+            writeStarted.complete(Unit)
+            writeRelease.await()
+            true
+        }
+        val coordinator = realThreadCoordinator(tabsRepository, bookmarkRepository)
+        databaseFlow.emit(listOf(tab))
+        val testStore = createStore(coordinator, tabsRepository)
+        runCurrent()
+        testStore.selectThreadTab(tab.id)
+
+        // --- Composition 相当の要求元をキャンセルしても retained 処理を維持 ---
+        val callerJob = launch(start = CoroutineStart.UNDISPATCHED) {
+            testStore.requestCloseThreadTab("last-thread", tab.boardUrl)
+            kotlinx.coroutines.awaitCancellation()
+        }
+        runCurrent()
+        assertTrue(writeStarted.isCompleted)
+        assertTrue(testStore.openThreadTabs.value.isEmpty())
+        callerJob.cancel()
+        runCurrent()
+        assertFalse(callerJob.isActive)
+
+        // --- 書き込みと Room 正本確認を完了 ---
+        writeRelease.complete(Unit)
+        runCurrent()
+        databaseFlow.emit(emptyList())
+        runCurrent()
+        coVerify(exactly = 1) { tabsRepository.deleteOpenThreadTab(tab.id) }
+        assertTrue(testStore.openThreadTabs.value.isEmpty())
+        assertNull(testStore.selectedThreadTabKey.value)
+        testStore.close()
+    }
+
+    /**
+     * retained store 自体の破棄が未完了 close の正当な cancellation 境界になることを確認する。
+     */
+    @Test
+    fun close_cancelsRetainedCloseAtStoreLifetimeBoundary() = runTest {
+        // --- 制御可能な正規 Flow とキャンセル観測 ---
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val writeStarted = CompletableDeferred<Unit>()
+        val writeCancelled = CompletableDeferred<Unit>()
+        val tab = retainedCloseTestTab()
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenThreadTab(tab.id) } coAnswers {
+            writeStarted.complete(Unit)
+            try {
+                CompletableDeferred<Unit>().await()
+            } catch (cancellationException: CancellationException) {
+                writeCancelled.complete(Unit)
+                throw cancellationException
+            }
+            true
+        }
+        val coordinator = realThreadCoordinator(tabsRepository, bookmarkRepository)
+        databaseFlow.emit(listOf(tab))
+        val testStore = createStore(coordinator, tabsRepository)
+        runCurrent()
+        testStore.requestCloseThreadTab("last-thread", tab.boardUrl)
+        runCurrent()
+        assertTrue(writeStarted.isCompleted)
+
+        // --- Activity-retained lifetime の終了 ---
+        testStore.close()
+        runCurrent()
+        assertTrue(writeCancelled.isCompleted)
+        coVerify(exactly = 1) { tabsRepository.deleteOpenThreadTab(tab.id) }
     }
 
     /**

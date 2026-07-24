@@ -82,7 +82,6 @@ fun ThreadScaffold(
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsState()
     val selectedThreadTabKey by tabSessionStore.selectedThreadTabKey.collectAsState()
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
     var isPopupVisible by remember { mutableStateOf(false) }
     val popupDialogState = rememberPostItemDialogState()
     var popupMenuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
@@ -259,12 +258,10 @@ fun ThreadScaffold(
                             onSwitchToPreviousTab = { tabSessionStore.animateThreadPage(-1) },
                             onCloseTab = {
                                 if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
-                                     coroutineScope.launch {
-                                         tabSessionStore.closeThreadTab(
-                                             uiState.threadInfo.key,
-                                             uiState.boardInfo.url,
-                                         )
-                                     }
+                                    tabSessionStore.requestCloseThreadTab(
+                                        uiState.threadInfo.key,
+                                        uiState.boardInfo.url,
+                                    )
                                 }
                             },
                         ),

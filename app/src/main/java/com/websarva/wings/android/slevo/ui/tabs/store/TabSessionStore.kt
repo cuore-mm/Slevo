@@ -209,6 +209,16 @@ class TabSessionStore @Inject constructor(
         threadTabsCoordinator.closeThreadTab(threadKey, boardUrl)
     }
 
+    /**
+     * 確定したスレッドタブ close を retained store scope へ移譲する。
+     *
+     * この scope は画面 Composition より長く存続するため、repository 書き込みと Room の正規確認まで
+     * close 処理を所有する。Activity-retained component が破棄された場合は [close] によりキャンセルされる。
+     */
+    fun requestCloseThreadTab(threadKey: String, boardUrl: String) {
+        scope.launch { closeThreadTab(threadKey, boardUrl) }
+    }
+
     fun animateThreadPage(offset: Int) {
         threadTabsCoordinator.animateThreadPage(offset)
     }
