@@ -404,7 +404,7 @@ class ThreadTabsCoordinatorTest {
         databaseFlow.emit(initialTabs + addedTab)
         runCurrent()
 
-        assertEquals(1_253, ensureJob.await())
+        assertEquals(1_252, ensureJob.await())
         assertEquals(initialTabs.map { it.id }.toSet() + addedTab.id, coordinator.openThreadTabs.value.map { it.id }.toSet())
     }
 
