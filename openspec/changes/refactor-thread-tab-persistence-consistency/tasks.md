@@ -40,4 +40,4 @@
 - [ ] 5.3 `./gradlew testDebugUnitTest` を実行して unit test 全件成功を確認し、接続済み emulator/device で `TabsRepositoryThreadStateTest` を実行して Room transaction/Flow の回帰がないことを確認する。
 - [x] 5.4 CI の APK build で build 成功を確認し、production diff に DB schema/version 変更、board-tab behavior 変更、UI 文言/アイコン/theme/accessibility 変更がないことを確認する。
 - [x] 5.5 `fix-thread-deep-link-selection-consistency` を開始する前に、本変更の readiness、targeted mutation completion、canonical confirmation API が production と tests で利用可能であることを確認する。
-- [ ] 5.6 `ThreadTabsCoordinatorTest.kt` の新しい readiness/gate/transaction-boundary cancellation ケースと既存 `DatabaseWriteGateTest.kt` の writer cancellation ケースを同一 verification run で実行し、cancelled intent の write 未開始、transaction 開始後の rollback または既完了 commit への原子的収束、FIFO worker 継続が決定的に通ることを確認する。
+- [x] 5.6 `ThreadTabsCoordinatorTest.kt` の新しい readiness/gate/transaction-boundary cancellation ケースと既存 `DatabaseWriteGateTest.kt` の writer cancellation ケースを同一 verification run で実行し、cancelled intent の write 未開始、transaction 開始後の rollback または既完了 commit への原子的収束、FIFO worker 継続が決定的に通ることを確認する。
