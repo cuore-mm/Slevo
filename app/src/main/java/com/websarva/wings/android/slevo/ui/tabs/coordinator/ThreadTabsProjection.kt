@@ -78,7 +78,7 @@ internal fun isThreadTabOperationConfirmed(
         }
     }
     return when (operation) {
-        is ThreadTabPendingOperation.Ensure -> actual != null
+        is ThreadTabPendingOperation.Ensure -> actual?.matchesThreadMetadata(operation.tab) == true
         is ThreadTabPendingOperation.Delete -> actual == null
         is ThreadTabPendingOperation.Pin -> actual?.isPinned == operation.isPinned
         is ThreadTabPendingOperation.Info -> actual?.matchesThreadMetadata(operation.tab) == true

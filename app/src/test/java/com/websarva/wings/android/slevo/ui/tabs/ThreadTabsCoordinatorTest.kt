@@ -6,10 +6,12 @@ import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
-import com.websarva.wings.android.slevo.ui.tabs.coordinator.projectThreadTabs
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabPendingOperation
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.isThreadTabOperationConfirmed
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.projectThreadTabs
 import com.websarva.wings.android.slevo.ui.tabs.session.PendingThreadPostState
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -421,6 +423,125 @@ class ThreadTabsCoordinatorTest {
 
         assertEquals(1_252, ensureJob.await())
         assertEquals(initialTabs.map { it.id }.toSet() + addedTab.id, coordinator.openThreadTabs.value.map { it.id }.toSet())
+    }
+
+    /** Ensure の確認は古いメタデータを拒否し、共有 merge 結果だけを受け入れる。 */
+    @Test
+    fun ensureConfirmation_requiresMergedMetadataMatch() {
+        val current = testTab("metadata", 3, isPinned = true, scrollIndex = 7).copy(
+            title = "Old title",
+            boardName = "Old board",
+            boardId = 42L,
+            resCount = 120,
+        )
+        val expected = current.copy(
+            title = "New title",
+            boardName = "New board",
+            boardId = 43L,
+            resCount = 140,
+        )
+        val operation = ThreadTabPendingOperation.Ensure(expected)
+
+        assertFalse(isThreadTabOperationConfirmed(listOf(current), operation))
+
+        val merged = mergeThreadTabMetadata(current, expected)
+        assertEquals("New title", merged.title)
+        assertEquals("New board", merged.boardName)
+        assertEquals(current.boardUrl, merged.boardUrl)
+        assertEquals(43L, merged.boardId)
+        assertEquals(140, merged.resCount)
+        assertTrue(isThreadTabOperationConfirmed(listOf(merged), operation))
+    }
+
+    /** 対象メタデータを含まない先行 revision では pending と後続 FIFO を保持する。 */
+    @Test
+    fun ensureExistingTab_waitsForMatchingMetadataAfterUnrelatedRevision() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val currentTarget = testTab("target", 3, isPinned = true, scrollIndex = 7).copy(
+            title = "Old title",
+            boardName = "Old board",
+            boardId = 42L,
+            resCount = 120,
+            firstVisibleItemScrollOffset = 30,
+        )
+        val currentUnrelated = testTab("unrelated", 4, isPinned = false, scrollIndex = 2)
+        val requestedTarget = currentTarget.copy(
+            title = "New title",
+            boardName = "New board",
+            boardId = 43L,
+            resCount = 140,
+        )
+        val next = testTab("next", 5)
+        val requestedNext = testRoute("next")
+        val writes = mutableListOf<String>()
+
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.ensureOpenThreadTab(any()) } coAnswers {
+            writes += (invocation.args[0] as ThreadTabInfo).id.value
+            true
+        }
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        databaseFlow.emit(listOf(currentTarget, currentUnrelated))
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        val route = AppRoute.Thread(
+            threadKey = "target",
+            boardUrl = "https://host/board/",
+            boardName = "New board",
+            threadTitle = "New title",
+            boardId = 43L,
+            resCount = 140,
+        )
+        val ensureJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.ensureThreadTab(route)
+        }
+        val nextJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.ensureThreadTab(requestedNext)
+        }
+        runCurrent()
+
+        assertEquals(listOf(currentTarget.id.value), writes)
+        assertFalse(ensureJob.isCompleted)
+        assertFalse(nextJob.isCompleted)
+
+        val unrelatedRevision = listOf(currentTarget, currentUnrelated.copy(title = "Unrelated new title"))
+        databaseFlow.emit(unrelatedRevision)
+        runCurrent()
+
+        val pendingTarget = coordinator.openThreadTabs.value.first { it.id == currentTarget.id }
+        assertFalse(ensureJob.isCompleted)
+        assertFalse(nextJob.isCompleted)
+        assertEquals(listOf(currentTarget.id.value), writes)
+        assertEquals(listOf(currentTarget.id, currentUnrelated.id), coordinator.openThreadTabs.value.map { it.id })
+        assertEquals("New title", pendingTarget.title)
+        assertEquals("New board", pendingTarget.boardName)
+        assertEquals(currentTarget.boardUrl, pendingTarget.boardUrl)
+        assertEquals(43L, pendingTarget.boardId)
+        assertEquals(140, pendingTarget.resCount)
+        assertEquals(currentTarget.firstVisibleItemIndex, pendingTarget.firstVisibleItemIndex)
+        assertEquals(currentTarget.firstVisibleItemScrollOffset, pendingTarget.firstVisibleItemScrollOffset)
+        assertEquals(currentTarget.isPinned, pendingTarget.isPinned)
+        assertEquals("Unrelated new title", coordinator.openThreadTabs.value.last().title)
+
+        val confirmedTarget = mergeThreadTabMetadata(currentTarget, requestedTarget)
+        databaseFlow.emit(listOf(confirmedTarget, currentUnrelated.copy(title = "Unrelated new title")))
+        runCurrent()
+
+        assertTrue(ensureJob.isCompleted)
+        assertEquals(listOf(currentTarget.id.value, next.id.value), writes)
+        assertFalse(nextJob.isCompleted)
+
+        databaseFlow.emit(listOf(confirmedTarget, currentUnrelated.copy(title = "Unrelated new title"), next))
+        runCurrent()
+
+        assertEquals(0, ensureJob.await())
+        assertEquals(2, nextJob.await())
+        assertEquals(listOf(confirmedTarget.id, currentUnrelated.id, next.id), coordinator.openThreadTabs.value.map { it.id })
     }
 
     /** 空の読み込み済み状態を有効な状態として扱い、空のスナップショット後に追加を実行できる。 */
