@@ -76,6 +76,14 @@
 - **WHEN** 未完了 mutation の caller または coordinator scope がキャンセルされる
 - **THEN** システムは未完了 completion と pending operation を安全に整理し、fire-and-forget DB save を残さない
 
+#### Scenario: readiness または write permit の待機中に caller がキャンセルされる
+- **WHEN** mutation intent が初回 canonical snapshot または `DatabaseWriteGate` の write permit を待っている間に caller がキャンセルされる
+- **THEN** システムは readiness 後にも caller cancellation を再確認して当該 intent の実行 context へ cancellation を伝播し、対象の Room transaction を開始せず、後続 intent の FIFO 処理を継続する
+
+#### Scenario: Room transaction 開始後に caller がキャンセルされる
+- **WHEN** 対象行 mutation の Room transaction が開始した後に caller がキャンセルされる
+- **THEN** システムは cancellation を transaction の実行 context へ伝播し、cancellation が transaction の成功完了より先なら Room に rollback させ、成功完了が先ならその commit を既完了として扱い、部分 write、補償 write、再試行、caller 固有の後続 side effect を開始せず、Room Flow の最終 snapshot を canonical state として pending operation を整理する
+
 ### Requirement: 既存 DB write coordination を維持する
 システムはすべての新しい Room write を既存 `DatabaseWriteGate.withWritePermit` と必要な Room transaction の内側で実行しなければならないMUST。mutation intent queue は `DatabaseWriteGate` を置換してはならずMUST NOT、同じ write を二重に gate してはならないMUST NOT。
 

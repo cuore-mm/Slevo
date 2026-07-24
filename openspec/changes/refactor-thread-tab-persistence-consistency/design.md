@@ -69,6 +69,10 @@ Room collector だけが canonical snapshot を更新する。`bind()` の初回
 
 このキューが UI intent から DB completion と Flow confirmation までを直列化する。`DatabaseWriteGate` はアプリ全体の DB write/suspension coordination を引き続き担い、両者の責務を混同しない。
 
+各 intent は completion に加えて caller cancellation の ownership を保持する。worker は dequeue 時だけでなく `awaitLoadedState()` の直後にも cancellation を確認し、各 intent の処理を worker 自体とは分離した operation coroutine で実行する。completion の cancellation はその operation coroutine だけへ伝播し、long-lived worker は cancel しない。operation coroutine は pending 登録、repository 呼出し、Flow confirmation を所有するため、`DatabaseWriteGate` や repository 内の suspend 待機にも同じ cancellation context が届く。worker は operation の終了と cleanup を await してから次 intent へ進み、FIFO を維持する。caller の `Job` を `withContext` へ直接渡して structured concurrency を壊す方式は使用しない。
+
+cancellation と DB write の境界は repository の `DatabaseWriteGate.withWritePermit` 内で Room transaction block を開始した時点とする。境界前の cancellation は transaction を開始させない。境界後も operation cancellation を Room へ伝播し、cancellation が transaction の成功完了より先に観測された場合は `withTransaction` の契約どおり rollback する。transaction の成功完了が cancellation より先なら、その commit は既完了 mutation として扱う。どちらの順序でも部分 write、補償 write、自動再試行は行わない。caller には cancellation を維持し、selection/navigation など caller 固有の後続 side effect を実行しない。coordinator は repository invocation が終了するまで次 intent を開始せず、最終 Room Flow snapshot を canonical state として pending projection を除去する。
+
 **代替案:** 各 mutation を独立 `scope.launch` する方式は完了を報告できず、受付順も保証しないため廃止する。単純な coordinator `Mutex` より、FIFO と completion ownership が明示される intent queue を採用する。
 
 ### 4. 公開一覧は canonical snapshot に pending operation を再適用して導出する
@@ -127,6 +131,8 @@ Room Flow ──▶ canonical snapshot ──▶ operation confirmation
 ## Error Cases and Recovery
 
 - 初回 Flow 停止中: intent は queue で待機し、空一覧を保存しない。caller cancellation は DB mutation 開始前なら intent を取り消す。
+- readiness 完了後または `DatabaseWriteGate` 待機中の caller cancellation: intent operation だけを cancel して transaction 開始を防ぎ、long-lived worker と後続 FIFO intent は継続する。
+- Room transaction 開始後の caller cancellation: cancellation が成功完了より先なら rollback、成功完了が先なら既完了 commit とし、原子的な確定を待つ。補償 write、retry、selection/navigation を行わず、Room Flow の最終 snapshot へ収束する。
 - DB write failure: pending projection を除去し、最後の canonical snapshot を表示し、失敗を caller へ返す。後続 intent worker は継続する。
 - 対象なし delete/pin: repository の no-op 結果を completion へ返し、一覧全体を生成または削除しない。
 - stale Flow: operation 確認前の snapshot には pending operation を再適用する。
@@ -148,6 +154,9 @@ Room Flow ──▶ canonical snapshot ──▶ operation confirmation
   - 初回 empty emission 後は loaded-empty として add/delete が進むこと。
   - rapid add/delete/pin を enqueue し、repository call と completion が FIFO、最終 projection が一意で正しいこと。
   - repository failure/cancellation 後に canonical state を維持し、次 intent が進むこと。
+  - caller を `awaitLoadedState()` 中に cancel してから初回 snapshot を emit し、repository mutation が一度も呼ばれず、pending projection が残らず、後続 intent が進むこと。
+  - repository の cancellable barrier で `DatabaseWriteGate` 待機相当を再現し、caller cancellation が in-flight operation へ届いて write body を開始せず、worker 自体は継続すること。
+  - transaction 開始済み相当の cancellable barrier では cancellation が repository invocation へ届き、rollback 相当の終了と cleanup を worker が待つこと。成功完了が cancellation より先の fixture では既完了結果を二重処理せず、どちらも最終 canonical emission へ収束してから後続 intent が進むこと。
 - `TabsRepositoryThreadStateTest.kt` の Room in-memory DB で single-row add/delete/pin/info/scroll が他の 1,252 行を変更せず、sort/pin/scroll/thread state invariant を維持することを確認する。
 - `ThreadTabCoordinatorTest.kt` で thread info update が `saveOpenThreadTabs` / `deleteNotIn` を呼ばず対象 ThreadState だけを更新することを確認する。
 - `TabSessionStoreTest.kt` で readiness と mutation completion/result の delegation を確認する。
@@ -164,10 +173,14 @@ Room Flow ──▶ canonical snapshot ──▶ operation confirmation
 6. failure/cancellation の全経路で pending operation と completion を cleanup し、canonical state を破壊しない。
 7. 新規 class/interface と非自明関数には repository の KDoc/comment rules を適用し、長い関数は section comment で分割する。
 8. 1,252/1,253 件、blocked initial Flow、loaded-empty、rapid mutation の決定的テストを先に失敗させ、実装後に通す。
+9. dequeue 後の caller cancellation は readiness 後に再確認し、intent ごとの operation coroutine へ伝播する。caller cancellation で long-lived worker を cancel せず、operation cleanup 完了前に後続 intent を開始しない。
+10. Room transaction 開始前の cancellation は write を防ぐ。開始後は cancellation を Room へ伝播し、成功完了との順序に応じた rollback または既完了 commit の原子性を維持して、補償 write、retry、caller 固有の selection/navigation を追加しない。
 
 ## Risks / Trade-offs
 
 - [Flow confirmation が来ないと suspend が長期化する] → cancellation を伝播し、テストでは barrier で確認する。DB success だけで completion を返さず canonical confirmation を契約とする。
+- [caller と独立した worker が cancellation 後も write を開始する] → readiness 後の再確認と intent 単位 operation coroutine への cancellation link を用い、gate/repository の suspend 待機まで伝播する。worker は operation cleanup を await して FIFO を維持する。
+- [transaction 開始後の cancellation 結果を coordinator が推測する] → cancellation を Room へ伝播し、成功完了との順序に応じた rollback または既完了 commit を transaction の原子性へ委ねる。補償 write を禁止し、最終 Flow snapshot だけを canonical とする。
 - [pending projection と canonical model の二層化で複雑になる] → operation ごとの pure projection と確認 predicate を分離し、1 intent ずつ直列化する。
 - [1,252 件で projection cost が増える] → correctness を優先し、threadId index/map を使って不要な全件 copy を抑える。性能最適化で DB 正本契約を崩さない。
 - [source API 変更が広い] → compile error を利用して全 call site を列挙し、fire-and-forget wrapper を残さない。
