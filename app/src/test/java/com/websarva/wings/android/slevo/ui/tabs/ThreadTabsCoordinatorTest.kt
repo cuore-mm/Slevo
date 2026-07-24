@@ -719,6 +719,67 @@ class ThreadTabsCoordinatorTest {
         assertEquals(2, invocationCount)
     }
 
+    /** pin write 成功後の caller cancellation でも確認と後続 toggle を FIFO で継続する。 */
+    @Test
+    fun pinCommitBeforeCallerCancellation_keepsPendingUntilMatchingFlow() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val initialTab = testTab("cancel-after-commit", 0, isPinned = false)
+        val requestedPins = mutableListOf<Boolean>()
+        val firstWriteReturned = CompletableDeferred<Unit>()
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.setThreadTabPinned(initialTab.id, any()) } coAnswers {
+            requestedPins += (invocation.args[1] as Boolean)
+            if (requestedPins.size == 1) firstWriteReturned.complete(Unit)
+            true
+        }
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        val workerDispatcher = StandardTestDispatcher(testScheduler)
+        databaseFlow.emit(listOf(initialTab))
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + workerDispatcher))
+        runCurrent()
+
+        val firstToggle = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.togglePinThreadTab(initialTab.id)
+        }
+        val secondToggle = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.togglePinThreadTab(initialTab.id)
+        }
+        runCurrent()
+        firstWriteReturned.await()
+        runCurrent()
+
+        assertEquals(listOf(true), requestedPins)
+        assertTrue(coordinator.openThreadTabs.value.single().isPinned)
+        firstToggle.cancel()
+        firstToggle.join()
+        runCurrent()
+
+        // 古い canonical 値でも pending pin は再投影され、後続 write は開始しない。
+        databaseFlow.emit(listOf(initialTab.copy(isPinned = false)))
+        runCurrent()
+        assertEquals(listOf(true), requestedPins)
+        assertTrue(coordinator.openThreadTabs.value.single().isPinned)
+        assertFalse(secondToggle.isCompleted)
+
+        // matching canonical 値を確認してから、2 件目を確定値 false へ反転する。
+        databaseFlow.emit(listOf(initialTab.copy(isPinned = true)))
+        runCurrent()
+        assertEquals(listOf(true, false), requestedPins)
+        assertFalse(secondToggle.isCompleted)
+
+        databaseFlow.emit(listOf(initialTab.copy(isPinned = false)))
+        runCurrent()
+        secondToggle.await()
+
+        assertTrue(firstToggle.isCancelled)
+        assertEquals(listOf(true, false), requestedPins)
+        assertFalse(coordinator.openThreadTabs.value.single().isPinned)
+    }
+
     /**
      * 正規状態の通知と Repository の完了を制御し、切り替えの FIFO 動作を検証する。
      *

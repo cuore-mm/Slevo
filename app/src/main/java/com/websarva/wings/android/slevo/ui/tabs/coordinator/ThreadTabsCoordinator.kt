@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.ensureActive
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 /**
@@ -496,16 +497,22 @@ class ThreadTabsCoordinator @Inject constructor(
     /** FIFO ワーカーを存続させたまま、1 件の要求を個別にキャンセル可能な子で実行する。 */
     private suspend fun processIntentInCancellableOperation(intent: ThreadTabMutationIntent) {
         coroutineScope {
+            // pin の DB commit 後だけ、caller ではなく FIFO worker が Flow 確認を所有する。
+            val callerOwnsOperation = AtomicBoolean(true)
             val operation = launch(start = CoroutineStart.LAZY) {
                 when (intent) {
                     is ThreadTabMutationIntent.Ensure -> processEnsure(intent)
                     is ThreadTabMutationIntent.Delete -> processDelete(intent)
-                    is ThreadTabMutationIntent.Pin -> processPin(intent)
+                    is ThreadTabMutationIntent.Pin -> processPin(intent) {
+                        if (!callerOwnsOperation.compareAndSet(true, false)) {
+                            throw CancellationException("Thread tab pin write was cancelled")
+                        }
+                    }
                     is ThreadTabMutationIntent.Info -> processInfo(intent)
                 }
             }
             val cancellationLink = intent.completion.invokeOnCompletion { cause ->
-                if (cause is CancellationException) {
+                if (cause is CancellationException && callerOwnsOperation.compareAndSet(true, false)) {
                     // この要求だけをキャンセルし、長寿命の FIFO ワーカーは継続する。
                     operation.cancel(cause)
                 }
@@ -580,7 +587,10 @@ class ThreadTabsCoordinator @Inject constructor(
     }
 
     /** 先行するすべての要求が残した投影状態を使って固定状態の切り替えを実行する。 */
-    private suspend fun processPin(intent: ThreadTabMutationIntent.Pin) {
+    private suspend fun processPin(
+        intent: ThreadTabMutationIntent.Pin,
+        onRepositorySuccess: () -> Unit,
+    ) {
         val current = _openThreadTabs.value.firstOrNull { it.id == intent.threadId }
         // 削除済みなどで対象がない場合、切り替え要求は成功扱いの no-op とする。
         if (current == null) {
@@ -591,11 +601,9 @@ class ThreadTabsCoordinator @Inject constructor(
         val baselineRevision = registerPending(operation)
         try {
             val changed = tabsRepository.setThreadTabPinned(intent.threadId, operation.isPinned)
-            if (intent.completion.isCancelled) {
-                removePending(operation)
-                return
-            }
-            if (changed) awaitConfirmation(operation, baselineRevision, intent.completion)
+            // Repository 成功後は caller cancellation から切り離し、matching Flow を worker が待つ。
+            onRepositorySuccess()
+            if (changed) awaitConfirmation(operation, baselineRevision)
             removePending(operation)
             intent.completion.complete(Unit)
         } catch (exception: Throwable) {
