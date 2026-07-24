@@ -45,3 +45,9 @@
 - [x] 5.4 CI の APK build で build 成功を確認し、production diff に DB schema/version 変更、board-tab behavior 変更、UI 文言/アイコン/theme/accessibility 変更がないことを確認する。
 - [x] 5.5 `fix-thread-deep-link-selection-consistency` を開始する前に、本変更の readiness、targeted mutation completion、canonical confirmation API が production と tests で利用可能であることを確認する。
 - [x] 5.6 `ThreadTabsCoordinatorTest.kt` の新しい readiness/gate/transaction-boundary cancellation ケースと既存 `DatabaseWriteGateTest.kt` の writer cancellation ケースを同一 verification run で実行し、cancelled intent の write 未開始、transaction 開始後の rollback または既完了 commit への原子的収束、FIFO worker 継続が決定的に通ることを確認する。
+
+## 6. Codex pin toggle FIFO 補正
+
+- [ ] 6.1 `app/src/test/java/com/websarva/wings/android/slevo/ui/tabs/ThreadTabsCoordinatorTest.kt` に、初期 pin 値を emit して coordinator を bind した後、`StandardTestDispatcher` の worker を進める前に同一 `threadId` へ 2 回および 3 回の `togglePinThreadTab` を enqueue する決定的回帰テストを追加する。制御可能な canonical Flow で各 repository write を順に確認し、要求値が初期値から交互になること、各 write の matching Flow confirmation 前は次 write が始まらないこと、2 回では元の値、3 回では反転値へ収束することを assert する。
+- [ ] 6.2 `app/src/main/java/com/websarva/wings/android/slevo/ui/tabs/coordinator/ThreadTabsCoordinator.kt` の pin intent を `threadId` と completion だけを運ぶ toggle action にし、enqueue 側から事前計算した `isPinned` と `ThreadTabPendingOperation.Pin` を除去する。worker の `processPin` で先行 intent 完了後の投影状態を読み、対象が存在する場合だけ反転値と pending operation を生成して既存の pending 登録、対象行 repository write、Flow confirmation、cleanup を実行する。対象なしは no-op completion とし、scope 未 bind seam、cancellation ownership、metadata merge、他 mutation は変更しない。
+- [ ] 6.3 Task 6.1 の focused test と `./gradlew testDebugUnitTest` を実行し、既存 cancellation/metadata 回帰を含めて成功することを確認する。production diff に UI、resource、DAO/repository/schema、他 mutation の変更がないことを確認する。

@@ -80,6 +80,12 @@
 - **WHEN** add、delete、pin intent が完了を待たず連続して到着する
 - **THEN** システムは受付順に一件ずつ DB write と Flow confirmation を完了し、各 caller へ対応する completion を返す
 
+#### Scenario: 同一タブの pin toggle を worker 開始前に連続要求する
+- **GIVEN** 対象タブの canonical pin 値が確定している
+- **WHEN** 最初の pending operation が登録される前に、同一タブへの pin toggle intent を複数受け付ける
+- **THEN** worker は各 toggle の要求値を enqueue 時点の snapshot から事前計算せず、先行 intent の DB write、Flow confirmation、pending cleanup 後の状態を反転して受付順に処理する
+- **AND** 偶数回の toggle は元の pin 値、奇数回の toggle は元の反転値へ決定的に収束する
+
 #### Scenario: DB write が失敗する
 - **WHEN** 対象行 mutation が例外または失敗結果で終了する
 - **THEN** システムは pending operation を除去し、既存 canonical state を維持し、失敗を caller へ返して後続 intent の処理を継続する
