@@ -36,6 +36,6 @@
 ## 6. UI 境界、回帰、完了確認
 
 - [x] 6.1 production diff を確認し、新しい Composable、Toast/Snackbar/Dialog、string resource、icon、theme、content description、semantics が追加変更されていないこと、board Deep Link/selection/Pager behavior が変わっていないことを確認する。
-- [ ] 6.2 Deep Link orchestration test、`ThreadTabsCoordinatorTest.kt`、`TabSessionStoreTest.kt`、`BbsRouteScaffoldSelectionTest.kt`、`NavigationExtensionsTest.kt` を実行し、blocked readiness、canonical confirmation、failure/cancellation、no first-page jump、success-only navigation が決定的に通ることを確認する。
-- [ ] 6.3 `./gradlew testDebugUnitTest` を実行して unit test 全件成功を確認し、Compose/UI test を追加した場合は接続済み emulator/device で対象 test を実行して非 0 page の維持を確認する。
-- [ ] 6.4 `./gradlew assembleDebug` を実行して build 成功を確認し、DB/schema/migration、URL pattern、route serialization、back-stack policy に変更がないことを最終差分で確認する。
+- [x] 6.2 Deep Link orchestration test、`ThreadTabsCoordinatorTest.kt`、`TabSessionStoreTest.kt`、`BbsRouteScaffoldSelectionTest.kt`、`NavigationExtensionsTest.kt` を実行し、blocked readiness、canonical confirmation、failure/cancellation、no first-page jump、success-only navigation が決定的に通ることを確認する。
+- [x] 6.3 CI の `testDebugUnitTest` で unit test 全件成功を確認した。Compose/UI test は追加していないため emulator/device 実行は不要とした。
+- [x] 6.4 CI の APK build で build 成功を確認し、DB/schema/migration、URL pattern、route serialization、back-stack policy に変更がないことを最終差分で確認する。

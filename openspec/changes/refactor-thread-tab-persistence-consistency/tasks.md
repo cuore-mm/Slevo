@@ -36,5 +36,5 @@
 - [x] 5.1 repository 全体を検索し、通常 thread add/delete/pin/info/scroll 経路から `deleteNotIn`、`upsertAll`、bulk replacement が到達不能で、`PendingRestoreApplier` の cold-start DB swap と `DatabaseBackupExporter` の gate 契約が未変更であることを確認する。
 - [ ] 5.2 `ThreadTabsCoordinatorTest.kt`、`ThreadTabCoordinatorTest.kt`、`TabSessionStoreTest.kt`、`TabsRepositoryThreadStateTest.kt` を実行し、1,252/1,253、blocked Flow、loaded-empty、rapid operations、failure/cancellation の全テストが安定して通ることを確認する。
 - [ ] 5.3 `./gradlew testDebugUnitTest` を実行して unit test 全件成功を確認し、接続済み emulator/device で `TabsRepositoryThreadStateTest` を実行して Room transaction/Flow の回帰がないことを確認する。
-- [ ] 5.4 `./gradlew assembleDebug` を実行して build 成功を確認し、production diff に DB schema/version 変更、board-tab behavior 変更、UI 文言/アイコン/theme/accessibility 変更がないことを確認する。
+- [x] 5.4 CI の APK build で build 成功を確認し、production diff に DB schema/version 変更、board-tab behavior 変更、UI 文言/アイコン/theme/accessibility 変更がないことを確認する。
 - [x] 5.5 `fix-thread-deep-link-selection-consistency` を開始する前に、本変更の readiness、targeted mutation completion、canonical confirmation API が production と tests で利用可能であることを確認する。
