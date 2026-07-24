@@ -9,6 +9,7 @@ import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinato
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.projectThreadTabs
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabPendingOperation
 import com.websarva.wings.android.slevo.ui.tabs.session.PendingThreadPostState
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
