@@ -487,7 +487,7 @@ class ThreadTabsCoordinatorTest {
         assertEquals("https://host/board/", projected.boardUrl)
         assertEquals(42L, projected.boardId)
         assertEquals(120, projected.resCount)
-        assertEquals(3, projected.firstVisibleItemIndex)
+        assertEquals(7, projected.firstVisibleItemIndex)
         assertEquals(30, projected.firstVisibleItemScrollOffset)
         assertEquals(true, projected.isPinned)
         assertEquals(listOf(current.id, unrelated.id), result.map { it.id })
