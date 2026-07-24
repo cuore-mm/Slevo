@@ -80,6 +80,13 @@
 - **WHEN** add、delete、pin intent が完了を待たず連続して到着する
 - **THEN** システムは受付順に一件ずつ DB write と Flow confirmation を完了し、各 caller へ対応する completion を返す
 
+#### Scenario: 既存タブ ensure 後に unrelated canonical revision が先着する
+- **GIVEN** 対象タブが既に開かれており、ensure が共有 metadata merge 規則によって title、板 metadata、またはレス数を更新する
+- **WHEN** repository write 成功後、対象タブが更新前 metadata のままで別タブだけが変化した baseline より新しい canonical snapshot が、対象 metadata を含む snapshot より先に届く
+- **THEN** システムは対象 ID の存在と revision だけでは ensure を確認せず、pending ensure の共有 merge 結果を表示し続ける
+- **AND** 対象 canonical tab へ共有 merge 規則を適用した結果と actual の `title`、`boardName`、`boardUrl`、`boardId`、`resCount` がすべて一致する snapshot が届いた時だけ pending operation を除去して completion と後続 FIFO intent を進める
+- **AND** レス数の単調増加、canonical/pending の順序、pin、scroll、履歴由来状態、cancellation、last-tab delete を変更しない
+
 #### Scenario: 同一タブの pin toggle を worker 開始前に連続要求する
 - **GIVEN** 対象タブの canonical pin 値が確定している
 - **WHEN** 最初の pending operation が登録される前に、同一タブへの pin toggle intent を複数受け付ける

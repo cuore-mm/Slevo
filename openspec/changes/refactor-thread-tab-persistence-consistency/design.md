@@ -76,7 +76,7 @@ Room collector だけが canonical snapshot を更新する。`bind()` の初回
 1. 初回 canonical snapshot が `Loaded` になるまで待つ。
 2. intent を pending operation として登録し、canonical snapshot へ順序どおり投影した表示一覧を更新する。
 3. 対応する対象行 repository mutation を await する。
-4. 成功時は Room Flow が operation 固有の確認条件（add は対象存在、delete は対象不存在、pin/info は期待値一致）を満たすまで待つ。
+4. 成功時は baseline より新しい Room Flow が operation 固有の確認条件を満たすまで待つ。ensure は対象存在だけでなく、canonical target へ共有 `mergeThreadTabMetadata(actual, pending)` を適用した結果の `title`、`boardName`、`boardUrl`、`boardId`、`resCount` が actual と一致すること、delete は対象不存在、pin は期待値一致、info は同じ metadata 一致を条件とする。
 5. 確認後に pending operation を除去し、canonical snapshot の投影結果を公開する。
 6. DB 失敗または cancellation 時は pending operation を除去し、canonical snapshot へ戻して失敗を completion へ返す。worker は次 intent を処理可能な状態を保つ。
 
@@ -97,6 +97,8 @@ pin mutation では、cancellable な repository 呼出しが成功を返した�
 coordinator は `canonicalTabs` と `pendingOperations` を別に保持し、公開 `openThreadTabs` は純粋な projection 関数で導出する。Room Flow が古い 1,252 件を emit しても pending add を再適用して 1,253 件相当を維持し、新しい 1,253 件 snapshot が確認された時点で pending add を外す。delete と pin も同じ規則を使い、古い emission による resurrection や pin の巻き戻りを防ぐ。
 
 projection は `threadId` の一意性、canonical/pending の順序、既存 tab の sort/pin/scroll 保持を明示して単体テスト可能な pure function とする。selection は本変更では変更せず、後続変更が completion と canonical state を使って確定する。
+
+既に存在するタブの ensure では、baseline 後の unrelated canonical revision を target write の確認として扱わない。対象タブが存在していても、上記 metadata 一致前は `Ensure` pending operation と FIFO barrier を保持し、projection の共有 merge 結果を表示し続ける。比較対象へ sort order、pin、scroll、履歴由来状態、bookmark 色を追加せず、ensure が更新する metadata だけを repository/projection と同じ規則で確認する。
 
 ### 5. full replacement は名前と可視性で bulk use case に限定する
 
@@ -168,6 +170,7 @@ Room Flow ──▶ canonical snapshot ──▶ operation confirmation
 - `ThreadTabsCoordinatorTest.kt` に制御可能な Room-like Flow、`StandardTestDispatcher`、`CompletableDeferred` barrier を導入する。
   - 1,252 件を Flow に準備して初回 emission を停止し、add intent が DB mutation を開始せず待つこと。
   - 初回 1,252 件、pending add、古い 1,252 件、確定 1,253 件を順に emit し、既存行削除と表示巻き戻りがないこと。
+  - metadata 更新を伴う既存タブ ensure で、write 成功後に対象 metadata が古いまま unrelated tab だけが変化した canonical revision を emit し、completion と後続 FIFO intent が待機したまま pending merge 結果を表示すること。続いて共有 merge 規則どおりの target metadata を emit した時だけ confirmation、pending cleanup、後続処理が進むこと。
   - 初回 empty emission 後は loaded-empty として add/delete が進むこと。
   - rapid add/delete/pin を enqueue し、repository call と completion が FIFO、最終 projection が一意で正しいこと。
   - worker を進める前に同一タブへ 2 回および 3 回の pin toggle を enqueue し、repository の要求値が初期値から交互になり、2 回では元の値、3 回では反転値へ収束すること。
@@ -199,6 +202,7 @@ Room Flow ──▶ canonical snapshot ──▶ operation confirmation
 11. 既存タブ ensure の ThreadState 保存前に DB canonical metadata とフィールド単位でマージし、repository、pending projection、scope 未 bind seam の placeholder 判定を一致させる。この metadata 補正では pin toggle と cancellation の処理経路を変更しない。ただし pin toggle の要求値は別の FIFO 整合性補正として worker 内で先行 intent の結果から導出する。
 12. pin toggle intent に enqueue 時点の `isPinned` または事前生成した `Pin` pending operation を保持させない。worker が先行 intent の cleanup 後に対象の投影状態を読み、反転値と pending operation を一度だけ生成する。既存の cancellation ownership、DB-canonical confirmation、metadata merge は変更しない。
 13. pin repository 呼出しが成功を返す前の cancellation は従来どおり caller-owned write phase へ伝播する。成功を返した後の Flow reconciliation は caller cancellation link から分離して worker が所有し、coordinator scope の cancellation には引き続き従う。cancel 済み caller へ continuation を返さず、pending `Pin` を matching canonical confirmation 前に除去せず、後続 intent を開始しない。変更は pin path に限定し、ensure metadata、delete の last-tab 補正、repository/DAO/schema を変更しない。
+14. `ThreadTabPendingOperation.Ensure` の canonical confirmation は対象 ID の存在だけで完了させない。対象 canonical tab に共有 merge 規則を再適用した結果と actual の `title`、`boardName`、`boardUrl`、`boardId`、`resCount` がすべて一致する時だけ完了し、unrelated revision では pending projection と FIFO barrier を保持する。既存の `Info` metadata matcher を共有し、merge 規則、repository/DAO/schema、ordering/pin/scroll、cancellation、last-tab delete、UI を変更しない。
 
 ## Risks / Trade-offs
 
@@ -211,6 +215,7 @@ Room Flow ──▶ canonical snapshot ──▶ operation confirmation
 - [source API 変更が広い] → compile error を利用して全 call site を列挙し、fire-and-forget wrapper を残さない。
 - [bulk replacement の誤用] → API 名、可視性、call-site test で通常経路から隔離する。
 - [repository と pending projection の metadata merge が不一致になる] → placeholder 判定を一つの純粋な規則へ集約し、同一入力に対する repository canonical Flow と projection の field-level assertion を追加する。
+- [既存タブの存在だけで ensure を早期確認する] → ensure confirmation に共有 metadata matcher を使用し、unrelated revision と target metadata revision を別々に進める決定的テストで pending projection と FIFO barrier の寿命を確認する。
 
 ## Migration Plan
 
