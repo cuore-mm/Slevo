@@ -23,6 +23,36 @@ import org.junit.Test
  */
 class DeepLinkHandlerTest {
 
+    /** 板 target の Selected 確認後だけ navigation を実行する。 */
+    @Test
+    fun boardDeepLink_navigatesAfterSelectionConfirmation() = runTest {
+        val store = mockStore()
+        val events = mutableListOf<String>()
+        coEvery { store.registerAndConfirmBoardRoute(any()) } coAnswers {
+            events += "confirmed"
+            true
+        }
+
+        assertTrue(
+            handleBoardDeepLinkRoute(
+                boardRoute(),
+                store,
+            ) { events += "navigate" },
+        )
+        assertEquals(listOf("confirmed", "navigate"), events)
+    }
+
+    /** 板 target の登録・選択確認失敗では navigation を実行しない。 */
+    @Test
+    fun boardDeepLink_confirmationFailureKeepsCurrentScreen() = runTest {
+        val store = mockStore()
+        coEvery { store.registerAndConfirmBoardRoute(any()) } returns false
+        var navigated = false
+
+        assertFalse(handleBoardDeepLinkRoute(boardRoute(), store) { navigated = true })
+        assertFalse(navigated)
+    }
+
     /** 準備が完了するまで、後続の副作用をすべてブロックする。 */
     @Test
     fun threadDeepLink_waitsForReadinessBeforeRegistering() = runTest {
@@ -161,5 +191,11 @@ class DeepLinkHandlerTest {
         boardUrl = "https://example.com/test/",
         boardName = "test",
         threadTitle = "Thread",
+    )
+
+    /** 板 Deep Link の順序テスト用 route を作成する。 */
+    private fun boardRoute(): AppRoute.Board = AppRoute.Board(
+        boardName = "test",
+        boardUrl = "https://example.com/test/",
     )
 }

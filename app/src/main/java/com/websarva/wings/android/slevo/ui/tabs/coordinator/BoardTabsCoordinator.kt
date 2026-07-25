@@ -3,6 +3,8 @@ package com.websarva.wings.android.slevo.ui.tabs.coordinator
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.bbsroute.TabPresentationState
+import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
@@ -52,6 +54,15 @@ class BoardTabsCoordinator @Inject constructor(
     private val _selectedBoardTabKey = MutableStateFlow<String?>(null)
     val selectedBoardTabKey: StateFlow<String?> = _selectedBoardTabKey.asStateFlow()
 
+    private val _boardPresentationState = MutableStateFlow<TabPresentationState<BoardTabInfo, String>>(
+        TabPresentationState(emptyList(), TabSelectionResolution.Loading),
+    )
+    val boardPresentationState: StateFlow<TabPresentationState<BoardTabInfo, String>> =
+        _boardPresentationState.asStateFlow()
+
+    private var boardCanonicalLoaded = false
+    private var pendingBoardSelectionKey: String? = null
+
     private val _boardSessionStates = MutableStateFlow<Map<String, BoardSessionState>>(emptyMap())
     val boardSessionStates: StateFlow<Map<String, BoardSessionState>> = _boardSessionStates.asStateFlow()
 
@@ -88,9 +99,11 @@ class BoardTabsCoordinator @Inject constructor(
                 // 各タブに対して colorMap から bookmarkColorName を付与する。
                 tabs.map { tab -> tab.copy(bookmarkColorName = colorMap[tab.boardId]) }
             }.collect { boards ->
-                _openBoardTabs.value = boards
-                syncBoardCurrentPageFromSelectedKey(boards)
-                _boardLoaded.value = true
+                boardCanonicalLoaded = true
+                if (pendingBoardSelectionKey != null && boards.any { it.boardUrl == pendingBoardSelectionKey }) {
+                    pendingBoardSelectionKey = null
+                }
+                publishBoardPresentation(boards)
             }
         }
     }
@@ -101,6 +114,9 @@ class BoardTabsCoordinator @Inject constructor(
      * - 呼び出し後、タブ一覧はリポジトリに保存される。
      */
     fun ensureBoardTab(route: AppRoute.Board): Int {
+        if (scope != null && _boardPresentationState.value.tabs.none { it.boardUrl == route.boardUrl }) {
+            pendingBoardSelectionKey = route.boardUrl
+        }
         val index = upsertBoardTab(
             BoardTabInfo(
                 boardId = route.boardId ?: 0L,
@@ -109,6 +125,10 @@ class BoardTabsCoordinator @Inject constructor(
                 serviceName = parseServiceName(route.boardUrl)
             )
         )
+        if (scope == null) {
+            boardCanonicalLoaded = true
+            publishBoardPresentation()
+        }
         saveBoardTabs()
         return index
     }
@@ -118,6 +138,10 @@ class BoardTabsCoordinator @Inject constructor(
      */
     fun openBoardTab(boardTabInfo: BoardTabInfo) {
         upsertBoardTab(boardTabInfo)
+        if (scope == null) {
+            boardCanonicalLoaded = true
+            publishBoardPresentation()
+        }
         saveBoardTabs()
     }
 
@@ -125,10 +149,16 @@ class BoardTabsCoordinator @Inject constructor(
      * 選択中の板タブ key を更新する。
      */
     fun selectBoardTab(boardUrl: String?) {
-        _selectedBoardTabKey.value = boardUrl?.takeIf { target ->
-            _openBoardTabs.value.any { it.boardUrl == target }
+        if (pendingBoardSelectionKey != boardUrl) {
+            pendingBoardSelectionKey = boardUrl.takeIf { !boardCanonicalLoaded && it != null }
         }
-        syncBoardCurrentPageFromSelectedKey()
+        if (pendingBoardSelectionKey != null) {
+            _selectedBoardTabKey.value = pendingBoardSelectionKey
+        }
+        publishBoardPresentation(
+            requestedSelection = boardUrl,
+            markLoaded = scope == null,
+        )
     }
 
     /**
@@ -141,14 +171,15 @@ class BoardTabsCoordinator @Inject constructor(
         val selectedKeyBeforeRemoval = _selectedBoardTabKey.value
         val removedTabKey = tab.boardUrl
         val removedIndex = _openBoardTabs.value.indexOfFirst { it.boardUrl == tab.boardUrl }
-        var updatedTabs: List<BoardTabInfo> = emptyList()
-        _openBoardTabs.update { state ->
-            val newTabs = state.filterNot { it.boardUrl == tab.boardUrl }
-            updatedTabs = newTabs
-            newTabs
-        }
+        val updatedTabs = _openBoardTabs.value.filterNot { it.boardUrl == tab.boardUrl }
         _boardSessionStates.update { it - tab.boardUrl }
-        updateSelectedBoardKeyAfterRemoval(selectedKeyBeforeRemoval, removedTabKey, removedIndex, updatedTabs)
+        val nextSelection = selectedBoardKeyAfterRemoval(
+            selectedKeyBeforeRemoval,
+            removedTabKey,
+            removedIndex,
+            updatedTabs,
+        )
+        publishBoardPresentation(updatedTabs, nextSelection, markLoaded = scope == null)
         saveBoardTabs(updatedTabs)
     }
 
@@ -165,20 +196,19 @@ class BoardTabsCoordinator @Inject constructor(
      * 指定した boardUrl の板タブの固定状態を切り替えて保存する。
      */
     fun togglePinBoardTab(boardUrl: String) {
-        _openBoardTabs.update { state ->
-            state.map { tab ->
-                if (tab.boardUrl == boardUrl) {
-                    tab.copy(isPinned = !tab.isPinned)
-                } else {
-                    tab
-                }
+        val updatedTabs = _openBoardTabs.value.map { tab ->
+            if (tab.boardUrl == boardUrl) {
+                tab.copy(isPinned = !tab.isPinned)
+            } else {
+                tab
             }
         }
+        publishBoardPresentation(updatedTabs, markLoaded = scope == null)
         saveBoardTabs()
     }
 
     /**
-     * 指定タブのスクロール位置（firstVisibleIndex とオフセット）を更新して保存する。
+     * 指定板タブのスクロール位置（firstVisibleIndex とオフセット）を更新して保存する。
      * - UI のスクロールイベントから呼ばれる想定。
      */
     fun updateBoardScrollPosition(
@@ -186,18 +216,17 @@ class BoardTabsCoordinator @Inject constructor(
         firstVisibleIndex: Int,
         scrollOffset: Int,
     ) {
-        _openBoardTabs.update { state ->
-            state.map { tab ->
-                if (tab.boardUrl == boardUrl) {
-                    tab.copy(
-                        firstVisibleItemIndex = firstVisibleIndex,
-                        firstVisibleItemScrollOffset = scrollOffset,
-                    )
-                } else {
-                    tab
-                }
+        val updatedTabs = _openBoardTabs.value.map { tab ->
+            if (tab.boardUrl == boardUrl) {
+                tab.copy(
+                    firstVisibleItemIndex = firstVisibleIndex,
+                    firstVisibleItemScrollOffset = scrollOffset,
+                )
+            } else {
+                tab
             }
         }
+        publishBoardPresentation(updatedTabs, markLoaded = scope == null)
         saveBoardTabs()
     }
 
@@ -232,18 +261,17 @@ class BoardTabsCoordinator @Inject constructor(
         boardName: String? = null,
     ) {
         if (boardId == 0L) return
-        _openBoardTabs.update { tabs ->
-            tabs.map { tab ->
-                if (tab.boardUrl == boardUrl) {
-                    tab.copy(
-                        boardId = boardId,
-                        boardName = boardName?.takeIf(String::isNotBlank) ?: tab.boardName,
-                    )
-                } else {
-                    tab
-                }
+        val updatedTabs = _openBoardTabs.value.map { tab ->
+            if (tab.boardUrl == boardUrl) {
+                tab.copy(
+                    boardId = boardId,
+                    boardName = boardName?.takeIf(String::isNotBlank) ?: tab.boardName,
+                )
+            } else {
+                tab
             }
         }
+        publishBoardPresentation(updatedTabs, markLoaded = scope == null)
         saveBoardTabs()
     }
 
@@ -270,13 +298,11 @@ class BoardTabsCoordinator @Inject constructor(
     private fun upsertBoardTab(boardTabInfo: BoardTabInfo): Int {
         var targetIndex = -1
         _openBoardTabs.update { state ->
-            val currentBoards = state
-            val index = currentBoards.indexOfFirst { it.boardUrl == boardTabInfo.boardUrl }
-            val updated = if (index != -1) {
+            val index = state.indexOfFirst { it.boardUrl == boardTabInfo.boardUrl }
+            if (index >= 0) {
                 targetIndex = index
-                currentBoards.toMutableList().apply {
+                state.toMutableList().apply {
                     val existing = this[index]
-                    // 既存タブは固定状態とスクロール位置を保持しつつ、他の情報（名前やブックマーク色）を更新する
                     this[index] = boardTabInfo.copy(
                         bookmarkColorName = boardTabInfo.bookmarkColorName ?: existing.bookmarkColorName,
                         firstVisibleItemIndex = existing.firstVisibleItemIndex,
@@ -285,25 +311,76 @@ class BoardTabsCoordinator @Inject constructor(
                     )
                 }
             } else {
-                // 新規追加は末尾に追加
-                targetIndex = currentBoards.size
-                currentBoards + boardTabInfo
+                targetIndex = state.size
+                state + boardTabInfo
             }
-            updated
         }
         return targetIndex
     }
 
     /**
-     * 現在のタブ一覧をリポジトリに保存する。scope がバインドされている場合のみ非同期で保存を実行する。
+     * tabs、selected key、pending cause を一つの presentation snapshot に解決して公開する。
+     * loaded な非空一覧で不在 key が pending でない場合は先頭へ補正する。
      */
-    private fun saveBoardTabs(tabs: List<BoardTabInfo> = _openBoardTabs.value) {
-        scope?.launch { tabsRepository.saveOpenBoardTabs(tabs) }
+    private fun publishBoardPresentation(
+        tabs: List<BoardTabInfo> = _openBoardTabs.value,
+        requestedSelection: String? = _selectedBoardTabKey.value,
+        markLoaded: Boolean = false,
+    ) {
+        if (markLoaded) boardCanonicalLoaded = true
+        _openBoardTabs.value = tabs
+        if (!boardCanonicalLoaded) {
+            _boardLoaded.value = false
+            _boardPresentationState.value = TabPresentationState(
+                tabs = emptyList(),
+                selection = TabSelectionResolution.Loading,
+            )
+            _boardCurrentPage.value = -1
+            return
+        }
+
+        _boardLoaded.value = true
+        val presentationTabs = if (pendingBoardSelectionKey != null && requestedSelection != null) {
+            tabs.filterNot { it.boardUrl == requestedSelection }
+        } else {
+            tabs
+        }
+        when {
+            pendingBoardSelectionKey != null && requestedSelection == pendingBoardSelectionKey -> {
+                _selectedBoardTabKey.value = requestedSelection
+                _boardPresentationState.value = TabPresentationState(
+                    presentationTabs,
+                    TabSelectionResolution.PendingMissing(requestedSelection),
+                )
+            }
+            presentationTabs.isEmpty() -> {
+                _selectedBoardTabKey.value = null
+                _boardPresentationState.value = TabPresentationState(
+                    presentationTabs,
+                    TabSelectionResolution.Empty,
+                )
+            }
+            requestedSelection != null && presentationTabs.any { it.boardUrl == requestedSelection } -> {
+                pendingBoardSelectionKey = null
+                _selectedBoardTabKey.value = requestedSelection
+                _boardPresentationState.value = TabPresentationState(
+                    presentationTabs,
+                    TabSelectionResolution.Selected(requestedSelection),
+                )
+            }
+            else -> {
+                val repairedKey = presentationTabs.first().boardUrl
+                _selectedBoardTabKey.value = repairedKey
+                _boardPresentationState.value = TabPresentationState(
+                    presentationTabs,
+                    TabSelectionResolution.Selected(repairedKey),
+                )
+            }
+        }
+        syncBoardCurrentPageFromSelectedKey(presentationTabs)
     }
 
-    /**
-     * selected key から互換用 currentPage を導出する。
-     */
+    /** 選択 key から互換用 currentPage を導出する。 */
     private fun syncBoardCurrentPageFromSelectedKey(tabs: List<BoardTabInfo> = _openBoardTabs.value) {
         val selectedKey = _selectedBoardTabKey.value
         _boardCurrentPage.value = when {
@@ -313,23 +390,28 @@ class BoardTabsCoordinator @Inject constructor(
         }
     }
 
-    /**
-     * タブ削除後に selected key を補正する。
-     */
-    private fun updateSelectedBoardKeyAfterRemoval(
+    /** 削除前 index に基づく既存の隣接/末尾選択規則を返す。 */
+    private fun selectedBoardKeyAfterRemoval(
         selectedKeyBeforeRemoval: String?,
         removedTabKey: String,
         removedIndex: Int,
         updatedTabs: List<BoardTabInfo>,
-    ) {
+    ): String? {
         val removedTabWasSelected = removedIndex >= 0 && selectedKeyBeforeRemoval == removedTabKey
-
-        _selectedBoardTabKey.value = when {
+        return when {
             updatedTabs.isEmpty() -> null
-            !removedTabWasSelected && selectedKeyBeforeRemoval != null && updatedTabs.any { it.boardUrl == selectedKeyBeforeRemoval } -> selectedKeyBeforeRemoval
+            !removedTabWasSelected && selectedKeyBeforeRemoval != null &&
+                updatedTabs.any { it.boardUrl == selectedKeyBeforeRemoval } -> selectedKeyBeforeRemoval
             removedIndex in updatedTabs.indices -> updatedTabs[removedIndex].boardUrl
             else -> updatedTabs.last().boardUrl
         }
-        syncBoardCurrentPageFromSelectedKey(updatedTabs)
     }
+
+    /**
+     * 現在のタブ一覧をリポジトリに保存する。scope がバインドされている場合のみ非同期で保存を実行する。
+     */
+    private fun saveBoardTabs(tabs: List<BoardTabInfo> = _openBoardTabs.value) {
+        scope?.launch { tabsRepository.saveOpenBoardTabs(tabs) }
+    }
+
 }

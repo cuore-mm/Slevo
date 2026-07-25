@@ -74,9 +74,9 @@ private suspend fun handleDeepLinkUrl(
                     boardUrl = boardUrl
                 )
             )
-            tabSessionStore.registerAndSelectBoardRoute(route)
-            navController.navigateToBoardScreen(route)
-            true
+            handleBoardDeepLinkRoute(route, tabSessionStore) {
+                navController.navigateToBoardScreen(route)
+            }
         }
         is ResolvedUrl.Thread -> {
             val boardUrl = "https://${target.host}/${target.boardKey}/"
@@ -108,9 +108,9 @@ private suspend fun handleDeepLinkUrl(
                     boardUrl = boardUrl
                 )
             )
-            tabSessionStore.registerAndSelectBoardRoute(route)
-            navController.navigateToBoardScreen(route)
-            true
+            handleBoardDeepLinkRoute(route, tabSessionStore) {
+                navController.navigateToBoardScreen(route)
+            }
         }
         is ResolvedUrl.Unknown -> false
     }
@@ -135,6 +135,20 @@ internal suspend fun handleThreadDeepLinkRoute(
 
     // --- 選択と遷移 ---
     if (!tabSessionStore.selectThreadTab(threadId)) return false
+    navigate()
+    return true
+}
+
+/**
+ * 板の登録・選択確認を navigation より先に完了させる。
+ * target が atomic state の Selected にならない場合は既存画面を維持する。
+ */
+internal suspend fun handleBoardDeepLinkRoute(
+    route: AppRoute.Board,
+    tabSessionStore: TabSessionStore,
+    navigate: () -> Unit,
+): Boolean {
+    if (!tabSessionStore.registerAndConfirmBoardRoute(route)) return false
     navigate()
     return true
 }

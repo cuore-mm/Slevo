@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.tabs
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
+import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -86,6 +87,59 @@ class BoardTabsCoordinatorTest {
         coordinator.selectBoardTab(tab.boardUrl)
 
         assertEquals(tab.boardUrl, coordinator.selectedBoardTabKey.value)
+        assertEquals(
+            TabSelectionResolution.Selected(tab.boardUrl),
+            coordinator.boardPresentationState.value.selection,
+        )
+    }
+
+    /** 非空一覧を初めて公開したとき null 選択を先頭へ補正することを確認する。 */
+    @Test
+    fun firstLoadedBoardTabs_repairsNullSelectionAtomically() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        val first = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        val second = BoardTabInfo(2, "B", "https://example.com/b/", "example.com")
+
+        coordinator.openBoardTab(first)
+        coordinator.openBoardTab(second)
+
+        assertEquals(first.boardUrl, coordinator.selectedBoardTabKey.value)
+        assertEquals(listOf(first, second), coordinator.boardPresentationState.value.tabs)
+        assertEquals(
+            TabSelectionResolution.Selected(first.boardUrl),
+            coordinator.boardPresentationState.value.selection,
+        )
+    }
+
+    /** 最後の tab close は selected key と presentation state を同時に空へ遷移させる。 */
+    @Test
+    fun closeLastBoardTab_publishesEmptyPresentationState() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        val tab = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        coordinator.openBoardTab(tab)
+        coordinator.selectBoardTab(tab.boardUrl)
+
+        coordinator.closeBoardTab(tab)
+
+        assertEquals(emptyList<BoardTabInfo>(), coordinator.boardPresentationState.value.tabs)
+        assertEquals(TabSelectionResolution.Empty, coordinator.boardPresentationState.value.selection)
+        assertNull(coordinator.selectedBoardTabKey.value)
+    }
+
+    /** 非選択 tab close は現在の有効な key を維持する。 */
+    @Test
+    fun closeUnselectedBoardTab_keepsSelectedKeyInPresentationState() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        val first = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        val second = BoardTabInfo(2, "B", "https://example.com/b/", "example.com")
+        coordinator.openBoardTab(first)
+        coordinator.openBoardTab(second)
+        coordinator.selectBoardTab(second.boardUrl)
+
+        coordinator.closeBoardTab(first)
+
+        assertEquals(second.boardUrl, coordinator.boardPresentationState.value.tabs.single().boardUrl)
+        assertEquals(TabSelectionResolution.Selected(second.boardUrl), coordinator.boardPresentationState.value.selection)
     }
 
     /**

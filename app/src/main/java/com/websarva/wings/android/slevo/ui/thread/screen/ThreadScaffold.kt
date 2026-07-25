@@ -31,7 +31,7 @@ import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
-import com.websarva.wings.android.slevo.ui.bbsroute.MissingSelectionPolicy
+import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunner
 import com.websarva.wings.android.slevo.ui.common.ImageMenuActionRunnerParams
 import com.websarva.wings.android.slevo.ui.common.PostDialog
@@ -78,9 +78,8 @@ fun ThreadScaffold(
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     val routeViewModel: ThreadRouteViewModel = hiltViewModel()
-    val threadLoaded by tabSessionStore.threadLoaded.collectAsState()
-    val openThreadTabs by tabSessionStore.openThreadTabs.collectAsState()
-    val selectedThreadTabKey by tabSessionStore.selectedThreadTabKey.collectAsState()
+    val threadPresentationState by tabSessionStore.threadPresentationState.collectAsState()
+    val openThreadTabs = threadPresentationState.tabs
     val context = LocalContext.current
     var isPopupVisible by remember { mutableStateOf(false) }
     val popupDialogState = rememberPostItemDialogState()
@@ -91,12 +90,14 @@ fun ThreadScaffold(
         ThreadId.of(host, board, threadRoute.threadKey)
     }
 
-    LaunchedEffect(threadRoute, threadLoaded) {
-        if (!threadLoaded) {
+    LaunchedEffect(threadRoute, threadPresentationState) {
+        if (threadPresentationState.selection is TabSelectionResolution.Loading ||
+            threadPresentationState.selection is TabSelectionResolution.PendingMissing
+        ) {
             return@LaunchedEffect
         }
         // route 引数は初期化入力・placeholder として扱い、既に有効な選択中タブがある場合は上書きしない。
-        if (selectedThreadTabKey != null && openThreadTabs.any { it.id.value == selectedThreadTabKey }) {
+        if (threadPresentationState.selection is TabSelectionResolution.Selected) {
             return@LaunchedEffect
         }
         val info = tabSessionStore.resolveBoardInfo(
@@ -130,11 +131,8 @@ fun ThreadScaffold(
         route = threadRoute,
         tabSessionStore = tabSessionStore,
         navController = navController,
-        isTabsLoaded = threadLoaded,
+        presentationState = threadPresentationState,
         onEmptyTabs = { navController.navigateUp() },
-        openTabs = openThreadTabs,
-        selectedTabKey = selectedThreadTabKey,
-        missingSelectionPolicy = MissingSelectionPolicy.PreserveCurrentPage,
         getUiState = { tab -> routeViewModel.uiStateFor(tab.id.value) },
         getBookmarkSheetHolder = { tab -> routeViewModel.bookmarkSheetHolderFor(tab.id.value) },
         getKey = { it.id.value },

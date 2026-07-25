@@ -7,6 +7,7 @@ import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.bbsroute.TabPresentationState
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsLoadState
@@ -72,6 +73,10 @@ class TabSessionStore @Inject constructor(
     val newResCounts: StateFlow<Map<String, Int>> = threadTabsCoordinator.newResCounts
     val selectedBoardTabKey: StateFlow<String?> = boardTabsCoordinator.selectedBoardTabKey
     val selectedThreadTabKey: StateFlow<String?> = threadTabsCoordinator.selectedThreadTabKey
+    val boardPresentationState: StateFlow<TabPresentationState<BoardTabInfo, String>> =
+        boardTabsCoordinator.boardPresentationState
+    val threadPresentationState: StateFlow<TabPresentationState<ThreadTabInfo, String>> =
+        threadTabsCoordinator.threadPresentationState
     val boardSessionStates: StateFlow<Map<String, BoardSessionState>> = boardTabsCoordinator.boardSessionStates
     val threadSessionStates: StateFlow<Map<String, ThreadSessionState>> = threadTabsCoordinator.threadSessionStates
 
@@ -95,17 +100,30 @@ class TabSessionStore @Inject constructor(
      * 板タブを保証したうえで、対象タブを選択状態へ更新する。
      */
     fun ensureAndSelectBoardTab(route: AppRoute.Board): Int {
-        return ensureBoardTab(route).also { index ->
-            if (index >= 0) {
-                selectBoardTab(route.boardUrl)
-            }
+        val index = ensureBoardTab(route)
+        if (index >= 0) {
+            selectBoardTab(route.boardUrl)
         }
+        return index
     }
 
     /**
      * 正規化済み板 route から板タブを登録し、選択状態へ更新する。
      */
     fun registerAndSelectBoardRoute(route: AppRoute.Board): Int = ensureAndSelectBoardTab(route)
+
+    /**
+     * 板 route を登録・選択し、atomic presentation state が target を Selected と確認するまで待機する。
+     * 登録または確認が失敗した場合は navigation を開始しない。
+     */
+    suspend fun registerAndConfirmBoardRoute(route: AppRoute.Board): Boolean {
+        if (ensureAndSelectBoardTab(route) < 0) return false
+        boardPresentationState.first { state ->
+            state.selection is com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution.Selected &&
+                state.selection.key == route.boardUrl
+        }
+        return true
+    }
 
     /**
      * 選択中の板タブ key を更新する。

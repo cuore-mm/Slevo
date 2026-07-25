@@ -6,6 +6,8 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.bbsroute.TabPresentationState
+import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
 import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
@@ -83,6 +85,12 @@ class ThreadTabsCoordinator @Inject constructor(
 
     private val _selectedThreadTabKey = MutableStateFlow<String?>(null)
     val selectedThreadTabKey: StateFlow<String?> = _selectedThreadTabKey.asStateFlow()
+
+    private val _threadPresentationState = MutableStateFlow<TabPresentationState<ThreadTabInfo, String>>(
+        TabPresentationState(emptyList(), TabSelectionResolution.Loading),
+    )
+    val threadPresentationState: StateFlow<TabPresentationState<ThreadTabInfo, String>> =
+        _threadPresentationState.asStateFlow()
 
     private val _threadSessionStates = MutableStateFlow<Map<String, ThreadSessionState>>(emptyMap())
     val threadSessionStates: StateFlow<Map<String, ThreadSessionState>> = _threadSessionStates.asStateFlow()
@@ -216,14 +224,12 @@ class ThreadTabsCoordinator @Inject constructor(
      */
     fun selectThreadTab(threadId: ThreadId?): Boolean {
         if (threadId == null) {
-            _selectedThreadTabKey.value = null
-            syncThreadCurrentPageFromSelectedKey()
+            publishThreadPresentation(requestedSelection = null)
             return true
         }
         val availableTabs = if (scope == null) _openThreadTabs.value else canonicalTabs.value
         if (!availableTabs.any { it.id == threadId }) return false
-        _selectedThreadTabKey.value = threadId.value
-        syncThreadCurrentPageFromSelectedKey()
+        publishThreadPresentation(requestedSelection = threadId.value)
         return true
     }
 
@@ -569,16 +575,20 @@ class ThreadTabsCoordinator @Inject constructor(
                 return
             }
             if (changed) awaitConfirmation(intent.operation, baselineRevision, intent.completion)
-            removePending(intent.operation)
+            val updatedTabs = projectThreadTabs(
+                canonicalTabs.value,
+                pendingOperations.filterNot { it == intent.operation },
+            )
+            val nextSelection = selectedThreadKeyAfterRemoval(
+                selectedKeyBeforeRemoval,
+                intent.threadId.value,
+                removedIndex,
+                updatedTabs,
+            )
+            removePending(intent.operation, nextSelection)
             _newResCounts.update { it - intent.threadId.value }
             _threadSessionStates.update { it - intent.threadId.value }
             _threadRuntimeStates.update { it - intent.threadId.value }
-            updateSelectedThreadKeyAfterRemoval(
-                selectedKeyBeforeRemoval = selectedKeyBeforeRemoval,
-                removedTabKey = intent.threadId.value,
-                removedIndex = removedIndex,
-                updatedTabs = _openThreadTabs.value,
-            )
             intent.completion.complete(Unit)
         } catch (exception: Throwable) {
             removePending(intent.operation)
@@ -694,9 +704,12 @@ class ThreadTabsCoordinator @Inject constructor(
     }
 
     /** 完了または失敗した操作を 1 件削除し、正規状態の投影を再発行する。 */
-    private fun removePending(operation: ThreadTabPendingOperation) {
+    private fun removePending(
+        operation: ThreadTabPendingOperation,
+        requestedSelection: String? = _selectedThreadTabKey.value,
+    ) {
         pendingOperations.remove(operation)
-        publishProjectedTabs()
+        publishProjectedTabs(requestedSelection)
     }
 
     /** 操作固有の条件を満たす新しい Room 通知を待つ。 */
@@ -715,14 +728,72 @@ class ThreadTabsCoordinator @Inject constructor(
     }
 
     /** canonicalTabs を変更せず、保留中の投影だけを発行する。 */
-    private fun publishProjectedTabs() {
+    private fun publishProjectedTabs(requestedSelection: String? = _selectedThreadTabKey.value) {
         val projected = projectThreadTabs(canonicalTabs.value, pendingOperations)
-        _openThreadTabs.value = projected
-        syncThreadCurrentPageFromSelectedKey(projected)
+        publishThreadPresentation(projected, requestedSelection)
         _newResCounts.value = projected
             .filter { tab -> tab.newResCount > 0 }
             .associate { tab -> tab.id.value to tab.newResCount }
     }
+
+    /**
+     * projected tabs と選択 key を同じ snapshot に解決して公開する。
+     * 不在 key は pending operation が説明できる間だけ保持し、それ以外は先頭へ補正する。
+     */
+    private fun publishThreadPresentation(
+        tabs: List<ThreadTabInfo> = _openThreadTabs.value,
+        requestedSelection: String? = _selectedThreadTabKey.value,
+    ) {
+        _openThreadTabs.value = tabs
+        if (_threadTabState.value is ThreadTabsLoadState.Loading) {
+            _threadPresentationState.value = TabPresentationState(
+                emptyList(),
+                TabSelectionResolution.Loading,
+            )
+            _threadCurrentPage.value = -1
+            return
+        }
+        when {
+            requestedSelection != null &&
+                tabs.none { it.id.value == requestedSelection } &&
+                pendingOperations.any { operation -> operation.selectionKey == requestedSelection } -> {
+                _selectedThreadTabKey.value = requestedSelection
+                _threadPresentationState.value = TabPresentationState(
+                    tabs,
+                    TabSelectionResolution.PendingMissing(requestedSelection),
+                )
+            }
+            tabs.isEmpty() -> {
+                _selectedThreadTabKey.value = null
+                _threadPresentationState.value = TabPresentationState(tabs, TabSelectionResolution.Empty)
+            }
+            requestedSelection != null && tabs.any { it.id.value == requestedSelection } -> {
+                _selectedThreadTabKey.value = requestedSelection
+                _threadPresentationState.value = TabPresentationState(
+                    tabs,
+                    TabSelectionResolution.Selected(requestedSelection),
+                )
+            }
+            else -> {
+                val repairedKey = tabs.first().id.value
+                _selectedThreadTabKey.value = repairedKey
+                _threadPresentationState.value = TabPresentationState(
+                    tabs,
+                    TabSelectionResolution.Selected(repairedKey),
+                )
+            }
+        }
+        syncThreadCurrentPageFromSelectedKey(tabs)
+    }
+
+    /** pending operation が説明できる選択 key を返す。 */
+    private val ThreadTabPendingOperation.selectionKey: String?
+        get() = when (this) {
+            is ThreadTabPendingOperation.Ensure -> tab.id.value
+            is ThreadTabPendingOperation.Delete -> threadId.value
+            is ThreadTabPendingOperation.Pin -> threadId.value
+            is ThreadTabPendingOperation.Info -> tab.id.value
+        }
 
     /** 投影したメタデータを Repository 共通の ThreadState 更新入力へ変換する。 */
     private fun ThreadTabInfo.toThreadStateUpdate(): ThreadStateRepository.ThreadStateUpdate =
@@ -782,6 +853,8 @@ class ThreadTabsCoordinator @Inject constructor(
                 tabs + tabInfo
             }
         }
+        setThreadTabState(ThreadTabsLoadState.Loaded(_openThreadTabs.value))
+        publishThreadPresentation()
         return targetIndex
     }
 
@@ -790,30 +863,32 @@ class ThreadTabsCoordinator @Inject constructor(
         val key = tab.id.value
         val selectedKey = _selectedThreadTabKey.value
         val removedIndex = _openThreadTabs.value.indexOfFirst { it.id == tab.id }
-        _openThreadTabs.update { tabs -> tabs.filterNot { it.id == tab.id } }
+        val updatedTabs = _openThreadTabs.value.filterNot { it.id == tab.id }
+        val nextSelection = selectedThreadKeyAfterRemoval(
+            selectedKey,
+            key,
+            removedIndex,
+            updatedTabs,
+        )
+        publishThreadPresentation(updatedTabs, nextSelection)
         _newResCounts.update { it - key }
         _threadSessionStates.update { it - key }
         _threadRuntimeStates.update { it - key }
-        updateSelectedThreadKeyAfterRemoval(selectedKey, key, removedIndex, _openThreadTabs.value)
     }
 
-    /**
-     * タブ削除後に selected key を補正する。
-     */
-    private fun updateSelectedThreadKeyAfterRemoval(
+    /** 削除前 index に基づく既存の隣接/末尾選択規則を返す。 */
+    private fun selectedThreadKeyAfterRemoval(
         selectedKeyBeforeRemoval: String?,
         removedTabKey: String,
         removedIndex: Int,
         updatedTabs: List<ThreadTabInfo>,
-    ) {
+    ): String? {
         val removedTabWasSelected = removedIndex >= 0 && selectedKeyBeforeRemoval == removedTabKey
-
-        _selectedThreadTabKey.value = when {
+        return when {
             updatedTabs.isEmpty() -> null
             !removedTabWasSelected && selectedKeyBeforeRemoval != null && updatedTabs.any { it.id.value == selectedKeyBeforeRemoval } -> selectedKeyBeforeRemoval
             removedIndex in updatedTabs.indices -> updatedTabs[removedIndex].id.value
             else -> updatedTabs.last().id.value
         }
-        syncThreadCurrentPageFromSelectedKey(updatedTabs)
     }
 }

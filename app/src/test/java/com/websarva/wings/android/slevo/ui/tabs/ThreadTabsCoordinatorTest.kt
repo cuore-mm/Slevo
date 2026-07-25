@@ -9,6 +9,7 @@ import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinato
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabPendingOperation
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.isThreadTabOperationConfirmed
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.projectThreadTabs
+import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.tabs.session.PendingThreadPostState
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
@@ -963,6 +964,51 @@ class ThreadTabsCoordinatorTest {
 
         assertEquals(listOf(true, false), requestedPins)
         assertFalse(coordinator.openThreadTabs.value.single().isPinned)
+    }
+
+    /** 選択中 tab の pending delete 中は key を保持し、canonical confirmation 後に隣接へ補正する。 */
+    @Test
+    fun closeSelectedThreadTab_publishesPendingMissingUntilCanonicalConfirmation() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val first = testTab("pending-first", 0)
+        val second = testTab("pending-second", 1)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenThreadTab(first.id) } returns true
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        databaseFlow.emit(listOf(first, second))
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + dispatcher))
+        runCurrent()
+        assertTrue(coordinator.selectThreadTab(first.id))
+
+        val closeJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.closeThreadTab(first)
+        }
+        runCurrent()
+
+        assertEquals(
+            TabSelectionResolution.PendingMissing(first.id.value),
+            coordinator.threadPresentationState.value.selection,
+        )
+        assertEquals(listOf(second), coordinator.threadPresentationState.value.tabs)
+        assertFalse(closeJob.isCompleted)
+
+        databaseFlow.emit(listOf(first, second))
+        runCurrent()
+        assertEquals(TabSelectionResolution.PendingMissing(first.id.value), coordinator.threadPresentationState.value.selection)
+        databaseFlow.emit(listOf(second))
+        runCurrent()
+        closeJob.await()
+
+        assertEquals(
+            TabSelectionResolution.Selected(second.id.value),
+            coordinator.threadPresentationState.value.selection,
+        )
+        assertEquals(second.id.value, coordinator.selectedThreadTabKey.value)
     }
 
     /**
