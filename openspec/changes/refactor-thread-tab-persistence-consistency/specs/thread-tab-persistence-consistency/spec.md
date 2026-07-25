@@ -116,6 +116,13 @@
 - **AND** matching canonical Flow を確認するまで後続 intent の repository write を開始せず、確認後の後続 toggle は確定した pin 値を反転して 2 件全体で元の値へ収束する
 - **AND** 補償 write、再試行、metadata merge の変更、caller 固有の後続 side effect を行わない
 
+#### Scenario: pin commit 成功と ownership 引き渡しの境界で caller がキャンセルされる
+- **GIVEN** 先頭 pin repository mutation が commit 成功を確定し、正常結果を coordinator へ返そうとしている
+- **WHEN** repository の正常返却と coordinator の ownership 引き渡しが競合する境界で先頭 caller がキャンセルされる
+- **THEN** システムは commit 済みの正常結果を cancellation より優先して FIFO worker へ一度だけ引き渡し、caller cancellation に pending pin を除去させてはならない
+- **AND** caller はキャンセル済みのまま、FIFO worker は coordinator scope の子として matching canonical Flow まで reconciliation を継続し、その確認前に後続 toggle を開始してはならない
+- **AND** commit 成功前に観測された caller cancellation は repository 実行 context へ引き続き伝播し、rollback、pending cleanup、後続 FIFO 継続の既存契約を維持する
+
 ### Requirement: 既存 DB write coordination を維持する
 システムはすべての新しい Room write を既存 `DatabaseWriteGate.withWritePermit` と必要な Room transaction の内側で実行しなければならないMUST。mutation intent queue は `DatabaseWriteGate` を置換してはならずMUST NOT、同じ write を二重に gate してはならないMUST NOT。
 
