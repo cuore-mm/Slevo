@@ -36,6 +36,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.ensureActive
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 
 /**
@@ -497,24 +498,23 @@ class ThreadTabsCoordinator @Inject constructor(
     /** FIFO ワーカーを存続させたまま、1 件の要求を個別にキャンセル可能な子で実行する。 */
     private suspend fun processIntentInCancellableOperation(intent: ThreadTabMutationIntent) {
         coroutineScope {
-            // pin の DB commit 後だけ、caller ではなく FIFO worker が Flow 確認を所有する。
-            val callerOwnsOperation = AtomicBoolean(true)
+            val pinWritePhase = if (intent is ThreadTabMutationIntent.Pin) PinWritePhase() else null
             val operation = launch(start = CoroutineStart.LAZY) {
                 when (intent) {
                     is ThreadTabMutationIntent.Ensure -> processEnsure(intent)
                     is ThreadTabMutationIntent.Delete -> processDelete(intent)
-                    is ThreadTabMutationIntent.Pin -> processPin(intent) {
-                        if (!callerOwnsOperation.compareAndSet(true, false)) {
-                            throw CancellationException("Thread tab pin write was cancelled")
-                        }
-                    }
+                    is ThreadTabMutationIntent.Pin -> processPin(intent, pinWritePhase!!)
                     is ThreadTabMutationIntent.Info -> processInfo(intent)
                 }
             }
             val cancellationLink = intent.completion.invokeOnCompletion { cause ->
-                if (cause is CancellationException && callerOwnsOperation.compareAndSet(true, false)) {
-                    // この要求だけをキャンセルし、長寿命の FIFO ワーカーは継続する。
-                    operation.cancel(cause)
+                if (cause is CancellationException) {
+                    if (pinWritePhase != null) {
+                        pinWritePhase.cancelIfUncommitted(cause)
+                    } else {
+                        // この要求だけをキャンセルし、長寿命の FIFO ワーカーは継続する。
+                        operation.cancel(cause)
+                    }
                 }
             }
             try {
@@ -589,7 +589,7 @@ class ThreadTabsCoordinator @Inject constructor(
     /** 先行するすべての要求が残した投影状態を使って固定状態の切り替えを実行する。 */
     private suspend fun processPin(
         intent: ThreadTabMutationIntent.Pin,
-        onRepositorySuccess: () -> Unit,
+        writePhase: PinWritePhase,
     ) {
         val current = _openThreadTabs.value.firstOrNull { it.id == intent.threadId }
         // 削除済みなどで対象がない場合、切り替え要求は成功扱いの no-op とする。
@@ -600,15 +600,69 @@ class ThreadTabsCoordinator @Inject constructor(
         val operation = ThreadTabPendingOperation.Pin(intent.threadId, !current.isPinned)
         val baselineRevision = registerPending(operation)
         try {
-            val changed = tabsRepository.setThreadTabPinned(intent.threadId, operation.isPinned)
-            // Repository 成功後は caller cancellation から切り離し、matching Flow を worker が待つ。
-            onRepositorySuccess()
+            // --- Caller-owned write phase ---
+            val writeChild = launch(start = CoroutineStart.LAZY) {
+                try {
+                    val changed = tabsRepository.setThreadTabPinned(intent.threadId, operation.isPinned)
+                    // 正常返却と結果発行の間に suspension point を置かず、commit 済み結果を残す。
+                    writePhase.publish(Result.success(changed))
+                } catch (cancellationException: CancellationException) {
+                    // commit 前の caller cancellation は結果を発行せず、pending cleanup へ進める。
+                } catch (exception: Throwable) {
+                    writePhase.publish(Result.failure(exception))
+                }
+            }
+            writePhase.attach(writeChild)
+            writeChild.start()
+            writeChild.join()
+
+            val writeResult = writePhase.result.get()
+            if (writeResult == null) {
+                // 正常結果のない cancellation は caller-owned cleanup とする。
+                removePending(operation)
+                return
+            }
+            val changed = writeResult.getOrElse { throw it }
+            // --- Worker-owned reconciliation phase ---
+            // commit 済み結果は caller cancellation に関係なく matching Flow まで保持する。
             if (changed) awaitConfirmation(operation, baselineRevision)
             removePending(operation)
             intent.completion.complete(Unit)
         } catch (exception: Throwable) {
             removePending(operation)
             intent.completion.completeExceptionally(exception)
+        }
+    }
+
+    /**
+     * pin repository write の結果と caller cancellation の競合を一つの境界で管理する。
+     *
+     * 成功結果は発行後に消去せず、write child の終了後に FIFO worker が reconciliation を引き取る。
+     */
+    private class PinWritePhase {
+        val result = AtomicReference<Result<Boolean>?>(null)
+        private val writeChild = AtomicReference<Job?>(null)
+        private val cancellationCause = AtomicReference<CancellationException?>(null)
+        private val cancellationRequested = AtomicBoolean(false)
+
+        /** write child を登録し、先着した caller cancellation を write phase へ伝播する。 */
+        fun attach(child: Job) {
+            writeChild.set(child)
+            if (cancellationRequested.get() && result.get() == null) {
+                child.cancel(cancellationCause.get())
+            }
+        }
+
+        /** 成功結果が未発行の場合だけ caller cancellation で write child を停止する。 */
+        fun cancelIfUncommitted(cause: CancellationException) {
+            cancellationCause.set(cause)
+            cancellationRequested.set(true)
+            if (result.get() == null) writeChild.get()?.cancel(cause)
+        }
+
+        /** Repository の正常結果または失敗結果を一度だけ発行する。 */
+        fun publish(value: Result<Boolean>) {
+            result.compareAndSet(null, value)
         }
     }
 

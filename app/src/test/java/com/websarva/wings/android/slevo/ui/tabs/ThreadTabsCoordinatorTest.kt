@@ -20,6 +20,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
@@ -897,6 +898,69 @@ class ThreadTabsCoordinatorTest {
         secondToggle.await()
 
         assertTrue(firstToggle.isCancelled)
+        assertEquals(listOf(true, false), requestedPins)
+        assertFalse(coordinator.openThreadTabs.value.single().isPinned)
+    }
+
+    /** Repository の正常結果発行と caller cancellation が同じ mock 境界で競合しても commit を保持する。 */
+    @Test
+    fun pinCommitAndSynchronousCallerCancellation_keepsCommittedResultForReconciliation() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val initialTab = testTab("synchronous-cancel", 0, isPinned = false)
+        val requestedPins = mutableListOf<Boolean>()
+        val commitRecorded = CompletableDeferred<Unit>()
+        lateinit var firstToggle: Deferred<Unit>
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.setThreadTabPinned(initialTab.id, any()) } coAnswers {
+            requestedPins += (invocation.args[1] as Boolean)
+            if (requestedPins.size == 1) {
+                commitRecorded.complete(Unit)
+                // 正常値を返す同じ coAnswers 内で caller を同期的にキャンセルする。
+                firstToggle.cancel()
+            }
+            true
+        }
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        val workerDispatcher = StandardTestDispatcher(testScheduler)
+        databaseFlow.emit(listOf(initialTab))
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + workerDispatcher))
+        runCurrent()
+
+        firstToggle = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.togglePinThreadTab(initialTab.id)
+        }
+        val secondToggle = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.togglePinThreadTab(initialTab.id)
+        }
+        runCurrent()
+
+        assertTrue(commitRecorded.isCompleted)
+        assertTrue(firstToggle.isCancelled)
+        assertEquals(listOf(true), requestedPins)
+        assertTrue(coordinator.openThreadTabs.value.single().isPinned)
+        assertFalse(secondToggle.isCompleted)
+
+        // 古い canonical false でも commit 済み pending pin と FIFO barrier を保持する。
+        databaseFlow.emit(listOf(initialTab.copy(isPinned = false)))
+        runCurrent()
+        assertEquals(listOf(true), requestedPins)
+        assertTrue(coordinator.openThreadTabs.value.single().isPinned)
+        assertFalse(secondToggle.isCompleted)
+
+        // matching true の確認後だけ、後続 toggle が false を要求する。
+        databaseFlow.emit(listOf(initialTab.copy(isPinned = true)))
+        runCurrent()
+        assertEquals(listOf(true, false), requestedPins)
+        assertFalse(secondToggle.isCompleted)
+
+        databaseFlow.emit(listOf(initialTab.copy(isPinned = false)))
+        runCurrent()
+        secondToggle.await()
+
         assertEquals(listOf(true, false), requestedPins)
         assertFalse(coordinator.openThreadTabs.value.single().isPinned)
     }
