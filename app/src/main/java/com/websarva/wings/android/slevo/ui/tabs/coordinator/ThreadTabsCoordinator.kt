@@ -601,20 +601,22 @@ class ThreadTabsCoordinator @Inject constructor(
         val baselineRevision = registerPending(operation)
         try {
             // --- Caller-owned write phase ---
-            val writeChild = launch(start = CoroutineStart.LAZY) {
-                try {
-                    val changed = tabsRepository.setThreadTabPinned(intent.threadId, operation.isPinned)
-                    // 正常返却と結果発行の間に suspension point を置かず、commit 済み結果を残す。
-                    writePhase.publish(Result.success(changed))
-                } catch (cancellationException: CancellationException) {
-                    // commit 前の caller cancellation は結果を発行せず、pending cleanup へ進める。
-                } catch (exception: Throwable) {
-                    writePhase.publish(Result.failure(exception))
+            coroutineScope {
+                val writeChild = launch(start = CoroutineStart.LAZY) {
+                    try {
+                        val changed = tabsRepository.setThreadTabPinned(intent.threadId, operation.isPinned)
+                        // 正常返却と結果発行の間に suspension point を置かず、commit 済み結果を残す。
+                        writePhase.publish(Result.success(changed))
+                    } catch (cancellationException: CancellationException) {
+                        // commit 前の caller cancellation は結果を発行せず、pending cleanup へ進める。
+                    } catch (exception: Throwable) {
+                        writePhase.publish(Result.failure(exception))
+                    }
                 }
+                writePhase.attach(writeChild)
+                writeChild.start()
+                writeChild.join()
             }
-            writePhase.attach(writeChild)
-            writeChild.start()
-            writeChild.join()
 
             val writeResult = writePhase.result.get()
             if (writeResult == null) {
