@@ -350,7 +350,7 @@ class BoardTabsCoordinator @Inject constructor(
                 _selectedBoardTabKey.value = requestedSelection
                 _boardPresentationState.value = TabPresentationState(
                     presentationTabs,
-                    TabSelectionResolution.PendingMissing(requestedSelection),
+                    TabSelectionResolution.PendingMissing(requestedSelection!!),
                 )
             }
             presentationTabs.isEmpty() -> {
