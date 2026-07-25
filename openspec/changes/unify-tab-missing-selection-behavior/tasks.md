@@ -43,7 +43,7 @@
 
 ## 8. 回帰確認と完了条件
 
-- [ ] 8.1 `./gradlew testDebugUnitTest` を実行する。完了条件: 新規 selection/coordinator/Deep Link tests と既存 thread FIFO/cancellation/close tests を含め全 unit test が成功する。
-- [ ] 8.2 接続済み端末または CI 環境で `./gradlew connectedDebugAndroidTest` の `BbsRouteScaffoldTest` を実行する。完了条件: valid/pending/confirmed/empty の Compose test が成功する。実行環境がない場合は実行不能理由と CI 必須 check を明記し、未検証のまま成功扱いにしない。
-- [ ] 8.3 `./gradlew assembleDebug` を実行する。完了条件: debug build が成功し、`MissingSelectionPolicy` と旧 `deriveSelectedPageIndex` の production/test 参照が 0 件である。
-- [ ] 8.4 最終 diff で Room schema/entity、backup format、navigation route、user-facing resource、theme、icon、semantics、既存 active OpenSpec artifact に意図しない変更がないことを確認する。完了条件: 変更が本 change の scoped paths/tests のみに限定され、規約必須 KDoc・section comment が揃っている。
+- [x] 8.1 `./gradlew testDebugUnitTest` を実行する。完了条件: 新規 selection/coordinator/Deep Link tests と既存 thread FIFO/cancellation/close tests を含め全 unit test が成功する。
+- [x] 8.2 接続済み端末または CI 環境で `./gradlew connectedDebugAndroidTest` の `BbsRouteScaffoldTest` を実行する。完了条件: valid/pending/confirmed/empty の Compose test が成功する。実行環境がない場合は実行不能理由と CI 必須 check を明記し、未検証のまま成功扱いにしない。
+- [x] 8.3 `./gradlew assembleDebug` を実行する。完了条件: debug build が成功し、`MissingSelectionPolicy` と旧 `deriveSelectedPageIndex` の production/test 参照が 0 件である。
+- [x] 8.4 最終 diff で Room schema/entity、backup format、navigation route、user-facing resource、theme、icon、semantics、既存 active OpenSpec artifact に意図しない変更がないことを確認する。完了条件: 変更が本 change の scoped paths/tests のみに限定され、規約必須 KDoc・section comment が揃っている。
