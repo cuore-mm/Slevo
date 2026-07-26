@@ -71,6 +71,6 @@
 
 ## 10. CI exhaustion recovery
 
-- [ ] 10.1 `ThreadTabsCoordinator.kt` の canonical confirmation に同一 key の pending predecessor guard を追加し、異なる key の write／confirmation は非blocking のまま、rapid pin の古い canonical 値が後続 toggle を先行確認しないことを保証する。
-- [ ] 10.2 `ThreadTabsCoordinatorTest.kt` の二つの pin cancellation test に stale `false`、matching `true`、matching `false` の順序を固定する assertion を維持し、non-blocking ensure test は後続 ensure の pending projection を含む新 contract に期待値を合わせる。
+- [x] 10.1 `ThreadTabsCoordinator.kt` の canonical confirmation に同一 key の pending predecessor guard を追加し、異なる key の write／confirmation は非blocking のまま、rapid pin の古い canonical 値が後続 toggle を先行確認しないことを保証する。
+- [x] 10.2 `ThreadTabsCoordinatorTest.kt` の二つの pin cancellation test に stale `false`、matching `true`、matching `false` の順序を固定する assertion を維持し、non-blocking ensure test は後続 ensure の pending projection を含む新 contract に期待値を合わせる。
 - [ ] 10.3 recovery verification はまず対象三 test、次に `testDebugUnitTest` と `assembleDebug` を実行し、CI attempt limit 3 の範囲で full unit suite と APK build の成功を確認する。失敗時は新規 scope を追加せず同じ causal-order guard と test fixture の evidence を再診断する。

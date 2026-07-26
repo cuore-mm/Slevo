@@ -125,6 +125,8 @@ class ThreadTabsCoordinator @Inject constructor(
     private val pendingOperations = mutableListOf<ThreadTabPendingOperation>()
     private var snapshotVersion = 0L
     private val snapshotVersionFlow = MutableStateFlow(0L)
+    private var pendingStateRevision = 0L
+    private val pendingStateRevisionFlow = MutableStateFlow(0L)
     private val commandQueue = Channel<ThreadTabMutationIntent>(Channel.UNLIMITED)
     private var commandDispatcherJob: Job? = null
 
@@ -588,7 +590,7 @@ class ThreadTabsCoordinator @Inject constructor(
             if (changed) awaitConfirmation(intent.operation, baselineVersion)
             val updatedTabs = projectThreadTabs(
                 canonicalTabs.value,
-                pendingOperations.filterNot { it == intent.operation },
+                pendingOperations.filterNot { it === intent.operation },
             )
             val nextSelection = selectedThreadKeyAfterRemoval(
                 selectedKeyBeforeRemoval,
@@ -645,6 +647,8 @@ class ThreadTabsCoordinator @Inject constructor(
     /** 保留中の操作を 1 件追加し、投影した一覧を再発行する。 */
     private fun registerPending(operation: ThreadTabPendingOperation): Long {
         pendingOperations += operation
+        pendingStateRevision += 1
+        pendingStateRevisionFlow.value = pendingStateRevision
         publishProjectedTabs()
         return snapshotVersion
     }
@@ -654,7 +658,10 @@ class ThreadTabsCoordinator @Inject constructor(
         operation: ThreadTabPendingOperation,
         requestedSelection: String? = _selectedThreadTabKey.value,
     ) {
-        pendingOperations.remove(operation)
+        val operationIndex = pendingOperations.indexOfFirst { pendingOperation -> pendingOperation === operation }
+        if (operationIndex >= 0) pendingOperations.removeAt(operationIndex)
+        pendingStateRevision += 1
+        pendingStateRevisionFlow.value = pendingStateRevision
         publishProjectedTabs(requestedSelection)
     }
 
@@ -663,10 +670,21 @@ class ThreadTabsCoordinator @Inject constructor(
         operation: ThreadTabPendingOperation,
         baselineVersion: Long,
     ) {
-        snapshotVersionFlow.first { version ->
+        combine(snapshotVersionFlow, pendingStateRevisionFlow) { version, _ -> version }.first { version ->
             version > baselineVersion &&
-                isThreadTabOperationConfirmed(canonicalTabs.value, operation)
+                isThreadTabOperationConfirmed(canonicalTabs.value, operation) &&
+                !hasEarlierPendingOperation(operation)
         }
+    }
+
+    /** 同一 ThreadId の先行 pending が残っている間は後続操作の確認を保留する。 */
+    private fun hasEarlierPendingOperation(operation: ThreadTabPendingOperation): Boolean {
+        val operationIndex = pendingOperations.indexOfFirst { pendingOperation -> pendingOperation === operation }
+        if (operationIndex <= 0) return false
+        val confirmationKey = operation.confirmationKey
+        return pendingOperations
+            .subList(0, operationIndex)
+            .any { pendingOperation -> pendingOperation.confirmationKey == confirmationKey }
     }
 
     /** canonicalTabs を変更せず、保留中の投影だけを発行する。 */
@@ -742,11 +760,15 @@ class ThreadTabsCoordinator @Inject constructor(
 
     /** pending operation が説明できる選択 key を返す。 */
     private val ThreadTabPendingOperation.selectionKey: String?
+        get() = confirmationKey.value
+
+    /** 全 pending 操作が共有する、因果順確認用の ThreadId キーを返す。 */
+    private val ThreadTabPendingOperation.confirmationKey: ThreadId
         get() = when (this) {
-            is ThreadTabPendingOperation.Ensure -> tab.id.value
-            is ThreadTabPendingOperation.Delete -> threadId.value
-            is ThreadTabPendingOperation.Pin -> threadId.value
-            is ThreadTabPendingOperation.Info -> tab.id.value
+            is ThreadTabPendingOperation.Ensure -> tab.id
+            is ThreadTabPendingOperation.Delete -> threadId
+            is ThreadTabPendingOperation.Pin -> threadId
+            is ThreadTabPendingOperation.Info -> tab.id
         }
 
     /** 投影したメタデータを Repository 共通の ThreadState 更新入力へ変換する。 */

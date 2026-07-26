@@ -519,7 +519,10 @@ class ThreadTabsCoordinatorTest {
         assertFalse(ensureJob.isCompleted)
         assertFalse(nextJob.isCompleted)
         assertEquals(listOf(currentTarget.id.value, next.id.value), writes)
-        assertEquals(listOf(currentTarget.id, currentUnrelated.id), coordinator.openThreadTabs.value.map { it.id })
+        assertEquals(
+            listOf(currentTarget.id, currentUnrelated.id, next.id),
+            coordinator.openThreadTabs.value.map { it.id },
+        )
         assertEquals("New title", pendingTarget.title)
         assertEquals("New board", pendingTarget.boardName)
         assertEquals(currentTarget.boardUrl, pendingTarget.boardUrl)
@@ -528,7 +531,10 @@ class ThreadTabsCoordinatorTest {
         assertEquals(currentTarget.firstVisibleItemIndex, pendingTarget.firstVisibleItemIndex)
         assertEquals(currentTarget.firstVisibleItemScrollOffset, pendingTarget.firstVisibleItemScrollOffset)
         assertEquals(currentTarget.isPinned, pendingTarget.isPinned)
-        assertEquals("Unrelated new title", coordinator.openThreadTabs.value.last().title)
+        assertEquals(
+            "Unrelated new title",
+            coordinator.openThreadTabs.value.first { it.id == currentUnrelated.id }.title,
+        )
 
         val confirmedTarget = mergeThreadTabMetadata(currentTarget, requestedTarget)
         databaseFlow.emit(listOf(confirmedTarget, currentUnrelated.copy(title = "Unrelated new title")))
