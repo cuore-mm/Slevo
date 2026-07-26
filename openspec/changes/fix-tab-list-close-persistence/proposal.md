@@ -25,3 +25,7 @@
 - 対象テスト: タブ一覧 close callback の委譲を検証する `app/src/test/.../ui/tabs/` 配下の unit test
 - 再利用 API: `TabSessionStore.requestCloseThreadTab(threadKey, boardUrl)`
 - DB schema、外部 API、依存関係、表示文言、アクセシビリティ構造への変更はない。
+
+## 後続統合変更との関係
+
+`refactor-tab-controller-state-machine` は tab-list close が Composition-owned coroutine ではなく retained close API へ委譲する要件を継承する。本 change の要件と回帰テストは supersede せず、そのまま受入条件として参照する。

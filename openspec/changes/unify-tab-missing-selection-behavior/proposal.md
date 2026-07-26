@@ -29,3 +29,7 @@
 - テスト: `BbsRouteScaffoldSelectionTest.kt`、coordinator/store/Deep Link の unit test、および共有 Pager の Compose test。
 - 依存: `refactor-thread-tab-persistence-consistency` と `fix-thread-deep-link-selection-consistency` の契約を前提にし、両 change の artifact や実装をこの change に取り込まない。
 - 永続 DB schema、保存形式、navigation route、外部 API の migration はない。共有 Composable の内部 API は同一リポジトリ内 call site を同時更新する。
+
+## 後続統合変更との関係
+
+`refactor-tab-controller-state-machine` は `TabPresentationState`、Loading/Selected/PendingMissing/Empty、隣接／先頭 repair、既存 pager behavior を継承する。presentation の producer/owner は Board／Thread 各 Controller の単一 logical state reducer として明確化される。本 change の UI 要件は supersede せず、統合変更の受入条件として参照する。

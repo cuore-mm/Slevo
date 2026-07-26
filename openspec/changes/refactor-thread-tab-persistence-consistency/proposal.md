@@ -29,3 +29,7 @@
 - Tests: `ThreadTabsCoordinatorTest.kt`、`ThreadTabCoordinatorTest.kt`、`TabSessionStoreTest.kt`、`TabsRepositoryThreadStateTest.kt`、必要な制御可能 fake/Flow fixture。既存タブへ placeholder metadata を再 ensure する Room 回帰テストを含む。
 - DB schema は変更せず、既存 `open_thread_tabs` データ、並び順、pin、スクロール位置を保持する。`DatabaseWriteGate` と backup/restore の排他契約を維持する。
 - 後続の `fix-thread-deep-link-selection-consistency` は本変更の readiness/completion 契約に依存し、本変更の完了後に実装する。
+
+## 後続統合変更との関係
+
+`refactor-tab-controller-state-machine` は本 change の DB canonical、Loading/loaded-empty、targeted mutation、pending projection、metadata merge、既存 regression 要件を継承する。一方、matching Flow confirmation まで後続 intent を停止する FIFO worker と caller-owned cancellation phase の実装設計は同変更が supersede する。本 change は削除・archive せず、履歴要件／テスト資産として維持する。

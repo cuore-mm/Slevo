@@ -25,3 +25,7 @@
 - `app/src/main/java/com/websarva/wings/android/slevo/ui/thread/screen/ThreadScaffold.kt`
 - `app/src/test/java/com/websarva/wings/android/slevo/ui/tabs/TabSessionStoreTest.kt`
 - 必要に応じて既存の coordinator 回帰テスト。Room 正本、保留投影、FIFO intent queue、deep link の cancellation 契約、および UI 表示は変更しない。
+
+## 後続統合変更との関係
+
+`refactor-tab-controller-state-machine` は retained close ownership、Composition 破棄後の継続、`TabSessionStore.close()` の lifetime cancellation 境界を継承する。本 change の要件と回帰テストは supersede せず、そのまま統合 Controller の受入条件として参照する。

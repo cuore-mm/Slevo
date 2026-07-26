@@ -28,3 +28,7 @@
 - Tests: 新規 Deep Link orchestration unit test、`TabSessionStoreTest.kt`、`ThreadTabsCoordinatorTest.kt`、`BbsRouteScaffoldSelectionTest.kt`、必要に応じて navigation test。
 - DB/schema/migration は変更しない。UI component、表示文言、icon、theme、accessibility semantics は追加または変更しない。
 - 実装順は `refactor-thread-tab-persistence-consistency` 完了後に本変更とし、逆順または同時の部分実装を行わない。
+
+## 後続統合変更との関係
+
+`refactor-tab-controller-state-machine` は本 change の failure 時非遷移、既存選択保持、registration 重複禁止、caller cancellation の要件を継承する。presentation／canonical observation を registration confirmation とする実装設計は、Controller の明示 command result を待つ設計へ supersede される。本 change は削除・archive せず、履歴要件／テスト資産として維持する。
