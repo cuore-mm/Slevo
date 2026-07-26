@@ -43,7 +43,7 @@
 - [x] 6.1 `ThreadTabsCoordinator.kt` の canonical、pending、selected、presentation、result を単一 immutable state/reducer へ移し、互換 Flow は同じ state から派生することを test で確認する。
 - [x] 6.2 command acceptance order と effective state から ensure/delete/pin/info payload を導出し、rapid add/delete と 2/3 回 pin toggle の既存 tests を通す。
 - [x] 6.3 repository effect runner と canonical reconciliation を分離し、command A の confirmation 停止中に command B の write が進む 1.5 の test を通す。
-- [ ] 6.4 Room snapshot ごとに operation-specific matcher で部分確認し、stale/unrelated emission では pending/result を維持し、matching emission で各 terminal result を一度だけ返す tests を通す。
+- [x] 6.4 Room snapshot ごとに operation-specific matcher で部分確認し、stale/unrelated emission では pending/result を維持し、matching emission で各 terminal result を一度だけ返す tests を通す。
 - [x] 6.5 accepted command の caller cancellation link を execution から除去し、受理後 cancellation でも mutation/reconciliation が継続し、caller navigation だけが停止する tests を通す。
 - [x] 6.6 `TabSessionStore.close()` を唯一の Controller execution cancellation boundary とし、未完 waiter、effect runner、Room collector、session holder disposal の teardown test を通す。
 - [ ] 6.7 Thread close と `requestCloseThreadTab` の retained ownership、target session/runtime cleanup、last-tab Empty、tab-list callback の既存 tests を変更せず通す。
@@ -73,4 +73,4 @@
 
 - [x] 10.1 `ThreadTabsCoordinator.kt` の canonical confirmation に同一 key の pending predecessor guard を追加し、異なる key の write／confirmation は非blocking のまま、rapid pin の古い canonical 値が後続 toggle を先行確認しないことを保証する。
 - [x] 10.2 `ThreadTabsCoordinatorTest.kt` の二つの pin cancellation test に stale `false`、matching `true`、matching `false` の順序を固定する assertion を維持し、non-blocking ensure test は後続 ensure の pending projection を含む新 contract に期待値を合わせる。
-- [ ] 10.3 recovery verification はまず対象三 test、次に `testDebugUnitTest` と `assembleDebug` を実行し、CI attempt limit 3 の範囲で full unit suite と APK build の成功を確認する。失敗時は新規 scope を追加せず同じ causal-order guard と test fixture の evidence を再診断する。
+- [x] 10.3 recovery verification はまず対象三 test、次に `testDebugUnitTest` と `assembleDebug` を実行し、CI attempt limit 3 の範囲で full unit suite と APK build の成功を確認する。失敗時は新規 scope を追加せず同じ causal-order guard と test fixture の evidence を再診断する。
