@@ -1,6 +1,8 @@
 package com.websarva.wings.android.slevo.ui.tabs.coordinator
 
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.ui.tabs.controller.IndexedTabOperation
+import com.websarva.wings.android.slevo.ui.tabs.controller.foldEffectiveTabs
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
 
@@ -29,40 +31,24 @@ internal sealed interface ThreadTabPendingOperation {
 internal fun projectThreadTabs(
     canonicalTabs: List<ThreadTabInfo>,
     pendingOperations: List<ThreadTabPendingOperation>,
-): List<ThreadTabInfo> {
-    val projected = canonicalTabs.toMutableList()
-    pendingOperations.forEach { operation ->
+): List<ThreadTabInfo> = foldEffectiveTabs(
+    canonicalTabs = canonicalTabs,
+    operations = pendingOperations.map { operation ->
         when (operation) {
-            is ThreadTabPendingOperation.Ensure -> {
-                val index = projected.indexOfFirst { it.id == operation.tab.id }
-                if (index >= 0) {
-                    projected[index] = mergeThreadTabMetadata(projected[index], operation.tab)
-                } else {
-                    projected += operation.tab
-                }
+            is ThreadTabPendingOperation.Ensure -> IndexedTabOperation(operation.tab.id) { current ->
+                if (current == null) operation.tab else mergeThreadTabMetadata(current, operation.tab)
             }
-
-            is ThreadTabPendingOperation.Delete -> {
-                projected.removeAll { it.id == operation.threadId }
+            is ThreadTabPendingOperation.Delete -> IndexedTabOperation(operation.threadId, remove = true) { current -> current }
+            is ThreadTabPendingOperation.Pin -> IndexedTabOperation(operation.threadId) { current ->
+                current?.copy(isPinned = operation.isPinned)
             }
-
-            is ThreadTabPendingOperation.Pin -> {
-                val index = projected.indexOfFirst { it.id == operation.threadId }
-                if (index >= 0) {
-                    projected[index] = projected[index].copy(isPinned = operation.isPinned)
-                }
-            }
-
-            is ThreadTabPendingOperation.Info -> {
-                val index = projected.indexOfFirst { it.id == operation.tab.id }
-                if (index >= 0) {
-                    projected[index] = mergeThreadTabMetadata(projected[index], operation.tab)
-                }
+            is ThreadTabPendingOperation.Info -> IndexedTabOperation(operation.tab.id) { current ->
+                current?.let { mergeThreadTabMetadata(it, operation.tab) }
             }
         }
-    }
-    return projected.distinctBy { it.id }
-}
+    },
+    keyOf = ThreadTabInfo::id,
+)
 
 /** 正規スナップショットがこの操作の確認条件を満たすかどうかを返す。 */
 internal fun isThreadTabOperationConfirmed(

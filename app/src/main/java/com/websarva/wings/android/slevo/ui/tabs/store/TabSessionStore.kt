@@ -117,12 +117,14 @@ class TabSessionStore @Inject constructor(
      * 登録または確認が失敗した場合は navigation を開始しない。
      */
     suspend fun registerAndConfirmBoardRoute(route: AppRoute.Board): Boolean {
-        if (ensureAndSelectBoardTab(route) < 0) return false
-        boardPresentationState.first { state ->
-            state.selection is com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution.Selected &&
-                state.selection.key == route.boardUrl
+        return when (val result = boardTabsCoordinator.ensureBoardTabCommand(route)) {
+            is com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.Success,
+            is com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.NoOp -> {
+                boardTabsCoordinator.selectBoardTabCommand(route.boardUrl) is
+                    com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.Success
+            }
+            is com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.Failure -> false
         }
-        return true
     }
 
     /**
@@ -201,6 +203,29 @@ class TabSessionStore @Inject constructor(
      * 正規化済みスレッド route からスレッドタブを登録し、選択状態へ更新する。
      */
     suspend fun registerAndSelectThreadRoute(route: AppRoute.Thread): Int = ensureAndSelectThreadTab(route)
+
+    /** Thread Deep Link 用に ensure と selection を明示 result の順序で実行する。 */
+    suspend fun registerAndSelectThreadRouteCommand(
+        route: AppRoute.Thread,
+    ): com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult<Unit>? {
+        return when (val ensure = threadTabsCoordinator.ensureThreadTabCommand(route)) {
+            is com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.Failure -> ensure
+            is com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.NoOp ->
+                com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.NoOp()
+            is com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.Success -> {
+                val threadId = parseBoardUrl(route.boardUrl)?.let { (host, board) ->
+                    ThreadId.of(host, board, route.threadKey)
+                } ?: return com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.NoOp()
+                when (val selection = threadTabsCoordinator.selectThreadTabCommand(threadId)) {
+                    is com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.Success ->
+                        com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.Success(Unit)
+                    is com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.NoOp ->
+                        com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.NoOp()
+                    is com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.Failure -> selection
+                }
+            }
+        }
+    }
 
     /** 正規化済みスレッド route を正規状態で確認できるまで登録し、選択は行わない。 */
     suspend fun registerThreadRoute(route: AppRoute.Thread): Int = ensureThreadTab(route)
@@ -466,6 +491,8 @@ class TabSessionStore @Inject constructor(
         threadSessionHolders.clear()
         boardSessionHolders.values.forEach { it.dispose() }
         boardSessionHolders.clear()
+        boardTabsCoordinator.close()
+        threadTabsCoordinator.close()
         scope.cancel()
     }
 }

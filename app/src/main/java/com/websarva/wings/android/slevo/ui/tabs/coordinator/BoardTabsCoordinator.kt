@@ -1,14 +1,27 @@
 package com.websarva.wings.android.slevo.ui.tabs.coordinator
 
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
+import com.websarva.wings.android.slevo.data.repository.TabMutationResult
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
-import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.bbsroute.TabPresentationState
 import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.tabs.controller.IndexedTabOperation
+import com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandId
+import com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandLifecycle
+import com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult
+import com.websarva.wings.android.slevo.ui.tabs.controller.TabControllerState
+import com.websarva.wings.android.slevo.ui.tabs.controller.TabLoadPhase
+import com.websarva.wings.android.slevo.ui.tabs.controller.foldEffectiveTabs
+import com.websarva.wings.android.slevo.ui.tabs.controller.resolveTabPresentation
+import com.websarva.wings.android.slevo.ui.tabs.controller.selectionAfterTabRemoval
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.mergeBoardTabMetadata
 import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.hilt.android.scopes.ActivityRetainedScoped
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,401 +30,373 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 
 /**
- * ボードタブの状態を管理するコーディネーター。
- *
- * - 役割: 開いているボードタブ一覧の状態管理（追加/削除/スクロール位置）および
- *   ローカルリポジトリへの保存・読み込みを仲介する。
- * - スコープ: Activity retained スコープに準拠し、構成変更を超えてインスタンスが生存する。
- * - 主な公開プロパティ:
- *   - `openBoardTabs`: 現在開かれているボードタブの一覧（StateFlow）。
- *   - `boardLoaded`: リポジトリからの初期読み込みが完了したかどうかのフラグ。
- *   - `selectedBoardTabKey`: 現在選択中の板タブ key。正規化済み boardUrl を保持する。
- *
- * 実装ノート:
- * - `bind` で `tabsRepository` と `bookmarkBoardRepository` を combine してタブ情報を構築する。
- * - `upsertBoardTab` は同一 boardUrl が存在すれば上書き、なければ末尾に追加する。
- * - タブ削除時は selected key を隣接タブまたは先頭タブへ補正する。
+ * Board タブの domain Controller。
+ * Room canonical snapshot、pending command、選択、presentation、結果を一つの state から派生させる。
+ * 通常 command は対象行 repository API を Controller scope が所有して実行する。
  */
 @ActivityRetainedScoped
 class BoardTabsCoordinator @Inject constructor(
     private val tabsRepository: TabsRepository,
     private val bookmarkBoardRepository: BookmarkBoardRepository,
 ) {
-    // 現在開かれているボードタブの一覧。UI はこれを監視してタブ表示を行う。
-    private val _openBoardTabs = MutableStateFlow<List<BoardTabInfo>>(emptyList())
-    val openBoardTabs: StateFlow<List<BoardTabInfo>> = _openBoardTabs.asStateFlow()
-
-    // 初回のリポジトリ読み込みが完了したかどうか。
-    private val _boardLoaded = MutableStateFlow(false)
-    val boardLoaded: StateFlow<Boolean> = _boardLoaded.asStateFlow()
-
-    // 現在選択中の板タブ key。正規化済み boardUrl を保持する。
-    private val _selectedBoardTabKey = MutableStateFlow<String?>(null)
-    val selectedBoardTabKey: StateFlow<String?> = _selectedBoardTabKey.asStateFlow()
-
-    private val _boardPresentationState = MutableStateFlow<TabPresentationState<BoardTabInfo, String>>(
-        TabPresentationState(emptyList(), TabSelectionResolution.Loading),
+    private data class BoardPendingOperation(
+        val id: TabCommandId,
+        val lifecycle: TabCommandLifecycle,
+        val operation: Operation,
+        val result: CompletableDeferred<TabCommandResult<Int>>,
     )
-    val boardPresentationState: StateFlow<TabPresentationState<BoardTabInfo, String>> =
-        _boardPresentationState.asStateFlow()
 
-    private var boardCanonicalLoaded = false
-    private var pendingBoardSelectionKey: String? = null
+    private sealed interface Operation {
+        data class Ensure(val tab: BoardTabInfo) : Operation
+        data class Delete(val boardUrl: String) : Operation
+        data class Pin(val boardUrl: String, val isPinned: Boolean) : Operation
+        data class Info(val tab: BoardTabInfo) : Operation
+        data class Scroll(val boardUrl: String, val index: Int, val offset: Int) : Operation
+    }
+
+    private val commandIds = AtomicLong(0)
+    private val controllerScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Unconfined)
+    private val _state = MutableStateFlow(
+        TabControllerState<BoardTabInfo, String, BoardPendingOperation>(
+            loadPhase = TabLoadPhase.Loading,
+            canonicalTabs = emptyList(),
+            pendingCommands = emptyList(),
+            selectedKey = null,
+            presentation = TabPresentationState(emptyList(), TabSelectionResolution.Loading),
+        )
+    )
+
+    /** Room canonical state と pending を投影した Board タブ一覧。 */
+    val openBoardTabs: StateFlow<List<BoardTabInfo>> = _state.map(::effectiveTabs).stateIn(
+        controllerScope,
+        SharingStarted.Eagerly,
+        emptyList(),
+    )
+    /** 初回 canonical snapshot を受け取ったかどうか。 */
+    val boardLoaded: StateFlow<Boolean> = _state.map { it.loadPhase == TabLoadPhase.Loaded }.stateIn(
+        controllerScope,
+        SharingStarted.Eagerly,
+        false,
+    )
+    /** Controller state から導出した選択 key。 */
+    val selectedBoardTabKey: StateFlow<String?> = _state.map { it.selectedKey }.stateIn(
+        controllerScope,
+        SharingStarted.Eagerly,
+        null,
+    )
+    /** 一覧と selection resolution を同一 state transition から公開する。 */
+    val boardPresentationState: StateFlow<TabPresentationState<BoardTabInfo, String>> =
+        _state.map { it.presentation }.stateIn(
+            controllerScope,
+            SharingStarted.Eagerly,
+            TabPresentationState(emptyList(), TabSelectionResolution.Loading),
+        )
 
     private val _boardSessionStates = MutableStateFlow<Map<String, BoardSessionState>>(emptyMap())
     val boardSessionStates: StateFlow<Map<String, BoardSessionState>> = _boardSessionStates.asStateFlow()
-
     private val _boardCurrentPage = MutableStateFlow(-1)
-
-    // ページ遷移用のアニメーションイベント。オフセットではなくターゲットインデックスを送る。
     private val _boardPageAnimation = MutableSharedFlow<Int>(extraBufferCapacity = 1)
     val boardPageAnimation: SharedFlow<Int> = _boardPageAnimation.asSharedFlow()
-
-    private var scope: CoroutineScope? = null
+    private var boundScope: CoroutineScope? = null
 
     /**
-     * Coordinator をライフサイクルに結びつける。bind は一度だけ呼ばれる想定。
-     * - scope: UI の CoroutineScope（例: ViewModelScope / LifecycleScope）
-     *
-     * 内部では `tabsRepository.observeOpenBoardTabs()` と `bookmarkBoardRepository.observeGroupsWithBoards()` を
-     * combine して、ブックマークの色情報を各タブに合成する。取得したタブ一覧は `_openBoardTabs` に反映される。
+     * Activity retained scopeへ bindし、Room canonical Flowを一度だけ購読する。
+     * bookmark 色は canonical tab に合成するが、tab の正本と command state は一つに保つ。
      */
     fun bind(scope: CoroutineScope) {
-        if (this.scope != null) return
-        this.scope = scope
+        if (boundScope != null) return
+        boundScope = scope
         scope.launch {
             combine(
                 tabsRepository.observeOpenBoardTabs(),
-                bookmarkBoardRepository.observeGroupsWithBoards()
+                bookmarkBoardRepository.observeGroupsWithBoards(),
             ) { tabs, groups ->
-                // groups を走査して boardId -> colorName のマップを作成し、
-                // tabs に対して bookmarkColorName を埋める。
-                val colorMap = mutableMapOf<Long, String>()
-                groups.forEach { g ->
-                    val color = g.group.colorName
-                    g.boards.forEach { b -> colorMap[b.boardId] = color }
+                val colors = buildMap<Long, String> {
+                    groups.forEach { group ->
+                        group.boards.forEach { board -> put(board.boardId, group.group.colorName) }
+                    }
                 }
-                // 各タブに対して colorMap から bookmarkColorName を付与する。
-                tabs.map { tab -> tab.copy(bookmarkColorName = colorMap[tab.boardId]) }
-            }.collect { boards ->
-                boardCanonicalLoaded = true
-                if (pendingBoardSelectionKey != null && boards.any { it.boardUrl == pendingBoardSelectionKey }) {
-                    pendingBoardSelectionKey = null
-                }
-                publishBoardPresentation(boards)
+                tabs.map { tab -> tab.copy(bookmarkColorName = colors[tab.boardId]) }
+            }.collect { canonical ->
+                reconcileCanonical(canonical)
             }
         }
     }
 
+    /** Board route を command として受理し、canonical 確認まで明示結果を待つ。 */
+    suspend fun ensureBoardTabCommand(route: AppRoute.Board): TabCommandResult<Int> =
+        accept(ensureOperation(route.toTabInfo()))
+
     /**
-     * 指定された `AppRoute.Board` に対応するタブを保証する（存在しなければ追加）。
-     * 戻り値はタブのインデックス。
-     * - 呼び出し後、タブ一覧はリポジトリに保存される。
+     * 既存 UI 互換の即時 API。
+     * command を Controller が所有し、戻り値は受理直後の effective index とする。
      */
     fun ensureBoardTab(route: AppRoute.Board): Int {
-        if (scope != null && _boardPresentationState.value.tabs.none { it.boardUrl == route.boardUrl }) {
-            pendingBoardSelectionKey = route.boardUrl
+        val tab = route.toTabInfo()
+        if (boundScope == null) {
+            applyUnboundEnsure(tab)
+            return effectiveTabs(_state.value).indexOfFirst { it.boardUrl == tab.boardUrl }
         }
-        val index = upsertBoardTab(
-            BoardTabInfo(
-                boardId = route.boardId ?: 0L,
-                boardName = route.boardName,
-                boardUrl = route.boardUrl,
-                serviceName = parseServiceName(route.boardUrl)
-            )
-        )
-        if (scope == null) {
-            boardCanonicalLoaded = true
-            publishBoardPresentation()
-        }
-        saveBoardTabs()
-        return index
+        val pending = acceptWithoutWaiting(ensureOperation(tab))
+        return effectiveTabs(_state.value).indexOfFirst { it.boardUrl == tab.boardUrl }.takeIf { it >= 0 }
+            ?: pending
     }
 
-    /**
-     * 渡された `BoardTabInfo` を開く（既存があれば更新、なければ追加）し、保存する。
-     */
+    /** BoardTabInfo を command として保証する互換入口。 */
     fun openBoardTab(boardTabInfo: BoardTabInfo) {
-        upsertBoardTab(boardTabInfo)
-        if (scope == null) {
-            boardCanonicalLoaded = true
-            publishBoardPresentation()
-        }
-        saveBoardTabs()
+        if (boundScope == null) applyUnboundEnsure(boardTabInfo) else acceptWithoutWaiting(ensureOperation(boardTabInfo))
     }
 
-    /**
-     * 選択中の板タブ key を更新する。
-     */
+    /** Board selection を state event として適用する。 */
     fun selectBoardTab(boardUrl: String?) {
-        if (pendingBoardSelectionKey != boardUrl) {
-            pendingBoardSelectionKey = boardUrl.takeIf { !boardCanonicalLoaded && it != null }
-        }
-        if (pendingBoardSelectionKey != null) {
-            _selectedBoardTabKey.value = pendingBoardSelectionKey
-        }
-        publishBoardPresentation(
-            requestedSelection = boardUrl,
-            markLoaded = scope == null,
-        )
+        _state.update { state -> state.copy(selectedKey = boardUrl).rebuildPresentation() }
     }
 
-    /**
-     * 指定したタブを閉じる。
-     *
-     * セッション状態と選択 key を整理し、現在ページが削除により変化する場合は
-     * `updateCurrentPageAfterRemoval` で補正を行う。
-     */
+    /** Board selection を明示 command result として返す。 */
+    fun selectBoardTabCommand(boardUrl: String?): TabCommandResult<Unit> {
+        if (boardUrl != null && effectiveTabs(_state.value).none { it.boardUrl == boardUrl }) {
+            return TabCommandResult.NoOp()
+        }
+        selectBoardTab(boardUrl)
+        return TabCommandResult.Success(Unit)
+    }
+
+    /** Board tab close を受理し、session cleanup は canonical confirmation 後に行う。 */
     fun closeBoardTab(tab: BoardTabInfo) {
-        val selectedKeyBeforeRemoval = _selectedBoardTabKey.value
-        val removedTabKey = tab.boardUrl
-        val removedIndex = _openBoardTabs.value.indexOfFirst { it.boardUrl == tab.boardUrl }
-        val updatedTabs = _openBoardTabs.value.filterNot { it.boardUrl == tab.boardUrl }
-        _boardSessionStates.update { it - tab.boardUrl }
-        val nextSelection = selectedBoardKeyAfterRemoval(
-            selectedKeyBeforeRemoval,
-            removedTabKey,
-            removedIndex,
-            updatedTabs,
-        )
-        publishBoardPresentation(updatedTabs, nextSelection, markLoaded = scope == null)
-        saveBoardTabs(updatedTabs)
-    }
-
-    /**
-     * boardUrl から該当タブを探して閉じるユーティリティ。
-     */
-    fun closeBoardTabByUrl(boardUrl: String) {
-        _openBoardTabs.value.find { it.boardUrl == boardUrl }?.let { tab ->
-            closeBoardTab(tab)
-        }
-    }
-
-    /**
-     * 指定した boardUrl の板タブの固定状態を切り替えて保存する。
-     */
-    fun togglePinBoardTab(boardUrl: String) {
-        val updatedTabs = _openBoardTabs.value.map { tab ->
-            if (tab.boardUrl == boardUrl) {
-                tab.copy(isPinned = !tab.isPinned)
-            } else {
-                tab
-            }
-        }
-        publishBoardPresentation(updatedTabs, markLoaded = scope == null)
-        saveBoardTabs()
-    }
-
-    /**
-     * 指定板タブのスクロール位置（firstVisibleIndex とオフセット）を更新して保存する。
-     * - UI のスクロールイベントから呼ばれる想定。
-     */
-    fun updateBoardScrollPosition(
-        boardUrl: String,
-        firstVisibleIndex: Int,
-        scrollOffset: Int,
-    ) {
-        val updatedTabs = _openBoardTabs.value.map { tab ->
-            if (tab.boardUrl == boardUrl) {
-                tab.copy(
-                    firstVisibleItemIndex = firstVisibleIndex,
-                    firstVisibleItemScrollOffset = scrollOffset,
-                )
-            } else {
-                tab
-            }
-        }
-        publishBoardPresentation(updatedTabs, markLoaded = scope == null)
-        saveBoardTabs()
-    }
-
-    /**
-     * 指定板タブの揮発 UI セッション状態を返す。
-     */
-    fun getBoardSessionState(boardUrl: String): BoardSessionState {
-        return _boardSessionStates.value[boardUrl] ?: BoardSessionState()
-    }
-
-    /**
-     * 指定板タブの揮発 UI セッション状態を更新する。
-     */
-    fun updateBoardSessionState(
-        boardUrl: String,
-        transform: (BoardSessionState) -> BoardSessionState,
-    ) {
-        _boardSessionStates.update { states ->
-            val current = states[boardUrl] ?: BoardSessionState()
-            states + (boardUrl to transform(current))
-        }
-    }
-
-    /**
-     * ensure 済みの boardId を既存板タブへ反映して永続状態も更新する。
-     *
-     * URL から開いた placeholder boardId のタブを、Repository で解決した実 boardId に差し替える。
-     */
-    fun updateBoardResolvedInfo(
-        boardUrl: String,
-        boardId: Long,
-        boardName: String? = null,
-    ) {
-        if (boardId == 0L) return
-        val updatedTabs = _openBoardTabs.value.map { tab ->
-            if (tab.boardUrl == boardUrl) {
-                tab.copy(
-                    boardId = boardId,
-                    boardName = boardName?.takeIf(String::isNotBlank) ?: tab.boardName,
-                )
-            } else {
-                tab
-            }
-        }
-        publishBoardPresentation(updatedTabs, markLoaded = scope == null)
-        saveBoardTabs()
-    }
-
-    /**
-     * アニメーション付きでページ移動を通知する。内部で SharedFlow にターゲットインデックスを emit する。
-     */
-    fun animateBoardPage(offset: Int) {
-        val tabs = _openBoardTabs.value
-        if (tabs.isEmpty()) return
-        val currentIndex = _boardCurrentPage.value.takeIf { it in tabs.indices } ?: 0
-        val targetIndex = currentIndex + offset
-        if (targetIndex in tabs.indices) {
-            scope?.launch { _boardPageAnimation.emit(targetIndex) }
-        }
-    }
-
-    /**
-     * boardTabInfo を upsert（更新または追加）する内部ユーティリティ。
-     * - 既存の boardUrl と一致するタブがあればその位置を保持して必要なフィールドを更新する。
-     *   ただしスクロール位置（firstVisibleItemIndex / firstVisibleItemScrollOffset）は既存のものを保持する。
-     * - 新規追加の場合は末尾に追加する。
-     * - 戻り値は対象のインデックス（既存ならその index、追加なら追加後の index）
-     */
-    private fun upsertBoardTab(boardTabInfo: BoardTabInfo): Int {
-        var targetIndex = -1
-        _openBoardTabs.update { state ->
-            val index = state.indexOfFirst { it.boardUrl == boardTabInfo.boardUrl }
-            if (index >= 0) {
-                targetIndex = index
-                state.toMutableList().apply {
-                    val existing = this[index]
-                    this[index] = boardTabInfo.copy(
-                        bookmarkColorName = boardTabInfo.bookmarkColorName ?: existing.bookmarkColorName,
-                        firstVisibleItemIndex = existing.firstVisibleItemIndex,
-                        firstVisibleItemScrollOffset = existing.firstVisibleItemScrollOffset,
-                        isPinned = existing.isPinned,
-                    )
-                }
-            } else {
-                targetIndex = state.size
-                state + boardTabInfo
-            }
-        }
-        return targetIndex
-    }
-
-    /**
-     * tabs、selected key、pending cause を一つの presentation snapshot に解決して公開する。
-     * loaded な非空一覧で不在 key が pending でない場合は先頭へ補正する。
-     */
-    private fun publishBoardPresentation(
-        tabs: List<BoardTabInfo> = _openBoardTabs.value,
-        requestedSelection: String? = _selectedBoardTabKey.value,
-        markLoaded: Boolean = false,
-    ) {
-        if (markLoaded) boardCanonicalLoaded = true
-        _openBoardTabs.value = tabs
-        if (!boardCanonicalLoaded) {
-            _boardLoaded.value = false
-            _boardPresentationState.value = TabPresentationState(
-                tabs = emptyList(),
-                selection = TabSelectionResolution.Loading,
-            )
-            _boardCurrentPage.value = -1
+        if (boundScope == null) {
+            val tabs = effectiveTabs(_state.value)
+            val index = tabs.indexOfFirst { it.boardUrl == tab.boardUrl }
+            val next = selectionAfterTabRemoval(_state.value.selectedKey, tab.boardUrl, index, tabs.filterNot { it.boardUrl == tab.boardUrl }) { it.boardUrl }
+            _state.update { it.copy(canonicalTabs = tabs.filterNot { it.boardUrl == tab.boardUrl }, selectedKey = next).rebuildPresentation() }
+            _boardSessionStates.update { it - tab.boardUrl }
             return
         }
+        acceptWithoutWaiting(Operation.Delete(tab.boardUrl))
+    }
 
-        _boardLoaded.value = true
-        val presentationTabs = if (pendingBoardSelectionKey != null && requestedSelection != null) {
-            tabs.filterNot { it.boardUrl == requestedSelection }
+    /** boardUrl から対象 tab を探して close command を受理する。 */
+    fun closeBoardTabByUrl(boardUrl: String) {
+        effectiveTabs(_state.value).firstOrNull { it.boardUrl == boardUrl }?.let(::closeBoardTab)
+    }
+
+    /** Board pin を effective state から反転し、targeted command を受理する。 */
+    fun togglePinBoardTab(boardUrl: String) {
+        val current = effectiveTabs(_state.value).firstOrNull { it.boardUrl == boardUrl } ?: return
+        if (boundScope == null) {
+            val updated = current.copy(isPinned = !current.isPinned)
+            _state.update { state -> state.copy(canonicalTabs = state.canonicalTabs.map { if (it.boardUrl == boardUrl) updated else it }).rebuildPresentation() }
         } else {
-            tabs
-        }
-        when {
-            pendingBoardSelectionKey != null && requestedSelection == pendingBoardSelectionKey -> {
-                _selectedBoardTabKey.value = requestedSelection
-                _boardPresentationState.value = TabPresentationState(
-                    presentationTabs,
-                    TabSelectionResolution.PendingMissing(requestedSelection!!),
-                )
-            }
-            presentationTabs.isEmpty() -> {
-                _selectedBoardTabKey.value = null
-                _boardPresentationState.value = TabPresentationState(
-                    presentationTabs,
-                    TabSelectionResolution.Empty,
-                )
-            }
-            requestedSelection != null && presentationTabs.any { it.boardUrl == requestedSelection } -> {
-                pendingBoardSelectionKey = null
-                _selectedBoardTabKey.value = requestedSelection
-                _boardPresentationState.value = TabPresentationState(
-                    presentationTabs,
-                    TabSelectionResolution.Selected(requestedSelection),
-                )
-            }
-            else -> {
-                val repairedKey = presentationTabs.first().boardUrl
-                _selectedBoardTabKey.value = repairedKey
-                _boardPresentationState.value = TabPresentationState(
-                    presentationTabs,
-                    TabSelectionResolution.Selected(repairedKey),
-                )
-            }
-        }
-        syncBoardCurrentPageFromSelectedKey(presentationTabs)
-    }
-
-    /** 選択 key から互換用 currentPage を導出する。 */
-    private fun syncBoardCurrentPageFromSelectedKey(tabs: List<BoardTabInfo> = _openBoardTabs.value) {
-        val selectedKey = _selectedBoardTabKey.value
-        _boardCurrentPage.value = when {
-            tabs.isEmpty() -> -1
-            selectedKey == null -> -1
-            else -> tabs.indexOfFirst { it.boardUrl == selectedKey }
+            acceptWithoutWaiting(Operation.Pin(boardUrl, !current.isPinned))
         }
     }
 
-    /** 削除前 index に基づく既存の隣接/末尾選択規則を返す。 */
-    private fun selectedBoardKeyAfterRemoval(
-        selectedKeyBeforeRemoval: String?,
-        removedTabKey: String,
-        removedIndex: Int,
-        updatedTabs: List<BoardTabInfo>,
-    ): String? {
-        val removedTabWasSelected = removedIndex >= 0 && selectedKeyBeforeRemoval == removedTabKey
-        return when {
-            updatedTabs.isEmpty() -> null
-            !removedTabWasSelected && selectedKeyBeforeRemoval != null &&
-                updatedTabs.any { it.boardUrl == selectedKeyBeforeRemoval } -> selectedKeyBeforeRemoval
-            removedIndex in updatedTabs.indices -> updatedTabs[removedIndex].boardUrl
-            else -> updatedTabs.last().boardUrl
+    /** Board の対象行だけの scroll command を受理する。 */
+    fun updateBoardScrollPosition(boardUrl: String, firstVisibleIndex: Int, scrollOffset: Int) {
+        if (boundScope == null) {
+            _state.update { state ->
+                state.copy(canonicalTabs = state.canonicalTabs.map {
+                    if (it.boardUrl == boardUrl) it.copy(firstVisibleItemIndex = firstVisibleIndex, firstVisibleItemScrollOffset = scrollOffset) else it
+                }).rebuildPresentation()
+            }
+        } else acceptWithoutWaiting(Operation.Scroll(boardUrl, firstVisibleIndex, scrollOffset))
+    }
+
+    /** 解決済み Board metadata を targeted command として反映する。 */
+    fun updateBoardResolvedInfo(boardUrl: String, boardId: Long, boardName: String? = null) {
+        if (boardId == 0L) return
+        val current = effectiveTabs(_state.value).firstOrNull { it.boardUrl == boardUrl } ?: return
+        val updated = current.copy(boardId = boardId, boardName = boardName?.takeIf(String::isNotBlank) ?: current.boardName)
+        if (boundScope == null) {
+            _state.update { state -> state.copy(canonicalTabs = state.canonicalTabs.map { if (it.boardUrl == boardUrl) updated else it }).rebuildPresentation() }
+        } else acceptWithoutWaiting(Operation.Info(updated))
+    }
+
+    /** Board の揮発 session state を取得する。 */
+    fun getBoardSessionState(boardUrl: String): BoardSessionState = _boardSessionStates.value[boardUrl] ?: BoardSessionState()
+
+    /** Board の揮発 session state を更新する。 */
+    fun updateBoardSessionState(boardUrl: String, transform: (BoardSessionState) -> BoardSessionState) {
+        _boardSessionStates.update { states -> states + (boardUrl to transform(states[boardUrl] ?: BoardSessionState())) }
+    }
+
+    /** 現在 page から指定 offset の page animation を発行する。 */
+    fun animateBoardPage(offset: Int) {
+        val tabs = effectiveTabs(_state.value)
+        if (tabs.isEmpty()) return
+        val current = _boardCurrentPage.value.takeIf { it in tabs.indices } ?: 0
+        (current + offset).takeIf { it in tabs.indices }?.let { target -> boundScope?.launch { _boardPageAnimation.emit(target) } }
+    }
+
+    private fun acceptWithoutWaiting(operation: Operation): Int {
+        val pending = register(operation)
+        boundScope?.launch { execute(pending) }
+        return when (operation) {
+            is Operation.Ensure -> effectiveTabs(_state.value).indexOfFirst { it.boardUrl == operation.tab.boardUrl }
+            else -> 0
         }
     }
 
-    /**
-     * 現在のタブ一覧をリポジトリに保存する。scope がバインドされている場合のみ非同期で保存を実行する。
-     */
-    private fun saveBoardTabs(tabs: List<BoardTabInfo> = _openBoardTabs.value) {
-        scope?.launch { tabsRepository.saveOpenBoardTabs(tabs) }
+    /** Board ensure payload を domain operation へ変換する。 */
+    private fun ensureOperation(tab: BoardTabInfo): Operation = Operation.Ensure(tab)
+
+    private suspend fun accept(operation: Operation): TabCommandResult<Int> {
+        if (boundScope == null) {
+            val index = when (operation) {
+                is Operation.Ensure -> { applyUnboundEnsure(operation.tab); effectiveTabs(_state.value).indexOfFirst { it.boardUrl == operation.tab.boardUrl } }
+                else -> 0
+            }
+            return TabCommandResult.Success(index)
+        }
+        val pending = register(operation)
+        boundScope?.launch { execute(pending) }
+        return pending.result.await()
     }
 
+    private fun register(operation: Operation): BoardPendingOperation {
+        val pending = BoardPendingOperation(
+            id = TabCommandId(commandIds.incrementAndGet()),
+            lifecycle = TabCommandLifecycle.Accepted,
+            operation = operation,
+            result = CompletableDeferred(),
+        )
+        _state.update { state -> state.copy(pendingCommands = state.pendingCommands + pending).rebuildPresentation() }
+        return pending
+    }
+
+    /** Controller が所有する targeted repository effect を実行し、caller cancellation から分離する。 */
+    private suspend fun execute(pending: BoardPendingOperation) {
+        // 初回 Room snapshot 前は空一覧を canonical とみなさず、write を開始しない。
+        _state.first { it.loadPhase == TabLoadPhase.Loaded }
+        val mutation = runCatching {
+            when (val operation = pending.operation) {
+                is Operation.Ensure -> tabsRepository.ensureOpenBoardTab(operation.tab)
+                is Operation.Delete -> tabsRepository.deleteOpenBoardTab(operation.boardUrl)
+                is Operation.Pin -> tabsRepository.setBoardTabPinned(operation.boardUrl, operation.isPinned)
+                is Operation.Info -> tabsRepository.updateBoardTabInfo(operation.tab)
+                is Operation.Scroll -> tabsRepository.updateBoardTabScrollPosition(operation.boardUrl, operation.index, operation.offset)
+            }
+        }.getOrElse { TabMutationResult.Failure(it) }
+        when (mutation) {
+            TabMutationResult.Success -> Unit
+            TabMutationResult.NoOp -> finish(pending, TabCommandResult.NoOp(indexFor(pending.operation)))
+            is TabMutationResult.Failure -> finish(pending, TabCommandResult.Failure(mutation.cause))
+        }
+        if (mutation != TabMutationResult.Success) return
+        _state.update { state -> state.copy(pendingCommands = state.pendingCommands.map { if (it.id == pending.id) it.copy(lifecycle = TabCommandLifecycle.CommittedAwaitingCanonical) else it }) }
+        reconcileCanonical(_state.value.canonicalTabs)
+    }
+
+    private fun finish(pending: BoardPendingOperation, result: TabCommandResult<Int>) {
+        _state.update { state ->
+            state.copy(
+                pendingCommands = state.pendingCommands.filterNot { it.id == pending.id },
+                commandResults = state.commandResults + (pending.id to result),
+            ).rebuildPresentation()
+        }
+        pending.result.complete(result)
+        val operation = pending.operation
+        if (operation is Operation.Delete) _boardSessionStates.update { it - operation.boardUrl }
+    }
+
+    /** Room snapshot を一度だけ state に取り込み、matching pending だけを terminal にする。 */
+    private fun reconcileCanonical(canonicalTabs: List<BoardTabInfo>) {
+        _state.update { it.copy(loadPhase = TabLoadPhase.Loaded, canonicalTabs = canonicalTabs).rebuildPresentation() }
+        val pending = _state.value.pendingCommands
+        pending.forEach { operation ->
+            if (operation.lifecycle == TabCommandLifecycle.CommittedAwaitingCanonical && isConfirmed(canonicalTabs, operation.operation)) {
+                finish(operation, TabCommandResult.Success(indexFor(operation.operation)))
+            }
+        }
+    }
+
+    private fun isConfirmed(canonical: List<BoardTabInfo>, operation: Operation): Boolean {
+        val actual = when (operation) {
+            is Operation.Ensure -> canonical.firstOrNull { it.boardUrl == operation.tab.boardUrl }
+            is Operation.Delete -> canonical.firstOrNull { it.boardUrl == operation.boardUrl }
+            is Operation.Pin -> canonical.firstOrNull { it.boardUrl == operation.boardUrl }
+            is Operation.Info -> canonical.firstOrNull { it.boardUrl == operation.tab.boardUrl }
+            is Operation.Scroll -> canonical.firstOrNull { it.boardUrl == operation.boardUrl }
+        }
+        return when (operation) {
+            is Operation.Ensure -> actual != null && actual.boardId == (operation.tab.boardId.takeIf { it != 0L } ?: actual.boardId)
+            is Operation.Delete -> actual == null
+            is Operation.Pin -> actual?.isPinned == operation.isPinned
+            is Operation.Info -> actual != null && actual.boardId == operation.tab.boardId && actual.boardName == operation.tab.boardName
+            is Operation.Scroll -> actual?.firstVisibleItemIndex == operation.index && actual.firstVisibleItemScrollOffset == operation.offset
+        }
+    }
+
+    private fun indexFor(operation: Operation): Int = when (operation) {
+        is Operation.Ensure -> effectiveTabs(_state.value).indexOfFirst { it.boardUrl == operation.tab.boardUrl }
+        else -> -1
+    }
+
+    private fun effectiveTabs(state: TabControllerState<BoardTabInfo, String, BoardPendingOperation>): List<BoardTabInfo> =
+        foldEffectiveTabs(
+            state.canonicalTabs,
+            state.pendingCommands.map { pending ->
+                when (val operation = pending.operation) {
+                    is Operation.Ensure -> IndexedTabOperation(operation.tab.boardUrl) { current -> mergeBoardTabMetadata(current, operation.tab) }
+                    is Operation.Delete -> IndexedTabOperation(operation.boardUrl, remove = true) { current -> current }
+                    is Operation.Pin -> IndexedTabOperation(operation.boardUrl) { current -> current?.copy(isPinned = operation.isPinned) }
+                    is Operation.Info -> IndexedTabOperation(operation.tab.boardUrl) { current -> mergeBoardTabMetadata(current, operation.tab) }
+                    is Operation.Scroll -> IndexedTabOperation(operation.boardUrl) { current -> current?.copy(firstVisibleItemIndex = operation.index, firstVisibleItemScrollOffset = operation.offset) }
+                }
+            },
+            BoardTabInfo::boardUrl,
+        )
+
+    private fun TabControllerState<BoardTabInfo, String, BoardPendingOperation>.rebuildPresentation(): TabControllerState<BoardTabInfo, String, BoardPendingOperation> {
+        val tabs = effectiveTabs(this)
+        val pendingMissing = pendingCommands.firstOrNull { pending ->
+            pending.operation is Operation.Ensure && selectedKey == (pending.operation as Operation.Ensure).tab.boardUrl && tabs.none { it.boardUrl == selectedKey }
+        }?.let { selectedKey }
+        val presentation = resolveTabPresentation(tabs, loadPhase == TabLoadPhase.Loaded, selectedKey, pendingMissing, BoardTabInfo::boardUrl)
+        val resolvedKey = when (val selection = presentation.selection) {
+            is TabSelectionResolution.Selected -> selection.key
+            is TabSelectionResolution.PendingMissing -> selection.key
+            else -> null
+        }
+        return copy(selectedKey = resolvedKey, presentation = presentation)
+    }
+
+    private fun applyUnboundEnsure(tab: BoardTabInfo) {
+        val existing = effectiveTabs(_state.value).firstOrNull { it.boardUrl == tab.boardUrl }
+        _state.update { state ->
+            state.copy(
+                loadPhase = TabLoadPhase.Loaded,
+                canonicalTabs = if (existing == null) state.canonicalTabs + tab else state.canonicalTabs.map {
+                    if (it.boardUrl == tab.boardUrl) mergeBoardTabMetadata(it, tab) else it
+                },
+            ).rebuildPresentation()
+        }
+    }
+
+    private fun AppRoute.Board.toTabInfo(): BoardTabInfo = BoardTabInfo(
+        boardId = boardId ?: 0L,
+        boardName = boardName,
+        boardUrl = boardUrl,
+        serviceName = parseServiceName(boardUrl),
+    )
+
+    /** retained Controller の effect runner と state projection を終了する。 */
+    fun close() {
+        val cancellation = CancellationException("Board tab controller was closed")
+        _state.value.pendingCommands.forEach { pending ->
+            pending.result.complete(TabCommandResult.Failure(cancellation))
+        }
+        _state.update { it.copy(pendingCommands = emptyList()).rebuildPresentation() }
+        controllerScope.cancel()
+    }
 }

@@ -10,8 +10,8 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
-import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.resolveDeepLinkUrl
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -125,16 +125,21 @@ internal suspend fun handleThreadDeepLinkRoute(
     tabSessionStore: TabSessionStore,
     navigate: () -> Unit,
 ): Boolean {
-    // --- 準備完了と登録 ---
+    // --- 準備完了 ---
     tabSessionStore.awaitThreadTabsReady()
-    val threadId = parseBoardUrl(route.boardUrl)?.let { (host, board) ->
-        ThreadId.of(host, board, route.threadKey)
-    } ?: return false
-    val registrationIndex = tabSessionStore.registerThreadRoute(route)
-    if (registrationIndex < 0 || !tabSessionStore.isCanonicalThreadTab(threadId)) return false
+    val result = tabSessionStore.registerAndSelectThreadRouteCommand(route)
+    if (result == null) {
+        // 旧テスト double との接続だけは従来の順序を維持し、本番 Store は上の明示 result を使う。
+        val threadId = parseBoardUrl(route.boardUrl)?.let { (host, board) ->
+            ThreadId.of(host, board, route.threadKey)
+        } ?: return false
+        val registrationIndex = tabSessionStore.registerThreadRoute(route)
+        if (registrationIndex < 0 || !tabSessionStore.isCanonicalThreadTab(threadId)) return false
+        if (!tabSessionStore.selectThreadTab(threadId)) return false
+    }
+    if (result != null && result !is com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.Success) return false
 
-    // --- 選択と遷移 ---
-    if (!tabSessionStore.selectThreadTab(threadId)) return false
+    // --- 明示 result 後の遷移 ---
     navigate()
     return true
 }
