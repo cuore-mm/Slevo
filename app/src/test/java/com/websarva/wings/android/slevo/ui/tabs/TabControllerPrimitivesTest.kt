@@ -76,17 +76,17 @@ class TabControllerPrimitivesTest {
     fun foldEffectiveTabs_largeSnapshotUsesOneTransformationPerPendingCommand() {
         val canonical = (0 until 1_252).map { "tab-$it" }
         var transformationCount = 0
-        val operations = (0 until 100).map { index ->
-            IndexedTabOperation("tab-$index") {
+        val operations: List<IndexedTabOperation<String, String>> = (0 until 100).map { index ->
+            IndexedTabOperation<String, String>("tab-$index") { _: String? ->
                 transformationCount += 1
-                "updated-$index"
+                "tab-$index-updated"
             }
         }
 
-        val result = foldEffectiveTabs(canonical, operations) { it.substringAfter("-").toInt() }
+        val result = foldEffectiveTabs(canonical, operations) { it.substringBefore("-updated") }
 
         assertEquals(1_252, result.size)
         assertEquals(100, transformationCount)
-        assertEquals(1_252, result.map { it.substringBeforeLast('-') + "-" + it.substringAfterLast('-') }.toSet().size)
+        assertEquals(1_252, result.map { it.substringBefore("-updated") }.toSet().size)
     }
 }
