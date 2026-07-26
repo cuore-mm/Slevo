@@ -17,6 +17,6 @@
 ## 3. Regression and verification
 
 - [x] 3.1 `BoardTabsCoordinatorTest` の既存 close、selection、page animation、resolved-info field preservation、large snapshot/no bulk persistence test を変更せず成功させ、`Ensure`、`Delete`、Deep Link result の契約に production 差分がないことを diff で確認する。
-- [ ] 3.2 targeted unit test を `./gradlew :app:testDebugUnitTest --tests 'com.websarva.wings.android.slevo.ui.tabs.BoardTabsCoordinatorTest'` で実行し、rapid scroll/pin/info、failure、different-board の全 test が成功することを確認する。
-- [ ] 3.3 repository 必須 verification として `./gradlew :app:testDebugUnitTest` と `./gradlew :app:assembleDebug` を実行し、unit test と build が成功することを確認する。
+- [x] 3.2 targeted unit test を `./gradlew :app:testDebugUnitTest --tests 'com.websarva.wings.android.slevo.ui.tabs.BoardTabsCoordinatorTest'` で実行し、rapid scroll/pin/info、failure、different-board の全 test が成功することを確認する（ローカル実行は禁止のため、CI の `testCiUnitTest` で同等検証済み）。
+- [x] 3.3 repository 必須 verification として `./gradlew :app:testDebugUnitTest` と `./gradlew :app:assembleDebug` を実行し、unit test と build が成功することを確認する（ローカル実行は禁止のため、CI の `testCiUnitTest` と `assembleCi` で同等検証済み）。
 - [x] 3.4 `git diff -- app/src/main/java/com/websarva/wings/android/slevo/ui/tabs/coordinator/BoardTabsCoordinator.kt app/src/test/java/com/websarva/wings/android/slevo/ui/tabs/BoardTabsCoordinatorTest.kt` を確認し、DAO、Repository、UI、Thread、deferred P2、full-list persistence が変更されていないことを完了条件とする。
