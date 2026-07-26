@@ -319,7 +319,9 @@ class BoardTabsCoordinatorTest {
         coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
         runCurrent()
         coordinator.selectBoardTab(first.boardUrl)
-        coordinator.updateBoardSessionState(first.boardUrl) { it.copy(searchQuery = "retained") }
+        coordinator.updateBoardSessionState(first.boardUrl) {
+            it.copy(searchInputValue = androidx.compose.ui.text.input.TextFieldValue("retained"))
+        }
 
         coordinator.closeBoardTab(first)
         runCurrent()
