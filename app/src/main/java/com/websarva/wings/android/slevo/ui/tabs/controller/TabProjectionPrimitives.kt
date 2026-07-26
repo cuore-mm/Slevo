@@ -24,7 +24,7 @@ fun <Tab : Any, Key : Any> foldEffectiveTabs(
 ): List<Tab> {
     // --- canonical index ---
     val result = canonicalTabs.toMutableList()
-    val keyIndex = result.mapIndexed { index, tab -> keyOf(tab) to index }.toMutableMap()
+    val keyIndex = result.mapIndexed { index, tab -> keyOf(tab) to index }.toMap().toMutableMap()
 
     // --- ordered pending fold ---
     operations.forEach { operation ->
