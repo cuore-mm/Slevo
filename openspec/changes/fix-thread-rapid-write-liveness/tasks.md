@@ -24,5 +24,5 @@
 
 - [x] 4.1 `git diff -- app/src/main/java/com/websarva/wings/android/slevo/ui/tabs/coordinator app/src/test/java/com/websarva/wings/android/slevo/ui/tabs/ThreadTabsCoordinatorTest.kt` を確認し、production 変更が `ThreadTabsCoordinator.kt` の private implementation に限定され、必要な場合だけ `ThreadTabsProjection.kt` に最小変更があることを確認する。Board、Repository、DAO、DB schema、resources、deferred P2 file に差分があれば除去または OpenSpec 再評価する。
 - [x] 4.2 既存 `ThreadTabsCoordinatorTest`、`TabSessionStoreTest`、`DeepLinkHandlerTest` の metadata merge、retained close lifetime、Deep Link failure/non-navigation、atomic presentation、targeted persistence test が削除・弱体化されていないことを test diff で確認する。
-- [ ] 4.3 `./gradlew testDebugUnitTest` を実行し、追加 test と既存 unit test がすべて成功するまで coordinator/test だけを修正する。
-- [ ] 4.4 `./gradlew assembleDebug` を実行して成功を確認し、Kotlin compile、KDoc、non-trivial function comment、長い function の section header に repository 規約違反がないことを source review する。
+- [x] 4.3 `./gradlew testDebugUnitTest` を実行し、追加 test と既存 unit test がすべて成功するまで coordinator/test だけを修正する。
+- [x] 4.4 `./gradlew assembleDebug` を実行して成功を確認し、Kotlin compile、KDoc、non-trivial function comment、長い function の section header に repository 規約違反がないことを source review する。
