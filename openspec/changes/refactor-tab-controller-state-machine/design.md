@@ -88,9 +88,9 @@ caller cancellation は await と caller-owned navigation を停止するが、a
 
 accepted command は acceptance order で effective state (`canonicalTabs` に committed/accepted pending operation を順に適用した状態) から payload を導出する。各 domain Controller の DB effect は repository transaction の順序を決定的にするが、command N の matching Flow confirmation を command N+1 の DB write 開始条件にしない。
 
-Repository success 後は pending lifecycle を `CommittedAwaitingCanonical` とし、matching Room snapshot まで projection に残す。後続 command はその projection を入力にするため、rapid pin toggle、ensure→pin、close→ensure が古い canonical 値から導出されない。Room snapshot ごとに全 pending を acceptance order で照合し、matching operation だけを confirmed にして terminal result を一度配信する。unrelated/stale snapshot は pending を除去しない。
+Repository success 後は pending lifecycle を `CommittedAwaitingCanonical` とし、matching Room snapshot まで projection に残す。後続 command はその projection を入力にするため、rapid pin toggle、ensure→pin、close→ensure が古い canonical 値から導出されない。Room snapshot ごとに全 pending を acceptance order で照合し、matching operation のうち同一 key の未確認 predecessor を持たないものだけを confirmed にして terminal result を一度配信する。異なる key は独立に部分確認できる。unrelated/stale snapshot と、先行 operation の確認前に後続 operation の要求値へ偶然一致した snapshot は pending を除去しない。
 
-同一 key の競合 command は acceptance order の projected predecessor を保持する。repository transaction が serial execution を必要とする既存 `DatabaseWriteGate` を迂回しない。Flow が停止しても後続 DB command は処理できるが、その result は各自の canonical match まで pending である。
+同一 key の競合 command は acceptance order の projected predecessor と confirmation dependency を保持する。これは canonical confirmation だけの因果順であり、後続 repository write の開始 barrier ではない。repository transaction が serial execution を必要とする既存 `DatabaseWriteGate` を迂回しない。Flow が停止しても後続 DB command は処理できるが、その result は先行する同一 key command と各自の canonical match が順に確認されるまで pending である。
 
 **代替案:** 各 command を完全並列にすると同一 key の toggle/close 順が不定になる。全 command を confirmation まで直列化すると一つの Flow 停止が無関係な write を塞ぐ。いずれも採用しない。
 
@@ -149,7 +149,7 @@ BoardController または ThreadController
 - Board/Thread repository failure: pending の未commit operation を除去し、canonical + 残存 pending へ再計算し、`Failure` を一度返す。後続 command runner は継続する。
 - commit 成功後の caller cancellation: result waiter/navigation は停止するが pending は canonical match まで残り、後続 command は committed projection から導出する。
 - Room Flow 停止: committed command は pending のまま表示を保持する。後続 DB command は実行可能だが各 terminal success は matching canonical snapshot まで返さない。
-- stale/unrelated Flow: operation-specific matcher に一致しない pending を除去しない。
+- stale/unrelated Flow: operation-specific matcher に一致しない pending、および同一 key の未確認 predecessor を持つ pending を除去しない。
 - target no-op/missing: repository の明示結果を command-specific result に写し、全件保存や暗黙成功を行わない。
 - Controller teardown: collector/effect runner を cancelし、未完 waiter を cancellation failure で完了し、追加 write を開始しない。既に commit 済み DB state は次回 Room load で復元する。
 - reducer invariant violation: UI fallback で隠さず test/debug failure とし、production state は最後の整合 snapshot を破壊しない。

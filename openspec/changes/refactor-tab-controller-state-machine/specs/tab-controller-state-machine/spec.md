@@ -73,7 +73,11 @@
 
 #### Scenario: 複数 operation の部分確認
 - **WHEN** Room snapshot が pending command 群の一部だけに一致する
-- **THEN** 一致する command だけを confirmed にし、未一致 command は順序と projection を維持する
+- **THEN** 一致する command のうち同一 key の未確認 predecessor を持たないものだけを confirmed にし、未一致 command とその同一 key successor は順序と projection を維持する
+
+#### Scenario: rapid pin の古い値への回帰 snapshot
+- **WHEN** 同一 tab の `pin=true`、`pin=false` が順に commit 済みで、先行 `pin=true` の確認前に古い canonical `false` snapshot が到着する
+- **THEN** Controller は後続 `pin=false` を先行 command より先に confirmed にせず、両 pending の acceptance order と最終 `false` projection を維持する
 
 ### Requirement: targeted persistence と explicit repository result
 システムは Board／Thread の通常 add/ensure、delete、pin、metadata、scroll operation を対象行単位の suspend repository/DAO command で実行し、成功、no-op、失敗を Controller が識別できる結果を返すことを SHALL 要求する。通常操作は full-list upsert/delete replacement を呼んではならない。
