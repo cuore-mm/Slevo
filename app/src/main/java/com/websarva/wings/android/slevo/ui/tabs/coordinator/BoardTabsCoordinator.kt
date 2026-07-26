@@ -105,7 +105,6 @@ class BoardTabsCoordinator @Inject constructor(
 
     private val _boardSessionStates = MutableStateFlow<Map<String, BoardSessionState>>(emptyMap())
     val boardSessionStates: StateFlow<Map<String, BoardSessionState>> = _boardSessionStates.asStateFlow()
-    private val _boardCurrentPage = MutableStateFlow(-1)
     private val _boardPageAnimation = MutableSharedFlow<Int>(extraBufferCapacity = 1)
     val boardPageAnimation: SharedFlow<Int> = _boardPageAnimation.asSharedFlow()
     private var boundScope: CoroutineScope? = null
@@ -241,10 +240,13 @@ class BoardTabsCoordinator @Inject constructor(
 
     /** 現在 page から指定 offset の page animation を発行する。 */
     fun animateBoardPage(offset: Int) {
-        val tabs = effectiveTabs(_state.value)
-        if (tabs.isEmpty()) return
-        val current = _boardCurrentPage.value.takeIf { it in tabs.indices } ?: 0
-        (current + offset).takeIf { it in tabs.indices }?.let { target -> boundScope?.launch { _boardPageAnimation.emit(target) } }
+        val state = _state.value
+        val tabs = effectiveTabs(state)
+        val current = tabs.indexOfFirst { it.boardUrl == state.selectedKey }
+        if (current < 0) return
+        val target = current + offset
+        if (target !in tabs.indices) return
+        boundScope?.launch { _boardPageAnimation.emit(target) }
     }
 
     private fun acceptWithoutWaiting(operation: Operation): Int {

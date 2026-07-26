@@ -18,10 +18,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.launch
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -125,6 +127,138 @@ class BoardTabsCoordinatorTest {
             TabSelectionResolution.Selected(first.boardUrl),
             coordinator.boardPresentationState.value.selection,
         )
+    }
+
+    /** 選択 key を正本として先頭・中央・末尾からの有効な page animation と境界 no-op を確認する。 */
+    @Test
+    fun animateBoardPage_usesSelectedIndexAndIgnoresBoundaryTargets() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val first = testBoardTab("first")
+        val middle = testBoardTab("middle")
+        val last = testBoardTab("last")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        databaseFlow.emit(listOf(first, middle, last))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        val emittedTargets = mutableListOf<Int>()
+        val collector = backgroundScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.boardPageAnimation.collect { emittedTargets += it }
+        }
+        runCurrent()
+
+        coordinator.selectBoardTab(first.boardUrl)
+        coordinator.animateBoardPage(1)
+        runCurrent()
+        coordinator.animateBoardPage(-1)
+        runCurrent()
+        coordinator.selectBoardTab(middle.boardUrl)
+        coordinator.animateBoardPage(-1)
+        runCurrent()
+        coordinator.animateBoardPage(1)
+        runCurrent()
+        coordinator.selectBoardTab(last.boardUrl)
+        coordinator.animateBoardPage(-1)
+        runCurrent()
+        coordinator.animateBoardPage(1)
+        runCurrent()
+
+        assertEquals(listOf(1, 0, 2, 1), emittedTargets)
+        collector.cancel()
+        coordinator.close()
+    }
+
+    /** empty 一覧、null 選択、存在しない選択からは page animation を発行しない。 */
+    @Test
+    fun animateBoardPage_ignoresEmptyAndUnresolvedSelection() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        databaseFlow.emit(emptyList())
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        val emittedTargets = mutableListOf<Int>()
+        val collector = backgroundScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.boardPageAnimation.collect { emittedTargets += it }
+        }
+        runCurrent()
+
+        coordinator.animateBoardPage(1)
+        runCurrent()
+        assertTrue(emittedTargets.isEmpty())
+
+        databaseFlow.emit(listOf(testBoardTab("only")))
+        runCurrent()
+        coordinator.selectBoardTab("missing")
+        coordinator.animateBoardPage(1)
+        runCurrent()
+
+        assertTrue(emittedTargets.isEmpty())
+        collector.cancel()
+        coordinator.close()
+    }
+
+    /** canonical 確認前の ensure tab も effective order の選択 index から animation できる。 */
+    @Test
+    fun animateBoardPage_usesPendingEnsureInEffectiveOrderBeforeCanonicalConfirmation() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val existing = testBoardTab("existing")
+        val pending = testBoardTab("pending")
+        val writeStarted = CompletableDeferred<Unit>()
+        val releaseWrite = CompletableDeferred<Unit>()
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.ensureOpenBoardTab(pending) } coAnswers {
+            writeStarted.complete(Unit)
+            releaseWrite.await()
+            TabMutationResult.Success
+        }
+        databaseFlow.emit(listOf(existing))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        val emittedTargets = mutableListOf<Int>()
+        val collector = backgroundScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.boardPageAnimation.collect { emittedTargets += it }
+        }
+        runCurrent()
+
+        val command = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.ensureBoardTabCommand(
+                AppRoute.Board(
+                    boardId = pending.boardId,
+                    boardName = pending.boardName,
+                    boardUrl = pending.boardUrl,
+                )
+            )
+        }
+        runCurrent()
+        assertTrue(writeStarted.isCompleted)
+        coordinator.selectBoardTab(pending.boardUrl)
+        coordinator.animateBoardPage(-1)
+        runCurrent()
+
+        assertFalse(command.isCompleted)
+        assertEquals(listOf(0), emittedTargets)
+
+        releaseWrite.complete(Unit)
+        runCurrent()
+        databaseFlow.emit(listOf(existing, pending))
+        runCurrent()
+        assertTrue(command.await() is TabCommandResult.Success)
+        collector.cancel()
+        coordinator.close()
     }
 
     /** 1,252 Board rowsへ100 rapid commandを適用しても key 一意性と安定順序を維持する。 */
