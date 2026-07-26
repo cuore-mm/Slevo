@@ -507,7 +507,7 @@ class ThreadTabsCoordinatorTest {
         }
         runCurrent()
 
-        assertEquals(listOf(currentTarget.id.value), writes)
+        assertEquals(listOf(currentTarget.id.value, next.id.value), writes)
         assertFalse(ensureJob.isCompleted)
         assertFalse(nextJob.isCompleted)
 
@@ -518,7 +518,7 @@ class ThreadTabsCoordinatorTest {
         val pendingTarget = coordinator.openThreadTabs.value.first { it.id == currentTarget.id }
         assertFalse(ensureJob.isCompleted)
         assertFalse(nextJob.isCompleted)
-        assertEquals(listOf(currentTarget.id.value), writes)
+        assertEquals(listOf(currentTarget.id.value, next.id.value), writes)
         assertEquals(listOf(currentTarget.id, currentUnrelated.id), coordinator.openThreadTabs.value.map { it.id })
         assertEquals("New title", pendingTarget.title)
         assertEquals("New board", pendingTarget.boardName)
@@ -736,15 +736,18 @@ class ThreadTabsCoordinatorTest {
         cancelledJob.cancel()
         runCurrent()
 
-        assertTrue(repositoryCancelled.isCompleted)
+        assertFalse(repositoryCancelled.isCompleted)
         assertEquals(1, invocationCount)
-        assertEquals(listOf(existing.id), coordinator.openThreadTabs.value.map { it.id })
+        assertEquals(listOf(existing.id, testTab("cancelled", 1).id), coordinator.openThreadTabs.value.map { it.id })
 
         val nextJob = backgroundScope.async { coordinator.ensureThreadTab(nextRoute) }
         runCurrent()
-        databaseFlow.emit(listOf(existing, testTab("next", 1)))
+        assertEquals(2, invocationCount)
+        permitWait.complete(Unit)
         runCurrent()
-        assertEquals(1, nextJob.await())
+        databaseFlow.emit(listOf(existing, testTab("cancelled", 1), testTab("next", 2)))
+        runCurrent()
+        assertEquals(2, nextJob.await())
         assertEquals(2, invocationCount)
     }
 
@@ -787,15 +790,18 @@ class ThreadTabsCoordinatorTest {
         cancelledJob.cancel()
         runCurrent()
 
-        assertTrue(rollbackCompleted.isCompleted)
+        assertFalse(rollbackCompleted.isCompleted)
         assertEquals(1, invocationCount)
-        assertEquals(listOf(existing.id), coordinator.openThreadTabs.value.map { it.id })
+        assertEquals(listOf(existing.id, testTab("cancelled", 1).id), coordinator.openThreadTabs.value.map { it.id })
 
         val nextJob = backgroundScope.async { coordinator.ensureThreadTab(nextRoute) }
         runCurrent()
-        databaseFlow.emit(listOf(existing, testTab("next", 1)))
+        assertEquals(2, invocationCount)
+        transactionBarrier.complete(Unit)
         runCurrent()
-        assertEquals(1, nextJob.await())
+        databaseFlow.emit(listOf(existing, testTab("cancelled", 1), testTab("next", 2)))
+        runCurrent()
+        assertEquals(2, nextJob.await())
         assertEquals(2, invocationCount)
     }
 
@@ -832,13 +838,13 @@ class ThreadTabsCoordinatorTest {
         coVerify(exactly = 1) {
             tabsRepository.ensureOpenThreadTab(match { it.id == testTab("cancelled", 0).id })
         }
-        assertEquals(listOf(existing.id), coordinator.openThreadTabs.value.map { it.id })
+        assertEquals(listOf(existing.id, testTab("cancelled", 1).id), coordinator.openThreadTabs.value.map { it.id })
 
         val nextJob = backgroundScope.async { coordinator.ensureThreadTab(nextRoute) }
         runCurrent()
-        databaseFlow.emit(listOf(existing, testTab("next", 1)))
+        databaseFlow.emit(listOf(existing, testTab("cancelled", 1), testTab("next", 2)))
         runCurrent()
-        assertEquals(1, nextJob.await())
+        assertEquals(2, nextJob.await())
         assertEquals(2, invocationCount)
     }
 
@@ -875,20 +881,20 @@ class ThreadTabsCoordinatorTest {
         firstWriteReturned.await()
         runCurrent()
 
-        assertEquals(listOf(true), requestedPins)
+        assertEquals(listOf(true, false), requestedPins)
         assertTrue(coordinator.openThreadTabs.value.single().isPinned)
         firstToggle.cancel()
         firstToggle.join()
         runCurrent()
 
-        // 古い canonical 値でも pending pin は再投影され、後続 write は開始しない。
+        // 古い canonical 値でも pending pin は再投影され、後続 write は既に開始できる。
         databaseFlow.emit(listOf(initialTab.copy(isPinned = false)))
         runCurrent()
-        assertEquals(listOf(true), requestedPins)
-        assertTrue(coordinator.openThreadTabs.value.single().isPinned)
+        assertEquals(listOf(true, false), requestedPins)
+        assertFalse(coordinator.openThreadTabs.value.single().isPinned)
         assertFalse(secondToggle.isCompleted)
 
-        // matching canonical 値を確認してから、2 件目を確定値 false へ反転する。
+        // matching canonical 値を確認すると、先行 pending だけが terminal になる。
         databaseFlow.emit(listOf(initialTab.copy(isPinned = true)))
         runCurrent()
         assertEquals(listOf(true, false), requestedPins)
@@ -941,18 +947,18 @@ class ThreadTabsCoordinatorTest {
 
         assertTrue(commitRecorded.isCompleted)
         assertTrue(firstToggle.isCancelled)
-        assertEquals(listOf(true), requestedPins)
+        assertEquals(listOf(true, false), requestedPins)
         assertTrue(coordinator.openThreadTabs.value.single().isPinned)
         assertFalse(secondToggle.isCompleted)
 
-        // 古い canonical false でも commit 済み pending pin と FIFO barrier を保持する。
+        // 古い canonical false でも commit 済み pending pin と後続 write を保持する。
         databaseFlow.emit(listOf(initialTab.copy(isPinned = false)))
         runCurrent()
-        assertEquals(listOf(true), requestedPins)
-        assertTrue(coordinator.openThreadTabs.value.single().isPinned)
+        assertEquals(listOf(true, false), requestedPins)
+        assertFalse(coordinator.openThreadTabs.value.single().isPinned)
         assertFalse(secondToggle.isCompleted)
 
-        // matching true の確認後だけ、後続 toggle が false を要求する。
+        // matching true の確認後、後続 false は既に受理済みのまま残る。
         databaseFlow.emit(listOf(initialTab.copy(isPinned = true)))
         runCurrent()
         assertEquals(listOf(true, false), requestedPins)
@@ -1056,11 +1062,12 @@ class ThreadTabsCoordinatorTest {
         val expectedPins = (1..toggleCount).map { step ->
             if (step % 2 == 1) !initialPinned else initialPinned
         }
-        assertEquals(listOf(expectedPins.first()), requestedPins)
+        // matching Flow confirmation は後続 write の開始条件ではない。
+        assertEquals(expectedPins, requestedPins)
         expectedPins.forEachIndexed { index, expectedPin ->
             writeReleases[index].complete(Unit)
             runCurrent()
-            assertEquals(index + 1, requestedPins.size)
+            assertEquals(expectedPins, requestedPins)
             assertFalse(toggleJobs[index].isCompleted)
 
             databaseFlow.emit(listOf(initialTab.copy(isPinned = expectedPin)))
