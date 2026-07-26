@@ -32,8 +32,15 @@
 
 ## 5. Mandatory regression と UI delta の確認
 
-- [ ] 5.1 `./gradlew testDebugUnitTest` を実行し、`TabControllerPrimitivesTest`、`BoardTabsCoordinatorTest`、`ThreadTabsCoordinatorTest`、`TabSessionStoreTest`、`TabScreenCloseCallbacksTest`、`DeepLinkHandlerTest`、`BbsRouteScaffoldSelectionTest` を含む unit suite が成功するまで本変更範囲内の問題を修正する。
-- [ ] 5.2 `./gradlew assembleDebug` を実行し、削除した internal API/state の source call-site 漏れと KDoc/comment rule 違反がないことを確認する。
+- [x] 5.1 `./gradlew testDebugUnitTest` を実行し、`TabControllerPrimitivesTest`、`BoardTabsCoordinatorTest`、`ThreadTabsCoordinatorTest`、`TabSessionStoreTest`、`TabScreenCloseCallbacksTest`、`DeepLinkHandlerTest`、`BbsRouteScaffoldSelectionTest` を含む unit suite が成功するまで本変更範囲内の問題を修正する。
+- [x] 5.2 `./gradlew assembleDebug` を実行し、削除した internal API/state の source call-site 漏れと KDoc/comment rule 違反がないことを確認する。
 - [ ] 5.3 接続済み device/emulator で `TabsRepositoryThreadStateTest` と `BbsRouteScaffoldTest` を実行し、targeted persistence、metadata safety、Room Flow、atomic presentation の回帰がないことを確認する。device がない場合は未完のまま明示する。
 - [x] 5.4 production diff と call-site search で DAO/schema、resource、manifest、UI text/layout/icon/theme/accessibility/navigation、初回 Loading、normal close、Deep Link behavior に変更がなく、新しい writer、timeout、retry、callback、revision、guard、waiter が追加されていないことを確認する。
-- [ ] 5.5 最終差分を量的に確認し、stored state holder 4 個、mirror Flow 1 個、unused type 1 個、unused API 7 個、predecessor function 1 個、metadata comparator 1 個が削除され、exact low-value test 5 件が限定 contract test 1 件へ集約され、metadata test 2 件が書き換えられたことを記録する。実コード差に相違があれば数値だけでなく keep/remove 理由も更新する。
+- [x] 5.5 最終差分を量的に確認し、stored state holder 4 個、mirror Flow 1 個、unused type 1 個、unused API 7 個、predecessor function 1 個、metadata comparator 1 個が削除され、exact low-value test 5 件が限定 contract test 1 件へ集約され、metadata test 2 件が書き換えられたことを記録する。実コード差に相違があれば数値だけでなく keep/remove 理由も更新する。
+
+## 実装・検証記録
+
+- Thread の confirmation 分岐から predecessor 条件 1 個、pending revision の stored state 2 個と更新箇所 4 個、metadata exact comparator 1 個を削除し、identity／absence／pin-value の最小条件を保持した。
+- Thread の未参照 state holder 1 個、mirror Flow 1 個、Board の無制限 result history 1 個、未使用 type 1 個、未使用 API 7 個を削除した。targeted writer、bulk 境界、atomic presentation、retained close、Deep Link の通常経路は変更していない。
+- exact ordering／commit-cancellation test 5 件を rapid targeted-write contract test 1 件へ集約し、metadata confirmation test 2 件を書き換えた。CI は `testDebugUnitTest`、`testCiUnitTest`、`assembleCi` を実行して成功した。
+- Task 5.3 は未完了。CI workflow に device/emulator job がなく、`TabsRepositoryThreadStateTest` と `BbsRouteScaffoldTest` は未実行のため、追加の device 環境なしには完了扱いにしない。
