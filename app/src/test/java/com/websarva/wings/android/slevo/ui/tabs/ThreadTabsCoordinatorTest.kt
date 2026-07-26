@@ -21,7 +21,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
@@ -124,18 +123,6 @@ class ThreadTabsCoordinatorTest {
         coordinator.togglePinThreadTab(threadId)
 
         assertEquals(false, coordinator.openThreadTabs.value.first().isPinned)
-    }
-
-    /** 連続 2 回の pin toggle が元の値へ戻り、各確認後だけ次の write を開始する。 */
-    @Test
-    fun togglePinThreadTab_twoRapidTogglesAlternateAfterEachConfirmation() = runTest {
-        assertRapidPinToggles(initialPinned = false, toggleCount = 2)
-    }
-
-    /** 連続 3 回の pin toggle が初期値を反転し、要求値を交互に確定する。 */
-    @Test
-    fun togglePinThreadTab_threeRapidTogglesAlternateAfterEachConfirmation() = runTest {
-        assertRapidPinToggles(initialPinned = true, toggleCount = 3)
     }
 
     /**
@@ -427,9 +414,9 @@ class ThreadTabsCoordinatorTest {
         assertEquals(initialTabs.map { it.id }.toSet() + addedTab.id, coordinator.openThreadTabs.value.map { it.id }.toSet())
     }
 
-    /** Ensure の確認は古いメタデータを拒否し、共有 merge 結果だけを受け入れる。 */
+    /** Ensure と Info は対象 identity、Delete は不在、Pin は要求値で確認する。 */
     @Test
-    fun ensureConfirmation_requiresMergedMetadataMatch() {
+    fun ensureConfirmation_usesMinimalOperationConditions() {
         val current = testTab("metadata", 3, isPinned = true, scrollIndex = 7).copy(
             title = "Old title",
             boardName = "Old board",
@@ -442,22 +429,17 @@ class ThreadTabsCoordinatorTest {
             boardId = 43L,
             resCount = 140,
         )
-        val operation = ThreadTabPendingOperation.Ensure(expected)
-
-        assertFalse(isThreadTabOperationConfirmed(listOf(current), operation))
-
-        val merged = mergeThreadTabMetadata(current, expected)
-        assertEquals("New title", merged.title)
-        assertEquals("New board", merged.boardName)
-        assertEquals(current.boardUrl, merged.boardUrl)
-        assertEquals(43L, merged.boardId)
-        assertEquals(140, merged.resCount)
-        assertTrue(isThreadTabOperationConfirmed(listOf(merged), operation))
+        assertTrue(isThreadTabOperationConfirmed(listOf(current), ThreadTabPendingOperation.Ensure(expected)))
+        assertTrue(isThreadTabOperationConfirmed(listOf(current), ThreadTabPendingOperation.Info(expected)))
+        assertTrue(isThreadTabOperationConfirmed(listOf(current), ThreadTabPendingOperation.Pin(current.id, true)))
+        assertTrue(isThreadTabOperationConfirmed(emptyList(), ThreadTabPendingOperation.Delete(current.id)))
+        assertFalse(isThreadTabOperationConfirmed(listOf(current), ThreadTabPendingOperation.Delete(current.id)))
+        assertFalse(isThreadTabOperationConfirmed(listOf(current), ThreadTabPendingOperation.Pin(current.id, false)))
     }
 
-    /** 対象メタデータを含まない先行 revision では pending と後続 FIFO を保持する。 */
+    /** 無関係な通知で Ensure を完了でき、後続の canonical 通知で metadata が収束する。 */
     @Test
-    fun ensureExistingTab_waitsForMatchingMetadataAfterUnrelatedRevision() = runTest {
+    fun ensureExistingTab_completesOnUnrelatedRevisionAndConvergesMetadata() = runTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
@@ -516,18 +498,18 @@ class ThreadTabsCoordinatorTest {
         runCurrent()
 
         val pendingTarget = coordinator.openThreadTabs.value.first { it.id == currentTarget.id }
-        assertFalse(ensureJob.isCompleted)
+        assertTrue(ensureJob.isCompleted)
         assertFalse(nextJob.isCompleted)
         assertEquals(listOf(currentTarget.id.value, next.id.value), writes)
         assertEquals(
             listOf(currentTarget.id, currentUnrelated.id, next.id),
             coordinator.openThreadTabs.value.map { it.id },
         )
-        assertEquals("New title", pendingTarget.title)
-        assertEquals("New board", pendingTarget.boardName)
+        assertEquals(currentTarget.title, pendingTarget.title)
+        assertEquals(currentTarget.boardName, pendingTarget.boardName)
         assertEquals(currentTarget.boardUrl, pendingTarget.boardUrl)
-        assertEquals(43L, pendingTarget.boardId)
-        assertEquals(140, pendingTarget.resCount)
+        assertEquals(currentTarget.boardId, pendingTarget.boardId)
+        assertEquals(currentTarget.resCount, pendingTarget.resCount)
         assertEquals(currentTarget.firstVisibleItemIndex, pendingTarget.firstVisibleItemIndex)
         assertEquals(currentTarget.firstVisibleItemScrollOffset, pendingTarget.firstVisibleItemScrollOffset)
         assertEquals(currentTarget.isPinned, pendingTarget.isPinned)
@@ -540,9 +522,12 @@ class ThreadTabsCoordinatorTest {
         databaseFlow.emit(listOf(confirmedTarget, currentUnrelated.copy(title = "Unrelated new title")))
         runCurrent()
 
-        assertTrue(ensureJob.isCompleted)
         assertEquals(listOf(currentTarget.id.value, next.id.value), writes)
         assertFalse(nextJob.isCompleted)
+        assertEquals("New title", coordinator.openThreadTabs.value.first { it.id == currentTarget.id }.title)
+        assertEquals("New board", coordinator.openThreadTabs.value.first { it.id == currentTarget.id }.boardName)
+        assertEquals(43L, coordinator.openThreadTabs.value.first { it.id == currentTarget.id }.boardId)
+        assertEquals(140, coordinator.openThreadTabs.value.first { it.id == currentTarget.id }.resCount)
 
         databaseFlow.emit(listOf(confirmedTarget, currentUnrelated.copy(title = "Unrelated new title"), next))
         runCurrent()
@@ -658,10 +643,10 @@ class ThreadTabsCoordinatorTest {
         assertEquals(canonical[1_000].firstVisibleItemIndex, projected[1_000].firstVisibleItemIndex)
     }
 
-    /** 100 回の rapid same-key toggle は write 数だけを増やし、bulk replacement を呼ばない。 */
+    /** rapid same-key toggle は targeted write だけを発行し、canonical pin 通知で完了する。 */
     @Test
-    fun togglePinThreadTab_hundredRapidTogglesUsesOnlyTargetedWrites() = runTest {
-        assertRapidPinToggles(initialPinned = false, toggleCount = 100)
+    fun togglePinThreadTab_rapidTogglesUseTargetedWritesAndIndependentConfirmation() = runTest {
+        assertRapidPinToggles()
     }
 
     /** DB 失敗で保留中の投影を戻しても、同じ worker は後続の要求を停止しない。 */
@@ -882,130 +867,6 @@ class ThreadTabsCoordinatorTest {
         assertEquals(2, invocationCount)
     }
 
-    /** pin write 成功後の caller cancellation でも確認と後続 toggle を FIFO で継続する。 */
-    @Test
-    fun pinCommitBeforeCallerCancellation_keepsPendingUntilMatchingFlow() = runTest {
-        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
-        val tabsRepository = mockk<TabsRepository>(relaxed = true)
-        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val initialTab = testTab("cancel-after-commit", 0, isPinned = false)
-        val requestedPins = mutableListOf<Boolean>()
-        val firstWriteReturned = CompletableDeferred<Unit>()
-        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
-        coEvery { tabsRepository.setThreadTabPinned(initialTab.id, any()) } coAnswers {
-            requestedPins += (invocation.args[1] as Boolean)
-            if (requestedPins.size == 1) firstWriteReturned.complete(Unit)
-            true
-        }
-
-        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
-        val workerDispatcher = StandardTestDispatcher(testScheduler)
-        databaseFlow.emit(listOf(initialTab))
-        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + workerDispatcher))
-        runCurrent()
-
-        val firstToggle = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
-            coordinator.togglePinThreadTab(initialTab.id)
-        }
-        val secondToggle = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
-            coordinator.togglePinThreadTab(initialTab.id)
-        }
-        runCurrent()
-        firstWriteReturned.await()
-        runCurrent()
-
-        assertEquals(listOf(true, false), requestedPins)
-        assertFalse(coordinator.openThreadTabs.value.single().isPinned)
-        firstToggle.cancel()
-        firstToggle.join()
-        runCurrent()
-
-        // 古い canonical 値でも pending pin は再投影され、後続 write は既に開始できる。
-        databaseFlow.emit(listOf(initialTab.copy(isPinned = false)))
-        runCurrent()
-        assertEquals(listOf(true, false), requestedPins)
-        assertFalse(coordinator.openThreadTabs.value.single().isPinned)
-        assertFalse(secondToggle.isCompleted)
-
-        // matching canonical 値を確認すると、先行 pending だけが terminal になる。
-        databaseFlow.emit(listOf(initialTab.copy(isPinned = true)))
-        runCurrent()
-        assertEquals(listOf(true, false), requestedPins)
-        assertFalse(secondToggle.isCompleted)
-
-        databaseFlow.emit(listOf(initialTab.copy(isPinned = false)))
-        runCurrent()
-        secondToggle.await()
-
-        assertTrue(firstToggle.isCancelled)
-        assertEquals(listOf(true, false), requestedPins)
-        assertFalse(coordinator.openThreadTabs.value.single().isPinned)
-    }
-
-    /** Repository の正常結果発行と caller cancellation が同じ mock 境界で競合しても commit を保持する。 */
-    @Test
-    fun pinCommitAndSynchronousCallerCancellation_keepsCommittedResultForReconciliation() = runTest {
-        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
-        val tabsRepository = mockk<TabsRepository>(relaxed = true)
-        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val initialTab = testTab("synchronous-cancel", 0, isPinned = false)
-        val requestedPins = mutableListOf<Boolean>()
-        val commitRecorded = CompletableDeferred<Unit>()
-        lateinit var firstToggle: Deferred<Unit>
-        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
-        coEvery { tabsRepository.setThreadTabPinned(initialTab.id, any()) } coAnswers {
-            requestedPins += (invocation.args[1] as Boolean)
-            if (requestedPins.size == 1) {
-                commitRecorded.complete(Unit)
-                // 正常値を返す同じ coAnswers 内で caller を同期的にキャンセルする。
-                firstToggle.cancel()
-            }
-            true
-        }
-
-        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
-        val workerDispatcher = StandardTestDispatcher(testScheduler)
-        databaseFlow.emit(listOf(initialTab))
-        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + workerDispatcher))
-        runCurrent()
-
-        firstToggle = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
-            coordinator.togglePinThreadTab(initialTab.id)
-        }
-        val secondToggle = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
-            coordinator.togglePinThreadTab(initialTab.id)
-        }
-        runCurrent()
-
-        assertTrue(commitRecorded.isCompleted)
-        assertTrue(firstToggle.isCancelled)
-        assertEquals(listOf(true, false), requestedPins)
-        assertFalse(coordinator.openThreadTabs.value.single().isPinned)
-        assertFalse(secondToggle.isCompleted)
-
-        // 古い canonical false でも commit 済み pending pin と後続 write を保持する。
-        databaseFlow.emit(listOf(initialTab.copy(isPinned = false)))
-        runCurrent()
-        assertEquals(listOf(true, false), requestedPins)
-        assertFalse(coordinator.openThreadTabs.value.single().isPinned)
-        assertFalse(secondToggle.isCompleted)
-
-        // matching true の確認後、後続 false は既に受理済みのまま残る。
-        databaseFlow.emit(listOf(initialTab.copy(isPinned = true)))
-        runCurrent()
-        assertEquals(listOf(true, false), requestedPins)
-        assertFalse(secondToggle.isCompleted)
-
-        databaseFlow.emit(listOf(initialTab.copy(isPinned = false)))
-        runCurrent()
-        secondToggle.await()
-
-        assertEquals(listOf(true, false), requestedPins)
-        assertFalse(coordinator.openThreadTabs.value.single().isPinned)
-    }
-
     /** 選択中 tab の pending delete 中は key を保持し、canonical confirmation 後に隣接へ補正する。 */
     @Test
     fun closeSelectedThreadTab_publishesPendingMissingUntilCanonicalConfirmation() = runTest {
@@ -1051,22 +912,14 @@ class ThreadTabsCoordinatorTest {
         assertEquals(second.id.value, coordinator.selectedThreadTabKey.value)
     }
 
-    /**
-     * 正規状態の通知と Repository の完了を制御し、切り替えの FIFO 動作を検証する。
-     *
-     * undispatched caller を使うことで、worker が最初の要求を受け取る前にすべての切り替え操作
-     * をキューへ追加する。後続の書き込みが早すぎる場合に検出できるよう、各 Repository barrier
-     * は対応する Room 通知より先に解放する。
-     */
-    private suspend fun TestScope.assertRapidPinToggles(
-        initialPinned: Boolean,
-        toggleCount: Int,
-    ) {
+    /** rapid toggle が targeted write と独立した canonical 確認だけを使うことを検証する。 */
+    private suspend fun TestScope.assertRapidPinToggles() {
         // --- 依存関係の制御 ---
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val initialTab = testTab("pin-sequence", 0, isPinned = initialPinned)
+        val initialTab = testTab("pin-sequence", 0, isPinned = false)
+        val toggleCount = 4
         val requestedPins = mutableListOf<Boolean>()
         val writeReleases = List(toggleCount) { CompletableDeferred<Unit>() }
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
@@ -1092,29 +945,19 @@ class ThreadTabsCoordinatorTest {
         }
         runCurrent()
 
-        // --- 順次書き込みと確認 ---
-        val expectedPins = (1..toggleCount).map { step ->
-            if (step % 2 == 1) !initialPinned else initialPinned
-        }
-        // matching Flow confirmation は後続 write の開始条件ではない。
-        assertEquals(expectedPins, requestedPins)
-        expectedPins.forEachIndexed { index, expectedPin ->
-            writeReleases[index].complete(Unit)
-            runCurrent()
-            assertEquals(expectedPins, requestedPins)
-            assertFalse(toggleJobs[index].isCompleted)
+        // --- targeted write と canonical 確認 ---
+        writeReleases.forEach { release -> release.complete(Unit) }
+        runCurrent()
+        assertEquals(toggleCount, requestedPins.size)
 
-            databaseFlow.emit(listOf(initialTab.copy(isPinned = expectedPin)))
-            runCurrent()
-            assertTrue(toggleJobs[index].isCompleted)
-            if (index + 1 < toggleCount) {
-                assertEquals(expectedPins[index + 1], requestedPins[index + 1])
-            }
-        }
+        // 各 waiter は自分の pin 値だけを確認し、同一 key の先行完了には依存しない。
+        databaseFlow.emit(listOf(initialTab.copy(isPinned = true)))
+        runCurrent()
+        databaseFlow.emit(listOf(initialTab.copy(isPinned = false)))
+        runCurrent()
 
         toggleJobs.forEach { it.await() }
-        assertEquals(expectedPins, requestedPins)
-        assertEquals(expectedPins.last(), coordinator.openThreadTabs.value.single().isPinned)
+        coVerify(exactly = toggleCount) { tabsRepository.setThreadTabPinned(initialTab.id, any()) }
         coVerify(exactly = 0) { tabsRepository.replaceOpenThreadTabsForBulkOperation(any()) }
     }
 

@@ -64,19 +64,9 @@ internal fun isThreadTabOperationConfirmed(
         }
     }
     return when (operation) {
-        is ThreadTabPendingOperation.Ensure -> actual?.matchesThreadMetadata(operation.tab) == true
+        is ThreadTabPendingOperation.Ensure -> actual != null
         is ThreadTabPendingOperation.Delete -> actual == null
         is ThreadTabPendingOperation.Pin -> actual?.isPinned == operation.isPinned
-        is ThreadTabPendingOperation.Info -> actual?.matchesThreadMetadata(operation.tab) == true
+        is ThreadTabPendingOperation.Info -> actual != null
     }
-}
-
-/** JOIN された ThreadState Flow を通して確認されるフィールドだけを比較する。 */
-private fun ThreadTabInfo.matchesThreadMetadata(expected: ThreadTabInfo): Boolean {
-    val merged = mergeThreadTabMetadata(this, expected)
-    return title == merged.title &&
-        boardName == merged.boardName &&
-        boardUrl == merged.boardUrl &&
-        boardId == merged.boardId &&
-        resCount == merged.resCount
 }

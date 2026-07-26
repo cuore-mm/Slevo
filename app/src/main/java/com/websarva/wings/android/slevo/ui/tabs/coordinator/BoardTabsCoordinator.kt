@@ -42,7 +42,7 @@ import javax.inject.Inject
 
 /**
  * Board タブの domain Controller。
- * Room canonical snapshot、pending command、選択、presentation、結果を一つの state から派生させる。
+ * Room canonical snapshot、pending command、選択、presentation を一つの state から派生させる。
  * 通常 command は対象行 repository API を Controller scope が所有して実行する。
  */
 @ActivityRetainedScoped
@@ -301,7 +301,6 @@ class BoardTabsCoordinator @Inject constructor(
         _state.update { state ->
             state.copy(
                 pendingCommands = state.pendingCommands.filterNot { it.id == pending.id },
-                commandResults = state.commandResults + (pending.id to result),
             ).rebuildPresentation()
         }
         pending.result.complete(result)

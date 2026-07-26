@@ -54,14 +54,4 @@ data class TabControllerState<Tab : Any, Key : Any, Pending : Any>(
     val pendingCommands: List<Pending>,
     val selectedKey: Key?,
     val presentation: TabPresentationState<Tab, Key>,
-    val commandResults: Map<TabCommandId, TabCommandResult<*>> = emptyMap(),
-)
-
-/**
- * reducer が返す次 state と repository effect の指示。
- * I/O は reducer の外側で実行し、完了を再び reducer event として渡す。
- */
-data class TabReducerTransition<State : Any, Effect : Any>(
-    val state: State,
-    val effects: List<Effect> = emptyList(),
 )

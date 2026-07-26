@@ -205,27 +205,6 @@ class TabsRepository @Inject constructor(
         }
     }.getOrElse(TabMutationResult::Failure)
 
-    /** Thread ensure の既存 targeted command を明示結果へ変換する。 */
-    suspend fun ensureOpenThreadTabResult(tabInfo: ThreadTabInfo): TabMutationResult = runCatching {
-        if (ensureOpenThreadTab(tabInfo)) TabMutationResult.Success else TabMutationResult.NoOp
-    }.getOrElse(TabMutationResult::Failure)
-
-    /** Thread delete の既存 targeted command を明示結果へ変換する。 */
-    suspend fun deleteOpenThreadTabResult(threadId: ThreadId): TabMutationResult = runCatching {
-        if (deleteOpenThreadTab(threadId)) TabMutationResult.Success else TabMutationResult.NoOp
-    }.getOrElse(TabMutationResult::Failure)
-
-    /** Thread pin の既存 targeted command を明示結果へ変換する。 */
-    suspend fun setThreadTabPinnedResult(threadId: ThreadId, isPinned: Boolean): TabMutationResult = runCatching {
-        if (setThreadTabPinned(threadId, isPinned)) TabMutationResult.Success else TabMutationResult.NoOp
-    }.getOrElse(TabMutationResult::Failure)
-
-    /** ThreadState 更新の既存 targeted command を明示結果へ変換する。 */
-    suspend fun updateThreadStateResult(update: ThreadStateRepository.ThreadStateUpdate): TabMutationResult = runCatching {
-        updateThreadState(update)
-        TabMutationResult.Success
-    }.getOrElse(TabMutationResult::Failure)
-
     /**
      * 開いているスレッドタブを、客観状態と履歴既読状態を合成した表示モデルとして監視する。
      * 履歴がないタブは未訪問扱いにし、新着数とスクロール位置を 0 に丸める。

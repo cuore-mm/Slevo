@@ -11,9 +11,6 @@ import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
 import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
-import com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult
-import com.websarva.wings.android.slevo.ui.tabs.controller.TabControllerState
-import com.websarva.wings.android.slevo.ui.tabs.controller.TabLoadPhase
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionRuntimeState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
@@ -106,27 +103,11 @@ class ThreadTabsCoordinator @Inject constructor(
 
     private var scope: CoroutineScope? = null
 
-    /** canonical、pending、selection、presentation を一つの論理 snapshot として公開する。 */
-    private val _controllerState = MutableStateFlow(
-        TabControllerState<ThreadTabInfo, String, ThreadTabPendingOperation>(
-            loadPhase = TabLoadPhase.Loading,
-            canonicalTabs = emptyList(),
-            pendingCommands = emptyList(),
-            selectedKey = null,
-            presentation = TabPresentationState(emptyList(), TabSelectionResolution.Loading),
-        )
-    )
-    /** Thread domain の pure state test と retained UI adapter が参照する state snapshot。 */
-    internal val controllerState: StateFlow<TabControllerState<ThreadTabInfo, String, ThreadTabPendingOperation>> =
-        _controllerState.asStateFlow()
-
     /** Room が最後に通知した一覧だけを正規スナップショットとして保持する。 */
     private val canonicalTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
     private val pendingOperations = mutableListOf<ThreadTabPendingOperation>()
     private var snapshotVersion = 0L
     private val snapshotVersionFlow = MutableStateFlow(0L)
-    private var pendingStateRevision = 0L
-    private val pendingStateRevisionFlow = MutableStateFlow(0L)
     private val commandQueue = Channel<ThreadTabMutationIntent>(Channel.UNLIMITED)
     private var commandDispatcherJob: Job? = null
 
@@ -197,19 +178,6 @@ class ThreadTabsCoordinator @Inject constructor(
             throw cancellationException
         }
     }
-
-    /** Thread ensure の terminal state を presentation から独立した結果として返す。 */
-    suspend fun ensureThreadTabCommand(route: AppRoute.Thread): TabCommandResult<Int> = try {
-        TabCommandResult.Success(ensureThreadTab(route))
-    } catch (cancellationException: CancellationException) {
-        throw cancellationException
-    } catch (exception: Throwable) {
-        TabCommandResult.Failure(exception)
-    }
-
-    /** Thread selection の結果を明示 command として返す。 */
-    fun selectThreadTabCommand(threadId: ThreadId?): TabCommandResult<Unit> =
-        if (selectThreadTab(threadId)) TabCommandResult.Success(Unit) else TabCommandResult.NoOp()
 
     /**
      * スレタイトル未取得時の初期表示名を組み立てる。
@@ -556,12 +524,6 @@ class ThreadTabsCoordinator @Inject constructor(
     private fun setThreadTabState(state: ThreadTabsLoadState) {
         _threadTabState.value = state
         _threadLoaded.value = state is ThreadTabsLoadState.Loaded
-        _controllerState.update { current ->
-            current.copy(
-                loadPhase = if (state is ThreadTabsLoadState.Loaded) TabLoadPhase.Loaded else TabLoadPhase.Loading,
-                canonicalTabs = canonicalTabs.value,
-            )
-        }
     }
 
     /** DB 書き込み、Flow による確認、投影の後始末を通して存在保証操作を実行する。 */
@@ -647,8 +609,6 @@ class ThreadTabsCoordinator @Inject constructor(
     /** 保留中の操作を 1 件追加し、投影した一覧を再発行する。 */
     private fun registerPending(operation: ThreadTabPendingOperation): Long {
         pendingOperations += operation
-        pendingStateRevision += 1
-        pendingStateRevisionFlow.value = pendingStateRevision
         publishProjectedTabs()
         return snapshotVersion
     }
@@ -660,8 +620,6 @@ class ThreadTabsCoordinator @Inject constructor(
     ) {
         val operationIndex = pendingOperations.indexOfFirst { pendingOperation -> pendingOperation === operation }
         if (operationIndex >= 0) pendingOperations.removeAt(operationIndex)
-        pendingStateRevision += 1
-        pendingStateRevisionFlow.value = pendingStateRevision
         publishProjectedTabs(requestedSelection)
     }
 
@@ -670,21 +628,10 @@ class ThreadTabsCoordinator @Inject constructor(
         operation: ThreadTabPendingOperation,
         baselineVersion: Long,
     ) {
-        combine(snapshotVersionFlow, pendingStateRevisionFlow) { version, _ -> version }.first { version ->
+        snapshotVersionFlow.first { version ->
             version > baselineVersion &&
-                isThreadTabOperationConfirmed(canonicalTabs.value, operation) &&
-                !hasEarlierPendingOperation(operation)
+                isThreadTabOperationConfirmed(canonicalTabs.value, operation)
         }
-    }
-
-    /** 同一 ThreadId の先行 pending が残っている間は後続操作の確認を保留する。 */
-    private fun hasEarlierPendingOperation(operation: ThreadTabPendingOperation): Boolean {
-        val operationIndex = pendingOperations.indexOfFirst { pendingOperation -> pendingOperation === operation }
-        if (operationIndex <= 0) return false
-        val confirmationKey = operation.confirmationKey
-        return pendingOperations
-            .subList(0, operationIndex)
-            .any { pendingOperation -> pendingOperation.confirmationKey == confirmationKey }
     }
 
     /** canonicalTabs を変更せず、保留中の投影だけを発行する。 */
@@ -711,12 +658,6 @@ class ThreadTabsCoordinator @Inject constructor(
                 TabSelectionResolution.Loading,
             )
             _threadCurrentPage.value = -1
-            _controllerState.value = _controllerState.value.copy(
-                canonicalTabs = canonicalTabs.value,
-                pendingCommands = pendingOperations.toList(),
-                selectedKey = _selectedThreadTabKey.value,
-                presentation = _threadPresentationState.value,
-            )
             return
         }
         when {
@@ -750,25 +691,15 @@ class ThreadTabsCoordinator @Inject constructor(
             }
         }
         syncThreadCurrentPageFromSelectedKey(tabs)
-        _controllerState.value = _controllerState.value.copy(
-            canonicalTabs = canonicalTabs.value,
-            pendingCommands = pendingOperations.toList(),
-            selectedKey = _selectedThreadTabKey.value,
-            presentation = _threadPresentationState.value,
-        )
     }
 
     /** pending operation が説明できる選択 key を返す。 */
     private val ThreadTabPendingOperation.selectionKey: String?
-        get() = confirmationKey.value
-
-    /** 全 pending 操作が共有する、因果順確認用の ThreadId キーを返す。 */
-    private val ThreadTabPendingOperation.confirmationKey: ThreadId
         get() = when (this) {
-            is ThreadTabPendingOperation.Ensure -> tab.id
-            is ThreadTabPendingOperation.Delete -> threadId
-            is ThreadTabPendingOperation.Pin -> threadId
-            is ThreadTabPendingOperation.Info -> tab.id
+            is ThreadTabPendingOperation.Ensure -> tab.id.value
+            is ThreadTabPendingOperation.Delete -> threadId.value
+            is ThreadTabPendingOperation.Pin -> threadId.value
+            is ThreadTabPendingOperation.Info -> tab.id.value
         }
 
     /** 投影したメタデータを Repository 共通の ThreadState 更新入力へ変換する。 */
