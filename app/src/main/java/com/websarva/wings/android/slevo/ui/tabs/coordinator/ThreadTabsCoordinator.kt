@@ -20,6 +20,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -37,6 +38,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.selects.onAwait
+import kotlinx.coroutines.selects.select
 import javax.inject.Inject
 
 /**
@@ -105,11 +109,24 @@ class ThreadTabsCoordinator @Inject constructor(
 
     /** Room が最後に通知した一覧だけを正規スナップショットとして保持する。 */
     private val canonicalTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
-    private val pendingOperations = mutableListOf<ThreadTabPendingOperation>()
+    private val pendingOperations = mutableListOf<ThreadTabPendingEntry>()
     private var snapshotVersion = 0L
     private val snapshotVersionFlow = MutableStateFlow(0L)
     private val commandQueue = Channel<ThreadTabMutationIntent>(Channel.UNLIMITED)
     private var commandDispatcherJob: Job? = null
+
+    /** 保留中の操作と、その操作だけを一度終端させる supersession 通知を保持する。 */
+    private class ThreadTabPendingEntry(
+        val operation: ThreadTabPendingOperation,
+    ) {
+        val superseded = CompletableDeferred<Unit>()
+    }
+
+    /** Room 確認または後続成功による supersession の終端結果を表す。 */
+    private enum class ThreadTabConfirmationResolution {
+        Confirmed,
+        Superseded,
+    }
 
     /**
      * 実行中のスレッドタブ更新ジョブを保持する。
@@ -528,16 +545,25 @@ class ThreadTabsCoordinator @Inject constructor(
 
     /** DB 書き込み、Flow による確認、投影の後始末を通して存在保証操作を実行する。 */
     private suspend fun processEnsure(intent: ThreadTabMutationIntent.Ensure) {
-        val baselineVersion = registerPending(intent.operation)
+        val (entry, baselineVersion) = registerPending(intent.operation)
         try {
             if (!tabsRepository.ensureOpenThreadTab(intent.tab)) {
                 throw IllegalStateException("Thread tab ensure failed")
             }
-            awaitConfirmation(intent.operation, baselineVersion)
-            removePending(intent.operation)
-            intent.completion.complete(_openThreadTabs.value.indexOfFirst { it.id == intent.tab.id })
+            supersedeEarlierOperations(entry)
+            when (awaitConfirmation(entry, baselineVersion)) {
+                ThreadTabConfirmationResolution.Confirmed -> {
+                    removePending(entry)
+                    intent.completion.complete(_openThreadTabs.value.indexOfFirst { it.id == intent.tab.id })
+                }
+                ThreadTabConfirmationResolution.Superseded -> {
+                    // 最終不在を決めた Delete に置き換えられたため、Ensure は選択を作らない。
+                    removePending(entry)
+                    intent.completion.complete(-1)
+                }
+            }
         } catch (exception: Throwable) {
-            removePending(intent.operation)
+            removePending(entry)
             intent.completion.completeExceptionally(exception)
         }
     }
@@ -546,13 +572,23 @@ class ThreadTabsCoordinator @Inject constructor(
     private suspend fun processDelete(intent: ThreadTabMutationIntent.Delete) {
         val selectedKeyBeforeRemoval = _selectedThreadTabKey.value
         val removedIndex = canonicalTabs.value.indexOfFirst { it.id == intent.threadId }
-        val baselineVersion = registerPending(intent.operation)
+        val (entry, baselineVersion) = registerPending(intent.operation)
         try {
+            // --- Repository write and supersession ---
             val changed = tabsRepository.deleteOpenThreadTab(intent.threadId)
-            if (changed) awaitConfirmation(intent.operation, baselineVersion)
+            if (changed) {
+                supersedeEarlierOperations(entry)
+                if (awaitConfirmation(entry, baselineVersion) == ThreadTabConfirmationResolution.Superseded) {
+                    // 後続 Ensure が存在状態を決めたため、古い Delete の cleanup は実行しない。
+                    removePending(entry)
+                    intent.completion.complete(Unit)
+                    return
+                }
+            }
+            // --- Selection and session cleanup ---
             val updatedTabs = projectThreadTabs(
                 canonicalTabs.value,
-                pendingOperations.filterNot { it === intent.operation },
+                pendingOperations.filterNot { it === entry }.map { it.operation },
             )
             val nextSelection = selectedThreadKeyAfterRemoval(
                 selectedKeyBeforeRemoval,
@@ -560,13 +596,13 @@ class ThreadTabsCoordinator @Inject constructor(
                 removedIndex,
                 updatedTabs,
             )
-            removePending(intent.operation, nextSelection)
+            removePending(entry, nextSelection)
             _newResCounts.update { it - intent.threadId.value }
             _threadSessionStates.update { it - intent.threadId.value }
             _threadRuntimeStates.update { it - intent.threadId.value }
             intent.completion.complete(Unit)
         } catch (exception: Throwable) {
-            removePending(intent.operation)
+            removePending(entry)
             intent.completion.completeExceptionally(exception)
         }
     }
@@ -580,63 +616,124 @@ class ThreadTabsCoordinator @Inject constructor(
             return
         }
         val operation = ThreadTabPendingOperation.Pin(intent.threadId, !current.isPinned)
-        val baselineVersion = registerPending(operation)
+        val (entry, baselineVersion) = registerPending(operation)
         try {
             val changed = tabsRepository.setThreadTabPinned(intent.threadId, operation.isPinned)
-            if (changed) awaitConfirmation(operation, baselineVersion)
-            removePending(operation)
+            if (changed) {
+                supersedeEarlierOperations(entry)
+                if (awaitConfirmation(entry, baselineVersion) == ThreadTabConfirmationResolution.Superseded) {
+                    removePending(entry)
+                    intent.completion.complete(Unit)
+                    return
+                }
+            }
+            removePending(entry)
             intent.completion.complete(Unit)
         } catch (exception: Throwable) {
-            removePending(operation)
+            removePending(entry)
             intent.completion.completeExceptionally(exception)
         }
     }
 
     /** ThreadState を更新し、JOIN されたタブ Flow に値が反映されるまで待つ。 */
     private suspend fun processInfo(intent: ThreadTabMutationIntent.Info) {
-        val baselineVersion = registerPending(intent.operation)
+        val (entry, baselineVersion) = registerPending(intent.operation)
         try {
             tabsRepository.updateThreadState(intent.tab.toThreadStateUpdate())
-            awaitConfirmation(intent.operation, baselineVersion)
-            removePending(intent.operation)
+            supersedeEarlierOperations(entry)
+            if (awaitConfirmation(entry, baselineVersion) == ThreadTabConfirmationResolution.Superseded) {
+                removePending(entry)
+                intent.completion.complete(Unit)
+                return
+            }
+            removePending(entry)
             intent.completion.complete(Unit)
         } catch (exception: Throwable) {
-            removePending(intent.operation)
+            removePending(entry)
             intent.completion.completeExceptionally(exception)
         }
     }
 
-    /** 保留中の操作を 1 件追加し、投影した一覧を再発行する。 */
-    private fun registerPending(operation: ThreadTabPendingOperation): Long {
-        pendingOperations += operation
+    /** 後続の成功 write と両立しない同一 Thread の先行 entry だけを終端する。 */
+    private fun supersedeEarlierOperations(currentEntry: ThreadTabPendingEntry) {
+        val currentIndex = pendingOperations.indexOfFirst { entry -> entry === currentEntry }
+        if (currentIndex < 0) return
+        val supersededEntries = pendingOperations
+            .take(currentIndex)
+            .filter { entry ->
+                entry.operation.threadId == currentEntry.operation.threadId &&
+                    canSupersede(currentEntry.operation, entry.operation)
+            }
+        if (supersededEntries.isEmpty()) return
+        // 先に投影から外して、signal の即時再開が後続 entry を再投影しないようにする。
+        supersededEntries.forEach { entry -> pendingOperations.remove(entry) }
+        supersededEntries.forEach { entry -> entry.superseded.complete(Unit) }
         publishProjectedTabs()
-        return snapshotVersion
+    }
+
+    /** 後続 operation が先行 operation の canonical 条件を無効にする組み合わせかを返す。 */
+    private fun canSupersede(
+        later: ThreadTabPendingOperation,
+        earlier: ThreadTabPendingOperation,
+    ): Boolean = when (later) {
+        is ThreadTabPendingOperation.Pin -> earlier is ThreadTabPendingOperation.Pin
+        is ThreadTabPendingOperation.Delete -> earlier is ThreadTabPendingOperation.Ensure ||
+            earlier is ThreadTabPendingOperation.Pin ||
+            earlier is ThreadTabPendingOperation.Info
+        is ThreadTabPendingOperation.Ensure -> earlier is ThreadTabPendingOperation.Delete
+        is ThreadTabPendingOperation.Info -> false
+    }
+
+    /** 保留中の操作を 1 件追加し、投影した一覧を再発行する。 */
+    private fun registerPending(operation: ThreadTabPendingOperation): Pair<ThreadTabPendingEntry, Long> {
+        val entry = ThreadTabPendingEntry(operation)
+        pendingOperations += entry
+        publishProjectedTabs()
+        return entry to snapshotVersion
     }
 
     /** 完了または失敗した操作を 1 件削除し、正規状態の投影を再発行する。 */
     private fun removePending(
-        operation: ThreadTabPendingOperation,
+        entry: ThreadTabPendingEntry,
         requestedSelection: String? = _selectedThreadTabKey.value,
     ) {
-        val operationIndex = pendingOperations.indexOfFirst { pendingOperation -> pendingOperation === operation }
+        val operationIndex = pendingOperations.indexOfFirst { pendingEntry -> pendingEntry === entry }
         if (operationIndex >= 0) pendingOperations.removeAt(operationIndex)
         publishProjectedTabs(requestedSelection)
     }
 
-    /** 操作固有の条件を満たす新しい Room 通知を待つ。 */
+    /** 操作固有の条件を満たす新しい Room 通知または supersession を待つ。 */
     private suspend fun awaitConfirmation(
-        operation: ThreadTabPendingOperation,
+        entry: ThreadTabPendingEntry,
         baselineVersion: Long,
-    ) {
-        snapshotVersionFlow.first { version ->
-            version > baselineVersion &&
-                isThreadTabOperationConfirmed(canonicalTabs.value, operation)
+    ): ThreadTabConfirmationResolution = coroutineScope {
+        val canonicalConfirmation = async(start = CoroutineStart.UNDISPATCHED) {
+            snapshotVersionFlow.first { version ->
+                version > baselineVersion &&
+                    isThreadTabOperationConfirmed(canonicalTabs.value, entry.operation)
+            }
+        }
+        try {
+            select {
+                canonicalConfirmation.onAwait {
+                    ThreadTabConfirmationResolution.Confirmed
+                }
+                entry.superseded.onAwait {
+                    canonicalConfirmation.cancel()
+                    ThreadTabConfirmationResolution.Superseded
+                }
+            }
+        } finally {
+            canonicalConfirmation.cancel()
         }
     }
 
     /** canonicalTabs を変更せず、保留中の投影だけを発行する。 */
     private fun publishProjectedTabs(requestedSelection: String? = _selectedThreadTabKey.value) {
-        val projected = projectThreadTabs(canonicalTabs.value, pendingOperations)
+        val projected = projectThreadTabs(
+            canonicalTabs.value,
+            pendingOperations.map { entry -> entry.operation },
+        )
         publishThreadPresentation(projected, requestedSelection)
         _newResCounts.value = projected
             .filter { tab -> tab.newResCount > 0 }
@@ -663,7 +760,7 @@ class ThreadTabsCoordinator @Inject constructor(
         when {
             requestedSelection != null &&
                 tabs.none { it.id.value == requestedSelection } &&
-                pendingOperations.any { operation -> operation.selectionKey == requestedSelection } -> {
+                pendingOperations.any { entry -> entry.operation.selectionKey == requestedSelection } -> {
                 _selectedThreadTabKey.value = requestedSelection
                 _threadPresentationState.value = TabPresentationState(
                     tabs,
@@ -700,6 +797,15 @@ class ThreadTabsCoordinator @Inject constructor(
             is ThreadTabPendingOperation.Delete -> threadId.value
             is ThreadTabPendingOperation.Pin -> threadId.value
             is ThreadTabPendingOperation.Info -> tab.id.value
+        }
+
+    /** 各 pending operation が対象とする Thread の identity を返す。 */
+    private val ThreadTabPendingOperation.threadId: ThreadId
+        get() = when (this) {
+            is ThreadTabPendingOperation.Ensure -> tab.id
+            is ThreadTabPendingOperation.Delete -> threadId
+            is ThreadTabPendingOperation.Pin -> threadId
+            is ThreadTabPendingOperation.Info -> tab.id
         }
 
     /** 投影したメタデータを Repository 共通の ThreadState 更新入力へ変換する。 */

@@ -649,6 +649,223 @@ class ThreadTabsCoordinatorTest {
         assertRapidPinToggles()
     }
 
+    /** 中間 pin 通知を省略しても、先行 waiter を supersession で終端し最終値へ収束する。 */
+    @Test
+    fun togglePinThreadTab_finalSnapshotOnlySupersedesEarlierWaiters() = runTest {
+        // --- Dependencies and initial canonical snapshot ---
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val initialTab = testTab("pin-final-only", 0, isPinned = false)
+        val requestedPins = mutableListOf<Boolean>()
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.setThreadTabPinned(initialTab.id, any()) } coAnswers {
+            requestedPins += (invocation.args[1] as Boolean)
+            true
+        }
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        databaseFlow.emit(listOf(initialTab))
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        // --- Rapid targeted writes ---
+        val toggleJobs = (0 until 4).map {
+            backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+                coordinator.togglePinThreadTab(initialTab.id)
+            }
+        }
+        runCurrent()
+
+        assertEquals(listOf(true, false, true, false), requestedPins)
+        assertTrue(toggleJobs.take(3).all { it.isCompleted })
+        assertFalse(toggleJobs.last().isCompleted)
+        assertEquals(false, coordinator.openThreadTabs.value.single().isPinned)
+
+        // --- Final canonical snapshot ---
+        databaseFlow.emit(listOf(initialTab.copy(isPinned = false)))
+        runCurrent()
+        toggleJobs.forEach { it.await() }
+
+        assertEquals(false, coordinator.openThreadTabs.value.single().isPinned)
+        coVerify(exactly = 4) { tabsRepository.setThreadTabPinned(initialTab.id, any()) }
+        coVerify(exactly = 0) { tabsRepository.replaceOpenThreadTabsForBulkOperation(any()) }
+    }
+
+    /** Ensure の待機中に Delete が成功した場合、Ensure を -1 で終端して最終削除を確認する。 */
+    @Test
+    fun ensureThenDelete_finalSnapshotOnlyReturnsMinusOneForEnsure() = runTest {
+        // --- Dependencies and initial canonical snapshot ---
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val route = testRoute("ensure-delete-final-only")
+        val tab = testTab("ensure-delete-final-only", 0)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.ensureOpenThreadTab(any()) } returns true
+        coEvery { tabsRepository.deleteOpenThreadTab(tab.id) } returns true
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        databaseFlow.emit(emptyList())
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        // --- Ensure followed by Delete without an intermediate snapshot ---
+        val ensureJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.ensureThreadTab(route)
+        }
+        runCurrent()
+        coordinator.updateThreadSessionState(tab.id) { it }
+        coordinator.updateThreadRuntimeState(tab.id) { it }
+        val deleteJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.closeThreadTab(tab)
+        }
+        runCurrent()
+
+        assertEquals(-1, ensureJob.await())
+        assertFalse(deleteJob.isCompleted)
+        assertTrue(coordinator.openThreadTabs.value.isEmpty())
+
+        // --- Final absence snapshot and cleanup ---
+        databaseFlow.emit(emptyList())
+        runCurrent()
+        deleteJob.await()
+
+        assertTrue(coordinator.openThreadTabs.value.isEmpty())
+        assertNull(coordinator.selectedThreadTabKey.value)
+        assertFalse(coordinator.threadSessionStates.value.containsKey(tab.id.value))
+        assertFalse(coordinator.threadRuntimeStates.value.containsKey(tab.id.value))
+    }
+
+    /** Delete が Ensure に置き換えられた場合、古い Delete の cleanup を実行しない。 */
+    @Test
+    fun deleteThenEnsure_finalSnapshotOnlyPreservesSessionUntilEnsure() = runTest {
+        // --- Dependencies and initial canonical snapshot ---
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val tab = testTab("delete-ensure-final-only", 0)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenThreadTab(tab.id) } returns true
+        coEvery { tabsRepository.ensureOpenThreadTab(any()) } returns true
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        databaseFlow.emit(listOf(tab))
+        coordinator.bind(backgroundScope)
+        runCurrent()
+        coordinator.selectThreadTab(tab.id)
+        coordinator.updateThreadSessionState(tab.id) { it }
+        coordinator.updateThreadRuntimeState(tab.id) { it }
+
+        // --- Delete followed by Ensure without an intermediate snapshot ---
+        val deleteJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.closeThreadTab(tab)
+        }
+        runCurrent()
+        val ensureJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.ensureThreadTab(testRoute(tab.id.value.substringAfterLast('/')))
+        }
+        runCurrent()
+
+        assertTrue(deleteJob.isCompleted)
+        assertTrue(coordinator.threadSessionStates.value.containsKey(tab.id.value))
+        assertTrue(coordinator.threadRuntimeStates.value.containsKey(tab.id.value))
+        assertEquals(tab.id.value, coordinator.selectedThreadTabKey.value)
+        assertFalse(ensureJob.isCompleted)
+
+        // --- Final presence snapshot ---
+        databaseFlow.emit(listOf(tab))
+        runCurrent()
+        assertEquals(0, ensureJob.await())
+        assertEquals(listOf(tab.id), coordinator.openThreadTabs.value.map { it.id })
+    }
+
+    /** 後続 pin が失敗した場合、先行 pin は supersede されず自身の canonical 値で完了する。 */
+    @Test
+    fun failedSuccessorPin_doesNotSupersedePredecessor() = runTest {
+        // --- Dependencies and controlled write failure ---
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val initialTab = testTab("pin-failed-successor", 0, isPinned = false)
+        var writeCount = 0
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.setThreadTabPinned(initialTab.id, any()) } coAnswers {
+            writeCount += 1
+            if (writeCount == 2) throw IllegalStateException("successor failed")
+            true
+        }
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        databaseFlow.emit(listOf(initialTab))
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        // --- Predecessor success and successor failure ---
+        val firstJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.togglePinThreadTab(initialTab.id)
+        }
+        val secondJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            runCatching { coordinator.togglePinThreadTab(initialTab.id) }
+        }
+        runCurrent()
+
+        assertFalse(firstJob.isCompleted)
+        assertTrue(secondJob.await().isFailure)
+
+        // --- Predecessor canonical snapshot ---
+        databaseFlow.emit(listOf(initialTab.copy(isPinned = true)))
+        runCurrent()
+        firstJob.await()
+        assertEquals(true, coordinator.openThreadTabs.value.single().isPinned)
+        coVerify(exactly = 2) { tabsRepository.setThreadTabPinned(initialTab.id, any()) }
+        coVerify(exactly = 0) { tabsRepository.replaceOpenThreadTabsForBulkOperation(any()) }
+    }
+
+    /** Thread が異なる rapid mutation は相互に waiter と projection を終端しない。 */
+    @Test
+    fun rapidMutationsOnDifferentThreadsRemainIndependent() = runTest {
+        // --- Dependencies and initial canonical snapshot ---
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val first = testTab("independent-a", 0, isPinned = false)
+        val second = testTab("independent-b", 1, isPinned = false)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.setThreadTabPinned(any(), any()) } returns true
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        databaseFlow.emit(listOf(first, second))
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        // --- Independent rapid mutations ---
+        val firstJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.togglePinThreadTab(first.id)
+        }
+        val secondJobs = (0 until 2).map {
+            backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+                coordinator.togglePinThreadTab(second.id)
+            }
+        }
+        runCurrent()
+
+        databaseFlow.emit(listOf(first, second.copy(isPinned = false)))
+        runCurrent()
+        secondJobs.forEach { it.await() }
+        assertFalse(firstJob.isCompleted)
+        assertTrue(coordinator.openThreadTabs.value.first { it.id == first.id }.isPinned)
+
+        // --- Final canonical snapshot for the held Thread ---
+        databaseFlow.emit(listOf(first.copy(isPinned = true), second.copy(isPinned = false)))
+        runCurrent()
+        firstJob.await()
+        assertEquals(
+            listOf(true, false),
+            coordinator.openThreadTabs.value.map { it.isPinned },
+        )
+    }
+
     /** DB 失敗で保留中の投影を戻しても、同じ worker は後続の要求を停止しない。 */
     @Test
     fun failedMutation_restoresCanonicalStateAndContinuesQueue() = runTest {
