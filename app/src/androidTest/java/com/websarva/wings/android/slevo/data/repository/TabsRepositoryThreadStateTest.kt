@@ -315,6 +315,34 @@ class TabsRepositoryThreadStateTest {
             assertEquals(expected.title, actual.title)
         }
 
+        repository.updateThreadTabScrollPosition(
+            threadId = addedId,
+            firstVisibleItemIndex = 77,
+            firstVisibleItemScrollOffset = 88,
+        )
+        repository.updateThreadState(
+            ThreadStateRepository.ThreadStateUpdate(
+                threadId = addedId,
+                boardId = 9L,
+                boardUrl = "https://example.com/test/",
+                boardName = "Updated board",
+                title = "Updated title",
+                latestResCount = 777,
+            )
+        )
+        val afterTargetedUpdates = repository.observeOpenThreadTabs().first()
+        val updatedTarget = afterTargetedUpdates.single { it.id == addedId }
+        assertEquals("Updated title", updatedTarget.title)
+        assertEquals("Updated board", updatedTarget.boardName)
+        assertEquals(9L, updatedTarget.boardId)
+        assertEquals(777, updatedTarget.resCount)
+        assertEquals(77, updatedTarget.firstVisibleItemIndex)
+        assertEquals(88, updatedTarget.firstVisibleItemScrollOffset)
+        assertEquals(true, updatedTarget.isPinned)
+        afterAdd.filterNot { it.id == addedId }.forEach { expected ->
+            assertEquals(expected, afterTargetedUpdates.single { actual -> actual.id == expected.id })
+        }
+
         repository.deleteOpenThreadTab(addedId)
         val afterDelete = repository.observeOpenThreadTabs().first()
         assertEquals(1_252, afterDelete.size)

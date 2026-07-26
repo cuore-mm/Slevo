@@ -13,6 +13,7 @@ import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsLoadState
+import com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -333,6 +334,21 @@ class TabSessionStoreTest {
 
         verify { boardCoordinator.ensureBoardTab(route) }
         verify { boardCoordinator.selectBoardTab(route.boardUrl) }
+    }
+
+    /** Board ensure failure は presentation 待ちへ進まず navigation 不可の terminal result になる。 */
+    @Test
+    fun registerAndConfirmBoardRoute_failureDoesNotSelectOrNavigate() = runTest {
+        val route = AppRoute.Board(
+            boardId = 1L,
+            boardName = "board",
+            boardUrl = "https://example.com/test/",
+        )
+        coEvery { boardCoordinator.ensureBoardTabCommand(route) } returns
+            TabCommandResult.Failure(IllegalStateException("write failed"))
+
+        assertFalse(createStore().registerAndConfirmBoardRoute(route))
+        verify(exactly = 0) { boardCoordinator.selectBoardTabCommand(route.boardUrl) }
     }
 
     /**

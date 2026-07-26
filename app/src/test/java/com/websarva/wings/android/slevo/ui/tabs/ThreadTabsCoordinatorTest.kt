@@ -636,6 +636,34 @@ class ThreadTabsCoordinatorTest {
         assertEquals(listOf(current.id, unrelated.id), result.map { it.id })
     }
 
+    /** 1,252 canonical rowsへ100 pendingを一度だけ折り畳み、順序と key 一意性を維持する。 */
+    @Test
+    fun projection_largeCanonicalAndRapidCommandsPreservesOrderAndUniqueKeys() {
+        val canonical = (0 until 1_252).map { index ->
+            testTab("large-$index", index, isPinned = index % 2 == 0, scrollIndex = index)
+        }
+        val pending = (0 until 100).map { index ->
+            ThreadTabPendingOperation.Pin(canonical[index].id, isPinned = index % 2 != 0)
+        }
+
+        val projected = projectThreadTabs(canonical, pending)
+
+        assertEquals(1_252, projected.size)
+        assertEquals(canonical.map { it.id }, projected.map { it.id })
+        assertEquals(projected.size, projected.map { it.id }.toSet().size)
+        pending.forEach { operation ->
+            val projectedTab = projected.single { it.id == operation.threadId }
+            assertEquals(operation.isPinned, projectedTab.isPinned)
+        }
+        assertEquals(canonical[1_000].firstVisibleItemIndex, projected[1_000].firstVisibleItemIndex)
+    }
+
+    /** 100 回の rapid same-key toggle は write 数だけを増やし、bulk replacement を呼ばない。 */
+    @Test
+    fun togglePinThreadTab_hundredRapidTogglesUsesOnlyTargetedWrites() = runTest {
+        assertRapidPinToggles(initialPinned = false, toggleCount = 100)
+    }
+
     /** DB 失敗で保留中の投影を戻しても、同じ worker は後続の要求を停止しない。 */
     @Test
     fun failedMutation_restoresCanonicalStateAndContinuesQueue() = runTest {
@@ -1087,6 +1115,7 @@ class ThreadTabsCoordinatorTest {
         toggleJobs.forEach { it.await() }
         assertEquals(expectedPins, requestedPins)
         assertEquals(expectedPins.last(), coordinator.openThreadTabs.value.single().isPinned)
+        coVerify(exactly = 0) { tabsRepository.replaceOpenThreadTabsForBulkOperation(any()) }
     }
 
     /**

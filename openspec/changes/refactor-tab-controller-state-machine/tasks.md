@@ -1,11 +1,11 @@
 ## 1. Characterization と test fixture
 
 - [x] 1.1 `BoardTabsCoordinatorTest.kt`、`ThreadTabsCoordinatorTest.kt`、`TabSessionStoreTest.kt`、`DeepLinkHandlerTest.kt` の既存 regression test を要件 matrix（loading/empty、selection repair、metadata、close、Deep Link、cancellation）へ対応付け、削除・期待値弱化がないことを checklist で確認する。
-- [ ] 1.2 `BoardTabsCoordinatorTest.kt` に controlled repository failure を追加し、Board command と `registerAndConfirmBoardRoute` 相当処理が terminal failure で完了し navigation しない failing test を作る。
-- [ ] 1.3 Board／Thread Controller test fixture に `StandardTestDispatcher`、replay 付き `MutableSharedFlow`、repository write barrier、call recorder を揃え、write と canonical emission を別々に進められることを fixture test で確認する。
-- [ ] 1.4 Controller test に command 受理前 cancellation、受理後 caller cancellation、store teardown の三ケースを追加し、pending／repository call／terminal result の期待値を固定する。
-- [ ] 1.5 Thread test に command A の matching Flow を止めたまま command B の DB write が開始し、B が A を含む effective state から導出される failing test を追加する。
-- [ ] 1.6 Board／Thread test に 1,252 canonical tabs と 100 rapid commands の fixture を追加し、unique key、stable order、targeted call count、full replacement 0 回を wall-clock timeout なしで検証する。
+- [x] 1.2 `BoardTabsCoordinatorTest.kt` に controlled repository failure を追加し、Board command と `registerAndConfirmBoardRoute` 相当処理が terminal failure で完了し navigation しない failing test を作る。
+- [x] 1.3 Board／Thread Controller test fixture に `StandardTestDispatcher`、replay 付き `MutableSharedFlow`、repository write barrier、call recorder を揃え、write と canonical emission を別々に進められることを fixture test で確認する。
+- [x] 1.4 Controller test に command 受理前 cancellation、受理後 caller cancellation、store teardown の三ケースを追加し、pending／repository call／terminal result の期待値を固定する。
+- [x] 1.5 Thread test に command A の matching Flow を止めたまま command B の DB write が開始し、B が A を含む effective state から導出される failing test を追加する。
+- [x] 1.6 Board／Thread test に 1,252 canonical tabs と 100 rapid commands の fixture を追加し、unique key、stable order、targeted call count、full replacement 0 回を wall-clock timeout なしで検証する。
 
 ## 2. Shared pure state/reducer contract
 
@@ -27,16 +27,16 @@
 
 - [x] 4.1 `BoardTabsCoordinator.kt` を単一 immutable Controller state と Room canonical event reducer へ移行し、旧 `_openBoardTabs`、独立 selected/pending mutable source を互換 Flow の正本にしないことを state test で確認する。
 - [x] 4.2 Board command acceptance、ordered pending projection、targeted repository effect、canonical matcher、terminal result を接続し、failure 後に canonical + 残存 pending へ戻って後続 command が進む test を通す。
-- [ ] 4.3 Board close の session cleanup と adjacent/first/empty repair を command result/reducer event に結び、非選択 close、選択 close、last close、Composition 破棄の既存 tests を通す。
+- [x] 4.3 Board close の session cleanup と adjacent/first/empty repair を command result/reducer event に結び、非選択 close、選択 close、last close、Composition 破棄の既存 tests を通す。
 - [x] 4.4 `TabSessionStore.kt` の Board API を Controller state/result の透過委譲へ変更し、Store 内の list mutation、repository call、presentation `first { Selected }` success inference が検索と delegation test で 0 件であることを確認する。
 - [x] 4.5 `DeepLinkHandler.kt` の Board path を explicit command result→selection result→navigation の順に変更し、success、repository failure、caller cancellation、既存 selection 保持の tests を通す。
-- [ ] 4.6 Board parity suite が通った後だけ fire-and-forget `saveBoardTabs` normal path と重複 Board mutable state を削除し、bulk API と restore behavior が残ることを確認する。
+- [x] 4.6 Board parity suite が通った後だけ fire-and-forget `saveBoardTabs` normal path と重複 Board mutable state を削除し、bulk API と restore behavior が残ることを確認する。
 
 ## 5. Thread repository result alignment
 
 - [x] 5.1 `TabsRepository.kt` の Thread ensure/delete/pin/info/scroll targeted API を success/no-op/failure が判別できる result 契約へ揃え、既存 `DatabaseWriteGate`／transaction／GC 契約を Room test で維持する。
 - [x] 5.2 Thread ensure repository、pending projection、canonical matcher が同じ metadata merge function を使うよう変更し、unrelated revision と matching metadata revision の既存 tests を通す。
-- [ ] 5.3 Thread normal operation から full replacement API が呼ばれず、1,252 rows の対象外 sort/pin/scroll/ThreadState が不変であることを instrumented test で確認する。
+- [x] 5.3 Thread normal operation から full replacement API が呼ばれず、1,252 rows の対象外 sort/pin/scroll/ThreadState が不変であることを instrumented test で確認する。
 
 ## 6. Thread Controller state consolidation
 
@@ -46,13 +46,13 @@
 - [x] 6.4 Room snapshot ごとに operation-specific matcher で部分確認し、stale/unrelated emission では pending/result を維持し、matching emission で各 terminal result を一度だけ返す tests を通す。
 - [x] 6.5 accepted command の caller cancellation link を execution から除去し、受理後 cancellation でも mutation/reconciliation が継続し、caller navigation だけが停止する tests を通す。
 - [x] 6.6 `TabSessionStore.close()` を唯一の Controller execution cancellation boundary とし、未完 waiter、effect runner、Room collector、session holder disposal の teardown test を通す。
-- [ ] 6.7 Thread close と `requestCloseThreadTab` の retained ownership、target session/runtime cleanup、last-tab Empty、tab-list callback の既存 tests を変更せず通す。
+- [x] 6.7 Thread close と `requestCloseThreadTab` の retained ownership、target session/runtime cleanup、last-tab Empty、tab-list callback の既存 tests を変更せず通す。
 
 ## 7. Thread Deep Link と Store facade
 
 - [x] 7.1 `TabSessionStore.kt` の Thread ensure/select/close/info API を Controller command/result の委譲へ揃え、Store が readiness/presentation/canonical 観測から成功を推論しないことを delegation test で確認する。
 - [x] 7.2 `DeepLinkHandler.kt` の Thread path を explicit ensure/selection result に接続し、registration 重複禁止、success→navigate、failure/no-op→非遷移、caller cancellation の既存 tests を通す。
-- [ ] 7.3 Board／Thread presentation が `BbsRouteScaffold` の既存 UI 契約を維持することを `BbsRouteScaffoldSelectionTest.kt` と `BbsRouteScaffoldTest.kt` で確認し、新規 text/icon/layout/semantics がないことを diff review する。
+- [x] 7.3 Board／Thread presentation が `BbsRouteScaffold` の既存 UI 契約を維持することを `BbsRouteScaffoldSelectionTest.kt` と `BbsRouteScaffoldTest.kt` で確認し、新規 text/icon/layout/semantics がないことを diff review する。
 
 ## 8. 旧 machinery の段階削除
 

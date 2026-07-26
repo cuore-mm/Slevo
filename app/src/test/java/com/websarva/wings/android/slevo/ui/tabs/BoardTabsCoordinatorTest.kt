@@ -1,15 +1,31 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import com.websarva.wings.android.slevo.data.repository.BookmarkBoardRepository
+import com.websarva.wings.android.slevo.data.repository.TabMutationResult
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
+import com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult
 import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import io.mockk.coVerify
+import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -111,6 +127,26 @@ class BoardTabsCoordinatorTest {
         )
     }
 
+    /** 1,252 Board rowsへ100 rapid commandを適用しても key 一意性と安定順序を維持する。 */
+    @Test
+    fun largeBoardSnapshotAndRapidCommandsPreserveOrderWithoutBulkPersistence() {
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val coordinator = createCoordinator(tabsRepository)
+        val initialTabs = (0 until 1_252).map { index -> testBoardTab("large-$index") }
+
+        initialTabs.forEach(coordinator::openBoardTab)
+        repeat(100) { coordinator.togglePinBoardTab(initialTabs.first().boardUrl) }
+
+        assertEquals(initialTabs.map { it.boardUrl }, coordinator.openBoardTabs.value.map { it.boardUrl })
+        assertEquals(1_252, coordinator.openBoardTabs.value.size)
+        assertEquals(
+            coordinator.openBoardTabs.value.size,
+            coordinator.openBoardTabs.value.map { it.boardUrl }.toSet().size,
+        )
+        assertEquals(initialTabs.first().isPinned, coordinator.openBoardTabs.value.first().isPinned)
+        coVerify(exactly = 0) { tabsRepository.saveOpenBoardTabs(any()) }
+    }
+
     /** 最後の tab close は selected key と presentation state を同時に空へ遷移させる。 */
     @Test
     fun closeLastBoardTab_publishesEmptyPresentationState() {
@@ -197,6 +233,107 @@ class BoardTabsCoordinatorTest {
         assertEquals("second", coordinator.getBoardSessionState(second.boardUrl).searchQuery)
     }
 
+    /** Board targeted write の失敗が presentation 待ちではなく terminal failure になることを確認する。 */
+    @Test
+    fun ensureBoardTabCommand_repositoryFailureCompletesWithoutNavigationState() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.ensureOpenBoardTab(any()) } returns
+            TabMutationResult.Failure(IllegalStateException("write failed"))
+        databaseFlow.emit(emptyList())
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+
+        val command = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.ensureBoardTabCommand(testBoardRoute())
+        }
+        runCurrent()
+        val result = command.await()
+
+        assertTrue(result is TabCommandResult.Failure)
+        assertEquals("write failed", (result as TabCommandResult.Failure).cause.message)
+        assertTrue(coordinator.openBoardTabs.value.isEmpty())
+        coordinator.close()
+    }
+
+    /** write barrier と canonical emission を別々に進めても、確認前の pending projection を保持する。 */
+    @Test
+    fun boardFixture_separatesRepositoryWriteFromCanonicalConfirmation() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val writeStarted = CompletableDeferred<Unit>()
+        val writeRelease = CompletableDeferred<Unit>()
+        val target = testBoardTab("target")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.ensureOpenBoardTab(any()) } coAnswers {
+            writeStarted.complete(Unit)
+            writeRelease.await()
+            TabMutationResult.Success
+        }
+        databaseFlow.emit(emptyList())
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        val command = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.ensureBoardTabCommand(testBoardRoute("target"))
+        }
+        runCurrent()
+
+        assertTrue(writeStarted.isCompleted)
+        assertFalse(command.isCompleted)
+        assertEquals(listOf(target), coordinator.openBoardTabs.value)
+
+        writeRelease.complete(Unit)
+        runCurrent()
+        assertFalse(command.isCompleted)
+
+        databaseFlow.emit(listOf(target))
+        runCurrent()
+        assertTrue(command.await() is TabCommandResult.Success)
+        coVerify(exactly = 0) { tabsRepository.saveOpenBoardTabs(any()) }
+        coordinator.close()
+    }
+
+    /** bound Controller の close が選択修復と session cleanup を canonical 確認後に完了することを確認する。 */
+    @Test
+    fun boundClose_repairsSelectionAndCleansSessionAfterCanonicalDeletion() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val first = testBoardTab("first")
+        val second = testBoardTab("second")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenBoardTab(first.boardUrl) } returns TabMutationResult.Success
+        databaseFlow.emit(listOf(first, second))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        coordinator.selectBoardTab(first.boardUrl)
+        coordinator.updateBoardSessionState(first.boardUrl) { it.copy(searchQuery = "retained") }
+
+        coordinator.closeBoardTab(first)
+        runCurrent()
+        assertEquals(second.boardUrl, coordinator.selectedBoardTabKey.value)
+        assertEquals(listOf(second), coordinator.openBoardTabs.value)
+        assertEquals("retained", coordinator.getBoardSessionState(first.boardUrl).searchQuery)
+
+        databaseFlow.emit(listOf(second))
+        runCurrent()
+        assertEquals(BoardSessionState(), coordinator.getBoardSessionState(first.boardUrl))
+        assertEquals(listOf(second), coordinator.openBoardTabs.value)
+        coordinator.close()
+    }
+
     /**
      * セッション状態更新が永続タブ保存を呼ばないことを確認する。
      */
@@ -248,10 +385,28 @@ class BoardTabsCoordinatorTest {
         assertEquals(true, actual.isPinned)
     }
 
-    private fun createCoordinator(tabsRepository: TabsRepository): BoardTabsCoordinator {
+    private fun createCoordinator(
+        tabsRepository: TabsRepository,
+        bookmarkRepository: BookmarkBoardRepository = mockk(relaxed = true),
+    ): BoardTabsCoordinator {
         return BoardTabsCoordinator(
             tabsRepository = tabsRepository,
-            bookmarkBoardRepository = mockk<BookmarkBoardRepository>(relaxed = true),
+            bookmarkBoardRepository = bookmarkRepository,
         )
     }
+
+    /** テスト用の Board route を作成する。 */
+    private fun testBoardRoute(key: String = "target"): AppRoute.Board = AppRoute.Board(
+        boardId = key.hashCode().toLong(),
+        boardName = key,
+        boardUrl = "https://example.com/$key/",
+    )
+
+    /** stable key を持つ Board tab を作成する。 */
+    private fun testBoardTab(key: String): BoardTabInfo = BoardTabInfo(
+        boardId = key.hashCode().toLong(),
+        boardName = key,
+        boardUrl = "https://example.com/$key/",
+        serviceName = "example.com",
+    )
 }
