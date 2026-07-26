@@ -65,6 +65,22 @@ class BoardTabsCoordinator @Inject constructor(
         data class Scroll(val boardUrl: String, val index: Int, val offset: Int) : Operation
     }
 
+    /**
+     * 同一 Board の同一 targeted write を supersede するための内部 key。
+     * Board URL と更新種別の両方を含め、異なる更新種別の pending は独立して保持する。
+     */
+    private data class BoardSupersessionKey(
+        val boardUrl: String,
+        val kind: Kind,
+    ) {
+        /** Board command の targeted write 種別を表す。 */
+        private enum class Kind {
+            Scroll,
+            Pin,
+            Info,
+        }
+    }
+
     private val commandIds = AtomicLong(0)
     private val controllerScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Unconfined)
     private val _state = MutableStateFlow(
@@ -281,13 +297,18 @@ class BoardTabsCoordinator @Inject constructor(
             operation = operation,
             result = CompletableDeferred(),
         )
+        var superseded = emptyList<BoardPendingOperation>()
         _state.update { state ->
+            val key = operation.supersessionKey()
+            superseded = state.pendingCommands.filter { it.operation.supersessionKey() == key && key != null }
             val selectedKey = if (operation is Operation.Delete) operation.requestedSelection else state.selectedKey
             state.copy(
-                pendingCommands = state.pendingCommands + pending,
+                pendingCommands = state.pendingCommands.filterNot { it in superseded } + pending,
                 selectedKey = selectedKey,
             ).rebuildPresentation()
         }
+        // supersede 済み waiter は個別 canonical 通知を待たず、obsolete intent として解放する。
+        superseded.forEach { it.result.complete(TabCommandResult.NoOp()) }
         return pending
     }
 
@@ -295,6 +316,8 @@ class BoardTabsCoordinator @Inject constructor(
     private suspend fun execute(pending: BoardPendingOperation) {
         // 初回 Room snapshot 前は空一覧を canonical とみなさず、write を開始しない。
         _state.first { it.loadPhase == TabLoadPhase.Loaded }
+        // load 待ち中に supersede された command は targeted write を開始しない。
+        if (_state.value.pendingCommands.none { it.id == pending.id }) return
         val mutation = runCatching {
             when (val operation = pending.operation) {
                 is Operation.Ensure -> tabsRepository.ensureOpenBoardTab(operation.tab)
@@ -304,6 +327,8 @@ class BoardTabsCoordinator @Inject constructor(
                 is Operation.Scroll -> tabsRepository.updateBoardTabScrollPosition(operation.boardUrl, operation.index, operation.offset)
             }
         }.getOrElse { TabMutationResult.Failure(it) }
+        // dispatch 済み command が遅れて終わっても、最新 command の state を復活させない。
+        if (_state.value.pendingCommands.none { it.id == pending.id }) return
         when (mutation) {
             TabMutationResult.Success -> Unit
             TabMutationResult.NoOp -> finish(pending, TabCommandResult.NoOp(indexFor(pending.operation)))
@@ -312,6 +337,18 @@ class BoardTabsCoordinator @Inject constructor(
         if (mutation != TabMutationResult.Success) return
         _state.update { state -> state.copy(pendingCommands = state.pendingCommands.map { if (it.id == pending.id) it.copy(lifecycle = TabCommandLifecycle.CommittedAwaitingCanonical) else it }) }
         reconcileCanonical(_state.value.canonicalTabs)
+    }
+
+    /**
+     * Scroll、Pin、Info だけを Board と更新種別の key に分類する。
+     * Ensure と Delete は lifecycle と selection の契約があるため supersession 対象外とする。
+     */
+    private fun Operation.supersessionKey(): BoardSupersessionKey? = when (this) {
+        is Operation.Ensure -> null
+        is Operation.Delete -> null
+        is Operation.Pin -> BoardSupersessionKey(boardUrl, BoardSupersessionKey.Kind.Pin)
+        is Operation.Info -> BoardSupersessionKey(tab.boardUrl, BoardSupersessionKey.Kind.Info)
+        is Operation.Scroll -> BoardSupersessionKey(boardUrl, BoardSupersessionKey.Kind.Scroll)
     }
 
     private fun finish(pending: BoardPendingOperation, result: TabCommandResult<Int>) {

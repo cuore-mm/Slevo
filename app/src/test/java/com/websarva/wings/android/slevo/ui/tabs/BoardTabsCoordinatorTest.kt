@@ -440,6 +440,241 @@ class BoardTabsCoordinatorTest {
         coordinator.close()
     }
 
+    /** 中間 canonical 通知がなくても、反復 scroll は最新位置だけを投影して最終値へ収束する。 */
+    @Test
+    fun repeatedScrollWrites_finalOnlyCanonicalEmissionBoundsPendingAndConverges() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val initial = testBoardTab("rapid-scroll")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.updateBoardTabScrollPosition(any(), any(), any()) } returns TabMutationResult.Success
+        databaseFlow.emit(listOf(initial))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+
+        val positions = listOf(10 to 2, 20 to 4, 30 to 6)
+        positions.forEach { (index, offset) ->
+            coordinator.updateBoardScrollPosition(initial.boardUrl, index, offset)
+            runCurrent()
+            assertEquals(index, coordinator.openBoardTabs.value.single().firstVisibleItemIndex)
+            assertEquals(offset, coordinator.openBoardTabs.value.single().firstVisibleItemScrollOffset)
+        }
+
+        assertEquals(initial, coordinator.openBoardTabs.value.single().copy(
+            firstVisibleItemIndex = initial.firstVisibleItemIndex,
+            firstVisibleItemScrollOffset = initial.firstVisibleItemScrollOffset,
+        ))
+        val final = initial.copy(firstVisibleItemIndex = 30, firstVisibleItemScrollOffset = 6)
+        databaseFlow.emit(listOf(final))
+        runCurrent()
+
+        assertEquals(listOf(final), coordinator.openBoardTabs.value)
+        coVerify(exactly = 1) { tabsRepository.updateBoardTabScrollPosition(initial.boardUrl, 10, 2) }
+        coVerify(exactly = 1) { tabsRepository.updateBoardTabScrollPosition(initial.boardUrl, 20, 4) }
+        coVerify(exactly = 1) { tabsRepository.updateBoardTabScrollPosition(initial.boardUrl, 30, 6) }
+        coVerify(exactly = 0) { tabsRepository.saveOpenBoardTabs(any()) }
+        coordinator.close()
+    }
+
+    /** 初回 dispatch 前に連続した scroll を登録すると、obsolete write は repository に届かない。 */
+    @Test
+    fun queuedScrollWrites_supersededWritesAreSkipped() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val initial = testBoardTab("queued-scroll")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.updateBoardTabScrollPosition(any(), any(), any()) } returns TabMutationResult.Success
+        databaseFlow.emit(listOf(initial))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+
+        coordinator.updateBoardScrollPosition(initial.boardUrl, 1, 10)
+        coordinator.updateBoardScrollPosition(initial.boardUrl, 2, 20)
+        coordinator.updateBoardScrollPosition(initial.boardUrl, 3, 30)
+        runCurrent()
+
+        coVerify(exactly = 0) { tabsRepository.updateBoardTabScrollPosition(initial.boardUrl, 1, 10) }
+        coVerify(exactly = 0) { tabsRepository.updateBoardTabScrollPosition(initial.boardUrl, 2, 20) }
+        coVerify(exactly = 1) { tabsRepository.updateBoardTabScrollPosition(initial.boardUrl, 3, 30) }
+        assertEquals(3, coordinator.openBoardTabs.value.single().firstVisibleItemIndex)
+        assertEquals(30, coordinator.openBoardTabs.value.single().firstVisibleItemScrollOffset)
+        coordinator.close()
+    }
+
+    /** 反復 pin は effective projection の最新 intent を維持し、最終 canonical 値で確認される。 */
+    @Test
+    fun rapidPinWrites_finalOnlyCanonicalEmissionConverges() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val initial = testBoardTab("rapid-pin")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.setBoardTabPinned(any(), any()) } returns TabMutationResult.Success
+        databaseFlow.emit(listOf(initial))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+
+        repeat(3) { coordinator.togglePinBoardTab(initial.boardUrl) }
+        assertTrue(coordinator.openBoardTabs.value.single().isPinned)
+        runCurrent()
+
+        coVerify(exactly = 0) { tabsRepository.setBoardTabPinned(initial.boardUrl, false) }
+        coVerify(exactly = 1) { tabsRepository.setBoardTabPinned(initial.boardUrl, true) }
+        databaseFlow.emit(listOf(initial.copy(isPinned = true)))
+        runCurrent()
+
+        assertTrue(coordinator.openBoardTabs.value.single().isPinned)
+        coVerify(exactly = 0) { tabsRepository.saveOpenBoardTabs(any()) }
+        coordinator.close()
+    }
+
+    /** 反復 resolved info は古い board metadata を復活させず、最終 snapshot に収束する。 */
+    @Test
+    fun rapidResolvedInfoWrites_finalOnlyCanonicalEmissionConverges() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val initial = testBoardTab("rapid-info").copy(isPinned = true, firstVisibleItemIndex = 7)
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.updateBoardTabInfo(any()) } returns TabMutationResult.Success
+        databaseFlow.emit(listOf(initial))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+
+        coordinator.updateBoardResolvedInfo(initial.boardUrl, 2L, "old")
+        coordinator.updateBoardResolvedInfo(initial.boardUrl, 3L, "latest")
+        runCurrent()
+
+        val projected = coordinator.openBoardTabs.value.single()
+        assertEquals(3L, projected.boardId)
+        assertEquals("latest", projected.boardName)
+        assertTrue(projected.isPinned)
+        assertEquals(7, projected.firstVisibleItemIndex)
+        coVerify(exactly = 0) { tabsRepository.updateBoardTabInfo(match { it.boardId == 2L }) }
+        coVerify(exactly = 1) { tabsRepository.updateBoardTabInfo(match { it.boardId == 3L && it.boardName == "latest" }) }
+
+        databaseFlow.emit(listOf(projected))
+        runCurrent()
+        assertEquals(listOf(projected), coordinator.openBoardTabs.value)
+        coordinator.close()
+    }
+
+    /** supersede 後に到着した先行 failure は、最新 projection と pending を変更しない。 */
+    @Test
+    fun supersededWriteFailure_doesNotRemoveLatestPending() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val initial = testBoardTab("superseded-failure")
+        val firstRelease = CompletableDeferred<TabMutationResult>()
+        val latestRelease = CompletableDeferred<TabMutationResult>()
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.updateBoardTabScrollPosition(any(), any(), 10) } coAnswers { firstRelease.await() }
+        coEvery { tabsRepository.updateBoardTabScrollPosition(any(), any(), 20) } coAnswers { latestRelease.await() }
+        databaseFlow.emit(listOf(initial))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        coordinator.updateBoardScrollPosition(initial.boardUrl, 1, 10)
+        runCurrent()
+        coordinator.updateBoardScrollPosition(initial.boardUrl, 2, 20)
+        runCurrent()
+
+        firstRelease.complete(TabMutationResult.Failure(IllegalStateException("obsolete failure")))
+        runCurrent()
+        assertEquals(2, coordinator.openBoardTabs.value.single().firstVisibleItemIndex)
+        assertEquals(20, coordinator.openBoardTabs.value.single().firstVisibleItemScrollOffset)
+
+        latestRelease.complete(TabMutationResult.Success)
+        runCurrent()
+        databaseFlow.emit(listOf(initial.copy(firstVisibleItemIndex = 2, firstVisibleItemScrollOffset = 20)))
+        runCurrent()
+        assertEquals(2, coordinator.openBoardTabs.value.single().firstVisibleItemIndex)
+        coordinator.close()
+    }
+
+    /** 最新 write の failure は最新 projection だけを除去し、DB canonical state へ戻す。 */
+    @Test
+    fun latestWriteFailure_rollsBackWithoutRestoringSupersededProjection() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val initial = testBoardTab("latest-failure")
+        val firstRelease = CompletableDeferred<TabMutationResult>()
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.updateBoardTabScrollPosition(any(), any(), 10) } coAnswers { firstRelease.await() }
+        coEvery { tabsRepository.updateBoardTabScrollPosition(any(), any(), 20) } returns
+            TabMutationResult.Failure(IllegalStateException("latest failure"))
+        databaseFlow.emit(listOf(initial))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        coordinator.updateBoardScrollPosition(initial.boardUrl, 1, 10)
+        runCurrent()
+        coordinator.updateBoardScrollPosition(initial.boardUrl, 2, 20)
+        runCurrent()
+
+        assertEquals(initial, coordinator.openBoardTabs.value.single())
+        firstRelease.complete(TabMutationResult.Success)
+        runCurrent()
+        assertEquals(initial, coordinator.openBoardTabs.value.single())
+        coVerify(exactly = 1) { tabsRepository.updateBoardTabScrollPosition(initial.boardUrl, 2, 20) }
+        coordinator.close()
+    }
+
+    /** 同じ更新種別でも Board が異なれば canonical confirmation は相互に独立する。 */
+    @Test
+    fun sameOperationOnDifferentBoards_confirmsIndependently() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val first = testBoardTab("independent-a")
+        val second = testBoardTab("independent-b")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.updateBoardTabScrollPosition(any(), any(), any()) } returns TabMutationResult.Success
+        databaseFlow.emit(listOf(first, second))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        coordinator.updateBoardScrollPosition(first.boardUrl, 1, 10)
+        coordinator.updateBoardScrollPosition(second.boardUrl, 2, 20)
+        runCurrent()
+
+        databaseFlow.emit(listOf(first.copy(firstVisibleItemIndex = 1, firstVisibleItemScrollOffset = 10), second))
+        runCurrent()
+        assertEquals(1, coordinator.openBoardTabs.value.first().firstVisibleItemIndex)
+        assertEquals(20, coordinator.openBoardTabs.value.last().firstVisibleItemScrollOffset)
+
+        databaseFlow.emit(listOf(
+            first.copy(firstVisibleItemIndex = 1, firstVisibleItemScrollOffset = 10),
+            second.copy(firstVisibleItemIndex = 2, firstVisibleItemScrollOffset = 20),
+        ))
+        runCurrent()
+        assertEquals(1, coordinator.openBoardTabs.value.first().firstVisibleItemIndex)
+        assertEquals(2, coordinator.openBoardTabs.value.last().firstVisibleItemIndex)
+        coordinator.close()
+    }
+
     /** bound Controller の close が選択修復と session cleanup を canonical 確認後に完了することを確認する。 */
     @Test
     fun boundClose_repairsSelectionAndCleansSessionAfterCanonicalDeletion() = runTest {
