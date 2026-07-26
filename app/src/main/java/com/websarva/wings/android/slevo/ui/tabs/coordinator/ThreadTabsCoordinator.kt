@@ -21,6 +21,7 @@ import dagger.hilt.android.scopes.ActivityRetainedScoped
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
@@ -521,7 +522,7 @@ class ThreadTabsCoordinator @Inject constructor(
                 // 呼び出し元のキャンセルと同時に準備が完了している可能性がある。
                 if (isIntentCancelled(intent)) continue
                 // canonical confirmation は後続 command の write barrier ではない。
-                scope?.launch { processIntent(intent) }
+                scope?.launch(start = CoroutineStart.UNDISPATCHED) { processIntent(intent) }
             }
         } finally {
             // 破棄後に完了できない通知を待つ呼び出し元を残さない。

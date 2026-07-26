@@ -882,7 +882,7 @@ class ThreadTabsCoordinatorTest {
         runCurrent()
 
         assertEquals(listOf(true, false), requestedPins)
-        assertTrue(coordinator.openThreadTabs.value.single().isPinned)
+        assertFalse(coordinator.openThreadTabs.value.single().isPinned)
         firstToggle.cancel()
         firstToggle.join()
         runCurrent()
@@ -948,7 +948,7 @@ class ThreadTabsCoordinatorTest {
         assertTrue(commitRecorded.isCompleted)
         assertTrue(firstToggle.isCancelled)
         assertEquals(listOf(true, false), requestedPins)
-        assertTrue(coordinator.openThreadTabs.value.single().isPinned)
+        assertFalse(coordinator.openThreadTabs.value.single().isPinned)
         assertFalse(secondToggle.isCompleted)
 
         // 古い canonical false でも commit 済み pending pin と後続 write を保持する。
