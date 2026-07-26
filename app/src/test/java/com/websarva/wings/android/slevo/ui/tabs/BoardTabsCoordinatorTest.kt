@@ -18,12 +18,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.launch
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -195,9 +196,12 @@ class BoardTabsCoordinatorTest {
         runCurrent()
         assertTrue(emittedTargets.isEmpty())
 
-        databaseFlow.emit(listOf(testBoardTab("only")))
+        databaseFlow.emit(listOf(testBoardTab("only"), testBoardTab("second")))
         runCurrent()
-        coordinator.selectBoardTab("missing")
+        setControllerSelectedKey(coordinator, null)
+        coordinator.animateBoardPage(1)
+        runCurrent()
+        setControllerSelectedKey(coordinator, "missing")
         coordinator.animateBoardPage(1)
         runCurrent()
 
@@ -648,6 +652,27 @@ class BoardTabsCoordinatorTest {
             tabsRepository = tabsRepository,
             bookmarkBoardRepository = bookmarkRepository,
         )
+    }
+
+    /** animation 専用の unresolved selection を作り、presentation の選択補正とは分離して検証する。 */
+    @Suppress("UNCHECKED_CAST")
+    private fun setControllerSelectedKey(coordinator: BoardTabsCoordinator, selectedKey: String?) {
+        val stateField = BoardTabsCoordinator::class.java.getDeclaredField("_state")
+        stateField.isAccessible = true
+        val stateFlow = stateField.get(coordinator) as MutableStateFlow<Any>
+        val state = stateFlow.value
+        val copyMethod = state.javaClass.methods.first { method ->
+            method.name == "copy" && method.parameterTypes.size == 5
+        }
+        val updatedState = copyMethod.invoke(
+            state,
+            state.javaClass.getMethod("getLoadPhase").invoke(state),
+            state.javaClass.getMethod("getCanonicalTabs").invoke(state),
+            state.javaClass.getMethod("getPendingCommands").invoke(state),
+            selectedKey,
+            state.javaClass.getMethod("getPresentation").invoke(state),
+        )
+        stateFlow.value = updatedState
     }
 
     /** テスト用の Board route を作成する。 */
