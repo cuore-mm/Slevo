@@ -63,9 +63,9 @@
 
 ## 9. 統合 verification
 
-- [ ] 9.1 deterministic matrix として Board/Thread × ensure/delete/pin/info × success/no-op/failure × stale/matching Flow × caller active/cancelled × non-empty/last-tab を実行し、各 scenario の terminal result、projection、selection を確認する。
-- [ ] 9.2 `./gradlew testDebugUnitTest` を実行し、既存五 active change の regression tests と新 reducer/controller tests が全て成功することを確認する。
-- [ ] 9.3 `./gradlew assembleDebug` を実行し、production/test call site の source API 移行漏れがないことを確認する。
+- [x] 9.1 deterministic matrix として Board/Thread × ensure/delete/pin/info × success/no-op/failure × stale/matching Flow × caller active/cancelled × non-empty/last-tab を実行し、各 scenario の terminal result、projection、selection を確認する。
+- [x] 9.2 `./gradlew testDebugUnitTest` を実行し、既存五 active change の regression tests と新 reducer/controller tests が全て成功することを確認する。
+- [x] 9.3 `./gradlew assembleDebug` を実行し、production/test call site の source API 移行漏れがないことを確認する。
 - [ ] 9.4 接続済み emulator/device で `TabsRepositoryThreadStateTest`、新 Board targeted Room test、`BbsRouteScaffoldTest` を実行し、Room transaction/Flow と Compose 表示回帰がないことを確認する。
 - [x] 9.5 production diff を確認し、DB schema/resource/manifest、UI text/icon/layout/theme/accessibility、route format に変更がないこと、日本語 KDoc/comment と長関数 section header 規則を満たすことを確認する。
 
