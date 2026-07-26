@@ -336,6 +336,125 @@ class BoardTabsCoordinatorTest {
         coordinator.close()
     }
 
+    /** bound mode の中央 tab close が削除前 index の次の tab を選択することを確認する。 */
+    @Test
+    fun boundClose_middleSelectedTab_selectsTabAtRemovedIndex() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val first = testBoardTab("first")
+        val middle = testBoardTab("middle")
+        val last = testBoardTab("last")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenBoardTab(middle.boardUrl) } returns TabMutationResult.Success
+        databaseFlow.emit(listOf(first, middle, last))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        coordinator.selectBoardTab(middle.boardUrl)
+
+        coordinator.closeBoardTab(middle)
+        runCurrent()
+        assertEquals(last.boardUrl, coordinator.selectedBoardTabKey.value)
+        assertEquals(listOf(first, last), coordinator.openBoardTabs.value)
+
+        databaseFlow.emit(listOf(first, last))
+        runCurrent()
+        coVerify(exactly = 1) { tabsRepository.deleteOpenBoardTab(middle.boardUrl) }
+        coordinator.close()
+    }
+
+    /** bound mode の末尾 tab close が新しい末尾 tab を選択することを確認する。 */
+    @Test
+    fun boundClose_lastSelectedTab_selectsPreviousTab() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val first = testBoardTab("first")
+        val middle = testBoardTab("middle")
+        val last = testBoardTab("last")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenBoardTab(last.boardUrl) } returns TabMutationResult.Success
+        databaseFlow.emit(listOf(first, middle, last))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        coordinator.selectBoardTab(last.boardUrl)
+
+        coordinator.closeBoardTab(last)
+        runCurrent()
+        assertEquals(middle.boardUrl, coordinator.selectedBoardTabKey.value)
+        assertEquals(listOf(first, middle), coordinator.openBoardTabs.value)
+
+        databaseFlow.emit(listOf(first, middle))
+        runCurrent()
+        coVerify(exactly = 1) { tabsRepository.deleteOpenBoardTab(last.boardUrl) }
+        coordinator.close()
+    }
+
+    /** bound mode の非選択 tab close が現在の選択を維持することを確認する。 */
+    @Test
+    fun boundClose_unselectedTab_preservesSelection() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val first = testBoardTab("first")
+        val middle = testBoardTab("middle")
+        val last = testBoardTab("last")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenBoardTab(middle.boardUrl) } returns TabMutationResult.Success
+        databaseFlow.emit(listOf(first, middle, last))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        coordinator.selectBoardTab(last.boardUrl)
+
+        coordinator.closeBoardTab(middle)
+        runCurrent()
+        assertEquals(last.boardUrl, coordinator.selectedBoardTabKey.value)
+        assertEquals(listOf(first, last), coordinator.openBoardTabs.value)
+
+        databaseFlow.emit(listOf(first, last))
+        runCurrent()
+        coVerify(exactly = 1) { tabsRepository.deleteOpenBoardTab(middle.boardUrl) }
+        coordinator.close()
+    }
+
+    /** bound mode の唯一の tab close が null 選択と Empty presentation になることを確認する。 */
+    @Test
+    fun boundClose_soleTab_clearsSelectionAndPublishesEmpty() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val only = testBoardTab("only")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenBoardTab(only.boardUrl) } returns TabMutationResult.Success
+        databaseFlow.emit(listOf(only))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        coordinator.selectBoardTab(only.boardUrl)
+
+        coordinator.closeBoardTab(only)
+        runCurrent()
+        assertNull(coordinator.selectedBoardTabKey.value)
+        assertEquals(TabSelectionResolution.Empty, coordinator.boardPresentationState.value.selection)
+        assertTrue(coordinator.openBoardTabs.value.isEmpty())
+
+        databaseFlow.emit(emptyList())
+        runCurrent()
+        coVerify(exactly = 1) { tabsRepository.deleteOpenBoardTab(only.boardUrl) }
+        coordinator.close()
+    }
+
     /**
      * セッション状態更新が永続タブ保存を呼ばないことを確認する。
      */

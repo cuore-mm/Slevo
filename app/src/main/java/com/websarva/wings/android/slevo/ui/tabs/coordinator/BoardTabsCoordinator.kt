@@ -59,7 +59,7 @@ class BoardTabsCoordinator @Inject constructor(
 
     private sealed interface Operation {
         data class Ensure(val tab: BoardTabInfo) : Operation
-        data class Delete(val boardUrl: String) : Operation
+        data class Delete(val boardUrl: String, val requestedSelection: String?) : Operation
         data class Pin(val boardUrl: String, val isPinned: Boolean) : Operation
         data class Info(val tab: BoardTabInfo) : Operation
         data class Scroll(val boardUrl: String, val index: Int, val offset: Int) : Operation
@@ -182,7 +182,16 @@ class BoardTabsCoordinator @Inject constructor(
             _boardSessionStates.update { it - tab.boardUrl }
             return
         }
-        acceptWithoutWaiting(Operation.Delete(tab.boardUrl))
+        val tabs = effectiveTabs(_state.value)
+        val removedIndex = tabs.indexOfFirst { it.boardUrl == tab.boardUrl }
+        val remainingTabs = tabs.filterNot { it.boardUrl == tab.boardUrl }
+        val requestedSelection = selectionAfterTabRemoval(
+            _state.value.selectedKey,
+            tab.boardUrl,
+            removedIndex,
+            remainingTabs,
+        ) { it.boardUrl }
+        acceptWithoutWaiting(Operation.Delete(tab.boardUrl, requestedSelection))
     }
 
     /** boardUrl から対象 tab を探して close command を受理する。 */
@@ -270,7 +279,13 @@ class BoardTabsCoordinator @Inject constructor(
             operation = operation,
             result = CompletableDeferred(),
         )
-        _state.update { state -> state.copy(pendingCommands = state.pendingCommands + pending).rebuildPresentation() }
+        _state.update { state ->
+            val selectedKey = if (operation is Operation.Delete) operation.requestedSelection else state.selectedKey
+            state.copy(
+                pendingCommands = state.pendingCommands + pending,
+                selectedKey = selectedKey,
+            ).rebuildPresentation()
+        }
         return pending
     }
 
