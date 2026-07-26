@@ -74,7 +74,7 @@ class BoardTabsCoordinator @Inject constructor(
         val kind: Kind,
     ) {
         /** Board command の targeted write 種別を表す。 */
-        private enum class Kind {
+        enum class Kind {
             Scroll,
             Pin,
             Info,
