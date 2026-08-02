@@ -2,7 +2,7 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadId
@@ -30,6 +30,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -573,7 +574,8 @@ class ThreadRouteViewModelTest {
 
     /** ViewModelの内部scopeを含めてテスト用ViewModelを解放する。 */
     private fun invokeOnCleared(viewModel: ThreadRouteViewModel) {
-        val method = ViewModel::class.java.getDeclaredMethod("clear")
+        viewModel.viewModelScope.cancel()
+        val method = ThreadRouteViewModel::class.java.getDeclaredMethod("onCleared")
         method.isAccessible = true
         method.invoke(viewModel)
     }
