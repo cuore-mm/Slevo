@@ -166,7 +166,11 @@ class ThreadRouteViewModelTest {
         )
         val viewModel = dependencies.createViewModel()
 
-        val state = viewModel.uiStateFor(threadId.value).first { it.posts?.size == 110 }
+        val state = try {
+            viewModel.uiStateFor(threadId.value).first { it.posts?.size == 110 }
+        } finally {
+            invokeOnCleared(viewModel)
+        }
 
         assertEquals(
             listOf(
@@ -257,15 +261,19 @@ class ThreadRouteViewModelTest {
         )
         val viewModel = dependencies.createViewModel()
         val stateFlow = viewModel.uiStateFor(threadId.value)
-        val initial = stateFlow.first { it.posts?.size == 110 }
+        try {
+            val initial = stateFlow.first { it.posts?.size == 110 }
 
-        dependencies.openTabs.value = listOf(tab.copy(lastReadResNo = 110, newResCount = 0))
-        advanceUntilIdle()
+            dependencies.openTabs.value = listOf(tab.copy(lastReadResNo = 110, newResCount = 0))
+            advanceUntilIdle()
 
-        val updated = stateFlow.value
-        assertEquals(initial.postGroups, updated.postGroups)
-        assertEquals(initial.firstAfterIndex, updated.firstAfterIndex)
-        assertEquals(100, updated.firstAfterIndex)
+            val updated = stateFlow.value
+            assertEquals(initial.postGroups, updated.postGroups)
+            assertEquals(initial.firstAfterIndex, updated.firstAfterIndex)
+            assertEquals(100, updated.firstAfterIndex)
+        } finally {
+            invokeOnCleared(viewModel)
+        }
     }
 
     @Test
@@ -284,27 +292,31 @@ class ThreadRouteViewModelTest {
         )
         val viewModel = dependencies.createViewModel()
         val stateFlow = viewModel.uiStateFor(threadId.value)
-        stateFlow.first { it.posts?.size == 110 }
+        try {
+            stateFlow.first { it.posts?.size == 110 }
 
-        loadedPosts[threadId.value] = posts(115)
-        viewModel.reloadThread(threadId.value)
-        val appended = stateFlow.first { it.posts?.size == 115 && it.latestArrivalGroupIndex == 2 }
+            loadedPosts[threadId.value] = posts(115)
+            viewModel.reloadThread(threadId.value)
+            val appended = stateFlow.first { it.posts?.size == 115 && it.latestArrivalGroupIndex == 2 }
 
-        assertEquals(
-            listOf(
-                ThreadPostGroup(startResNo = 1, endResNo = 100, prevResCount = 0),
-                ThreadPostGroup(startResNo = 101, endResNo = 110, prevResCount = 100),
-                ThreadPostGroup(startResNo = 111, endResNo = 115, prevResCount = 110),
-            ),
-            appended.postGroups,
-        )
-        assertEquals(110, appended.firstAfterIndex)
+            assertEquals(
+                listOf(
+                    ThreadPostGroup(startResNo = 1, endResNo = 100, prevResCount = 0),
+                    ThreadPostGroup(startResNo = 101, endResNo = 110, prevResCount = 100),
+                    ThreadPostGroup(startResNo = 111, endResNo = 115, prevResCount = 110),
+                ),
+                appended.postGroups,
+            )
+            assertEquals(110, appended.firstAfterIndex)
 
-        viewModel.reloadThread(threadId.value)
-        advanceUntilIdle()
+            viewModel.reloadThread(threadId.value)
+            advanceUntilIdle()
 
-        assertEquals(null, stateFlow.value.latestArrivalGroupIndex)
-        assertEquals(-1, stateFlow.value.firstAfterIndex)
+            assertEquals(null, stateFlow.value.latestArrivalGroupIndex)
+            assertEquals(-1, stateFlow.value.firstAfterIndex)
+        } finally {
+            invokeOnCleared(viewModel)
+        }
     }
 
     @Test
@@ -551,7 +563,11 @@ class ThreadRouteViewModelTest {
             loadedPosts = mutableMapOf(tab.id.value to posts),
         )
         val viewModel = dependencies.createViewModel()
-        return viewModel.uiStateFor(tab.id.value).first { it.posts != null }
+        return try {
+            viewModel.uiStateFor(tab.id.value).first { it.posts != null }
+        } finally {
+            invokeOnCleared(viewModel)
+        }
     }
 
     /** protected onCleared をテストから呼び出す。 */
