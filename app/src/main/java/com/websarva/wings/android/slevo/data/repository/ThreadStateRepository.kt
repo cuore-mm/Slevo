@@ -22,7 +22,7 @@ import javax.inject.Singleton
 @Singleton
 class ThreadStateRepository @Inject constructor(
     private val dao: ThreadStateDao,
-    private val gate: DatabaseWriteGate,
+    private val gate: DatabaseWriteGate = DatabaseWriteGate(),
 ) {
     /**
      * GC の保持期間と削除件数上限をまとめる定数置き場。
@@ -39,6 +39,9 @@ class ThreadStateRepository @Inject constructor(
      */
     fun observeThreadStateMapByBoard(boardId: Long): Flow<Map<String, ThreadStateEntity>> =
         dao.observeByBoard(boardId).map { states -> states.associateBy { it.threadKey } }
+
+    /** 外側の Repository トランザクションで使用する正規状態を読み取る。 */
+    suspend fun getThreadState(threadId: ThreadId): ThreadStateEntity? = dao.find(threadId)
 
     /**
      * 1件のスレッド客観状態を保存する。

@@ -60,18 +60,18 @@ fun BoardScaffold(
 ) {
     val routeViewModel: BoardRouteViewModel = hiltViewModel()
     // --- Tab/state ---
-    val boardLoaded by tabSessionStore.boardLoaded.collectAsState()
-    val openBoardTabs by tabSessionStore.openBoardTabs.collectAsState()
-    val selectedBoardTabKey by tabSessionStore.selectedBoardTabKey.collectAsState()
+    val boardPresentationState by tabSessionStore.boardPresentationState.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(boardRoute, boardLoaded) {
-        if (!boardLoaded) {
+    LaunchedEffect(boardRoute, boardPresentationState) {
+        if (boardPresentationState.selection is com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution.Loading ||
+            boardPresentationState.selection is com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution.PendingMissing
+        ) {
             return@LaunchedEffect
         }
         // route 引数は初期化入力・placeholder として扱い、既に有効な選択中タブがある場合は上書きしない。
-        if (selectedBoardTabKey != null && openBoardTabs.any { it.boardUrl == selectedBoardTabKey }) {
+        if (boardPresentationState.selection is com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution.Selected) {
             return@LaunchedEffect
         }
         // --- Board resolution ---
@@ -103,10 +103,8 @@ fun BoardScaffold(
         route = boardRoute,
         tabSessionStore = tabSessionStore,
         navController = navController,
-        isTabsLoaded = boardLoaded,
+        presentationState = boardPresentationState,
         onEmptyTabs = { navController.navigateUp() },
-        openTabs = openBoardTabs,
-        selectedTabKey = selectedBoardTabKey,
         getUiState = { tab -> routeViewModel.uiStateFor(tab.boardUrl) },
         getBookmarkSheetHolder = { tab -> routeViewModel.bookmarkSheetHolderFor(tab.boardUrl) },
         getKey = { it.boardUrl },
@@ -207,8 +205,8 @@ fun BoardScaffold(
                                 resCount = threadInfo.resCount
                             )
                         )
-                        tabSessionStore.registerAndSelectThreadRoute(route)
-                        navController.navigateToThreadScreen(route)
+                        val index = tabSessionStore.registerAndSelectThreadRoute(route)
+                        if (index >= 0) navController.navigateToThreadScreen(route)
                     }
                 },
                 onLongClick = { threadInfo ->

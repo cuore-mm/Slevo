@@ -56,17 +56,15 @@ import kotlin.math.abs
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun <TabInfo : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
+fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
     route: AppRoute,
     tabSessionStore: TabSessionStore,
     navController: NavHostController,
-    isTabsLoaded: Boolean,
+    presentationState: TabPresentationState<TabInfo, Key>,
     onEmptyTabs: () -> Unit,
-    openTabs: List<TabInfo>,
-    selectedTabKey: Any?,
     getUiState: (TabInfo) -> StateFlow<UiState>,
     getBookmarkSheetHolder: (TabInfo) -> BookmarkBottomSheetStateHolder? = { null },
-    getKey: (TabInfo) -> Any,
+    getKey: (TabInfo) -> Key,
     getScrollIndex: (TabInfo) -> Int,
     getScrollOffset: (TabInfo) -> Int,
     updateScrollPosition: (tab: TabInfo, index: Int, offset: Int) -> Unit,
@@ -96,45 +94,64 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
     // - 各タブごとのUiState購読とリストのスクロール位置を保持/復元する
     // - 共通のボトムシートやダイアログを表示する
 
-    LaunchedEffect(isTabsLoaded, openTabs) {
-        if (isTabsLoaded && openTabs.isEmpty()) {
+    val displayDecision = remember(presentationState) {
+        deriveTabDisplayDecision(presentationState, getKey)
+    }
+    LaunchedEffect(displayDecision) {
+        if (displayDecision is TabDisplayDecision.Empty) {
             onEmptyTabs()
         }
     }
 
-    var cachedTabs by remember { mutableStateOf(openTabs) }
-    // openTabsが空の場合に前回のタブ一覧をキャッシュしておくための処理
-    if (openTabs.isNotEmpty()) {
-        cachedTabs = openTabs
+    var cachedPresentationState by remember {
+        mutableStateOf<TabPresentationState<TabInfo, Key>?>(null)
     }
-    val tabs = if (openTabs.isNotEmpty()) {
-        openTabs
-    } else if (!isTabsLoaded) {
-        cachedTabs
+    if (presentationState.selection !is TabSelectionResolution.Loading && presentationState.tabs.isNotEmpty()) {
+        cachedPresentationState = presentationState
+    }
+    val renderState = if (
+        presentationState.selection is TabSelectionResolution.Loading &&
+        cachedPresentationState != null
+    ) {
+        cachedPresentationState!!
     } else {
-        emptyList()
+        presentationState
     }
-    val selectedPage = remember(selectedTabKey, tabs) {
-        deriveSelectedPageIndex(tabs = tabs, selectedKey = selectedTabKey, getKey = getKey)
-    }
-    val currentTabInfo = tabs.getOrNull(selectedPage)
+    val tabs = renderState.tabs
+    val selectedPage = (displayDecision as? TabDisplayDecision.Selected)?.index ?: -1
+    val selectedKey = (presentationState.selection as? TabSelectionResolution.Selected)?.key
+    var lastSynchronizedSelectedKey by remember { mutableStateOf(selectedKey) }
 
     if (tabs.isNotEmpty()) {
         // Pagerの状態。ページ数はタブ数に応じて動的に提供される。
         val pagerState =
-            rememberPagerState(initialPage = selectedPage, pageCount = { tabs.size })
+            rememberPagerState(
+                initialPage = selectedPage.takeIf { it in tabs.indices } ?: 0,
+                pageCount = { tabs.size },
+            )
 
         // selected key とタブ一覧から導出したページにのみ同期する。
-        LaunchedEffect(selectedPage, tabs.size) {
-            if (selectedPage in tabs.indices && pagerState.currentPage != selectedPage) {
+        LaunchedEffect(displayDecision, tabs.size) {
+            if (displayDecision is TabDisplayDecision.Selected &&
+                selectedPage in tabs.indices &&
+                pagerState.currentPage != selectedPage
+            ) {
                 pagerState.scrollToPage(selectedPage)
             }
         }
 
-        LaunchedEffect(pagerState.currentPage, tabs) {
+        LaunchedEffect(pagerState.currentPage, tabs, displayDecision) {
+            // PendingMissing 中は一覧の再bind による選択 callback を抑止する。
+            if (displayDecision !is TabDisplayDecision.Selected) return@LaunchedEffect
             val page = pagerState.currentPage
             val currentTab = tabs.getOrNull(page) ?: return@LaunchedEffect
-            if (getKey(currentTab) != selectedTabKey) {
+            val selectedTab = tabs.getOrNull(selectedPage) ?: return@LaunchedEffect
+            // 選択 key の変更に伴う programmatic scroll 中はユーザー選択として通知しない。
+            if (selectedKey != lastSynchronizedSelectedKey) {
+                if (page == selectedPage) lastSynchronizedSelectedKey = selectedKey
+                return@LaunchedEffect
+            }
+            if (getKey(currentTab) != getKey(selectedTab)) {
                 onTabSelected(currentTab)
             }
         }
@@ -162,7 +179,9 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         val invalidUrlMessage = stringResource(R.string.invalid_url)
         val coroutineScope = rememberCoroutineScope()
 
-        val currentUiState = currentTabInfo?.let { tabInfo ->
+        // PendingMissing では currentPage の tab を継続表示し、選択 key を表示導出に使わない。
+        val currentTabInfo = tabs.getOrNull(pagerState.currentPage) ?: tabs.first()
+        val currentUiState = currentTabInfo.let { tabInfo ->
             getUiState(tabInfo).collectAsState().value
         }
         val pagerUserScrollEnabled = currentUiState?.isTabSwipeEnabled ?: true
@@ -332,7 +351,12 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                                     threadTitle = null
                                 )
                             )
-                            tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
+                            val index = tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
+                            if (index < 0) {
+                                urlError = invalidUrlMessage
+                                isUrlValidating = false
+                                return@launch
+                            }
                             navController.showThreadScreenForTabSelection(
                                 currentScreenRoute = route,
                                 route = normalizedRoute,
@@ -371,27 +395,15 @@ fun <TabInfo : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                 }
             )
         }
-    } else {
-        // 表示可能なタブがない場合はローディング表示を出す
+    } else if (displayDecision is TabDisplayDecision.Loading) {
+        // 初回 canonical snapshot 前だけローディング表示を出す。
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
+    } else {
+        // Empty は onEmptyTabs の navigation に委譲し、tab content は構成しない。
+        Box(modifier = Modifier.fillMaxSize())
     }
-}
-
-/**
- * selected key とタブ一覧から現在表示すべきページ index を導出する。
- */
-internal fun <TabInfo : Any> deriveSelectedPageIndex(
-    tabs: List<TabInfo>,
-    selectedKey: Any?,
-    getKey: (TabInfo) -> Any,
-): Int {
-    if (tabs.isEmpty()) return -1
-    if (selectedKey == null) return 0
-    return tabs.indexOfFirst { getKey(it) == selectedKey }
-        .takeIf { it >= 0 }
-        ?: 0
 }
 
 /**

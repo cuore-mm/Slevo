@@ -147,7 +147,7 @@ class TabsRepositoryThreadStateTest {
      * 固定状態を切り替えてもタブの表示順（sortOrder）が変わらないことを確認する。
      */
     @Test
-    fun saveOpenThreadTabs_maintainsSortOrderRegardlessOfPinState() = runBlocking {
+    fun replaceOpenThreadTabsForBulkOperation_maintainsSortOrderRegardlessOfPinState() = runBlocking {
         val threadId1 = ThreadId.of("example.com", "test", "a")
         val threadId2 = ThreadId.of("example.com", "test", "b")
         val tabs = listOf(
@@ -169,7 +169,7 @@ class TabsRepositoryThreadStateTest {
             ),
         )
 
-        repository.saveOpenThreadTabs(tabs)
+        repository.replaceOpenThreadTabsForBulkOperation(tabs)
 
         val observed = repository.observeOpenThreadTabs().first()
         assertEquals(2, observed.size)
@@ -188,7 +188,7 @@ class TabsRepositoryThreadStateTest {
         val threadId2 = ThreadId.of("example.com", "test", "b")
 
         // 2 つのタブを保存
-        repository.saveOpenThreadTabs(
+        repository.replaceOpenThreadTabsForBulkOperation(
             listOf(
                 ThreadTabInfo(
                     id = threadId1,
@@ -245,7 +245,7 @@ class TabsRepositoryThreadStateTest {
         val existingThreadId = ThreadId.of("example.com", "test", "existing")
         val missingThreadId = ThreadId.of("example.com", "test", "missing")
 
-        repository.saveOpenThreadTabs(
+        repository.replaceOpenThreadTabsForBulkOperation(
             listOf(
                 ThreadTabInfo(
                     id = existingThreadId,
@@ -276,6 +276,181 @@ class TabsRepositoryThreadStateTest {
         assertEquals(0, existingTab.firstVisibleItemScrollOffset)
     }
 
+    /** 1,252 件の既存行に対する対象行単位の追加・削除・固定操作が、対象外行を変更しない。 */
+    @Test
+    fun targetedMutations_preserveOtherRowsAndThreadState() = runBlocking {
+        val initialTabs = (0 until 1_252).map { index ->
+            ThreadTabInfo(
+                id = ThreadId.of("example.com", "test", "thread-$index"),
+                title = "Thread $index",
+                boardName = "Board",
+                boardUrl = "https://example.com/test/",
+                boardId = 1L,
+                isPinned = index % 2 == 0,
+                firstVisibleItemIndex = index,
+                firstVisibleItemScrollOffset = index + 1,
+            )
+        }
+        repository.replaceOpenThreadTabsForBulkOperation(initialTabs)
+        val addedId = ThreadId.of("example.com", "test", "added")
+        repository.ensureOpenThreadTab(
+            ThreadTabInfo(
+                id = addedId,
+                title = "Added",
+                boardName = "Board",
+                boardUrl = "https://example.com/test/",
+                boardId = 1L,
+            )
+        )
+        repository.setThreadTabPinned(addedId, true)
+        val afterAdd = repository.observeOpenThreadTabs().first()
+
+        assertEquals(1_253, afterAdd.size)
+        assertEquals(true, afterAdd.single { it.id == addedId }.isPinned)
+        initialTabs.forEach { expected ->
+            val actual = afterAdd.single { it.id == expected.id }
+            assertEquals(expected.isPinned, actual.isPinned)
+            assertEquals(expected.firstVisibleItemIndex, actual.firstVisibleItemIndex)
+            assertEquals(expected.firstVisibleItemScrollOffset, actual.firstVisibleItemScrollOffset)
+            assertEquals(expected.title, actual.title)
+        }
+
+        repository.updateThreadTabScrollPosition(
+            threadId = addedId,
+            firstVisibleItemIndex = 77,
+            firstVisibleItemScrollOffset = 88,
+        )
+        repository.updateThreadState(
+            ThreadStateRepository.ThreadStateUpdate(
+                threadId = addedId,
+                boardId = 9L,
+                boardUrl = "https://example.com/test/",
+                boardName = "Updated board",
+                title = "Updated title",
+                latestResCount = 777,
+            )
+        )
+        val afterTargetedUpdates = repository.observeOpenThreadTabs().first()
+        val updatedTarget = afterTargetedUpdates.single { it.id == addedId }
+        assertEquals("Updated title", updatedTarget.title)
+        assertEquals("Updated board", updatedTarget.boardName)
+        assertEquals(9L, updatedTarget.boardId)
+        assertEquals(777, updatedTarget.resCount)
+        assertEquals(77, updatedTarget.firstVisibleItemIndex)
+        assertEquals(88, updatedTarget.firstVisibleItemScrollOffset)
+        assertEquals(true, updatedTarget.isPinned)
+        afterAdd.filterNot { it.id == addedId }.forEach { expected ->
+            assertEquals(expected, afterTargetedUpdates.single { actual -> actual.id == expected.id })
+        }
+
+        repository.deleteOpenThreadTab(addedId)
+        val afterDelete = repository.observeOpenThreadTabs().first()
+        assertEquals(1_252, afterDelete.size)
+        assertEquals(initialTabs.map { it.id }.toSet(), afterDelete.map { it.id }.toSet())
+    }
+
+    /** 既存の解決済みメタデータへプレースホルダーを再 ensure しても、正規値を保持する。 */
+    @Test
+    fun ensureExistingTab_placeholderMetadataPreservesCanonicalStateAndTabFields() = runBlocking {
+        val targetId = ThreadId.of("example.com", "test", "target")
+        val otherId = ThreadId.of("example.com", "test", "other")
+        insertOpenThreadTab(
+            threadId = targetId,
+            scrollIndex = 7,
+            scrollOffset = 30,
+            sortOrder = 1,
+            isPinned = true,
+        )
+        insertOpenThreadTab(threadId = otherId, scrollIndex = 2, scrollOffset = 4, sortOrder = 0)
+        val stateRepository = ThreadStateRepository(db.threadStateDao())
+        stateRepository.saveThreadState(
+            ThreadStateRepository.ThreadStateUpdate(
+                threadId = targetId,
+                boardId = 42L,
+                boardUrl = "https://example.com/test/",
+                boardName = "Resolved board",
+                title = "Resolved title",
+                latestResCount = 120,
+            )
+        )
+        stateRepository.saveThreadState(
+            ThreadStateRepository.ThreadStateUpdate(
+                threadId = otherId,
+                boardId = 7L,
+                boardUrl = "https://example.com/test/",
+                boardName = "Other board",
+                title = "Other title",
+                latestResCount = 15,
+            )
+        )
+        db.threadHistoryDao().insert(
+            ThreadHistoryEntity(
+                threadId = targetId,
+                boardUrl = "https://example.com/test/",
+                boardId = 42L,
+                boardName = "Resolved board",
+                title = "Resolved title",
+                resCount = 120,
+                readState = ThreadReadState(
+                    prevResCount = 100,
+                    lastReadResNo = 105,
+                    firstNewResNo = null,
+                ),
+            )
+        )
+
+        val placeholderRequest = ThreadTabInfo(
+            id = targetId,
+            title = "https://example.com/test/read.cgi/test/target/",
+            boardName = "https://other.example/wrong/",
+            boardUrl = "https://other.example/wrong/",
+            boardId = 0L,
+            resCount = 80,
+        )
+        repository.ensureOpenThreadTab(placeholderRequest)
+
+        val afterPlaceholder = repository.observeOpenThreadTabs().first()
+        assertEquals(listOf(otherId, targetId), afterPlaceholder.map { it.id })
+        val preserved = afterPlaceholder.single { it.id == targetId }
+        assertEquals(42L, preserved.boardId)
+        assertEquals("Resolved board", preserved.boardName)
+        assertEquals("https://example.com/test/", preserved.boardUrl)
+        assertEquals("Resolved title", preserved.title)
+        assertEquals(120, preserved.resCount)
+        assertEquals(100, preserved.prevResCount)
+        assertEquals(105, preserved.lastReadResNo)
+        assertEquals(null, preserved.firstNewResNo)
+        assertEquals(7, preserved.firstVisibleItemIndex)
+        assertEquals(30, preserved.firstVisibleItemScrollOffset)
+        assertEquals(true, preserved.isPinned)
+        assertEquals("Other title", afterPlaceholder.single { it.id == otherId }.title)
+
+        repository.ensureOpenThreadTab(
+            placeholderRequest.copy(
+                title = "Updated title",
+                boardName = "Updated board",
+                boardUrl = "https://example.com/test/",
+                boardId = 43L,
+                resCount = 130,
+            )
+        )
+
+        val afterResolvedUpdate = repository.observeOpenThreadTabs().first()
+        val updated = afterResolvedUpdate.single { it.id == targetId }
+        assertEquals(43L, updated.boardId)
+        assertEquals("Updated board", updated.boardName)
+        assertEquals("https://example.com/test/", updated.boardUrl)
+        assertEquals("Updated title", updated.title)
+        assertEquals(130, updated.resCount)
+        assertEquals(7, updated.firstVisibleItemIndex)
+        assertEquals(30, updated.firstVisibleItemScrollOffset)
+        assertEquals(true, updated.isPinned)
+        assertEquals(
+            afterPlaceholder.single { it.id == otherId },
+            afterResolvedUpdate.single { it.id == otherId },
+        )
+    }
+
     /**
      * テスト用の開いているスレッドタブを保存する。
      * Phase 3 ではタブ固有状態だけを保存し、タイトルやレス数は `thread_states` 側で用意する。
@@ -284,12 +459,15 @@ class TabsRepositoryThreadStateTest {
         threadId: ThreadId,
         scrollIndex: Int,
         scrollOffset: Int,
+        sortOrder: Int = 0,
+        isPinned: Boolean = false,
     ) {
         db.openThreadTabDao().upsertAll(
             listOf(
                 OpenThreadTabEntity(
                     threadId = threadId,
-                    sortOrder = 0,
+                    sortOrder = sortOrder,
+                    isPinned = isPinned,
                     firstVisibleItemIndex = scrollIndex,
                     firstVisibleItemScrollOffset = scrollOffset,
                 )

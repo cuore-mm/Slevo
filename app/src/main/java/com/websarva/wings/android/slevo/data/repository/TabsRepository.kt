@@ -12,11 +12,28 @@ import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.util.ThreadNewResCalculator
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.tabs.model.mergeBoardTabMetadata
+import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import androidx.room.withTransaction
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/**
+ * 対象行の永続 command が返す明示的な結果。
+ * Controller はこの値を使って success、no-op、failure を presentation から独立して判別する。
+ */
+sealed interface TabMutationResult {
+    /** 対象行の変更が transaction 内で成功した。 */
+    data object Success : TabMutationResult
+
+    /** 対象なし、または既に同値で変更がなかった。 */
+    data object NoOp : TabMutationResult
+
+    /** DB command が失敗した。 */
+    data class Failure(val cause: Throwable) : TabMutationResult
+}
 
 /**
  * 開いている板タブとスレッドタブを永続化し、UI 表示モデルとして監視する Repository。
@@ -28,7 +45,7 @@ class TabsRepository @Inject constructor(
     private val threadDao: OpenThreadTabDao,
     private val tabsLocalDataSource: TabsLocalDataSource,
     private val threadStateRepository: ThreadStateRepository,
-    private val gate: DatabaseWriteGate,
+    private val gate: DatabaseWriteGate = DatabaseWriteGate(),
     private val db: AppDatabase,
 ) {
     fun observeOpenBoardTabs(): Flow<List<BoardTabInfo>> =
@@ -80,49 +97,203 @@ class TabsRepository @Inject constructor(
         }
     }
 
+    /** Board の存在を一行だけ保証し、既存の pin／scroll／解決済み metadata を保持する。 */
+    suspend fun ensureOpenBoardTab(tabInfo: BoardTabInfo): TabMutationResult = runCatching {
+        // --- write permit ---
+        gate.withWritePermit {
+            db.withTransaction {
+                // --- row merge ---
+                val existing = boardDao.getByBoardUrl(tabInfo.boardUrl)
+                val next = if (existing == null) {
+                    OpenBoardTabEntity(
+                        boardUrl = tabInfo.boardUrl,
+                        boardId = tabInfo.boardId,
+                        boardName = tabInfo.boardName,
+                        serviceName = tabInfo.serviceName,
+                        sortOrder = (boardDao.getMaxSortOrder() ?: -1) + 1,
+                        isPinned = tabInfo.isPinned,
+                        firstVisibleItemIndex = tabInfo.firstVisibleItemIndex,
+                        firstVisibleItemScrollOffset = tabInfo.firstVisibleItemScrollOffset,
+                    )
+                } else {
+                    val merged = mergeBoardTabMetadata(
+                        current = BoardTabInfo(
+                            boardId = existing.boardId,
+                            boardName = existing.boardName,
+                            boardUrl = existing.boardUrl,
+                            serviceName = existing.serviceName,
+                            firstVisibleItemIndex = existing.firstVisibleItemIndex,
+                            firstVisibleItemScrollOffset = existing.firstVisibleItemScrollOffset,
+                            isPinned = existing.isPinned,
+                        ),
+                        incoming = tabInfo,
+                    )
+                    existing.copy(
+                        boardId = merged.boardId,
+                        boardName = merged.boardName,
+                        serviceName = merged.serviceName,
+                    )
+                }
+
+                // --- targeted write ---
+                if (existing == next) TabMutationResult.NoOp else {
+                    boardDao.upsert(next)
+                    TabMutationResult.Success
+                }
+            }
+        }
+    }.getOrElse(TabMutationResult::Failure)
+
+    /** Board の対象行だけを削除する。 */
+    suspend fun deleteOpenBoardTab(boardUrl: String): TabMutationResult = runCatching {
+        gate.withWritePermit {
+            if (boardDao.deleteByBoardUrl(boardUrl) == 0) TabMutationResult.NoOp else TabMutationResult.Success
+        }
+    }.getOrElse(TabMutationResult::Failure)
+
+    /** Board の対象行の pin 列だけを更新する。 */
+    suspend fun setBoardTabPinned(boardUrl: String, isPinned: Boolean): TabMutationResult = runCatching {
+        gate.withWritePermit {
+            val current = boardDao.getByBoardUrl(boardUrl) ?: return@withWritePermit TabMutationResult.NoOp
+            if (current.isPinned == isPinned) TabMutationResult.NoOp
+            else if (boardDao.updatePinned(boardUrl, isPinned) == 0) TabMutationResult.NoOp
+            else TabMutationResult.Success
+        }
+    }.getOrElse(TabMutationResult::Failure)
+
+    /** Board の対象行のスクロール列だけを更新する。 */
+    suspend fun updateBoardTabScrollPosition(
+        boardUrl: String,
+        firstVisibleItemIndex: Int,
+        firstVisibleItemScrollOffset: Int,
+    ): TabMutationResult = runCatching {
+        gate.withWritePermit {
+            if (boardDao.updateScrollPosition(
+                    boardUrl,
+                    firstVisibleItemIndex,
+                    firstVisibleItemScrollOffset,
+                ) == 0
+            ) TabMutationResult.NoOp else TabMutationResult.Success
+        }
+    }.getOrElse(TabMutationResult::Failure)
+
+    /** Board の解決済み metadata だけを更新し、対象行の順序・pin・scroll を保持する。 */
+    suspend fun updateBoardTabInfo(tabInfo: BoardTabInfo): TabMutationResult = runCatching {
+        gate.withWritePermit {
+            val current = boardDao.getByBoardUrl(tabInfo.boardUrl) ?: return@withWritePermit TabMutationResult.NoOp
+            val mergedInfo = mergeBoardTabMetadata(
+                current = BoardTabInfo(
+                    boardId = current.boardId,
+                    boardName = current.boardName,
+                    boardUrl = current.boardUrl,
+                    serviceName = current.serviceName,
+                    firstVisibleItemIndex = current.firstVisibleItemIndex,
+                    firstVisibleItemScrollOffset = current.firstVisibleItemScrollOffset,
+                    isPinned = current.isPinned,
+                ),
+                incoming = tabInfo,
+            )
+            val merged = current.copy(
+                boardId = mergedInfo.boardId,
+                boardName = mergedInfo.boardName,
+                serviceName = mergedInfo.serviceName,
+            )
+            if (merged == current) TabMutationResult.NoOp else {
+                boardDao.upsert(merged)
+                TabMutationResult.Success
+            }
+        }
+    }.getOrElse(TabMutationResult::Failure)
+
     /**
      * 開いているスレッドタブを、客観状態と履歴既読状態を合成した表示モデルとして監視する。
      * 履歴がないタブは未訪問扱いにし、新着数とスクロール位置を 0 に丸める。
      */
     fun observeOpenThreadTabs(): Flow<List<ThreadTabInfo>> =
         threadDao.observeOpenThreadTabsWithState().map { list ->
-            list.sortedBy { it.sortOrder }.map { entity ->
-                val readState = if (entity.hasHistory) {
-                    ThreadReadState(
-                        prevResCount = entity.historyPrevResCount ?: 0,
-                        lastReadResNo = entity.historyLastReadResNo ?: 0,
-                        firstNewResNo = entity.historyFirstNewResNo,
-                    )
-                } else {
-                    null
-                }
-                ThreadTabInfo(
-                    id = entity.threadId,
-                    title = entity.title,
-                    boardName = entity.boardName,
-                    boardUrl = entity.boardUrl,
-                    boardId = entity.boardId,
-                    resCount = entity.latestResCount,
-                    newResCount = ThreadNewResCalculator.calculate(entity.latestResCount, readState),
-                    prevResCount = readState?.prevResCount ?: 0,
-                    lastReadResNo = readState?.lastReadResNo ?: 0,
-                    firstNewResNo = readState?.firstNewResNo,
-                    firstVisibleItemIndex = if (entity.hasHistory) entity.firstVisibleItemIndex else 0,
-                    firstVisibleItemScrollOffset = if (entity.hasHistory) {
-                        entity.firstVisibleItemScrollOffset
-                    } else {
-                        0
-                    },
-                    isPinned = entity.isPinned
-                )
-            }
+            list.sortedBy { it.sortOrder }.map(::toThreadTabInfo)
         }
 
+    /** 対象タブの表示用スナップショットを取得する。通常の更新処理で書き込み前の読み取りに使用する。 */
+    suspend fun getOpenThreadTab(threadId: ThreadId): ThreadTabInfo? =
+        threadDao.getOpenThreadTabWithState(threadId)?.let(::toThreadTabInfo)
+
     /**
-     * 開いているスレッドタブの並び順とスクロール位置を保存する。
-     * タイトル・レス数などの客観状態は `thread_states` へ保存し、タブテーブルには書き込まない。
+     * スレッドタブの存在を対象行だけで保証し、必要な ThreadState を同じトランザクションで保存する。
+     * 既存行の並び順、固定状態、スクロール位置は読み出した値をそのまま維持する。
      */
-    suspend fun saveOpenThreadTabs(tabs: List<ThreadTabInfo>) {
+    suspend fun ensureOpenThreadTab(tabInfo: ThreadTabInfo): Boolean = gate.withWritePermit {
+        db.withTransaction {
+            val existing = threadDao.getByThreadId(tabInfo.id)
+            val canonicalState = threadStateRepository.getThreadState(tabInfo.id)
+            val stateToSave = canonicalState?.let { state ->
+                mergeThreadTabMetadata(
+                    current = ThreadTabInfo(
+                        id = tabInfo.id,
+                        title = state.title,
+                        boardName = state.boardName,
+                        boardUrl = state.boardUrl,
+                        boardId = state.boardId,
+                        resCount = state.latestResCount,
+                        isPinned = existing?.isPinned ?: false,
+                        firstVisibleItemIndex = existing?.firstVisibleItemIndex ?: 0,
+                        firstVisibleItemScrollOffset = existing?.firstVisibleItemScrollOffset ?: 0,
+                    ),
+                    incoming = tabInfo,
+                )
+            } ?: tabInfo
+            // このトランザクションで読み出した行とマージしてから、その ThreadState だけを更新する。
+            threadStateRepository.saveThreadStateUngated(stateToSave.toThreadStateUpdate())
+            if (existing == null) {
+                val nextSortOrder = (threadDao.getMaxSortOrder() ?: -1) + 1
+                threadDao.upsert(
+                    OpenThreadTabEntity(
+                        threadId = tabInfo.id,
+                        sortOrder = nextSortOrder,
+                        isPinned = tabInfo.isPinned,
+                        firstVisibleItemIndex = tabInfo.firstVisibleItemIndex,
+                        firstVisibleItemScrollOffset = tabInfo.firstVisibleItemScrollOffset,
+                    )
+                )
+            }
+            true
+        }
+    }
+
+    /**
+     * 指定タブの行だけを削除する。対象がなければ false を返し、他の行は変更しない。
+     */
+    suspend fun deleteOpenThreadTab(threadId: ThreadId): Boolean = gate.withWritePermit {
+        db.withTransaction {
+            val deleted = threadDao.deleteByThreadId(threadId) > 0
+            if (deleted) {
+                threadStateRepository.collectGarbageUngated()
+            }
+            deleted
+        }
+    }
+
+    /** 指定タブの pin 列だけを更新し、値が変わった場合だけ true を返す。 */
+    suspend fun setThreadTabPinned(threadId: ThreadId, isPinned: Boolean): Boolean = gate.withWritePermit {
+        db.withTransaction {
+            val current = threadDao.getByThreadId(threadId) ?: return@withTransaction false
+            if (current.isPinned == isPinned) return@withTransaction false
+            threadDao.updatePinned(threadId, isPinned) > 0
+        }
+    }
+
+    /** 指定スレッドの共通 ThreadState だけを更新する。open-thread-tab の一覧は置換しない。 */
+    suspend fun updateThreadState(update: ThreadStateRepository.ThreadStateUpdate) {
+        gate.withWritePermit {
+            db.withTransaction { threadStateRepository.saveThreadStateUngated(update) }
+        }
+    }
+
+    /**
+     * 初回読込後の専用一括処理からだけ呼び出す全件置換 API。
+     * 通常の追加・削除・固定・情報・スクロール処理では対象行単位の更新 API を使用する。
+     */
+    suspend fun replaceOpenThreadTabsForBulkOperation(tabs: List<ThreadTabInfo>) {
         gate.withWritePermit {
             db.withTransaction {
                 val existing = threadDao.getAll().associateBy { it.threadId.value }
@@ -191,4 +362,47 @@ class TabsRepository @Inject constructor(
 
     suspend fun setLastSelectedTabsPage(page: Int) =
         tabsLocalDataSource.setLastSelectedTabsPage(page)
+
+    /** ThreadTabInfo から共通状態更新の入力へ変換する。 */
+    private fun ThreadTabInfo.toThreadStateUpdate(): ThreadStateRepository.ThreadStateUpdate =
+        ThreadStateRepository.ThreadStateUpdate(
+            threadId = id,
+            boardId = boardId,
+            boardUrl = boardUrl,
+            boardName = boardName,
+            title = title,
+            latestResCount = resCount,
+        )
+
+    /** DAO の合成行を UI 表示モデルへ変換する。 */
+    private fun toThreadTabInfo(entity: OpenThreadTabDao.OpenThreadTabWithState): ThreadTabInfo {
+        val readState = if (entity.hasHistory) {
+            ThreadReadState(
+                prevResCount = entity.historyPrevResCount ?: 0,
+                lastReadResNo = entity.historyLastReadResNo ?: 0,
+                firstNewResNo = entity.historyFirstNewResNo,
+            )
+        } else {
+            null
+        }
+        return ThreadTabInfo(
+            id = entity.threadId,
+            title = entity.title,
+            boardName = entity.boardName,
+            boardUrl = entity.boardUrl,
+            boardId = entity.boardId,
+            resCount = entity.latestResCount,
+            newResCount = ThreadNewResCalculator.calculate(entity.latestResCount, readState),
+            prevResCount = readState?.prevResCount ?: 0,
+            lastReadResNo = readState?.lastReadResNo ?: 0,
+            firstNewResNo = readState?.firstNewResNo,
+            firstVisibleItemIndex = if (entity.hasHistory) entity.firstVisibleItemIndex else 0,
+            firstVisibleItemScrollOffset = if (entity.hasHistory) {
+                entity.firstVisibleItemScrollOffset
+            } else {
+                0
+            },
+            isPinned = entity.isPinned,
+        )
+    }
 }

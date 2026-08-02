@@ -7,6 +7,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadT
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import kotlinx.coroutines.flow.Flow
 
+/** `open_thread_tabs` のタブ固有行を取得する Room クエリ。 */
 @Dao
 interface OpenThreadTabDao {
     /**
@@ -56,11 +57,55 @@ interface OpenThreadTabDao {
     )
     fun observeOpenThreadTabsWithState(): Flow<List<OpenThreadTabWithState>>
 
+    /** 指定された threadId の表示用合成行を取得する。 */
+    @Query(
+        "SELECT " +
+            "t.threadId AS threadId, " +
+            "s.boardUrl AS boardUrl, " +
+            "s.boardId AS boardId, " +
+            "s.boardName AS boardName, " +
+            "s.title AS title, " +
+            "s.latestResCount AS latestResCount, " +
+            "t.sortOrder AS sortOrder, " +
+            "t.isPinned AS isPinned, " +
+            "t.firstVisibleItemIndex AS firstVisibleItemIndex, " +
+            "t.firstVisibleItemScrollOffset AS firstVisibleItemScrollOffset, " +
+            "h.prevResCount AS historyPrevResCount, " +
+            "h.lastReadResNo AS historyLastReadResNo, " +
+            "h.firstNewResNo AS historyFirstNewResNo, " +
+            "CASE WHEN h.threadId IS NULL THEN 0 ELSE 1 END AS hasHistory " +
+            "FROM open_thread_tabs t " +
+            "INNER JOIN thread_states s ON s.threadId = t.threadId " +
+            "LEFT JOIN thread_histories h ON h.threadId = t.threadId " +
+            "WHERE t.threadId = :threadId"
+    )
+    suspend fun getOpenThreadTabWithState(threadId: ThreadId): OpenThreadTabWithState?
+
     @Query("SELECT * FROM open_thread_tabs")
     suspend fun getAll(): List<OpenThreadTabEntity>
 
+    /** 指定された threadId のタブ行を取得する。 */
+    @Query("SELECT * FROM open_thread_tabs WHERE threadId = :threadId")
+    suspend fun getByThreadId(threadId: ThreadId): OpenThreadTabEntity?
+
+    /** sortOrder の最大値を取得し、空の一覧では null を返す。 */
+    @Query("SELECT MAX(sortOrder) FROM open_thread_tabs")
+    suspend fun getMaxSortOrder(): Int?
+
     @Upsert
     suspend fun upsertAll(tabs: List<OpenThreadTabEntity>)
+
+    /** 対象行だけを追加または更新する。 */
+    @Upsert
+    suspend fun upsert(tab: OpenThreadTabEntity)
+
+    /** 指定された threadId のタブ行だけを削除する。 */
+    @Query("DELETE FROM open_thread_tabs WHERE threadId = :threadId")
+    suspend fun deleteByThreadId(threadId: ThreadId): Int
+
+    /** 指定された threadId の pin 列だけを更新する。 */
+    @Query("UPDATE open_thread_tabs SET isPinned = :isPinned WHERE threadId = :threadId")
+    suspend fun updatePinned(threadId: ThreadId, isPinned: Boolean): Int
 
     @Query("DELETE FROM open_thread_tabs WHERE threadId NOT IN (:ids)")
     suspend fun deleteNotIn(ids: List<String>)

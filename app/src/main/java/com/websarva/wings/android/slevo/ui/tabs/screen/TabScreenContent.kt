@@ -239,7 +239,7 @@ fun TabScreenContent(
                         selectedBoardTab = listUiState.selectedBoardTab,
                         selectedThreadTab = listUiState.selectedThreadTab,
                         onCloseBoardTab = { tabSessionStore.closeBoardTab(it) },
-                        onCloseThreadTab = { tabSessionStore.closeThreadTab(it) },
+                         onCloseThreadTab = createThreadTabCloseHandler(tabSessionStore),
                         onBoardTabLongPressed = { tab, bounds ->
                             tabListViewModel.onBoardTabLongPressed(tab, bounds)
                         },
@@ -340,12 +340,14 @@ fun TabScreenContent(
                                 }
 
                                 is UrlOpenResult.NavigateThread -> {
-                                    tabSessionStore.registerAndSelectThreadRoute(result.route)
-                                    navController.showThreadScreenForTabSelection(
-                                        currentScreenRoute = currentScreenRoute,
-                                        route = result.route,
-                                    )
-                                    closeDrawer()
+                                    val index = tabSessionStore.registerAndSelectThreadRoute(result.route)
+                                    if (index >= 0) {
+                                        navController.showThreadScreenForTabSelection(
+                                            currentScreenRoute = currentScreenRoute,
+                                            route = result.route,
+                                        )
+                                        closeDrawer()
+                                    }
                                 }
 
                                 is UrlOpenResult.Error -> {

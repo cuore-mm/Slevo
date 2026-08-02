@@ -4,8 +4,10 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadS
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import io.mockk.Called
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -42,20 +44,20 @@ class ThreadTabCoordinatorTest {
         coordinator.updateThreadTabInfo(threadId, "New Title", 12)
         advanceUntilIdle()
 
-        val updatedTabs = captureSavedTabs(tabsRepository)
-        val updatedTab = updatedTabs.single()
-        assertEquals("New Title", updatedTab.title)
-        assertEquals(12, updatedTab.resCount)
-        assertEquals(initialTab.resCount, updatedTab.prevResCount)
-        assertEquals(initialTab.firstNewResNo, updatedTab.firstNewResNo)
+        val updateSlot = slot<ThreadStateRepository.ThreadStateUpdate>()
+        coVerify { tabsRepository.updateThreadState(capture(updateSlot)) }
+        val update = updateSlot.captured
+        assertEquals("New Title", update.title)
+        assertEquals(12, update.latestResCount)
+        coVerify(exactly = 0) { tabsRepository.replaceOpenThreadTabsForBulkOperation(any()) }
 
         coVerify(exactly = 1) {
             readStateRepository.saveReadState(
                 threadId,
                 ThreadReadState(
-                    prevResCount = updatedTab.prevResCount,
-                    lastReadResNo = updatedTab.lastReadResNo,
-                    firstNewResNo = updatedTab.firstNewResNo,
+                    prevResCount = initialTab.resCount,
+                    lastReadResNo = initialTab.lastReadResNo,
+                    firstNewResNo = initialTab.firstNewResNo,
                 )
             )
         }
@@ -118,6 +120,7 @@ class ThreadTabCoordinatorTest {
     private fun mockTabsRepository(vararg tabs: ThreadTabInfo): TabsRepository {
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         every { tabsRepository.observeOpenThreadTabs() } returns flowOf(tabs.toList())
+        tabs.forEach { tab -> coEvery { tabsRepository.getOpenThreadTab(tab.id) } returns tab }
         return tabsRepository
     }
 
@@ -125,9 +128,4 @@ class ThreadTabCoordinatorTest {
         return mockk(relaxed = true)
     }
 
-    private fun captureSavedTabs(tabsRepository: TabsRepository): List<ThreadTabInfo> {
-        val slot = slot<List<ThreadTabInfo>>()
-        coVerify { tabsRepository.saveOpenThreadTabs(capture(slot)) }
-        return slot.captured
-    }
 }

@@ -7,9 +7,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
 import com.websarva.wings.android.slevo.ui.util.resolveDeepLinkUrl
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import kotlinx.coroutines.CancellationException
 
 /**
  * Deep Linkを受け取り、板/スレ画面へ遷移する。
@@ -30,7 +33,7 @@ fun DeepLinkHandler(
         }
 
         try {
-            // --- Routing ---
+            // --- ルーティング ---
             val handled = handleDeepLinkUrl(
                 url = deepLinkUrl,
                 navController = navController,
@@ -54,10 +57,10 @@ private suspend fun handleDeepLinkUrl(
     navController: NavHostController,
     tabSessionStore: TabSessionStore
 ): Boolean {
-    // --- Target resolution ---
+    // --- 対象の解決 ---
     val target = resolveDeepLinkUrl(url) ?: return false // 対象外URLは処理しない。
 
-    // --- Navigation ---
+    // --- 遷移 ---
     return when (target) {
         is ResolvedUrl.ItestBoard -> {
             val host = tabSessionStore.resolveBoardHost(
@@ -71,9 +74,9 @@ private suspend fun handleDeepLinkUrl(
                     boardUrl = boardUrl
                 )
             )
-            tabSessionStore.registerAndSelectBoardRoute(route)
-            navController.navigateToBoardScreen(route)
-            true
+            handleBoardDeepLinkRoute(route, tabSessionStore) {
+                navController.navigateToBoardScreen(route)
+            }
         }
         is ResolvedUrl.Thread -> {
             val boardUrl = "https://${target.host}/${target.boardKey}/"
@@ -85,9 +88,17 @@ private suspend fun handleDeepLinkUrl(
                     threadTitle = null
                 )
             )
-            tabSessionStore.registerAndSelectThreadRoute(route)
-            navController.navigateToThreadScreen(route)
-            true
+            try {
+                handleThreadDeepLinkRoute(
+                    route = route,
+                    tabSessionStore = tabSessionStore,
+                    navigate = { navController.navigateToThreadScreen(route) },
+                )
+            } catch (cancellationException: CancellationException) {
+                throw cancellationException
+            } catch (_: Throwable) {
+                false
+            }
         }
         is ResolvedUrl.Board -> {
             val boardUrl = "https://${target.host}/${target.boardKey}/"
@@ -97,10 +108,47 @@ private suspend fun handleDeepLinkUrl(
                     boardUrl = boardUrl
                 )
             )
-            tabSessionStore.registerAndSelectBoardRoute(route)
-            navController.navigateToBoardScreen(route)
-            true
+            handleBoardDeepLinkRoute(route, tabSessionStore) {
+                navController.navigateToBoardScreen(route)
+            }
         }
         is ResolvedUrl.Unknown -> false
     }
+}
+
+/**
+ * スレッドのディープリンク登録を選択や遷移より先に完了させる。
+ * callback は準備完了、正規状態の存在確認、選択がすべて成功した後にだけ呼び出す。
+ */
+internal suspend fun handleThreadDeepLinkRoute(
+    route: AppRoute.Thread,
+    tabSessionStore: TabSessionStore,
+    navigate: () -> Unit,
+): Boolean {
+    // --- 準備完了と明示登録の確認 ---
+    tabSessionStore.awaitThreadTabsReady()
+    val threadId = parseBoardUrl(route.boardUrl)?.let { (host, board) ->
+        ThreadId.of(host, board, route.threadKey)
+    } ?: return false
+    val registrationIndex = tabSessionStore.registerThreadRoute(route)
+    if (registrationIndex < 0 || !tabSessionStore.isCanonicalThreadTab(threadId)) return false
+
+    // --- selection command 後の遷移 ---
+    if (!tabSessionStore.selectThreadTab(threadId)) return false
+    navigate()
+    return true
+}
+
+/**
+ * 板の登録・選択確認を navigation より先に完了させる。
+ * target が atomic state の Selected にならない場合は既存画面を維持する。
+ */
+internal suspend fun handleBoardDeepLinkRoute(
+    route: AppRoute.Board,
+    tabSessionStore: TabSessionStore,
+    navigate: () -> Unit,
+): Boolean {
+    if (!tabSessionStore.registerAndConfirmBoardRoute(route)) return false
+    navigate()
+    return true
 }

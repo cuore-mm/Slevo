@@ -125,8 +125,8 @@ fun ThreadScreen(
     val onThreadUrlClick: (AppRoute.Thread) -> Unit = { route ->
         coroutineScope.launch {
             val normalizedRoute = tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
-            tabSessionStore?.registerAndSelectThreadRoute(normalizedRoute)
-            navController.navigateToThreadScreen(normalizedRoute)
+            val index = tabSessionStore?.registerAndSelectThreadRoute(normalizedRoute) ?: -1
+            if (index >= 0) navController.navigateToThreadScreen(normalizedRoute)
         }
     }
     val onImageClick: (String, List<String>, Int, String) -> Unit =

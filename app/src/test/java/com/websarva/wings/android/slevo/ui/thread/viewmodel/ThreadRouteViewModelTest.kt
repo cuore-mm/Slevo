@@ -220,7 +220,7 @@ class ThreadRouteViewModelTest {
             val transform = secondArg<(ThreadSessionRuntimeState) -> ThreadSessionRuntimeState>()
             runtimeStates.value = runtimeStates.value + (threadId to transform(runtimeStates.value[threadId] ?: ThreadSessionRuntimeState()))
         }
-        every { store.updateThreadResolvedBoardInfo(any(), any(), any()) } answers {
+        coEvery { store.updateThreadResolvedBoardInfo(any(), any(), any()) } answers {
             val threadId = firstArg<ThreadId>()
             val boardId = secondArg<Long>()
             val boardName = thirdArg<String?>()

@@ -79,11 +79,13 @@ fun OpenThreadsList(
                 coroutineScope.launch {
                     val normalizedRoute =
                         tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
-                    tabSessionStore?.registerAndSelectThreadRoute(normalizedRoute)
-                    navController.showThreadScreenForTabSelection(
-                        currentScreenRoute = currentScreenRoute,
-                        route = normalizedRoute,
-                    )
+                    val index = tabSessionStore?.registerAndSelectThreadRoute(normalizedRoute) ?: -1
+                    if (index >= 0) {
+                        navController.showThreadScreenForTabSelection(
+                            currentScreenRoute = currentScreenRoute,
+                            route = normalizedRoute,
+                        )
+                    }
                 }
             },
             onLongPress = { bounds ->

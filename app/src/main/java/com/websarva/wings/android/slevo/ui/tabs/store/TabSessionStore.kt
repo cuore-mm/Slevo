@@ -7,8 +7,10 @@ import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.bbsroute.TabPresentationState
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsLoadState
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
@@ -29,6 +31,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.Closeable
 import javax.inject.Inject
@@ -63,11 +67,16 @@ class TabSessionStore @Inject constructor(
     val openThreadTabs: StateFlow<List<ThreadTabInfo>> = threadTabsCoordinator.openThreadTabs
     val boardLoaded: StateFlow<Boolean> = boardTabsCoordinator.boardLoaded
     val threadLoaded: StateFlow<Boolean> = threadTabsCoordinator.threadLoaded
+    val threadTabState: StateFlow<ThreadTabsLoadState> = threadTabsCoordinator.threadTabState
     val isRefreshing: StateFlow<Boolean> = threadTabsCoordinator.isRefreshing
     val refreshProgress: StateFlow<ThreadTabRefreshProgress?> = threadTabsCoordinator.refreshProgress
     val newResCounts: StateFlow<Map<String, Int>> = threadTabsCoordinator.newResCounts
     val selectedBoardTabKey: StateFlow<String?> = boardTabsCoordinator.selectedBoardTabKey
     val selectedThreadTabKey: StateFlow<String?> = threadTabsCoordinator.selectedThreadTabKey
+    val boardPresentationState: StateFlow<TabPresentationState<BoardTabInfo, String>> =
+        boardTabsCoordinator.boardPresentationState
+    val threadPresentationState: StateFlow<TabPresentationState<ThreadTabInfo, String>> =
+        threadTabsCoordinator.threadPresentationState
     val boardSessionStates: StateFlow<Map<String, BoardSessionState>> = boardTabsCoordinator.boardSessionStates
     val threadSessionStates: StateFlow<Map<String, ThreadSessionState>> = threadTabsCoordinator.threadSessionStates
 
@@ -91,17 +100,32 @@ class TabSessionStore @Inject constructor(
      * 板タブを保証したうえで、対象タブを選択状態へ更新する。
      */
     fun ensureAndSelectBoardTab(route: AppRoute.Board): Int {
-        return ensureBoardTab(route).also { index ->
-            if (index >= 0) {
-                selectBoardTab(route.boardUrl)
-            }
+        val index = ensureBoardTab(route)
+        if (index >= 0) {
+            selectBoardTab(route.boardUrl)
         }
+        return index
     }
 
     /**
      * 正規化済み板 route から板タブを登録し、選択状態へ更新する。
      */
     fun registerAndSelectBoardRoute(route: AppRoute.Board): Int = ensureAndSelectBoardTab(route)
+
+    /**
+     * 板 route を登録・選択し、atomic presentation state が target を Selected と確認するまで待機する。
+     * 登録または確認が失敗した場合は navigation を開始しない。
+     */
+    suspend fun registerAndConfirmBoardRoute(route: AppRoute.Board): Boolean {
+        return when (val result = boardTabsCoordinator.ensureBoardTabCommand(route)) {
+            is com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.Success,
+            is com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.NoOp -> {
+                boardTabsCoordinator.selectBoardTabCommand(route.boardUrl) is
+                    com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.Success
+            }
+            is com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult.Failure -> false
+        }
+    }
 
     /**
      * 選択中の板タブ key を更新する。
@@ -154,46 +178,65 @@ class TabSessionStore @Inject constructor(
         boardTabsCoordinator.updateBoardResolvedInfo(boardUrl, boardId, boardName)
     }
 
-    fun ensureThreadTab(route: AppRoute.Thread): Int {
+    suspend fun ensureThreadTab(route: AppRoute.Thread): Int {
         return threadTabsCoordinator.ensureThreadTab(route)
     }
+
+    /** 初回 Room スナップショットが正規状態になるまで待機する。 */
+    suspend fun awaitThreadTabsReady(): ThreadTabsLoadState.Loaded =
+        threadTabsCoordinator.threadTabState.filterIsInstance<ThreadTabsLoadState.Loaded>().first()
 
     /**
      * スレッドタブを保証したうえで、対象タブを選択状態へ更新する。
      */
-    fun ensureAndSelectThreadTab(route: AppRoute.Thread): Int {
-        return ensureThreadTab(route).also { index ->
-            if (index >= 0) {
-                val threadId = com.websarva.wings.android.slevo.ui.util.parseBoardUrl(route.boardUrl)
-                    ?.let { (host, board) -> ThreadId.of(host, board, route.threadKey) }
-                selectThreadTab(threadId)
-            }
-        }
+    suspend fun ensureAndSelectThreadTab(route: AppRoute.Thread): Int {
+        val index = ensureThreadTab(route)
+        if (index < 0) return -1
+        val threadId = com.websarva.wings.android.slevo.ui.util.parseBoardUrl(route.boardUrl)
+            ?.let { (host, board) -> ThreadId.of(host, board, route.threadKey) }
+            ?: return -1
+        if (!isCanonicalThreadTab(threadId) || !threadTabsCoordinator.selectThreadTab(threadId)) return -1
+        return index
     }
 
     /**
      * 正規化済みスレッド route からスレッドタブを登録し、選択状態へ更新する。
      */
-    fun registerAndSelectThreadRoute(route: AppRoute.Thread): Int = ensureAndSelectThreadTab(route)
+    suspend fun registerAndSelectThreadRoute(route: AppRoute.Thread): Int = ensureAndSelectThreadTab(route)
+
+    /** 正規化済みスレッド route を正規状態で確認できるまで登録し、選択は行わない。 */
+    suspend fun registerThreadRoute(route: AppRoute.Thread): Int = ensureThreadTab(route)
 
     /**
      * 選択中のスレッドタブ key を更新する。
      */
-    fun selectThreadTab(threadId: ThreadId?) {
-        threadTabsCoordinator.selectThreadTab(threadId)
-    }
+    fun selectThreadTab(threadId: ThreadId?): Boolean = threadTabsCoordinator.selectThreadTab(threadId)
 
-    fun closeThreadTab(tab: ThreadTabInfo) {
+    /** 最新の正規 Room スナップショットに thread ID が存在するかどうかを返す。 */
+    fun isCanonicalThreadTab(threadId: ThreadId): Boolean =
+        threadTabsCoordinator.isCanonicalThreadTab(threadId)
+
+    suspend fun closeThreadTab(tab: ThreadTabInfo) {
         threadSessionHolders.remove(tab.id.value)?.dispose()
         threadTabsCoordinator.closeThreadTab(tab)
     }
 
-    fun closeThreadTab(threadKey: String, boardUrl: String) {
+    suspend fun closeThreadTab(threadKey: String, boardUrl: String) {
         parseBoardUrl(boardUrl)?.let { (host, board) ->
             val threadId = ThreadId.of(host, board, threadKey)
             threadSessionHolders.remove(threadId.value)?.dispose()
         }
         threadTabsCoordinator.closeThreadTab(threadKey, boardUrl)
+    }
+
+    /**
+     * 確定したスレッドタブ close を retained store scope へ移譲する。
+     *
+     * この scope は画面 Composition より長く存続するため、repository 書き込みと Room の正規確認まで
+     * close 処理を所有する。Activity-retained component が破棄された場合は [close] によりキャンセルされる。
+     */
+    fun requestCloseThreadTab(threadKey: String, boardUrl: String) {
+        scope.launch { closeThreadTab(threadKey, boardUrl) }
     }
 
     fun animateThreadPage(offset: Int) {
@@ -235,7 +278,7 @@ class TabSessionStore @Inject constructor(
     }
 
     /** 解決済みの boardId と名称を既存スレッドタブへ反映する。 */
-    fun updateThreadResolvedBoardInfo(
+    suspend fun updateThreadResolvedBoardInfo(
         threadId: ThreadId,
         boardId: Long,
         boardName: String? = null,
@@ -259,7 +302,7 @@ class TabSessionStore @Inject constructor(
         boardTabsCoordinator.togglePinBoardTab(boardUrl)
     }
 
-    fun togglePinThreadTab(threadId: com.websarva.wings.android.slevo.data.model.ThreadId) {
+    suspend fun togglePinThreadTab(threadId: com.websarva.wings.android.slevo.data.model.ThreadId) {
         threadTabsCoordinator.togglePinThreadTab(threadId)
     }
 
@@ -425,6 +468,8 @@ class TabSessionStore @Inject constructor(
         threadSessionHolders.clear()
         boardSessionHolders.values.forEach { it.dispose() }
         boardSessionHolders.clear()
+        boardTabsCoordinator.close()
+        threadTabsCoordinator.close()
         scope.cancel()
     }
 }

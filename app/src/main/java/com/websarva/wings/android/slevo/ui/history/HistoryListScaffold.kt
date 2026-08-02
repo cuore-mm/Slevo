@@ -86,8 +86,8 @@ fun HistoryListScaffold(
                             resCount = history.history.resCount
                         )
                     )
-                    tabSessionStore.registerAndSelectThreadRoute(route)
-                    navController.navigateToThreadScreen(route)
+                    val index = tabSessionStore.registerAndSelectThreadRoute(route)
+                    if (index >= 0) navController.navigateToThreadScreen(route)
                 }
             },
             onToggleSelection = { viewModel.toggleSelection(it) },
