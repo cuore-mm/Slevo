@@ -28,7 +28,7 @@
 
 ## 5. 検証
 
-- [ ] 5.1 `./gradlew testDebugUnitTest` を実行し、追加した境界・グループ・NUMBER/TREE・検索・NGテストを含む全単体テストが成功することを確認する。
-- [ ] 5.2 `./gradlew assembleDebug` を実行し、Debugビルドが成功することを確認する。
-- [ ] 5.3 DAO、Room結合、またはinstrumented test対象コードに差分が生じた場合は、関連する `TabsRepositoryThreadStateTest` を含む `./gradlew connectedDebugAndroidTest` を実行する。対象コードに差分がなければ実行不要であることを実装報告に明記する。
-- [ ] 5.4 最終差分を確認し、DBスキーマ、ナビゲーション引数、新着バーの文言・見た目・操作・アクセシビリティ、既存の追加更新規則に意図しない変更がないことを確認する。
+- [x] 5.1 `./gradlew testDebugUnitTest` を実行し、追加した境界・グループ・NUMBER/TREE・検索・NGテストを含む全単体テストが成功することを確認する。GitHub Actions `Android CI` run `30745976095` で成功した。
+- [x] 5.2 `./gradlew assembleDebug` を実行し、Debugビルドが成功することを確認する。GitHub Actions `Android CI` run `30745976095` で成功した。
+- [x] 5.3 DAO、Room結合、またはinstrumented test対象コードに差分が生じた場合は、関連する `TabsRepositoryThreadStateTest` を含む `./gradlew connectedDebugAndroidTest` を実行する。今回の差分はDAO、Room結合、instrumented test対象コードを含まないため、追加実行は不要と確認した。
+- [x] 5.4 最終差分を確認し、DBスキーマ、ナビゲーション引数、新着バーの文言・見た目・操作・アクセシビリティ、既存の追加更新規則に意図しない変更がないことを確認する。
