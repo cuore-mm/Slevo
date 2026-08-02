@@ -1333,15 +1333,18 @@ internal fun updateThreadPostGroups(
     initialUnreadStartResNo: Int?,
 ): ThreadRoutePostGroupState {
     val newResCount = posts.size
+    // --- Empty response ---
     if (newResCount == 0) {
         return ThreadRoutePostGroupState(emptyList(), newResCount, null)
     }
 
     val isInitialLoad = previousResCount == 0 || previousGroups.isEmpty()
+    // --- Initial load ---
     if (isInitialLoad) {
         return buildInitialPostGroupState(newResCount, initialUnreadStartResNo)
     }
 
+    // --- Response count decrease ---
     if (newResCount < previousResCount) {
         // Fallback: a shortened response list starts a fresh non-arrival group.
         val resetGroups = listOf(
@@ -1349,6 +1352,7 @@ internal fun updateThreadPostGroups(
         )
         return ThreadRoutePostGroupState(resetGroups, newResCount, null)
     }
+    // --- Response append ---
     if (newResCount > previousResCount) {
         val nextGroups = previousGroups + ThreadPostGroup(
             startResNo = previousResCount + 1,
@@ -1357,6 +1361,7 @@ internal fun updateThreadPostGroups(
         )
         return ThreadRoutePostGroupState(nextGroups, newResCount, nextGroups.lastIndex)
     }
+    // --- No change ---
     return ThreadRoutePostGroupState(previousGroups, newResCount, null)
 }
 
@@ -1365,6 +1370,7 @@ private fun buildInitialPostGroupState(
     newResCount: Int,
     initialUnreadStartResNo: Int?,
 ): ThreadRoutePostGroupState {
+    // --- Boundary validation ---
     val validUnreadStart = initialUnreadStartResNo?.takeIf { it in 1..newResCount }
     if (validUnreadStart == null) {
         val initialGroups = listOf(
@@ -1373,6 +1379,7 @@ private fun buildInitialPostGroupState(
         return ThreadRoutePostGroupState(initialGroups, newResCount, null)
     }
 
+    // --- Unread from first response ---
     if (validUnreadStart == 1) {
         val unreadGroups = listOf(
             ThreadPostGroup(startResNo = 1, endResNo = newResCount, prevResCount = 0)
@@ -1380,6 +1387,7 @@ private fun buildInitialPostGroupState(
         return ThreadRoutePostGroupState(unreadGroups, newResCount, 0)
     }
 
+    // --- Read-unread split ---
     val initialGroups = listOf(
         ThreadPostGroup(
             startResNo = 1,
