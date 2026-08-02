@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.lifecycle.ViewModel
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadId
@@ -570,9 +571,9 @@ class ThreadRouteViewModelTest {
         }
     }
 
-    /** protected onCleared をテストから呼び出す。 */
+    /** ViewModelの内部scopeを含めてテスト用ViewModelを解放する。 */
     private fun invokeOnCleared(viewModel: ThreadRouteViewModel) {
-        val method = ThreadRouteViewModel::class.java.getDeclaredMethod("onCleared")
+        val method = ViewModel::class.java.getDeclaredMethod("clear")
         method.isAccessible = true
         method.invoke(viewModel)
     }
