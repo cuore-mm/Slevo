@@ -21,6 +21,9 @@ import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionRuntimeState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -28,6 +31,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -147,6 +151,163 @@ class ThreadRouteViewModelTest {
     }
 
     @Test
+    fun initialLoad_restoresUnreadGroupFromLastReadPosition() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "111")
+        val tab = threadTab(threadId, "title").copy(
+            resCount = 100,
+            newResCount = 10,
+            lastReadResNo = 100,
+            firstNewResNo = 101,
+        )
+        val dependencies = mockDependencies(
+            tabs = listOf(tab),
+            selectedTabKey = threadId.value,
+            loadedPosts = mutableMapOf(threadId.value to posts(110)),
+        )
+        val viewModel = dependencies.createViewModel()
+
+        val state = viewModel.uiStateFor(threadId.value).first { it.posts?.size == 110 }
+
+        assertEquals(
+            listOf(
+                ThreadPostGroup(startResNo = 1, endResNo = 100, prevResCount = 0),
+                ThreadPostGroup(startResNo = 101, endResNo = 110, prevResCount = 100),
+            ),
+            state.postGroups,
+        )
+        assertEquals(1, state.latestArrivalGroupIndex)
+        assertEquals(100, state.firstAfterIndex)
+    }
+
+    @Test
+    fun initialLoad_restoresUnreadGroupWhenFirstNewResNoIsMissing() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "112")
+        val tab = threadTab(threadId, "title").copy(
+            resCount = 100,
+            newResCount = 10,
+            lastReadResNo = 100,
+            firstNewResNo = null,
+        )
+
+        val state = loadInitialState(tab, posts(110))
+
+        assertEquals(1, state.latestArrivalGroupIndex)
+        assertEquals(100, state.firstAfterIndex)
+    }
+
+    @Test
+    fun initialLoad_doesNotShowArrivalBarWithoutValidUnreadBoundary() = runTest {
+        val unvisitedId = ThreadId.of("example.com", "test", "113")
+        val allReadId = ThreadId.of("example.com", "test", "114")
+        val insufficientId = ThreadId.of("example.com", "test", "115")
+
+        val unvisited = loadInitialState(threadTab(unvisitedId, "unvisited"), posts(110))
+        val allRead = loadInitialState(
+            threadTab(allReadId, "all read").copy(
+                resCount = 110,
+                lastReadResNo = 110,
+            ),
+            posts(110),
+        )
+        val insufficient = loadInitialState(
+            threadTab(insufficientId, "insufficient").copy(
+                resCount = 100,
+                newResCount = 10,
+                lastReadResNo = 100,
+            ),
+            posts(90),
+        )
+
+        listOf(unvisited, allRead, insufficient).forEach { state ->
+            assertEquals(null, state.latestArrivalGroupIndex)
+            assertEquals(-1, state.firstAfterIndex)
+        }
+    }
+
+    @Test
+    fun initialLoad_treatsAllResponsesAsUnreadWhenBoundaryIsOne() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "116")
+        val tab = threadTab(threadId, "title").copy(
+            newResCount = 10,
+            lastReadResNo = 0,
+        )
+
+        val state = loadInitialState(tab, posts(10))
+
+        assertEquals(
+            listOf(ThreadPostGroup(startResNo = 1, endResNo = 10, prevResCount = 0)),
+            state.postGroups,
+        )
+        assertEquals(0, state.latestArrivalGroupIndex)
+        assertEquals(0, state.firstAfterIndex)
+    }
+
+    @Test
+    fun initialLoad_keepsBoundaryAfterReadStateFlowChanges() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "117")
+        val tab = threadTab(threadId, "title").copy(
+            resCount = 100,
+            newResCount = 10,
+            lastReadResNo = 100,
+        )
+        val dependencies = mockDependencies(
+            tabs = listOf(tab),
+            selectedTabKey = threadId.value,
+            loadedPosts = mutableMapOf(threadId.value to posts(110)),
+        )
+        val viewModel = dependencies.createViewModel()
+        val stateFlow = viewModel.uiStateFor(threadId.value)
+        val initial = stateFlow.first { it.posts?.size == 110 }
+
+        dependencies.openTabs.value = listOf(tab.copy(lastReadResNo = 110, newResCount = 0))
+        advanceUntilIdle()
+
+        val updated = stateFlow.value
+        assertEquals(initial.postGroups, updated.postGroups)
+        assertEquals(initial.firstAfterIndex, updated.firstAfterIndex)
+        assertEquals(100, updated.firstAfterIndex)
+    }
+
+    @Test
+    fun reload_movesArrivalBarToNewestAppendedGroupAndClearsOnNoChange() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "118")
+        val tab = threadTab(threadId, "title").copy(
+            resCount = 100,
+            newResCount = 10,
+            lastReadResNo = 100,
+        )
+        val loadedPosts = mutableMapOf(threadId.value to posts(110))
+        val dependencies = mockDependencies(
+            tabs = listOf(tab),
+            selectedTabKey = threadId.value,
+            loadedPosts = loadedPosts,
+        )
+        val viewModel = dependencies.createViewModel()
+        val stateFlow = viewModel.uiStateFor(threadId.value)
+        stateFlow.first { it.posts?.size == 110 }
+
+        loadedPosts[threadId.value] = posts(115)
+        viewModel.reloadThread(threadId.value)
+        val appended = stateFlow.first { it.posts?.size == 115 && it.latestArrivalGroupIndex == 2 }
+
+        assertEquals(
+            listOf(
+                ThreadPostGroup(startResNo = 1, endResNo = 100, prevResCount = 0),
+                ThreadPostGroup(startResNo = 101, endResNo = 110, prevResCount = 100),
+                ThreadPostGroup(startResNo = 111, endResNo = 115, prevResCount = 110),
+            ),
+            appended.postGroups,
+        )
+        assertEquals(110, appended.firstAfterIndex)
+
+        viewModel.reloadThread(threadId.value)
+        advanceUntilIdle()
+
+        assertEquals(null, stateFlow.value.latestArrivalGroupIndex)
+        assertEquals(-1, stateFlow.value.firstAfterIndex)
+    }
+
+    @Test
     fun updateSearchInput_preservesComposition() {
         val threadId = ThreadId.of("example.com", "test", "111")
         val dependencies = mockDependencies(listOf(threadTab(threadId, "title")), selectedTabKey = threadId.value)
@@ -188,6 +349,7 @@ class ThreadRouteViewModelTest {
         tabs: List<ThreadTabInfo>,
         selectedTabKey: String?,
         initialSessionStates: Map<String, ThreadSessionState> = tabs.associate { it.id.value to ThreadSessionState() },
+        loadedPosts: MutableMap<String, List<ThreadPostUiModel>> = mutableMapOf(),
         suspendLoad: Boolean = false,
         loadReturnsNull: Boolean = false,
     ): RouteDependencies {
@@ -278,16 +440,17 @@ class ThreadRouteViewModelTest {
                 } else if (loadReturnsNull) {
                     null
                 } else {
+                    val posts = loadedPosts[tab.threadKey].orEmpty()
                     ThreadContentLoadResult(
-                        uiPosts = emptyList(),
+                        uiPosts = posts,
                         threadTitle = tab.title,
-                        resCount = 0,
+                        resCount = posts.size,
                         threadDate = ThreadDate(2024, 1, 1, 0, 0, "月"),
                         momentum = 0.0,
                         idCountMap = emptyMap(),
-                        idIndexList = emptyList(),
+                        idIndexList = posts.indices.map { it + 1 },
                         replySourceMap = emptyMap(),
-                        treeOrder = emptyList(),
+                        treeOrder = posts.indices.map { it + 1 },
                         treeDepthMap = emptyMap(),
                         treeRootMap = emptyMap(),
                     )
@@ -360,6 +523,35 @@ class ThreadRouteViewModelTest {
             boardUrl = "https://example.com/test/",
             boardId = boardId,
         )
+    }
+
+    /** 指定件数の投稿を作り、初回・追加ロードのレス範囲を再現する。 */
+    private fun posts(count: Int): List<ThreadPostUiModel> {
+        return (1..count).map { number ->
+            ThreadPostUiModel(
+                header = ThreadPostUiModel.Header(
+                    name = "name",
+                    email = "",
+                    date = "2024/01/01 00:00:00",
+                    id = "id$number",
+                ),
+                body = ThreadPostUiModel.Body(content = "post $number"),
+            )
+        }
+    }
+
+    /** テスト用タブをロードし、初回ロード完了後のUI状態を返す。 */
+    private suspend fun loadInitialState(
+        tab: ThreadTabInfo,
+        posts: List<ThreadPostUiModel>,
+    ): ThreadUiState {
+        val dependencies = mockDependencies(
+            tabs = listOf(tab),
+            selectedTabKey = tab.id.value,
+            loadedPosts = mutableMapOf(tab.id.value to posts),
+        )
+        val viewModel = dependencies.createViewModel()
+        return viewModel.uiStateFor(tab.id.value).first { it.posts != null }
     }
 
     /** protected onCleared をテストから呼び出す。 */
