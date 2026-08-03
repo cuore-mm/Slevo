@@ -743,8 +743,7 @@ class ThreadRouteViewModel @Inject constructor(
             val initialUnreadStartResNo = if (it.initialUnreadBoundaryInitialized) {
                 it.initialUnreadStartResNo
             } else {
-                tab.hasHistory.takeIf { hasHistory -> hasHistory }
-                    ?.let { tab.lastReadResNo + 1 }
+                deriveInitialUnreadStartResNo(tab)
             }
             it.copy(
                 boardInfo = boardInfo,
@@ -1376,6 +1375,11 @@ internal fun updateThreadPostGroups(
     }
     // --- No change ---
     return ThreadRoutePostGroupState(previousGroups, newResCount, null)
+}
+
+/** 履歴の有無だけを根拠に、画面セッション初回ロード用の未読境界候補を導出する。 */
+internal fun deriveInitialUnreadStartResNo(tab: ThreadTabInfo): Int? {
+    return if (tab.hasHistory) tab.lastReadResNo + 1 else null
 }
 
 /** 初回ロードのレス範囲を既読グループと未読グループへ分割する。 */
