@@ -161,6 +161,29 @@ class ThreadDisplayTransformersTest {
     }
 
     @Test
+    fun buildGroupDisplayPosts_usesSplitGroupBoundaryForNumber() {
+        val posts = listOf(
+            post(content = "first", id = "id1"),
+            post(content = "second", id = "id2"),
+            post(content = "third", id = "id3"),
+            post(content = "new", id = "id4"),
+        )
+
+        val result = buildGroupDisplayPosts(
+            posts = posts,
+            order = listOf(1, 2, 3, 4),
+            sortType = ThreadSortType.NUMBER,
+            treeDepthMap = emptyMap(),
+            treeRootMap = emptyMap(),
+            firstNewResNo = 4,
+            prevResCount = 3,
+        )
+
+        assertEquals(listOf(4), result.map { it.num })
+        assertTrue(result.all { it.isAfter })
+    }
+
+    @Test
     fun buildOrderedPosts_handlesNumberSortAndNgFiltering() {
         val posts = listOf(
             post(content = "first", id = "id1"),

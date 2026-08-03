@@ -50,4 +50,29 @@ class BoardThreadListTransformUseCaseTest {
         assertTrue(result.single().isVisited)
         assertEquals(10, result.single().newResCount)
     }
+
+    @Test
+    fun mergeHistory_usesLastReadResNo_whenFirstNewResNoIsMissingOrMismatched() {
+        val useCase = BoardThreadListTransformUseCase()
+        val threads = listOf(
+            ThreadInfo(title = "missing", key = "100", resCount = 20),
+            ThreadInfo(title = "mismatched", key = "200", resCount = 20),
+        )
+        val histories = mapOf(
+            "100" to ThreadHistoryDao.HistorySimple(
+                threadId = ThreadId.of("example.com", "test", "100"),
+                resCount = 10,
+                readState = ThreadReadState(lastReadResNo = 10, firstNewResNo = null),
+            ),
+            "200" to ThreadHistoryDao.HistorySimple(
+                threadId = ThreadId.of("example.com", "test", "200"),
+                resCount = 10,
+                readState = ThreadReadState(lastReadResNo = 10, firstNewResNo = 15),
+            ),
+        )
+
+        val result = useCase.mergeHistory(threads, histories)
+
+        assertEquals(listOf(10, 10), result.map { it.newResCount })
+    }
 }

@@ -740,11 +740,18 @@ class ThreadRouteViewModel @Inject constructor(
             resCount = tab.resCount,
         )
         updateContentState(tab.id.value) {
+            val initialUnreadStartResNo = if (it.initialUnreadBoundaryInitialized) {
+                it.initialUnreadStartResNo
+            } else {
+                deriveInitialUnreadStartResNo(tab)
+            }
             it.copy(
                 boardInfo = boardInfo,
                 threadInfo = threadInfo,
                 firstNewResNo = tab.firstNewResNo,
                 prevResCount = tab.prevResCount,
+                initialUnreadStartResNo = initialUnreadStartResNo,
+                initialUnreadBoundaryInitialized = true,
             )
         }
         boardRepository.fetchBoardNoname("${tab.boardUrl}SETTING.TXT")?.let { noname ->
@@ -827,6 +834,8 @@ class ThreadRouteViewModel @Inject constructor(
                 previousGroups = previous.postGroups,
                 previousResCount = previous.lastLoadedResCount,
                 posts = derived.uiPosts,
+                initialUnreadStartResNo = previous.initialUnreadStartResNo,
+                isInitialLoad = previous.posts == null,
             )
             current.copy(
                 posts = derived.uiPosts,
@@ -1147,28 +1156,15 @@ class ThreadRouteViewModel @Inject constructor(
         previousGroups: List<ThreadPostGroup>,
         previousResCount: Int,
         posts: List<ThreadPostUiModel>,
-    ): ThreadRoutePostGroupState {
-        val newResCount = posts.size
-        val needsReset =
-            previousResCount == 0 || previousGroups.isEmpty() || newResCount < previousResCount
-        if (newResCount == 0 || needsReset) {
-            val nextGroups = if (newResCount > 0) {
-                listOf(ThreadPostGroup(startResNo = 1, endResNo = newResCount, prevResCount = 0))
-            } else {
-                emptyList()
-            }
-            return ThreadRoutePostGroupState(nextGroups, newResCount, null)
-        }
-        if (newResCount > previousResCount) {
-            val nextGroups = previousGroups + ThreadPostGroup(
-                startResNo = previousResCount + 1,
-                endResNo = newResCount,
-                prevResCount = previousResCount,
-            )
-            return ThreadRoutePostGroupState(nextGroups, newResCount, nextGroups.lastIndex)
-        }
-        return ThreadRoutePostGroupState(previousGroups, newResCount, null)
-    }
+        initialUnreadStartResNo: Int?,
+        isInitialLoad: Boolean,
+    ): ThreadRoutePostGroupState = updateThreadPostGroups(
+        previousGroups = previousGroups,
+        previousResCount = previousResCount,
+        posts = posts,
+        initialUnreadStartResNo = initialUnreadStartResNo,
+        isInitialLoad = isInitialLoad,
+    )
 
     /** タイトル未取得時の初期表示名を組み立てる。 */
     private fun buildInitialThreadTitle(
@@ -1235,6 +1231,7 @@ private data class ThreadTabUiStateSourceKey(
     val boardId: Long,
     val resCount: Int,
     val newResCount: Int,
+    val hasHistory: Boolean,
     val prevResCount: Int,
     val lastReadResNo: Int,
     val firstNewResNo: Int?,
@@ -1252,6 +1249,7 @@ private fun ThreadTabInfo.toUiStateSourceKey(): ThreadTabUiStateSourceKey {
         boardId = boardId,
         resCount = resCount,
         newResCount = newResCount,
+        hasHistory = hasHistory,
         prevResCount = prevResCount,
         lastReadResNo = lastReadResNo,
         firstNewResNo = firstNewResNo,
@@ -1276,6 +1274,9 @@ private data class ThreadRouteContentState(
     val postGroups: List<ThreadPostGroup> = emptyList(),
     val lastLoadedResCount: Int = 0,
     val latestArrivalGroupIndex: Int? = null,
+    /** 初回ロード時に固定する未読グループの開始レス番号。 */
+    val initialUnreadStartResNo: Int? = null,
+    val initialUnreadBoundaryInitialized: Boolean = false,
     val firstNewResNo: Int? = null,
     val prevResCount: Int = 0,
     val myPostNumbers: Set<Int> = emptySet(),
@@ -1322,8 +1323,99 @@ private data class ThreadRouteBaseUiStateInput(
 /**
  * 投稿グループ更新結果。
  */
-private data class ThreadRoutePostGroupState(
+internal data class ThreadRoutePostGroupState(
     val groups: List<ThreadPostGroup>,
     val lastLoadedResCount: Int,
     val latestArrivalGroupIndex: Int?,
 )
+
+/** レスポンスの取得結果から、更新単位のグループと最新グループ位置を構築する。 */
+internal fun updateThreadPostGroups(
+    previousGroups: List<ThreadPostGroup>,
+    previousResCount: Int,
+    posts: List<ThreadPostUiModel>,
+    initialUnreadStartResNo: Int?,
+    isInitialLoad: Boolean,
+): ThreadRoutePostGroupState {
+    val newResCount = posts.size
+    // --- Empty response ---
+    if (newResCount == 0) {
+        return ThreadRoutePostGroupState(emptyList(), newResCount, null)
+    }
+
+    // --- Initial load ---
+    if (isInitialLoad) {
+        return buildInitialPostGroupState(newResCount, initialUnreadStartResNo)
+    }
+
+    // --- Recovery after a completed empty state ---
+    if (previousResCount == 0 || previousGroups.isEmpty()) {
+        val recoveryGroups = listOf(
+            ThreadPostGroup(startResNo = 1, endResNo = newResCount, prevResCount = 0)
+        )
+        return ThreadRoutePostGroupState(recoveryGroups, newResCount, null)
+    }
+
+    // --- Response count decrease ---
+    if (newResCount < previousResCount) {
+        // Fallback: a shortened response list starts a fresh non-arrival group.
+        val resetGroups = listOf(
+            ThreadPostGroup(startResNo = 1, endResNo = newResCount, prevResCount = 0)
+        )
+        return ThreadRoutePostGroupState(resetGroups, newResCount, null)
+    }
+    // --- Response append ---
+    if (newResCount > previousResCount) {
+        val nextGroups = previousGroups + ThreadPostGroup(
+            startResNo = previousResCount + 1,
+            endResNo = newResCount,
+            prevResCount = previousResCount,
+        )
+        return ThreadRoutePostGroupState(nextGroups, newResCount, nextGroups.lastIndex)
+    }
+    // --- No change ---
+    return ThreadRoutePostGroupState(previousGroups, newResCount, null)
+}
+
+/** 履歴の有無だけを根拠に、画面セッション初回ロード用の未読境界候補を導出する。 */
+internal fun deriveInitialUnreadStartResNo(tab: ThreadTabInfo): Int? {
+    return if (tab.hasHistory) tab.lastReadResNo + 1 else null
+}
+
+/** 初回ロードのレス範囲を既読グループと未読グループへ分割する。 */
+private fun buildInitialPostGroupState(
+    newResCount: Int,
+    initialUnreadStartResNo: Int?,
+): ThreadRoutePostGroupState {
+    // --- Boundary validation ---
+    val validUnreadStart = initialUnreadStartResNo?.takeIf { it in 1..newResCount }
+    if (validUnreadStart == null) {
+        val initialGroups = listOf(
+            ThreadPostGroup(startResNo = 1, endResNo = newResCount, prevResCount = 0)
+        )
+        return ThreadRoutePostGroupState(initialGroups, newResCount, null)
+    }
+
+    // --- Unread from first response ---
+    if (validUnreadStart == 1) {
+        val unreadGroups = listOf(
+            ThreadPostGroup(startResNo = 1, endResNo = newResCount, prevResCount = 0)
+        )
+        return ThreadRoutePostGroupState(unreadGroups, newResCount, 0)
+    }
+
+    // --- Read-unread split ---
+    val initialGroups = listOf(
+        ThreadPostGroup(
+            startResNo = 1,
+            endResNo = validUnreadStart - 1,
+            prevResCount = 0,
+        ),
+        ThreadPostGroup(
+            startResNo = validUnreadStart,
+            endResNo = newResCount,
+            prevResCount = validUnreadStart - 1,
+        ),
+    )
+    return ThreadRoutePostGroupState(initialGroups, newResCount, 1)
+}

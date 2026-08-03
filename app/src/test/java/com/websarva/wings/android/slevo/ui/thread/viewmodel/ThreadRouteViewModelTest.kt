@@ -2,6 +2,9 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.lifecycle.viewModelScope
+import com.websarva.wings.android.slevo.core.log.AppLogger
+import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadId
@@ -13,7 +16,7 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
-import com.websarva.wings.android.slevo.core.log.AppLogger
+import com.websarva.wings.android.slevo.data.util.ThreadNewResCalculator
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
@@ -21,11 +24,14 @@ import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionRuntimeState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -41,7 +47,7 @@ import org.junit.Test
 /**
  * [ThreadRouteViewModel] の軽量回帰テスト。
  *
- * 直接合成化後の lazy load、reload、自動スクロールの委譲条件だけを最小依存で検証する。
+ * 直接合成化後の lazy load、reload、自動スクロールの委譲条件とレスグループ境界を検証する。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ThreadRouteViewModelTest {
@@ -144,6 +150,208 @@ class ThreadRouteViewModelTest {
         advanceUntilIdle()
 
         assertEquals(com.websarva.wings.android.slevo.R.string.thread_load_failed, dependencies.sessionStates.value[threadId.value]?.pendingToastResId)
+    }
+
+    @Test
+    fun initialLoad_restoresUnreadGroupFromLastReadPosition() {
+        val state = updateThreadPostGroups(
+            previousGroups = emptyList(),
+            previousResCount = 0,
+            posts = posts(110),
+            initialUnreadStartResNo = 101,
+            isInitialLoad = true,
+        )
+
+        assertEquals(
+            listOf(
+                ThreadPostGroup(startResNo = 1, endResNo = 100, prevResCount = 0),
+                ThreadPostGroup(startResNo = 101, endResNo = 110, prevResCount = 100),
+            ),
+            state.groups,
+        )
+        assertEquals(1, state.latestArrivalGroupIndex)
+
+        val visible = ThreadVisiblePostsUseCase().buildVisibleRows(
+            posts = posts(110),
+            groups = state.groups,
+            sortType = com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType.NUMBER,
+            treeOrder = emptyList(),
+            treeDepthMap = emptyMap(),
+            treeRootMap = emptyMap(),
+            latestArrivalGroupIndex = state.latestArrivalGroupIndex,
+            searchQuery = "",
+            ngPostNumbers = emptySet(),
+            replySourceMap = emptyMap(),
+        )
+        assertEquals(100, visible.firstAfterIndex)
+    }
+
+    @Test
+    fun initialLoad_restoresUnreadGroupWhenFirstNewResNoIsMissing() {
+        val readState = ThreadReadState(lastReadResNo = 100, firstNewResNo = null)
+        val initialUnreadStartResNo = (ThreadNewResCalculator.calculate(110, readState) > 0)
+            .let { hasUnread -> if (hasUnread) readState.lastReadResNo + 1 else null }
+
+        val state = updateThreadPostGroups(
+            previousGroups = emptyList(),
+            previousResCount = 0,
+            posts = posts(110),
+            initialUnreadStartResNo = initialUnreadStartResNo,
+            isInitialLoad = true,
+        )
+
+        assertEquals(1, state.latestArrivalGroupIndex)
+        assertEquals(101, state.groups[1].startResNo)
+    }
+
+    @Test
+    fun initialLoad_doesNotShowArrivalBarWithoutValidUnreadBoundary() {
+        val states = listOf(
+            updateThreadPostGroups(emptyList(), 0, posts(110), null, true),
+            updateThreadPostGroups(emptyList(), 0, posts(110), null, true),
+            updateThreadPostGroups(emptyList(), 0, posts(90), 101, true),
+        )
+
+        states.forEach { state ->
+            assertEquals(null, state.latestArrivalGroupIndex)
+            val visible = ThreadVisiblePostsUseCase().buildVisibleRows(
+                posts = posts(state.lastLoadedResCount),
+                groups = state.groups,
+                sortType = com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType.NUMBER,
+                treeOrder = emptyList(),
+                treeDepthMap = emptyMap(),
+                treeRootMap = emptyMap(),
+                latestArrivalGroupIndex = state.latestArrivalGroupIndex,
+                searchQuery = "",
+                ngPostNumbers = emptySet(),
+                replySourceMap = emptyMap(),
+            )
+            assertEquals(-1, visible.firstAfterIndex)
+        }
+    }
+
+    @Test
+    fun initialLoad_treatsAllResponsesAsUnreadWhenBoundaryIsOne() {
+        val state = updateThreadPostGroups(emptyList(), 0, posts(10), 1, true)
+
+        assertEquals(
+            listOf(ThreadPostGroup(startResNo = 1, endResNo = 10, prevResCount = 0)),
+            state.groups,
+        )
+        assertEquals(0, state.latestArrivalGroupIndex)
+    }
+
+    @Test
+    fun initialLoad_keepsBoundaryAfterReadStateChanges() {
+        val initial = updateThreadPostGroups(emptyList(), 0, posts(110), 101, true)
+        val afterRead = initial.copy()
+
+        assertEquals(initial.groups, afterRead.groups)
+        assertEquals(initial.latestArrivalGroupIndex, afterRead.latestArrivalGroupIndex)
+    }
+
+    @Test
+    fun reload_movesArrivalBarToNewestAppendedGroupAndClearsOnNoChange() {
+        val initial = updateThreadPostGroups(emptyList(), 0, posts(110), 101, true)
+        val appended = updateThreadPostGroups(initial.groups, 110, posts(115), 101, false)
+        val unchanged = updateThreadPostGroups(appended.groups, 115, posts(115), 101, false)
+
+        assertEquals(2, appended.latestArrivalGroupIndex)
+        assertEquals(110, appended.groups.last().startResNo - 1)
+        assertEquals(null, unchanged.latestArrivalGroupIndex)
+    }
+
+    @Test
+    fun recoveryAfterEmptyReload_doesNotReuseInitialBoundary() {
+        val initial = updateThreadPostGroups(emptyList(), 0, posts(110), 101, true)
+        val empty = updateThreadPostGroups(initial.groups, 110, emptyList(), 101, false)
+        val recovered = updateThreadPostGroups(empty.groups, 0, posts(110), 101, false)
+
+        assertEquals(
+            listOf(ThreadPostGroup(startResNo = 1, endResNo = 110, prevResCount = 0)),
+            recovered.groups,
+        )
+        assertEquals(null, recovered.latestArrivalGroupIndex)
+        assertEquals(-1, firstAfterIndex(posts(110), recovered))
+    }
+
+    @Test
+    fun recoveryAfterInitialEmptyLoad_doesNotReuseInitialBoundary() {
+        val empty = updateThreadPostGroups(emptyList(), 0, emptyList(), 101, true)
+        val recovered = updateThreadPostGroups(empty.groups, 0, posts(110), 101, false)
+
+        assertEquals(
+            listOf(ThreadPostGroup(startResNo = 1, endResNo = 110, prevResCount = 0)),
+            recovered.groups,
+        )
+        assertEquals(null, recovered.latestArrivalGroupIndex)
+        assertEquals(-1, firstAfterIndex(posts(110), recovered))
+    }
+
+    @Test
+    fun recoveryAfterNonZeroCountDecrease_doesNotReuseInitialBoundary() {
+        val initial = updateThreadPostGroups(emptyList(), 0, posts(110), 101, true)
+        val decreased = updateThreadPostGroups(initial.groups, 110, posts(90), 101, false)
+
+        assertEquals(
+            listOf(ThreadPostGroup(startResNo = 1, endResNo = 90, prevResCount = 0)),
+            decreased.groups,
+        )
+        assertEquals(null, decreased.latestArrivalGroupIndex)
+        assertEquals(-1, firstAfterIndex(posts(90), decreased))
+    }
+
+    /** キャッシュ済み新着件数が0でも、初回実取得レス数から未読境界を復元する。 */
+    @Test
+    fun initialLoad_usesFetchedCountWhenCachedNewResCountIsZero() = runTest {
+        val tab = threadTab(ThreadId.of("example.com", "test", "stale-cache"), "title").copy(
+            hasHistory = true,
+            lastReadResNo = 100,
+            newResCount = 0,
+            resCount = 100,
+        )
+        val state = updateThreadPostGroups(
+            previousGroups = emptyList(),
+            previousResCount = 0,
+            posts = posts(110),
+            initialUnreadStartResNo = deriveInitialUnreadStartResNo(tab),
+            isInitialLoad = true,
+        )
+
+        assertEquals(
+            listOf(
+                ThreadPostGroup(startResNo = 1, endResNo = 100, prevResCount = 0),
+                ThreadPostGroup(startResNo = 101, endResNo = 110, prevResCount = 100),
+            ),
+            state.groups,
+        )
+        assertEquals(1, state.latestArrivalGroupIndex)
+        assertEquals(100, firstAfterIndex(posts(110), state))
+    }
+
+    /** 未訪問スレッドでは実取得レス数が増えていても初回未読境界を作らない。 */
+    @Test
+    fun initialLoad_doesNotCreateBoundaryForUnvisitedThreadWhenFetchedCountIncreases() = runTest {
+        val tab = threadTab(ThreadId.of("example.com", "test", "unvisited"), "title").copy(
+            hasHistory = false,
+            lastReadResNo = 100,
+            newResCount = 0,
+            resCount = 100,
+        )
+        val state = updateThreadPostGroups(
+            previousGroups = emptyList(),
+            previousResCount = 0,
+            posts = posts(110),
+            initialUnreadStartResNo = deriveInitialUnreadStartResNo(tab),
+            isInitialLoad = true,
+        )
+
+        assertEquals(
+            listOf(ThreadPostGroup(startResNo = 1, endResNo = 110, prevResCount = 0)),
+            state.groups,
+        )
+        assertEquals(null, state.latestArrivalGroupIndex)
+        assertEquals(-1, firstAfterIndex(posts(110), state))
     }
 
     @Test
@@ -362,8 +570,43 @@ class ThreadRouteViewModelTest {
         )
     }
 
-    /** protected onCleared をテストから呼び出す。 */
+    /** 指定件数の投稿を作り、初回・追加ロードのレス範囲を再現する。 */
+    private fun posts(count: Int): List<ThreadPostUiModel> {
+        return (1..count).map { number ->
+            ThreadPostUiModel(
+                header = ThreadPostUiModel.Header(
+                    name = "name",
+                    email = "",
+                    date = "2024/01/01 00:00:00",
+                    id = "id$number",
+                ),
+                body = ThreadPostUiModel.Body(content = "post $number"),
+            )
+        }
+    }
+
+    /** グループ結果を表示変換へ渡し、新着バー挿入位置を返す。 */
+    private fun firstAfterIndex(
+        posts: List<ThreadPostUiModel>,
+        state: ThreadRoutePostGroupState,
+    ): Int {
+        return ThreadVisiblePostsUseCase().buildVisibleRows(
+            posts = posts,
+            groups = state.groups,
+            sortType = com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType.NUMBER,
+            treeOrder = emptyList(),
+            treeDepthMap = emptyMap(),
+            treeRootMap = emptyMap(),
+            latestArrivalGroupIndex = state.latestArrivalGroupIndex,
+            searchQuery = "",
+            ngPostNumbers = emptySet(),
+            replySourceMap = emptyMap(),
+        ).firstAfterIndex
+    }
+
+    /** ViewModelの内部scopeを含めてテスト用ViewModelを解放する。 */
     private fun invokeOnCleared(viewModel: ThreadRouteViewModel) {
+        viewModel.viewModelScope.cancel()
         val method = ThreadRouteViewModel::class.java.getDeclaredMethod("onCleared")
         method.isAccessible = true
         method.invoke(viewModel)

@@ -6,7 +6,7 @@ import org.junit.Test
 
 /**
  * `ThreadNewResCalculator` の新着レス数導出規則を検証するテスト。
- * 履歴なし、最初の新着番号あり、最終既読番号のみの各ケースを確認する。
+ * 履歴なし、最終既読番号、保存済み新着番号の不整合、全件既読の各ケースを確認する。
  */
 class ThreadNewResCalculatorTest {
     @Test
@@ -15,14 +15,14 @@ class ThreadNewResCalculatorTest {
     }
 
     @Test
-    fun calculate_usesFirstNewResNo_whenItIsValid() {
+    fun calculate_usesLastReadResNo_whenFirstNewResNoIsBeforeLastRead() {
         val readState = ThreadReadState(
             prevResCount = 80,
             lastReadResNo = 90,
-            firstNewResNo = 95,
+            firstNewResNo = 85,
         )
 
-        assertEquals(6, ThreadNewResCalculator.calculate(100, readState))
+        assertEquals(10, ThreadNewResCalculator.calculate(100, readState))
     }
 
     @Test
@@ -37,6 +37,17 @@ class ThreadNewResCalculatorTest {
     }
 
     @Test
+    fun calculate_usesLastReadResNo_whenFirstNewResNoIsAfterBoundary() {
+        val readState = ThreadReadState(
+            prevResCount = 80,
+            lastReadResNo = 90,
+            firstNewResNo = 95,
+        )
+
+        assertEquals(10, ThreadNewResCalculator.calculate(100, readState))
+    }
+
+    @Test
     fun calculate_returnsZero_whenLatestResCountIsAlreadyRead() {
         val readState = ThreadReadState(
             prevResCount = 100,
@@ -45,5 +56,12 @@ class ThreadNewResCalculatorTest {
         )
 
         assertEquals(0, ThreadNewResCalculator.calculate(100, readState))
+    }
+
+    @Test
+    fun calculate_returnsZero_whenLatestResCountIsBelowLastReadResNo() {
+        val readState = ThreadReadState(lastReadResNo = 100)
+
+        assertEquals(0, ThreadNewResCalculator.calculate(90, readState))
     }
 }
