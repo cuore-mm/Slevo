@@ -39,3 +39,10 @@
 - [x] 6.2 同ファイルの `updateThreadPostGroups` で、初回成功後に `previousResCount == 0` または `previousGroups.isEmpty()` となった非0件取得を回復リセットとして単一グループへ戻し、`latestArrivalGroupIndex=null` とする。非0件の取得数減少も同じバーなし回復結果を維持し、追加更新・同数更新の分岐を変更しない。
 - [x] 6.3 `app/src/test/java/com/websarva/wings/android/slevo/ui/thread/viewmodel/ThreadRouteViewModelTest.kt` に、真の初回非0件で境界を適用するケース、非0件→0件→非0件および初回0件→非0件で境界を再適用しないケース、非0件の取得数減少ケースを追加する。回復後は単一グループ、`latestArrivalGroupIndex=null`、`firstAfterIndex=-1` を確認する。
 - [x] 6.4 既存の追加更新、同数更新、NUMBER/TREE、検索・NGのテストを維持し、`./gradlew testDebugUnitTest` と `./gradlew assembleDebug` をCIで成功させる。`ThreadPostListContent.kt`、`NewArrivalBar.kt`、リソース、アクセシビリティ関連ファイルに差分がないことを確認する。GitHub Actions `Android CI` run `30805616679` で成功した。
+
+## 7. Codex P1 stale cache初回境界修正
+
+- [ ] 7.1 `app/src/main/java/com/websarva/wings/android/slevo/ui/tabs/model/ThreadTabInfo.kt` にデフォルトfalseの `hasHistory` を追加し、`app/src/main/java/com/websarva/wings/android/slevo/data/repository/TabsRepository.kt` の `toThreadTabInfo` でDAO合成行の `hasHistory` を伝播する。`ThreadRouteViewModel.kt` の `ThreadTabUiStateSourceKey` にも同値を含める。DBスキーマ、DAOクエリ、ナビゲーション引数は変更しない。
+- [ ] 7.2 `ThreadRouteViewModel.initializeTabMetadata` で、`tab.newResCount` ではなく `tab.hasHistory` を条件に `lastReadResNo + 1` を初回境界候補として保存する。真の初回ロードで既存の `buildInitialPostGroupState` が実取得レス数に対して候補を検証し、履歴あり・cached 100/read 100・取得110では101番境界、履歴なしでは境界なしとなることを確認する。
+- [ ] 7.3 `app/src/test/java/com/websarva/wings/android/slevo/ui/thread/viewmodel/ThreadRouteViewModelTest.kt` に stale cached newResCount=0 と初回実取得110の回帰テストを追加し、履歴ありでは `1..100` / `101..110`、`latestArrivalGroupIndex=1`、`firstAfterIndex=100`、履歴なしでは単一グループ、index null、`firstAfterIndex=-1` を確認する。`TabsRepositoryThreadStateTest.kt` では履歴有無が `ThreadTabInfo.hasHistory` に伝播することを確認する。
+- [ ] 7.4 真の初回判定、空レス回復、取得数減少、追加更新、同数更新、NUMBER/TREE、検索・NGの既存テストを維持し、CIで単体テストとDebugビルドを成功させる。関連instrumented testを実行できる環境では `TabsRepositoryThreadStateTest` も確認し、UI・リソース・アクセシビリティ関連ファイルに差分がないことを確認する。

@@ -34,7 +34,7 @@
 
 ### 1. 初回未読境界を `lastReadResNo + 1` に統一する
 
-履歴が存在し、新着件数が1件以上である場合、初回未読開始レス番号を `lastReadResNo + 1` とする。`firstNewResNo` は既存DBとの互換性のため保持するが、板一覧・タブ一覧の新着件数と初回グループ境界の計算元にはしない。新着件数は履歴がある場合に `max(latestResCount - lastReadResNo, 0)`、履歴がない場合に0とする。
+履歴が存在し、真の初回ロードで実際に取得したレス数が `lastReadResNo` より大きい場合、初回未読開始レス番号を `lastReadResNo + 1` とする。`firstNewResNo` は既存DBとの互換性のため保持するが、板一覧・タブ一覧の新着件数と初回グループ境界の計算元にはしない。板一覧・タブ一覧の新着件数は履歴がある場合に `max(latestResCount - lastReadResNo, 0)`、履歴がない場合に0とする。一方、スレッド初回グループはキャッシュ済み `latestResCount` や `tab.newResCount` ではなく、実取得レス数で境界の有効性を判定する。
 
 これにより、`firstNewResNo=null` でも未読境界を復元でき、板一覧の件数とスレッド内で新着扱いになる範囲が一致する。
 
@@ -42,11 +42,13 @@
 
 ### 2. 境界は `ThreadRouteContentState` に画面セッションのスナップショットとして保持する
 
-`ThreadRouteViewModel.initializeTabMetadata` で `ThreadTabInfo` から、履歴の有無を反映済みの `newResCount` と `lastReadResNo` を読み取る。`newResCount > 0` の場合だけ `lastReadResNo + 1` を初回未読開始位置として `ThreadRouteContentState` に保存し、それ以外は `null` とする。
+`OpenThreadTabDao.OpenThreadTabWithState.hasHistory` を `TabsRepository.toThreadTabInfo` から `ThreadTabInfo.hasHistory` へ明示的に伝播する。履歴なしの各既読値は0または `null` へ丸められるため、`newResCount`、`lastReadResNo`、`prevResCount`、`firstNewResNo` の組み合わせから履歴存在を推測してはならない。
+
+`ThreadRouteViewModel.initializeTabMetadata` は、`hasHistory=true` の場合に `lastReadResNo + 1` を初回未読開始候補として `ThreadRouteContentState` に保存し、履歴がない場合だけ `null` とする。真の初回ロードでは `buildInitialPostGroupState` が候補を実取得レス数の範囲で検証する。これにより、キャッシュ済み `latestResCount=100`、`lastReadResNo=100`、`tab.newResCount=0` でも、実取得が110件なら101番を境界として復元できる。
 
 この値は初回ロード開始前に一度だけ設定する。`ThreadScaffold` の `onLastRead`、`ThreadTabCoordinator.updateThreadLastRead`、Room Flow の再通知、および `setNewArrivalInfo` では更新しない。これにより、表示後のスクロールで永続既読位置が進んでもバー位置は変化しない。タブ終了時には既存の content state 破棄に従って消える。
 
-`ThreadTabInfo` はすでに `lastReadResNo` と `newResCount` を持つため、DAO、Room entity、ナビゲーション引数は変更しない。
+`ThreadTabInfo` に `hasHistory` を追加し、`TabsRepository` の既存DAO合成結果から設定する。DAOクエリ、Room entity・スキーマ、ナビゲーション引数は変更しない。ルートから生成するplaceholderやPreviewはデフォルト `false` とし、正規Roomスナップショットだけが履歴存在を `true` にする。
 
 ### 3. 初回ロードのリセット分岐だけを既読・未読グループへ分割する
 
@@ -83,19 +85,21 @@
 
 1. `data/util/ThreadNewResCalculator.kt` の計算を、履歴なしは0、履歴ありは `(latestResCount - lastReadResNo).coerceAtLeast(0)` に統一する。`ThreadReadState` のフィールドやDBスキーマは削除・変更しない。
 2. `ui/thread/viewmodel/ThreadRouteViewModel.kt` の `ThreadRouteContentState` に、初回ロード用の未読開始レス番号を表す nullable フィールドを追加する。名称は用途が分かるものとし、`firstNewResNo` を流用しない。
-3. `initializeTabMetadata` で `tab.newResCount > 0` のときだけ `tab.lastReadResNo + 1` をそのフィールドへ保存する。既存グループを持つcontent stateをRoom再通知で再初期化しない。
-4. `setNewArrivalInfo` と `updateThreadLastRead` から初回境界フィールドを更新しない。
-5. `applyLoadSuccess` で読み込み前の `previous.posts == null` を真の初回ロード判定として算出し、初回境界とともに `updatePostGroups` へ渡す。新しいDBフィールドまたは永続化フラグは追加しない。
-6. `updatePostGroups` の真の初回ロード分岐でのみ、境界が取得範囲内なら既読・未読グループを作り、未読側indexを `latestArrivalGroupIndex` に設定する。境界1は単一の未読グループとして扱う。
-7. 成功済み状態で `previousResCount == 0` または `previousGroups.isEmpty()` の非0件取得は回復リセットとして扱い、単一グループ、`latestArrivalGroupIndex=null` を返す。初回境界を参照してはならない。
-8. 取得数減少、追加更新、新着0件更新の既存分岐は、初回境界の影響を受けないよう分離する。
-9. `ThreadVisiblePostsUseCase.kt`、`ThreadDisplayTransformers.kt`、`ThreadPostListContent.kt`、`NewArrivalBar.kt` の既存表示契約は原則変更しない。テストで既存契約を維持できない事実が判明した場合は実装を止め、OpenSpec設計の再確認を求める。
-10. 新規または変更する型・非自明関数にはリポジトリのKDoc規則を適用し、長い関数は既存ルールに従ってセクション分割する。
+3. `ThreadTabInfo` に `hasHistory: Boolean = false` を追加し、`TabsRepository.toThreadTabInfo` で `OpenThreadTabWithState.hasHistory` を設定する。`ThreadTabUiStateSourceKey` にも含め、履歴存在の変化を表示状態合成へ反映する。DBスキーマ、DAOクエリ、ナビゲーション引数は変更しない。
+4. `initializeTabMetadata` で `tab.hasHistory` が真の場合だけ `tab.lastReadResNo + 1` を初回未読開始候補として保存する。`tab.newResCount` を境界作成の条件に使用しない。既存グループを持つcontent stateをRoom再通知で再初期化しない。
+5. `setNewArrivalInfo` と `updateThreadLastRead` から初回境界フィールドを更新しない。
+6. `applyLoadSuccess` で読み込み前の `previous.posts == null` を真の初回ロード判定として算出し、初回境界候補とともに `updatePostGroups` へ渡す。新しいDBフィールドまたは永続化フラグは追加しない。
+7. `updatePostGroups` の真の初回ロード分岐でのみ、候補が実取得レス数の範囲内なら既読・未読グループを作り、未読側indexを `latestArrivalGroupIndex` に設定する。境界1は単一の未読グループとして扱う。
+8. 成功済み状態で `previousResCount == 0` または `previousGroups.isEmpty()` の非0件取得は回復リセットとして扱い、単一グループ、`latestArrivalGroupIndex=null` を返す。初回境界を参照してはならない。
+9. 取得数減少、追加更新、新着0件更新の既存分岐は、初回境界の影響を受けないよう分離する。
+10. `ThreadVisiblePostsUseCase.kt`、`ThreadDisplayTransformers.kt`、`ThreadPostListContent.kt`、`NewArrivalBar.kt` の既存表示契約は原則変更しない。テストで既存契約を維持できない事実が判明した場合は実装を止め、OpenSpec設計の再確認を求める。
+11. 新規または変更する型・非自明関数にはリポジトリのKDoc規則を適用し、長い関数は既存ルールに従ってセクション分割する。
 
 ## Error Cases and Compatibility
 
-- 履歴なし: `newResCount=0` を入口条件として境界を作らず、未訪問スレッドにバーを表示しない。
-- 全件既読: `latestResCount <= lastReadResNo` なら新着件数0、境界なしとする。
+- 履歴なし: `hasHistory=false` を入口条件として境界候補を作らず、実取得レス数が増えていても未訪問スレッドにバーを表示しない。
+- stale cache: `hasHistory=true` かつキャッシュ済み `latestResCount == lastReadResNo` でも、真の初回実取得レス数が `lastReadResNo` を超える場合は境界候補を有効として扱う。
+- 全件既読: 板一覧・タブ一覧では `latestResCount <= lastReadResNo` なら新着件数0とし、スレッド初回ロードでは実取得レス数が `lastReadResNo` 以下なら境界なしとする。
 - 取得数不足・削除レス: 初回境界が実取得レス数を超える場合は分割せず、バーを表示しない。例外や空グループを生成しない。
 - 0件取得後の回復: 成功済み状態を `posts != null` で識別し、次の非0件取得では初回境界を再利用せず、単一グループかつバーなしにする。
 - `lastReadResNo=0` かつ履歴由来の新着件数が正の場合: 1番から未読グループとして扱う。
@@ -113,6 +117,8 @@
 - 同テストで後続追加更新は新しい末尾グループへバーが移り、新着0件更新ではバーが消える既存契約を検証する。
 - 同テストで真の初回非0件ロードでは境界を適用し、非0件→0件→非0件および初回0件→非0件では回復後に単一グループ、`latestArrivalGroupIndex=null`、`firstAfterIndex=-1` になることを検証する。
 - 同テストで非0件の取得数減少が単一グループかつバーなしとなり、追加更新と同数更新の既存結果が変わらないことを検証する。
+- `ThreadRouteViewModelTest` で、履歴あり・キャッシュ最新100・既読100・キャッシュ新着0・初回実取得110なら101番境界と `firstAfterIndex=100` を生成し、履歴なし・初回実取得110なら境界なしとすることを検証する。
+- `TabsRepositoryThreadStateTest` で履歴行の有無が `ThreadTabInfo.hasHistory` の真偽へ伝播することを検証する。
 - `ThreadVisiblePostsUseCaseTest` と `ThreadDisplayTransformersTest` で NUMBER/TREE、検索、NGフィルター、TREE文脈親を含めても未読グループ先頭の `firstAfterIndex` と安定キーが保たれることを検証する。
 - 実装後は `./gradlew testDebugUnitTest` と `./gradlew assembleDebug` を実行する。Room結合経路を変更した場合だけ関連instrumented testも実行する。
 
