@@ -393,6 +393,7 @@ class TabsRepository @Inject constructor(
             boardId = entity.boardId,
             resCount = entity.latestResCount,
             newResCount = ThreadNewResCalculator.calculate(entity.latestResCount, readState),
+            hasHistory = entity.hasHistory,
             prevResCount = readState?.prevResCount ?: 0,
             lastReadResNo = readState?.lastReadResNo ?: 0,
             firstNewResNo = readState?.firstNewResNo,

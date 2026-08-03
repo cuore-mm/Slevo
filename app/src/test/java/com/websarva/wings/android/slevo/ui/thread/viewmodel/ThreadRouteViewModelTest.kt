@@ -34,8 +34,10 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -301,6 +303,69 @@ class ThreadRouteViewModelTest {
         assertEquals(-1, firstAfterIndex(posts(90), decreased))
     }
 
+    /** キャッシュ済み新着件数が0でも、初回実取得レス数から未読境界を復元する。 */
+    @Test
+    fun initialLoad_usesFetchedCountWhenCachedNewResCountIsZero() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "stale-cache")
+        val tab = threadTab(threadId, "title").copy(
+            hasHistory = true,
+            lastReadResNo = 100,
+            newResCount = 0,
+            resCount = 100,
+        )
+        val dependencies = mockDependencies(
+            tabs = listOf(tab),
+            selectedTabKey = threadId.value,
+            loadedPostCount = 110,
+        )
+        val viewModel = dependencies.createViewModel()
+        val uiState = viewModel.uiStateFor(threadId.value)
+        val stateJob = launch { uiState.collect { } }
+
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                ThreadPostGroup(startResNo = 1, endResNo = 100, prevResCount = 0),
+                ThreadPostGroup(startResNo = 101, endResNo = 110, prevResCount = 100),
+            ),
+            uiState.value.postGroups,
+        )
+        assertEquals(1, uiState.value.latestArrivalGroupIndex)
+        assertEquals(100, uiState.value.firstAfterIndex)
+        stateJob.cancel()
+    }
+
+    /** 未訪問スレッドでは実取得レス数が増えていても初回未読境界を作らない。 */
+    @Test
+    fun initialLoad_doesNotCreateBoundaryForUnvisitedThreadWhenFetchedCountIncreases() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "unvisited")
+        val tab = threadTab(threadId, "title").copy(
+            hasHistory = false,
+            lastReadResNo = 100,
+            newResCount = 0,
+            resCount = 100,
+        )
+        val dependencies = mockDependencies(
+            tabs = listOf(tab),
+            selectedTabKey = threadId.value,
+            loadedPostCount = 110,
+        )
+        val viewModel = dependencies.createViewModel()
+        val uiState = viewModel.uiStateFor(threadId.value)
+        val stateJob = launch { uiState.collect { } }
+
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(ThreadPostGroup(startResNo = 1, endResNo = 110, prevResCount = 0)),
+            uiState.value.postGroups,
+        )
+        assertEquals(null, uiState.value.latestArrivalGroupIndex)
+        assertEquals(-1, uiState.value.firstAfterIndex)
+        stateJob.cancel()
+    }
+
     @Test
     fun updateSearchInput_preservesComposition() {
         val threadId = ThreadId.of("example.com", "test", "111")
@@ -345,6 +410,7 @@ class ThreadRouteViewModelTest {
         initialSessionStates: Map<String, ThreadSessionState> = tabs.associate { it.id.value to ThreadSessionState() },
         suspendLoad: Boolean = false,
         loadReturnsNull: Boolean = false,
+        loadedPostCount: Int = 0,
     ): RouteDependencies {
         val openTabs = MutableStateFlow(tabs)
         val selectedKey = MutableStateFlow(selectedTabKey)
@@ -433,10 +499,11 @@ class ThreadRouteViewModelTest {
                 } else if (loadReturnsNull) {
                     null
                 } else {
+                    val loadedPosts = posts(loadedPostCount)
                     ThreadContentLoadResult(
-                        uiPosts = emptyList(),
+                        uiPosts = loadedPosts,
                         threadTitle = tab.title,
-                        resCount = 0,
+                        resCount = loadedPostCount,
                         threadDate = ThreadDate(2024, 1, 1, 0, 0, "月"),
                         momentum = 0.0,
                         idCountMap = emptyMap(),

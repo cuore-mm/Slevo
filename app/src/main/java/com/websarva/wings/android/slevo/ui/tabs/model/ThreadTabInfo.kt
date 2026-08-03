@@ -6,6 +6,7 @@ import com.websarva.wings.android.slevo.data.model.threadKey
 /**
  * タブ一覧とスレッド画面間で受け渡す、開いているスレッドタブの表示モデル。
  * タブ固有のスクロール位置に加え、`thread_states` と履歴既読状態から合成したタイトル・レス数・新着数を保持する。
+ * `hasHistory` は既読値から推測せず、履歴行の存在を明示するために使用する。
  * 検索条件やポップアップのような揮発 UI 状態は保持せず、`ThreadSessionState` で別管理する。
  */
 data class ThreadTabInfo(
@@ -16,6 +17,7 @@ data class ThreadTabInfo(
     val boardId: Long,
     val resCount: Int = 0,
     val newResCount: Int = 0,
+    val hasHistory: Boolean = false,
     val prevResCount: Int = 0,
     val lastReadResNo: Int = 0,
     val firstNewResNo: Int? = null,

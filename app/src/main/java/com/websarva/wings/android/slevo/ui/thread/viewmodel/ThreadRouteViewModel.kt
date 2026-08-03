@@ -743,7 +743,7 @@ class ThreadRouteViewModel @Inject constructor(
             val initialUnreadStartResNo = if (it.initialUnreadBoundaryInitialized) {
                 it.initialUnreadStartResNo
             } else {
-                tab.newResCount.takeIf { newResCount -> newResCount > 0 }
+                tab.hasHistory.takeIf { hasHistory -> hasHistory }
                     ?.let { tab.lastReadResNo + 1 }
             }
             it.copy(
@@ -1232,6 +1232,7 @@ private data class ThreadTabUiStateSourceKey(
     val boardId: Long,
     val resCount: Int,
     val newResCount: Int,
+    val hasHistory: Boolean,
     val prevResCount: Int,
     val lastReadResNo: Int,
     val firstNewResNo: Int?,
@@ -1249,6 +1250,7 @@ private fun ThreadTabInfo.toUiStateSourceKey(): ThreadTabUiStateSourceKey {
         boardId = boardId,
         resCount = resCount,
         newResCount = newResCount,
+        hasHistory = hasHistory,
         prevResCount = prevResCount,
         lastReadResNo = lastReadResNo,
         firstNewResNo = firstNewResNo,

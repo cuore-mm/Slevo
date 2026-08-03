@@ -83,6 +83,7 @@ class TabsRepositoryThreadStateTest {
         assertEquals("Thread State Title", tab.title)
         assertEquals(110, tab.resCount)
         assertEquals(10, tab.newResCount)
+        assertEquals(true, tab.hasHistory)
         assertEquals(7, tab.firstVisibleItemIndex)
         assertEquals(30, tab.firstVisibleItemScrollOffset)
     }
@@ -105,6 +106,7 @@ class TabsRepositoryThreadStateTest {
         val tab = repository.observeOpenThreadTabs().first().single()
 
         assertEquals(0, tab.newResCount)
+        assertEquals(false, tab.hasHistory)
         assertEquals(0, tab.firstVisibleItemIndex)
         assertEquals(0, tab.firstVisibleItemScrollOffset)
     }
@@ -420,6 +422,7 @@ class TabsRepositoryThreadStateTest {
         assertEquals(100, preserved.prevResCount)
         assertEquals(105, preserved.lastReadResNo)
         assertEquals(null, preserved.firstNewResNo)
+        assertEquals(true, preserved.hasHistory)
         assertEquals(7, preserved.firstVisibleItemIndex)
         assertEquals(30, preserved.firstVisibleItemScrollOffset)
         assertEquals(true, preserved.isPinned)
