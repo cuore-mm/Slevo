@@ -50,12 +50,15 @@
 
 ### 3. 初回ロードのリセット分岐だけを既読・未読グループへ分割する
 
-`ThreadRouteViewModel.updatePostGroups` に初回未読開始位置を渡し、現在一括になっているリセット条件を次のように区別する。
+`ThreadRouteViewModel.applyLoadSuccess` は、読み込み前の `ThreadRouteContentState.posts` が `null` の場合だけ当該成功結果を真の初回ロードとして扱う。`posts` は成功結果が0件でも空リストへ更新されるため、追加の永続化状態やセッションフラグを導入せず、初回成功前と成功済み状態を区別できる。
 
-1. 初回ロード（`previousResCount == 0` または `previousGroups.isEmpty()`）
-2. ロード済みレス数より取得レス数が減った回復リセット
-3. 取得レス数が増えた通常の追加更新
-4. 取得レス数が変わらない更新
+`ThreadRouteViewModel.updatePostGroups` に初回未読開始位置と真の初回ロードかを示す値を渡し、現在一括になっているリセット条件を次のように区別する。
+
+1. 真の初回ロード（読み込み前の `posts == null`）
+2. 成功済み状態でグループまたはレス数が空になった後の回復リセット
+3. ロード済みレス数より取得レス数が減った回復リセット
+4. 取得レス数が増えた通常の追加更新
+5. 取得レス数が変わらない更新
 
 初回ロードでは次の状態を生成する。
 
@@ -68,7 +71,7 @@
 
 未読グループの `prevResCount` は `start - 1` とする。これにより `ThreadVisiblePostsUseCase.buildGroupedDisplayPosts`、`buildGroupDisplayPosts`、`buildOrderedPosts` を変更せず、既存のグループ先頭・TREE文脈親・フィルター処理を再利用できる。
 
-取得数減少による回復リセットでは保存済み初回境界を再適用せず、従来どおり単一グループかつバーなしにする。追加更新では従来どおり新しい末尾グループを追加してそのindexを `latestArrivalGroupIndex` にし、新着0件更新では `latestArrivalGroupIndex=null` とする。
+成功済み状態で0件取得を経由した後の非0件取得、および取得数減少による回復リセットでは、保存済み初回境界を再適用せず、`1..N` の単一グループかつ `latestArrivalGroupIndex=null` とする。追加更新では従来どおり新しい末尾グループを追加してそのindexを `latestArrivalGroupIndex` にし、新着0件更新では `latestArrivalGroupIndex=null` とする。
 
 ### 4. 表示コンポーネントは変更しない
 
@@ -82,17 +85,19 @@
 2. `ui/thread/viewmodel/ThreadRouteViewModel.kt` の `ThreadRouteContentState` に、初回ロード用の未読開始レス番号を表す nullable フィールドを追加する。名称は用途が分かるものとし、`firstNewResNo` を流用しない。
 3. `initializeTabMetadata` で `tab.newResCount > 0` のときだけ `tab.lastReadResNo + 1` をそのフィールドへ保存する。既存グループを持つcontent stateをRoom再通知で再初期化しない。
 4. `setNewArrivalInfo` と `updateThreadLastRead` から初回境界フィールドを更新しない。
-5. `applyLoadSuccess` から `updatePostGroups` へ初回境界を渡す。
-6. `updatePostGroups` の初回ロード分岐でのみ、境界が取得範囲内なら既読・未読グループを作り、未読側indexを `latestArrivalGroupIndex` に設定する。境界1は単一の未読グループとして扱う。
-7. 取得数減少、追加更新、新着0件更新の既存分岐は、初回境界の影響を受けないよう分離する。
-8. `ThreadVisiblePostsUseCase.kt`、`ThreadDisplayTransformers.kt`、`ThreadPostListContent.kt`、`NewArrivalBar.kt` の既存表示契約は原則変更しない。テストで既存契約を維持できない事実が判明した場合は実装を止め、OpenSpec設計の再確認を求める。
-9. 新規または変更する型・非自明関数にはリポジトリのKDoc規則を適用し、長い関数は既存ルールに従ってセクション分割する。
+5. `applyLoadSuccess` で読み込み前の `previous.posts == null` を真の初回ロード判定として算出し、初回境界とともに `updatePostGroups` へ渡す。新しいDBフィールドまたは永続化フラグは追加しない。
+6. `updatePostGroups` の真の初回ロード分岐でのみ、境界が取得範囲内なら既読・未読グループを作り、未読側indexを `latestArrivalGroupIndex` に設定する。境界1は単一の未読グループとして扱う。
+7. 成功済み状態で `previousResCount == 0` または `previousGroups.isEmpty()` の非0件取得は回復リセットとして扱い、単一グループ、`latestArrivalGroupIndex=null` を返す。初回境界を参照してはならない。
+8. 取得数減少、追加更新、新着0件更新の既存分岐は、初回境界の影響を受けないよう分離する。
+9. `ThreadVisiblePostsUseCase.kt`、`ThreadDisplayTransformers.kt`、`ThreadPostListContent.kt`、`NewArrivalBar.kt` の既存表示契約は原則変更しない。テストで既存契約を維持できない事実が判明した場合は実装を止め、OpenSpec設計の再確認を求める。
+10. 新規または変更する型・非自明関数にはリポジトリのKDoc規則を適用し、長い関数は既存ルールに従ってセクション分割する。
 
 ## Error Cases and Compatibility
 
 - 履歴なし: `newResCount=0` を入口条件として境界を作らず、未訪問スレッドにバーを表示しない。
 - 全件既読: `latestResCount <= lastReadResNo` なら新着件数0、境界なしとする。
 - 取得数不足・削除レス: 初回境界が実取得レス数を超える場合は分割せず、バーを表示しない。例外や空グループを生成しない。
+- 0件取得後の回復: 成功済み状態を `posts != null` で識別し、次の非0件取得では初回境界を再利用せず、単一グループかつバーなしにする。
 - `lastReadResNo=0` かつ履歴由来の新着件数が正の場合: 1番から未読グループとして扱う。
 - Room再通知: 永続既読位置の進行は板一覧・タブ一覧の件数へ反映するが、表示中content stateの初回境界を上書きしない。
 - 互換性: DB migration、データ消去、保存値変換は不要。既存 `firstNewResNo` は他経路とのバイナリ・永続化互換性のため残す。
@@ -106,6 +111,8 @@
 - 同テストで `firstNewResNo=null`、履歴なし、全件既読、境界が取得数超過、境界1をそれぞれ検証する。
 - 同テストで初回表示後に `updateThreadLastRead` またはタブFlowの既読状態を進めても、`postGroups` と `firstAfterIndex` が変わらないことを検証する。
 - 同テストで後続追加更新は新しい末尾グループへバーが移り、新着0件更新ではバーが消える既存契約を検証する。
+- 同テストで真の初回非0件ロードでは境界を適用し、非0件→0件→非0件および初回0件→非0件では回復後に単一グループ、`latestArrivalGroupIndex=null`、`firstAfterIndex=-1` になることを検証する。
+- 同テストで非0件の取得数減少が単一グループかつバーなしとなり、追加更新と同数更新の既存結果が変わらないことを検証する。
 - `ThreadVisiblePostsUseCaseTest` と `ThreadDisplayTransformersTest` で NUMBER/TREE、検索、NGフィルター、TREE文脈親を含めても未読グループ先頭の `firstAfterIndex` と安定キーが保たれることを検証する。
 - 実装後は `./gradlew testDebugUnitTest` と `./gradlew assembleDebug` を実行する。Room結合経路を変更した場合だけ関連instrumented testも実行する。
 

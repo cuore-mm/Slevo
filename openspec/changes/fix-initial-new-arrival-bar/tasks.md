@@ -32,3 +32,10 @@
 - [x] 5.2 `./gradlew assembleDebug` を実行し、Debugビルドが成功することを確認する。GitHub Actions `Android CI` run `30745976095` で成功した。
 - [x] 5.3 DAO、Room結合、またはinstrumented test対象コードに差分が生じた場合は、関連する `TabsRepositoryThreadStateTest` を含む `./gradlew connectedDebugAndroidTest` を実行する。今回の差分はDAO、Room結合、instrumented test対象コードを含まないため、追加実行は不要と確認した。
 - [x] 5.4 最終差分を確認し、DBスキーマ、ナビゲーション引数、新着バーの文言・見た目・操作・アクセシビリティ、既存の追加更新規則に意図しない変更がないことを確認する。
+
+## 6. Codex P2 空レス回復修正
+
+- [ ] 6.1 `app/src/main/java/com/websarva/wings/android/slevo/ui/thread/viewmodel/ThreadRouteViewModel.kt` の `applyLoadSuccess` で読み込み前の `previous.posts == null` を真の初回ロード判定として `updatePostGroups` / `updateThreadPostGroups` へ渡し、初回境界を適用する条件をレス数・グループ空判定から分離する。
+- [ ] 6.2 同ファイルの `updateThreadPostGroups` で、初回成功後に `previousResCount == 0` または `previousGroups.isEmpty()` となった非0件取得を回復リセットとして単一グループへ戻し、`latestArrivalGroupIndex=null` とする。非0件の取得数減少も同じバーなし回復結果を維持し、追加更新・同数更新の分岐を変更しない。
+- [ ] 6.3 `app/src/test/java/com/websarva/wings/android/slevo/ui/thread/viewmodel/ThreadRouteViewModelTest.kt` に、真の初回非0件で境界を適用するケース、非0件→0件→非0件および初回0件→非0件で境界を再適用しないケース、非0件の取得数減少ケースを追加する。回復後は単一グループ、`latestArrivalGroupIndex=null`、`firstAfterIndex=-1` を確認する。
+- [ ] 6.4 既存の追加更新、同数更新、NUMBER/TREE、検索・NGのテストを維持し、`./gradlew testDebugUnitTest` と `./gradlew assembleDebug` をCIで成功させる。`ThreadPostListContent.kt`、`NewArrivalBar.kt`、リソース、アクセシビリティ関連ファイルに差分がないことを確認する。
