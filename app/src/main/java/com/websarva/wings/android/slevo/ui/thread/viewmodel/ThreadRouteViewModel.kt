@@ -836,6 +836,7 @@ class ThreadRouteViewModel @Inject constructor(
                 previousResCount = previous.lastLoadedResCount,
                 posts = derived.uiPosts,
                 initialUnreadStartResNo = previous.initialUnreadStartResNo,
+                isInitialLoad = previous.posts == null,
             )
             current.copy(
                 posts = derived.uiPosts,
@@ -1157,11 +1158,13 @@ class ThreadRouteViewModel @Inject constructor(
         previousResCount: Int,
         posts: List<ThreadPostUiModel>,
         initialUnreadStartResNo: Int?,
+        isInitialLoad: Boolean,
     ): ThreadRoutePostGroupState = updateThreadPostGroups(
         previousGroups = previousGroups,
         previousResCount = previousResCount,
         posts = posts,
         initialUnreadStartResNo = initialUnreadStartResNo,
+        isInitialLoad = isInitialLoad,
     )
 
     /** タイトル未取得時の初期表示名を組み立てる。 */
@@ -1331,6 +1334,7 @@ internal fun updateThreadPostGroups(
     previousResCount: Int,
     posts: List<ThreadPostUiModel>,
     initialUnreadStartResNo: Int?,
+    isInitialLoad: Boolean,
 ): ThreadRoutePostGroupState {
     val newResCount = posts.size
     // --- Empty response ---
@@ -1338,10 +1342,17 @@ internal fun updateThreadPostGroups(
         return ThreadRoutePostGroupState(emptyList(), newResCount, null)
     }
 
-    val isInitialLoad = previousResCount == 0 || previousGroups.isEmpty()
     // --- Initial load ---
     if (isInitialLoad) {
         return buildInitialPostGroupState(newResCount, initialUnreadStartResNo)
+    }
+
+    // --- Recovery after a completed empty state ---
+    if (previousResCount == 0 || previousGroups.isEmpty()) {
+        val recoveryGroups = listOf(
+            ThreadPostGroup(startResNo = 1, endResNo = newResCount, prevResCount = 0)
+        )
+        return ThreadRoutePostGroupState(recoveryGroups, newResCount, null)
     }
 
     // --- Response count decrease ---

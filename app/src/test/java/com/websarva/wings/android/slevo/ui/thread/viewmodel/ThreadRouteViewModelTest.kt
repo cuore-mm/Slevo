@@ -159,6 +159,7 @@ class ThreadRouteViewModelTest {
             previousResCount = 0,
             posts = posts(110),
             initialUnreadStartResNo = 101,
+            isInitialLoad = true,
         )
 
         assertEquals(
@@ -196,6 +197,7 @@ class ThreadRouteViewModelTest {
             previousResCount = 0,
             posts = posts(110),
             initialUnreadStartResNo = initialUnreadStartResNo,
+            isInitialLoad = true,
         )
 
         assertEquals(1, state.latestArrivalGroupIndex)
@@ -205,9 +207,9 @@ class ThreadRouteViewModelTest {
     @Test
     fun initialLoad_doesNotShowArrivalBarWithoutValidUnreadBoundary() {
         val states = listOf(
-            updateThreadPostGroups(emptyList(), 0, posts(110), null),
-            updateThreadPostGroups(emptyList(), 0, posts(110), null),
-            updateThreadPostGroups(emptyList(), 0, posts(90), 101),
+            updateThreadPostGroups(emptyList(), 0, posts(110), null, true),
+            updateThreadPostGroups(emptyList(), 0, posts(110), null, true),
+            updateThreadPostGroups(emptyList(), 0, posts(90), 101, true),
         )
 
         states.forEach { state ->
@@ -230,7 +232,7 @@ class ThreadRouteViewModelTest {
 
     @Test
     fun initialLoad_treatsAllResponsesAsUnreadWhenBoundaryIsOne() {
-        val state = updateThreadPostGroups(emptyList(), 0, posts(10), 1)
+        val state = updateThreadPostGroups(emptyList(), 0, posts(10), 1, true)
 
         assertEquals(
             listOf(ThreadPostGroup(startResNo = 1, endResNo = 10, prevResCount = 0)),
@@ -241,7 +243,7 @@ class ThreadRouteViewModelTest {
 
     @Test
     fun initialLoad_keepsBoundaryAfterReadStateChanges() {
-        val initial = updateThreadPostGroups(emptyList(), 0, posts(110), 101)
+        val initial = updateThreadPostGroups(emptyList(), 0, posts(110), 101, true)
         val afterRead = initial.copy()
 
         assertEquals(initial.groups, afterRead.groups)
@@ -250,13 +252,53 @@ class ThreadRouteViewModelTest {
 
     @Test
     fun reload_movesArrivalBarToNewestAppendedGroupAndClearsOnNoChange() {
-        val initial = updateThreadPostGroups(emptyList(), 0, posts(110), 101)
-        val appended = updateThreadPostGroups(initial.groups, 110, posts(115), 101)
-        val unchanged = updateThreadPostGroups(appended.groups, 115, posts(115), 101)
+        val initial = updateThreadPostGroups(emptyList(), 0, posts(110), 101, true)
+        val appended = updateThreadPostGroups(initial.groups, 110, posts(115), 101, false)
+        val unchanged = updateThreadPostGroups(appended.groups, 115, posts(115), 101, false)
 
         assertEquals(2, appended.latestArrivalGroupIndex)
         assertEquals(110, appended.groups.last().startResNo - 1)
         assertEquals(null, unchanged.latestArrivalGroupIndex)
+    }
+
+    @Test
+    fun recoveryAfterEmptyReload_doesNotReuseInitialBoundary() {
+        val initial = updateThreadPostGroups(emptyList(), 0, posts(110), 101, true)
+        val empty = updateThreadPostGroups(initial.groups, 110, emptyList(), 101, false)
+        val recovered = updateThreadPostGroups(empty.groups, 0, posts(110), 101, false)
+
+        assertEquals(
+            listOf(ThreadPostGroup(startResNo = 1, endResNo = 110, prevResCount = 0)),
+            recovered.groups,
+        )
+        assertEquals(null, recovered.latestArrivalGroupIndex)
+        assertEquals(-1, firstAfterIndex(posts(110), recovered))
+    }
+
+    @Test
+    fun recoveryAfterInitialEmptyLoad_doesNotReuseInitialBoundary() {
+        val empty = updateThreadPostGroups(emptyList(), 0, emptyList(), 101, true)
+        val recovered = updateThreadPostGroups(empty.groups, 0, posts(110), 101, false)
+
+        assertEquals(
+            listOf(ThreadPostGroup(startResNo = 1, endResNo = 110, prevResCount = 0)),
+            recovered.groups,
+        )
+        assertEquals(null, recovered.latestArrivalGroupIndex)
+        assertEquals(-1, firstAfterIndex(posts(110), recovered))
+    }
+
+    @Test
+    fun recoveryAfterNonZeroCountDecrease_doesNotReuseInitialBoundary() {
+        val initial = updateThreadPostGroups(emptyList(), 0, posts(110), 101, true)
+        val decreased = updateThreadPostGroups(initial.groups, 110, posts(90), 101, false)
+
+        assertEquals(
+            listOf(ThreadPostGroup(startResNo = 1, endResNo = 90, prevResCount = 0)),
+            decreased.groups,
+        )
+        assertEquals(null, decreased.latestArrivalGroupIndex)
+        assertEquals(-1, firstAfterIndex(posts(90), decreased))
     }
 
     @Test
@@ -488,6 +530,25 @@ class ThreadRouteViewModelTest {
                 body = ThreadPostUiModel.Body(content = "post $number"),
             )
         }
+    }
+
+    /** グループ結果を表示変換へ渡し、新着バー挿入位置を返す。 */
+    private fun firstAfterIndex(
+        posts: List<ThreadPostUiModel>,
+        state: ThreadRoutePostGroupState,
+    ): Int {
+        return ThreadVisiblePostsUseCase().buildVisibleRows(
+            posts = posts,
+            groups = state.groups,
+            sortType = com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType.NUMBER,
+            treeOrder = emptyList(),
+            treeDepthMap = emptyMap(),
+            treeRootMap = emptyMap(),
+            latestArrivalGroupIndex = state.latestArrivalGroupIndex,
+            searchQuery = "",
+            ngPostNumbers = emptySet(),
+            replySourceMap = emptyMap(),
+        ).firstAfterIndex
     }
 
     /** ViewModelの内部scopeを含めてテスト用ViewModelを解放する。 */
