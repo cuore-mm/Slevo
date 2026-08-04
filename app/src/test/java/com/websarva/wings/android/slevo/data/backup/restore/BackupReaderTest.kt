@@ -10,6 +10,7 @@ import com.websarva.wings.android.slevo.data.backup.model.BackupManifest
 import com.websarva.wings.android.slevo.data.backup.model.BackupSettingsJson
 import com.websarva.wings.android.slevo.data.backup.model.BackupTabsJson
 import com.websarva.wings.android.slevo.data.backup.model.IncludedContents
+import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
@@ -51,7 +52,7 @@ class BackupReaderTest {
 
     private fun createValidManifest(
         cookies: Boolean = false,
-        databaseVersion: Int = 9,
+        databaseVersion: Int = AppDatabase.CURRENT_DATABASE_VERSION,
         backupFormatVersion: Int = 1,
         backupMode: String = "full",
     ) = BackupManifest(
@@ -211,7 +212,7 @@ class BackupReaderTest {
 
     private fun createReader(
         dbValidator: BackupDatabaseValidator = FakeBackupDatabaseValidator(),
-        currentDbVersion: Int = 9,
+        currentDbVersion: Int = AppDatabase.CURRENT_DATABASE_VERSION,
     ) = BackupReader(moshi, dbValidator, currentDbVersion)
 
     private fun readSuccess(
@@ -241,7 +242,7 @@ class BackupReaderTest {
         assertEquals("2026-01-01T00:00:00Z", preview.createdAt)
         assertEquals(1L, preview.appVersionCode)
         assertEquals("1.0.0", preview.appVersionName)
-        assertEquals(9, preview.databaseVersion)
+        assertEquals(AppDatabase.CURRENT_DATABASE_VERSION, preview.databaseVersion)
         assertTrue(preview.dbFile.exists())
         assertTrue(preview.dbFile.length() > 0)
     }
@@ -354,10 +355,10 @@ class BackupReaderTest {
     @Test
     fun readBackup_currentDbVersion_returnsSuccess() {
         val zip = createValidZipBytes(
-            manifest = createValidManifest(databaseVersion = 9),
+            manifest = createValidManifest(databaseVersion = AppDatabase.CURRENT_DATABASE_VERSION),
         )
         val preview = readSuccess(zip)
-        assertEquals(9, preview.databaseVersion)
+        assertEquals(AppDatabase.CURRENT_DATABASE_VERSION, preview.databaseVersion)
     }
 
     @Test
@@ -391,7 +392,7 @@ class BackupReaderTest {
     @Test
     fun readBackup_futureDbVersion_returnsInvalid() {
         val zip = createValidZipBytes(
-            manifest = createValidManifest(databaseVersion = 10),
+            manifest = createValidManifest(databaseVersion = AppDatabase.CURRENT_DATABASE_VERSION + 1),
         )
         val error = readError(zip)
         assertTrue(error is BackupRestoreResult.Invalid)
@@ -427,11 +428,13 @@ class BackupReaderTest {
 
     @Test
     fun readBackup_dbFileFutureUserVersion_returnsInvalid() {
-        val zip = createValidZipBytes(manifest = createValidManifest(databaseVersion = 10))
+        val zip = createValidZipBytes(
+            manifest = createValidManifest(databaseVersion = AppDatabase.CURRENT_DATABASE_VERSION + 1)
+        )
         val error = readError(
             zip,
             dbValidator = FakeBackupDatabaseValidator(
-                preValidationError = "db user_version is in the future: version=10, current=9",
+                preValidationError = "db user_version is in the future: version=11, current=10",
             ),
         )
         assertTrue(error is BackupRestoreResult.Invalid)
@@ -1050,7 +1053,12 @@ class BackupReaderTest {
     /** custom limits付きreaderを生成する。 */
     private fun createReaderWithLimits(
         limits: BackupResourceLimits,
-    ) = BackupReader(moshi, FakeBackupDatabaseValidator(), currentDbVersion = 9, resourceLimits = limits)
+    ) = BackupReader(
+        moshi,
+        FakeBackupDatabaseValidator(),
+        currentDbVersion = AppDatabase.CURRENT_DATABASE_VERSION,
+        resourceLimits = limits,
+    )
 
     /** custom limits付きreaderで読んだ結果を返す。 */
     private fun readWithLimits(
@@ -1355,7 +1363,12 @@ class BackupReaderTest {
             }
             override fun getUserVersion(dbFile: File): Int? = null
         }
-        val reader = BackupReader(moshi, validator, currentDbVersion = 9, resourceLimits = limitsFor(entries))
+        val reader = BackupReader(
+            moshi,
+            validator,
+            currentDbVersion = AppDatabase.CURRENT_DATABASE_VERSION,
+            resourceLimits = limitsFor(entries),
+        )
         val tempFile = File.createTempFile("backup_cancel_", ".db")
         reader.tempDbFileProvider = { tempFile }
         try {
