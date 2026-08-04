@@ -1,5 +1,6 @@
 import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.VariantOutputConfiguration
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import java.util.Properties
 
 plugins {
@@ -154,6 +155,11 @@ androidComponents {
 
 tasks.register("testCiUnitTest") {
     dependsOn("testDebugUnitTest")
+}
+
+// Temporary full exception output for the Room identity hash probe.
+tasks.withType<Test>().configureEach {
+    testLogging.exceptionFormat = TestExceptionFormat.FULL
 }
 
 tasks.named("preBuild") {
