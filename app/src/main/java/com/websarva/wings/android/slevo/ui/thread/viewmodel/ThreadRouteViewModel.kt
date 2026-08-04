@@ -9,12 +9,14 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.OwnPostThreadScope
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
+import com.websarva.wings.android.slevo.data.repository.PendingOwnPostRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
@@ -28,7 +30,6 @@ import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogController
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogSuccess
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
-import com.websarva.wings.android.slevo.ui.tabs.session.PendingThreadPostState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
@@ -72,12 +73,14 @@ class ThreadRouteViewModel @Inject constructor(
     private val boardRepository: BoardRepository,
     private val historyRepository: ThreadHistoryRepository,
     private val postHistoryRepository: PostHistoryRepository,
+    private val pendingOwnPostRepository: PendingOwnPostRepository,
     private val threadBookmarkRepository: ThreadBookmarkRepository,
     private val ngRepository: NgRepository,
     private val settingsRepository: SettingsRepository,
     private val tabsRepository: TabsRepository,
     private val threadReadStateRepository: ThreadReadStateRepository,
     private val threadContentLoadUseCase: ThreadContentLoadUseCase,
+    private val ownPostReconciliationUseCase: OwnPostReconciliationUseCase,
     private val threadVisiblePostsUseCase: ThreadVisiblePostsUseCase,
     private val logger: AppLogger,
 ) : ViewModel() {
@@ -801,7 +804,21 @@ class ThreadRouteViewModel @Inject constructor(
                 resCount = derived.uiPosts.size,
             )
             collectMyPostNumbers(tabKey, historyId)
-            recordPendingPost(tabKey, derived.uiPosts, historyId)
+            // 投稿先URLが照合キーへ変換できない場合は、誤ったスレッドへ記録しない。
+            val scope = OwnPostThreadScope.from(tab.boardUrl, tab.threadKey)
+            if (scope == null) {
+                logger.e(
+                    message = "Unable to build own-post scope for board: ${tab.boardUrl} key: ${tab.threadKey}",
+                )
+            } else {
+                ownPostReconciliationUseCase.reconcile(
+                    scope = scope,
+                    posts = derived.uiPosts,
+                    historyId = historyId,
+                    boardId = nextContent.boardInfo.boardId,
+                    nowMillis = System.currentTimeMillis(),
+                )
+            }
         } catch (error: Exception) {
             if (error is CancellationException) throw error
             handleLoadFailure(tabKey, tab.boardUrl, tab.threadKey, error)
@@ -903,18 +920,39 @@ class ThreadRouteViewModel @Inject constructor(
         }
     }
 
-    /** 投稿成功後の pending post 記録と再読み込みを行う。 */
-    private fun onThreadPostSuccess(tabKey: String, success: PostDialogSuccess) {
-        tabSessionStore.updateThreadRuntimeState(ThreadId(tabKey)) { current ->
-            current.copy(
-                pendingPost = PendingThreadPostState(
-                    resNum = success.resNum,
-                    content = success.message,
-                    name = success.name,
-                    email = success.mail,
-                )
-            )
+    /** 投稿成功情報をRoomへ保存してから、対象スレッドを再読み込みする。 */
+    private suspend fun onThreadPostSuccess(tabKey: String, success: PostDialogSuccess) {
+        // --- Scope resolution ---
+        val tab = tabSessionStore.openThreadTabs.value.find { it.id.value == tabKey }
+        if (tab == null) {
+            reloadThread(tabKey)
+            return
         }
+        val scope = OwnPostThreadScope.from(tab.boardUrl, tab.threadKey)
+        if (scope == null) {
+            logger.e(
+                message = "Unable to build own-post scope for board: ${tab.boardUrl} key: ${tab.threadKey}",
+            )
+            reloadThread(tabKey)
+            return
+        }
+
+        // --- Persistence ---
+        val baseResCount = contentStates.value[tabKey]?.posts?.size ?: tab.resCount
+        try {
+            pendingOwnPostRepository.createPending(
+                scope = scope,
+                content = success.message,
+                name = success.name,
+                email = success.mail,
+                baseResCount = baseResCount,
+                submittedAt = System.currentTimeMillis(),
+            )
+        } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            logger.e(message = "Failed to persist own-post pending state", throwable = error)
+        }
+        // --- Reload ---
         reloadThread(tabKey)
     }
 
@@ -931,32 +969,6 @@ class ThreadRouteViewModel @Inject constructor(
                 updateContentState(tabKey) { state -> state.copy(myPostNumbers = nums) }
             }
         }
-    }
-
-    /** 保留投稿があれば履歴へ保存して消費する。 */
-    private suspend fun recordPendingPost(
-        tabKey: String,
-        uiPosts: List<ThreadPostUiModel>,
-        historyId: Long
-    ) {
-        val threadId = ThreadId(tabKey)
-        val pending = tabSessionStore.getThreadRuntimeState(threadId).pendingPost ?: return
-        val boardInfo = (contentStates.value[tabKey] ?: ThreadRouteContentState()).boardInfo
-        val resNumber = pending.resNum ?: uiPosts.size
-        if (resNumber in 1..uiPosts.size) {
-            val post = uiPosts[resNumber - 1]
-            postHistoryRepository.recordPost(
-                content = pending.content,
-                date = parseDateToUnix(post.header.date),
-                threadHistoryId = historyId,
-                boardId = boardInfo.boardId,
-                resNum = resNumber,
-                name = pending.name,
-                email = pending.email,
-                postId = post.header.id,
-            )
-        }
-        tabSessionStore.updateThreadRuntimeState(threadId) { it.copy(pendingPost = null) }
     }
 
     /** ThreadUiState を各入力から直接合成する。 */

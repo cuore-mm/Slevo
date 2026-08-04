@@ -702,6 +702,57 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    /** v9へ未確定自分投稿テーブルを追加し、既存テーブルを保持する。 */
+    @Test
+    fun migrate9To10_createsPendingOwnPostsTable() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.deleteDatabase(TEST_DB)
+
+        helper.createDatabase(TEST_DB, 9).apply {
+            execSQL(
+                "INSERT INTO services (domain, displayName, menuUrl) VALUES ('example.com', 'Example', NULL)"
+            )
+            execSQL(
+                "INSERT INTO boards (serviceId, url, name) VALUES (1, 'https://example.com/test/', 'Test')"
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            10,
+            true,
+            AppDatabase.MIGRATION_9_10,
+        )
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
+            .addMigrations(AppDatabase.MIGRATION_9_10)
+            .build()
+        val writable = db.openHelper.writableDatabase
+        writable.query("PRAGMA table_info('pending_own_posts')").use { cursor ->
+            val columns = mutableListOf<String>()
+            while (cursor.moveToNext()) {
+                columns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
+            }
+            assertTrue(
+                columns.containsAll(
+                    listOf(
+                        "id", "providerId", "boardKey", "threadKey", "status",
+                        "content", "name", "email", "baseResCount", "lastCheckedResNum",
+                        "submittedAt", "expiresAt", "matchedResNum",
+                    )
+                )
+            )
+        }
+        writable.query(
+            "SELECT count(*) FROM boards WHERE url = 'https://example.com/test/'"
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(1, cursor.getInt(0))
+        }
+        db.close()
+    }
+
     /**
      * wrapped migration が SQL transaction の前に開始証跡を commit し、delegate 例外後も旧 version
      * を残すことを実 DB で検証する。

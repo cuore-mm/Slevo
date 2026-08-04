@@ -319,13 +319,14 @@ class RealBackupDatabaseValidator @Inject constructor() : BackupDatabaseValidato
             "post_identity_histories",
             "post_last_identities",
             "thread_states",
+            "pending_own_posts",
         )
 
         /**
          * Room DB version ごとの expected application table set。
          *
          * `app/schemas/com.websarva.wings.android.slevo.data.datasource.local.AppDatabase/`
-         * の exported Room schema JSON (v2-v9) を source of truth とする。
+          * の exported Room schema JSON (v2-v10) を source of truth とする。
          * `room_master_table` と `android_metadata` は含めない。
          * v1 は exported schema が存在しないため定義しない。
          *
@@ -401,6 +402,15 @@ class RealBackupDatabaseValidator @Inject constructor() : BackupDatabaseValidato
                 "board_visits", "board_fetch_meta", "post_histories",
                 "post_identity_histories", "post_last_identities",
                 "thread_states",
+            ),
+            10 to setOf(
+                "services", "categories", "boards", "board_category_cross_ref",
+                "groups", "bookmark_boards", "bookmark_threads", "thread_bookmark_groups",
+                "open_board_tabs", "open_thread_tabs", "thread_histories",
+                "thread_history_accesses", "ng_entries", "thread_summaries",
+                "board_visits", "board_fetch_meta", "post_histories",
+                "post_identity_histories", "post_last_identities", "thread_states",
+                "pending_own_posts",
             ),
         )
     }
