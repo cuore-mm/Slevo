@@ -264,7 +264,7 @@ class TabSessionStoreTest {
         val secondTab = bulkThreadTab("second")
         val closeOrder = mutableListOf<ThreadTabInfo>()
         coEvery { threadCoordinator.closeThreadTab(any<ThreadTabInfo>()) } coAnswers {
-            closeOrder += firstArg()
+            closeOrder.add(firstArg<ThreadTabInfo>())
         }
         val testStore = createStore(
             boardTabs = listOf(
