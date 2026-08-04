@@ -262,6 +262,10 @@ class TabSessionStoreTest {
         val pinnedTab = bulkThreadTab("pinned", isPinned = true)
         val firstTab = bulkThreadTab("first")
         val secondTab = bulkThreadTab("second")
+        val closeOrder = mutableListOf<ThreadTabInfo>()
+        coEvery { threadCoordinator.closeThreadTab(any<ThreadTabInfo>()) } coAnswers {
+            closeOrder += firstArg()
+        }
         val testStore = createStore(
             boardTabs = listOf(
                 BoardTabInfo(
@@ -280,10 +284,7 @@ class TabSessionStoreTest {
         coVerify(exactly = 0) { threadCoordinator.closeThreadTab(pinnedTab) }
         coVerify { threadCoordinator.closeThreadTab(firstTab) }
         coVerify { threadCoordinator.closeThreadTab(secondTab) }
-        coVerifySequence {
-            threadCoordinator.closeThreadTab(firstTab)
-            threadCoordinator.closeThreadTab(secondTab)
-        }
+        assertEquals(listOf(firstTab, secondTab), closeOrder)
         verify(exactly = 0) { boardCoordinator.closeBoardTab(any()) }
     }
 
