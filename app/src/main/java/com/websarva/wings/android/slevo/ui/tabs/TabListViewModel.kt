@@ -4,6 +4,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
+import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
@@ -40,6 +41,7 @@ class TabListViewModel @Inject constructor(
 
     fun enterSearchMode() {
         cancelTabSelection()
+        dismissBulkCloseMenu()
         nextSearchFocusRequestId += 1
         uiStateMutable.update { state ->
             state.copy(
@@ -265,8 +267,37 @@ class TabListViewModel @Inject constructor(
         }
     }
 
+    /** その他メニューを指定されたアンカー位置で表示する。 */
+    fun showBulkCloseMenu(anchorBounds: IntRect) {
+        uiStateMutable.update { state ->
+            state.copy(
+                isBulkCloseMenuVisible = true,
+                bulkCloseMenuBounds = anchorBounds,
+            )
+        }
+    }
+
+    /** その他メニューを閉じ、保持しているアンカー位置を破棄する。 */
+    fun dismissBulkCloseMenu() {
+        uiStateMutable.update { state ->
+            state.copy(
+                isBulkCloseMenuVisible = false,
+                bulkCloseMenuBounds = null,
+            )
+        }
+    }
+
+    /** 表示中ページの未固定タブを閉じ、メニューを先に非表示にする。 */
+    fun closeAllUnpinnedTabs(page: TabPage) {
+        // メニューを先に閉じ、削除処理中も古いアンカーを表示し続けない。
+        dismissBulkCloseMenu()
+        tabSessionStore.closeAllUnpinnedTabs(page)
+    }
+
+    /** ページ変更時にタブ選択と一括クローズメニューを同時に解除する。 */
     fun onPageChanged() {
         cancelTabSelection()
+        dismissBulkCloseMenu()
     }
 
     // --- BottomSheet ---

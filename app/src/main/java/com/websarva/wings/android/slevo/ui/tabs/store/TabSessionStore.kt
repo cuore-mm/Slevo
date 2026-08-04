@@ -6,6 +6,7 @@ import com.websarva.wings.android.slevo.data.repository.BbsServiceRepository
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
+import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.bbsroute.TabPresentationState
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
@@ -142,6 +143,25 @@ class TabSessionStore @Inject constructor(
     fun closeBoardTabByUrl(boardUrl: String) {
         boardSessionHolders.remove(boardUrl)?.dispose()
         boardTabsCoordinator.closeBoardTabByUrl(boardUrl)
+    }
+
+    /** 表示中ページの未固定タブをスナップショットし、既存の単体 close 経路へ委譲する。 */
+    fun closeAllUnpinnedTabs(page: TabPage) {
+        when (page) {
+            TabPage.BOARD -> {
+                // 公開 projection を一度だけ読み、処理中の一覧変化で対象をずらさない。
+                val targets = openBoardTabs.value.filterNot(BoardTabInfo::isPinned)
+                targets.forEach(::closeBoardTab)
+            }
+
+            TabPage.THREAD -> {
+                // Thread close は retained scope で直列化し、画面破棄後も受理済み操作を継続する。
+                val targets = openThreadTabs.value.filterNot(ThreadTabInfo::isPinned)
+                scope.launch {
+                    targets.forEach { closeThreadTab(it) }
+                }
+            }
+        }
     }
 
     fun updateBoardScrollPosition(boardUrl: String, firstVisibleIndex: Int, scrollOffset: Int) {

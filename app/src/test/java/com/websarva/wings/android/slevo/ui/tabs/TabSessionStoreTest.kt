@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.tabs
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
@@ -66,7 +67,13 @@ class TabSessionStoreTest {
     private fun createStore(
         threadCoordinatorOverride: ThreadTabsCoordinator = threadCoordinator,
         tabsRepositoryOverride: TabsRepository = mockk(relaxed = true),
+        boardTabs: List<BoardTabInfo> = emptyList(),
+        threadTabs: List<ThreadTabInfo> = emptyList(),
     ): TabSessionStore {
+        every { boardCoordinator.openBoardTabs } returns MutableStateFlow(boardTabs)
+        if (threadCoordinatorOverride === threadCoordinator) {
+            every { threadCoordinatorOverride.openThreadTabs } returns MutableStateFlow(threadTabs)
+        }
         return TabSessionStore(
             boardTabsCoordinator = boardCoordinator,
             threadTabsCoordinator = threadCoordinatorOverride,
@@ -189,6 +196,16 @@ class TabSessionStoreTest {
         boardId = 1L,
     )
 
+    /** 一括 close テスト用に固定状態だけを変えたスレッドタブを作る。 */
+    private fun bulkThreadTab(threadKey: String, isPinned: Boolean = false): ThreadTabInfo = ThreadTabInfo(
+        id = ThreadId.of("host", "board", threadKey),
+        title = threadKey,
+        boardName = "Board",
+        boardUrl = "https://host/board/",
+        boardId = 1L,
+        isPinned = isPinned,
+    )
+
     /**
      * 板タブ削除操作が [BoardTabsCoordinator] へ委譲されることを確認する。
      */
@@ -202,6 +219,95 @@ class TabSessionStoreTest {
         )
         store.closeBoardTab(tab)
         verify { boardCoordinator.closeBoardTab(tab) }
+    }
+
+    /** 板ページの一括 close が未固定タブだけを表示順に委譲することを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_forBoard_closesOnlyUnpinnedBoardTabs() {
+        val pinnedTab = BoardTabInfo(
+            boardId = 1,
+            boardName = "Pinned",
+            boardUrl = "https://example.com/pinned/",
+            serviceName = "example.com",
+            isPinned = true,
+        )
+        val firstTab = BoardTabInfo(
+            boardId = 2,
+            boardName = "First",
+            boardUrl = "https://example.com/first/",
+            serviceName = "example.com",
+        )
+        val secondTab = BoardTabInfo(
+            boardId = 3,
+            boardName = "Second",
+            boardUrl = "https://example.com/second/",
+            serviceName = "example.com",
+        )
+        val testStore = createStore(
+            boardTabs = listOf(pinnedTab, firstTab, secondTab),
+            threadTabs = listOf(retainedCloseTestTab()),
+        )
+
+        testStore.closeAllUnpinnedTabs(TabPage.BOARD)
+
+        verify(exactly = 0) { boardCoordinator.closeBoardTab(pinnedTab) }
+        verify { boardCoordinator.closeBoardTab(firstTab) }
+        verify { boardCoordinator.closeBoardTab(secondTab) }
+        coVerify(exactly = 0) { threadCoordinator.closeThreadTab(any<ThreadTabInfo>()) }
+    }
+
+    /** スレッドページの一括 close が未固定スレッドだけを retained scope で処理することを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_forThread_closesOnlyUnpinnedThreadTabs() = runTest {
+        val pinnedTab = bulkThreadTab("pinned", isPinned = true)
+        val firstTab = bulkThreadTab("first")
+        val secondTab = bulkThreadTab("second")
+        val testStore = createStore(
+            boardTabs = listOf(
+                BoardTabInfo(
+                    boardId = 1,
+                    boardName = "Board",
+                    boardUrl = "https://example.com/board/",
+                    serviceName = "example.com",
+                )
+            ),
+            threadTabs = listOf(pinnedTab, firstTab, secondTab),
+        )
+
+        testStore.closeAllUnpinnedTabs(TabPage.THREAD)
+        runCurrent()
+
+        coVerify(exactly = 0) { threadCoordinator.closeThreadTab(pinnedTab) }
+        coVerify { threadCoordinator.closeThreadTab(firstTab) }
+        coVerify { threadCoordinator.closeThreadTab(secondTab) }
+        coVerifySequence {
+            threadCoordinator.closeThreadTab(firstTab)
+            threadCoordinator.closeThreadTab(secondTab)
+        }
+        verify(exactly = 0) { boardCoordinator.closeBoardTab(any()) }
+    }
+
+    /** 一括 close 対象がない場合に両 Coordinator へ削除要求を送らないことを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_withNoTargets_isNoOp() {
+        val testStore = createStore(
+            boardTabs = listOf(
+                BoardTabInfo(
+                    boardId = 1,
+                    boardName = "Pinned",
+                    boardUrl = "https://example.com/pinned/",
+                    serviceName = "example.com",
+                    isPinned = true,
+                )
+            ),
+            threadTabs = listOf(bulkThreadTab("pinned", isPinned = true)),
+        )
+
+        testStore.closeAllUnpinnedTabs(TabPage.BOARD)
+        testStore.closeAllUnpinnedTabs(TabPage.THREAD)
+
+        verify(exactly = 0) { boardCoordinator.closeBoardTab(any()) }
+        coVerify(exactly = 0) { threadCoordinator.closeThreadTab(any<ThreadTabInfo>()) }
     }
 
     /**

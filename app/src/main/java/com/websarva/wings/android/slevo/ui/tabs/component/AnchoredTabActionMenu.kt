@@ -110,6 +110,45 @@ fun AnchoredTabActionMenu(
     }
 }
 
+/**
+ * タブ一覧全体の操作を表示するアンカードメニュー。
+ *
+ * 破壊的操作である「全てのタブを閉じる」だけを表示し、通常の単一タブ用メニューとは
+ * 項目を共有しない。表示位置と dismiss 動作は [AnchoredOverlayMenu] に委譲する。
+ */
+@Composable
+fun AnchoredTabActionMenu(
+    expanded: Boolean,
+    anchorBoundsInWindow: IntRect?,
+    hazeState: HazeState?,
+    onDismissRequest: () -> Unit,
+    onCloseAllClick: () -> Unit,
+) {
+    AnchoredOverlayMenu(
+        expanded = expanded,
+        anchorBoundsInWindow = anchorBoundsInWindow,
+        hazeState = hazeState,
+        horizontalAlignment = HorizontalAnchorAlignment.Start,
+        verticalAlignment = VerticalAnchorAlignment.Auto,
+        verticalSpacing = 8.dp,
+        onDismissRequest = onDismissRequest,
+    ) {
+        AnchoredOverlayMenuItem(
+            text = stringResource(R.string.tab_action_close_all),
+            textColor = MaterialTheme.colorScheme.error,
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp),
+                )
+            },
+            onClick = onCloseAllClick,
+        )
+    }
+}
+
 @Composable
 private fun PushPinOffIcon(
     tint: Color,
@@ -182,6 +221,20 @@ private fun AnchoredTabActionMenuPinnedPreview() {
             onDetailClick = {},
             onPinClick = {},
             onCloseClick = {},
+        )
+    }
+}
+
+@Preview(showSystemUi = true, showBackground = false)
+@Composable
+private fun AnchoredTabActionMenuBulkPreview() {
+    SlevoTheme {
+        AnchoredTabActionMenu(
+            expanded = true,
+            anchorBoundsInWindow = IntRect(320, 80, 368, 128),
+            hazeState = null,
+            onDismissRequest = {},
+            onCloseAllClick = {},
         )
     }
 }

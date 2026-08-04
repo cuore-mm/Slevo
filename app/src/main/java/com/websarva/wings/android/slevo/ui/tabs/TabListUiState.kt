@@ -19,6 +19,8 @@ data class TabListUiState(
     val selectedBoardTab: BoardTabInfo? = null,
     val selectedThreadTab: ThreadTabInfo? = null,
     val selectedTabBounds: IntRect? = null,
+    val isBulkCloseMenuVisible: Boolean = false,
+    val bulkCloseMenuBounds: IntRect? = null,
     val pendingCloseBoardTab: BoardTabInfo? = null,
     val pendingCloseThreadTab: ThreadTabInfo? = null,
     val detailBoardTab: BoardTabInfo? = null,

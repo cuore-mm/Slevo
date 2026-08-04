@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.tabs
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
@@ -31,6 +32,11 @@ class TabListViewModelTest {
 
     private val tabSessionStore = mockk<TabSessionStore>(relaxed = true)
     private val viewModel by lazy { TabListViewModel(tabSessionStore) }
+
+    /** その他メニューのアンカー位置を設定した状態を返す。 */
+    private fun showBulkCloseMenu() {
+        viewModel.showBulkCloseMenu(IntRect(10, 20, 110, 120))
+    }
 
     // --- Search ---
 
@@ -173,6 +179,63 @@ class TabListViewModelTest {
         val state = viewModel.uiState.first()
         assertNull(state.pendingCloseBoardTab)
         assertNull(state.pendingCloseThreadTab)
+    }
+
+    // --- Bulk close menu ---
+
+    /** 初期状態では一括クローズメニューが非表示でアンカーも存在しないことを確認する。 */
+    @Test
+    fun bulkCloseMenu_isHiddenInitially() = runTest {
+        val state = viewModel.uiState.first()
+
+        assertFalse(state.isBulkCloseMenuVisible)
+        assertNull(state.bulkCloseMenuBounds)
+    }
+
+    /** その他メニューを開くと表示フラグとアンカーが同時に設定されることを確認する。 */
+    @Test
+    fun showBulkCloseMenu_setsVisibleAndAnchor() = runTest {
+        showBulkCloseMenu()
+
+        val state = viewModel.uiState.first()
+        assertTrue(state.isBulkCloseMenuVisible)
+        assertEquals(IntRect(10, 20, 110, 120), state.bulkCloseMenuBounds)
+    }
+
+    /** dismiss 時に一括クローズメニューの表示状態とアンカーがクリアされることを確認する。 */
+    @Test
+    fun dismissBulkCloseMenu_clearsVisibleAndAnchor() = runTest {
+        showBulkCloseMenu()
+
+        viewModel.dismissBulkCloseMenu()
+
+        val state = viewModel.uiState.first()
+        assertFalse(state.isBulkCloseMenuVisible)
+        assertNull(state.bulkCloseMenuBounds)
+    }
+
+    /** ページ変更時に旧ページの一括クローズメニューを持ち越さないことを確認する。 */
+    @Test
+    fun onPageChanged_dismissesBulkCloseMenu() = runTest {
+        showBulkCloseMenu()
+
+        viewModel.onPageChanged()
+
+        assertFalse(viewModel.uiState.first().isBulkCloseMenuVisible)
+        assertNull(viewModel.uiState.first().bulkCloseMenuBounds)
+    }
+
+    /** 一括クローズ実行時はメニューを閉じてから指定ページを Store へ委譲することを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_dismissesMenuAndDelegatesPage() = runTest {
+        showBulkCloseMenu()
+
+        viewModel.closeAllUnpinnedTabs(TabPage.THREAD)
+
+        val state = viewModel.uiState.first()
+        assertFalse(state.isBulkCloseMenuVisible)
+        assertNull(state.bulkCloseMenuBounds)
+        verify { tabSessionStore.closeAllUnpinnedTabs(TabPage.THREAD) }
     }
 
     // --- URL Dialog ---

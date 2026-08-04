@@ -284,11 +284,26 @@ fun TabScreenContent(
                 searchInputValue = listUiState.searchInputValue,
                 searchFocusRequestId = listUiState.pendingSearchFocusRequestId,
                 onSearchClick = { enterSearchMode() },
+                onMoreClick = { bounds -> tabListViewModel.showBulkCloseMenu(bounds) },
                 onSearchInputChange = { inputValue: TextFieldValue ->
                     tabListViewModel.updateSearchInput(inputValue, pagerState.currentPage)
                 },
                 onSearchFocusRequestConsumed = { tabListViewModel.consumePendingSearchFocusRequest() },
                 onCloseSearch = { exitSearchMode() },
+            )
+
+            // --- Bulk close menu ---
+            AnchoredTabActionMenu(
+                expanded = listUiState.isBulkCloseMenuVisible,
+                anchorBoundsInWindow = listUiState.bulkCloseMenuBounds,
+                hazeState = hazeState,
+                onDismissRequest = { tabListViewModel.dismissBulkCloseMenu() },
+                onCloseAllClick = {
+                    // Pager state is the source of truth for the page acted on by the menu.
+                    TabPage.fromIndex(pagerState.currentPage)?.let {
+                        tabListViewModel.closeAllUnpinnedTabs(it)
+                    }
+                },
             )
 
             // --- Long-press overlay layer ---
