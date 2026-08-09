@@ -130,6 +130,24 @@ class BoardTabsCoordinatorTest {
         )
     }
 
+    /** Board bulk close が固定タブを残し、逐次closeと同じ最終選択へ収束することを確認する。 */
+    @Test
+    fun closeBoardTabs_keepsPinnedTabAndMatchesSequentialSelection() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        val pinned = testBoardTab("pinned").copy(isPinned = true)
+        val selected = testBoardTab("selected")
+        val last = testBoardTab("last")
+        coordinator.openBoardTab(pinned)
+        coordinator.openBoardTab(selected)
+        coordinator.openBoardTab(last)
+        coordinator.selectBoardTab(selected.boardUrl)
+
+        coordinator.closeBoardTabs(listOf(selected, last))
+
+        assertEquals(listOf(pinned.boardUrl), coordinator.openBoardTabs.value.map { it.boardUrl })
+        assertEquals(pinned.boardUrl, coordinator.selectedBoardTabKey.value)
+    }
+
     /** 選択 key を正本として先頭・中央・末尾からの有効な page animation と境界 no-op を確認する。 */
     @Test
     fun animateBoardPage_usesSelectedIndexAndIgnoresBoundaryTargets() = runTest {

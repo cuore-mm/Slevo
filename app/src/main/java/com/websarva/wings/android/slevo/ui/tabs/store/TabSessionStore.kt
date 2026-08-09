@@ -151,16 +151,34 @@ class TabSessionStore @Inject constructor(
             TabPage.BOARD -> {
                 // 公開 projection を一度だけ読み、処理中の一覧変化で対象をずらさない。
                 val targets = openBoardTabs.value.filterNot(BoardTabInfo::isPinned)
-                targets.forEach(::closeBoardTab)
+                if (targets.isEmpty()) return
+                disposeBoardTabHolders(targets.map(BoardTabInfo::boardUrl))
+                boardTabsCoordinator.closeBoardTabs(targets)
             }
 
             TabPage.THREAD -> {
-                // Thread close は retained scope で直列化し、画面破棄後も受理済み操作を継続する。
+                // Thread bulkはretained scopeでcanonical確認まで所有し、画面破棄後も継続する。
                 val targets = openThreadTabs.value.filterNot(ThreadTabInfo::isPinned)
+                if (targets.isEmpty()) return
+                disposeThreadTabHolders(targets.map { it.id.value })
                 scope.launch {
-                    targets.forEach { closeThreadTab(it) }
+                    threadTabsCoordinator.closeThreadTabs(targets)
                 }
             }
+        }
+    }
+
+    /** 指定された板URLの既存holderだけを一括でmapから取り出して破棄する。 */
+    private fun disposeBoardTabHolders(boardUrls: List<String>) {
+        boardUrls.distinct().mapNotNull { boardSessionHolders.remove(it) }.forEach { holder ->
+            holder.dispose()
+        }
+    }
+
+    /** 指定されたThreadId文字列の既存holderだけを一括でmapから取り出して破棄する。 */
+    private fun disposeThreadTabHolders(threadIds: List<String>) {
+        threadIds.distinct().mapNotNull { threadSessionHolders.remove(it) }.forEach { holder ->
+            holder.dispose()
         }
     }
 

@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import com.websarva.wings.android.slevo.data.repository.DatRepository
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
@@ -199,6 +200,33 @@ class ThreadTabsCoordinatorTest {
         coordinator.closeThreadTab(first)
 
         assertEquals(second.id.value, coordinator.selectedThreadTabKey.value)
+    }
+
+    /** Thread bulk close が固定タブを残し、逐次closeと同じ最終選択へ収束することを確認する。 */
+    @Test
+    fun closeThreadTabs_keepsPinnedTabAndMatchesSequentialSelection() = runTest {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        val pinnedRoute = AppRoute.Thread(
+            threadKey = "pinned",
+            boardUrl = "https://medaka.5ch.io/mmominor/",
+            boardName = "mmominor",
+            threadTitle = "Pinned",
+        )
+        val selectedRoute = pinnedRoute.copy(threadKey = "selected", threadTitle = "Selected")
+        val lastRoute = pinnedRoute.copy(threadKey = "last", threadTitle = "Last")
+        coordinator.ensureThreadTab(pinnedRoute)
+        coordinator.ensureThreadTab(selectedRoute)
+        coordinator.ensureThreadTab(lastRoute)
+        val pinned = coordinator.openThreadTabs.value.first()
+        val selected = coordinator.openThreadTabs.value[1]
+        val last = coordinator.openThreadTabs.value[2]
+        coordinator.togglePinThreadTab(pinned.id)
+        coordinator.selectThreadTab(selected.id)
+
+        coordinator.closeThreadTabs(listOf(selected, last))
+
+        assertEquals(listOf(pinned.id), coordinator.openThreadTabs.value.map { it.id })
+        assertEquals(pinned.id.value, coordinator.selectedThreadTabKey.value)
     }
 
     /**
@@ -690,6 +718,31 @@ class ThreadTabsCoordinatorTest {
         assertEquals(false, coordinator.openThreadTabs.value.single().isPinned)
         coVerify(exactly = 4) { tabsRepository.setThreadTabPinned(initialTab.id, any()) }
         coVerify(exactly = 0) { tabsRepository.replaceOpenThreadTabsForBulkOperation(any()) }
+    }
+
+    /** Thread bulk pendingが対象集合を一度に投影から除外し、全対象不在だけを確認することを確認する。 */
+    @Test
+    fun projectThreadTabs_bulkDeleteRemovesTargetSetAndConfirmsAllTargetsAbsent() {
+        val first = ThreadTabInfo(
+            id = ThreadId.of("medaka.5ch.io", "mmominor", "first"),
+            title = "First",
+            boardName = "mmominor",
+            boardUrl = "https://medaka.5ch.io/mmominor/",
+            boardId = 1L,
+        )
+        val second = first.copy(id = ThreadId.of("medaka.5ch.io", "mmominor", "second"))
+        val pinned = first.copy(
+            id = ThreadId.of("medaka.5ch.io", "mmominor", "pinned"),
+            isPinned = true,
+        )
+        val operation = ThreadTabPendingOperation.BulkDelete(
+            threadIds = listOf(first.id, second.id),
+            requestedSelection = pinned.id.value,
+        )
+
+        assertEquals(listOf(pinned), projectThreadTabs(listOf(first, second, pinned), listOf(operation)))
+        assertFalse(isThreadTabOperationConfirmed(listOf(first, pinned), operation))
+        assertTrue(isThreadTabOperationConfirmed(listOf(pinned), operation))
     }
 
     /** Ensure の待機中に Delete が成功した場合、Ensure を -1 で終端して最終削除を確認する。 */

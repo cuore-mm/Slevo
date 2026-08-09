@@ -10,6 +10,7 @@ import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 data class IndexedTabOperation<Tab : Any, Key : Any>(
     val key: Key,
     val remove: Boolean = false,
+    val removeKeys: Set<Key> = emptySet(),
     val transform: (Tab?) -> Tab?,
 )
 
@@ -30,13 +31,20 @@ fun <Tab : Any, Key : Any> foldEffectiveTabs(
     operations.forEach { operation ->
         val index = keyIndex[operation.key]
         if (operation.remove) {
-            if (index != null) {
+            val keysToRemove = operation.removeKeys.ifEmpty { setOf(operation.key) }
+            if (keysToRemove.size == 1 && index != null) {
                 result.removeAt(index)
-                keyIndex.keys.toList().forEach { key ->
-                    val current = keyIndex[key] ?: return@forEach
-                    if (current > index) keyIndex[key] = current - 1
+                rebuildKeyIndexAfterRemoval(keyIndex, index, keysToRemove)
+            } else if (keysToRemove.size > 1) {
+                val filtered = result.filterNot { keyOf(it) in keysToRemove }
+                if (filtered.size != result.size) {
+                    result.clear()
+                    result.addAll(filtered)
+                    keyIndex.clear()
+                    result.forEachIndexed { filteredIndex, tab ->
+                        keyIndex[keyOf(tab)] = filteredIndex
+                    }
                 }
-                keyIndex.remove(operation.key)
             }
             return@forEach
         }
@@ -52,6 +60,22 @@ fun <Tab : Any, Key : Any> foldEffectiveTabs(
 
     // --- stable result ---
     return result
+}
+
+/** 複数key削除後のindex mapを、削除位置以降だけ一つずつ詰め直す。 */
+private fun <Key : Any> rebuildKeyIndexAfterRemoval(
+    keyIndex: MutableMap<Key, Int>,
+    removedIndex: Int,
+    removedKeys: Set<Key>,
+) {
+    keyIndex.keys.toList().forEach { key ->
+        val current = keyIndex[key] ?: return@forEach
+        if (key in removedKeys) {
+            keyIndex.remove(key)
+        } else if (current > removedIndex) {
+            keyIndex[key] = current - 1
+        }
+    }
 }
 
 /**
@@ -90,4 +114,31 @@ fun <Tab : Any, Key : Any> selectionAfterTabRemoval(
         return selectedKey
     }
     return remainingTabs.getOrNull(removedIndex)?.let(keyOf) ?: keyOf(remainingTabs.last())
+}
+
+/**
+ * 複数タブを一覧順に削除した場合の最終選択 key を返す。
+ * 既存の単体削除規則を削除対象順に折りたたみ、対象外選択の維持と隣接／末尾補正を同じ結果にする。
+ */
+fun <Tab : Any, Key : Any> selectionAfterTabRemovals(
+    selectedKey: Key?,
+    tabs: List<Tab>,
+    removedKeys: List<Key>,
+    keyOf: (Tab) -> Key,
+): Key? {
+    var currentTabs = tabs
+    var currentSelection = selectedKey
+    removedKeys.forEach { removedKey ->
+        val removedIndex = currentTabs.indexOfFirst { keyOf(it) == removedKey }
+        val remainingTabs = currentTabs.filterNot { keyOf(it) == removedKey }
+        currentSelection = selectionAfterTabRemoval(
+            selectedKey = currentSelection,
+            removedKey = removedKey,
+            removedIndex = removedIndex,
+            remainingTabs = remainingTabs,
+            keyOf = keyOf,
+        )
+        currentTabs = remainingTabs
+    }
+    return currentSelection
 }

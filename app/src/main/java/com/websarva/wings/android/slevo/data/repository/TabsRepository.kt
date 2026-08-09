@@ -48,6 +48,11 @@ class TabsRepository @Inject constructor(
     private val gate: DatabaseWriteGate = DatabaseWriteGate(),
     private val db: AppDatabase,
 ) {
+    private companion object {
+        /** SQLiteのbind変数上限999未満に収める対象ID chunkサイズ。 */
+        const val BULK_DELETE_CHUNK_SIZE = 900
+    }
+
     fun observeOpenBoardTabs(): Flow<List<BoardTabInfo>> =
         boardDao.observeOpenBoardTabs().map { list ->
             list.sortedBy { it.sortOrder }.map { entity ->
@@ -148,6 +153,23 @@ class TabsRepository @Inject constructor(
     suspend fun deleteOpenBoardTab(boardUrl: String): TabMutationResult = runCatching {
         gate.withWritePermit {
             if (boardDao.deleteByBoardUrl(boardUrl) == 0) TabMutationResult.NoOp else TabMutationResult.Success
+        }
+    }.getOrElse(TabMutationResult::Failure)
+
+    /** 指定板タブ集合を一つのtransactionで対象行だけ削除する。 */
+    suspend fun deleteOpenBoardTabs(boardUrls: List<String>): TabMutationResult = runCatching {
+        val distinctUrls = boardUrls.distinct()
+        if (distinctUrls.isEmpty()) {
+            return@runCatching TabMutationResult.NoOp
+        }
+        gate.withWritePermit {
+            db.withTransaction {
+                var deletedCount = 0
+                distinctUrls.chunked(BULK_DELETE_CHUNK_SIZE).forEach { chunk ->
+                    deletedCount += boardDao.deleteByBoardUrls(chunk)
+                }
+                if (deletedCount == 0) TabMutationResult.NoOp else TabMutationResult.Success
+            }
         }
     }.getOrElse(TabMutationResult::Failure)
 
@@ -270,6 +292,25 @@ class TabsRepository @Inject constructor(
                 threadStateRepository.collectGarbageUngated()
             }
             deleted
+        }
+    }
+
+    /** 指定スレッドタブ集合をchunk化して一つのtransactionで削除し、GCを一度だけ実行する。 */
+    suspend fun deleteOpenThreadTabs(threadIds: List<ThreadId>): Boolean = gate.withWritePermit {
+        val distinctIds = threadIds.distinctBy { it.value }
+        if (distinctIds.isEmpty()) {
+            return@withWritePermit false
+        }
+        db.withTransaction {
+            var deletedCount = 0
+            distinctIds.chunked(BULK_DELETE_CHUNK_SIZE).forEach { chunk ->
+                deletedCount += threadDao.deleteByThreadIds(chunk.map { it.value })
+            }
+            if (deletedCount > 0) {
+                // 既存の遅延GC契約に従い、bulk transactionの末尾で一度だけ収集する。
+                threadStateRepository.collectGarbageUngated()
+            }
+            deletedCount > 0
         }
     }
 

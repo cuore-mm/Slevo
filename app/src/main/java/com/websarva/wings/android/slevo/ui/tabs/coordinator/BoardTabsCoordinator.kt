@@ -15,6 +15,7 @@ import com.websarva.wings.android.slevo.ui.tabs.controller.TabLoadPhase
 import com.websarva.wings.android.slevo.ui.tabs.controller.foldEffectiveTabs
 import com.websarva.wings.android.slevo.ui.tabs.controller.resolveTabPresentation
 import com.websarva.wings.android.slevo.ui.tabs.controller.selectionAfterTabRemoval
+import com.websarva.wings.android.slevo.ui.tabs.controller.selectionAfterTabRemovals
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.mergeBoardTabMetadata
 import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
@@ -60,6 +61,7 @@ class BoardTabsCoordinator @Inject constructor(
     private sealed interface Operation {
         data class Ensure(val tab: BoardTabInfo) : Operation
         data class Delete(val boardUrl: String, val requestedSelection: String?) : Operation
+        data class BulkDelete(val boardUrls: List<String>, val requestedSelection: String?) : Operation
         data class Pin(val boardUrl: String, val isPinned: Boolean) : Operation
         data class Info(val tab: BoardTabInfo) : Operation
         data class Scroll(val boardUrl: String, val index: Int, val offset: Int) : Operation
@@ -209,6 +211,31 @@ class BoardTabsCoordinator @Inject constructor(
         acceptWithoutWaiting(Operation.Delete(tab.boardUrl, requestedSelection))
     }
 
+    /** 複数の板タブを一つのpending operationとして受理する。 */
+    fun closeBoardTabs(tabs: List<BoardTabInfo>) {
+        val effective = effectiveTabs(_state.value)
+        val boardUrls = tabs.map(BoardTabInfo::boardUrl).distinct()
+        if (boardUrls.isEmpty()) return
+        val requestedSelection = selectionAfterTabRemovals(
+            selectedKey = _state.value.selectedKey,
+            tabs = effective,
+            removedKeys = boardUrls,
+            keyOf = BoardTabInfo::boardUrl,
+        )
+        if (boundScope == null) {
+            _state.update {
+                it.copy(
+                    canonicalTabs = it.canonicalTabs.filterNot { tab -> tab.boardUrl in boardUrls },
+                    selectedKey = requestedSelection,
+                ).rebuildPresentation()
+            }
+            _boardSessionStates.update { states -> states - boardUrls.toSet() }
+            return
+        }
+        // Projectionからは全対象を一度に除外し、永続化はController scopeへ委譲する。
+        acceptWithoutWaiting(Operation.BulkDelete(boardUrls, requestedSelection))
+    }
+
     /** boardUrl から対象 tab を探して close command を受理する。 */
     fun closeBoardTabByUrl(boardUrl: String) {
         effectiveTabs(_state.value).firstOrNull { it.boardUrl == boardUrl }?.let(::closeBoardTab)
@@ -301,7 +328,11 @@ class BoardTabsCoordinator @Inject constructor(
         _state.update { state ->
             val key = operation.supersessionKey()
             superseded = state.pendingCommands.filter { it.operation.supersessionKey() == key && key != null }
-            val selectedKey = if (operation is Operation.Delete) operation.requestedSelection else state.selectedKey
+            val selectedKey = when (operation) {
+                is Operation.Delete -> operation.requestedSelection
+                is Operation.BulkDelete -> operation.requestedSelection
+                else -> state.selectedKey
+            }
             state.copy(
                 pendingCommands = state.pendingCommands.filterNot { it in superseded } + pending,
                 selectedKey = selectedKey,
@@ -322,6 +353,7 @@ class BoardTabsCoordinator @Inject constructor(
             when (val operation = pending.operation) {
                 is Operation.Ensure -> tabsRepository.ensureOpenBoardTab(operation.tab)
                 is Operation.Delete -> tabsRepository.deleteOpenBoardTab(operation.boardUrl)
+                is Operation.BulkDelete -> tabsRepository.deleteOpenBoardTabs(operation.boardUrls)
                 is Operation.Pin -> tabsRepository.setBoardTabPinned(operation.boardUrl, operation.isPinned)
                 is Operation.Info -> tabsRepository.updateBoardTabInfo(operation.tab)
                 is Operation.Scroll -> tabsRepository.updateBoardTabScrollPosition(operation.boardUrl, operation.index, operation.offset)
@@ -346,6 +378,7 @@ class BoardTabsCoordinator @Inject constructor(
     private fun Operation.supersessionKey(): BoardSupersessionKey? = when (this) {
         is Operation.Ensure -> null
         is Operation.Delete -> null
+        is Operation.BulkDelete -> null
         is Operation.Pin -> BoardSupersessionKey(boardUrl, BoardSupersessionKey.Kind.Pin)
         is Operation.Info -> BoardSupersessionKey(tab.boardUrl, BoardSupersessionKey.Kind.Info)
         is Operation.Scroll -> BoardSupersessionKey(boardUrl, BoardSupersessionKey.Kind.Scroll)
@@ -359,7 +392,11 @@ class BoardTabsCoordinator @Inject constructor(
         }
         pending.result.complete(result)
         val operation = pending.operation
-        if (operation is Operation.Delete) _boardSessionStates.update { it - operation.boardUrl }
+        when (operation) {
+            is Operation.Delete -> _boardSessionStates.update { it - operation.boardUrl }
+            is Operation.BulkDelete -> _boardSessionStates.update { it - operation.boardUrls.toSet() }
+            else -> Unit
+        }
     }
 
     /** Room snapshot を一度だけ state に取り込み、matching pending だけを terminal にする。 */
@@ -377,6 +414,7 @@ class BoardTabsCoordinator @Inject constructor(
         val actual = when (operation) {
             is Operation.Ensure -> canonical.firstOrNull { it.boardUrl == operation.tab.boardUrl }
             is Operation.Delete -> canonical.firstOrNull { it.boardUrl == operation.boardUrl }
+            is Operation.BulkDelete -> null
             is Operation.Pin -> canonical.firstOrNull { it.boardUrl == operation.boardUrl }
             is Operation.Info -> canonical.firstOrNull { it.boardUrl == operation.tab.boardUrl }
             is Operation.Scroll -> canonical.firstOrNull { it.boardUrl == operation.boardUrl }
@@ -384,6 +422,7 @@ class BoardTabsCoordinator @Inject constructor(
         return when (operation) {
             is Operation.Ensure -> actual != null && actual.boardId == (operation.tab.boardId.takeIf { it != 0L } ?: actual.boardId)
             is Operation.Delete -> actual == null
+            is Operation.BulkDelete -> canonical.none { it.boardUrl in operation.boardUrls }
             is Operation.Pin -> actual?.isPinned == operation.isPinned
             is Operation.Info -> actual != null && actual.boardId == operation.tab.boardId && actual.boardName == operation.tab.boardName
             is Operation.Scroll -> actual?.firstVisibleItemIndex == operation.index && actual.firstVisibleItemScrollOffset == operation.offset
@@ -402,6 +441,11 @@ class BoardTabsCoordinator @Inject constructor(
                 when (val operation = pending.operation) {
                     is Operation.Ensure -> IndexedTabOperation(operation.tab.boardUrl) { current -> mergeBoardTabMetadata(current, operation.tab) }
                     is Operation.Delete -> IndexedTabOperation(operation.boardUrl, remove = true) { current -> current }
+                    is Operation.BulkDelete -> IndexedTabOperation(
+                        key = operation.boardUrls.first(),
+                        remove = true,
+                        removeKeys = operation.boardUrls.toSet(),
+                    ) { current -> current }
                     is Operation.Pin -> IndexedTabOperation(operation.boardUrl) { current -> current?.copy(isPinned = operation.isPinned) }
                     is Operation.Info -> IndexedTabOperation(operation.tab.boardUrl) { current -> mergeBoardTabMetadata(current, operation.tab) }
                     is Operation.Scroll -> IndexedTabOperation(operation.boardUrl) { current -> current?.copy(firstVisibleItemIndex = operation.index, firstVisibleItemScrollOffset = operation.offset) }

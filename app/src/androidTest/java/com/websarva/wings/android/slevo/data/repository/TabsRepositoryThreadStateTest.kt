@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.datasource.local.TabsLocalDataSource
 import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenThreadTabEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenBoardTabEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryEntity
 import com.websarva.wings.android.slevo.data.model.ThreadId
@@ -143,6 +144,53 @@ class TabsRepositoryThreadStateTest {
         val tab = repository.observeOpenThreadTabs().first().single()
 
         assertEquals(true, tab.isPinned)
+    }
+
+    /** Board bulk DELETE が901件を900件chunkに分けても対象行だけを削除することを確認する。 */
+    @Test
+    fun deleteOpenBoardTabs_deletesChunkedTargetsAndPreservesOtherRows() = runBlocking {
+        val pinnedUrl = "https://example.com/pinned/"
+        val targetUrls = (0 until 901).map { "https://example.com/board-$it/" }
+        db.openBoardTabDao().upsertAll(
+            (targetUrls + pinnedUrl).mapIndexed { index, url ->
+                OpenBoardTabEntity(
+                    boardUrl = url,
+                    boardId = index.toLong(),
+                    boardName = url,
+                    serviceName = "example.com",
+                    sortOrder = index,
+                    isPinned = url == pinnedUrl,
+                )
+            }
+        )
+
+        assertEquals(TabMutationResult.Success, repository.deleteOpenBoardTabs(targetUrls))
+
+        val remaining = db.openBoardTabDao().getAll()
+        assertEquals(listOf(pinnedUrl), remaining.map { it.boardUrl })
+    }
+
+    /** Thread bulk DELETE が1252件をchunk化し、固定された対象外行を維持することを確認する。 */
+    @Test
+    fun deleteOpenThreadTabs_deletesLargeTargetSetAndPreservesOtherRows() = runBlocking {
+        val pinnedId = ThreadId.of("example.com", "test", "pinned")
+        val targetIds = (0 until 1_252).map { ThreadId.of("example.com", "test", "thread-$it") }
+        db.openThreadTabDao().upsertAll(
+            (targetIds + pinnedId).mapIndexed { index, threadId ->
+                OpenThreadTabEntity(
+                    threadId = threadId,
+                    sortOrder = index,
+                    isPinned = threadId == pinnedId,
+                    firstVisibleItemIndex = index,
+                    firstVisibleItemScrollOffset = index + 1,
+                )
+            }
+        )
+
+        assertEquals(true, repository.deleteOpenThreadTabs(targetIds))
+
+        val remaining = db.openThreadTabDao().getAll()
+        assertEquals(listOf(pinnedId), remaining.map { it.threadId })
     }
 
     /**

@@ -251,8 +251,7 @@ class TabSessionStoreTest {
         testStore.closeAllUnpinnedTabs(TabPage.BOARD)
 
         verify(exactly = 0) { boardCoordinator.closeBoardTab(pinnedTab) }
-        verify { boardCoordinator.closeBoardTab(firstTab) }
-        verify { boardCoordinator.closeBoardTab(secondTab) }
+        verify { boardCoordinator.closeBoardTabs(listOf(firstTab, secondTab)) }
         coVerify(exactly = 0) { threadCoordinator.closeThreadTab(any<ThreadTabInfo>()) }
     }
 
@@ -262,10 +261,6 @@ class TabSessionStoreTest {
         val pinnedTab = bulkThreadTab("pinned", isPinned = true)
         val firstTab = bulkThreadTab("first")
         val secondTab = bulkThreadTab("second")
-        val closeOrder = mutableListOf<ThreadTabInfo>()
-        coEvery { threadCoordinator.closeThreadTab(any<ThreadTabInfo>()) } coAnswers {
-            closeOrder.add(firstArg<ThreadTabInfo>())
-        }
         val testStore = createStore(
             boardTabs = listOf(
                 BoardTabInfo(
@@ -281,10 +276,7 @@ class TabSessionStoreTest {
         testStore.closeAllUnpinnedTabs(TabPage.THREAD)
         runCurrent()
 
-        coVerify(exactly = 0) { threadCoordinator.closeThreadTab(pinnedTab) }
-        coVerify { threadCoordinator.closeThreadTab(firstTab) }
-        coVerify { threadCoordinator.closeThreadTab(secondTab) }
-        assertEquals(listOf(firstTab, secondTab), closeOrder)
+        coVerify { threadCoordinator.closeThreadTabs(listOf(firstTab, secondTab)) }
         verify(exactly = 0) { boardCoordinator.closeBoardTab(any()) }
     }
 
@@ -309,6 +301,30 @@ class TabSessionStoreTest {
 
         verify(exactly = 0) { boardCoordinator.closeBoardTab(any()) }
         coVerify(exactly = 0) { threadCoordinator.closeThreadTab(any<ThreadTabInfo>()) }
+    }
+
+    /** bulk close は未固定holderだけを一度破棄し、固定holderを維持することを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_disposesOnlyTargetHolders() {
+        val targetBoardHolder = mockBoardHolder()
+        val pinnedBoardHolder = mockBoardHolder()
+        every { boardHolderFactory.create("https://example.com/target/", any()) } returns targetBoardHolder
+        every { boardHolderFactory.create("https://example.com/pinned/", any()) } returns pinnedBoardHolder
+        val targetBoard = BoardTabInfo(1, "Target", "https://example.com/target/", "example.com")
+        val pinnedBoard = targetBoard.copy(
+            boardName = "Pinned",
+            boardUrl = "https://example.com/pinned/",
+            isPinned = true,
+        )
+        val testStore = createStore(boardTabs = listOf(targetBoard, pinnedBoard))
+        testStore.boardBookmarkSheetHolder(targetBoard.boardUrl)
+        testStore.boardBookmarkSheetHolder(pinnedBoard.boardUrl)
+
+        testStore.closeAllUnpinnedTabs(TabPage.BOARD)
+
+        verify { targetBoardHolder.dispose() }
+        verify(exactly = 0) { pinnedBoardHolder.dispose() }
+        verify { boardCoordinator.closeBoardTabs(listOf(targetBoard)) }
     }
 
     /**

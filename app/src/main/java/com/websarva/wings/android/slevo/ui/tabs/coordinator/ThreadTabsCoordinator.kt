@@ -11,6 +11,7 @@ import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabRefreshProgress
 import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
+import com.websarva.wings.android.slevo.ui.tabs.controller.selectionAfterTabRemovals
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionRuntimeState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
@@ -221,6 +222,32 @@ class ThreadTabsCoordinator @Inject constructor(
         val operation = ThreadTabPendingOperation.Delete(tab.id)
         val completion = CompletableDeferred<Unit>()
         commandQueue.send(ThreadTabMutationIntent.Delete(tab.id, operation, completion))
+        try {
+            completion.await()
+        } catch (cancellationException: CancellationException) {
+            completion.cancel(cancellationException)
+            throw cancellationException
+        }
+    }
+
+    /** 複数のスレッドタブを一つのbulk intentとして受理する。 */
+    suspend fun closeThreadTabs(tabs: List<ThreadTabInfo>) {
+        val threadIds = tabs.map { it.id }.distinctBy { it.value }
+        if (threadIds.isEmpty()) return
+        if (scope == null) {
+            closeThreadTabsWithoutPersistence(tabs)
+            return
+        }
+        val currentTabs = _openThreadTabs.value
+        val requestedSelection = selectionAfterTabRemovals(
+            selectedKey = _selectedThreadTabKey.value?.let(::ThreadId),
+            tabs = currentTabs,
+            removedKeys = threadIds,
+            keyOf = ThreadTabInfo::id,
+        )?.value
+        val operation = ThreadTabPendingOperation.BulkDelete(threadIds, requestedSelection)
+        val completion = CompletableDeferred<Unit>()
+        commandQueue.send(ThreadTabMutationIntent.BulkDelete(operation, completion))
         try {
             completion.await()
         } catch (cancellationException: CancellationException) {
@@ -482,6 +509,12 @@ class ThreadTabsCoordinator @Inject constructor(
             override val completion: CompletableDeferred<Unit>,
         ) : ThreadTabMutationIntent
 
+        /** 複数スレッドタブを一つの対象集合として削除する。 */
+        data class BulkDelete(
+            val operation: ThreadTabPendingOperation.BulkDelete,
+            override val completion: CompletableDeferred<Unit>,
+        ) : ThreadTabMutationIntent
+
         /** 1 件の固定列を変更する。 */
         data class Pin(
             val threadId: ThreadId,
@@ -507,8 +540,13 @@ class ThreadTabsCoordinator @Inject constructor(
                 awaitLoadedState()
                 // 呼び出し元のキャンセルと同時に準備が完了している可能性がある。
                 if (isIntentCancelled(intent)) continue
-                // canonical confirmation は後続 command の write barrier ではない。
-                scope?.launch(start = CoroutineStart.UNDISPATCHED) { processIntent(intent) }
+                if (intent is ThreadTabMutationIntent.BulkDelete) {
+                    // Bulkは後続mutationを開始する前にcanonical確認まで完了させるbarrierとする。
+                    processIntent(intent)
+                } else {
+                    // 単体mutationの既存並行性とsupersession契約は維持する。
+                    scope?.launch(start = CoroutineStart.UNDISPATCHED) { processIntent(intent) }
+                }
             }
         } finally {
             // 破棄後に完了できない通知を待つ呼び出し元を残さない。
@@ -526,6 +564,7 @@ class ThreadTabsCoordinator @Inject constructor(
         when (intent) {
             is ThreadTabMutationIntent.Ensure -> processEnsure(intent)
             is ThreadTabMutationIntent.Delete -> processDelete(intent)
+            is ThreadTabMutationIntent.BulkDelete -> processBulkDelete(intent)
             is ThreadTabMutationIntent.Pin -> processPin(intent)
             is ThreadTabMutationIntent.Info -> processInfo(intent)
         }
@@ -606,6 +645,34 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
+    /** bulk DELETE、canonical確認、最終選択補正、全対象の揮発状態cleanupを実行する。 */
+    private suspend fun processBulkDelete(intent: ThreadTabMutationIntent.BulkDelete) {
+        val operation = intent.operation
+        val (entry, baselineVersion) = registerPending(operation)
+        try {
+            val changed = tabsRepository.deleteOpenThreadTabs(operation.threadIds)
+            if (changed) {
+                supersedeEarlierOperations(entry)
+                if (awaitConfirmation(entry, baselineVersion) == ThreadTabConfirmationResolution.Superseded) {
+                    removePending(entry)
+                    intent.completion.complete(Unit)
+                    return
+                }
+            }
+            removePending(entry, operation.requestedSelection)
+            operation.threadIds.forEach { threadId ->
+                val key = threadId.value
+                _newResCounts.update { it - key }
+                _threadSessionStates.update { it - key }
+                _threadRuntimeStates.update { it - key }
+            }
+            intent.completion.complete(Unit)
+        } catch (exception: Throwable) {
+            removePending(entry)
+            intent.completion.completeExceptionally(exception)
+        }
+    }
+
     /** 先行するすべての要求が残した投影状態を使って固定状態の切り替えを実行する。 */
     private suspend fun processPin(intent: ThreadTabMutationIntent.Pin) {
         val current = _openThreadTabs.value.firstOrNull { it.id == intent.threadId }
@@ -660,7 +727,7 @@ class ThreadTabsCoordinator @Inject constructor(
         val supersededEntries = pendingOperations
             .take(currentIndex)
             .filter { entry ->
-                entry.operation.threadId == currentEntry.operation.threadId &&
+                entry.operation.targetThreadIds.any { it in currentEntry.operation.targetThreadIds } &&
                     canSupersede(currentEntry.operation, entry.operation)
             }
         if (supersededEntries.isEmpty()) return
@@ -679,6 +746,11 @@ class ThreadTabsCoordinator @Inject constructor(
         is ThreadTabPendingOperation.Delete -> earlier is ThreadTabPendingOperation.Ensure ||
             earlier is ThreadTabPendingOperation.Pin ||
             earlier is ThreadTabPendingOperation.Info
+        is ThreadTabPendingOperation.BulkDelete -> earlier is ThreadTabPendingOperation.Ensure ||
+            earlier is ThreadTabPendingOperation.Pin ||
+            earlier is ThreadTabPendingOperation.Info ||
+            earlier is ThreadTabPendingOperation.Delete ||
+            earlier is ThreadTabPendingOperation.BulkDelete
         is ThreadTabPendingOperation.Ensure -> earlier is ThreadTabPendingOperation.Delete
         is ThreadTabPendingOperation.Info -> false
     }
@@ -794,17 +866,19 @@ class ThreadTabsCoordinator @Inject constructor(
         get() = when (this) {
             is ThreadTabPendingOperation.Ensure -> tab.id.value
             is ThreadTabPendingOperation.Delete -> threadId.value
+            is ThreadTabPendingOperation.BulkDelete -> requestedSelection
             is ThreadTabPendingOperation.Pin -> threadId.value
             is ThreadTabPendingOperation.Info -> tab.id.value
         }
 
-    /** 各 pending operation が対象とする Thread の identity を返す。 */
-    private val ThreadTabPendingOperation.threadId: ThreadId
+    /** 各 pending operation が対象とする Thread ID 集合を返す。 */
+    private val ThreadTabPendingOperation.targetThreadIds: Set<ThreadId>
         get() = when (this) {
-            is ThreadTabPendingOperation.Ensure -> tab.id
-            is ThreadTabPendingOperation.Delete -> threadId
-            is ThreadTabPendingOperation.Pin -> threadId
-            is ThreadTabPendingOperation.Info -> tab.id
+            is ThreadTabPendingOperation.Ensure -> setOf(tab.id)
+            is ThreadTabPendingOperation.Delete -> setOf(threadId)
+            is ThreadTabPendingOperation.BulkDelete -> threadIds.toSet()
+            is ThreadTabPendingOperation.Pin -> setOf(threadId)
+            is ThreadTabPendingOperation.Info -> setOf(tab.id)
         }
 
     /** 投影したメタデータを Repository 共通の ThreadState 更新入力へ変換する。 */
@@ -824,6 +898,7 @@ class ThreadTabsCoordinator @Inject constructor(
         when (intent) {
             is ThreadTabMutationIntent.Ensure -> intent.completion.completeExceptionally(exception)
             is ThreadTabMutationIntent.Delete -> intent.completion.completeExceptionally(exception)
+            is ThreadTabMutationIntent.BulkDelete -> intent.completion.completeExceptionally(exception)
             is ThreadTabMutationIntent.Pin -> intent.completion.completeExceptionally(exception)
             is ThreadTabMutationIntent.Info -> intent.completion.completeExceptionally(exception)
         }
@@ -833,6 +908,7 @@ class ThreadTabsCoordinator @Inject constructor(
     private fun isIntentCancelled(intent: ThreadTabMutationIntent): Boolean = when (intent) {
         is ThreadTabMutationIntent.Ensure -> intent.completion.isCancelled
         is ThreadTabMutationIntent.Delete -> intent.completion.isCancelled
+        is ThreadTabMutationIntent.BulkDelete -> intent.completion.isCancelled
         is ThreadTabMutationIntent.Pin -> intent.completion.isCancelled
         is ThreadTabMutationIntent.Info -> intent.completion.isCancelled
     }
@@ -886,6 +962,26 @@ class ThreadTabsCoordinator @Inject constructor(
         _newResCounts.update { it - key }
         _threadSessionStates.update { it - key }
         _threadRuntimeStates.update { it - key }
+    }
+
+    /** 未bind時のbulkテスト経路で、一覧順の選択補正と揮発状態cleanupを一度に行う。 */
+    private fun closeThreadTabsWithoutPersistence(tabs: List<ThreadTabInfo>) {
+        val threadIds = tabs.map { it.id }.distinctBy { it.value }
+        val currentTabs = _openThreadTabs.value
+        val updatedTabs = currentTabs.filterNot { it.id in threadIds }
+        val nextSelection = selectionAfterTabRemovals(
+            selectedKey = _selectedThreadTabKey.value?.let(::ThreadId),
+            tabs = currentTabs,
+            removedKeys = threadIds,
+            keyOf = ThreadTabInfo::id,
+        )?.value
+        publishThreadPresentation(updatedTabs, nextSelection)
+        threadIds.forEach { threadId ->
+            val key = threadId.value
+            _newResCounts.update { it - key }
+            _threadSessionStates.update { it - key }
+            _threadRuntimeStates.update { it - key }
+        }
     }
 
     /** 削除前 index に基づく既存の隣接/末尾選択規則を返す。 */
