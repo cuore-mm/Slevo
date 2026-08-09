@@ -74,6 +74,7 @@ internal fun isThreadTabOperationConfirmed(
         when (operation) {
             is ThreadTabPendingOperation.Ensure -> tab.id == operation.tab.id
             is ThreadTabPendingOperation.Delete -> tab.id == operation.threadId
+            is ThreadTabPendingOperation.BulkDelete -> false
             is ThreadTabPendingOperation.Pin -> tab.id == operation.threadId
             is ThreadTabPendingOperation.Info -> tab.id == operation.tab.id
         }
