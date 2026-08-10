@@ -348,6 +348,33 @@ class TabSessionStoreTest {
         coVerify { threadCoordinator.closeThreadTabs(listOf(target)) }
     }
 
+    /** Thread bulk処理中のStore lifetime終了が実行をcancelし、completionを解放することを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_cancelsInFlightThreadBulkAtStoreLifetimeBoundary() = runTest {
+        val target = bulkThreadTab("in-flight")
+        val started = CompletableDeferred<Unit>()
+        val cancelled = CompletableDeferred<Unit>()
+        coEvery { threadCoordinator.closeThreadTabs(any()) } coAnswers {
+            started.complete(Unit)
+            try {
+                CompletableDeferred<Unit>().await()
+            } catch (cancellationException: CancellationException) {
+                cancelled.complete(Unit)
+                throw cancellationException
+            }
+        }
+        val testStore = createStore(threadTabs = listOf(target))
+
+        testStore.closeAllUnpinnedTabs(TabPage.THREAD)
+        runCurrent()
+        assertTrue(started.isCompleted)
+
+        testStore.close()
+        runCurrent()
+
+        assertTrue(cancelled.isCompleted)
+    }
+
     /**
      * スレッドタブ更新操作が [ThreadTabsCoordinator] へ委譲されることを確認する。
      */
