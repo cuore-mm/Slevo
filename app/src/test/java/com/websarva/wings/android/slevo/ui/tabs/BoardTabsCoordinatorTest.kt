@@ -846,6 +846,37 @@ class BoardTabsCoordinatorTest {
         coordinator.close()
     }
 
+    /** bound bulk close が対象を一つのRepository commandで削除し、canonical確認後に完了することを確認する。 */
+    @Test
+    fun boundBulkClose_excludesTargetsImmediatelyAndCallsRepositoryOnce() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val first = testBoardTab("first")
+        val second = testBoardTab("second")
+        val last = testBoardTab("last")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenBoardTabs(any()) } returns TabMutationResult.Success
+        databaseFlow.emit(listOf(first, second, last))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        coordinator.selectBoardTab(second.boardUrl)
+        coordinator.closeBoardTabs(listOf(second, last))
+        runCurrent()
+
+        assertEquals(listOf(first), coordinator.openBoardTabs.value)
+        assertEquals(first.boardUrl, coordinator.selectedBoardTabKey.value)
+        databaseFlow.emit(listOf(first))
+        runCurrent()
+
+        coVerify(exactly = 1) { tabsRepository.deleteOpenBoardTabs(listOf(second.boardUrl, last.boardUrl)) }
+        coVerify(exactly = 0) { tabsRepository.deleteOpenBoardTab(any()) }
+        coordinator.close()
+    }
+
     /**
      * セッション状態更新が永続タブ保存を呼ばないことを確認する。
      */

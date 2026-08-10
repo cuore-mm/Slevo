@@ -790,6 +790,41 @@ class ThreadTabsCoordinatorTest {
         assertFalse(coordinator.threadRuntimeStates.value.containsKey(tab.id.value))
     }
 
+    /** bound Thread bulk close が対象を即時非表示にし、canonical確認後にRepositoryを一度だけ呼ぶことを確認する。 */
+    @Test
+    fun boundBulkClose_excludesTargetsImmediatelyAndCallsRepositoryOnce() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val first = testTab("bulk-first", 0)
+        val second = testTab("bulk-second", 1)
+        val last = testTab("bulk-last", 2)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenThreadTabs(any()) } returns true
+        databaseFlow.emit(listOf(first, second, last))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(backgroundScope)
+        runCurrent()
+        coordinator.selectThreadTab(second.id)
+        val bulkJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.closeThreadTabs(listOf(second, last))
+        }
+        runCurrent()
+
+        assertEquals(listOf(first), coordinator.openThreadTabs.value)
+        assertEquals(first.id.value, coordinator.selectedThreadTabKey.value)
+        assertFalse(bulkJob.isCompleted)
+        databaseFlow.emit(listOf(first))
+        runCurrent()
+        bulkJob.await()
+
+        coVerify(exactly = 1) { tabsRepository.deleteOpenThreadTabs(listOf(second.id, last.id)) }
+        coVerify(exactly = 0) { tabsRepository.deleteOpenThreadTab(any()) }
+        coordinator.close()
+    }
+
     /** Delete が Ensure に置き換えられた場合、古い Delete の cleanup を実行しない。 */
     @Test
     fun deleteThenEnsure_finalSnapshotOnlyPreservesSessionUntilEnsure() = runTest {

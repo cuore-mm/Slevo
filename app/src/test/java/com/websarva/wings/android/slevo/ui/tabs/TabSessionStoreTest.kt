@@ -327,6 +327,27 @@ class TabSessionStoreTest {
         verify { boardCoordinator.closeBoardTabs(listOf(targetBoard)) }
     }
 
+    /** Thread bulk close でも未固定holderだけを一度破棄し、固定holderを維持することを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_forThread_disposesOnlyTargetHolders() = runTest {
+        val targetHolder = mockThreadHolder()
+        val pinnedHolder = mockThreadHolder()
+        val target = bulkThreadTab("target")
+        val pinned = bulkThreadTab("pinned", isPinned = true)
+        every { threadHolderFactory.create(target.id.value, any()) } returns targetHolder
+        every { threadHolderFactory.create(pinned.id.value, any()) } returns pinnedHolder
+        val testStore = createStore(threadTabs = listOf(target, pinned))
+        testStore.threadBookmarkSheetHolder(target.id.value)
+        testStore.threadBookmarkSheetHolder(pinned.id.value)
+
+        testStore.closeAllUnpinnedTabs(TabPage.THREAD)
+        runCurrent()
+
+        verify { targetHolder.dispose() }
+        verify(exactly = 0) { pinnedHolder.dispose() }
+        coVerify { threadCoordinator.closeThreadTabs(listOf(target)) }
+    }
+
     /**
      * スレッドタブ更新操作が [ThreadTabsCoordinator] へ委譲されることを確認する。
      */

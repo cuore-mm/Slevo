@@ -193,6 +193,15 @@ class TabsRepositoryThreadStateTest {
         assertEquals(listOf(pinnedId), remaining.map { it.threadId })
     }
 
+    /** bulk DELETE の空集合はDB、GCともに変更しないNoOpになることを確認する。 */
+    @Test
+    fun deleteOpenTabs_emptyTargets_areNoOp() = runBlocking {
+        assertEquals(TabMutationResult.NoOp, repository.deleteOpenBoardTabs(emptyList()))
+        assertEquals(false, repository.deleteOpenThreadTabs(emptyList()))
+        assertEquals(0, db.openBoardTabDao().getAll().size)
+        assertEquals(0, db.openThreadTabDao().getAll().size)
+    }
+
     /**
      * 固定状態を切り替えてもタブの表示順（sortOrder）が変わらないことを確認する。
      */
