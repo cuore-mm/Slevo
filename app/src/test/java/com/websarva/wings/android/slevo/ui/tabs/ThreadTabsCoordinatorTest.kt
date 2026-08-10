@@ -825,6 +825,74 @@ class ThreadTabsCoordinatorTest {
         coordinator.close()
     }
 
+    /** Thread bulk Repository失敗時に対象projectionをcanonicalへ戻し、部分削除を公開しないことを確認する。 */
+    @Test
+    fun boundBulkClose_failureRestoresCanonicalProjection() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val first = testTab("bulk-failure-first", 0)
+        val second = testTab("bulk-failure-second", 1)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenThreadTabs(any()) } throws IllegalStateException("bulk failure")
+        databaseFlow.emit(listOf(first, second))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(backgroundScope)
+        runCurrent()
+        val bulkJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.closeThreadTabs(listOf(first, second))
+        }
+        runCurrent()
+
+        val failure = runCatching { bulkJob.await() }.exceptionOrNull()
+        assertTrue(failure is IllegalStateException)
+        assertEquals(listOf(first, second), coordinator.openThreadTabs.value)
+        coordinator.close()
+    }
+
+    /** Thread bulkがcanonical確認するまで後続Ensureを開始しないbarrierであることを確認する。 */
+    @Test
+    fun boundBulkClose_blocksLaterEnsureUntilCanonicalConfirmation() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val target = testTab("bulk-barrier-target", 0)
+        val ensureTab = testTab("bulk-barrier-ensure", 1)
+        val writeRelease = CompletableDeferred<Boolean>()
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenThreadTabs(any()) } coAnswers { writeRelease.await() }
+        coEvery { tabsRepository.ensureOpenThreadTab(any()) } returns true
+        databaseFlow.emit(listOf(target))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(backgroundScope)
+        runCurrent()
+        val bulkJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.closeThreadTabs(listOf(target))
+        }
+        runCurrent()
+        val ensureJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.ensureThreadTab(testRoute(ensureTab.id.value.substringAfterLast('/')))
+        }
+        runCurrent()
+
+        coVerify(exactly = 0) { tabsRepository.ensureOpenThreadTab(any()) }
+        writeRelease.complete(true)
+        databaseFlow.emit(emptyList())
+        runCurrent()
+        bulkJob.await()
+        coVerify(exactly = 1) { tabsRepository.ensureOpenThreadTab(any()) }
+        assertFalse(ensureJob.isCompleted)
+
+        databaseFlow.emit(listOf(ensureTab))
+        runCurrent()
+        ensureJob.await()
+        coordinator.close()
+    }
+
     /** Delete が Ensure に置き換えられた場合、古い Delete の cleanup を実行しない。 */
     @Test
     fun deleteThenEnsure_finalSnapshotOnlyPreservesSessionUntilEnsure() = runTest {

@@ -877,6 +877,30 @@ class BoardTabsCoordinatorTest {
         coordinator.close()
     }
 
+    /** Board bulk Repository失敗時に対象projectionをcanonicalへ戻すことを確認する。 */
+    @Test
+    fun boundBulkClose_failureRestoresCanonicalProjection() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val first = testBoardTab("bulk-failure-first")
+        val second = testBoardTab("bulk-failure-second")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenBoardTabs(any()) } throws IllegalStateException("bulk failure")
+        databaseFlow.emit(listOf(first, second))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        coordinator.closeBoardTabs(listOf(first, second))
+        runCurrent()
+
+        assertEquals(listOf(first, second), coordinator.openBoardTabs.value)
+        coVerify(exactly = 1) { tabsRepository.deleteOpenBoardTabs(listOf(first.boardUrl, second.boardUrl)) }
+        coordinator.close()
+    }
+
     /**
      * セッション状態更新が永続タブ保存を呼ばないことを確認する。
      */
