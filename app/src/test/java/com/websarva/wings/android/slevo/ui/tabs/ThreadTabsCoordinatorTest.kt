@@ -825,9 +825,9 @@ class ThreadTabsCoordinatorTest {
         coordinator.close()
     }
 
-    /** Thread bulk Repository失敗時に対象projectionをcanonicalへ戻し、部分削除を公開しないことを確認する。 */
+    /** Thread bulkで対象行が既に不在の場合、対象projectionをcanonicalへ戻すことを確認する。 */
     @Test
-    fun boundBulkClose_failureRestoresCanonicalProjection() = runTest {
+    fun boundBulkClose_noOpRestoresCanonicalProjection() = runTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
@@ -835,7 +835,7 @@ class ThreadTabsCoordinatorTest {
         val second = testTab("bulk-failure-second", 1)
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
         every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
-        coEvery { tabsRepository.deleteOpenThreadTabs(any()) } throws IllegalStateException("bulk failure")
+        coEvery { tabsRepository.deleteOpenThreadTabs(any()) } returns false
         databaseFlow.emit(listOf(first, second))
 
         val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
@@ -846,8 +846,7 @@ class ThreadTabsCoordinatorTest {
         }
         runCurrent()
 
-        val failure = runCatching { bulkJob.await() }.exceptionOrNull()
-        assertTrue(failure is IllegalStateException)
+        bulkJob.await()
         assertEquals(listOf(first, second), coordinator.openThreadTabs.value)
         coordinator.close()
     }
