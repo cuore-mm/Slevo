@@ -21,6 +21,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -168,5 +169,44 @@ class TabBulkCloseMenuTest {
         assertEquals(0, closeAllClickCount)
         assertEquals(1, dismissCount)
         composeRule.onNodeWithText("全てのタブを閉じる").assertDoesNotExist()
+    }
+
+    /** 削除対象行が縮小し、残存行が通常レイアウトで詰まることを確認する。 */
+    @Test
+    fun removableTabList_collapsesRemovalRowWithoutPlacementAnimation() {
+        var removingKeys by mutableStateOf(emptySet<String>())
+        var tabs by mutableStateOf(listOf("remove", "keep"))
+        composeRule.setContent {
+            SlevoTheme {
+                RemovableTabList(
+                    tabItems = tabs,
+                    keyOf = { it },
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(),
+                    removingKeys = removingKeys,
+                    onRemoveConfirmed = {},
+                    itemContent = { item, _, _ ->
+                        androidx.compose.material3.Text(item)
+                    },
+                )
+            }
+        }
+
+        composeRule.mainClock.autoAdvance = false
+        composeRule.waitForIdle()
+        val keepBeforeRemoval = composeRule.onNodeWithText("keep").fetchSemanticsNode().boundsInRoot.top
+        removingKeys = setOf("remove")
+        composeRule.waitForIdle()
+        composeRule.mainClock.advanceTimeBy(100)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("remove").assertExists()
+        composeRule.onNodeWithText("keep").assertExists()
+        val keepDuringRemoval = composeRule.onNodeWithText("keep").fetchSemanticsNode().boundsInRoot.top
+        assertTrue(keepDuringRemoval < keepBeforeRemoval)
+
+        tabs = listOf("keep")
+        composeRule.mainClock.advanceTimeBy(200)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("remove").assertDoesNotExist()
+        composeRule.onNodeWithText("keep").assertExists()
     }
 }

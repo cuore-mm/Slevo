@@ -31,13 +31,13 @@ fun OpenBoardsList(
     modifier: Modifier = Modifier,
     openTabs: List<BoardTabInfo>,
     onCloseClick: (BoardTabInfo) -> Unit = {},
+    onSwipeDelete: (BoardTabInfo) -> Unit = onCloseClick,
     navController: NavHostController,
     closeDrawer: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     listState: LazyListState = rememberLazyListState(),
     selectedBoardTab: BoardTabInfo? = null,
-    pendingCloseBoardTab: BoardTabInfo? = null,
-    onCloseRequestConsumed: () -> Unit = {},
+    removingKeys: Set<String> = emptySet(),
     onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit = { _, _ -> },
     tabSessionStore: TabSessionStore? = null,
     isInLongPressSelectionMode: Boolean = false,
@@ -52,8 +52,7 @@ fun OpenBoardsList(
         keyOf = { it.boardUrl },
         contentPadding = contentPadding,
         listState = listState,
-        externalRemoveKey = pendingCloseBoardTab?.boardUrl,
-        onExternalRemoveConsumed = onCloseRequestConsumed,
+        removingKeys = removingKeys,
         onRemoveConfirmed = { onCloseClick(it) },
         userScrollEnabled = !isInLongPressSelectionMode,
     ) { tab, isRemoving, requestRemove ->
@@ -85,7 +84,7 @@ fun OpenBoardsList(
             isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isRemoving,
             onSwipeDelete = {
                 if (isRemoving) return@OpenBoardCard
-                requestRemove()
+                onSwipeDelete(tab)
             },
             onCloseClick = {
                 if (isRemoving) return@OpenBoardCard

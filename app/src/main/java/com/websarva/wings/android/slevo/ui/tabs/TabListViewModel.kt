@@ -4,8 +4,10 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.tabs.component.TabListAnimationDefaults
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -15,7 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -244,26 +246,82 @@ class TabListViewModel @Inject constructor(
         }
     }
 
+    /** 選択中タブの退出を開始し、選択状態を解除する。 */
     fun requestCloseSelectedTab() {
         uiState.value.selectedBoardTab?.let { tab ->
-            uiStateMutable.update { state ->
-                state.copy(pendingCloseBoardTab = tab)
-            }
+            startBoardTabRemoval(tab)
         }
         uiState.value.selectedThreadTab?.let { tab ->
-            uiStateMutable.update { state ->
-                state.copy(pendingCloseThreadTab = tab)
-            }
+            startThreadTabRemoval(tab)
         }
         cancelTabSelection()
     }
 
-    fun consumePendingCloseRequest() {
+    /** 閉じるボタンによる板タブ削除をアニメーション後に開始する。 */
+    fun startBoardTabRemoval(tab: BoardTabInfo) {
+        val accepted = addBoardRemovalKeys(listOf(tab.boardUrl))
+        if (!accepted) return
+
+        viewModelScope.launch {
+            delay(TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong())
+            tabSessionStore.closeBoardTab(tab)
+        }
+    }
+
+    /** 閉じるボタンによるスレッドタブ削除をアニメーション後に開始する。 */
+    fun startThreadTabRemoval(tab: ThreadTabInfo) {
+        val accepted = addThreadRemovalKeys(listOf(tab.id.value))
+        if (!accepted) return
+
+        viewModelScope.launch {
+            delay(TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong())
+            tabSessionStore.requestCloseThreadTab(tab.threadKey, tab.boardUrl)
+        }
+    }
+
+    /** UIへ削除中keyを公開し、板タブの二重削除を防止する。 */
+    private fun addBoardRemovalKeys(boardUrls: List<String>): Boolean {
+        val distinctUrls = boardUrls.distinct()
+        if (distinctUrls.isEmpty()) return false
+        var accepted = false
         uiStateMutable.update { state ->
-            state.copy(
-                pendingCloseBoardTab = null,
-                pendingCloseThreadTab = null,
-            )
+            if (distinctUrls.any { it in state.removingBoardTabKeys }) {
+                state
+            } else {
+                accepted = true
+                state.copy(removingBoardTabKeys = state.removingBoardTabKeys + distinctUrls)
+            }
+        }
+        return accepted
+    }
+
+    /** UIへ削除中keyを公開し、スレッドタブの二重削除を防止する。 */
+    private fun addThreadRemovalKeys(threadIds: List<String>): Boolean {
+        val distinctIds = threadIds.distinct()
+        if (distinctIds.isEmpty()) return false
+        var accepted = false
+        uiStateMutable.update { state ->
+            if (distinctIds.any { it in state.removingThreadTabKeys }) {
+                state
+            } else {
+                accepted = true
+                state.copy(removingThreadTabKeys = state.removingThreadTabKeys + distinctIds)
+            }
+        }
+        return accepted
+    }
+
+    /** UIが正本一覧から消えた板タブの削除中状態を消費する。 */
+    fun clearBoardRemovalKeys(boardUrls: Set<String>) {
+        uiStateMutable.update { state ->
+            state.copy(removingBoardTabKeys = state.removingBoardTabKeys - boardUrls)
+        }
+    }
+
+    /** UIが正本一覧から消えたスレッドタブの削除中状態を消費する。 */
+    fun clearThreadRemovalKeys(threadIds: Set<String>) {
+        uiStateMutable.update { state ->
+            state.copy(removingThreadTabKeys = state.removingThreadTabKeys - threadIds)
         }
     }
 
@@ -287,11 +345,33 @@ class TabListViewModel @Inject constructor(
         }
     }
 
-    /** 表示中ページの未固定タブを閉じ、メニューを先に非表示にする。 */
+    /** 表示中ページの未固定タブを退出アニメーション後に一括で閉じる。 */
     fun closeAllUnpinnedTabs(page: TabPage) {
         // メニューを先に閉じ、削除処理中も古いアンカーを表示し続けない。
         dismissBulkCloseMenu()
-        tabSessionStore.closeAllUnpinnedTabs(page)
+        when (page) {
+            TabPage.BOARD -> {
+                // --- Board removal ---
+                val targets = tabSessionStore.openBoardTabs.value.filterNot(BoardTabInfo::isPinned)
+                val keys = targets.map(BoardTabInfo::boardUrl).distinct()
+                if (keys.isEmpty() || !addBoardRemovalKeys(keys)) return
+                viewModelScope.launch {
+                    delay(TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong())
+                    tabSessionStore.closeAllUnpinnedTabs(page)
+                }
+            }
+
+            TabPage.THREAD -> {
+                // --- Thread removal ---
+                val targets = tabSessionStore.openThreadTabs.value.filterNot(ThreadTabInfo::isPinned)
+                val keys = targets.map { it.id.value }.distinct()
+                if (keys.isEmpty() || !addThreadRemovalKeys(keys)) return
+                viewModelScope.launch {
+                    delay(TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong())
+                    tabSessionStore.closeAllUnpinnedTabs(page)
+                }
+            }
+        }
     }
 
     /** ページ変更時にタブ選択と一括クローズメニューを同時に解除する。 */
