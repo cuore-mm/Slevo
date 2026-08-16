@@ -26,13 +26,13 @@
 
 ### 1. 削除前のUIフェーズを `TabListUiState` で表現する
 
-`TabListUiState.kt` にBoard URL集合とThread key集合の削除中状態を追加する。`TabListViewModel.kt` は閉じるボタン・長押し・bulkイベントを受けた時点で対象keyを登録し、`viewModelScope` で `TabListAnimationDefaults.ITEM_REMOVAL_MILLIS` だけ待ってから既存Store APIを呼ぶ。
+`TabListUiState.kt` にBoard URL集合とThread key集合の削除中状態を追加する。`TabListViewModel.kt` は閉じるボタン・長押し・bulkイベントを受けた時点で対象keyを登録する。bulkイベントはクリック時の対象snapshotと `TabListAnimationDefaults.ITEM_REMOVAL_MILLIS` をActivity-retained `TabSessionStore`へ渡し、待機と既存Store API呼び出しをretained scopeで行う。
 
-単体イベントは対象モデルをdelay開始時に保持する。一括イベントはクリック時の公開projectionから表示中ページの未固定keyを一度取得してUiStateへ登録し、delay後に既存 `TabSessionStore.closeAllUnpinnedTabs(page)` を1回呼ぶ。Coordinatorがbulk commandを受理した後の1 pending、1 projection、選択、transaction、GC、holder破棄契約は変更しない。
+単体イベントは対象モデルをdelay開始時に保持する。一括イベントはクリック時の公開projectionから表示中ページの未固定keyを一度取得してUiStateへ登録し、同じ対象snapshotをretained Store APIへ1回渡す。Coordinatorがbulk commandを受理した後の1 pending、1 projection、選択、transaction、GC、holder破棄契約は変更しない。
 
 削除中keyは、公開projectionからkeyが消えた時点でViewModelイベントによりUiStateから除去する。削除失敗の逆アニメーションや待機中の画面破棄は本changeでは扱わない。
 
-代替としてComposableローカルstateを維持する案は、bulkメニューから複数keyを同時に開始しにくく、リポジトリ規約の「画面UI stateはViewModel所有」に反するため採用しない。Storeで200ms待つ案はUI定数をStore層へ持ち込み、既存close APIの意味を変えるため採用しない。
+代替としてComposableローカルstateを維持する案は、bulkメニューから複数keyを同時に開始しにくく、リポジトリ規約の「画面UI stateはViewModel所有」に反するため採用しない。Storeのretained scopeで待機する案を採用し、UI定数は遅延APIの引数として渡す。
 
 ### 2. `AnimatedVisibility` がカード本体と行間余白を縮小する
 
@@ -54,20 +54,20 @@
 
 ### 5. 既存bulk処理はアニメーション後に1回だけ開始する
 
-`TabListViewModel.closeAllUnpinnedTabs(page)` は、先にメニューを閉じ、対象0件ならUiStateとStoreを変更せず終了する。対象がある場合は全keyを同時に削除中へ設定し、200ms後に `tabSessionStore.closeAllUnpinnedTabs(page)` を1回呼ぶ。行ごとの単体closeへ分解してはならない。
+`TabListViewModel.closeAllUnpinnedTabs(page)` は、先にメニューを閉じ、対象0件ならUiStateとStoreを変更せず終了する。対象がある場合は全keyを同時に削除中へ設定し、対象snapshotと200ms待機をretained Store APIへ1回渡す。行ごとの単体closeへ分解してはならない。
 
-アニメーション中はまだCoordinatorの「受理」前である。200ms後にStoreへ渡された時点を既存bulk仕様上の受理時点とし、そこから全対象が1 projection operationで除外される。低頻度競合を増やさないという簡素化方針により、アニメーション開始時点とStore再snapshot時点の対象差は新たに調整しない。
+対象snapshotをStoreへ渡した時点でbulk要求を受理し、Store retained scopeが200ms後に同じ対象をCoordinatorへ渡す。そこから全対象が1 projection operationで除外されるため、アニメーション開始後のpin変更や新規タブ追加で削除対象が変わらない。
 
 ## Implementation Contract
 
 1. `TabListUiState` はBoardとThreadを区別した削除中key集合を保持する。
-2. `TabListViewModel` は通常削除とbulk削除でkeyを登録し、既存200ms定数と同じ時間だけ `viewModelScope` で待って既存Store APIを各操作1回呼ぶ。
+2. `TabListViewModel` は通常削除とbulk削除でkeyを登録する。bulk削除はクリック時の対象snapshotと既存200ms定数をretained Store APIへ渡し、待機後に既存bulk Coordinator APIを各操作1回呼ぶ。
 3. `RemovableTabList` のローカル `removingItems` と `externalRemoveKey` による即時Store呼び出しを、UiState駆動の `removingKeys` 表示へ置き換える。
 4. `AnimatedVisibility` はカードを100msで線形fade-outし、40ms後から160msでカードと行間余白を上端方向へ縮小して、通常時の12dp相当の間隔を維持する。
 5. `animateItem` は追加時fade-inだけを維持し、削除時fade-outとplacementを適用しない。
 6. 閉じるボタン、長押しメニュー、bulkは縮小経路へ統合し、スワイプ確定後は既存専用退出からStoreへ直接渡して縮小を重複させない。
 7. 削除中カードのタップ、長押し、閉じる、スワイプの再実行を禁止する。
-8. bulkはアニメーション後も `closeAllUnpinnedTabs(page)` を1回だけ呼び、対象件数分の単体closeへ展開しない。
+8. bulkは対象snapshotをretained Storeへ1回だけ渡し、アニメーション後も対象件数分の単体closeへ展開しない。
 9. その他ボタン、メニュー文言、`TabPage`、Coordinator/Repository/DAO API、Room schema、選択計算を変更しない。
 10. 新規・変更型と非自明関数へアノテーションより上にKDocを置き、Preview関数へKDocを追加せず、30行超関数をセクションコメントで分割する。
 
@@ -78,11 +78,11 @@
 - スワイプ削除: 横方向退出だけを表示し、縮小・fadeを重複表示しない。
 - Board/Threadページ: key集合を分離し、同じ文字列表現でも反対ページへ削除中表示を漏らさない。
 - 検索結果: 同じkey集合を通常・検索リストへ適用し、表示中の該当カードを縮小する。
-- アニメーション後: 既存Store API以降のNoOp、Failure、canonical確認、retained処理は変更しない。
+- アニメーション後: 既存Store API以降のNoOp、Failure、canonical確認、retained処理は対象snapshotで維持する。
 
 ## Testing Strategy
 
-- `TabListViewModelTest.kt`: 単体Board/Threadでkey登録、200ms前はStore未呼び出し、200ms後に1回呼び出し、同一key二重要求NoOp、bulk対象key同時登録、対象0件NoOp、bulk Store呼び出し1回を仮想時刻で検証する。
+- `TabListViewModelTest.kt`: 単体Board/Threadでkey登録、bulk対象snapshotのStore渡し、同一key二重要求NoOp、bulk対象key同時登録、対象0件NoOp、bulk Store呼び出し1回を検証する。`TabSessionStoreTest.kt`ではretained遅延、caller/ViewModel破棄相当、待機中のprojection変化を検証する。
 - Compose test: 閉じる操作後に対象カード高とalphaが遷移し、開始時・中間時・完了時に残存カード同士のboundsが交差しないこと、全対象bulkが同時に縮小すること、固定カードが縮小しないことを検証する。
 - Swipe regression: スワイプ確定時は左方向退出後に削除され、縮小exitを重複表示しないことを維持する。
 - Existing regression: `TabSessionStoreTest.kt`、Board/Thread Coordinator test、bulk projection/selection/chunk/GC testを変更せず維持する。
@@ -91,8 +91,8 @@
 ## Risks / Trade-offs
 
 - [削除確定が200ms遅れる] → 視覚退出時間として意図的に許容し、定数をアニメーションとdelayで共用する。
-- [ViewModel破棄でdelayがcancelされる] → シンプルさ優先の明示的な範囲外とし、Store受理後のretained保証は維持する。
-- [アニメーション中に対象集合が変わる] → Storeの既存snapshot/NoOpをそのまま利用し、UI側で新たな競合調停を追加しない。
+- [ViewModel破棄でdelayがcancelされる] → delayと対象snapshotをStore retained scopeへ移し、受理済みbulkを完了する。
+- [アニメーション中に対象集合が変わる] → クリック時snapshotをStoreからCoordinatorまで保持し、新規タブやpin変更で対象を置き換えない。
 - [AnimatedVisibilityと固定spacingの組合せで最後に跳ねる] → spacingを退出content内へ移して高さと同時に縮める。
 
 ## Migration Plan

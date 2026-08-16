@@ -31,11 +31,11 @@
 
 Issue #497の機能・UIは完成しており、本変更はCoordinator、DAO、Repository、Storeを横断する性能・原子性変更であるため、`add-bulk-delete-tabs` へ追記せず独立changeにする。実装順は `add-bulk-delete-tabs` の後とし、archive時も基礎changeを先に処理する。
 
-### 2. Storeは対象を一度確定し、Coordinatorへ1回だけ渡す
+### 2. 受理時スナップショットをretained scopeで実行する
 
-`TabSessionStore.closeAllUnpinnedTabs(page)` は現行どおり、引数 `TabPage` に対応する公開projectionから `isPinned == false` のタブを一覧順で一度だけ取得する。Boardは `BoardTabsCoordinator.closeBoardTabs`、Threadは `ThreadTabsCoordinator.closeThreadTabs` へ対象リストを1回だけ渡す。対象0件はCoordinator・Repository・holderを変更しないNoOpとする。
+`TabListViewModel` はクリック時の公開projectionから `isPinned == false` のタブを一覧順で一度だけ取得し、削除中keyをUIへ公開したうえで、対象リストを `TabSessionStore` へ渡す。Storeは対象リストを再取得せず、Activity-retained scope内でアニメーション待機を行い、Boardは `BoardTabsCoordinator.closeBoardTabs`、Threadは `ThreadTabsCoordinator.closeThreadTabs` へ対象リストを1回だけ渡す。これにより、ViewModel破棄や待機中の一覧変化で受理対象が失われたり置き換わったりしない。対象0件はCoordinator・Repository・holderを変更しないNoOpとする。
 
-ページは引き続き `TabScreenContent` がクリック時の `pagerState.currentPage` から渡す。routeや初期ページによる推測は追加しない。
+既存の `TabSessionStore.closeAllUnpinnedTabs(page)` は即時bulk呼び出しが必要な内部契約として残し、アニメーション経路は対象snapshotを受け取る遅延APIを使用する。ページは引き続き `TabScreenContent` がクリック時の `pagerState.currentPage` から選択し、routeや初期ページによる推測は追加しない。
 
 ### 3. bulk commandを1つのpending projectionとして表現する
 
@@ -101,6 +101,7 @@ Storeは対象keyをSet化し、対応する既存holderを各mapから先にrem
 9. 対象holderは既存mapから一括抽出し、各holderを1回disposeする。holder factoryを呼ばない。
 10. Thread bulk intentはbarrierとして後続intentより先に完了させ、単一key競合でbulk全体をsupersedeしない。
 11. 新規/変更型と非自明関数はアノテーションより上にKDocを置き、PreviewにはKDocを追加せず、30行超関数はセクションコメントで分割する。
+12. アニメーション待機を含むbulk対象snapshotはActivity-retained Store scopeで保持し、caller UIやViewModelの破棄でキャンセルしない。
 
 ## Error Cases and Compatibility
 
@@ -108,7 +109,7 @@ Storeは対象keyをSet化し、対応する既存holderを各mapから先にrem
 - 対象ID重複: 最初の一覧順を維持してdistinct化し、二重DELETE・二重disposeを防ぐ。
 - 一部IDが既に不在: 存在する対象だけを削除し、全対象不在のcanonical確認へ収束する。
 - DAO/transaction失敗: 全chunkをrollbackし、bulk pendingを除去してcanonical一覧を再表示する。
-- caller UI破棄: Store retained scopeが受理済みbulkを完了する。
+- caller UI/ViewModel破棄: Store retained scopeが待機中を含む受理済みbulkを完了する。
 - Store lifetime終了: in-flight commandをcancelし、transactionをrollbackし、waiterをFailureで完了してハングさせない。
 - bulk後のEnsure: bulk完了後に通常Ensureとして再作成できる。
 - 単体close APIと既存full replacement APIの公開契約は変更しない。
@@ -118,6 +119,7 @@ Storeは対象keyをSet化し、対応する既存holderを各mapから先にrem
 - Primitive JVM test: `selectionAfterTabRemovals` と逐次foldの全組合せ一致、複数key projectionが1操作で順序・変換を維持すること。
 - Coordinator JVM test: Board/Thread各bulkでpending entryが1件、全対象即時除外、固定残存、canonical全対象不在確認、最終選択、Empty、NoOp、Failure rollback、teardown、Ensure/Pin/単体Delete競合を検証する。
 - Store JVM test: Coordinator bulk APIが1回だけ呼ばれ、対象holderだけが正確に1回disposeされ、固定・反対ページ・未生成holderが維持されること。
+- Store delayed bulk test: caller cancellationや公開projectionの変化後も、受理時のBoard/Thread対象snapshotが遅延後に一度だけCoordinatorへ渡されること。
 - Repository/Room instrumented test: 0件、1件、900件、901件、1,252件を検証し、対象行だけ削除、固定/反対テーブル不変、1 transactionのrollback、ThreadState GC一回、full replacement非呼び出しを確認する。
 - 負荷回帰: 大量件数でもRepository bulk call、pending operation、canonical confirmation、GCが対象件数分に増えないことを回数で検証し、wall-clock閾値は設定しない。
 - CI: `./gradlew testCiUnitTest assembleCi --stacktrace`。connected test環境がある場合は追加Repository/Compose対象を `connectedDebugAndroidTest` で実行し、CIに環境がなければ未実行理由を報告する。

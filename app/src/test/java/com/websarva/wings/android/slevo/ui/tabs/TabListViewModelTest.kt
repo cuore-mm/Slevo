@@ -334,7 +334,7 @@ class TabListViewModelTest {
         assertNull(viewModel.uiState.first().bulkCloseMenuBounds)
     }
 
-    /** 一括クローズ実行時はメニューを閉じ、200ms後に指定ページを Store へ委譲することを確認する。 */
+    /** 一括クローズ実行時にメニューを閉じ、対象スナップショットを Store へ渡すことを確認する。 */
     @Test
     fun closeAllUnpinnedTabs_dismissesMenuAndDelegatesPage() = runTest {
         val tabs = MutableStateFlow(
@@ -349,8 +349,14 @@ class TabListViewModelTest {
                 ),
             ),
         )
+        val target = tabs.value.single()
         every { tabSessionStore.openThreadTabs } returns tabs
-        every { tabSessionStore.closeAllUnpinnedTabs(TabPage.THREAD) } answers {
+        every {
+            tabSessionStore.closeThreadTabsAfterDelay(
+                targets = listOf(target),
+                delayMillis = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong(),
+            )
+        } answers {
             tabs.value = emptyList()
         }
         showBulkCloseMenu()
@@ -361,41 +367,47 @@ class TabListViewModelTest {
         assertFalse(state.isBulkCloseMenuVisible)
         assertNull(state.bulkCloseMenuBounds)
         assertTrue(state.removingThreadTabKeys.isNotEmpty())
-        verify(exactly = 0) { tabSessionStore.closeAllUnpinnedTabs(TabPage.THREAD) }
-        advanceTimeBy(TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong())
-        runCurrent()
-        verify { tabSessionStore.closeAllUnpinnedTabs(TabPage.THREAD) }
+        verify {
+            tabSessionStore.closeThreadTabsAfterDelay(
+                targets = listOf(target),
+                delayMillis = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong(),
+            )
+        }
         tabs.value = emptyList()
         runCurrent()
     }
 
-    /** Board bulkも対象keyを同時に登録し、退出時間後にStoreを一度だけ呼ぶことを確認する。 */
+    /** Board bulkも対象keyを同時に登録し、対象スナップショットをStoreへ一度だけ渡すことを確認する。 */
     @Test
-    fun closeAllUnpinnedTabs_forBoard_startsAfterRemovalDuration() = runTest {
-        openBoardTabs.value = listOf(
-            BoardTabInfo(
-                boardId = 1,
-                boardName = "Board",
-                boardUrl = "https://example.com/board/",
-                serviceName = "example.com",
-            ),
+    fun closeAllUnpinnedTabs_forBoard_passesSnapshotToStore() = runTest {
+        val target = BoardTabInfo(
+            boardId = 1,
+            boardName = "Board",
+            boardUrl = "https://example.com/board/",
+            serviceName = "example.com",
         )
-        every { tabSessionStore.closeAllUnpinnedTabs(TabPage.BOARD) } answers {
+        openBoardTabs.value = listOf(target)
+        every {
+            tabSessionStore.closeBoardTabsAfterDelay(
+                targets = listOf(target),
+                delayMillis = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong(),
+            )
+        } answers {
             openBoardTabs.value = emptyList()
         }
 
         viewModel.closeAllUnpinnedTabs(TabPage.BOARD)
 
-        verify(exactly = 0) { tabSessionStore.closeAllUnpinnedTabs(TabPage.BOARD) }
         assertEquals(
             setOf("https://example.com/board/"),
             viewModel.uiState.first().removingBoardTabKeys,
         )
-
-        advanceTimeBy(TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong())
-        runCurrent()
-
-        verify(exactly = 1) { tabSessionStore.closeAllUnpinnedTabs(TabPage.BOARD) }
+        verify {
+            tabSessionStore.closeBoardTabsAfterDelay(
+                targets = listOf(target),
+                delayMillis = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong(),
+            )
+        }
     }
 
     // --- URL Dialog ---

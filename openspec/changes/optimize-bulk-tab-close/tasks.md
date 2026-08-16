@@ -41,3 +41,9 @@
 - [x] 6.3 `git diff` でDBスキーマ、full replacement API、Issue #497のUI/文字列に不要な差分がなく、bulk close以外の単体mutation契約を変更していないことを確認した。
 - [x] 6.4 Repository instrumented testを追加した。Android CI workflowにはconnected/instrumented jobがないため、`connectedDebugAndroidTest` は未実行であり、理由を成果報告へ明記する。
 - [x] 6.5 CI相当の `testCiUnitTest assembleCi --stacktrace` をGitHub Actionsで実行し成功を確認した（Run ID: `31344474332`）。
+
+## 7. Codexレビュー指摘の修正
+
+- [x] 7.1 `TabListViewModel` のbulk遅延をretained `TabSessionStore` scopeへ移し、ViewModel破棄で受理済み処理が失われないようにする。
+- [x] 7.2 Board/Threadのbulk対象をクリック時snapshotとしてStoreからCoordinatorまで保持し、待機中のpin変更・新規タブ追加で削除対象が変わらないようにする。
+- [x] 7.3 caller cancellation相当、待機中projection変化、Board/Thread対象snapshotの回帰テストを追加する。

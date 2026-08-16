@@ -355,10 +355,10 @@ class TabListViewModel @Inject constructor(
                 val targets = tabSessionStore.openBoardTabs.value.filterNot(BoardTabInfo::isPinned)
                 val keys = targets.map(BoardTabInfo::boardUrl).distinct()
                 if (keys.isEmpty() || !addBoardRemovalKeys(keys)) return
-                viewModelScope.launch {
-                    delay(TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong())
-                    tabSessionStore.closeAllUnpinnedTabs(page)
-                }
+                tabSessionStore.closeBoardTabsAfterDelay(
+                    targets = targets,
+                    delayMillis = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong(),
+                )
             }
 
             TabPage.THREAD -> {
@@ -366,10 +366,10 @@ class TabListViewModel @Inject constructor(
                 val targets = tabSessionStore.openThreadTabs.value.filterNot(ThreadTabInfo::isPinned)
                 val keys = targets.map { it.id.value }.distinct()
                 if (keys.isEmpty() || !addThreadRemovalKeys(keys)) return
-                viewModelScope.launch {
-                    delay(TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong())
-                    tabSessionStore.closeAllUnpinnedTabs(page)
-                }
+                tabSessionStore.closeThreadTabsAfterDelay(
+                    targets = targets,
+                    delayMillis = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong(),
+                )
             }
         }
     }

@@ -30,6 +30,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterIsInstance
@@ -145,15 +146,14 @@ class TabSessionStore @Inject constructor(
         boardTabsCoordinator.closeBoardTabByUrl(boardUrl)
     }
 
-    /** 表示中ページの未固定タブをスナップショットし、既存の単体 close 経路へ委譲する。 */
+    /** 表示中ページの未固定タブをスナップショットし、bulk close 経路へ即時に委譲する。 */
     fun closeAllUnpinnedTabs(page: TabPage) {
         when (page) {
             TabPage.BOARD -> {
                 // 公開 projection を一度だけ読み、処理中の一覧変化で対象をずらさない。
                 val targets = openBoardTabs.value.filterNot(BoardTabInfo::isPinned)
                 if (targets.isEmpty()) return
-                disposeBoardTabHolders(targets.map(BoardTabInfo::boardUrl))
-                boardTabsCoordinator.closeBoardTabs(targets)
+                closeBoardTabTargets(targets)
             }
 
             TabPage.THREAD -> {
@@ -166,6 +166,40 @@ class TabSessionStore @Inject constructor(
                 }
             }
         }
+    }
+
+    /** クリック時の板タブsnapshotをretained scopeで待機後にbulk closeする。 */
+    fun closeBoardTabsAfterDelay(targets: List<BoardTabInfo>, delayMillis: Long) {
+        if (targets.isEmpty()) return
+        scope.launch {
+            delay(delayMillis)
+            closeBoardTabTargets(targets)
+        }
+    }
+
+    /** クリック時のスレッドタブsnapshotをretained scopeで待機後にbulk closeする。 */
+    fun closeThreadTabsAfterDelay(targets: List<ThreadTabInfo>, delayMillis: Long) {
+        if (targets.isEmpty()) return
+        scope.launch {
+            delay(delayMillis)
+            closeThreadTabTargets(targets)
+        }
+    }
+
+    /** 固定状態を再評価せず、受け取った板タブsnapshotだけをbulk closeする。 */
+    private fun closeBoardTabTargets(targets: List<BoardTabInfo>) {
+        val distinctTargets = targets.distinctBy(BoardTabInfo::boardUrl)
+        if (distinctTargets.isEmpty()) return
+        disposeBoardTabHolders(distinctTargets.map(BoardTabInfo::boardUrl))
+        boardTabsCoordinator.closeBoardTabs(distinctTargets)
+    }
+
+    /** 固定状態を再評価せず、受け取ったスレッドタブsnapshotだけをbulk closeする。 */
+    private suspend fun closeThreadTabTargets(targets: List<ThreadTabInfo>) {
+        val distinctTargets = targets.distinctBy { it.id.value }
+        if (distinctTargets.isEmpty()) return
+        disposeThreadTabHolders(distinctTargets.map { it.id.value })
+        threadTabsCoordinator.closeThreadTabs(distinctTargets)
     }
 
     /** 指定された板URLの既存holderだけを一括でmapから取り出して破棄する。 */

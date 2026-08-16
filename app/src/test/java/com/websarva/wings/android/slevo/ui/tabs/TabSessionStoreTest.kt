@@ -35,8 +35,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -69,10 +70,12 @@ class TabSessionStoreTest {
         tabsRepositoryOverride: TabsRepository = mockk(relaxed = true),
         boardTabs: List<BoardTabInfo> = emptyList(),
         threadTabs: List<ThreadTabInfo> = emptyList(),
+        boardTabsFlow: MutableStateFlow<List<BoardTabInfo>>? = null,
+        threadTabsFlow: MutableStateFlow<List<ThreadTabInfo>>? = null,
     ): TabSessionStore {
-        every { boardCoordinator.openBoardTabs } returns MutableStateFlow(boardTabs)
+        every { boardCoordinator.openBoardTabs } returns boardTabsFlow ?: MutableStateFlow(boardTabs)
         if (threadCoordinatorOverride === threadCoordinator) {
-            every { threadCoordinatorOverride.openThreadTabs } returns MutableStateFlow(threadTabs)
+            every { threadCoordinatorOverride.openThreadTabs } returns threadTabsFlow ?: MutableStateFlow(threadTabs)
         }
         return TabSessionStore(
             boardTabsCoordinator = boardCoordinator,
@@ -373,6 +376,58 @@ class TabSessionStoreTest {
         runCurrent()
 
         assertTrue(cancelled.isCompleted)
+    }
+
+    /** 板bulkが呼び出し元のcancel後も対象snapshotを維持して実行されることを確認する。 */
+    @Test
+    fun closeBoardTabsAfterDelay_survivesCallerCancellationAndUsesSnapshot() = runTest {
+        val accepted = BoardTabInfo(1, "Accepted", "https://example.com/accepted/", "example.com")
+        val newlyAdded = BoardTabInfo(2, "New", "https://example.com/new/", "example.com")
+        val currentTabs = MutableStateFlow(listOf(accepted))
+        val testStore = createStore(boardTabsFlow = currentTabs)
+
+        val caller = launch {
+            testStore.closeBoardTabsAfterDelay(
+                targets = listOf(accepted),
+                delayMillis = 200L,
+            )
+        }
+        caller.cancel()
+        currentTabs.value = listOf(accepted.copy(isPinned = true), newlyAdded)
+
+        advanceTimeBy(199)
+        runCurrent()
+        verify(exactly = 0) { boardCoordinator.closeBoardTabs(any()) }
+
+        advanceTimeBy(1)
+        runCurrent()
+        verify { boardCoordinator.closeBoardTabs(listOf(accepted)) }
+    }
+
+    /** Thread bulkが呼び出し元のcancel後も対象snapshotを維持して実行されることを確認する。 */
+    @Test
+    fun closeThreadTabsAfterDelay_survivesCallerCancellationAndUsesSnapshot() = runTest {
+        val accepted = bulkThreadTab("accepted")
+        val newlyAdded = bulkThreadTab("new")
+        val currentTabs = MutableStateFlow(listOf(accepted))
+        val testStore = createStore(threadTabsFlow = currentTabs)
+
+        val caller = launch {
+            testStore.closeThreadTabsAfterDelay(
+                targets = listOf(accepted),
+                delayMillis = 200L,
+            )
+        }
+        caller.cancel()
+        currentTabs.value = listOf(accepted.copy(isPinned = true), newlyAdded)
+
+        advanceTimeBy(199)
+        runCurrent()
+        coVerify(exactly = 0) { threadCoordinator.closeThreadTabs(any()) }
+
+        advanceTimeBy(1)
+        runCurrent()
+        coVerify { threadCoordinator.closeThreadTabs(listOf(accepted)) }
     }
 
     /**

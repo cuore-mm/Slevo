@@ -15,6 +15,17 @@
 - **WHEN** 表示中ページに未固定タブが存在しない
 - **THEN** システムはbulk command、永続化、GC、holder破棄を実行しない
 
+### Requirement: 一括クローズの受理時対象を保持する
+システムは、UIが一括クローズを受理した時点のBoard URLまたはThread IDの順序付き対象snapshotを、アニメーション待機を含むretained処理へ引き渡さなければならない（SHALL）。待機中に公開projectionが変化しても、新規タブを対象へ追加したり、受理済み対象をpin状態の再評価で除外したりしてはならない（MUST NOT）。
+
+#### Scenario: caller UIが破棄される
+- **WHEN** 一括クローズの受理後、Storeへ渡された待機処理より先にタブ画面またはViewModelが破棄される
+- **THEN** Activity-retained Store scopeは受理時の対象snapshotを待機後にCoordinatorへ1回渡す
+
+#### Scenario: 待機中に公開projectionが変化する
+- **WHEN** アニメーション待機中に新規タブ追加または受理済み対象のpin変更が発生する
+- **THEN** システムはクリック時に受理した対象だけを削除し、新規タブを削除せず、受理済み対象をpin変更だけで残さない
+
 ### Requirement: 一括クローズ後の選択を逐次closeと一致させる
 システムは、受理時点の一覧と対象順序に既存の単体close選択補正を順番に適用した結果と同じ最終選択を公開しなければならない（SHALL）。
 
