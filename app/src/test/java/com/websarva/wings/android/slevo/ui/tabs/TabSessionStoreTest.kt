@@ -73,9 +73,11 @@ class TabSessionStoreTest {
         boardTabsFlow: MutableStateFlow<List<BoardTabInfo>>? = null,
         threadTabsFlow: MutableStateFlow<List<ThreadTabInfo>>? = null,
     ): TabSessionStore {
-        every { boardCoordinator.openBoardTabs } returns boardTabsFlow ?: MutableStateFlow(boardTabs)
+        every { boardCoordinator.openBoardTabs } returns (boardTabsFlow ?: MutableStateFlow(boardTabs))
         if (threadCoordinatorOverride === threadCoordinator) {
-            every { threadCoordinatorOverride.openThreadTabs } returns threadTabsFlow ?: MutableStateFlow(threadTabs)
+            every { threadCoordinatorOverride.openThreadTabs } returns (
+                threadTabsFlow ?: MutableStateFlow(threadTabs)
+            )
         }
         return TabSessionStore(
             boardTabsCoordinator = boardCoordinator,
