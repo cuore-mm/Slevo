@@ -222,6 +222,44 @@ class TabBulkCloseMenuTest {
         assertTrue(openingWidth < settledWidth)
     }
 
+    /** 固定状態が解除されても、退出中は固定解除アクションを表示し続けることを確認する。 */
+    @Test
+    fun pinnedTabMenu_keepsUnpinActionDuringExit() {
+        var expanded by mutableStateOf(true)
+        var isPinned by mutableStateOf(true)
+        composeRule.setContent {
+            SlevoTheme {
+                AnchoredTabActionMenu(
+                    expanded = expanded,
+                    anchorBoundsInWindow = IntRect(0, 0, 100, 100),
+                    hazeState = null,
+                    isPinned = isPinned,
+                    onDismissRequest = {
+                        expanded = false
+                        isPinned = false
+                    },
+                    onDetailClick = {},
+                    onPinClick = {},
+                    onCloseClick = {},
+                )
+            }
+        }
+
+        composeRule.mainClock.autoAdvance = false
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("タブの固定を解除").assertExists()
+
+        expanded = false
+        isPinned = false
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("タブの固定を解除").assertExists()
+        composeRule.onNodeWithText("タブを固定").assertDoesNotExist()
+
+        composeRule.mainClock.advanceTimeBy(140)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("タブの固定を解除").assertDoesNotExist()
+    }
+
     /** 削除対象行が縮小し、残存行が通常レイアウトで詰まることを確認する。 */
     @Test
     fun removableTabList_collapsesRemovalRowWithoutPlacementAnimation() {

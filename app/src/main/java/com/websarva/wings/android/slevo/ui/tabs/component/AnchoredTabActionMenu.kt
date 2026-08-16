@@ -11,6 +11,7 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -60,6 +61,8 @@ fun AnchoredTabActionMenu(
         verticalSpacing = 8.dp,
         onDismissRequest = onDismissRequest,
     ) {
+        // Keep the action label stable while the popup's exit transition retains this content.
+        val displayedIsPinned = remember { isPinned }
         AnchoredOverlayMenuItem(
             text = stringResource(R.string.tab_action_detail),
             leadingIcon = {
@@ -74,10 +77,10 @@ fun AnchoredTabActionMenu(
         )
         AnchoredOverlayMenuItem(
             text = stringResource(
-                if (isPinned) R.string.tab_action_unpin else R.string.tab_action_pin
+                if (displayedIsPinned) R.string.tab_action_unpin else R.string.tab_action_pin
             ),
             leadingIcon = {
-                if (isPinned) {
+                if (displayedIsPinned) {
                     PushPinOffIcon(
                         tint = onSurfaceColor,
                         modifier = Modifier.size(iconSize),
