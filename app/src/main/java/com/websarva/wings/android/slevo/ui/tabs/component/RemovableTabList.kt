@@ -74,7 +74,7 @@ internal fun <T> RemovableTabList(
                                 delayMillis = TabListAnimationDefaults.ITEM_COLLAPSE_DELAY_MILLIS,
                                 easing = FastOutLinearInEasing,
                             ),
-                            shrinkTowards = Alignment.Top,
+                            shrinkTowards = Alignment.CenterVertically,
                         ),
                     ) {
                         Box(
@@ -104,7 +104,7 @@ internal fun <T> RemovableTabList(
                                 delayMillis = TabListAnimationDefaults.ITEM_COLLAPSE_DELAY_MILLIS,
                                 easing = FastOutLinearInEasing,
                             ),
-                            shrinkTowards = Alignment.Top,
+                            shrinkTowards = Alignment.CenterVertically,
                         ),
                     ) {
                         Spacer(modifier = Modifier.height(verticalSpacing))
