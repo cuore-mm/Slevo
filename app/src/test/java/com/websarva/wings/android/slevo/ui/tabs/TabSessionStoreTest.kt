@@ -388,7 +388,7 @@ class TabSessionStoreTest {
         val currentTabs = MutableStateFlow(listOf(accepted))
         val testStore = createStore(boardTabsFlow = currentTabs)
 
-        val caller = launch {
+        val caller = launch(start = CoroutineStart.UNDISPATCHED) {
             testStore.closeBoardTabsAfterDelay(
                 targets = listOf(accepted),
                 delayMillis = 200L,
@@ -414,7 +414,7 @@ class TabSessionStoreTest {
         val currentTabs = MutableStateFlow(listOf(accepted))
         val testStore = createStore(threadTabsFlow = currentTabs)
 
-        val caller = launch {
+        val caller = launch(start = CoroutineStart.UNDISPATCHED) {
             testStore.closeThreadTabsAfterDelay(
                 targets = listOf(accepted),
                 delayMillis = 200L,
