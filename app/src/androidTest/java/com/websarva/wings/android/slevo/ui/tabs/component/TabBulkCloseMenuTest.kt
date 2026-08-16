@@ -171,6 +171,57 @@ class TabBulkCloseMenuTest {
         composeRule.onNodeWithText("全てのタブを閉じる").assertDoesNotExist()
     }
 
+    /** アンカーを破棄して閉じた後も、再表示時に開始アニメーションを再生することを確認する。 */
+    @Test
+    fun bulkMenu_replaysEnterAnimationAfterAnchorIsClearedOnDismiss() {
+        var expanded by mutableStateOf(true)
+        var anchorBounds by mutableStateOf<IntRect?>(IntRect(0, 0, 100, 100))
+        composeRule.setContent {
+            SlevoTheme {
+                AnchoredTabActionMenu(
+                    expanded = expanded,
+                    anchorBoundsInWindow = anchorBounds,
+                    hazeState = null,
+                    onDismissRequest = {
+                        expanded = false
+                        anchorBounds = null
+                    },
+                    onCloseAllClick = {
+                        expanded = false
+                        anchorBounds = null
+                    },
+                )
+            }
+        }
+
+        composeRule.mainClock.autoAdvance = false
+        composeRule.waitForIdle()
+        composeRule.mainClock.advanceTimeBy(200)
+        composeRule.waitForIdle()
+        val settledWidth = composeRule.onNodeWithText("全てのタブを閉じる")
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .width
+
+        expanded = false
+        anchorBounds = null
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("全てのタブを閉じる").assertExists()
+        composeRule.mainClock.advanceTimeBy(140)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("全てのタブを閉じる").assertDoesNotExist()
+
+        anchorBounds = IntRect(0, 0, 100, 100)
+        expanded = true
+        composeRule.waitForIdle()
+        val openingWidth = composeRule.onNodeWithText("全てのタブを閉じる")
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .width
+
+        assertTrue(openingWidth < settledWidth)
+    }
+
     /** 削除対象行が縮小し、残存行が通常レイアウトで詰まることを確認する。 */
     @Test
     fun removableTabList_collapsesRemovalRowWithoutPlacementAnimation() {
