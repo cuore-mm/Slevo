@@ -102,6 +102,7 @@ Storeは対象keyをSet化し、対応する既存holderを各mapから先にrem
 10. Thread bulk intentはbarrierとして後続intentより先に完了させ、単一key競合でbulk全体をsupersedeしない。
 11. 新規/変更型と非自明関数はアノテーションより上にKDocを置き、PreviewにはKDocを追加せず、30行超関数はセクションコメントで分割する。
 12. アニメーション待機を含むbulk対象snapshotはActivity-retained Store scopeで保持し、caller UIやViewModelの破棄でキャンセルしない。
+13. Thread bulkの非キャンセル例外はStoreのretained launch境界でログ記録して封じ込め、`CancellationException`だけはStore lifetime終了として再送出する。
 
 ## Error Cases and Compatibility
 
@@ -110,6 +111,7 @@ Storeは対象keyをSet化し、対応する既存holderを各mapから先にrem
 - 一部IDが既に不在: 存在する対象だけを削除し、全対象不在のcanonical確認へ収束する。
 - DAO/transaction失敗: 全chunkをrollbackし、bulk pendingを除去してcanonical一覧を再表示する。
 - caller UI/ViewModel破棄: Store retained scopeが待機中を含む受理済みbulkを完了する。
+- Thread bulk例外: Coordinatorがpendingを除去してcanonical一覧へ戻した後、Storeは非キャンセル例外をログ記録し、root coroutineへ伝播させない。
 - Store lifetime終了: in-flight commandをcancelし、transactionをrollbackし、waiterをFailureで完了してハングさせない。
 - bulk後のEnsure: bulk完了後に通常Ensureとして再作成できる。
 - 単体close APIと既存full replacement APIの公開契約は変更しない。
@@ -120,6 +122,7 @@ Storeは対象keyをSet化し、対応する既存holderを各mapから先にrem
 - Coordinator JVM test: Board/Thread各bulkでpending entryが1件、全対象即時除外、固定残存、canonical全対象不在確認、最終選択、Empty、NoOp、Failure rollback、teardown、Ensure/Pin/単体Delete競合を検証する。
 - Store JVM test: Coordinator bulk APIが1回だけ呼ばれ、対象holderだけが正確に1回disposeされ、固定・反対ページ・未生成holderが維持されること。
 - Store delayed bulk test: caller cancellationや公開projectionの変化後も、受理時のBoard/Thread対象snapshotが遅延後に一度だけCoordinatorへ渡されること。
+- Store error test: Thread bulkの即時・遅延経路で非キャンセル例外をログ記録して封じ込め、Store lifetimeのCancellationExceptionは再送出すること。
 - Repository/Room instrumented test: 0件、1件、900件、901件、1,252件を検証し、対象行だけ削除、固定/反対テーブル不変、1 transactionのrollback、ThreadState GC一回、full replacement非呼び出しを確認する。
 - 負荷回帰: 大量件数でもRepository bulk call、pending operation、canonical confirmation、GCが対象件数分に増えないことを回数で検証し、wall-clock閾値は設定しない。
 - CI: `./gradlew testCiUnitTest assembleCi --stacktrace`。connected test環境がある場合は追加Repository/Compose対象を `connectedDebugAndroidTest` で実行し、CIに環境がなければ未実行理由を報告する。

@@ -52,6 +52,10 @@
 - **WHEN** いずれかのchunk DELETEまたはGCが例外・cancellationで失敗する
 - **THEN** システムはbulk操作全体をrollbackし、canonical一覧を再投影する
 
+#### Scenario: Thread bulkの失敗をアプリクラッシュへ伝播させない
+- **WHEN** Threadのbulk DELETEまたはGCが非キャンセル例外で失敗する
+- **THEN** Controllerはpendingを除去してcanonical一覧へ戻し、retained Storeは例外をログ記録してroot coroutineへ再送出しない
+
 #### Scenario: 対象の一部が既に不在である
 - **WHEN** bulk対象IDの一部または全部がDBに存在しない
 - **THEN** システムは存在する対象だけを削除し、全対象不在のcanonical状態へNoOpを含めて収束する

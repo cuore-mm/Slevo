@@ -7,6 +7,7 @@ import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.model.TabPage
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.bbsroute.TabPresentationState
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
@@ -26,6 +27,7 @@ import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.BoardUrlNormalizationInput
 import com.websarva.wings.android.slevo.ui.util.normalizeBoardUrlTo5chIo
 import dagger.hilt.android.scopes.ActivityRetainedScoped
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -56,6 +58,7 @@ class TabSessionStore @Inject constructor(
     private val boardRepository: BoardRepository,
     private val bbsServiceRepository: BbsServiceRepository,
     private val settingsRepository: SettingsRepository,
+    private val appLogger: AppLogger,
 ) : Closeable {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -162,7 +165,7 @@ class TabSessionStore @Inject constructor(
                 if (targets.isEmpty()) return
                 disposeThreadTabHolders(targets.map { it.id.value })
                 scope.launch {
-                    threadTabsCoordinator.closeThreadTabs(targets)
+                    closeThreadTabsSafely(targets)
                 }
             }
         }
@@ -199,7 +202,24 @@ class TabSessionStore @Inject constructor(
         val distinctTargets = targets.distinctBy { it.id.value }
         if (distinctTargets.isEmpty()) return
         disposeThreadTabHolders(distinctTargets.map { it.id.value })
-        threadTabsCoordinator.closeThreadTabs(distinctTargets)
+        closeThreadTabsSafely(distinctTargets)
+    }
+
+    /** Thread bulk失敗をログへ記録し、Storeのroot coroutineへ例外を伝播させない。 */
+    private suspend fun closeThreadTabsSafely(targets: List<ThreadTabInfo>) {
+        try {
+            threadTabsCoordinator.closeThreadTabs(targets)
+        } catch (cancellationException: CancellationException) {
+            throw cancellationException
+        } catch (exception: Throwable) {
+            runCatching {
+                appLogger.e(
+                    message = "Thread bulk close failed for ${targets.size} tabs",
+                    tag = "TabSessionStore",
+                    throwable = exception,
+                )
+            }
+        }
     }
 
     /** 指定された板URLの既存holderだけを一括でmapから取り出して破棄する。 */

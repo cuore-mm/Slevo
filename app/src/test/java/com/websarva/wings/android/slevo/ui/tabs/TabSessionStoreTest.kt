@@ -8,6 +8,7 @@ import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
@@ -58,6 +59,7 @@ class TabSessionStoreTest {
     private val threadHolderFactory = mockk<ThreadTabSessionHolderFactory>(relaxed = true)
     private val boardHolderFactory = mockk<BoardTabSessionHolderFactory>(relaxed = true)
     private val settingsRepository = mockk<SettingsRepository>(relaxed = true)
+    private val appLogger = mockk<AppLogger>(relaxed = true)
 
     init {
         every { threadCoordinator.threadTabState } returns MutableStateFlow(ThreadTabsLoadState.Loading)
@@ -88,6 +90,7 @@ class TabSessionStoreTest {
             boardRepository = mockk(relaxed = true),
             bbsServiceRepository = mockk(relaxed = true),
             settingsRepository = settingsRepository,
+            appLogger = appLogger,
         )
     }
 
@@ -430,6 +433,46 @@ class TabSessionStoreTest {
         advanceTimeBy(1)
         runCurrent()
         coVerify { threadCoordinator.closeThreadTabs(listOf(accepted)) }
+    }
+
+    /** 遅延Thread bulkの非キャンセル例外をログへ記録して封じ込めることを確認する。 */
+    @Test
+    fun closeThreadTabsAfterDelay_containsNonCancellationFailure() = runTest {
+        val target = bulkThreadTab("failure")
+        val failure = IllegalStateException("bulk failure")
+        coEvery { threadCoordinator.closeThreadTabs(listOf(target)) } throws failure
+        val testStore = createStore(threadTabs = listOf(target))
+
+        testStore.closeThreadTabsAfterDelay(listOf(target), delayMillis = 0L)
+        runCurrent()
+
+        verify {
+            appLogger.e(
+                message = "Thread bulk close failed for 1 tabs",
+                tag = "TabSessionStore",
+                throwable = failure,
+            )
+        }
+    }
+
+    /** 即時Thread bulkの非キャンセル例外をログへ記録して封じ込めることを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_containsNonCancellationFailure() = runTest {
+        val target = bulkThreadTab("failure")
+        val failure = IllegalStateException("bulk failure")
+        coEvery { threadCoordinator.closeThreadTabs(listOf(target)) } throws failure
+        val testStore = createStore(threadTabs = listOf(target))
+
+        testStore.closeAllUnpinnedTabs(TabPage.THREAD)
+        runCurrent()
+
+        verify {
+            appLogger.e(
+                message = "Thread bulk close failed for 1 tabs",
+                tag = "TabSessionStore",
+                throwable = failure,
+            )
+        }
     }
 
     /**

@@ -47,3 +47,8 @@
 - [x] 7.1 `TabListViewModel` のbulk遅延をretained `TabSessionStore` scopeへ移し、ViewModel破棄で受理済み処理が失われないようにする。
 - [x] 7.2 Board/Threadのbulk対象をクリック時snapshotとしてStoreからCoordinatorまで保持し、待機中のpin変更・新規タブ追加で削除対象が変わらないようにする。
 - [x] 7.3 caller cancellation相当、待機中projection変化、Board/Thread対象snapshotの回帰テストを追加する。
+
+## 8. Thread bulk例外の封じ込め
+
+- [x] 8.1 `TabSessionStore`の即時・遅延Thread bulk launchで非キャンセル例外をログ記録して封じ込め、`CancellationException`は再送出する。
+- [x] 8.2 Room/Coordinator失敗を模した即時・遅延Storeテストを追加し、root coroutineへ未処理例外を伝播させないことを検証する。
