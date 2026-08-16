@@ -9,7 +9,7 @@
 ## 2. 高さ縮小アニメーション
 
 - [x] 2.1 `RemovableTabList.kt` のローカル `removingItems` と `externalRemoveKey` 即時削除処理を削除し、呼び出し元から受け取る `removingKeys` で各項目の `isRemoving` を決定する。
-- [x] 2.2 `RemovableTabList.kt` の各カードと下側余白を `AnimatedVisibility` で包み、200msの `fadeOut + shrinkVertically` により高さと透明度と行間余白が同時に0になるよう実装する。
+- [x] 2.2 `RemovableTabList.kt` の各カードと下側余白を `AnimatedVisibility` で包み、100msの線形 `fadeOut` と40ms後から160msの `shrinkVertically` により、合計200msで高さ・透明度・行間余白が0になるよう実装する。
 - [x] 2.3 `RemovableTabList.kt` の固定spacingを退出content内の余白へ置き換え、通常表示の既存間隔を維持する構造にした。
 - [x] 2.4 `RemovableTabList.kt` の `animateItem` は追加時fade-inだけを維持し、`fadeOutSpec = null` と `placementSpec = null` にして削除行縮小とLazy placementが重複しないようにする。
 - [x] 2.5 `OpenBoardsList.kt`、`OpenThreadsList.kt`、`TabsPagerContent.kt`、`TabScreenContent.kt` にページ別削除中keyを接続し、通常リストと検索結果リストへ反映した。

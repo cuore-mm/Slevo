@@ -54,5 +54,8 @@ internal object TabListAnimationDefaults {
     const val LIST_FADE_IN_MILLIS: Int = 180
     const val LIST_FADE_OUT_MILLIS: Int = 120
     const val VISIBILITY_MILLIS: Int = 200
-    const val ITEM_REMOVAL_MILLIS: Int = 200
+    const val ITEM_FADE_OUT_MILLIS: Int = 100
+    const val ITEM_COLLAPSE_DELAY_MILLIS: Int = 40
+    const val ITEM_COLLAPSE_MILLIS: Int = 160
+    const val ITEM_REMOVAL_MILLIS: Int = ITEM_COLLAPSE_DELAY_MILLIS + ITEM_COLLAPSE_MILLIS
 }

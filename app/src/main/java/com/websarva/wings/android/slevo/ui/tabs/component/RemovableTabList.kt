@@ -2,6 +2,8 @@ package com.websarva.wings.android.slevo.ui.tabs.component
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
@@ -57,16 +59,24 @@ internal fun <T> RemovableTabList(
                 val isRemoving = itemKey in removingKeys
 
                 // --- Removal animation ---
-                AnimatedVisibility(
-                    visible = !isRemoving,
-                    enter = EnterTransition.None,
-                    exit = fadeOut(animationSpec = tween(removalDurationMillis)) +
-                        shrinkVertically(
-                            animationSpec = tween(removalDurationMillis),
+                Column {
+                    AnimatedVisibility(
+                        visible = !isRemoving,
+                        enter = EnterTransition.None,
+                        exit = fadeOut(
+                            animationSpec = tween(
+                                durationMillis = TabListAnimationDefaults.ITEM_FADE_OUT_MILLIS,
+                                easing = LinearEasing,
+                            ),
+                        ) + shrinkVertically(
+                            animationSpec = tween(
+                                durationMillis = TabListAnimationDefaults.ITEM_COLLAPSE_MILLIS,
+                                delayMillis = TabListAnimationDefaults.ITEM_COLLAPSE_DELAY_MILLIS,
+                                easing = FastOutLinearInEasing,
+                            ),
                             shrinkTowards = Alignment.Top,
                         ),
-                ) {
-                    Column {
+                    ) {
                         Box(
                             modifier = Modifier.animateItem(
                                 fadeInSpec = tween(removalDurationMillis),
@@ -80,19 +90,24 @@ internal fun <T> RemovableTabList(
                                 }
                             }
                         }
-                        val hasVisibleItemAfter = tabItems
-                            .drop(index + 1)
-                            .any { keyOf(it) !in removingKeys }
-                        AnimatedVisibility(
-                            visible = !isRemoving && hasVisibleItemAfter,
-                            enter = EnterTransition.None,
-                            exit = shrinkVertically(
-                                animationSpec = tween(removalDurationMillis),
-                                shrinkTowards = Alignment.Top,
+                    }
+
+                    val hasVisibleItemAfter = tabItems
+                        .drop(index + 1)
+                        .any { keyOf(it) !in removingKeys }
+                    AnimatedVisibility(
+                        visible = !isRemoving && hasVisibleItemAfter,
+                        enter = EnterTransition.None,
+                        exit = shrinkVertically(
+                            animationSpec = tween(
+                                durationMillis = TabListAnimationDefaults.ITEM_COLLAPSE_MILLIS,
+                                delayMillis = TabListAnimationDefaults.ITEM_COLLAPSE_DELAY_MILLIS,
+                                easing = FastOutLinearInEasing,
                             ),
-                        ) {
-                            Spacer(modifier = Modifier.height(verticalSpacing))
-                        }
+                            shrinkTowards = Alignment.Top,
+                        ),
+                    ) {
+                        Spacer(modifier = Modifier.height(verticalSpacing))
                     }
                 }
             }

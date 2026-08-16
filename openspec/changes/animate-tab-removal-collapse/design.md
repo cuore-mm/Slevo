@@ -36,9 +36,9 @@
 
 ### 2. `AnimatedVisibility` がカード本体と行間余白を縮小する
 
-`RemovableTabList.kt` は呼び出し元から `removingKeys: Set<String>` を受け、各Lazy item内で `AnimatedVisibility(visible = itemKey !in removingKeys)` を使用する。退出は同じ200msの `fadeOut` と `shrinkVertically` を組み合わせる。
+`RemovableTabList.kt` は呼び出し元から `removingKeys: Set<String>` を受け、各Lazy item内で `AnimatedVisibility(visible = itemKey !in removingKeys)` を使用する。退出は100msの線形 `fadeOut` と、40ms後に開始する160msの `shrinkVertically` を組み合わせる。高さ縮小の終了時点は既存の削除開始待機200msと一致させる。
 
-現在の `Arrangement.spacedBy(verticalSpacing)` を残すと、カードの高さが0になってもLazy item間の固定余白が残り、実データ削除時に余白分だけ最後に跳ねる。そこでLazyColumnの固定spacingを外し、カードとその下の `verticalSpacing` を同じ `AnimatedVisibility` 内へ含める。これによりカード高と行間余白が同じ遷移で0になる。通常表示時のカード間隔は変更しない。
+現在の `Arrangement.spacedBy(verticalSpacing)` を残すと、カードの高さが0になってもLazy item間の固定余白が残り、実データ削除時に余白分だけ最後に跳ねる。そこでLazyColumnの固定spacingを外し、カードとその下の `verticalSpacing` を同じ縮小タイミングの `AnimatedVisibility` で制御する。これによりカード高と行間余白が同じ終了時点で0になる。通常表示時のカード間隔は変更しない。
 
 ### 3. 削除時のLazy item placement/disappearanceを無効化する
 
@@ -63,7 +63,7 @@
 1. `TabListUiState` はBoardとThreadを区別した削除中key集合を保持する。
 2. `TabListViewModel` は通常削除とbulk削除でkeyを登録し、既存200ms定数と同じ時間だけ `viewModelScope` で待って既存Store APIを各操作1回呼ぶ。
 3. `RemovableTabList` のローカル `removingItems` と `externalRemoveKey` による即時Store呼び出しを、UiState駆動の `removingKeys` 表示へ置き換える。
-4. `AnimatedVisibility` はカードと行間余白を同時に `fadeOut + shrinkVertically` し、通常時の12dp相当の間隔を維持する。
+4. `AnimatedVisibility` はカードを100msで線形fade-outし、40ms後から160msでカードと行間余白を上端方向へ縮小して、通常時の12dp相当の間隔を維持する。
 5. `animateItem` は追加時fade-inだけを維持し、削除時fade-outとplacementを適用しない。
 6. 閉じるボタン、長押しメニュー、bulkは縮小経路へ統合し、スワイプ確定後は既存専用退出からStoreへ直接渡して縮小を重複させない。
 7. 削除中カードのタップ、長押し、閉じる、スワイプの再実行を禁止する。
