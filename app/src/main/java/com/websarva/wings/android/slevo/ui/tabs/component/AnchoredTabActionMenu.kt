@@ -11,6 +11,7 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -60,6 +61,8 @@ fun AnchoredTabActionMenu(
         verticalSpacing = 8.dp,
         onDismissRequest = onDismissRequest,
     ) {
+        // Keep the action label stable while the popup's exit transition retains this content.
+        val displayedIsPinned = remember { isPinned }
         AnchoredOverlayMenuItem(
             text = stringResource(R.string.tab_action_detail),
             leadingIcon = {
@@ -74,10 +77,10 @@ fun AnchoredTabActionMenu(
         )
         AnchoredOverlayMenuItem(
             text = stringResource(
-                if (isPinned) R.string.tab_action_unpin else R.string.tab_action_pin
+                if (displayedIsPinned) R.string.tab_action_unpin else R.string.tab_action_pin
             ),
             leadingIcon = {
-                if (isPinned) {
+                if (displayedIsPinned) {
                     PushPinOffIcon(
                         tint = onSurfaceColor,
                         modifier = Modifier.size(iconSize),
@@ -106,6 +109,45 @@ fun AnchoredTabActionMenu(
                 )
             },
             onClick = onCloseClick,
+        )
+    }
+}
+
+/**
+ * タブ一覧全体の操作を表示するアンカードメニュー。
+ *
+ * 破壊的操作である「全てのタブを閉じる」だけを表示し、通常の単一タブ用メニューとは
+ * 項目を共有しない。表示位置と dismiss 動作は [AnchoredOverlayMenu] に委譲する。
+ */
+@Composable
+fun AnchoredTabActionMenu(
+    expanded: Boolean,
+    anchorBoundsInWindow: IntRect?,
+    hazeState: HazeState?,
+    onDismissRequest: () -> Unit,
+    onCloseAllClick: () -> Unit,
+) {
+    AnchoredOverlayMenu(
+        expanded = expanded,
+        anchorBoundsInWindow = anchorBoundsInWindow,
+        hazeState = hazeState,
+        horizontalAlignment = HorizontalAnchorAlignment.Start,
+        verticalAlignment = VerticalAnchorAlignment.Auto,
+        verticalSpacing = 8.dp,
+        onDismissRequest = onDismissRequest,
+    ) {
+        AnchoredOverlayMenuItem(
+            text = stringResource(R.string.tab_action_close_all),
+            textColor = MaterialTheme.colorScheme.error,
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp),
+                )
+            },
+            onClick = onCloseAllClick,
         )
     }
 }
@@ -182,6 +224,20 @@ private fun AnchoredTabActionMenuPinnedPreview() {
             onDetailClick = {},
             onPinClick = {},
             onCloseClick = {},
+        )
+    }
+}
+
+@Preview(showSystemUi = true, showBackground = false)
+@Composable
+private fun AnchoredTabActionMenuBulkPreview() {
+    SlevoTheme {
+        AnchoredTabActionMenu(
+            expanded = true,
+            anchorBoundsInWindow = IntRect(320, 80, 368, 128),
+            hazeState = null,
+            onDismissRequest = {},
+            onCloseAllClick = {},
         )
     }
 }

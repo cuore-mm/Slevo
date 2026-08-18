@@ -34,6 +34,10 @@ interface OpenBoardTabDao {
     @Query("DELETE FROM open_board_tabs WHERE boardUrl = :boardUrl")
     suspend fun deleteByBoardUrl(boardUrl: String): Int
 
+    /** 指定 URL 集合の板タブ行だけを削除し、削除行数を返す。 */
+    @Query("DELETE FROM open_board_tabs WHERE boardUrl IN (:boardUrls)")
+    suspend fun deleteByBoardUrls(boardUrls: List<String>): Int
+
     /** 指定板タブの pin 列だけを更新する。 */
     @Query("UPDATE open_board_tabs SET isPinned = :isPinned WHERE boardUrl = :boardUrl")
     suspend fun updatePinned(boardUrl: String, isPinned: Boolean): Int

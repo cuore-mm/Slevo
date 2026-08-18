@@ -6,6 +6,8 @@ import com.websarva.wings.android.slevo.data.repository.BbsServiceRepository
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
+import com.websarva.wings.android.slevo.data.model.TabPage
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.bbsroute.TabPresentationState
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
@@ -25,10 +27,12 @@ import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.util.BoardUrlNormalizationInput
 import com.websarva.wings.android.slevo.ui.util.normalizeBoardUrlTo5chIo
 import dagger.hilt.android.scopes.ActivityRetainedScoped
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterIsInstance
@@ -54,6 +58,7 @@ class TabSessionStore @Inject constructor(
     private val boardRepository: BoardRepository,
     private val bbsServiceRepository: BbsServiceRepository,
     private val settingsRepository: SettingsRepository,
+    private val appLogger: AppLogger,
 ) : Closeable {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -142,6 +147,93 @@ class TabSessionStore @Inject constructor(
     fun closeBoardTabByUrl(boardUrl: String) {
         boardSessionHolders.remove(boardUrl)?.dispose()
         boardTabsCoordinator.closeBoardTabByUrl(boardUrl)
+    }
+
+    /** 表示中ページの未固定タブをスナップショットし、bulk close 経路へ即時に委譲する。 */
+    fun closeAllUnpinnedTabs(page: TabPage) {
+        when (page) {
+            TabPage.BOARD -> {
+                // 公開 projection を一度だけ読み、処理中の一覧変化で対象をずらさない。
+                val targets = openBoardTabs.value.filterNot(BoardTabInfo::isPinned)
+                if (targets.isEmpty()) return
+                closeBoardTabTargets(targets)
+            }
+
+            TabPage.THREAD -> {
+                // Thread bulkはretained scopeでcanonical確認まで所有し、画面破棄後も継続する。
+                val targets = openThreadTabs.value.filterNot(ThreadTabInfo::isPinned)
+                if (targets.isEmpty()) return
+                disposeThreadTabHolders(targets.map { it.id.value })
+                scope.launch {
+                    closeThreadTabsSafely(targets)
+                }
+            }
+        }
+    }
+
+    /** クリック時の板タブsnapshotをretained scopeで待機後にbulk closeする。 */
+    fun closeBoardTabsAfterDelay(targets: List<BoardTabInfo>, delayMillis: Long) {
+        if (targets.isEmpty()) return
+        scope.launch {
+            delay(delayMillis)
+            closeBoardTabTargets(targets)
+        }
+    }
+
+    /** クリック時のスレッドタブsnapshotをretained scopeで待機後にbulk closeする。 */
+    fun closeThreadTabsAfterDelay(targets: List<ThreadTabInfo>, delayMillis: Long) {
+        if (targets.isEmpty()) return
+        scope.launch {
+            delay(delayMillis)
+            closeThreadTabTargets(targets)
+        }
+    }
+
+    /** 固定状態を再評価せず、受け取った板タブsnapshotだけをbulk closeする。 */
+    private fun closeBoardTabTargets(targets: List<BoardTabInfo>) {
+        val distinctTargets = targets.distinctBy(BoardTabInfo::boardUrl)
+        if (distinctTargets.isEmpty()) return
+        disposeBoardTabHolders(distinctTargets.map(BoardTabInfo::boardUrl))
+        boardTabsCoordinator.closeBoardTabs(distinctTargets)
+    }
+
+    /** 固定状態を再評価せず、受け取ったスレッドタブsnapshotだけをbulk closeする。 */
+    private suspend fun closeThreadTabTargets(targets: List<ThreadTabInfo>) {
+        val distinctTargets = targets.distinctBy { it.id.value }
+        if (distinctTargets.isEmpty()) return
+        disposeThreadTabHolders(distinctTargets.map { it.id.value })
+        closeThreadTabsSafely(distinctTargets)
+    }
+
+    /** Thread bulk失敗をログへ記録し、Storeのroot coroutineへ例外を伝播させない。 */
+    private suspend fun closeThreadTabsSafely(targets: List<ThreadTabInfo>) {
+        try {
+            threadTabsCoordinator.closeThreadTabs(targets)
+        } catch (cancellationException: CancellationException) {
+            throw cancellationException
+        } catch (exception: Throwable) {
+            runCatching {
+                appLogger.e(
+                    message = "Thread bulk close failed for ${targets.size} tabs",
+                    tag = "TabSessionStore",
+                    throwable = exception,
+                )
+            }
+        }
+    }
+
+    /** 指定された板URLの既存holderだけを一括でmapから取り出して破棄する。 */
+    private fun disposeBoardTabHolders(boardUrls: List<String>) {
+        boardUrls.distinct().mapNotNull { boardSessionHolders.remove(it) }.forEach { holder ->
+            holder.dispose()
+        }
+    }
+
+    /** 指定されたThreadId文字列の既存holderだけを一括でmapから取り出して破棄する。 */
+    private fun disposeThreadTabHolders(threadIds: List<String>) {
+        threadIds.distinct().mapNotNull { threadSessionHolders.remove(it) }.forEach { holder ->
+            holder.dispose()
+        }
     }
 
     fun updateBoardScrollPosition(boardUrl: String, firstVisibleIndex: Int, scrollOffset: Int) {

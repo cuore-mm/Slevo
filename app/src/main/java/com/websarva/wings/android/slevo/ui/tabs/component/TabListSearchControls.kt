@@ -8,24 +8,32 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.SearchInputField
 import dev.chrisbanes.haze.HazeProgressive
@@ -33,11 +41,12 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import kotlin.math.roundToInt
 
 /**
  * タブ一覧上部の検索領域を提供する。
  *
- * 通常時は右上に検索ボタン、検索モード時は上部に検索バーを表示する。
+ * 通常時は右上に検索ボタンとその他ボタン、検索モード時は上部に検索バーを表示する。
  * いずれの場合も同じ固定高さの full-width haze 領域を持つ。
  */
 @OptIn(ExperimentalHazeMaterialsApi::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -49,11 +58,13 @@ fun TabListTopSearchArea(
     searchInputValue: TextFieldValue,
     searchFocusRequestId: Long?,
     onSearchClick: () -> Unit,
+    onMoreClick: (IntRect) -> Unit,
     onSearchInputChange: (TextFieldValue) -> Unit,
     onSearchFocusRequestConsumed: () -> Unit,
     onCloseSearch: () -> Unit,
 ) {
     val tapGuardInteractionSource = remember { MutableInteractionSource() }
+    val moreButtonBounds = remember { mutableStateOf<IntRect?>(null) }
 
     Box(
         modifier = modifier
@@ -114,11 +125,33 @@ fun TabListTopSearchArea(
             enter = fadeIn(animationSpec = visibilityAnimationSpec),
             exit = fadeOut(animationSpec = visibilityAnimationSpec),
         ) {
-            TabActionButton(
-                imageVector = Icons.Default.Search,
-                contentDescription = stringResource(R.string.search),
-                onClick = onSearchClick,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TabActionButton(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = stringResource(R.string.search),
+                    onClick = onSearchClick,
+                )
+                Box(
+                    modifier = Modifier.onGloballyPositioned { coordinates ->
+                        val bounds = coordinates.boundsInWindow()
+                        moreButtonBounds.value = IntRect(
+                            left = bounds.left.roundToInt(),
+                            top = bounds.top.roundToInt(),
+                            right = bounds.right.roundToInt(),
+                            bottom = bounds.bottom.roundToInt(),
+                        )
+                    }
+                ) {
+                    TabActionButton(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = stringResource(R.string.more),
+                        onClick = {
+                            // Bounds are reported before a click, so the callback can anchor the popup immediately.
+                            moreButtonBounds.value?.let(onMoreClick)
+                        },
+                    )
+                }
+            }
         }
     }
 }
@@ -132,6 +165,7 @@ private fun SearchModeTrueFalse() {
         searchInputValue = TextFieldValue(""),
         searchFocusRequestId = null,
         onSearchClick = {},
+        onMoreClick = {},
         onSearchInputChange = {},
         onSearchFocusRequestConsumed = {},
         onCloseSearch = {},
@@ -147,6 +181,7 @@ private fun SearchModeTruePreview() {
         searchInputValue = TextFieldValue(""),
         searchFocusRequestId = 1L,
         onSearchClick = {},
+        onMoreClick = {},
         onSearchInputChange = {},
         onSearchFocusRequestConsumed = {},
         onCloseSearch = {},

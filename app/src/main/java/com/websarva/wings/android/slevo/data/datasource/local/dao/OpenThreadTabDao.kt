@@ -103,6 +103,10 @@ interface OpenThreadTabDao {
     @Query("DELETE FROM open_thread_tabs WHERE threadId = :threadId")
     suspend fun deleteByThreadId(threadId: ThreadId): Int
 
+    /** 指定 threadId 文字列集合のタブ行だけを削除し、削除行数を返す。 */
+    @Query("DELETE FROM open_thread_tabs WHERE threadId IN (:threadIds)")
+    suspend fun deleteByThreadIds(threadIds: List<String>): Int
+
     /** 指定された threadId の pin 列だけを更新する。 */
     @Query("UPDATE open_thread_tabs SET isPinned = :isPinned WHERE threadId = :threadId")
     suspend fun updatePinned(threadId: ThreadId, isPinned: Boolean): Int

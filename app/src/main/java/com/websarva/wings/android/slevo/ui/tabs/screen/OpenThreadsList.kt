@@ -32,14 +32,14 @@ fun OpenThreadsList(
     modifier: Modifier = Modifier,
     openTabs: List<ThreadTabInfo>,
     onCloseClick: (ThreadTabInfo) -> Unit = {},
+    onSwipeDelete: (ThreadTabInfo) -> Unit = onCloseClick,
     navController: NavHostController,
     closeDrawer: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     listState: LazyListState = rememberLazyListState(),
     newResCounts: Map<String, Int> = emptyMap(),
     selectedThreadTab: ThreadTabInfo? = null,
-    pendingCloseThreadTab: ThreadTabInfo? = null,
-    onCloseRequestConsumed: () -> Unit = {},
+    removingKeys: Set<String> = emptySet(),
     onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit = { _, _ -> },
     onClearNewResCount: (ThreadId) -> Unit = {},
     tabSessionStore: TabSessionStore? = null,
@@ -55,8 +55,7 @@ fun OpenThreadsList(
         keyOf = { it.id.value },
         contentPadding = contentPadding,
         listState = listState,
-        externalRemoveKey = pendingCloseThreadTab?.id?.value,
-        onExternalRemoveConsumed = onCloseRequestConsumed,
+        removingKeys = removingKeys,
         onRemoveConfirmed = { onCloseClick(it) },
         userScrollEnabled = !isInLongPressSelectionMode,
     ) { tab, isRemoving, requestRemove ->
@@ -95,7 +94,7 @@ fun OpenThreadsList(
             isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isRemoving,
             onSwipeDelete = {
                 if (isRemoving) return@OpenThreadCard
-                requestRemove()
+                onSwipeDelete(tab)
             },
             onCloseClick = {
                 if (isRemoving) return@OpenThreadCard

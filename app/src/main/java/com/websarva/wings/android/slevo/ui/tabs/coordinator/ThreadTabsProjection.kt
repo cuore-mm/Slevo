@@ -17,6 +17,12 @@ internal sealed interface ThreadTabPendingOperation {
     /** Room が削除を確認するまでタブを非表示にする。 */
     data class Delete(val threadId: ThreadId) : ThreadTabPendingOperation
 
+    /** 指定された複数スレッドを一つのpending除去として扱う。 */
+    data class BulkDelete(
+        val threadIds: List<ThreadId>,
+        val requestedSelection: String?,
+    ) : ThreadTabPendingOperation
+
     /** Room が確認するまで要求された pin 値を投影する。 */
     data class Pin(val threadId: ThreadId, val isPinned: Boolean) : ThreadTabPendingOperation
 
@@ -39,6 +45,11 @@ internal fun projectThreadTabs(
                 if (current == null) operation.tab else mergeThreadTabMetadata(current, operation.tab)
             }
             is ThreadTabPendingOperation.Delete -> IndexedTabOperation(operation.threadId, remove = true) { current -> current }
+            is ThreadTabPendingOperation.BulkDelete -> IndexedTabOperation(
+                key = operation.threadIds.first(),
+                remove = true,
+                removeKeys = operation.threadIds.toSet(),
+            ) { current -> current }
             is ThreadTabPendingOperation.Pin -> IndexedTabOperation(operation.threadId) { current ->
                 current?.copy(isPinned = operation.isPinned)
             }
@@ -55,18 +66,24 @@ internal fun isThreadTabOperationConfirmed(
     canonicalTabs: List<ThreadTabInfo>,
     operation: ThreadTabPendingOperation,
 ): Boolean {
+    if (operation is ThreadTabPendingOperation.BulkDelete) {
+        val targetIds = operation.threadIds.toSet()
+        return canonicalTabs.none { it.id in targetIds }
+    }
     val actual = canonicalTabs.firstOrNull { tab ->
         when (operation) {
             is ThreadTabPendingOperation.Ensure -> tab.id == operation.tab.id
             is ThreadTabPendingOperation.Delete -> tab.id == operation.threadId
+            is ThreadTabPendingOperation.BulkDelete -> false
             is ThreadTabPendingOperation.Pin -> tab.id == operation.threadId
             is ThreadTabPendingOperation.Info -> tab.id == operation.tab.id
         }
     }
     return when (operation) {
-        is ThreadTabPendingOperation.Ensure -> actual != null
-        is ThreadTabPendingOperation.Delete -> actual == null
-        is ThreadTabPendingOperation.Pin -> actual?.isPinned == operation.isPinned
+            is ThreadTabPendingOperation.Ensure -> actual != null
+            is ThreadTabPendingOperation.Delete -> actual == null
+            is ThreadTabPendingOperation.BulkDelete -> error("BulkDelete is handled above")
+            is ThreadTabPendingOperation.Pin -> actual?.isPinned == operation.isPinned
         is ThreadTabPendingOperation.Info -> actual != null
     }
 }

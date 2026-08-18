@@ -3,10 +3,12 @@ package com.websarva.wings.android.slevo.ui.tabs
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
+import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
@@ -34,8 +36,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -56,6 +59,7 @@ class TabSessionStoreTest {
     private val threadHolderFactory = mockk<ThreadTabSessionHolderFactory>(relaxed = true)
     private val boardHolderFactory = mockk<BoardTabSessionHolderFactory>(relaxed = true)
     private val settingsRepository = mockk<SettingsRepository>(relaxed = true)
+    private val appLogger = mockk<AppLogger>(relaxed = true)
 
     init {
         every { threadCoordinator.threadTabState } returns MutableStateFlow(ThreadTabsLoadState.Loading)
@@ -66,7 +70,17 @@ class TabSessionStoreTest {
     private fun createStore(
         threadCoordinatorOverride: ThreadTabsCoordinator = threadCoordinator,
         tabsRepositoryOverride: TabsRepository = mockk(relaxed = true),
+        boardTabs: List<BoardTabInfo> = emptyList(),
+        threadTabs: List<ThreadTabInfo> = emptyList(),
+        boardTabsFlow: MutableStateFlow<List<BoardTabInfo>>? = null,
+        threadTabsFlow: MutableStateFlow<List<ThreadTabInfo>>? = null,
     ): TabSessionStore {
+        every { boardCoordinator.openBoardTabs } returns (boardTabsFlow ?: MutableStateFlow(boardTabs))
+        if (threadCoordinatorOverride === threadCoordinator) {
+            every { threadCoordinatorOverride.openThreadTabs } returns (
+                threadTabsFlow ?: MutableStateFlow(threadTabs)
+            )
+        }
         return TabSessionStore(
             boardTabsCoordinator = boardCoordinator,
             threadTabsCoordinator = threadCoordinatorOverride,
@@ -76,6 +90,7 @@ class TabSessionStoreTest {
             boardRepository = mockk(relaxed = true),
             bbsServiceRepository = mockk(relaxed = true),
             settingsRepository = settingsRepository,
+            appLogger = appLogger,
         )
     }
 
@@ -189,6 +204,16 @@ class TabSessionStoreTest {
         boardId = 1L,
     )
 
+    /** 一括 close テスト用に固定状態だけを変えたスレッドタブを作る。 */
+    private fun bulkThreadTab(threadKey: String, isPinned: Boolean = false): ThreadTabInfo = ThreadTabInfo(
+        id = ThreadId.of("host", "board", threadKey),
+        title = threadKey,
+        boardName = "Board",
+        boardUrl = "https://host/board/",
+        boardId = 1L,
+        isPinned = isPinned,
+    )
+
     /**
      * 板タブ削除操作が [BoardTabsCoordinator] へ委譲されることを確認する。
      */
@@ -202,6 +227,252 @@ class TabSessionStoreTest {
         )
         store.closeBoardTab(tab)
         verify { boardCoordinator.closeBoardTab(tab) }
+    }
+
+    /** 板ページの一括 close が未固定タブだけを表示順に委譲することを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_forBoard_closesOnlyUnpinnedBoardTabs() {
+        val pinnedTab = BoardTabInfo(
+            boardId = 1,
+            boardName = "Pinned",
+            boardUrl = "https://example.com/pinned/",
+            serviceName = "example.com",
+            isPinned = true,
+        )
+        val firstTab = BoardTabInfo(
+            boardId = 2,
+            boardName = "First",
+            boardUrl = "https://example.com/first/",
+            serviceName = "example.com",
+        )
+        val secondTab = BoardTabInfo(
+            boardId = 3,
+            boardName = "Second",
+            boardUrl = "https://example.com/second/",
+            serviceName = "example.com",
+        )
+        val testStore = createStore(
+            boardTabs = listOf(pinnedTab, firstTab, secondTab),
+            threadTabs = listOf(retainedCloseTestTab()),
+        )
+
+        testStore.closeAllUnpinnedTabs(TabPage.BOARD)
+
+        verify(exactly = 0) { boardCoordinator.closeBoardTab(pinnedTab) }
+        verify { boardCoordinator.closeBoardTabs(listOf(firstTab, secondTab)) }
+        coVerify(exactly = 0) { threadCoordinator.closeThreadTab(any<ThreadTabInfo>()) }
+    }
+
+    /** スレッドページの一括 close が未固定スレッドだけを retained scope で処理することを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_forThread_closesOnlyUnpinnedThreadTabs() = runTest {
+        val pinnedTab = bulkThreadTab("pinned", isPinned = true)
+        val firstTab = bulkThreadTab("first")
+        val secondTab = bulkThreadTab("second")
+        val testStore = createStore(
+            boardTabs = listOf(
+                BoardTabInfo(
+                    boardId = 1,
+                    boardName = "Board",
+                    boardUrl = "https://example.com/board/",
+                    serviceName = "example.com",
+                )
+            ),
+            threadTabs = listOf(pinnedTab, firstTab, secondTab),
+        )
+
+        testStore.closeAllUnpinnedTabs(TabPage.THREAD)
+        runCurrent()
+
+        coVerify { threadCoordinator.closeThreadTabs(listOf(firstTab, secondTab)) }
+        verify(exactly = 0) { boardCoordinator.closeBoardTab(any()) }
+    }
+
+    /** 一括 close 対象がない場合に両 Coordinator へ削除要求を送らないことを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_withNoTargets_isNoOp() {
+        val testStore = createStore(
+            boardTabs = listOf(
+                BoardTabInfo(
+                    boardId = 1,
+                    boardName = "Pinned",
+                    boardUrl = "https://example.com/pinned/",
+                    serviceName = "example.com",
+                    isPinned = true,
+                )
+            ),
+            threadTabs = listOf(bulkThreadTab("pinned", isPinned = true)),
+        )
+
+        testStore.closeAllUnpinnedTabs(TabPage.BOARD)
+        testStore.closeAllUnpinnedTabs(TabPage.THREAD)
+
+        verify(exactly = 0) { boardCoordinator.closeBoardTab(any()) }
+        coVerify(exactly = 0) { threadCoordinator.closeThreadTab(any<ThreadTabInfo>()) }
+    }
+
+    /** bulk close は未固定holderだけを一度破棄し、固定holderを維持することを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_disposesOnlyTargetHolders() {
+        val targetBoardHolder = mockBoardHolder()
+        val pinnedBoardHolder = mockBoardHolder()
+        every { boardHolderFactory.create("https://example.com/target/", any()) } returns targetBoardHolder
+        every { boardHolderFactory.create("https://example.com/pinned/", any()) } returns pinnedBoardHolder
+        val targetBoard = BoardTabInfo(1, "Target", "https://example.com/target/", "example.com")
+        val pinnedBoard = targetBoard.copy(
+            boardName = "Pinned",
+            boardUrl = "https://example.com/pinned/",
+            isPinned = true,
+        )
+        val testStore = createStore(boardTabs = listOf(targetBoard, pinnedBoard))
+        testStore.boardBookmarkSheetHolder(targetBoard.boardUrl)
+        testStore.boardBookmarkSheetHolder(pinnedBoard.boardUrl)
+
+        testStore.closeAllUnpinnedTabs(TabPage.BOARD)
+
+        verify { targetBoardHolder.dispose() }
+        verify(exactly = 0) { pinnedBoardHolder.dispose() }
+        verify { boardCoordinator.closeBoardTabs(listOf(targetBoard)) }
+    }
+
+    /** Thread bulk close でも未固定holderだけを一度破棄し、固定holderを維持することを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_forThread_disposesOnlyTargetHolders() = runTest {
+        val targetHolder = mockThreadHolder()
+        val pinnedHolder = mockThreadHolder()
+        val target = bulkThreadTab("target")
+        val pinned = bulkThreadTab("pinned", isPinned = true)
+        every { threadHolderFactory.create(target.id.value, any()) } returns targetHolder
+        every { threadHolderFactory.create(pinned.id.value, any()) } returns pinnedHolder
+        val testStore = createStore(threadTabs = listOf(target, pinned))
+        testStore.threadBookmarkSheetHolder(target.id.value)
+        testStore.threadBookmarkSheetHolder(pinned.id.value)
+
+        testStore.closeAllUnpinnedTabs(TabPage.THREAD)
+        runCurrent()
+
+        verify { targetHolder.dispose() }
+        verify(exactly = 0) { pinnedHolder.dispose() }
+        coVerify { threadCoordinator.closeThreadTabs(listOf(target)) }
+    }
+
+    /** Thread bulk処理中のStore lifetime終了が実行をcancelし、completionを解放することを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_cancelsInFlightThreadBulkAtStoreLifetimeBoundary() = runTest {
+        val target = bulkThreadTab("in-flight")
+        val started = CompletableDeferred<Unit>()
+        val cancelled = CompletableDeferred<Unit>()
+        coEvery { threadCoordinator.closeThreadTabs(any()) } coAnswers {
+            started.complete(Unit)
+            try {
+                CompletableDeferred<Unit>().await()
+            } catch (cancellationException: CancellationException) {
+                cancelled.complete(Unit)
+                throw cancellationException
+            }
+        }
+        val testStore = createStore(threadTabs = listOf(target))
+
+        testStore.closeAllUnpinnedTabs(TabPage.THREAD)
+        runCurrent()
+        assertTrue(started.isCompleted)
+
+        testStore.close()
+        runCurrent()
+
+        assertTrue(cancelled.isCompleted)
+    }
+
+    /** 板bulkが呼び出し元のcancel後も対象snapshotを維持して実行されることを確認する。 */
+    @Test
+    fun closeBoardTabsAfterDelay_survivesCallerCancellationAndUsesSnapshot() = runTest {
+        val accepted = BoardTabInfo(1, "Accepted", "https://example.com/accepted/", "example.com")
+        val newlyAdded = BoardTabInfo(2, "New", "https://example.com/new/", "example.com")
+        val currentTabs = MutableStateFlow(listOf(accepted))
+        val testStore = createStore(boardTabsFlow = currentTabs)
+
+        val caller = launch(start = CoroutineStart.UNDISPATCHED) {
+            testStore.closeBoardTabsAfterDelay(
+                targets = listOf(accepted),
+                delayMillis = 200L,
+            )
+        }
+        caller.cancel()
+        currentTabs.value = listOf(accepted.copy(isPinned = true), newlyAdded)
+
+        advanceTimeBy(199)
+        runCurrent()
+        verify(exactly = 0) { boardCoordinator.closeBoardTabs(any()) }
+
+        advanceTimeBy(1)
+        runCurrent()
+        verify { boardCoordinator.closeBoardTabs(listOf(accepted)) }
+    }
+
+    /** Thread bulkが呼び出し元のcancel後も対象snapshotを維持して実行されることを確認する。 */
+    @Test
+    fun closeThreadTabsAfterDelay_survivesCallerCancellationAndUsesSnapshot() = runTest {
+        val accepted = bulkThreadTab("accepted")
+        val newlyAdded = bulkThreadTab("new")
+        val currentTabs = MutableStateFlow(listOf(accepted))
+        val testStore = createStore(threadTabsFlow = currentTabs)
+
+        val caller = launch(start = CoroutineStart.UNDISPATCHED) {
+            testStore.closeThreadTabsAfterDelay(
+                targets = listOf(accepted),
+                delayMillis = 200L,
+            )
+        }
+        caller.cancel()
+        currentTabs.value = listOf(accepted.copy(isPinned = true), newlyAdded)
+
+        advanceTimeBy(199)
+        runCurrent()
+        coVerify(exactly = 0) { threadCoordinator.closeThreadTabs(any()) }
+
+        advanceTimeBy(1)
+        runCurrent()
+        coVerify { threadCoordinator.closeThreadTabs(listOf(accepted)) }
+    }
+
+    /** 遅延Thread bulkの非キャンセル例外をログへ記録して封じ込めることを確認する。 */
+    @Test
+    fun closeThreadTabsAfterDelay_containsNonCancellationFailure() = runTest {
+        val target = bulkThreadTab("failure")
+        val failure = IllegalStateException("bulk failure")
+        coEvery { threadCoordinator.closeThreadTabs(listOf(target)) } throws failure
+        val testStore = createStore(threadTabs = listOf(target))
+
+        testStore.closeThreadTabsAfterDelay(listOf(target), delayMillis = 0L)
+        runCurrent()
+
+        verify {
+            appLogger.e(
+                message = "Thread bulk close failed for 1 tabs",
+                tag = "TabSessionStore",
+                throwable = failure,
+            )
+        }
+    }
+
+    /** 即時Thread bulkの非キャンセル例外をログへ記録して封じ込めることを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_containsNonCancellationFailure() = runTest {
+        val target = bulkThreadTab("failure")
+        val failure = IllegalStateException("bulk failure")
+        coEvery { threadCoordinator.closeThreadTabs(listOf(target)) } throws failure
+        val testStore = createStore(threadTabs = listOf(target))
+
+        testStore.closeAllUnpinnedTabs(TabPage.THREAD)
+        runCurrent()
+
+        verify {
+            appLogger.e(
+                message = "Thread bulk close failed for 1 tabs",
+                tag = "TabSessionStore",
+                throwable = failure,
+            )
+        }
     }
 
     /**

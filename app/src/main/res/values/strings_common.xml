@@ -29,4 +29,5 @@
     <string name="tab_action_pin">タブを固定</string>
     <string name="tab_action_unpin">タブの固定を解除</string>
     <string name="tab_action_close">タブを閉じる</string>
+    <string name="tab_action_close_all">全てのタブを閉じる</string>
 </resources>

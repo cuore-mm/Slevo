@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
 import com.websarva.wings.android.slevo.data.repository.DatRepository
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
@@ -199,6 +200,33 @@ class ThreadTabsCoordinatorTest {
         coordinator.closeThreadTab(first)
 
         assertEquals(second.id.value, coordinator.selectedThreadTabKey.value)
+    }
+
+    /** Thread bulk close が固定タブを残し、逐次closeと同じ最終選択へ収束することを確認する。 */
+    @Test
+    fun closeThreadTabs_keepsPinnedTabAndMatchesSequentialSelection() = runTest {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        val pinnedRoute = AppRoute.Thread(
+            threadKey = "pinned",
+            boardUrl = "https://medaka.5ch.io/mmominor/",
+            boardName = "mmominor",
+            threadTitle = "Pinned",
+        )
+        val selectedRoute = pinnedRoute.copy(threadKey = "selected", threadTitle = "Selected")
+        val lastRoute = pinnedRoute.copy(threadKey = "last", threadTitle = "Last")
+        coordinator.ensureThreadTab(pinnedRoute)
+        coordinator.ensureThreadTab(selectedRoute)
+        coordinator.ensureThreadTab(lastRoute)
+        val pinned = coordinator.openThreadTabs.value.first()
+        val selected = coordinator.openThreadTabs.value[1]
+        val last = coordinator.openThreadTabs.value[2]
+        coordinator.togglePinThreadTab(pinned.id)
+        coordinator.selectThreadTab(selected.id)
+
+        coordinator.closeThreadTabs(listOf(selected, last))
+
+        assertEquals(listOf(pinned.id), coordinator.openThreadTabs.value.map { it.id })
+        assertEquals(pinned.id.value, coordinator.selectedThreadTabKey.value)
     }
 
     /**
@@ -692,6 +720,31 @@ class ThreadTabsCoordinatorTest {
         coVerify(exactly = 0) { tabsRepository.replaceOpenThreadTabsForBulkOperation(any()) }
     }
 
+    /** Thread bulk pendingが対象集合を一度に投影から除外し、全対象不在だけを確認することを確認する。 */
+    @Test
+    fun projectThreadTabs_bulkDeleteRemovesTargetSetAndConfirmsAllTargetsAbsent() {
+        val first = ThreadTabInfo(
+            id = ThreadId.of("medaka.5ch.io", "mmominor", "first"),
+            title = "First",
+            boardName = "mmominor",
+            boardUrl = "https://medaka.5ch.io/mmominor/",
+            boardId = 1L,
+        )
+        val second = first.copy(id = ThreadId.of("medaka.5ch.io", "mmominor", "second"))
+        val pinned = first.copy(
+            id = ThreadId.of("medaka.5ch.io", "mmominor", "pinned"),
+            isPinned = true,
+        )
+        val operation = ThreadTabPendingOperation.BulkDelete(
+            threadIds = listOf(first.id, second.id),
+            requestedSelection = pinned.id.value,
+        )
+
+        assertEquals(listOf(pinned), projectThreadTabs(listOf(first, second, pinned), listOf(operation)))
+        assertFalse(isThreadTabOperationConfirmed(listOf(first, pinned), operation))
+        assertTrue(isThreadTabOperationConfirmed(listOf(pinned), operation))
+    }
+
     /** Ensure の待機中に Delete が成功した場合、Ensure を -1 で終端して最終削除を確認する。 */
     @Test
     fun ensureThenDelete_finalSnapshotOnlyReturnsMinusOneForEnsure() = runTest {
@@ -735,6 +788,108 @@ class ThreadTabsCoordinatorTest {
         assertNull(coordinator.selectedThreadTabKey.value)
         assertFalse(coordinator.threadSessionStates.value.containsKey(tab.id.value))
         assertFalse(coordinator.threadRuntimeStates.value.containsKey(tab.id.value))
+    }
+
+    /** bound Thread bulk close が対象を即時非表示にし、canonical確認後にRepositoryを一度だけ呼ぶことを確認する。 */
+    @Test
+    fun boundBulkClose_excludesTargetsImmediatelyAndCallsRepositoryOnce() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val first = testTab("bulk-first", 0)
+        val second = testTab("bulk-second", 1)
+        val last = testTab("bulk-last", 2)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenThreadTabs(any()) } returns true
+        databaseFlow.emit(listOf(first, second, last))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(backgroundScope)
+        runCurrent()
+        coordinator.selectThreadTab(second.id)
+        val bulkJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.closeThreadTabs(listOf(second, last))
+        }
+        runCurrent()
+
+        assertEquals(listOf(first), coordinator.openThreadTabs.value)
+        assertEquals(first.id.value, coordinator.selectedThreadTabKey.value)
+        assertFalse(bulkJob.isCompleted)
+        databaseFlow.emit(listOf(first))
+        runCurrent()
+        bulkJob.await()
+
+        coVerify(exactly = 1) { tabsRepository.deleteOpenThreadTabs(listOf(second.id, last.id)) }
+        coVerify(exactly = 0) { tabsRepository.deleteOpenThreadTab(any()) }
+        coordinator.close()
+    }
+
+    /** Thread bulkで対象行が既に不在の場合、対象projectionをcanonicalへ戻すことを確認する。 */
+    @Test
+    fun boundBulkClose_noOpRestoresCanonicalProjection() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val first = testTab("bulk-failure-first", 0)
+        val second = testTab("bulk-failure-second", 1)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenThreadTabs(any()) } returns false
+        databaseFlow.emit(listOf(first, second))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(backgroundScope)
+        runCurrent()
+        val bulkJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.closeThreadTabs(listOf(first, second))
+        }
+        runCurrent()
+
+        bulkJob.await()
+        assertEquals(listOf(first, second), coordinator.openThreadTabs.value)
+        coordinator.close()
+    }
+
+    /** Thread bulkがcanonical確認するまで後続Ensureを開始しないbarrierであることを確認する。 */
+    @Test
+    fun boundBulkClose_blocksLaterEnsureUntilCanonicalConfirmation() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val target = testTab("bulk-barrier-target", 0)
+        val ensureTab = testTab("bulk-barrier-ensure", 1)
+        val writeRelease = CompletableDeferred<Boolean>()
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenThreadTabs(any()) } coAnswers { writeRelease.await() }
+        coEvery { tabsRepository.ensureOpenThreadTab(any()) } returns true
+        databaseFlow.emit(listOf(target))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(backgroundScope)
+        runCurrent()
+        val bulkJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.closeThreadTabs(listOf(target))
+        }
+        runCurrent()
+        val ensureJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.ensureThreadTab(testRoute(ensureTab.id.value.substringAfterLast('/')))
+        }
+        runCurrent()
+
+        coVerify(exactly = 0) { tabsRepository.ensureOpenThreadTab(any()) }
+        writeRelease.complete(true)
+        databaseFlow.emit(emptyList())
+        runCurrent()
+        bulkJob.await()
+        coVerify(exactly = 1) { tabsRepository.ensureOpenThreadTab(any()) }
+        assertFalse(ensureJob.isCompleted)
+
+        databaseFlow.emit(listOf(ensureTab))
+        runCurrent()
+        ensureJob.await()
+        coordinator.close()
     }
 
     /** Delete が Ensure に置き換えられた場合、古い Delete の cleanup を実行しない。 */

@@ -3,16 +3,22 @@ package com.websarva.wings.android.slevo.ui.tabs
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.tabs.component.TabListAnimationDefaults
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
-import io.mockk.mockk
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -30,7 +36,20 @@ class TabListViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val tabSessionStore = mockk<TabSessionStore>(relaxed = true)
+    private val openBoardTabs = MutableStateFlow<List<BoardTabInfo>>(emptyList())
+    private val openThreadTabs = MutableStateFlow<List<ThreadTabInfo>>(emptyList())
+
+    init {
+        every { tabSessionStore.openBoardTabs } returns openBoardTabs
+        every { tabSessionStore.openThreadTabs } returns openThreadTabs
+    }
+
     private val viewModel by lazy { TabListViewModel(tabSessionStore) }
+
+    /** その他メニューのアンカー位置を設定した状態を返す。 */
+    private fun showBulkCloseMenu() {
+        viewModel.showBulkCloseMenu(IntRect(10, 20, 110, 120))
+    }
 
     // --- Search ---
 
@@ -141,38 +160,254 @@ class TabListViewModelTest {
         assertFalse(viewModel.uiState.first().showBoardInfoBottomSheet)
     }
 
-    // --- Pending close ---
+    // --- Removal state ---
 
-    /**
-     * 選択タブの削除リクエスト時に pendingClose 状態が設定されることを確認する。
-     */
+    /** 選択タブの削除リクエスト時に削除中keyが設定されることを確認する。 */
     @Test
-    fun requestCloseSelectedTab_setsPendingClose() = runTest {
+    fun requestCloseSelectedTab_setsRemovingKey() = runTest {
         val tab = BoardTabInfo(boardId = 1, boardName = "Test", boardUrl = "https://example.com/test/", serviceName = "example.com")
         viewModel.onBoardTabLongPressed(tab, IntRect(0, 0, 100, 100))
 
         viewModel.requestCloseSelectedTab()
 
         val state = viewModel.uiState.first()
-        assertEquals(tab, state.pendingCloseBoardTab)
+        assertEquals(setOf(tab.boardUrl), state.removingBoardTabKeys)
         assertFalse(state.isInLongPressSelectionMode)
     }
 
-    /**
-     * consumePendingCloseRequest で pendingClose 状態がクリアされることを確認する。
-     */
+    /** 板タブの閉じる処理が退出時間後に一度だけStoreへ委譲されることを確認する。 */
     @Test
-    fun consumePendingCloseRequest_clearsPending() = runTest {
+    fun startBoardTabRemoval_delegatesAfterRemovalDuration() = runTest {
+        val tab = BoardTabInfo(
+            boardId = 1,
+            boardName = "Test",
+            boardUrl = "https://example.com/test/",
+            serviceName = "example.com",
+        )
+        every { tabSessionStore.closeBoardTab(tab) } answers {
+            openBoardTabs.value = emptyList()
+        }
+
+        viewModel.startBoardTabRemoval(tab)
+        verify(exactly = 0) { tabSessionStore.closeBoardTab(tab) }
+
+        advanceTimeBy(TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong())
+        runCurrent()
+
+        verify(exactly = 1) { tabSessionStore.closeBoardTab(tab) }
+    }
+
+    /** 同じ板タブの削除要求を重ねてもStore呼び出しを増やさないことを確認する。 */
+    @Test
+    fun startBoardTabRemoval_ignoresDuplicateKey() = runTest {
+        val tab = BoardTabInfo(
+            boardId = 1,
+            boardName = "Test",
+            boardUrl = "https://example.com/test/",
+            serviceName = "example.com",
+        )
+        every { tabSessionStore.closeBoardTab(tab) } answers {
+            openBoardTabs.value = emptyList()
+        }
+
+        viewModel.startBoardTabRemoval(tab)
+        viewModel.startBoardTabRemoval(tab)
+        advanceTimeBy(TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong())
+        runCurrent()
+
+        verify(exactly = 1) { tabSessionStore.closeBoardTab(tab) }
+    }
+
+    /** スレッドタブの閉じる処理が退出時間後にretained APIへ一度だけ委譲されることを確認する。 */
+    @Test
+    fun startThreadTabRemoval_delegatesAfterRemovalDuration() = runTest {
+        val tab = ThreadTabInfo(
+            id = com.websarva.wings.android.slevo.data.model.ThreadId.of("example.com", "board", "1"),
+            title = "Thread",
+            boardName = "board",
+            boardUrl = "https://example.com/board/",
+            boardId = 1L,
+        )
+        every {
+            tabSessionStore.requestCloseThreadTab(tab.threadKey, tab.boardUrl)
+        } answers {
+            openThreadTabs.value = emptyList()
+        }
+
+        viewModel.startThreadTabRemoval(tab)
+        verify(exactly = 0) {
+            tabSessionStore.requestCloseThreadTab(tab.threadKey, tab.boardUrl)
+        }
+
+        advanceTimeBy(TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong())
+        runCurrent()
+
+        verify(exactly = 1) {
+            tabSessionStore.requestCloseThreadTab(tab.threadKey, tab.boardUrl)
+        }
+    }
+
+    /** BoardとThreadで同じ文字列のkeyを使っても削除中状態を共有しないことを確認する。 */
+    @Test
+    fun removalKeys_areSeparatedByTabPage() = runTest {
+        every { tabSessionStore.closeBoardTab(any()) } answers { }
+        every { tabSessionStore.requestCloseThreadTab(any(), any()) } answers { }
+        viewModel.startBoardTabRemoval(
+            BoardTabInfo(
+                boardId = 1,
+                boardName = "Board",
+                boardUrl = "same-key",
+                serviceName = "example.com",
+            ),
+        )
+        viewModel.startThreadTabRemoval(
+            ThreadTabInfo(
+                id = com.websarva.wings.android.slevo.data.model.ThreadId.of("example.com", "board", "same-key"),
+                title = "Thread",
+                boardName = "board",
+                boardUrl = "https://example.com/board/",
+                boardId = 1L,
+            ),
+        )
+
+        val state = viewModel.uiState.first()
+        assertEquals(setOf("same-key"), state.removingBoardTabKeys)
+        assertEquals(setOf("example.com/board/same-key"), state.removingThreadTabKeys)
+    }
+
+    /** 削除対象が正本一覧から消えた後に削除中keyを消費できることを確認する。 */
+    @Test
+    fun clearRemovalKeys_clearsRemovingState() = runTest {
         val tab = BoardTabInfo(boardId = 1, boardName = "Test", boardUrl = "https://example.com/test/", serviceName = "example.com")
         viewModel.onBoardTabLongPressed(tab, IntRect(0, 0, 100, 100))
         viewModel.requestCloseSelectedTab()
-        assertEquals(tab, viewModel.uiState.first().pendingCloseBoardTab)
+        assertEquals(setOf(tab.boardUrl), viewModel.uiState.first().removingBoardTabKeys)
 
-        viewModel.consumePendingCloseRequest()
+        viewModel.clearBoardRemovalKeys(setOf(tab.boardUrl))
 
         val state = viewModel.uiState.first()
-        assertNull(state.pendingCloseBoardTab)
-        assertNull(state.pendingCloseThreadTab)
+        assertTrue(state.removingBoardTabKeys.isEmpty())
+        assertTrue(state.removingThreadTabKeys.isEmpty())
+    }
+
+    // --- Bulk close menu ---
+
+    /** 初期状態では一括クローズメニューが非表示でアンカーも存在しないことを確認する。 */
+    @Test
+    fun bulkCloseMenu_isHiddenInitially() = runTest {
+        val state = viewModel.uiState.first()
+
+        assertFalse(state.isBulkCloseMenuVisible)
+        assertNull(state.bulkCloseMenuBounds)
+    }
+
+    /** その他メニューを開くと表示フラグとアンカーが同時に設定されることを確認する。 */
+    @Test
+    fun showBulkCloseMenu_setsVisibleAndAnchor() = runTest {
+        showBulkCloseMenu()
+
+        val state = viewModel.uiState.first()
+        assertTrue(state.isBulkCloseMenuVisible)
+        assertEquals(IntRect(10, 20, 110, 120), state.bulkCloseMenuBounds)
+    }
+
+    /** dismiss 時に一括クローズメニューの表示状態とアンカーがクリアされることを確認する。 */
+    @Test
+    fun dismissBulkCloseMenu_clearsVisibleAndAnchor() = runTest {
+        showBulkCloseMenu()
+
+        viewModel.dismissBulkCloseMenu()
+
+        val state = viewModel.uiState.first()
+        assertFalse(state.isBulkCloseMenuVisible)
+        assertNull(state.bulkCloseMenuBounds)
+    }
+
+    /** ページ変更時に旧ページの一括クローズメニューを持ち越さないことを確認する。 */
+    @Test
+    fun onPageChanged_dismissesBulkCloseMenu() = runTest {
+        showBulkCloseMenu()
+
+        viewModel.onPageChanged()
+
+        assertFalse(viewModel.uiState.first().isBulkCloseMenuVisible)
+        assertNull(viewModel.uiState.first().bulkCloseMenuBounds)
+    }
+
+    /** 一括クローズ実行時にメニューを閉じ、対象スナップショットを Store へ渡すことを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_dismissesMenuAndDelegatesPage() = runTest {
+        val tabs = MutableStateFlow(
+            listOf(
+                ThreadTabInfo(
+                    id = com.websarva.wings.android.slevo.data.model.ThreadId.of("example.com", "board", "1"),
+                    title = "Thread",
+                    boardName = "board",
+                    boardUrl = "https://example.com/board/",
+                    boardId = 1L,
+                    isPinned = false,
+                ),
+            ),
+        )
+        val target = tabs.value.single()
+        every { tabSessionStore.openThreadTabs } returns tabs
+        every {
+            tabSessionStore.closeThreadTabsAfterDelay(
+                targets = listOf(target),
+                delayMillis = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong(),
+            )
+        } answers {
+            tabs.value = emptyList()
+        }
+        showBulkCloseMenu()
+
+        viewModel.closeAllUnpinnedTabs(TabPage.THREAD)
+
+        val state = viewModel.uiState.first()
+        assertFalse(state.isBulkCloseMenuVisible)
+        assertNull(state.bulkCloseMenuBounds)
+        assertTrue(state.removingThreadTabKeys.isNotEmpty())
+        verify {
+            tabSessionStore.closeThreadTabsAfterDelay(
+                targets = listOf(target),
+                delayMillis = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong(),
+            )
+        }
+        tabs.value = emptyList()
+        runCurrent()
+    }
+
+    /** Board bulkも対象keyを同時に登録し、対象スナップショットをStoreへ一度だけ渡すことを確認する。 */
+    @Test
+    fun closeAllUnpinnedTabs_forBoard_passesSnapshotToStore() = runTest {
+        val target = BoardTabInfo(
+            boardId = 1,
+            boardName = "Board",
+            boardUrl = "https://example.com/board/",
+            serviceName = "example.com",
+        )
+        openBoardTabs.value = listOf(target)
+        every {
+            tabSessionStore.closeBoardTabsAfterDelay(
+                targets = listOf(target),
+                delayMillis = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong(),
+            )
+        } answers {
+            openBoardTabs.value = emptyList()
+        }
+
+        viewModel.closeAllUnpinnedTabs(TabPage.BOARD)
+
+        assertEquals(
+            setOf("https://example.com/board/"),
+            viewModel.uiState.first().removingBoardTabKeys,
+        )
+        verify {
+            tabSessionStore.closeBoardTabsAfterDelay(
+                targets = listOf(target),
+                delayMillis = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong(),
+            )
+        }
     }
 
     // --- URL Dialog ---

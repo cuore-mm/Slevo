@@ -117,6 +117,16 @@ fun TabScreenContent(
     val filteredBoardTabs = filterBoardTabsByQuery(openBoardTabs, searchQuery)
     val filteredThreadTabs = filterThreadTabsByQuery(openThreadTabs, searchQuery)
 
+    // --- Removal state cleanup ---
+    LaunchedEffect(openBoardTabs, listUiState.removingBoardTabKeys) {
+        val activeKeys = openBoardTabs.map(BoardTabInfo::boardUrl).toSet()
+        tabListViewModel.clearBoardRemovalKeys(listUiState.removingBoardTabKeys - activeKeys)
+    }
+    LaunchedEffect(openThreadTabs, listUiState.removingThreadTabKeys) {
+        val activeKeys = openThreadTabs.map { it.id.value }.toSet()
+        tabListViewModel.clearThreadRemovalKeys(listUiState.removingThreadTabKeys - activeKeys)
+    }
+
     /**
      * 検索モードを開始する。
      *
@@ -238,8 +248,10 @@ fun TabScreenContent(
                         newResCounts = newResCounts,
                         selectedBoardTab = listUiState.selectedBoardTab,
                         selectedThreadTab = listUiState.selectedThreadTab,
-                        onCloseBoardTab = { tabSessionStore.closeBoardTab(it) },
-                         onCloseThreadTab = createThreadTabCloseHandler(tabSessionStore),
+                        onCloseBoardTab = { tabListViewModel.startBoardTabRemoval(it) },
+                        onCloseThreadTab = { tabListViewModel.startThreadTabRemoval(it) },
+                        onSwipeDeleteBoardTab = { tabSessionStore.closeBoardTab(it) },
+                        onSwipeDeleteThreadTab = createThreadTabCloseHandler(tabSessionStore),
                         onBoardTabLongPressed = { tab, bounds ->
                             tabListViewModel.onBoardTabLongPressed(tab, bounds)
                         },
@@ -247,9 +259,8 @@ fun TabScreenContent(
                             tabListViewModel.onThreadTabLongPressed(tab, bounds)
                         },
                         onClearNewResCount = { tabSessionStore.clearNewResCount(it) },
-                        pendingCloseBoardTab = listUiState.pendingCloseBoardTab,
-                        pendingCloseThreadTab = listUiState.pendingCloseThreadTab,
-                        onCloseRequestConsumed = { tabListViewModel.consumePendingCloseRequest() },
+                        removingBoardTabKeys = listUiState.removingBoardTabKeys,
+                        removingThreadTabKeys = listUiState.removingThreadTabKeys,
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = listUiState.isInLongPressSelectionMode,
                         currentScreenRoute = currentScreenRoute,
@@ -284,11 +295,26 @@ fun TabScreenContent(
                 searchInputValue = listUiState.searchInputValue,
                 searchFocusRequestId = listUiState.pendingSearchFocusRequestId,
                 onSearchClick = { enterSearchMode() },
+                onMoreClick = { bounds -> tabListViewModel.showBulkCloseMenu(bounds) },
                 onSearchInputChange = { inputValue: TextFieldValue ->
                     tabListViewModel.updateSearchInput(inputValue, pagerState.currentPage)
                 },
                 onSearchFocusRequestConsumed = { tabListViewModel.consumePendingSearchFocusRequest() },
                 onCloseSearch = { exitSearchMode() },
+            )
+
+            // --- Bulk close menu ---
+            AnchoredTabActionMenu(
+                expanded = listUiState.isBulkCloseMenuVisible,
+                anchorBoundsInWindow = listUiState.bulkCloseMenuBounds,
+                hazeState = hazeState,
+                onDismissRequest = { tabListViewModel.dismissBulkCloseMenu() },
+                onCloseAllClick = {
+                    // Pager state is the source of truth for the page acted on by the menu.
+                    TabPage.fromIndex(pagerState.currentPage)?.let {
+                        tabListViewModel.closeAllUnpinnedTabs(it)
+                    }
+                },
             )
 
             // --- Long-press overlay layer ---

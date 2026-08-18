@@ -5,6 +5,7 @@ import com.websarva.wings.android.slevo.ui.tabs.controller.IndexedTabOperation
 import com.websarva.wings.android.slevo.ui.tabs.controller.foldEffectiveTabs
 import com.websarva.wings.android.slevo.ui.tabs.controller.resolveTabPresentation
 import com.websarva.wings.android.slevo.ui.tabs.controller.selectionAfterTabRemoval
+import com.websarva.wings.android.slevo.ui.tabs.controller.selectionAfterTabRemovals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -88,5 +89,59 @@ class TabControllerPrimitivesTest {
         assertEquals(1_252, result.size)
         assertEquals(100, transformationCount)
         assertEquals(1_252, result.map { it.substringBefore("-updated") }.toSet().size)
+    }
+
+    /** 複数keyの除去が一つのprojection operationで固定タブを含む一覧を保つことを確認する。 */
+    @Test
+    fun foldEffectiveTabs_removesMultipleKeysInOneOperation() {
+        val result = foldEffectiveTabs(
+            canonicalTabs = listOf("a", "fixed", "b", "c"),
+            operations = listOf(
+                IndexedTabOperation(
+                    key = "a",
+                    remove = true,
+                    removeKeys = setOf("a", "b", "c"),
+                ) { it },
+            ),
+            keyOf = { it },
+        )
+
+        assertEquals(listOf("fixed"), result)
+    }
+
+    /** 複数削除でも単体closeを一覧順にfoldした最終選択と一致することを確認する。 */
+    @Test
+    fun selectionAfterTabRemovals_matchesSequentialSelectionForAllSubsets() {
+        val tabs = listOf("a", "b", "c", "d", "e")
+        val selectedKeys = listOf<String?>(null, "a", "c", "e")
+
+        selectedKeys.forEach { selectedKey ->
+            (0 until (1 shl tabs.size)).forEach { mask ->
+                val removedKeys = tabs.filterIndexed { index, _ -> mask and (1 shl index) != 0 }
+                var remainingTabs = tabs
+                var expected = selectedKey
+                removedKeys.forEach { removedKey ->
+                    val removedIndex = remainingTabs.indexOf(removedKey)
+                    remainingTabs = remainingTabs.filterNot { it == removedKey }
+                    expected = selectionAfterTabRemoval(
+                        selectedKey = expected,
+                        removedKey = removedKey,
+                        removedIndex = removedIndex,
+                        remainingTabs = remainingTabs,
+                        keyOf = { it },
+                    )
+                }
+
+                assertEquals(
+                    expected,
+                    selectionAfterTabRemovals(
+                        selectedKey = selectedKey,
+                        tabs = tabs,
+                        removedKeys = removedKeys,
+                        keyOf = { it },
+                    ),
+                )
+            }
+        }
     }
 }
