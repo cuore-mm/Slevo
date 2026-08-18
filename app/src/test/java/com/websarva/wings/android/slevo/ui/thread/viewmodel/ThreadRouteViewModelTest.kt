@@ -57,6 +57,13 @@ class ThreadRouteViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
+    fun resolvePendingBaseResCount_prefersCapturedBoundaryAfterRefresh() {
+        assertEquals(10, resolvePendingBaseResCount(10, loadedResCount = 11, tabResCount = 11))
+        assertEquals(11, resolvePendingBaseResCount(null, loadedResCount = 11, tabResCount = 10))
+        assertEquals(10, resolvePendingBaseResCount(null, loadedResCount = null, tabResCount = 10))
+    }
+
+    @Test
     fun uiStateFor_sameKeyReusesCachedFlow() {
         val threadId = ThreadId.of("example.com", "test", "111")
         val dependencies = mockDependencies(listOf(threadTab(threadId, "title")), selectedTabKey = threadId.value)

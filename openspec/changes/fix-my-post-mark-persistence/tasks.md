@@ -24,6 +24,7 @@
 - [x] 4.2 `ThreadRouteViewModel.loadThreadContent` の既存 `recordPendingPost` 呼び出しを `OwnPostReconciliationUseCase` に置き換え、`recordHistory` と `collectMyPostNumbers` の後にscope、`uiPosts`、historyId、boardIdを渡す。完了条件: INITIAL、MANUAL、BOTTOM_PULL、AUTO_SCROLLの共通成功経路で対象scopeが照合され、dat取得失敗時は照合されないViewModelテストが通る。
 - [x] 4.3 `ThreadSessionRuntimeState.PendingThreadPostState` と `ThreadRouteViewModel.recordPendingPost` を削除し、`pending.resNum ?: uiPosts.size` による自レス判定をなくす。完了条件: application codeに旧pending型と末尾レスfallbackの参照が残らず、既存タブruntime stateテストを新しい責務へ更新する。
 - [x] 4.4 MATCHED後の既存 `PostHistoryRepository.observeMyPostNumbers` 経路を回帰確認する。完了条件: 既存の `myPostNumbers` 表示経路を変更せず、CIのbuild/unit testが成功する。
+- [x] 4.5 `ThreadScaffold.kt`、`PostDialogController.kt`、`PostDialogSuccess.kt`、`BoardScaffold.kt`、`ThreadRouteViewModel.kt` を接続し、投稿送信直前のレス境界を成功イベントへ運ぶ。完了条件: 投稿開始後に更新が先行してもcapture済み `baseResCount` がPENDINGへ保存され、first phase/second phaseと新規スレッド作成の呼び出しがコンパイル可能で、`ThreadRouteViewModelTest` に回帰テストを追加する。
 
 ## 5. migrationとバックアップ互換性
 

@@ -56,7 +56,9 @@ DAOは `(providerId, boardKey, threadKey, status)` の複合indexを持ち、照
 
 ### 3. 投稿成功を先に永続化してから再読み込みする
 
-`ThreadRouteViewModel.onThreadPostSuccess` は、現在のタブ情報と `contentStates[tabKey].threadInfo.resCount`（なければ `ThreadTabInfo.resCount`）から `baseResCount` を取得する。`submittedAt` は注入可能な `nowMillis`、`expiresAt` は `submittedAt + 24時間`、`lastCheckedResNum` は `baseResCount` で初期化する。
+投稿送信を開始する直前に、`ThreadScaffold` が現在表示している投稿数を `baseResCount` としてcaptureする。確認画面を挟む投稿では、実際にネットワーク書き込みを開始する `postSecondPhase` の直前にcaptureし、captureした値を `PostDialogController` から `PostDialogSuccess.baseResCount` へ運ぶ。これにより、投稿成功callbackより先に自動更新・手動更新が完了して投稿レスを含んだとしても、投稿前の境界が変化しない。新規スレッド作成などスレッド返信でない呼び出し元は `null` を渡す。
+
+`ThreadRouteViewModel.onThreadPostSuccess` は、成功イベントの `baseResCount` を優先し、互換性のため値がない場合だけ現在のタブ情報と `contentStates[tabKey].posts?.size`（なければ `ThreadTabInfo.resCount`）へfallbackする。`submittedAt` は注入可能な `nowMillis`、`expiresAt` は `submittedAt + 24時間`、`lastCheckedResNum` は確定した `baseResCount` で初期化する。
 
 `PostDialogSuccess.resNum` は互換性のため直ちに削除しなくてもよいが、pending作成と照合では参照しない。pendingのinsert完了後に `reloadThread(tabKey)` を呼ぶ。DB書き込みのcancellationは再throwし、それ以外の書き込み失敗はログへ記録して再読み込みを継続する。投稿自体は既に外部サービスで成功しているため、書き込み失敗を投稿失敗としてUIへ再通知しない。
 
@@ -143,6 +145,7 @@ PostDialogSuccess
 - scope生成失敗: pendingを作らずログへ記録し、スレッドreloadは継続する。
 - pending insert失敗: cancellationは再throwし、それ以外はログへ記録してreloadを継続する。
 - dat取得失敗: pendingはPENDINGのまま維持し、次回成功ロードで再照合する。
+- 投稿開始後に更新が先行: 成功イベントに運んだ投稿開始時の `baseResCount` を使い、更新後のレス数で自分の投稿を候補範囲から除外しない。
 - match確定transaction失敗: transactionをrollbackしてPENDINGを維持し、ロード失敗の既存処理へ例外を伝える。
 - プロセス終了: RoomのPENDINGを次回の対象スレッドロードで再利用する。
 - v9 DB: `MIGRATION_9_10` で空のpending tableを追加し、既存投稿履歴を維持する。

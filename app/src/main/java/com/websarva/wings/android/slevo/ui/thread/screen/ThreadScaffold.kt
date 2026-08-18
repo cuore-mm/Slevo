@@ -529,6 +529,7 @@ fun ThreadScaffold(
                                         host,
                                         boardKey,
                                         threadKey = uiState.threadInfo.key,
+                                        baseResCount = uiState.posts?.size ?: uiState.threadInfo.resCount,
                                     )
                                 }
                             }
@@ -563,6 +564,7 @@ fun ThreadScaffold(
                                 boardKey,
                                 threadKey = uiState.threadInfo.key,
                                 confirmationData = confirmationData,
+                                baseResCount = uiState.posts?.size ?: uiState.threadInfo.resCount,
                             )
                         }
                     },

@@ -8,4 +8,5 @@ data class PostDialogSuccess(
     val message: String,
     val name: String,
     val mail: String,
+    val baseResCount: Int? = null,
 )

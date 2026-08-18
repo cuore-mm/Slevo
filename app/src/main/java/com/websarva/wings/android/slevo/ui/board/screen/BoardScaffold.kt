@@ -311,6 +311,7 @@ fun BoardScaffold(
                                         host,
                                         boardKey,
                                         threadKey = null,
+                                        baseResCount = null,
                                     )
                                 }
                             }
@@ -344,6 +345,7 @@ fun BoardScaffold(
                                 boardKey,
                                 threadKey = null,
                                 confirmationData = confirmationData,
+                                baseResCount = null,
                             )
                         }
                     },

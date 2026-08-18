@@ -1,12 +1,17 @@
 ## ADDED Requirements
 
 ### Requirement: 投稿成功情報の永続化
-システムは既存スレッドへのレス投稿が成功した場合、投稿先固有のレス番号応答に依存せず、対象provider、板、スレッド、投稿内容、照合範囲、投稿時刻、期限を持つ未確定投稿を永続化しなければならない（MUST）。
+システムは既存スレッドへのレス投稿を開始する時点のレス境界を保持し、投稿先固有のレス番号応答に依存せず、対象provider、板、スレッド、投稿内容、照合範囲、投稿時刻、期限を持つ未確定投稿を永続化しなければならない（MUST）。
 
 #### Scenario: 投稿成功時に未確定投稿を保存する
 - **WHEN** 既存スレッドへのレス投稿が成功する
 - **THEN** システムは `providerId + boardKey + threadKey`、本文、名前、メール、`baseResCount`、`lastCheckedResNum`、`submittedAt`、`expiresAt` を持つ `PENDING` レコードを保存する
 - **AND** `lastCheckedResNum` は投稿成功時の `baseResCount` で初期化する
+
+#### Scenario: 投稿開始時の境界を成功後も維持する
+- **WHEN** 投稿送信開始後、投稿成功イベントが処理される前に手動更新または自動更新で投稿レスが取得される
+- **THEN** システムは投稿送信直前にcaptureしたレス境界を `baseResCount` としてPENDINGへ保存する
+- **AND** 成功イベント処理時点の可変なレス数を投稿前境界として採用しない
 
 #### Scenario: provider固有レス番号を必要としない
 - **WHEN** 投稿成功応答にレス番号が含まれない

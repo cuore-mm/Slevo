@@ -938,7 +938,11 @@ class ThreadRouteViewModel @Inject constructor(
         }
 
         // --- Persistence ---
-        val baseResCount = contentStates.value[tabKey]?.posts?.size ?: tab.resCount
+        val baseResCount = resolvePendingBaseResCount(
+            capturedBaseResCount = success.baseResCount,
+            loadedResCount = contentStates.value[tabKey]?.posts?.size,
+            tabResCount = tab.resCount,
+        )
         try {
             pendingOwnPostRepository.createPending(
                 scope = scope,
@@ -1228,6 +1232,15 @@ class ThreadRouteViewModel @Inject constructor(
     private fun isThreadTabOpen(tabKey: String): Boolean {
         return tabSessionStore.openThreadTabs.value.any { it.id.value == tabKey }
     }
+}
+
+/** 投稿開始時にcaptureした境界を優先し、旧イベントには現在状態をfallbackとして使う。 */
+internal fun resolvePendingBaseResCount(
+    capturedBaseResCount: Int?,
+    loadedResCount: Int?,
+    tabResCount: Int,
+): Int {
+    return capturedBaseResCount ?: loadedResCount ?: tabResCount
 }
 
 /**
