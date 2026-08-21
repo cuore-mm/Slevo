@@ -258,6 +258,8 @@ HTTPエラーだけでは、未作成、dat落ち、削除、移転、アクセ�
 
 ### 2.5 差分取得とHTTPキャッシュ
 
+#### 2.5.1 参考仕様
+
 旧公式Wikiには、datの差分取得について次の方式が記録されている。
 
 | ヘッダまたは状態 | 内容 |
@@ -279,6 +281,32 @@ Range: bytes=<既得サイズ-1>-
 
 > [!CAUTION]
 > この節の詳細は2015年更新の旧公式Wikiを出典とする参考仕様である。datアクセス自体は現行公式に再公開されているが、すべての現行ホストが同じステータスとヘッダを返すことまでは保証されていない。部分取得に失敗した場合は全件取得へ戻る。
+
+#### 2.5.2 現行環境での観測
+
+2026年8月21日の`eagle.5ch.io`に対する実通信では、投稿直後のdatに次の差分リクエストが受理された。
+
+```http
+GET /<board>/dat/<threadKey>.dat
+If-Modified-Since: <previousLastModified>
+Range: bytes=<previousSize-1>-
+Accept-Encoding: identity
+```
+
+応答は`206 Partial Content`で、次のヘッダを含んでいた。
+
+```http
+Content-Type: text/plain
+Content-Length: <partialLength>
+Content-Range: bytes <start>-<end>/<totalLength>
+Last-Modified: <lastModified>
+ETag: <etag>
+```
+
+取得範囲には既得datの末尾1バイトと新しいレスが含まれ、投稿によるdatの追加を差分として確認できた。この観測により、少なくとも当該ホストでは、旧公式Wikiに記載された1バイト前からのRange取得が現行環境でも動作している。
+
+> [!NOTE]
+> これは単一ホストにおける現行公開形式の観測であり、すべてのホスト、板、時点で同じ応答が保証されるものではない。
 
 ### 2.6 `SETTING.TXT`
 
@@ -353,7 +381,7 @@ POST https://<server>.5ch.io/test/bbs.cgi
 
 現行の公開フォームでは相対URL`/test/bbs.cgi`または`//<server>.5ch.io/test/bbs.cgi`が使用されている。
 
-`?guid=ON`は現行公開フォームには含まれず、現行の必須パラメータとして確認できない。
+`?guid=ON`は現行公開フォームには含まれないが、2026年8月21日の`eagle.5ch.io`に対するレス投稿では、このクエリを付けたリクエストが受理された。現行の必須パラメータであることまでは確認できない。
 
 #### 3.1.2 Content-Typeと文字コード
 
@@ -404,6 +432,8 @@ Shift_JISで直接表現できない文字は、公開フォームやサーバ�
 | `submit` | submit | 通常は`書き込む` |
 
 `site`、`cert`などの有無はフォームによって異なる。現行の板トップでは、`cert`はスレッドごとに異なる40桁の16進文字列として観測されているが、その生成規則や有効期間は公開されていない。
+
+2026年8月21日の`eagle.5ch.io`に対するレス投稿では、`bbs`、`key`、`time`、`FROM`、`mail`、`MESSAGE`、`submit`だけを含み、`site`と`cert`を含まないリクエストが受理された。これは両項目がすべてのレス投稿で必須ではないことを示すが、他のフォームや投稿経路でも不要であることまでは保証しない。
 
 **根拠:** 現行公開形式。
 
@@ -499,6 +529,73 @@ https://<server>.5ch.io/<board>/
 | 不明 | 既知の形式では成否を判定できない |
 
 HTMLタイトルや本文の日本語文言だけに依存せず、HTTPステータス、レスポンスヘッダ、Cookie、HTML全体を保持して判定する。未公開の独自レスポンスヘッダは、存在しない場合も受理できるようにする。
+
+#### 3.5.1 観測されたレス投稿成功応答
+
+2026年8月21日の`eagle.5ch.io`に対するレス投稿では、次のHTTP応答が返り、直後のdat取得で投稿の反映が確認された。
+
+```http
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=Shift_JIS
+```
+
+応答には`Location`ヘッダがなく、Shift_JISのHTML本文に成功表示とmeta refreshが含まれていた。
+
+```html
+<html lang="ja">
+<head>
+<title>書きこみました。</title>
+<meta http-equiv="Content-Type" content="text/html; charset=Shift_JIS">
+<meta content=1;URL=//<server>.5ch.io/test/read.cgi/<board>/<threadKey>/l50
+      http-equiv=refresh>
+</head>
+<body>書きこみが終わりました。 [<processingTime>]<br><br>
+画面を切り替えるまでしばらくお待ち下さい。<br><br>
+</body>
+</html>
+```
+
+この形式から、次のことが観測できる。
+
+- 観測した成功応答のタイトルは`書きこみました。`で、末尾に句点を含んでいた。
+- 観測したmeta refreshの待機時間は1秒だった。
+- 観測した遷移先は対象スレッドの`l50`で、スキーム省略URLが使用されていた。
+- 観測したmeta要素では属性値が引用符で囲まれていなかったため、同形式を扱う場合はHTMLとして解析する。
+- この成功応答には`<!-- 2ch_X:true -->`が含まれておらず、このコメントを成功判定の必須条件にはできない。
+
+成功を装った応答や反映遅延の可能性があるため、このHTMLだけで投稿結果を確定せず、利用可能な応答ヘッダとdatへの反映も確認する。
+
+#### 3.5.2 観測された投稿結果ヘッダ
+
+同じ成功応答では、次の独自ヘッダが観測された。
+
+| ヘッダ | 観測上の内容 |
+| --- | --- |
+| `X-Postplace` | 投稿先の`board/threadKey` |
+| `X-Resnum` | 投稿されたレス番号 |
+| `X-Postdate` | この観測では`<UNIX秒>.01`形式で、datの投稿日時と一致 |
+| `X-Posterid` | この観測では、dat表示IDの末尾`0`を除いた文字列と一致 |
+| `X-Uplift-Stat` | UPLIFTの状態 |
+| `X-Donguri-Stat` | どんぐりの状態 |
+| `X-Regioninfo` | 地域、ネットワーク、ASなどの判定情報 |
+| `X-Proc-Time` | サーバー処理時間 |
+
+`X-Postdate`は`<UNIX秒>.01`の形式で、追加されたdat行の投稿日時と一致した。`X-Posterid`は、追加されたdat行の表示IDから末尾の`0`を除いた文字列と一致した。末尾の`0`の意味や、他の投稿でも同じ対応になるかは、この観測だけでは確認できない。
+
+これらは未公開の独自ヘッダであり、常に存在すること、値の形式が変わらないこと、スレッド作成でも同じ意味になることは保証されていない。特に`X-Regioninfo`は投稿元に関する情報を含むため、ログの公開や共有時には値を伏せる。
+
+#### 3.5.3 datによる反映確認
+
+同じ観測では、`X-Resnum`の値`5`が直後に差分取得した新規5番レスと一致し、`X-Postdate`の日時および`X-Posterid`も前述の対応関係でdat行と一致した。
+
+投稿成功は、利用可能な情報を次の順に組み合わせて確認する。
+
+1. HTTP成功ステータスを確認する。
+2. 成功HTMLまたは成功を示す遷移先を確認する。
+3. `X-Postplace`、`X-Resnum`、`X-Postdate`などの投稿結果ヘッダを確認する。
+4. datを再取得し、示されたレス番号と投稿内容が反映されたことを確認する。
+
+datへの反映確認が最も強い成功証拠となる。タイムアウト、独自ヘッダの欠落、成功形式に見える規制応答などにより成否を確定できない場合は、自動で再投稿せずdatを確認する。
 
 ---
 
@@ -762,6 +859,7 @@ https://donguri.5ch.io/
 | 現行公開形式 | <https://agree.5ch.io/operate/> | 板トップ、レス投稿フォーム、スレッド作成フォーム |
 | 現行公開形式 | <https://agree.5ch.io/test/read.cgi/sec2chd/9240230711/> | read.cgi、レス投稿フォーム |
 | 現行公開形式 | <https://menu.5ch.io/bbsmenu.html> | 板メニューと現行ホスト |
+| 現行通信観測 | 2026-08-21 `eagle.5ch.io` | レス投稿成功応答、独自ヘッダ、datへの反映、Range差分取得 |
 | 現行公式 | <https://donguri.5ch.io/faq> | どんぐりレベルと投稿制限 |
 | 公式Wiki | <https://info.5ch.io/index.php/SETTING.TXT> | 板設定キー |
 | 参考仕様 | <https://info.5ch.io/index.php/Monazilla/develop/access> | HTTPキャッシュとRange取得 |
