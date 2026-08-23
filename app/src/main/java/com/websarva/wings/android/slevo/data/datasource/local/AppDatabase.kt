@@ -48,7 +48,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.history.Pen
 import com.websarva.wings.android.slevo.data.datasource.local.entity.state.ThreadStateEntity
 
 /** Room DB schema version。`@Database` annotation、[BackupDatabaseValidator]、[PendingRestoreApplier] などから参照する。 */
-internal const val DATABASE_VERSION = 10
+internal const val DATABASE_VERSION = 11
 
 @TypeConverters(NgTypeConverter::class)
 @Database(
@@ -107,7 +107,7 @@ abstract class AppDatabase : RoomDatabase() {
         /**
          * バックアップ復元で受け付ける最小 Room DB schema version。
          * この version から現在 version まで migration path が連続している。
-         * source inspection で migration chain の連続性を確認済み (v2 → v10)。
+          * source inspection で migration chain の連続性を確認済み (v2 → v11)。
          * v1 は exported Room schema が存在せず、事前 schema sanity check の
          * source of truth を用意できないため、復元対象外とする。
          */
@@ -378,6 +378,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE pending_own_posts ADD COLUMN confirmedResNum INTEGER"
+                )
+                db.execSQL(
+                    "ALTER TABLE pending_own_posts ADD COLUMN serverPostDateMillis INTEGER"
+                )
+                db.execSQL(
+                    "ALTER TABLE pending_own_posts ADD COLUMN posterIdHint TEXT"
+                )
+            }
+        }
+
         /**
          * Room に登録する全 migration の共有リスト。
          * `DatabaseModule.provideAppDatabase()` はこのリストを使って `.addMigrations(...)` する。
@@ -393,6 +407,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_7_8,
             MIGRATION_8_9,
             MIGRATION_9_10,
+            MIGRATION_10_11,
         )
 
         /**

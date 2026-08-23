@@ -951,6 +951,7 @@ class ThreadRouteViewModel @Inject constructor(
                 email = success.mail,
                 baseResCount = baseResCount,
                 submittedAt = System.currentTimeMillis(),
+                receipt = success.receipt,
             )
         } catch (error: Exception) {
             if (error is CancellationException) throw error

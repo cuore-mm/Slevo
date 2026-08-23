@@ -295,6 +295,7 @@ class RealBackupDatabaseValidator @Inject constructor() : BackupDatabaseValidato
         const val EXPECTED_USER_VERSION = DATABASE_VERSION
 
         /** Room の期待する `room_master_table` の identity hash。 */
+        // TODO: 11.json提供後にRoom v11生成値へ更新する。
         const val EXPECTED_IDENTITY_HASH = "f7b884d4e602207a8d106c0e8c908e13"
 
         /** Room DB に必須の application table 一覧（current version 用）。 */
@@ -326,7 +327,7 @@ class RealBackupDatabaseValidator @Inject constructor() : BackupDatabaseValidato
          * Room DB version ごとの expected application table set。
          *
          * `app/schemas/com.websarva.wings.android.slevo.data.datasource.local.AppDatabase/`
-          * の exported Room schema JSON (v2-v10) を source of truth とする。
+          * の exported Room schema JSON (v2-v11) を source of truth とする。
          * `room_master_table` と `android_metadata` は含めない。
          * v1 は exported schema が存在しないため定義しない。
          *
@@ -403,7 +404,16 @@ class RealBackupDatabaseValidator @Inject constructor() : BackupDatabaseValidato
                 "post_identity_histories", "post_last_identities",
                 "thread_states",
             ),
-            10 to setOf(
+             10 to setOf(
+                "services", "categories", "boards", "board_category_cross_ref",
+                "groups", "bookmark_boards", "bookmark_threads", "thread_bookmark_groups",
+                "open_board_tabs", "open_thread_tabs", "thread_histories",
+                "thread_history_accesses", "ng_entries", "thread_summaries",
+                "board_visits", "board_fetch_meta", "post_histories",
+                "post_identity_histories", "post_last_identities", "thread_states",
+                "pending_own_posts",
+            ),
+            11 to setOf(
                 "services", "categories", "boards", "board_category_cross_ref",
                 "groups", "bookmark_boards", "bookmark_threads", "thread_bookmark_groups",
                 "open_board_tabs", "open_thread_tabs", "thread_histories",

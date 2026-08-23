@@ -30,6 +30,13 @@ class OwnPostMatcherTest {
         assertFalse(matcher.matches(pending(content = "a b"), post(content = "ab")))
     }
 
+    @Test
+    fun matchesPosterId_usesTrimmedCaseSensitivePrefix() {
+        assertTrue(matcher.matchesPosterId(pending().copy(posterIdHint = " abc "), post(id = "abcdef")))
+        assertFalse(matcher.matchesPosterId(pending().copy(posterIdHint = "abc"), post(id = "ABCdef")))
+        assertFalse(matcher.matchesPosterId(pending().copy(posterIdHint = "abc"), post(id = "ab")))
+    }
+
     private fun pending(
         content: String = "message",
         name: String = "name",
@@ -51,12 +58,13 @@ class OwnPostMatcherTest {
         content: String = "message",
         name: String = "name",
         email: String = "mail",
+        id: String = "id",
     ) = ThreadPostUiModel(
         header = ThreadPostUiModel.Header(
             name = name,
             email = email,
             date = "2024/01/01 00:00:00",
-            id = "id",
+            id = id,
         ),
         body = ThreadPostUiModel.Body(content),
     )

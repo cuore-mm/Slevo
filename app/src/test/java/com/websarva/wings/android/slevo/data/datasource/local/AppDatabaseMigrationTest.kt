@@ -22,6 +22,7 @@ class AppDatabaseMigrationTest {
             AppDatabase.MIGRATION_7_8,
             AppDatabase.MIGRATION_8_9,
             AppDatabase.MIGRATION_9_10,
+            AppDatabase.MIGRATION_10_11,
         )
         assertEquals(expected.size, AppDatabase.ALL_REGISTERED_MIGRATIONS.size)
         expected.zip(AppDatabase.ALL_REGISTERED_MIGRATIONS).forEach { (exp, actual) ->
@@ -48,6 +49,7 @@ class AppDatabaseMigrationTest {
             AppDatabase.MIGRATION_7_8,
             AppDatabase.MIGRATION_8_9,
             AppDatabase.MIGRATION_9_10,
+            AppDatabase.MIGRATION_10_11,
         )
         names.zip(AppDatabase.ALL_REGISTERED_MIGRATIONS).forEach { (companionVal, listVal) ->
             assertEquals(

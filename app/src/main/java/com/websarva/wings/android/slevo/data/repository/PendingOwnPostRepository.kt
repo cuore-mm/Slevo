@@ -7,6 +7,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.history.Pendin
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PendingOwnPostEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PendingOwnPostStatus
 import com.websarva.wings.android.slevo.data.model.OwnPostThreadScope
+import com.websarva.wings.android.slevo.data.model.PostReceipt
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -32,6 +33,7 @@ class PendingOwnPostRepository @Inject constructor(
         baseResCount: Int,
         submittedAt: Long,
         expiresAt: Long = submittedAt + PENDING_LIFETIME_MILLIS,
+        receipt: PostReceipt = PostReceipt(),
     ): Long = gate.withWritePermit {
         dao.deleteOldTerminal(
             submittedBefore = submittedAt - TERMINAL_RETENTION_MILLIS,
@@ -50,6 +52,9 @@ class PendingOwnPostRepository @Inject constructor(
                 lastCheckedResNum = baseResCount.coerceAtLeast(0),
                 submittedAt = submittedAt,
                 expiresAt = expiresAt,
+                confirmedResNum = receipt.confirmedResNum,
+                serverPostDateMillis = receipt.serverPostDateMillis,
+                posterIdHint = receipt.posterIdHint,
             )
         )
     }

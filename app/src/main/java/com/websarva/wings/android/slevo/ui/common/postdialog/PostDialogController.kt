@@ -307,7 +307,7 @@ class PostDialogController @AssistedInject constructor(
                 recordIdentityIfNeeded(submittedForm)
                 onPostSuccess(
                     PostDialogSuccess(
-                        resNum = result.resNum,
+                        receipt = result.receipt,
                         message = submittedForm.message,
                         name = submittedForm.name,
                         mail = submittedForm.mail,

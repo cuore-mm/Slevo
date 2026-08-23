@@ -79,6 +79,87 @@ class OwnPostReconciliationUseCaseTest {
         coVerify(exactly = 0) { repository.completeMatch(any(), any(), any(), any(), any(), any(), any(), any()) }
     }
 
+    @Test
+    fun reconcile_confirmedResNum_completesWithoutContentOrIdentityMatch() = runTest {
+        val repository = mockk<PendingOwnPostRepository>(relaxed = true)
+        coEvery { repository.findPending(scope) } returns listOf(pending().copy(confirmedResNum = 2))
+        coEvery {
+            repository.completeMatch(any(), any(), any(), any(), any(), any(), any(), any())
+        } returns true
+        val useCase = OwnPostReconciliationUseCase(repository, OwnPostMatcher())
+
+        useCase.reconcile(
+            scope,
+            posts = listOf(post("unrelated", name = "other", email = "other", id = "other"), post("anything")),
+            historyId = 1L,
+            boardId = 1L,
+            nowMillis = 100L,
+        )
+
+        coVerify(exactly = 1) {
+            repository.completeMatch(
+                pending = any(),
+                matchedResNum = 2,
+                date = any(),
+                historyId = 1L,
+                boardId = 1L,
+                name = "name",
+                email = "mail",
+                postId = any(),
+            )
+        }
+    }
+
+    @Test
+    fun reconcile_confirmedResNumNotInLoadedPosts_waitsWithoutAdvancingRange() = runTest {
+        val repository = mockk<PendingOwnPostRepository>(relaxed = true)
+        coEvery { repository.findPending(scope) } returns listOf(pending().copy(confirmedResNum = 3))
+        val useCase = OwnPostReconciliationUseCase(repository, OwnPostMatcher())
+
+        useCase.reconcile(scope, posts = listOf(post("anything")), 1L, 1L, 100L)
+
+        coVerify(exactly = 0) { repository.updateLastCheckedResNum(any(), any()) }
+        coVerify(exactly = 0) {
+            repository.completeMatch(any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun reconcile_posterIdZeroMatchesFallsBackToOriginalCandidatesAndIdentity() = runTest {
+        val repository = mockk<PendingOwnPostRepository>(relaxed = true)
+        coEvery { repository.findPending(scope) } returns listOf(
+            pending().copy(name = "mine", posterIdHint = "missing"),
+        )
+        coEvery {
+            repository.completeMatch(any(), any(), any(), any(), any(), any(), any(), any())
+        } returns true
+        val useCase = OwnPostReconciliationUseCase(repository, OwnPostMatcher())
+
+        useCase.reconcile(
+            scope,
+            posts = listOf(
+                post("message", name = "other", id = "id-1"),
+                post("message", name = "mine", id = "id-2"),
+            ),
+            historyId = 1L,
+            boardId = 1L,
+            nowMillis = 100L,
+        )
+
+        coVerify(exactly = 1) {
+            repository.completeMatch(
+                pending = any(),
+                matchedResNum = 2,
+                date = any(),
+                historyId = any(),
+                boardId = any(),
+                name = "mine",
+                email = "mail",
+                postId = any(),
+            )
+        }
+    }
+
     private fun pending(
         content: String = "message",
         lastCheckedResNum: Int = 0,
@@ -96,12 +177,17 @@ class OwnPostReconciliationUseCaseTest {
         expiresAt = expiresAt,
     )
 
-    private fun post(content: String) = ThreadPostUiModel(
+    private fun post(
+        content: String,
+        name: String = "name",
+        email: String = "mail",
+        id: String = if (content == "message") "id-2" else "id-1",
+    ) = ThreadPostUiModel(
         header = ThreadPostUiModel.Header(
-            name = "name",
-            email = "mail",
+            name = name,
+            email = email,
             date = "2024/01/01 00:00:00",
-            id = if (content == "message") "id-2" else "id-1",
+            id = id,
         ),
         body = ThreadPostUiModel.Body(content),
     )

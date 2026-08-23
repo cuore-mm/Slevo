@@ -43,22 +43,22 @@
 
 ## 7. 投稿成功証拠の抽出と伝播
 
-- [ ] 7.1 `data/model/PostReceipt.kt` に `confirmedResNum`、`serverPostDateMillis`、`posterIdHint` を持つ不変モデルを追加し、`data/util` 配下へparser interfaceと5ch互換実装を追加する。完了条件: parser単体テストがheader名case-insensitive、正/0/負/overflowレス番号、投稿先一致/不一致/欠落、BigDecimalによるUNIX秒小数変換、空投稿者ID、全header欠落を検証する。
-- [ ] 7.2 `PostRepository.handlePostResponse` を変更し、HTTP responseをcloseする前に全providerで5ch互換parserを試行して `PostResult.Success(PostReceipt)` を返す。完了条件: `X-Regioninfo` および未使用headerをモデル・DB・ログへ渡さず、header不正時も投稿成功自体は維持するRepository単体テストが通る。
-- [ ] 7.3 `PostDialogController.kt`、`PostDialogSuccess.kt`、`ThreadRouteViewModel.kt` を更新し、`PostReceipt` を成功応答から `PendingOwnPostRepository.createPending` まで運ぶ。完了条件: ViewModelテストが全証拠の保存引数、pending保存完了後のreload、receipt欠落時の従来fallbackを検証する。
+- [x] 7.1 `data/model/PostReceipt.kt` に `confirmedResNum`、`serverPostDateMillis`、`posterIdHint` を持つ不変モデルを追加し、`data/util` 配下へparser interfaceと5ch互換実装を追加する。完了条件: parser単体テストがheader名case-insensitive、正/0/負/overflowレス番号、投稿先一致/不一致/欠落、BigDecimalによるUNIX秒小数変換、空投稿者ID、全header欠落を検証する。
+- [x] 7.2 `PostRepository.handlePostResponse` を変更し、HTTP responseをcloseする前に全providerで5ch互換parserを試行して `PostResult.Success(PostReceipt)` を返す。完了条件: `X-Regioninfo` および未使用headerをモデル・DB・ログへ渡さず、header不正時も投稿成功自体は維持するRepository単体テストが通る。
+- [x] 7.3 `PostDialogController.kt`、`PostDialogSuccess.kt`、`ThreadRouteViewModel.kt` を更新し、`PostReceipt` を成功応答から `PendingOwnPostRepository.createPending` まで運ぶ。完了条件: ViewModelテストが全証拠の保存引数、pending保存完了後のreload、receipt欠落時の従来fallbackを検証する。
 
 ## 8. Room v11とバックアップ互換性
 
-- [ ] 8.1 `PendingOwnPostEntity.kt` とRepository mappingへnullableの `confirmedResNum`、`serverPostDateMillis`、`posterIdHint` を追加する。完了条件: 新規pendingはreceipt値を保持し、v10由来のnull証拠pendingを読み込めるDAO/Repositoryテストが通る。
+- [x] 8.1 `PendingOwnPostEntity.kt` とRepository mappingへnullableの `confirmedResNum`、`serverPostDateMillis`、`posterIdHint` を追加する。完了条件: 新規pendingはreceipt値を保持し、v10由来のnull証拠pendingを読み込めるDAO/Repositoryテストが通る。
 - [ ] 8.2 `AppDatabase.kt` をversion 11へ更新し、`MIGRATION_10_11` で3つのnullable列を追加して `ALL_REGISTERED_MIGRATIONS` へ登録し、schema `11.json` をRoom exportで生成する。完了条件: unit migration testがv9→v10→v11連続pathを、instrumented migration testがv10既存データ保持・列型・nullability・schema validationを検証する。
 - [ ] 8.3 `BackupDatabaseValidator.kt` と関連backup testをv11 identity hash、required table、version別table setへ更新し、v2-v10 historical setを維持する。完了条件: schema `11.json` 由来のidentity hashとcurrent schema検証、v10 backupのprevalidationとv11 migration pathがテストで確認できる。
 
 ## 9. 階層的な自レス照合
 
-- [ ] 9.1 `data/util` 配下へ照合専用日時parserを追加し、dat日時をAsia/Tokyoで曜日と0〜9桁の小数秒を許容してepoch millisへ変換する。完了条件: 単体テストがJST固定、小数秒の十進解釈、解釈不能null、差1,000msの内外境界を検証し、既存 `parseDateToUnix` の現在時刻fallbackを照合に使っていない。
-- [ ] 9.2 `OwnPostMatcher.kt` を本文候補、日時、poster ID prefix、入力済みidentityの独立した純粋filterへ再構成する。完了条件: `OwnPostMatcherTest` が `datPosterId.trim().startsWith(posterIdHint.trim())` のcase-sensitiveな0/1/複数件、0件時の元候補復元、name/mail最終絞り込みを検証する。
-- [ ] 9.3 `OwnPostReconciliationUseCase.kt` にscope整合済み `confirmedResNum` の最優先確定とdat未反映時の待機を追加する。完了条件: UseCaseテストが即時確定、範囲外待機、同一実行内候補再利用防止、MATCHED時に取得レスの日時/IDを履歴へ保存することを検証する。
-- [ ] 9.4 `OwnPostReconciliationUseCase.kt` の通常照合を本文→利用可能な日時±1,000ms→poster ID prefix→name/mailの順へ変更する。完了条件: 各段階の一意確定、日時欠落fallback、日時0候補PENDING、poster ID 0候補rollback、最終曖昧PENDING、本文0候補だけの `lastCheckedResNum` 更新を単体テストで検証する。
+- [x] 9.1 `data/util` 配下へ照合専用日時parserを追加し、dat日時をAsia/Tokyoで曜日と0〜9桁の小数秒を許容してepoch millisへ変換する。完了条件: 単体テストがJST固定、小数秒の十進解釈、解釈不能null、差1,000msの内外境界を検証し、既存 `parseDateToUnix` の現在時刻fallbackを照合に使っていない。
+- [x] 9.2 `OwnPostMatcher.kt` を本文候補、日時、poster ID prefix、入力済みidentityの独立した純粋filterへ再構成する。完了条件: `OwnPostMatcherTest` が `datPosterId.trim().startsWith(posterIdHint.trim())` のcase-sensitiveな0/1/複数件、0件時の元候補復元、name/mail最終絞り込みを検証する。
+- [x] 9.3 `OwnPostReconciliationUseCase.kt` にscope整合済み `confirmedResNum` の最優先確定とdat未反映時の待機を追加する。完了条件: UseCaseテストが即時確定、範囲外待機、同一実行内候補再利用防止、MATCHED時に取得レスの日時/IDを履歴へ保存することを検証する。
+- [x] 9.4 `OwnPostReconciliationUseCase.kt` の通常照合を本文→利用可能な日時±1,000ms→poster ID prefix→name/mailの順へ変更する。完了条件: 各段階の一意確定、日時欠落fallback、日時0候補PENDING、poster ID 0候補rollback、最終曖昧PENDING、本文0候補だけの `lastCheckedResNum` 更新を単体テストで検証する。
 
 ## 10. 統合・最終検証
 

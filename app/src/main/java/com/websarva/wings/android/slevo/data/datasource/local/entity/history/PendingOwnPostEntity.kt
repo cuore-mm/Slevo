@@ -31,6 +31,9 @@ data class PendingOwnPostEntity(
     val submittedAt: Long,
     val expiresAt: Long,
     val matchedResNum: Int? = null,
+    val confirmedResNum: Int? = null,
+    val serverPostDateMillis: Long? = null,
+    val posterIdHint: String? = null,
 )
 
 /**

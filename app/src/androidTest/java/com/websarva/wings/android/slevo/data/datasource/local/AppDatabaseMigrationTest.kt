@@ -727,6 +727,7 @@ class AppDatabaseMigrationTest {
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
             .addMigrations(AppDatabase.MIGRATION_9_10)
+            .addMigrations(AppDatabase.MIGRATION_10_11)
             .build()
         val writable = db.openHelper.writableDatabase
         writable.query("PRAGMA table_info('pending_own_posts')").use { cursor ->
@@ -749,6 +750,60 @@ class AppDatabaseMigrationTest {
         ).use { cursor ->
             assertTrue(cursor.moveToFirst())
             assertEquals(1, cursor.getInt(0))
+        }
+        db.close()
+    }
+
+    /** v10の既存pending行を保持したまま照合証拠列を追加する。 */
+    @Test
+    fun migrate10To11_addsNullableReceiptColumns() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.deleteDatabase(TEST_DB)
+
+        helper.createDatabase(TEST_DB, 10).apply {
+            execSQL(
+                """
+                INSERT INTO pending_own_posts(
+                    providerId, boardKey, threadKey, status, content, name, email,
+                    baseResCount, lastCheckedResNum, submittedAt, expiresAt, matchedResNum
+                ) VALUES ('provider', 'board', 'thread', 'PENDING', 'message', 'name', 'mail',
+                    1, 1, 10, 20, NULL)
+                """.trimIndent()
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            11,
+            true,
+            AppDatabase.MIGRATION_10_11,
+        )
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
+            .addMigrations(AppDatabase.MIGRATION_10_11)
+            .build()
+        db.openHelper.writableDatabase.query("PRAGMA table_info('pending_own_posts')").use { cursor ->
+            val columns = mutableListOf<String>()
+            while (cursor.moveToNext()) {
+                columns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
+            }
+            assertTrue(
+                columns.containsAll(
+                    listOf("confirmedResNum", "serverPostDateMillis", "posterIdHint")
+                )
+            )
+        }
+        db.openHelper.writableDatabase.query(
+            """
+            SELECT confirmedResNum, serverPostDateMillis, posterIdHint
+            FROM pending_own_posts WHERE providerId = 'provider'
+            """.trimIndent()
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertTrue(cursor.isNull(0))
+            assertTrue(cursor.isNull(1))
+            assertTrue(cursor.isNull(2))
         }
         db.close()
     }

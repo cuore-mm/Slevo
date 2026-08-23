@@ -18,6 +18,8 @@ import com.websarva.wings.android.slevo.data.datasource.remote.impl.DatRemoteDat
 import com.websarva.wings.android.slevo.data.datasource.remote.impl.PostRemoteDataSourceImpl
 import com.websarva.wings.android.slevo.data.datasource.remote.impl.ThreadCreateRemoteDataSourceImpl
 import com.websarva.wings.android.slevo.data.datasource.remote.impl.ImageUploadRemoteDataSourceImpl
+import com.websarva.wings.android.slevo.data.util.FiveChPostReceiptParser
+import com.websarva.wings.android.slevo.data.util.PostReceiptParser
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -93,4 +95,11 @@ abstract class DataSourceModule {
     abstract fun bindTabsLocalDataSource(
         impl: TabsLocalDataSourceImpl,
     ): TabsLocalDataSource
+
+    /** 投稿成功ヘッダー解析用の5ch互換parser。 */
+    @Binds
+    @Singleton
+    abstract fun bindPostReceiptParser(
+        impl: FiveChPostReceiptParser,
+    ): PostReceiptParser
 }

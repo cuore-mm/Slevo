@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.websarva.wings.android.slevo.data.database.DatabaseWriteGate
 import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import com.websarva.wings.android.slevo.data.model.OwnPostThreadScope
+import com.websarva.wings.android.slevo.data.model.PostReceipt
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -86,5 +87,28 @@ class PendingOwnPostRepositoryTest {
         assertEquals(0, database.pendingOwnPostDao().findPending(
             scope.providerId, scope.boardKey, scope.threadKey, "MATCHED"
         ).size)
+    }
+
+    @Test
+    fun createPending_persistsReceiptEvidence() = runBlocking {
+        val scope = OwnPostThreadScope("provider", "board", "target")
+        repository.createPending(
+            scope = scope,
+            content = "message",
+            name = "name",
+            email = "mail",
+            baseResCount = 10,
+            submittedAt = 1L,
+            receipt = PostReceipt(
+                confirmedResNum = 11,
+                serverPostDateMillis = 123_456L,
+                posterIdHint = "ABC",
+            ),
+        )
+
+        val pending = repository.findPending(scope).single()
+        assertEquals(11, pending.confirmedResNum)
+        assertEquals(123_456L, pending.serverPostDateMillis)
+        assertEquals("ABC", pending.posterIdHint)
     }
 }
