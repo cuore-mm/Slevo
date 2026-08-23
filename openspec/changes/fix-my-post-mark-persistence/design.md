@@ -178,7 +178,8 @@ HTTP response headers
 - 確定レス番号がdat未反映: PENDINGを維持し、範囲終端や別レスへ置換せず次回取得を待つ。
 - 妥当な投稿時刻と本文の一致が0件: 確認位置を進めずPENDINGを維持する。
 - 投稿開始後に更新が先行: 成功イベントに運んだ投稿開始時の `baseResCount` を使い、更新後のレス数で自分の投稿を候補範囲から除外しない。
-- match確定transaction失敗: transactionをrollbackしてPENDINGを維持し、ロード失敗の既存処理へ例外を伝える。
+- match確定transaction失敗: transactionをrollbackしてPENDINGを維持し、照合処理の非キャンセル例外はログへ記録する。dat取得とUI反映は既に成功しているため、ロード失敗Toastへ変換せず、次回ロードで再照合する。
+- 照合DB処理失敗: `OwnPostReconciliationUseCase` の非キャンセル例外をスレッドロード処理から分離し、取得済み投稿一覧、履歴、ロード成功状態を維持する。キャンセルは再throwする。
 - プロセス終了: RoomのPENDINGを次回の対象スレッドロードで再利用する。
 - v10 DB: `MIGRATION_10_11` でnullable証拠列を追加し、既存pendingと投稿履歴を維持する。
 - v2-v10バックアップ: current v11までmigration pathがある場合は従来どおり復元候補にできる。
@@ -191,6 +192,7 @@ HTTP response headers
 - `OwnPostReconciliationUseCase` 単体テスト: confirmed resNum即時確定/未反映待機、scope限定、範囲限定、各証拠の欠落fallback、0/1/複数候補、矛盾時PENDING、expiry、候補再利用防止。
 - Repository/DAOテスト: PENDING作成、条件付きMATCHED、EXPIRED、terminal cleanup、別scope非取得、transaction失敗時rollback、二重確定防止。
 - `ThreadRouteViewModelTest`: 投稿成功時にbase count付きpendingを保存してからreloadすること、各ロード理由の共通成功経路で照合すること、別スレッドpendingを渡さないこと。
+- `ThreadRouteViewModelTest`: dat取得成功後の照合DB例外が投稿一覧・履歴・ロード成功状態を維持し、失敗Toastを設定しないこと、キャンセル例外は再throwすることを検証する。
 - migration unit/instrumentation test: v10からv11へ移行し、nullable証拠列と既存pending/投稿履歴保持を検証する。v9→v10→v11連続pathも確認する。
 - backup validatorテスト: v11 identity hash/table set、v2-v10 historical set不変、v10 backupからv11 migration pathを検証する。
 - 既存UIテストまたはCompose test: MATCHED後の `myPostNumbers` により投稿行、返信ポップアップ、ミニマップの既存マークが維持されることを回帰確認する。

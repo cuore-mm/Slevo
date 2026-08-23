@@ -161,6 +161,24 @@ class ThreadRouteViewModelTest {
     }
 
     @Test
+    fun reloadThread_reconciliationFailure_keepsSuccessfulLoadState() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "111")
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            reconciliationFailure = IllegalStateException("database temporarily unavailable"),
+        )
+        val viewModel = dependencies.createViewModel()
+
+        viewModel.reloadThread(threadId.value)
+        advanceUntilIdle()
+
+        val session = dependencies.sessionStates.value[threadId.value]
+        assertEquals(null, session?.pendingToastResId)
+        assertEquals(false, session?.isLoading)
+    }
+
+    @Test
     fun initialLoad_restoresUnreadGroupFromLastReadPosition() {
         val state = updateThreadPostGroups(
             previousGroups = emptyList(),
@@ -406,6 +424,7 @@ class ThreadRouteViewModelTest {
         initialSessionStates: Map<String, ThreadSessionState> = tabs.associate { it.id.value to ThreadSessionState() },
         suspendLoad: Boolean = false,
         loadReturnsNull: Boolean = false,
+        reconciliationFailure: Throwable? = null,
     ): RouteDependencies {
         val openTabs = MutableStateFlow(tabs)
         val selectedKey = MutableStateFlow(selectedTabKey)
@@ -513,6 +532,13 @@ class ThreadRouteViewModelTest {
             }
         }
 
+        val ownPostReconciliationUseCase = mockk<OwnPostReconciliationUseCase>(relaxed = true)
+        reconciliationFailure?.let { failure ->
+            coEvery {
+                ownPostReconciliationUseCase.reconcile(any(), any(), any(), any(), any())
+            } throws failure
+        }
+
         return RouteDependencies(
             store = store,
             openTabs = openTabs,
@@ -528,7 +554,7 @@ class ThreadRouteViewModelTest {
             tabsRepository = tabsRepository,
             readStateRepository = readStateRepository,
             threadContentLoadUseCase = threadContentLoadUseCase,
-            ownPostReconciliationUseCase = mockk(relaxed = true),
+            ownPostReconciliationUseCase = ownPostReconciliationUseCase,
             threadVisiblePostsUseCase = ThreadVisiblePostsUseCase(),
             logger = mockk(relaxed = true),
         )

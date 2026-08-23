@@ -66,3 +66,4 @@
 - [x] 10.2 CI workflowの `testDebugUnitTest` と `assembleCi` を実行する。完了条件: CI run `32635179353` がtested commit `2332980a`でunit testとDebug相当APK buildに成功する。ローカルコマンドは実行していない。
 - [x] 10.3 Android test環境でv10→v11 migration、PendingOwnPostRepository transaction、既存自レスマーク表示のinstrumented testを実行する。完了条件: 関連androidTestコードを追加済みで、現行CI workflowにinstrumentation実行stepがないため未実行であることを記録する。
 - [x] 10.4 `openspec validate fix-my-post-mark-persistence --strict` を実行し、proposal、design、delta specs、tasksと実装を整合させる。完了条件: strict validationが成功する。
+- [x] 10.5 `ThreadRouteViewModel.kt` の自レス照合呼び出しを専用例外境界へ分離し、`ThreadRouteViewModelTest.kt` に照合DB例外時の成功状態維持・失敗Toast非表示を追加し、CancellationExceptionは再throwする。完了条件: 照合非キャンセル例外が`handleLoadFailure`へ到達せず、CIのunit test/buildが成功する。

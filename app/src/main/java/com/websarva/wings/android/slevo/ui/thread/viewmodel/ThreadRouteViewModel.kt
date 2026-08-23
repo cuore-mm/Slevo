@@ -811,7 +811,7 @@ class ThreadRouteViewModel @Inject constructor(
                     message = "Unable to build own-post scope for board: ${tab.boardUrl} key: ${tab.threadKey}",
                 )
             } else {
-                ownPostReconciliationUseCase.reconcile(
+                reconcileOwnPostsSafely(
                     scope = scope,
                     posts = derived.uiPosts,
                     historyId = historyId,
@@ -822,6 +822,31 @@ class ThreadRouteViewModel @Inject constructor(
         } catch (error: Exception) {
             if (error is CancellationException) throw error
             handleLoadFailure(tabKey, tab.boardUrl, tab.threadKey, error)
+        }
+    }
+
+    /** 自レス照合の補助DB失敗をスレッド取得成功から分離する。 */
+    private suspend fun reconcileOwnPostsSafely(
+        scope: OwnPostThreadScope,
+        posts: List<ThreadPostUiModel>,
+        historyId: Long,
+        boardId: Long,
+        nowMillis: Long,
+    ) {
+        try {
+            ownPostReconciliationUseCase.reconcile(
+                scope = scope,
+                posts = posts,
+                historyId = historyId,
+                boardId = boardId,
+                nowMillis = nowMillis,
+            )
+        } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            logger.e(
+                message = "Failed to reconcile own posts after successful thread load",
+                throwable = error,
+            )
         }
     }
 
