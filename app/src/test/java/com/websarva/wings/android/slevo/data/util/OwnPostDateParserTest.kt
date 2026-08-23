@@ -18,6 +18,10 @@ class OwnPostDateParserTest {
             1_704_034_800_123L,
             OwnPostDateParser.parseDatDate("2024/01/01 00:00:00.123"),
         )
+        assertEquals(
+            OwnPostDateParser.parseDatDate("2025/07/09 19:40:25.769"),
+            OwnPostDateParser.parseDatDate("2025/07/09(水) 19:40:25.769"),
+        )
     }
 
     @Test

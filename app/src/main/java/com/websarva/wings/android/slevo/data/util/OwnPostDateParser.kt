@@ -23,7 +23,7 @@ object OwnPostDateParser {
     /** datの投稿日時をAsia/Tokyoのepoch millisへ変換する。 */
     fun parseDatDate(value: String): Long? {
         val withoutWeekday = value.trim()
-            .replace(Regex("\\s*\\([^)]*\\)\\s*$"), "")
+            .replace(Regex("\\([^)]*\\)"), "")
             .trim()
         val match = datDatePattern.matchEntire(withoutWeekday) ?: return null
         val baseMillis = parseBaseDate(match.groupValues[1]) ?: return null
