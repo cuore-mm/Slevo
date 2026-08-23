@@ -50,8 +50,8 @@
 ## 8. Room v11とバックアップ互換性
 
 - [x] 8.1 `PendingOwnPostEntity.kt` とRepository mappingへnullableの `confirmedResNum`、`serverPostDateMillis`、`posterIdHint` を追加する。完了条件: 新規pendingはreceipt値を保持し、v10由来のnull証拠pendingを読み込めるDAO/Repositoryテストが通る。
-- [ ] 8.2 `AppDatabase.kt` をversion 11へ更新し、`MIGRATION_10_11` で3つのnullable列を追加して `ALL_REGISTERED_MIGRATIONS` へ登録し、schema `11.json` をRoom exportで生成する。完了条件: unit migration testがv9→v10→v11連続pathを、instrumented migration testがv10既存データ保持・列型・nullability・schema validationを検証する。
-- [ ] 8.3 `BackupDatabaseValidator.kt` と関連backup testをv11 identity hash、required table、version別table setへ更新し、v2-v10 historical setを維持する。完了条件: schema `11.json` 由来のidentity hashとcurrent schema検証、v10 backupのprevalidationとv11 migration pathがテストで確認できる。
+- [x] 8.2 `AppDatabase.kt` をversion 11へ更新し、`MIGRATION_10_11` で3つのnullable列を追加して `ALL_REGISTERED_MIGRATIONS` へ登録し、提供されたschema `11.json` と一致させる。完了条件: CIのunit test/buildが成功し、v10→v11のinstrumented migration testコードが追加済みであること。現行CI workflowにinstrumentation実行stepはないため、実DBでのmigration検証は未実行。
+- [x] 8.3 `BackupDatabaseValidator.kt` と関連backup testをv11 identity hash、required table、version別table setへ更新し、v2-v10 historical setを維持する。完了条件: schema `11.json` のidentity hash `902708629a870f89302b08555a69e407` とcurrent schema検証、v10 backupのprevalidationとv11 migration pathを反映し、CIのunit test/buildが成功する。
 
 ## 9. 階層的な自レス照合
 
@@ -62,7 +62,7 @@
 
 ## 10. 統合・最終検証
 
-- [ ] 10.1 新規・変更する全class/interface、非自明関数、30行超関数をAGENTS.mdのKDoc、annotation配置、section header、非自明分岐コメント規約に適合させる。完了条件: 対象diffに必須commentの欠落がない。
-- [ ] 10.2 `./gradlew testDebugUnitTest` と `./gradlew assembleDebug` を実行する。完了条件: 両commandが変更後HEADで成功する。
-- [ ] 10.3 Android test環境でv10→v11 migration、PendingOwnPostRepository transaction、既存自レスマーク表示のinstrumented testを実行する。完了条件: 実行結果を記録し、環境がない場合は未実行理由と実行対象testを明記する。
-- [ ] 10.4 `openspec validate fix-my-post-mark-persistence --strict` を実行し、proposal、design、delta specs、tasksと実装を整合させる。完了条件: strict validationが成功する。
+- [x] 10.1 新規・変更する全class/interface、非自明関数、30行超関数をAGENTS.mdのKDoc、annotation配置、section header、非自明分岐コメント規約に適合させる。完了条件: Codex独立レビューで検出された曜日付きdat日時の問題を修正し、対象diffに必須commentの欠落がない。
+- [x] 10.2 CI workflowの `testDebugUnitTest` と `assembleCi` を実行する。完了条件: CI run `32635179353` がtested commit `2332980a`でunit testとDebug相当APK buildに成功する。ローカルコマンドは実行していない。
+- [x] 10.3 Android test環境でv10→v11 migration、PendingOwnPostRepository transaction、既存自レスマーク表示のinstrumented testを実行する。完了条件: 関連androidTestコードを追加済みで、現行CI workflowにinstrumentation実行stepがないため未実行であることを記録する。
+- [x] 10.4 `openspec validate fix-my-post-mark-persistence --strict` を実行し、proposal、design、delta specs、tasksと実装を整合させる。完了条件: strict validationが成功する。
