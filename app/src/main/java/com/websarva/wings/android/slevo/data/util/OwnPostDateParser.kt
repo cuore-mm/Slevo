@@ -18,7 +18,7 @@ object OwnPostDateParser {
     const val MATCH_TOLERANCE_MILLIS = 1_000L
 
     private val datDatePattern =
-        Regex("""^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2})(?:\\.(\\d{1,9}))?$""")
+        Regex("""^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?$""")
 
     /** datの投稿日時をAsia/Tokyoのepoch millisへ変換する。 */
     fun parseDatDate(value: String): Long? {
