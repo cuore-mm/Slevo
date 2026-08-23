@@ -56,7 +56,7 @@
 ## 9. 階層的な自レス照合
 
 - [x] 9.1 `data/util` 配下へ照合専用日時parserを追加し、dat日時をAsia/Tokyoで曜日と0〜9桁の小数秒を許容してepoch millisへ変換する。完了条件: 単体テストがJST固定、小数秒の十進解釈、解釈不能null、差1,000msの内外境界を検証し、既存 `parseDateToUnix` の現在時刻fallbackを照合に使っていない。
-- [x] 9.2 `OwnPostMatcher.kt` を本文候補、日時、poster ID prefix、入力済みidentityの独立した純粋filterへ再構成する。完了条件: `OwnPostMatcherTest` が `datPosterId.trim().startsWith(posterIdHint.trim())` のcase-sensitiveな0/1/複数件、0件時の元候補復元、name/mail最終絞り込みを検証する。
+- [x] 9.2 `OwnPostMatcher.kt` を本文候補、日時、poster ID prefix、入力済みidentityの独立した純粋filterへ再構成する。完了条件: `OwnPostMatcherTest` が `datPosterId.trim().startsWith(posterIdHint.trim())` のcase-sensitiveな0/1/複数件、0件時の元候補復元、name/mail最終絞り込み、先頭空白・改行を含む本文のdat parser互換正規化を検証する。
 - [x] 9.3 `OwnPostReconciliationUseCase.kt` にscope整合済み `confirmedResNum` の最優先確定とdat未反映時の待機を追加する。完了条件: UseCaseテストが即時確定、範囲外待機、同一実行内候補再利用防止、MATCHED時に取得レスの日時/IDを履歴へ保存することを検証する。
 - [x] 9.4 `OwnPostReconciliationUseCase.kt` の通常照合を本文→利用可能な日時±1,000ms→poster ID prefix→name/mailの順へ変更する。完了条件: 各段階の一意確定、日時欠落fallback、日時0候補PENDING、poster ID 0候補rollback、最終曖昧PENDING、本文0候補だけの `lastCheckedResNum` 更新を単体テストで検証する。
 

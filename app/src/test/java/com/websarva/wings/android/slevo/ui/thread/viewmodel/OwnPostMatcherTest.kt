@@ -19,6 +19,14 @@ class OwnPostMatcherTest {
     }
 
     @Test
+    fun matches_normalizesLeadingWhitespaceLikeDatParser() {
+        val pending = pending(content = "\n  image-only-post")
+        val post = post(content = "image-only-post")
+
+        assertTrue(matcher.matches(pending, post))
+    }
+
+    @Test
     fun matches_treatsEmptyIdentityAsWildcard() {
         assertTrue(matcher.matches(pending(name = "", email = ""), post(name = "default", email = "sage")))
     }

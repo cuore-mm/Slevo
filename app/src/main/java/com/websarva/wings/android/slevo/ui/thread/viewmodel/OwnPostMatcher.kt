@@ -38,14 +38,14 @@ class OwnPostMatcher @Inject constructor() {
         matchesOptionalIdentity(pending.name, post.header.name) &&
             matchesOptionalIdentity(pending.email, post.header.email)
 
-    /** 本文の改行と行末空白だけをprovider非依存に正規化する。 */
+    /** 本文をdat parserのtrim境界と一致するようprovider非依存に正規化する。 */
     internal fun normalizeContent(content: String): String {
         return content
             .replace("\r\n", "\n")
             .replace('\r', '\n')
             .split('\n')
             .joinToString("\n") { line -> line.trimEnd(' ', '\t') }
-            .trimEnd('\n')
+            .trim()
     }
 
     /** 入力されていないidentityはwildcardとして扱い、それ以外はtrim後に比較する。 */
