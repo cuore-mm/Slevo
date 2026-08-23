@@ -9,7 +9,7 @@
 
 #### Scenario: DB schema compatibility を検証する
 - **WHEN** システムが current version の `database/slevo.db` を pending restore として保存しようとする
-- **THEN** システムは `PRAGMA user_version = 10`、exported Room schema v10と一致する `room_master_table` のidentity hash、および `pending_own_posts` を含むv10の必須application tableが存在することを確認する
+- **THEN** システムは `PRAGMA user_version = 11`、exported Room schema v11と一致する `room_master_table` のidentity hash、および証拠列を持つ `pending_own_posts` を含むv11の必須application tableが存在することを確認する
 
 #### Scenario: 整合性検証に失敗した DB を拒否する
 - **WHEN** 復元対象 DB を開けない、または `PRAGMA integrity_check` が `ok` 以外を返す
