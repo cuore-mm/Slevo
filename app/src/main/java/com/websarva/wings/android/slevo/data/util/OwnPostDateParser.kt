@@ -60,7 +60,8 @@ object OwnPostDateParser {
         }
         val position = ParsePosition(0)
         val parsed = formatter.parse(value, position) ?: return null
-        return parsed.time.takeIf { position.index == value.length }
+        // 入力全体の形式は呼び出し元の正規表現で検証済みのため、実装差のある終端index判定に依存しない。
+        return parsed.time
     }
 
     private val TOKYO_TIME_ZONE = TimeZone.getTimeZone("Asia/Tokyo")
