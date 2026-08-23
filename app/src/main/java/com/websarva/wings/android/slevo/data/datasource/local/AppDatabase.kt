@@ -107,7 +107,7 @@ abstract class AppDatabase : RoomDatabase() {
         /**
          * バックアップ復元で受け付ける最小 Room DB schema version。
          * この version から現在 version まで migration path が連続している。
-          * source inspection で migration chain の連続性を確認済み (v2 → v11)。
+         * source inspection で migration chain の連続性を確認済み (v2 → v11)。
          * v1 は exported Room schema が存在せず、事前 schema sanity check の
          * source of truth を用意できないため、復元対象外とする。
          */

@@ -295,8 +295,7 @@ class RealBackupDatabaseValidator @Inject constructor() : BackupDatabaseValidato
         const val EXPECTED_USER_VERSION = DATABASE_VERSION
 
         /** Room の期待する `room_master_table` の identity hash。 */
-        // TODO: 11.json提供後にRoom v11生成値へ更新する。
-        const val EXPECTED_IDENTITY_HASH = "f7b884d4e602207a8d106c0e8c908e13"
+        const val EXPECTED_IDENTITY_HASH = "902708629a870f89302b08555a69e407"
 
         /** Room DB に必須の application table 一覧（current version 用）。 */
         val REQUIRED_TABLES = listOf(

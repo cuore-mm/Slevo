@@ -36,7 +36,7 @@ class OwnPostMatcher @Inject constructor() {
     /** 入力済みの名前とメールだけをtrim後の完全一致で比較する。 */
     fun matchesIdentity(pending: PendingOwnPostEntity, post: ThreadPostUiModel): Boolean =
         matchesOptionalIdentity(pending.name, post.header.name) &&
-                matchesOptionalIdentity(pending.email, post.header.email)
+            matchesOptionalIdentity(pending.email, post.header.email)
 
     /** 本文の改行と行末空白だけをprovider非依存に正規化する。 */
     internal fun normalizeContent(content: String): String {
