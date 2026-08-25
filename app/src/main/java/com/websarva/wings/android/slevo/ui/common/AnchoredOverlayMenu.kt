@@ -99,6 +99,9 @@ fun AnchoredOverlayMenu(
     verticalAlignment: VerticalAnchorAlignment = VerticalAnchorAlignment.Above,
     verticalSpacing: Dp = (-12).dp,
     horizontalOffset: Dp = 0.dp,
+    focusable: Boolean = true,
+    dismissOnBackPress: Boolean = true,
+    dismissOnClickOutside: Boolean = true,
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -151,9 +154,9 @@ fun AnchoredOverlayMenu(
         popupPositionProvider = positionProvider,
         onDismissRequest = onDismissRequest,
         properties = PopupProperties(
-            focusable = true,
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true,
+            focusable = focusable,
+            dismissOnBackPress = dismissOnBackPress,
+            dismissOnClickOutside = dismissOnClickOutside,
         ),
     ) {
         val menuShape = MaterialTheme.shapes.largeIncreased
@@ -296,6 +299,7 @@ fun AnchoredOverlayMenuItem(
     text: String,
     textColor: Color = Color.Unspecified,
     leadingIcon: @Composable (() -> Unit)? = null,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -315,11 +319,17 @@ fun AnchoredOverlayMenuItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(
-                interactionSource = interactionSource,
-                indication = LocalIndication.current,
-                onClick = onClick,
-            )
+            .let { baseModifier ->
+                if (enabled) {
+                    baseModifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = LocalIndication.current,
+                        onClick = onClick,
+                    )
+                } else {
+                    baseModifier
+                }
+            }
             .graphicsLayer {
                 scaleX = textScale
                 scaleY = textScale

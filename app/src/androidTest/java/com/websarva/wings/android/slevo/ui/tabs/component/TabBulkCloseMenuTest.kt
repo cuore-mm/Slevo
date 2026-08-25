@@ -273,7 +273,7 @@ class TabBulkCloseMenuTest {
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(),
                     removingKeys = removingKeys,
                     onRemoveConfirmed = {},
-                    itemContent = { item, _, _ ->
+                    itemContent = { item, _, _, _, _, _, _ ->
                         androidx.compose.material3.Text(item)
                     },
                 )

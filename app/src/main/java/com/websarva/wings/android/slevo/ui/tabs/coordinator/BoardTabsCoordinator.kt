@@ -65,6 +65,7 @@ class BoardTabsCoordinator @Inject constructor(
         data class Pin(val boardUrl: String, val isPinned: Boolean) : Operation
         data class Info(val tab: BoardTabInfo) : Operation
         data class Scroll(val boardUrl: String, val index: Int, val offset: Int) : Operation
+        data class Reorder(val boardUrls: List<String>) : Operation
     }
 
     /**
@@ -80,6 +81,7 @@ class BoardTabsCoordinator @Inject constructor(
             Scroll,
             Pin,
             Info,
+            Reorder,
         }
     }
 
@@ -263,6 +265,27 @@ class BoardTabsCoordinator @Inject constructor(
         } else acceptWithoutWaiting(Operation.Scroll(boardUrl, firstVisibleIndex, scrollOffset))
     }
 
+    /** 板タブの最終key順をpending projectionへ登録し、Room保存を開始する。 */
+    fun reorderBoardTabs(boardUrls: List<String>): Boolean {
+        val distinctUrls = boardUrls.distinct()
+        if (distinctUrls.isEmpty()) return false
+        val operation = Operation.Reorder(distinctUrls)
+        if (boundScope == null) {
+            val reordered = com.websarva.wings.android.slevo.ui.tabs.controller.reorderTabs(
+                effectiveTabs(_state.value),
+                distinctUrls,
+                BoardTabInfo::boardUrl,
+            )
+            _state.update {
+                it.copy(loadPhase = TabLoadPhase.Loaded, canonicalTabs = reordered).rebuildPresentation()
+            }
+            return true
+        }
+        val pending = register(operation)
+        boundScope?.launch { execute(pending) }
+        return true
+    }
+
     /** 解決済み Board metadata を targeted command として反映する。 */
     fun updateBoardResolvedInfo(boardUrl: String, boardId: Long, boardName: String? = null) {
         if (boardId == 0L) return
@@ -357,6 +380,7 @@ class BoardTabsCoordinator @Inject constructor(
                 is Operation.Pin -> tabsRepository.setBoardTabPinned(operation.boardUrl, operation.isPinned)
                 is Operation.Info -> tabsRepository.updateBoardTabInfo(operation.tab)
                 is Operation.Scroll -> tabsRepository.updateBoardTabScrollPosition(operation.boardUrl, operation.index, operation.offset)
+                is Operation.Reorder -> tabsRepository.reorderOpenBoardTabs(operation.boardUrls)
             }
         }.getOrElse { TabMutationResult.Failure(it) }
         // dispatch 済み command が遅れて終わっても、最新 command の state を復活させない。
@@ -382,6 +406,7 @@ class BoardTabsCoordinator @Inject constructor(
         is Operation.Pin -> BoardSupersessionKey(boardUrl, BoardSupersessionKey.Kind.Pin)
         is Operation.Info -> BoardSupersessionKey(tab.boardUrl, BoardSupersessionKey.Kind.Info)
         is Operation.Scroll -> BoardSupersessionKey(boardUrl, BoardSupersessionKey.Kind.Scroll)
+        is Operation.Reorder -> BoardSupersessionKey("__all__", BoardSupersessionKey.Kind.Reorder)
     }
 
     private fun finish(pending: BoardPendingOperation, result: TabCommandResult<Int>) {
@@ -418,6 +443,7 @@ class BoardTabsCoordinator @Inject constructor(
             is Operation.Pin -> canonical.firstOrNull { it.boardUrl == operation.boardUrl }
             is Operation.Info -> canonical.firstOrNull { it.boardUrl == operation.tab.boardUrl }
             is Operation.Scroll -> canonical.firstOrNull { it.boardUrl == operation.boardUrl }
+            is Operation.Reorder -> null
         }
         return when (operation) {
             is Operation.Ensure -> actual != null && actual.boardId == (operation.tab.boardId.takeIf { it != 0L } ?: actual.boardId)
@@ -426,6 +452,15 @@ class BoardTabsCoordinator @Inject constructor(
             is Operation.Pin -> actual?.isPinned == operation.isPinned
             is Operation.Info -> actual != null && actual.boardId == operation.tab.boardId && actual.boardName == operation.tab.boardName
             is Operation.Scroll -> actual?.firstVisibleItemIndex == operation.index && actual.firstVisibleItemScrollOffset == operation.offset
+            is Operation.Reorder -> {
+                val actualKeys = canonical.map(BoardTabInfo::boardUrl)
+                val expectedKeys = com.websarva.wings.android.slevo.ui.tabs.controller.reorderTabs(
+                    canonical,
+                    operation.boardUrls,
+                    BoardTabInfo::boardUrl,
+                ).map(BoardTabInfo::boardUrl)
+                actualKeys == expectedKeys
+            }
         }
     }
 
@@ -449,6 +484,11 @@ class BoardTabsCoordinator @Inject constructor(
                     is Operation.Pin -> IndexedTabOperation(operation.boardUrl) { current -> current?.copy(isPinned = operation.isPinned) }
                     is Operation.Info -> IndexedTabOperation(operation.tab.boardUrl) { current -> mergeBoardTabMetadata(current, operation.tab) }
                     is Operation.Scroll -> IndexedTabOperation(operation.boardUrl) { current -> current?.copy(firstVisibleItemIndex = operation.index, firstVisibleItemScrollOffset = operation.offset) }
+                    is Operation.Reorder -> IndexedTabOperation(
+                        key = operation.boardUrls.first(),
+                        reorderKeys = operation.boardUrls,
+                        transform = { current -> current },
+                    )
                 }
             },
             BoardTabInfo::boardUrl,

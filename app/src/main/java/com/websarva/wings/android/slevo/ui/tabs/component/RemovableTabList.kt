@@ -22,6 +22,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import sh.calvin.reorderable.DragGestureDetector
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 
 /**
@@ -44,8 +47,25 @@ internal fun <T> RemovableTabList(
     removingKeys: Set<String> = emptySet(),
     onRemoveConfirmed: (T) -> Unit,
     userScrollEnabled: Boolean = true,
-    itemContent: @Composable (item: T, isRemoving: Boolean, requestRemove: () -> Unit) -> Unit,
+    reorderEnabled: Boolean = false,
+    onReorderStarted: (T) -> Unit = {},
+    onReorderMoved: (from: T, to: T) -> Unit = { _, _ -> },
+    onReorderFinished: (T) -> Unit = {},
+    onReorderCancelled: (T) -> Unit = {},
+    itemContent: @Composable (
+        item: T,
+        isRemoving: Boolean,
+        requestRemove: () -> Unit,
+        isDragging: Boolean,
+        reorderHandle: (DragGestureDetector) -> Modifier,
+        onReorderFinished: () -> Unit,
+        onReorderCancelled: () -> Unit,
+    ) -> Unit,
 ) {
+    val reorderableState = rememberReorderableLazyListState(listState) { from, to ->
+        onReorderMoved(from.data, to.data)
+    }
+
     // --- List ---
     Box {
         LazyColumn(
@@ -84,10 +104,27 @@ internal fun <T> RemovableTabList(
                                 placementSpec = null,
                             )
                         ) {
-                            itemContent(item, isRemoving) {
-                                if (!isRemoving) {
-                                    onRemoveConfirmed(item)
+                            ReorderableItem(
+                                state = reorderableState,
+                                key = itemKey,
+                                enabled = reorderEnabled && !isRemoving,
+                            ) { isDragging ->
+                                val reorderHandle: (DragGestureDetector) -> Modifier = { detector ->
+                                    Modifier.draggableHandle(
+                                        enabled = reorderEnabled && !isRemoving,
+                                        dragGestureDetector = detector,
+                                        onDragStarted = { onReorderStarted(item) },
+                                    )
                                 }
+                                itemContent(item, isRemoving, {
+                                    if (!isRemoving) {
+                                        onRemoveConfirmed(item)
+                                    }
+                                }, isDragging, reorderHandle, {
+                                    onReorderFinished(item)
+                                }, {
+                                    onReorderCancelled(item)
+                                })
                             }
                         }
                     }

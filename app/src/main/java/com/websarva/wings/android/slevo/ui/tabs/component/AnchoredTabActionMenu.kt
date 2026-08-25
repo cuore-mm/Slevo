@@ -42,6 +42,7 @@ fun AnchoredTabActionMenu(
     anchorBoundsInWindow: IntRect?,
     hazeState: HazeState?,
     isPinned: Boolean,
+    interactive: Boolean = true,
     onDismissRequest: () -> Unit,
     onDetailClick: () -> Unit,
     onPinClick: () -> Unit,
@@ -59,6 +60,9 @@ fun AnchoredTabActionMenu(
         horizontalAlignment = HorizontalAnchorAlignment.Start,
         verticalAlignment = VerticalAnchorAlignment.Auto,
         verticalSpacing = 8.dp,
+        focusable = interactive,
+        dismissOnBackPress = interactive,
+        dismissOnClickOutside = interactive,
         onDismissRequest = onDismissRequest,
     ) {
         // Keep the action label stable while the popup's exit transition retains this content.
@@ -73,6 +77,7 @@ fun AnchoredTabActionMenu(
                     modifier = Modifier.size(iconSize),
                 )
             },
+            enabled = interactive,
             onClick = onDetailClick,
         )
         AnchoredOverlayMenuItem(
@@ -95,6 +100,7 @@ fun AnchoredTabActionMenu(
                     )
                 }
             },
+            enabled = interactive,
             onClick = onPinClick,
         )
         AnchoredOverlayMenuItem(
@@ -108,6 +114,7 @@ fun AnchoredTabActionMenu(
                     modifier = Modifier.size(iconSize),
                 )
             },
+            enabled = interactive,
             onClick = onCloseClick,
         )
     }

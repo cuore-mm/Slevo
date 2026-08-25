@@ -12,6 +12,7 @@ data class IndexedTabOperation<Tab : Any, Key : Any>(
     val remove: Boolean = false,
     val removeKeys: Set<Key> = emptySet(),
     val transform: (Tab?) -> Tab?,
+    val reorderKeys: List<Key>? = null,
 )
 
 /**
@@ -29,6 +30,16 @@ fun <Tab : Any, Key : Any> foldEffectiveTabs(
 
     // --- ordered pending fold ---
     operations.forEach { operation ->
+        operation.reorderKeys?.let { requestedKeys ->
+            val reordered = reorderTabs(result, requestedKeys, keyOf)
+            result.clear()
+            result.addAll(reordered)
+            keyIndex.clear()
+            result.forEachIndexed { reorderedIndex, tab ->
+                keyIndex[keyOf(tab)] = reorderedIndex
+            }
+            return@forEach
+        }
         val index = keyIndex[operation.key]
         if (operation.remove) {
             val keysToRemove = operation.removeKeys.ifEmpty { setOf(operation.key) }
@@ -60,6 +71,28 @@ fun <Tab : Any, Key : Any> foldEffectiveTabs(
 
     // --- stable result ---
     return result
+}
+
+/**
+ * 既存keyを要求順へ並べ、要求に含まれない新規keyを既存相対順で末尾へ残す。
+ * 未知keyと重複keyは無視し、結果のkeyは一意になる。
+ */
+fun <Tab : Any, Key : Any> reorderTabs(
+    tabs: List<Tab>,
+    requestedKeys: List<Key>,
+    keyOf: (Tab) -> Key,
+): List<Tab> {
+    val byKey = tabs.associateBy(keyOf)
+    val orderedKeys = buildList {
+        requestedKeys.forEach { key ->
+            if (key in byKey && key !in this) add(key)
+        }
+        tabs.forEach { tab ->
+            val key = keyOf(tab)
+            if (key !in this) add(key)
+        }
+    }
+    return orderedKeys.mapNotNull(byKey::get)
 }
 
 /** 複数key削除後のindex mapを、削除位置以降だけ一つずつ詰め直す。 */

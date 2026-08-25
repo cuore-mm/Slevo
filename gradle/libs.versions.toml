@@ -35,6 +35,7 @@ kermit = "2.1.0"
 zoomableImageCoil3 = "0.18.0"
 desugarJdkLibs = "2.1.5"
 haze = "1.7.2"
+reorderable = "3.1.0"
 
 [libraries]
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutlibrariesComposeM3" }
@@ -90,6 +91,7 @@ zoomable-image-coil3 = { module = "me.saket.telephoto:zoomable-image-coil3", ver
 desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugarJdkLibs" }
 lazycolumn-scrollbar = { module = "com.github.nanihadesuka:LazyColumnScrollbar", version.ref = "lazyColumnScrollbar" }
 haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -133,4 +133,8 @@ interface OpenThreadTabDao {
         firstVisibleItemScrollOffset: Int,
     ): Int
 
+    /** 指定スレッドタブの表示順列だけを更新する。 */
+    @Query("UPDATE open_thread_tabs SET sortOrder = :sortOrder WHERE threadId = :threadId")
+    suspend fun updateSortOrder(threadId: ThreadId, sortOrder: Int): Int
+
 }

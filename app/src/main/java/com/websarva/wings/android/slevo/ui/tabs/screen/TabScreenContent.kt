@@ -58,6 +58,7 @@ import com.websarva.wings.android.slevo.ui.tabs.component.TabListLayoutDefaults
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchArea
 import com.websarva.wings.android.slevo.ui.tabs.component.extractServiceName
+import com.websarva.wings.android.slevo.ui.tabs.applyReorderDraft
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
@@ -116,6 +117,8 @@ fun TabScreenContent(
     val isShowingSearchResults = searchQuery.isNotBlank()
     val filteredBoardTabs = filterBoardTabsByQuery(openBoardTabs, searchQuery)
     val filteredThreadTabs = filterThreadTabsByQuery(openThreadTabs, searchQuery)
+    val displayedBoardTabs = applyReorderDraft(openBoardTabs, listUiState.boardReorderDraft, BoardTabInfo::boardUrl)
+    val displayedThreadTabs = applyReorderDraft(openThreadTabs, listUiState.threadReorderDraft) { it.id.value }
 
     // --- Removal state cleanup ---
     LaunchedEffect(openBoardTabs, listUiState.removingBoardTabKeys) {
@@ -241,9 +244,9 @@ fun TabScreenContent(
                         boardSearchListState = boardSearchListState,
                         threadNormalListState = threadNormalListState,
                         threadSearchListState = threadSearchListState,
-                        openBoardTabs = openBoardTabs,
+                         openBoardTabs = displayedBoardTabs,
                         filteredBoardTabs = filteredBoardTabs,
-                        openThreadTabs = openThreadTabs,
+                         openThreadTabs = displayedThreadTabs,
                         filteredThreadTabs = filteredThreadTabs,
                         newResCounts = newResCounts,
                         selectedBoardTab = listUiState.selectedBoardTab,
@@ -252,12 +255,22 @@ fun TabScreenContent(
                         onCloseThreadTab = { tabListViewModel.startThreadTabRemoval(it) },
                         onSwipeDeleteBoardTab = { tabSessionStore.closeBoardTab(it) },
                         onSwipeDeleteThreadTab = createThreadTabCloseHandler(tabSessionStore),
-                        onBoardTabLongPressed = { tab, bounds ->
-                            tabListViewModel.onBoardTabLongPressed(tab, bounds)
-                        },
-                        onThreadTabLongPressed = { tab, bounds ->
-                            tabListViewModel.onThreadTabLongPressed(tab, bounds)
-                        },
+                         onBoardTabLongPressed = { tab, bounds ->
+                             tabListViewModel.onBoardTabLongPressed(tab, bounds)
+                         },
+                         onBoardTabLongPressReleased = { tabListViewModel.openSelectedTabMenu() },
+                         onThreadTabLongPressed = { tab, bounds ->
+                             tabListViewModel.onThreadTabLongPressed(tab, bounds)
+                         },
+                         onThreadTabLongPressReleased = { tabListViewModel.openSelectedTabMenu() },
+                         onBoardTabReorderStarted = { tabListViewModel.startBoardReorder() },
+                         onBoardTabReorderMoved = { from, to -> tabListViewModel.moveBoardReorder(from, to) },
+                         onBoardTabReorderFinished = { tabListViewModel.finishBoardReorder() },
+                         onBoardTabReorderCancelled = { tabListViewModel.cancelReorder() },
+                         onThreadTabReorderStarted = { tabListViewModel.startThreadReorder() },
+                         onThreadTabReorderMoved = { from, to -> tabListViewModel.moveThreadReorder(from, to) },
+                         onThreadTabReorderFinished = { tabListViewModel.finishThreadReorder() },
+                         onThreadTabReorderCancelled = { tabListViewModel.cancelReorder() },
                         onClearNewResCount = { tabSessionStore.clearNewResCount(it) },
                         removingBoardTabKeys = listUiState.removingBoardTabKeys,
                         removingThreadTabKeys = listUiState.removingThreadTabKeys,
@@ -325,8 +338,8 @@ fun TabScreenContent(
                 onCancelSelection = { tabListViewModel.cancelTabSelection() },
                 onDetailClick = { tabListViewModel.openSelectedTabDetail() },
                 onPinClick = { tabListViewModel.toggleSelectedTabPin() },
-                onCloseClick = { tabListViewModel.requestCloseSelectedTab() },
-                isBackHandlerEnabled = !isSearchMode,
+                 onCloseClick = { tabListViewModel.requestCloseSelectedTab() },
+                 isBackHandlerEnabled = !isSearchMode,
             )
 
             // --- Bottom sheets ---
@@ -565,6 +578,7 @@ private fun TabLongPressOverlayLayer(
             isPinned = uiState.selectedBoardTab?.isPinned
                 ?: uiState.selectedThreadTab?.isPinned
                 ?: false,
+            interactive = uiState.tabActionMenuMode == com.websarva.wings.android.slevo.ui.tabs.TabActionMenuMode.Open,
             onDismissRequest = onCancelSelection,
             onDetailClick = onDetailClick,
             onPinClick = onPinClick,
@@ -573,7 +587,11 @@ private fun TabLongPressOverlayLayer(
     }
 
     // --- Back handler for selection mode ---
-    if (uiState.isInLongPressSelectionMode && isBackHandlerEnabled) {
+    if (
+        uiState.isInLongPressSelectionMode &&
+        uiState.tabActionMenuMode == com.websarva.wings.android.slevo.ui.tabs.TabActionMenuMode.Open &&
+        isBackHandlerEnabled
+    ) {
         BackHandler { onCancelSelection() }
     }
 }

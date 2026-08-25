@@ -39,8 +39,14 @@ fun OpenBoardsList(
     selectedBoardTab: BoardTabInfo? = null,
     removingKeys: Set<String> = emptySet(),
     onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit = { _, _ -> },
+    onBoardTabLongPressReleased: () -> Unit = {},
     tabSessionStore: TabSessionStore? = null,
     isInLongPressSelectionMode: Boolean = false,
+    isReorderEnabled: Boolean = false,
+    onReorderStarted: (BoardTabInfo) -> Unit = {},
+    onReorderMoved: (BoardTabInfo, BoardTabInfo) -> Unit = { _, _ -> },
+    onReorderFinished: (BoardTabInfo) -> Unit = {},
+    onReorderCancelled: (BoardTabInfo) -> Unit = {},
     currentScreenRoute: AppRoute? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -55,7 +61,12 @@ fun OpenBoardsList(
         removingKeys = removingKeys,
         onRemoveConfirmed = { onCloseClick(it) },
         userScrollEnabled = !isInLongPressSelectionMode,
-    ) { tab, isRemoving, requestRemove ->
+        reorderEnabled = isReorderEnabled,
+        onReorderStarted = onReorderStarted,
+        onReorderMoved = onReorderMoved,
+        onReorderFinished = onReorderFinished,
+        onReorderCancelled = onReorderCancelled,
+    ) { tab, isRemoving, requestRemove, isDragging, reorderHandle, reorderFinished, reorderCancelled ->
         OpenBoardCard(
             tab = tab,
             isSelected = selectedBoardTab?.boardUrl == tab.boardUrl,
@@ -81,6 +92,11 @@ fun OpenBoardsList(
                 if (isRemoving) return@OpenBoardCard
                 onBoardTabLongPressed(tab, bounds)
             },
+            onLongPressReleased = onBoardTabLongPressReleased,
+            reorderHandle = reorderHandle.takeIf { isReorderEnabled },
+            onReorderFinished = reorderFinished,
+            onReorderCancelled = reorderCancelled,
+            isDragging = isDragging,
             isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isRemoving,
             onSwipeDelete = {
                 if (isRemoving) return@OpenBoardCard
@@ -104,10 +120,15 @@ private fun OpenBoardCard(
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongPress: (IntRect) -> Unit,
+    onLongPressReleased: () -> Unit = {},
     onCloseClick: () -> Unit,
     onSwipeDelete: (() -> Unit)? = null,
     isSwipeDeleteEnabled: Boolean = true,
     isRemoving: Boolean = false,
+    isDragging: Boolean = false,
+    reorderHandle: ((sh.calvin.reorderable.DragGestureDetector) -> Modifier)? = null,
+    onReorderFinished: () -> Unit = {},
+    onReorderCancelled: () -> Unit = {},
 ) {
     // --- Card highlight ---
     val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
@@ -118,6 +139,7 @@ private fun OpenBoardCard(
         bookmarkColor = color,
         onClick = onClick,
         onLongPress = onLongPress,
+        onLongPressReleased = onLongPressReleased,
         isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,
         isRemoving = isRemoving,
@@ -130,6 +152,10 @@ private fun OpenBoardCard(
         },
         onSwipeDelete = onSwipeDelete,
         isSwipeDeleteEnabled = isSwipeDeleteEnabled,
+        reorderHandle = reorderHandle,
+        onReorderFinished = onReorderFinished,
+        onReorderCancelled = onReorderCancelled,
+        isDragging = isDragging,
     )
 }
 

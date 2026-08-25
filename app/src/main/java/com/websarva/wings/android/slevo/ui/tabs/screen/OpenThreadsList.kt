@@ -41,9 +41,15 @@ fun OpenThreadsList(
     selectedThreadTab: ThreadTabInfo? = null,
     removingKeys: Set<String> = emptySet(),
     onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit = { _, _ -> },
+    onThreadTabLongPressReleased: () -> Unit = {},
     onClearNewResCount: (ThreadId) -> Unit = {},
     tabSessionStore: TabSessionStore? = null,
     isInLongPressSelectionMode: Boolean = false,
+    isReorderEnabled: Boolean = false,
+    onReorderStarted: (ThreadTabInfo) -> Unit = {},
+    onReorderMoved: (ThreadTabInfo, ThreadTabInfo) -> Unit = { _, _ -> },
+    onReorderFinished: (ThreadTabInfo) -> Unit = {},
+    onReorderCancelled: (ThreadTabInfo) -> Unit = {},
     currentScreenRoute: AppRoute? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -58,7 +64,12 @@ fun OpenThreadsList(
         removingKeys = removingKeys,
         onRemoveConfirmed = { onCloseClick(it) },
         userScrollEnabled = !isInLongPressSelectionMode,
-    ) { tab, isRemoving, requestRemove ->
+        reorderEnabled = isReorderEnabled,
+        onReorderStarted = onReorderStarted,
+        onReorderMoved = onReorderMoved,
+        onReorderFinished = onReorderFinished,
+        onReorderCancelled = onReorderCancelled,
+    ) { tab, isRemoving, requestRemove, isDragging, reorderHandle, reorderFinished, reorderCancelled ->
         OpenThreadCard(
             tab = tab,
             newResCount = newResCounts[tab.id.value] ?: tab.newResCount,
@@ -91,6 +102,11 @@ fun OpenThreadsList(
                 if (isRemoving) return@OpenThreadCard
                 onThreadTabLongPressed(tab, bounds)
             },
+            onLongPressReleased = onThreadTabLongPressReleased,
+            reorderHandle = reorderHandle.takeIf { isReorderEnabled },
+            onReorderFinished = reorderFinished,
+            onReorderCancelled = reorderCancelled,
+            isDragging = isDragging,
             isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isRemoving,
             onSwipeDelete = {
                 if (isRemoving) return@OpenThreadCard
@@ -115,10 +131,15 @@ private fun OpenThreadCard(
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongPress: (IntRect) -> Unit,
+    onLongPressReleased: () -> Unit = {},
     onCloseClick: () -> Unit,
     onSwipeDelete: (() -> Unit)? = null,
     isSwipeDeleteEnabled: Boolean = true,
     isRemoving: Boolean = false,
+    isDragging: Boolean = false,
+    reorderHandle: ((sh.calvin.reorderable.DragGestureDetector) -> Modifier)? = null,
+    onReorderFinished: () -> Unit = {},
+    onReorderCancelled: () -> Unit = {},
 ) {
     // --- Card highlight ---
     val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
@@ -128,6 +149,7 @@ private fun OpenThreadCard(
         bookmarkColor = color,
         onClick = onClick,
         onLongPress = onLongPress,
+        onLongPressReleased = onLongPressReleased,
         isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,
         isRemoving = isRemoving,
@@ -144,6 +166,10 @@ private fun OpenThreadCard(
         },
         onSwipeDelete = onSwipeDelete,
         isSwipeDeleteEnabled = isSwipeDeleteEnabled,
+        reorderHandle = reorderHandle,
+        onReorderFinished = onReorderFinished,
+        onReorderCancelled = onReorderCancelled,
+        isDragging = isDragging,
     )
 }
 

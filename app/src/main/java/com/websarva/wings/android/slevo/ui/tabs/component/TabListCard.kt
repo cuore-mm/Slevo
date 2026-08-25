@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -55,7 +56,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
-import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -71,6 +71,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import java.net.URI
+import sh.calvin.reorderable.DragGestureDetector
 
 /**
  * タブ一覧カードのヘッダー右側に表示する内容を表す型。
@@ -129,6 +130,7 @@ internal fun TabListCard(
     bookmarkColor: Color?,
     onClick: () -> Unit,
     onLongPress: (IntRect) -> Unit = {},
+    onLongPressReleased: () -> Unit = {},
     isHiddenForSelection: Boolean = false,
     isPinned: Boolean = false,
     isRemoving: Boolean = false,
@@ -139,6 +141,10 @@ internal fun TabListCard(
     onCloseClick: () -> Unit,
     onSwipeDelete: (() -> Unit)? = null,
     isSwipeDeleteEnabled: Boolean = false,
+    reorderHandle: ((DragGestureDetector) -> Modifier)? = null,
+    onReorderFinished: () -> Unit = {},
+    onReorderCancelled: () -> Unit = {},
+    isDragging: Boolean = false,
 ) {
     // --- Selection animation ---
     // 長押し中は透明化したまま拡大状態を保持し、解除時は元カードで縮小復帰を行う。
@@ -154,6 +160,7 @@ internal fun TabListCard(
     val offsetX = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
     var cardWidthPx by remember { mutableFloatStateOf(0f) }
+    var cardBounds by remember { mutableStateOf(IntRect.Zero) }
     var isFlyingOut by remember { mutableStateOf(false) }
     val velocityTracker = remember { VelocityTracker() }
     val density = LocalDensity.current
@@ -272,7 +279,6 @@ internal fun TabListCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .then(swipeGestureModifier)
     ) {
         Card(
             modifier = Modifier
@@ -280,6 +286,13 @@ internal fun TabListCard(
                 .offset { IntOffset(offsetX.value.toInt(), 0) }
                 .onGloballyPositioned { coordinates ->
                     cardWidthPx = coordinates.size.width.toFloat()
+                    val bounds = coordinates.boundsInWindow()
+                    cardBounds = IntRect(
+                        bounds.left.toInt(),
+                        bounds.top.toInt(),
+                        bounds.right.toInt(),
+                        bounds.bottom.toInt(),
+                    )
                 }
                 .graphicsLayer {
                     scaleX = selectionScale
@@ -295,34 +308,44 @@ internal fun TabListCard(
                 defaultElevation = 1.dp,
             ),
         ) {
-            val layoutCoordinates = remember { mutableStateOf<LayoutCoordinates?>(null) }
-            Row(
-                modifier = Modifier
-                    .height(IntrinsicSize.Min)
-                    .combinedClickable(
+            Box(modifier = Modifier.fillMaxWidth()) {
+                val detector = reorderHandle?.let {
+                    SlevoTabDragGestureDetector(
+                        onLongPress = { onLongPress(cardBounds) },
+                        onLongPressReleased = onLongPressReleased,
+                        onDragFinished = onReorderFinished,
+                        onDragCancelled = onReorderCancelled,
+                    )
+                }
+                val gestureModifier = if (detector != null && reorderHandle != null) {
+                    Modifier
+                        .clickable(
+                            enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = LocalIndication.current,
+                            onClick = onClick,
+                        )
+                        .then(reorderHandle(detector))
+                } else {
+                    Modifier.combinedClickable(
                         enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
                         interactionSource = remember { MutableInteractionSource() },
                         indication = LocalIndication.current,
                         onClick = onClick,
-                        onLongClick = {
-                            val bounds = layoutCoordinates.value?.boundsInWindow()
-                                ?.let {
-                                    IntRect(
-                                        it.left.toInt(),
-                                        it.top.toInt(),
-                                        it.right.toInt(),
-                                        it.bottom.toInt()
-                                    )
-                                }
-                                ?: IntRect.Zero
-
-                            onLongPress(bounds)
-                        },
+                        onLongClick = { onLongPress(cardBounds) },
                     )
-                    .onGloballyPositioned { coordinates ->
-                        layoutCoordinates.value = coordinates
-                    }
-            ) {
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(swipeGestureModifier)
+                ) {
+                    Row(
+                        modifier = gestureModifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min)
+                            .padding(end = 40.dp),
+                    ) {
                 // --- Card body ---
                 Column(
                     modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
@@ -391,47 +414,6 @@ internal fun TabListCard(
 
                                 TabHeaderTrailingContent.None -> Unit
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            if (isPinned) {
-                                // 固定済みタブは固定アイコンを表示専用で表示する。
-                                // 占有幅とアイコン本体サイズを閉じるボタンと統一する。
-                                Box(
-                                    modifier = Modifier.size(24.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.PushPin,
-                                        contentDescription = stringResource(R.string.pinned),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                }
-                            } else {
-                                IconButton(
-                                    enabled = !isRemoving && !isFlyingOut,
-                                    modifier = Modifier
-                                        .border(
-                                            width = 1.dp,
-                                            color = MaterialTheme.colorScheme.outlineVariant,
-                                            shape = CircleShape,
-                                        )
-                                        .background(
-                                            color = MaterialTheme.colorScheme.surfaceVariant,
-                                            shape = CircleShape,
-                                        )
-                                        .size(24.dp),
-                                    onClick = {
-                                        // タブクローズ操作は一覧遷移より優先して処理する。
-                                        onCloseClick()
-                                    }
-                                ) {
-                                    Icon(
-                                        modifier = Modifier.size(16.dp),
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = stringResource(R.string.close),
-                                    )
-                                }
-                            }
                         }
                     }
                     // --- Body ---
@@ -465,6 +447,51 @@ internal fun TabListCard(
                                 overflow = TextOverflow.Ellipsis,
                                 maxLines = bodyMaxLines,
                                 style = bodyStyle,
+                            )
+                        }
+                    }
+                }
+                    }
+                }
+
+                // close/pin は ContentArea と兄弟にし、reorder/swipe の開始領域から除外する。
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 2.dp, end = 8.dp)
+                        .size(24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (isPinned) {
+                        Icon(
+                            imageVector = Icons.Default.PushPin,
+                            contentDescription = stringResource(R.string.pinned),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    } else {
+                        IconButton(
+                            enabled = !isRemoving && !isFlyingOut,
+                            modifier = Modifier
+                                .border(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                    shape = CircleShape,
+                                )
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = CircleShape,
+                                )
+                                .size(24.dp),
+                            onClick = {
+                                // タブクローズ操作は一覧遷移より優先して処理する。
+                                onCloseClick()
+                            },
+                        ) {
+                            Icon(
+                                modifier = Modifier.size(16.dp),
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.close),
                             )
                         }
                     }
