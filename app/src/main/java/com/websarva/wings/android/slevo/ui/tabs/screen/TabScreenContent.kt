@@ -521,7 +521,10 @@ private fun TabLongPressOverlayLayer(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = dimAlpha))
-                    .clickable(enabled = uiState.isInLongPressSelectionMode) {
+                    .clickable(
+                        enabled = uiState.isInLongPressSelectionMode &&
+                            uiState.tabActionMenuMode == com.websarva.wings.android.slevo.ui.tabs.TabActionMenuMode.Open
+                    ) {
                         onCancelSelection()
                     }
             )
