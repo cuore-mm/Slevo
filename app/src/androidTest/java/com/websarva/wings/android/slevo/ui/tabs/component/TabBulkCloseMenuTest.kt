@@ -7,6 +7,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertExists
@@ -15,6 +16,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.waitForIdle
 import androidx.compose.ui.unit.IntRect
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
@@ -192,6 +194,114 @@ class TabBulkCloseMenuTest {
 
         assertEquals(1, cardClickCount)
         assertEquals(1, closeClickCount)
+    }
+
+    /** 実際のreorderable listで長押し後の移動がdrag開始へ到達し、通常clickを発火しないことを確認する。 */
+    @Test
+    fun removableTabList_longPressThenMoveStartsReorder() {
+        var cardClickCount = 0
+        var longPressCount = 0
+        var menuOpenCount = 0
+        var reorderStartedCount = 0
+        var reorderFinishedCount = 0
+        val tabs = listOf("first", "second", "third")
+
+        composeRule.setContent {
+            SlevoTheme {
+                RemovableTabList(
+                    tabItems = tabs,
+                    keyOf = { it },
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(),
+                    onRemoveConfirmed = {},
+                    reorderEnabled = true,
+                    onReorderStarted = { reorderStartedCount += 1 },
+                    onReorderFinished = { reorderFinishedCount += 1 },
+                    itemContent = { item, isRemoving, requestRemove, isDragging, reorderHandle,
+                        reorderFinished, reorderCancelled ->
+                        TabListCard(
+                            bookmarkColor = null,
+                            onClick = { cardClickCount += 1 },
+                            onLongPress = { longPressCount += 1 },
+                            onLongPressReleased = { menuOpenCount += 1 },
+                            isRemoving = isRemoving,
+                            headerTitle = "example.com",
+                            bodyTitle = item,
+                            onCloseClick = requestRemove,
+                            reorderHandle = reorderHandle,
+                            onReorderFinished = reorderFinished,
+                            onReorderCancelled = reorderCancelled,
+                            isDragging = isDragging,
+                        )
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("first").performTouchInput {
+            down(center)
+            advanceEventTime(600L)
+            moveBy(Offset(0f, 48f))
+            up()
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(1, longPressCount)
+        assertEquals(0, menuOpenCount)
+        assertEquals(0, cardClickCount)
+        assertEquals(1, reorderStartedCount)
+        assertEquals(1, reorderFinishedCount)
+    }
+
+    /** 実際のreorderable listで追加移動なしの長押しをMenuOpenへ遷移させることを確認する。 */
+    @Test
+    fun removableTabList_longPressThenReleaseOpensMenuWithoutReorder() {
+        var cardClickCount = 0
+        var longPressCount = 0
+        var menuOpenCount = 0
+        var reorderStartedCount = 0
+        val tabs = listOf("first", "second")
+
+        composeRule.setContent {
+            SlevoTheme {
+                RemovableTabList(
+                    tabItems = tabs,
+                    keyOf = { it },
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(),
+                    onRemoveConfirmed = {},
+                    reorderEnabled = true,
+                    onReorderStarted = { reorderStartedCount += 1 },
+                    itemContent = { item, isRemoving, requestRemove, isDragging, reorderHandle,
+                        reorderFinished, reorderCancelled ->
+                        TabListCard(
+                            bookmarkColor = null,
+                            onClick = { cardClickCount += 1 },
+                            onLongPress = { longPressCount += 1 },
+                            onLongPressReleased = { menuOpenCount += 1 },
+                            isRemoving = isRemoving,
+                            headerTitle = "example.com",
+                            bodyTitle = item,
+                            onCloseClick = requestRemove,
+                            reorderHandle = reorderHandle,
+                            onReorderFinished = reorderFinished,
+                            onReorderCancelled = reorderCancelled,
+                            isDragging = isDragging,
+                        )
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("first").performTouchInput {
+            down(center)
+            advanceEventTime(600L)
+            up()
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(1, longPressCount)
+        assertEquals(1, menuOpenCount)
+        assertEquals(0, cardClickCount)
+        assertEquals(0, reorderStartedCount)
     }
 
     /** Back操作で一括クローズを実行せずメニューだけを閉じることを確認する。 */

@@ -160,7 +160,8 @@ internal fun TabListCard(
     )
 
     // --- Swipe-to-delete state ---
-    val canHandleSwipeGesture = isSwipeDeleteEnabled && !isRemoving && onSwipeDelete != null
+    val canHandleSwipeGesture =
+        isSwipeDeleteEnabled && !isDragging && !isRemoving && onSwipeDelete != null
     val canDeleteBySwipe = canHandleSwipeGesture && !isPinned && onSwipeDelete != null
     val offsetX = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
@@ -198,10 +199,14 @@ internal fun TabListCard(
                 velocityTracker.resetTracking()
 
                 // --- Direction disambiguation loop ---
-                while (true) {
-                    val event = awaitPointerEvent()
-                    val change = event.changes.find { it.id == down.id } ?: break
-                    if (!change.pressed) break
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.find { it.id == down.id } ?: break
+                        if (change.isConsumed) {
+                            // Reorderableまたは親scrollが所有したsequenceからは撤退する。
+                            return@awaitEachGesture
+                        }
+                        if (!change.pressed) break
 
                     val delta = change.positionChange()
                     totalDx += delta.x
