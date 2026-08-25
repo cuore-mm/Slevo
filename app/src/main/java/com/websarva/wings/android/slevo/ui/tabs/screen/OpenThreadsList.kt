@@ -50,6 +50,7 @@ fun OpenThreadsList(
     onReorderMoved: (ThreadTabInfo, ThreadTabInfo) -> Unit = { _, _ -> },
     onReorderFinished: (ThreadTabInfo) -> Unit = {},
     onReorderCancelled: (ThreadTabInfo) -> Unit = {},
+    onReorderAccessibilityMove: (ThreadTabInfo, Int) -> Boolean = { _, _ -> false },
     currentScreenRoute: AppRoute? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -106,6 +107,12 @@ fun OpenThreadsList(
             reorderHandle = reorderHandle.takeIf { isReorderEnabled },
             onReorderFinished = reorderFinished,
             onReorderCancelled = reorderCancelled,
+            onMoveUp = if (isReorderEnabled) {
+                { onReorderAccessibilityMove(tab, -1) }
+            } else null,
+            onMoveDown = if (isReorderEnabled) {
+                { onReorderAccessibilityMove(tab, 1) }
+            } else null,
             isDragging = isDragging,
             isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isRemoving,
             onSwipeDelete = {
@@ -140,6 +147,8 @@ private fun OpenThreadCard(
     reorderHandle: ((sh.calvin.reorderable.DragGestureDetector) -> Modifier)? = null,
     onReorderFinished: () -> Unit = {},
     onReorderCancelled: () -> Unit = {},
+    onMoveUp: (() -> Boolean)? = null,
+    onMoveDown: (() -> Boolean)? = null,
 ) {
     // --- Card highlight ---
     val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
@@ -170,6 +179,8 @@ private fun OpenThreadCard(
         onReorderFinished = onReorderFinished,
         onReorderCancelled = onReorderCancelled,
         isDragging = isDragging,
+        onMoveUp = onMoveUp,
+        onMoveDown = onMoveDown,
     )
 }
 

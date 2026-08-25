@@ -267,10 +267,16 @@ fun TabScreenContent(
                          onBoardTabReorderMoved = { from, to -> tabListViewModel.moveBoardReorder(from, to) },
                          onBoardTabReorderFinished = { tabListViewModel.finishBoardReorder() },
                          onBoardTabReorderCancelled = { tabListViewModel.cancelReorder() },
+                         onBoardTabReorderAccessibilityMove = { tab, offset ->
+                             tabListViewModel.moveBoardTabByOffset(tab.boardUrl, offset)
+                         },
                          onThreadTabReorderStarted = { tabListViewModel.startThreadReorder() },
                          onThreadTabReorderMoved = { from, to -> tabListViewModel.moveThreadReorder(from, to) },
                          onThreadTabReorderFinished = { tabListViewModel.finishThreadReorder() },
                          onThreadTabReorderCancelled = { tabListViewModel.cancelReorder() },
+                         onThreadTabReorderAccessibilityMove = { tab, offset ->
+                             tabListViewModel.moveThreadTabByOffset(tab.id.value, offset)
+                         },
                         onClearNewResCount = { tabSessionStore.clearNewResCount(it) },
                         removingBoardTabKeys = listUiState.removingBoardTabKeys,
                         removingThreadTabKeys = listUiState.removingThreadTabKeys,

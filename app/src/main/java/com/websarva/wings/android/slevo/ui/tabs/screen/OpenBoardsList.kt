@@ -47,6 +47,7 @@ fun OpenBoardsList(
     onReorderMoved: (BoardTabInfo, BoardTabInfo) -> Unit = { _, _ -> },
     onReorderFinished: (BoardTabInfo) -> Unit = {},
     onReorderCancelled: (BoardTabInfo) -> Unit = {},
+    onReorderAccessibilityMove: (BoardTabInfo, Int) -> Boolean = { _, _ -> false },
     currentScreenRoute: AppRoute? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -96,6 +97,12 @@ fun OpenBoardsList(
             reorderHandle = reorderHandle.takeIf { isReorderEnabled },
             onReorderFinished = reorderFinished,
             onReorderCancelled = reorderCancelled,
+            onMoveUp = if (isReorderEnabled) {
+                { onReorderAccessibilityMove(tab, -1) }
+            } else null,
+            onMoveDown = if (isReorderEnabled) {
+                { onReorderAccessibilityMove(tab, 1) }
+            } else null,
             isDragging = isDragging,
             isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isRemoving,
             onSwipeDelete = {
@@ -129,6 +136,8 @@ private fun OpenBoardCard(
     reorderHandle: ((sh.calvin.reorderable.DragGestureDetector) -> Modifier)? = null,
     onReorderFinished: () -> Unit = {},
     onReorderCancelled: () -> Unit = {},
+    onMoveUp: (() -> Boolean)? = null,
+    onMoveDown: (() -> Boolean)? = null,
 ) {
     // --- Card highlight ---
     val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
@@ -156,6 +165,8 @@ private fun OpenBoardCard(
         onReorderFinished = onReorderFinished,
         onReorderCancelled = onReorderCancelled,
         isDragging = isDragging,
+        onMoveUp = onMoveUp,
+        onMoveDown = onMoveDown,
     )
 }
 

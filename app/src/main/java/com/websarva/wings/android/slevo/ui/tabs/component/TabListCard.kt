@@ -60,6 +60,9 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
@@ -145,6 +148,8 @@ internal fun TabListCard(
     onReorderFinished: () -> Unit = {},
     onReorderCancelled: () -> Unit = {},
     isDragging: Boolean = false,
+    onMoveUp: (() -> Boolean)? = null,
+    onMoveDown: (() -> Boolean)? = null,
 ) {
     // --- Selection animation ---
     // 長押し中は透明化したまま拡大状態を保持し、解除時は元カードで縮小復帰を行う。
@@ -317,6 +322,18 @@ internal fun TabListCard(
                         onDragCancelled = onReorderCancelled,
                     )
                 }
+                val moveUpLabel = stringResource(R.string.tab_move_up)
+                val moveDownLabel = stringResource(R.string.tab_move_down)
+                val accessibilityModifier = if (onMoveUp != null || onMoveDown != null) {
+                    Modifier.semantics {
+                        customActions = buildList {
+                            onMoveUp?.let { add(CustomAccessibilityAction(moveUpLabel, it)) }
+                            onMoveDown?.let { add(CustomAccessibilityAction(moveDownLabel, it)) }
+                        }
+                    }
+                } else {
+                    Modifier
+                }
                 val gestureModifier = if (detector != null && reorderHandle != null) {
                     Modifier
                         .clickable(
@@ -326,6 +343,7 @@ internal fun TabListCard(
                             onClick = onClick,
                         )
                         .then(reorderHandle(detector))
+                        .then(accessibilityModifier)
                 } else {
                     Modifier.combinedClickable(
                         enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
@@ -333,7 +351,7 @@ internal fun TabListCard(
                         indication = LocalIndication.current,
                         onClick = onClick,
                         onLongClick = { onLongPress(cardBounds) },
-                    )
+                    ).then(accessibilityModifier)
                 }
                 Box(
                     modifier = Modifier

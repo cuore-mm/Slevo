@@ -295,6 +295,30 @@ class TabListViewModel @Inject constructor(
         }
     }
 
+    /** アクセシビリティ操作で板タブを隣接位置へ移動する。 */
+    fun moveBoardTabByOffset(boardUrl: String, offset: Int): Boolean {
+        val keys = tabSessionStore.openBoardTabs.value.map(BoardTabInfo::boardUrl).toMutableList()
+        val index = keys.indexOf(boardUrl)
+        val target = index + offset
+        if (index < 0 || target !in keys.indices) return false
+        keys.removeAt(index)
+        keys.add(target, boardUrl)
+        tabSessionStore.reorderBoardTabs(keys)
+        return true
+    }
+
+    /** アクセシビリティ操作でスレッドタブを隣接位置へ移動する。 */
+    fun moveThreadTabByOffset(threadId: String, offset: Int): Boolean {
+        val keys = tabSessionStore.openThreadTabs.value.map { it.id.value }.toMutableList()
+        val index = keys.indexOf(threadId)
+        val target = index + offset
+        if (index < 0 || target !in keys.indices) return false
+        keys.removeAt(index)
+        keys.add(target, threadId)
+        tabSessionStore.reorderThreadTabs(keys)
+        return true
+    }
+
     fun toggleSelectedTabPin() {
         uiState.value.selectedBoardTab?.let { tab ->
             tabSessionStore.togglePinBoardTab(tab.boardUrl)

@@ -2,4 +2,6 @@
     <string name="app_name">Slevo</string>
     <string name="restore_result_snackbar_success">バックアップを復元しました</string>
     <string name="restore_result_snackbar_failure">バックアップの復元に失敗しました</string>
+    <string name="tab_move_up">上へ移動</string>
+    <string name="tab_move_down">下へ移動</string>
 </resources>

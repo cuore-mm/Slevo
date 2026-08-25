@@ -82,10 +82,12 @@ fun TabsPagerContent(
     onBoardTabReorderMoved: (BoardTabInfo, BoardTabInfo) -> Unit,
     onBoardTabReorderFinished: (BoardTabInfo) -> Unit,
     onBoardTabReorderCancelled: (BoardTabInfo) -> Unit,
+    onBoardTabReorderAccessibilityMove: (BoardTabInfo, Int) -> Boolean,
     onThreadTabReorderStarted: (ThreadTabInfo) -> Unit,
     onThreadTabReorderMoved: (ThreadTabInfo, ThreadTabInfo) -> Unit,
     onThreadTabReorderFinished: (ThreadTabInfo) -> Unit,
     onThreadTabReorderCancelled: (ThreadTabInfo) -> Unit,
+    onThreadTabReorderAccessibilityMove: (ThreadTabInfo, Int) -> Boolean,
     onClearNewResCount: (ThreadId) -> Unit,
     isInLongPressSelectionMode: Boolean = false,
     currentScreenRoute: AppRoute? = null,
@@ -122,6 +124,7 @@ fun TabsPagerContent(
                         onReorderMoved = onBoardTabReorderMoved,
                         onReorderFinished = onBoardTabReorderFinished,
                         onReorderCancelled = onBoardTabReorderCancelled,
+                        onReorderAccessibilityMove = onBoardTabReorderAccessibilityMove,
                         currentScreenRoute = currentScreenRoute,
                     )
                 },
@@ -176,6 +179,7 @@ fun TabsPagerContent(
                         onReorderMoved = onThreadTabReorderMoved,
                         onReorderFinished = onThreadTabReorderFinished,
                         onReorderCancelled = onThreadTabReorderCancelled,
+                        onReorderAccessibilityMove = onThreadTabReorderAccessibilityMove,
                         currentScreenRoute = currentScreenRoute,
                     )
                 },
